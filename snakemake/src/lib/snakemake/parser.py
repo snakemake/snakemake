@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+
+'''
+Created on 13.11.2011
+
+@author: Johannes Köster
+'''
+
 import tokenize
 
 class State:

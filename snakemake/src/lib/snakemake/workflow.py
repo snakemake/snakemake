@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
 
+'''
+Created on 13.11.2011
+
+@author: Johannes Köster
+'''
+
 import re
 import os
 from multiprocessing import Pool
@@ -184,6 +190,15 @@ class Controller:
 		self.__last = rule
 		if not self.__first:
 			self.__first = rule
+			
+	def is_rule(self, name):
+		"""
+		Return True if name is the name of a rule.
+		
+		Arguments
+		name -- a name
+		"""
+		return name in self.__rules
 
 	def get_rule(self, name):
 		"""
