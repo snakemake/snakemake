@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+
+'''
+Created on 13.11.2011
+
+@author: Johannes Koester
+'''
+
+"""
+usage: %prog [options] <file.snakemake>
+"""
+
+import os, sys
+from optparse import OptionParser
+
+# If running from within source directory,
+# add 'lib' to sys.path.
+_libdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'lib')
+if os.path.isfile(os.path.join(_libdir, 'snakemake', '__init__.py')):
+    sys.path.insert(0, _libdir)
+
+import snakemake.parser
+from snakemake.workflow import *
+
+def main():
+    parser = OptionParser(usage=__doc__, version="%prog 1.0")
+    parser.add_option("-j", action="store", default=1, dest="processes", type="int", help="Number of parallel processed.")
+    options, args = parser.parse_args()
+    
+    if len(args) < 1:
+        parser.print_help()
+        exit(1)
+        
+    Controller.processes = options.processes
+    
+    code = snakemake.parser.compile_to_python(args[0])
+    Controller.get_instance().execdsl(code)
+    Controller.get_instance().setup_dag()
+    Controller.get_instance().apply_first_rule()
+
+if __name__ == "__main__":
+    main()
