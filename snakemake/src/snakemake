@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-%prog [options] <workflow.snakefile> [rule]
-
-Execute workflow defined in the given snakefile. Optionally specify target rule. If not specified, first rule is used as target.
-"""
-
 import os, sys
-from optparse import OptionParser
+import argparse
 
 # If running from within source directory,
 # add 'lib' to sys.path.
@@ -24,32 +18,31 @@ def print_rules(controller, file = sys.stdout):
     for rule in controller.get_rules(): print(rule.name, file=file)
 
 def main():
-    parser = OptionParser(usage=__doc__, version="%prog 0.1")
-    parser.add_option("-j", action="store", default=1, dest="processes", type="int", help="Number of parallel processes.")
-    parser.add_option("--list", action="store_true", dest="list", help="Show availiable rules in given snakefile.")
+    parser = argparse.ArgumentParser(description="Execute workflow defined in the given snakefile. Optionally specify target rule. If not specified, first rule is used as target.")
+    parser.add_argument('snakefile', metavar='<snakefile>', help="The workflow definition in a pythonic DSL.")
+    parser.add_argument('rule', metavar='<rule>', nargs="?", help="The rule to be executed. If omitted, first rule in snakefile is used.")
+    parser.add_argument('--version', action='version', version='0.1')
+    parser.add_argument("-j", action="store", default=1, metavar='N', dest="processes", type=int, help="Execute at most N processes in parallel (default: 1).")
+    parser.add_argument("--list", action="store_true", dest="list", help="Show availiable rules in given snakefile.")
     
-    options, args = parser.parse_args()
-    
-    if len(args) < 1:
-        parser.print_help()
-        exit(1)
+    args = parser.parse_args()
         
-    Controller.processes = options.processes
+    Controller.processes = args.processes + 1
     controller = Controller.get_instance()
     
-    code = snakemake.parser.compile_to_python(args[0])
+    code = snakemake.parser.compile_to_python(args.snakefile)
     controller.execdsl(code)
     
-    if options.list:
+    if args.list:
         print_rules(controller)
         exit()
     
     controller.setup_dag()
     
-    if len(args) < 2: controller.apply_first_rule()
-    elif controller.is_rule(args[1]): controller.apply_rule(args[1])
+    if not args.rule: controller.apply_first_rule()
+    elif controller.is_rule(args.rule): controller.apply_rule(args.rule)
     else:
-        print("Rule {} does not exist.".format(args[1]), file=sys.stderr)
+        print("Rule {} does not exist.".format(args.rule), file=sys.stderr)
         print_rules(controller, file=sys.stderr)
         exit(1)
 
