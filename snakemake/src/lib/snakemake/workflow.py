@@ -27,6 +27,7 @@ def run_wrapper(run, input, output, wildcards):
 	try:
 		run(input, output, wildcards)
 	except:
+		# Remove produced output on exception
 		for o in output:
 			if os.path.isdir(o): os.rmdir(o)
 			else: os.remove(o)

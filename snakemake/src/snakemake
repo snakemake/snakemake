@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-'''
-Created on 13.11.2011
-
-@author: Johannes Koester
-'''
-
 """
-usage: %prog [options] <workflow.snakefile> [rule]
+%prog [options] <workflow.snakefile> [rule]
 
 Execute workflow defined in the given snakefile. Optionally specify target rule. If not specified, first rule is used as target.
 """
@@ -30,7 +24,7 @@ def print_rules(controller, file = sys.stdout):
     for rule in controller.get_rules(): print(rule.name, file=file)
 
 def main():
-    parser = OptionParser(usage=__doc__, version="%prog 1.0")
+    parser = OptionParser(usage=__doc__, version="%prog 0.1")
     parser.add_option("-j", action="store", default=1, dest="processes", type="int", help="Number of parallel processes.")
     parser.add_option("--list", action="store_true", dest="list", help="Show availiable rules in given snakefile.")
     
