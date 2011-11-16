@@ -10,41 +10,28 @@ _libdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'lib')
 if os.path.isfile(os.path.join(_libdir, 'snakemake', '__init__.py')):
     sys.path.insert(0, _libdir)
 
-import snakemake.parser
-from snakemake.workflow import *
+import snakemake
 
-def print_rules(controller, file = sys.stdout):
-    print("Defined rules:", file=file)
-    for rule in controller.get_rules(): print(rule.name, file=file)
 
 def main():
-    parser = argparse.ArgumentParser(description="Execute workflow defined in the given snakefile. Optionally specify target rule. If not specified, first rule is used as target.")
-    parser.add_argument('snakefile', metavar='<snakefile>', help="The workflow definition in a pythonic DSL.")
-    parser.add_argument('rule', metavar='<rule>', nargs="?", help="The rule to be executed. If omitted, first rule in snakefile is used.")
-    parser.add_argument('--version', action='version', version='0.1')
-    parser.add_argument("-j", action="store", default=1, metavar='N', dest="processes", type=int, help="Execute at most N processes in parallel (default: 1).")
-    parser.add_argument("--list", action="store_true", dest="list", help="Show availiable rules in given snakefile.")
+    parser = argparse.ArgumentParser(description="Execute workflow defined in the given snakefile.")
+    parser.add_argument("snakefile", metavar="<snakefile>", help="The workflow definition in a pythonic DSL.")
+    parser.add_argument("rule", metavar="<rule>", nargs="?", default=None, help="The rule to be executed. If omitted, first rule in snakefile is used.")
+    parser.add_argument("-v", "--version", action="version", version='0.1')
+    parser.add_argument("-j", "--jobs", action="store", default=1, metavar="N", dest="jobs", type=int, help="Execute at most N jobs in parallel (default: 1).")
+    parser.add_argument("-l", "--list", action="store_true", dest="list", help="Show availiable rules in given snakefile.")
+    parser.add_argument("-d", "--directory", action="store", dest="directory", type=str, help="Specify working directory (relative paths in the snakefile will use this as their origin).")
+    parser.add_argument("-n", "--dry-run", action="store_true", dest="dryrun", help="Do not execute anything.")
     
     args = parser.parse_args()
-        
-    Controller.processes = args.processes + 1
-    controller = Controller.get_instance()
     
-    code = snakemake.parser.compile_to_python(args.snakefile)
-    controller.execdsl(code)
-    
-    if args.list:
-        print_rules(controller)
-        exit()
-    
-    controller.setup_dag()
-    
-    if not args.rule: controller.apply_first_rule()
-    elif controller.is_rule(args.rule): controller.apply_rule(args.rule)
-    else:
-        print("Rule {} does not exist.".format(args.rule), file=sys.stderr)
-        print_rules(controller, file=sys.stderr)
+    try:
+        exit(snakemake.snakemake(args.snakefile, list=args.list, jobs=args.jobs, directory=args.directory, rule=args.rule, dryrun=args.dryrun))
+    except RuleException:
+        # TODO mention at least rule name here.
+        print("Error during rule execution", file=sys.stderr)
         exit(1)
+        
 
 if __name__ == "__main__":
     main()

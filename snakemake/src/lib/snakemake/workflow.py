@@ -10,6 +10,9 @@ import re
 import os
 from multiprocessing import Pool
 
+class RuleException(Exception):
+	pass
+
 def run_wrapper(run, input, output, wildcards):
 	"""
 	Wrapper around the run method that handles directory creation and output file deletion on error.
@@ -26,11 +29,12 @@ def run_wrapper(run, input, output, wildcards):
 			os.makedirs(dir)
 	try:
 		run(input, output, wildcards)
-	except:
+	except Exception as ex:
 		# Remove produced output on exception
 		for o in output:
 			if os.path.isdir(o): os.rmdir(o)
 			else: os.remove(o)
+		raise ex
 
 class Rule:
 	def __init__(self, name):
@@ -117,7 +121,7 @@ class Rule:
 				return wildcards
 		return wildcards
 
-	def apply_rule(self, wildcards = {}, requested_output = None):
+	def apply_rule(self, wildcards = {}, requested_output = None, dryrun = False):
 		"""
 		Apply the rule
 		
@@ -137,18 +141,20 @@ class Rule:
 
 		for i in range(len(self.input)):
 			if self.input[i] in self.parents:
-				self.parents[self.input[i]].apply_rule(wildcards, input[i])
+				self.parents[self.input[i]].apply_rule(wildcards, input[i], dryrun=dryrun)
 		Controller.get_instance().join_pool()
-		
-		# all inputs have to be present after finishing parent jobs
-		if not Controller.get_instance().is_produced(input):
-			exit(1)
 
-		Controller.get_instance().get_pool().apply(run_wrapper, [globals()[self.name], input, output, wildcards]) 
+		if dryrun:
+			print("rule {name}:\n\tinput: {input}\n\toutput: {output}\n".format(name=self.name, input=", ".join(input), output=", ".join(output)))
+		else:
+			# all inputs have to be present after finishing parent jobs
+			if not Controller.get_instance().is_produced(input):
+				raise RuleException("Error when executing rule {}: not all input files present.".format(self.name))
+			Controller.get_instance().get_pool().apply(run_wrapper, [globals()[self.name], input, output, wildcards]) 
 
 class Controller:
 	instance = None
-	processes = 1
+	jobs = 1
 
 	@classmethod
 	def get_instance(cls):
@@ -167,7 +173,7 @@ class Controller:
 		self.__rules = dict()
 		self.__last = None
 		self.__first = None
-		self.__pool = Pool(processes=Controller.processes)
+		self.__pool = Pool(processes=Controller.jobs)
 	
 	def get_pool(self):
 		"""
@@ -181,7 +187,7 @@ class Controller:
 		"""
 		self.__pool.close()
 		self.__pool.join()
-		self.__pool = Pool(processes=Controller.processes)
+		self.__pool = Pool(processes=Controller.jobs)
 	
 	def add_rule(self, rule):
 		"""
@@ -216,20 +222,20 @@ class Controller:
 		"""
 		return self.__last
 
-	def apply_first_rule(self):
+	def apply_first_rule(self, dryrun=False):
 		"""
 		Apply the rule defined first.
 		"""
-		self.__first.apply_rule()
+		self.__first.apply_rule(dryrun=dryrun)
 		
-	def apply_rule(self, name):
+	def apply_rule(self, name, dryrun=False):
 		"""
 		Apply a rule.
 		
 		Arguments
 		name -- the name of the rule to apply
 		"""
-		self.__rules[name].apply_rule()
+		self.__rules[name].apply_rule(dryrun=dryrun)
 
 	def get_rules(self):
 		"""
