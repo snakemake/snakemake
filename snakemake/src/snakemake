@@ -26,7 +26,10 @@ def main():
     parser.add_argument("-f", "--force", action="store_true", dest="force", help="Force the execution of rules regardless of already created output.")
     
     args = parser.parse_args()
+    
+    # log info level and remove prefixes from output
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    
     try:
         exit(snakemake.snakemake(args.snakefile, list=args.list, jobs=args.jobs, directory=args.directory, rule=args.rule, dryrun=args.dryrun, force=args.force))
     except RuleException:
