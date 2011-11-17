@@ -1,8 +1,8 @@
-import os, sys
-from snakemake.workflow import Controller
+import os, sys, logging
+from snakemake.workflow import Controller, RuleException
 from snakemake.parser import compile_to_python
 
-def snakemake(snakefile, list=False, jobs=1, directory=None, rule=None, dryrun=False):
+def snakemake(snakefile, list=False, jobs=1, directory=None, rule=None, dryrun=False, force=False):
     """
     Run snakemake on a given snakefile.
     
@@ -17,29 +17,31 @@ def snakemake(snakefile, list=False, jobs=1, directory=None, rule=None, dryrun=F
     Controller.jobs = jobs
     controller = Controller.get_instance()
     
-    def print_rules(file = sys.stdout):
-        print("Defined rules:", file=file)
-        for rule in controller.get_rules(): print(rule.name, file=file)
+    def print_rules(log):
+        log("Defined rules:")
+        for rule in controller.get_rules(): log(rule.name)
     
     code = compile_to_python(snakefile)
     
     if directory:
         if os.path.exists(directory): os.chdir(directory)
         else:
-            print("Error: Defined working directory does not exist.", file = sys.stderr)
+            logging.error("Error: Defined working directory does not exist.")
             return 1
     
     controller.execdsl(code)
     
     if list:
-        print_rules()
+        print_rules(logging.info)
         return 0
     
     controller.setup_dag()
-    
-    if not rule: controller.apply_first_rule(dryrun=dryrun)
-    elif controller.is_rule(rule): controller.apply_rule(rule, dryrun=dryrun)
-    else:
-        print("Error: Rule {} does not exist.".format(rule), file=sys.stderr)
-        print_rules(file=sys.stderr)
-        return 1
+    try:
+        if not rule: controller.apply_first_rule(dryrun=dryrun, force=force)
+        elif controller.is_rule(rule): controller.apply_rule(rule, dryrun=dryrun, force=force)
+        else:
+            logging.error("Error: Rule {} does not exist.\n".format(rule))
+            print_rules(logging.error)
+            return 1
+    except RuleException as ex:
+        logging.error(str(ex))

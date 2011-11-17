@@ -8,6 +8,7 @@ Created on 13.11.2011
 
 import re
 import os
+import logging
 from multiprocessing import Pool
 
 class RuleException(Exception):
@@ -121,7 +122,7 @@ class Rule:
 				return wildcards
 		return wildcards
 
-	def apply_rule(self, wildcards = {}, requested_output = None, dryrun = False):
+	def apply_rule(self, wildcards = {}, requested_output = None, dryrun = False, force =False):
 		"""
 		Apply the rule
 		
@@ -133,24 +134,34 @@ class Rule:
 			wildcards = self.update_wildcards(wildcards, requested_output)
 
 		output = [o.format(**wildcards) for o in self.output]
-		
-		if Controller.get_instance().is_produced(output):
-			return
-
 		input = [i.format(**wildcards) for i in self.input]
 
 		for i in range(len(self.input)):
 			if self.input[i] in self.parents:
-				self.parents[self.input[i]].apply_rule(wildcards, input[i], dryrun=dryrun)
+				self.parents[self.input[i]].apply_rule(wildcards, input[i], dryrun=dryrun, force=force)
 		Controller.get_instance().join_pool()
 
 		if dryrun:
-			print("rule {name}:\n\tinput: {input}\n\toutput: {output}\n".format(name=self.name, input=", ".join(input), output=", ".join(output)))
+			self.print_rule(input, output)
 		else:
 			# all inputs have to be present after finishing parent jobs
 			if not Controller.get_instance().is_produced(input):
-				raise RuleException("Error when executing rule {}: not all input files present.".format(self.name))
-			Controller.get_instance().get_pool().apply(run_wrapper, [globals()[self.name], input, output, wildcards]) 
+				raise RuleException("Error: Could not execute rule {}: not all input files present.".format(self.name))
+			
+			if Controller.get_instance().is_produced(output):
+				# if output is already produced, only recalculate if input is newer.
+				time = min(map(lambda f: os.stat(f).st_mtime, output))
+				if not force and not Controller.get_instance().is_newer(input, time):
+					return
+			
+			self.print_rule(input, output)
+			try:
+				Controller.get_instance().get_pool().apply(run_wrapper, [globals()[self.name], input, output, wildcards])
+			except Exception as ex:
+				raise RuleException("Error: Could not execute rule {}: {}".format(self.name, str(ex)))
+	
+	def print_rule(self, input, output):
+		 logging.info("rule {name}:\n\tinput: {input}\n\toutput: {output}\n".format(name=self.name, input=", ".join(input), output=", ".join(output)))
 
 class Controller:
 	instance = None
@@ -222,20 +233,20 @@ class Controller:
 		"""
 		return self.__last
 
-	def apply_first_rule(self, dryrun=False):
+	def apply_first_rule(self, dryrun = False, force = False):
 		"""
 		Apply the rule defined first.
 		"""
-		self.__first.apply_rule(dryrun=dryrun)
+		self.__first.apply_rule(dryrun = dryrun, force = force)
 		
-	def apply_rule(self, name, dryrun=False):
+	def apply_rule(self, name, dryrun = False, force = False):
 		"""
 		Apply a rule.
 		
 		Arguments
 		name -- the name of the rule to apply
 		"""
-		self.__rules[name].apply_rule(dryrun=dryrun)
+		self.__rules[name].apply_rule(dryrun = dryrun, force = force)
 
 	def get_rules(self):
 		"""
@@ -250,13 +261,28 @@ class Controller:
 		for rule in self.get_rules():
 			rule.setup_parents()
 
-	def is_produced(self, output):
+	def is_produced(self, files):
 		"""
-		Return True if file is already produced.
+		Return True if files are already produced.
+		
+		Arguments
+		files -- files to check
 		"""
-		for o in output:
-			if not os.path.exists(o): return False
+		for f in files:
+			if not os.path.exists(f): return False
 		return True
+	
+	def is_newer(self, files, time):
+		"""
+		Return True if files are newer than a time
+		
+		Arguments
+		files -- files to check
+		time -- a time
+		"""
+		for f in files:
+			if os.stat(f).st_mtime > time: return True
+		return False
 
 	def execdsl(self, compiled_dsl_code):
 		"""
