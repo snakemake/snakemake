@@ -34,7 +34,7 @@ def run_wrapper(run, input, output, wildcards):
 		# Remove produced output on exception
 		for o in output:
 			if os.path.isdir(o): os.rmdir(o)
-			else: os.remove(o)
+			elif os.path.exists(o): os.remove(o)
 		raise ex
 
 class Rule:
@@ -84,6 +84,9 @@ class Rule:
 				self.output.append(item)
 				self.regex_output.append(self.__to_regex(item))
 
+	def is_parent(self, rule):
+		return self in rule.parents.values()
+
 	def setup_parents(self):
 		"""
 		Setup the DAG by finding parent rules that create files needed as input for this rule
@@ -91,7 +94,9 @@ class Rule:
 		for i in self.input:
 			found = None
 			for rule in Controller.get_instance().get_rules():
-				if rule.is_producer(i):
+				if rule != self and rule.is_producer(i):
+					if self.is_parent(rule):
+						raise IOError("Circular dependency between rules: {} and {}".format(rule.name, self.name))
 					if found:
 						raise IOError("Ambiguous rules: {} and {}".format(rule.name, found))
 					self.parents[i] = rule
@@ -141,20 +146,19 @@ class Rule:
 				self.parents[self.input[i]].apply_rule(wildcards, input[i], dryrun=dryrun, force=force)
 		Controller.get_instance().join_pool()
 
-		if dryrun:
-			self.print_rule(input, output)
-		else:
-			# all inputs have to be present after finishing parent jobs
-			if not Controller.get_instance().is_produced(input):
-				raise RuleException("Error: Could not execute rule {}: not all input files present.".format(self.name))
+		# all inputs have to be present after finishing parent jobs
+		if not dryrun and not Controller.get_instance().is_produced(input):
+			raise RuleException("Error: Could not execute rule {}: not all input files present.".format(self.name))
 			
-			if Controller.get_instance().is_produced(output):
-				# if output is already produced, only recalculate if input is newer.
-				time = min(map(lambda f: os.stat(f).st_mtime, output))
-				if not force and not Controller.get_instance().is_newer(input, time):
-					return
-			
-			self.print_rule(input, output)
+		if len(output) > 0 and Controller.get_instance().is_produced(output):
+			# if output is already produced, only recalculate if input is newer.
+			time = min(map(lambda f: os.stat(f).st_mtime, output))
+			if not force and Controller.get_instance().is_produced(input) and not Controller.get_instance().is_newer(input, time):
+				return
+
+		self.print_rule(input, output)
+		if not dryrun and self.name in globals():
+			# if there is a run body
 			try:
 				Controller.get_instance().get_pool().apply(run_wrapper, [globals()[self.name], input, output, wildcards])
 			except Exception as ex:

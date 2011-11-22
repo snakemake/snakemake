@@ -2,7 +2,7 @@
 from distutils.core import setup, Extension
 import sys
 
-if sys.version_info < (3):
+if sys.version_info < (3,0):
     sys.stdout.write("At least Python 3 is required.\n")
     sys.exit(1)
     

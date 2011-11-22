@@ -35,16 +35,19 @@ class Rule(State):
 		self.name = None
 		self.init = True
 	def parse(self, type, name):
-		if type == tokenize.NAME and self.init:
-			self.init = False
-			self.name = name
-			return tokenize.STRING, 'Controller.get_instance().add_rule(Rule("{}"))'.format(name), self
-		if type == tokenize.NAME and name == 'input':
-			return tokenize.NEWLINE, '\n', Input(self)
-		if type == tokenize.NAME and name == 'output':
-			return tokenize.NEWLINE, '\n', Output(self)
-		if type == tokenize.NAME and name == 'run':
-			return tokenize.STRING, '\ndef {}(input, output, wildcards)'.format(self.name), Run(self)
+		if type == tokenize.NAME:
+			if self.init:
+				self.init = False
+				self.name = name
+				return tokenize.STRING, 'Controller.get_instance().add_rule(Rule("{}"))'.format(name), self
+			if name == 'input':
+				return tokenize.NEWLINE, '\n', Input(self)
+			if name == 'output':
+				return tokenize.NEWLINE, '\n', Output(self)
+			if name == 'run':
+				return tokenize.STRING, '\ndef {}(input, output, wildcards)'.format(self.name), Run(self)
+			if name == 'rule':
+				return tokenize.NEWLINE, '\n', Rule()
 		return None, None, self
 
 class Input(State):
