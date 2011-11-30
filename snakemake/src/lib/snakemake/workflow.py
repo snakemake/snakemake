@@ -143,7 +143,6 @@ class Rule:
 
 		for i in range(len(self.input)):
 			if self.input[i] in self.parents:
-				print("applying rule")
 				self.parents[self.input[i]].apply_rule(wildcards, input[i], dryrun=dryrun, force=force)
 		Controller.get_instance().join_pool()
 
