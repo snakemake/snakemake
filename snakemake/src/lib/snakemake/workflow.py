@@ -35,7 +35,7 @@ def run_wrapper(run, input, output, wildcards):
 		for o in output:
 			if os.path.isdir(o): os.rmdir(o)
 			elif os.path.exists(o): os.remove(o)
-		raise ex
+		raise RuleException("Error: Could not execute rule {}: {}".format(self.name, str(ex)))
 
 class Rule:
 	def __init__(self, name):
@@ -143,6 +143,7 @@ class Rule:
 
 		for i in range(len(self.input)):
 			if self.input[i] in self.parents:
+				print("applying rule")
 				self.parents[self.input[i]].apply_rule(wildcards, input[i], dryrun=dryrun, force=force)
 		Controller.get_instance().join_pool()
 
@@ -158,11 +159,8 @@ class Rule:
 
 		self.print_rule(input, output)
 		if not dryrun and self.name in globals():
-			# if there is a run body
-			try:
-				Controller.get_instance().get_pool().apply(run_wrapper, [globals()[self.name], input, output, wildcards])
-			except Exception as ex:
-				raise RuleException("Error: Could not execute rule {}: {}".format(self.name, str(ex)))
+			# if there is a run body, run it asyncronously
+			Controller.get_instance().get_pool().apply_async(run_wrapper, [globals()[self.name], input, output, wildcards])
 	
 	def print_rule(self, input, output):
 		 logging.info("rule {name}:\n\tinput: {input}\n\toutput: {output}\n".format(name=self.name, input=", ".join(input), output=", ".join(output)))
