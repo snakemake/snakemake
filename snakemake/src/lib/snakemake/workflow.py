@@ -35,8 +35,7 @@ def run_wrapper(run, input, output, wildcards):
 		for o in output:
 			if os.path.isdir(o): os.rmdir(o)
 			elif os.path.exists(o): os.remove(o)
-		raise RuleException("Error: Could not execute rule {}: {}".format(self.name, str(ex)))
-
+		raise ex
 class Rule:
 	def __init__(self, name):
 		"""
@@ -141,9 +140,15 @@ class Rule:
 		output = [o.format(**wildcards) for o in self.output]
 		input = [i.format(**wildcards) for i in self.input]
 
+		results = []
 		for i in range(len(self.input)):
 			if self.input[i] in self.parents:
-				self.parents[self.input[i]].apply_rule(wildcards, input[i], dryrun=dryrun, force=force)
+				results.append((self.parents[self.input[i]], self.parents[self.input[i]].apply_rule(wildcards, input[i], dryrun=dryrun, force=force)))
+		for rule, res in results:
+			if res:
+				try: res.get() # reraise eventual exceptions
+				except Exception as ex:
+					raise RuleException("Error: Could not execute rule {}: {}".format(rule.name, str(ex)))
 		Controller.get_instance().join_pool()
 
 		# all inputs have to be present after finishing parent jobs
@@ -159,7 +164,7 @@ class Rule:
 		self.print_rule(input, output)
 		if not dryrun and self.name in globals():
 			# if there is a run body, run it asyncronously
-			Controller.get_instance().get_pool().apply_async(run_wrapper, [globals()[self.name], input, output, wildcards])
+			return Controller.get_instance().get_pool().apply_async(run_wrapper, [globals()[self.name], input, output, wildcards])
 	
 	def print_rule(self, input, output):
 		 logging.info("rule {name}:\n\tinput: {input}\n\toutput: {output}\n".format(name=self.name, input=", ".join(input), output=", ".join(output)))
