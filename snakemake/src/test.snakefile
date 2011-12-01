@@ -1,4 +1,4 @@
-
+import subprocess
 reads = ["5100", "A1"]
 
 rule mapreads:

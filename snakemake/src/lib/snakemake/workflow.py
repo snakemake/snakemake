@@ -24,14 +24,13 @@ def run_wrapper(run, input, output, wildcards):
 	output -- list of output files
 	wildcards -- so far processed wildcards
 	"""
-	print(input)
 	for o in output:
 		dir = os.path.dirname(o)
 		if len(dir) > 0 and not os.path.exists(dir):
 			os.makedirs(dir)
 	try:
 		run(input, output, wildcards)
-	except ex:
+	except (Exception, BaseException) as ex:
 		# Remove produced output on exception
 		for o in output:
 			if os.path.isdir(o): os.rmdir(o)
@@ -203,11 +202,11 @@ class Controller:
 			for rule, result in results:
 				if result:
 					try: result.get() # reraise eventual exceptions
-					except ex:
+					except (Exception, BaseException) as ex:
 						raise RuleException("Error: Could not execute rule {}: {}".format(rule.name, str(ex)))
 		elif rule and result:
 			try: result.get() # reraise eventual exceptions
-			except ex:
+			except (Exception, BaseException) as ex:
 				raise RuleException("Error: Could not execute rule {}: {}".format(rule.name, str(ex)))
 		self.__pool.close()
 		self.__pool.join()
