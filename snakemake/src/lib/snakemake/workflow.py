@@ -24,13 +24,14 @@ def run_wrapper(run, input, output, wildcards):
 	output -- list of output files
 	wildcards -- so far processed wildcards
 	"""
+	print(input)
 	for o in output:
 		dir = os.path.dirname(o)
 		if len(dir) > 0 and not os.path.exists(dir):
 			os.makedirs(dir)
 	try:
 		run(input, output, wildcards)
-	except Exception as ex:
+	except ex:
 		# Remove produced output on exception
 		for o in output:
 			if os.path.isdir(o): os.rmdir(o)
@@ -144,12 +145,7 @@ class Rule:
 		for i in range(len(self.input)):
 			if self.input[i] in self.parents:
 				results.append((self.parents[self.input[i]], self.parents[self.input[i]].apply_rule(wildcards, input[i], dryrun=dryrun, force=force)))
-		for rule, res in results:
-			if res:
-				try: res.get() # reraise eventual exceptions
-				except Exception as ex:
-					raise RuleException("Error: Could not execute rule {}: {}".format(rule.name, str(ex)))
-		Controller.get_instance().join_pool()
+		Controller.get_instance().join_pool(results = results)
 
 		# all inputs have to be present after finishing parent jobs
 		if not dryrun and not Controller.get_instance().is_produced(input):
@@ -164,6 +160,7 @@ class Rule:
 		self.print_rule(input, output)
 		if not dryrun and self.name in globals():
 			# if there is a run body, run it asyncronously
+			#globals()[self.name](input, output, wildcards)
 			return Controller.get_instance().get_pool().apply_async(run_wrapper, [globals()[self.name], input, output, wildcards])
 	
 	def print_rule(self, input, output):
@@ -198,10 +195,20 @@ class Controller:
 		"""
 		return self.__pool
 	
-	def join_pool(self):
+	def join_pool(self, results = None, rule = None, result = None):
 		"""
 		Join all threads in pool together.
 		"""
+		if results:
+			for rule, result in results:
+				if result:
+					try: result.get() # reraise eventual exceptions
+					except ex:
+						raise RuleException("Error: Could not execute rule {}: {}".format(rule.name, str(ex)))
+		elif rule and result:
+			try: result.get() # reraise eventual exceptions
+			except ex:
+				raise RuleException("Error: Could not execute rule {}: {}".format(rule.name, str(ex)))
 		self.__pool.close()
 		self.__pool.join()
 		self.__pool = Pool(processes=Controller.jobs)
@@ -243,7 +250,8 @@ class Controller:
 		"""
 		Apply the rule defined first.
 		"""
-		self.__first.apply_rule(dryrun = dryrun, force = force)
+		self.join_pool(rule = self.__first, result = self.__first.apply_rule(dryrun = dryrun, force = force))
+		
 		
 	def apply_rule(self, name, dryrun = False, force = False):
 		"""
@@ -252,7 +260,7 @@ class Controller:
 		Arguments
 		name -- the name of the rule to apply
 		"""
-		self.__rules[name].apply_rule(dryrun = dryrun, force = force)
+		self.join_pool(rule = self.__rules[name], result = self.__rules[name].apply_rule(dryrun = dryrun, force = force))
 
 	def get_rules(self):
 		"""
