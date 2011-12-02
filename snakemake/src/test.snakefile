@@ -8,7 +8,12 @@ rule mapreads:
 		open(output[0], "w").write("test")
 
 rule prepare_fasta:
-	output: "sample.{read}.fastq"
+	output: "sample.5100.fastq"
+	run:
+		open(output[0], "w").write("test")
+
+rule prepare_fasta:
+	output: "sample.A1.fastq"
 	run:
 		open(output[0], "w").write("test")
 

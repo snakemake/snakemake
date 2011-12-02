@@ -35,7 +35,7 @@ def snakemake(snakefile, list=False, jobs=1, directory=None, rule=None, dryrun=F
         print_rules(logging.info)
         return 0
     
-    controller.setup_dag()
+    #controller.setup_dag()
     try:
         if not rule: controller.apply_first_rule(dryrun=dryrun, force=force)
         elif controller.is_rule(rule): controller.apply_rule(rule, dryrun=dryrun, force=force)

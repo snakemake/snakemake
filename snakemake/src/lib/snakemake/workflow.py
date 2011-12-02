@@ -86,11 +86,15 @@ class Rule:
 	def is_parent(self, rule):
 		return self in rule.parents.values()
 
-	def setup_parents(self):
+	def setup_parents(self, wildcards = {}, requested_output = None):
 		"""
 		Setup the DAG by finding parent rules that create files needed as input for this rule
 		"""
+		if requested_output:
+			wildcards = self.update_wildcards(wildcards, requested_output)
+
 		for i in self.input:
+			i = i.format(**wildcards)
 			found = None
 			for rule in Controller.get_instance().get_rules():
 				if rule != self and rule.is_producer(i):
@@ -100,6 +104,7 @@ class Rule:
 						raise IOError("Ambiguous rules: {} and {}".format(rule.name, found))
 					self.parents[i] = rule
 					found = rule.name
+					rule.setup_parents(wildcards, i)
 
 	def is_producer(self, requested_output):
 		"""
@@ -141,9 +146,9 @@ class Rule:
 		input = [i.format(**wildcards) for i in self.input]
 
 		results = []
-		for i in range(len(self.input)):
-			if self.input[i] in self.parents:
-				results.append((self.parents[self.input[i]], self.parents[self.input[i]].apply_rule(wildcards, input[i], dryrun=dryrun, force=force)))
+		for i in range(len(input)):
+			if input[i] in self.parents:
+				results.append((self.parents[input[i]], self.parents[input[i]].apply_rule(wildcards, input[i], dryrun=dryrun, force=force)))
 		Controller.get_instance().join_pool(results = results)
 
 		# all inputs have to be present after finishing parent jobs
@@ -249,6 +254,7 @@ class Controller:
 		"""
 		Apply the rule defined first.
 		"""
+		self.__first.setup_parents()
 		self.join_pool(rule = self.__first, result = self.__first.apply_rule(dryrun = dryrun, force = force))
 		
 		
@@ -259,6 +265,7 @@ class Controller:
 		Arguments
 		name -- the name of the rule to apply
 		"""
+		self.__rules[name].setup_parents()
 		self.join_pool(rule = self.__rules[name], result = self.__rules[name].apply_rule(dryrun = dryrun, force = force))
 
 	def get_rules(self):
@@ -267,12 +274,12 @@ class Controller:
 		"""
 		return self.__rules.values()
 
-	def setup_dag(self):
-		"""
-		Setup the DAG.
-		"""
-		for rule in self.get_rules():
-			rule.setup_parents()
+#	def setup_dag(self):
+#		"""
+#		Setup the DAG.
+#		"""
+#		for rule in self.get_rules():
+#			rule.setup_parents()
 
 	def is_produced(self, files):
 		"""
