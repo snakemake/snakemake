@@ -25,7 +25,44 @@ class Python(State):
 	def parse(self, type, name):
 		if type == tokenize.NAME and name == 'rule':
 			return tokenize.NEWLINE, '\n', Rule()
+		if type == tokenize.NAME and name == 'workdir':
+			return tokenize.NEWLINE, '\n', Workdir()
 		return type, name, self
+
+class Workdir(State):
+	"""
+	This state parses the definition of the working directory.
+	"""
+	def __init__(self):
+		self.state = 0
+
+	def parse(self, type, name):
+		if type == tokenize.OP and name == ':':
+			self.state = 1
+			return tokenize.STRING, 'Controller.get_instance().set_workdir(', self
+		elif self.state == 0:
+			raise SyntaxError("Expected ':' after {} keyword".format(self.__class__.type))
+		if type == tokenize.STRING and self.state == 1:
+			self.state = 2
+			return type, name, self
+		if type == tokenize.NEWLINE:
+			return tokenize.STRING, ')\n', Python()
+		raise SyntaxError("Expected only one string after workdir keyword")
+
+def is_keyword(name):
+	return name in {"input", "output", "run", "rule"}
+
+def handle_keywords(rule, name, prefix = ''):
+	prefixtype = tokenize.NEWLINE
+	if name == 'input':
+		return prefixtype, prefix, Input(rule)
+	if name == 'output':
+		return prefixtype, prefix, Output(rule)
+	if name == 'run':
+		return tokenize.STRING, prefix + 'def {}(input, output, wildcards)'.format(rule.name), Run(rule)
+	if name == 'rule':
+		return prefixtype, prefix, Rule()
+	raise SyntaxError("Unexpected keyword {} in rule".format(name))
 
 class Rule(State):
 	"""
@@ -39,45 +76,36 @@ class Rule(State):
 			if self.init:
 				self.init = False
 				self.name = name
-				return tokenize.STRING, 'Controller.get_instance().add_rule(Rule("{}"))'.format(name), self
-			if name == 'input':
-				return tokenize.NEWLINE, '\n', Input(self)
-			if name == 'output':
-				return tokenize.NEWLINE, '\n', Output(self)
-			if name == 'run':
-				return tokenize.STRING, '\ndef {}(input, output, wildcards)'.format(self.name), Run(self)
-			if name == 'rule':
-				return tokenize.NEWLINE, '\n', Rule()
+				return tokenize.STRING, 'Controller.get_instance().add_rule(Rule("{}"))\n'.format(name), self
+			return handle_keywords(self, name)
 		return None, None, self
 
-class Input(State):
+class Put(State):
 	"""
-	This state parses the input for a snakemake rule
+	This state parses the input or output for a snakemake rule
 	"""
+	type = None
 	def __init__(self, rule):
 		self.rule = rule
+		self.init = True
 
 	def parse(self, type, name):
 		if type == tokenize.OP and name == ':':
-			return tokenize.STRING, 'Controller.get_instance().last_rule().add_input([', self
-		if type == tokenize.NEWLINE:
-			return tokenize.STRING, '])', self.rule
+			self.init = False
+			return tokenize.STRING, 'Controller.get_instance().last_rule().add_{}(['.format(self.__class__.type), self
+		elif self.init:
+			raise SyntaxError("Expected ':' after {} keyword".format(self.__class__.type))
+		if is_keyword(name):
+			return handle_keywords(self.rule, name, prefix = '])\n')
+		if type == tokenize.ENDMARKER:
+			return tokenize.STRING, '])\n', self
 		return type, name, self
 
+class Input(Put):
+	type = 'input'
 
-class Output(State):
-	"""
-	This state parses the output for a snakemake rule
-	"""
-	def __init__(self, rule):
-		self.rule = rule
-
-	def parse(self, type, name):
-		if type == tokenize.OP and name == ':':
-			return tokenize.STRING, 'Controller.get_instance().last_rule().add_output([', self
-		if type == tokenize.NEWLINE:
-			return tokenize.STRING, '])', self.rule
-		return type, name, self
+class Output(Put):
+	type = 'output'
 
 class Run(State):
 	"""
@@ -111,4 +139,6 @@ def compile_to_python(filepath):
 	"""
 	Compile snakemake DSL to python code
 	"""
-	return tokenize.untokenize(translate(open(filepath).readline))
+	translated = list(translate(open(filepath).readline))
+	compilation = tokenize.untokenize(translated)
+	return compilation

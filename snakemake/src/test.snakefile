@@ -1,5 +1,7 @@
-import subprocess
+import os,subprocess
 reads = ["5100", "A1"]
+
+workdir: "test"
 
 rule mapreads:
 	input: ["sample.{}.fastq".format(xy) for xy in reads] + ["hg19.fasta"]
@@ -12,7 +14,7 @@ rule prepare_fasta:
 	run:
 		open(output[0], "w").write("test")
 
-rule prepare_fasta:
+rule prepare_fasta2:
 	output: "sample.A1.fastq"
 	run:
 		open(output[0], "w").write("test")

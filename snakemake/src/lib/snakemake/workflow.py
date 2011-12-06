@@ -6,9 +6,7 @@ Created on 13.11.2011
 @author: Johannes Köster
 '''
 
-import re
-import os
-import logging
+import re, os, logging
 from multiprocessing import Pool
 
 class RuleException(Exception):
@@ -192,6 +190,7 @@ class Controller:
 		self.__last = None
 		self.__first = None
 		self.__pool = Pool(processes=Controller.jobs)
+		self.__workdir_set = False
 	
 	def get_pool(self):
 		"""
@@ -309,3 +308,10 @@ class Controller:
 		Execute a piece of compiled snakemake DSL.
 		"""
 		exec(compiled_dsl_code, globals())
+
+	def set_workdir(self, workdir):
+		if not self.__workdir_set:
+			if not os.path.exists(workdir):
+				os.makedirs(workdir)
+			os.chdir(workdir)
+			self.__workdir_set = True

@@ -22,20 +22,17 @@ def snakemake(snakefile, list=False, jobs=1, directory=None, rule=None, dryrun=F
         for rule in controller.get_rules(): log(rule.name)
     
     code = compile_to_python(snakefile)
-    
+
     if directory:
-        if os.path.exists(directory): os.chdir(directory)
-        else:
-            logging.error("Error: Defined working directory does not exist.")
-            return 1
-    
+        # change to the specified directory. This overrides eventually specified workdir in Snakefile
+        controller.set_workdir(directory)    
+
     controller.execdsl(code)
     
     if list:
         print_rules(logging.info)
         return 0
     
-    #controller.setup_dag()
     try:
         if not rule: controller.apply_first_rule(dryrun=dryrun, force=force)
         elif controller.is_rule(rule): controller.apply_rule(rule, dryrun=dryrun, force=force)
