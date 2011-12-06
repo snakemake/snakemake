@@ -162,7 +162,6 @@ class Rule:
 		self.print_rule(input, output)
 		if not dryrun and self.name in globals():
 			# if there is a run body, run it asyncronously
-			#globals()[self.name](input, output, wildcards)
 			return Controller.get_instance().get_pool().apply_async(run_wrapper, [globals()[self.name], input, output, wildcards])
 	
 	def print_rule(self, input, output):
@@ -189,15 +188,18 @@ class Controller:
 		self.__rules = dict()
 		self.__last = None
 		self.__first = None
-		self.__pool = Pool(processes=Controller.jobs)
 		self.__workdir_set = False
+
+	def setup_pool(self):
+		self.__pool = Pool(processes=Controller.jobs)
 	
 	def get_pool(self):
 		"""
 		Return the current thread pool.
 		"""
 		return self.__pool
-	
+
+
 	def join_pool(self, results = None, rule = None, result = None):
 		"""
 		Join all threads in pool together.
@@ -212,9 +214,6 @@ class Controller:
 			try: result.get() # reraise eventual exceptions
 			except (Exception, BaseException) as ex:
 				raise RuleException("Error: Could not execute rule {}: {}".format(rule.name, str(ex)))
-		self.__pool.close()
-		self.__pool.join()
-		self.__pool = Pool(processes=Controller.jobs)
 	
 	def add_rule(self, rule):
 		"""
@@ -254,6 +253,7 @@ class Controller:
 		Apply the rule defined first.
 		"""
 		self.__first.setup_parents()
+		self.setup_pool()
 		self.join_pool(rule = self.__first, result = self.__first.apply_rule(dryrun = dryrun, force = force))
 		
 		
@@ -265,6 +265,7 @@ class Controller:
 		name -- the name of the rule to apply
 		"""
 		self.__rules[name].setup_parents()
+		self.setup_pool()
 		self.join_pool(rule = self.__rules[name], result = self.__rules[name].apply_rule(dryrun = dryrun, force = force))
 
 	def get_rules(self):
@@ -272,13 +273,6 @@ class Controller:
 		Get the list of rules.
 		"""
 		return self.__rules.values()
-
-#	def setup_dag(self):
-#		"""
-#		Setup the DAG.
-#		"""
-#		for rule in self.get_rules():
-#			rule.setup_parents()
 
 	def is_produced(self, files):
 		"""
