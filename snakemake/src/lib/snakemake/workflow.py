@@ -309,3 +309,15 @@ class Controller:
 				os.makedirs(workdir)
 			os.chdir(workdir)
 			self.__workdir_set = True
+
+def _set_workdir(path):
+	Controller.get_instance().set_workdir(path)
+
+def _add_rule(name):
+	Controller.get_instance().add_rule(Rule(name))
+
+def _set_input(paths):
+	Controller.get_instance().last_rule().add_input(paths)
+
+def _set_output(paths):
+	Controller.get_instance().last_rule().add_output(paths)
