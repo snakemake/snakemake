@@ -78,6 +78,8 @@ class Rule(State):
 				self.name = name
 				return tokenize.STRING, 'Controller.get_instance().add_rule(Rule("{}"))\n'.format(name), self
 			return handle_keywords(self, name)
+		#if type == tokenize.INDENT or type == tokenize.DEDENT:
+		#	return type, name, self
 		return None, None, self
 
 class Put(State):
@@ -99,6 +101,8 @@ class Put(State):
 			return handle_keywords(self.rule, name, prefix = '])\n')
 		if type == tokenize.ENDMARKER:
 			return tokenize.STRING, '])\n', self
+		if type == tokenize.INDENT or type == tokenize.DEDENT:
+			return None, None, self
 		return type, name, self
 
 class Input(Put):
@@ -121,17 +125,26 @@ class Run(State):
 		if type == tokenize.DEDENT:
 			self.indent -= 1
 		if self.indent == -1:
-			return tokenize.STRING, '', Python()
+			return type, name, Python()
 		return type, name, self
 
 def translate(readline):
 	"""
 	Translate a snakemake DSL file to python code tokens
 	"""
+	indent = 0
 	state = Python()
 	yield tokenize.NEWLINE, '\n' # fixes missing first token when untokenizing
-	for type, name,_,_,_ in tokenize.generate_tokens(readline):
+	for type, name,_,_,line in tokenize.generate_tokens(readline):
 		type, name, state = state.parse(type, name)
+		if type == tokenize.INDENT:
+			indent += 1
+		if type == tokenize.DEDENT:
+			indent -= 1
+		if indent < 0:
+			# an ugly hack to fix lost indents
+			type = None
+			indent = 0
 		if type != None:
 			yield type, name
 
