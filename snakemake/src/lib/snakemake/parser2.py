@@ -131,6 +131,9 @@ class States:
 		''' State that creates a run function for the current rule. '''
 		self._check_colon('run', token)
 		self._func_def(self.current_rule, ['input', 'output', 'wildcards'])
+		#self.tokens.add(NAME, 'try') \
+		#		   .add(OP, ':') \
+		#		   .add(NEWLINE, '\n')
 		self.state = self.run_body
 
 	def run_body(self, token):
