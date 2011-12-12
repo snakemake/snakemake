@@ -8,6 +8,7 @@ Created on 13.11.2011
 
 import re, os, logging
 from multiprocessing import Pool
+from collections import defaultdict
 
 class RuleException(Exception):
 	pass
@@ -85,15 +86,19 @@ class Rule:
 	def is_parent(self, rule):
 		return self in rule.parents.values()
 
-	def setup_parents(self, wildcards = {}, requested_output = None):
+	def setup_parents(self, wildcards = {}, requested_output = []):
 		"""
 		Setup the DAG by finding parent rules that create files needed as input for this rule
 		"""
-		if requested_output:
-			wildcards = self.update_wildcards(wildcards, requested_output)
+		for o in requested_output:
+			self.update_wildcards(wildcards, o)
 
+		products = defaultdict(list)
 		for i in self.input:
-			i = i.format(**wildcards)
+			try:
+				i = i.format(**wildcards)
+			except KeyError:
+				raise RuleException("Could not resolve wildcard in rule {}: {}".format(self.name, i))
 			found = None
 			for rule in Controller.get_instance().get_rules():
 				if rule != self and rule.is_producer(i):
@@ -102,8 +107,11 @@ class Rule:
 					if found:
 						raise IOError("Ambiguous rules: {} and {}".format(rule.name, found))
 					self.parents[i] = rule
+					products[rule].append(i)
 					found = rule.name
-					rule.setup_parents(wildcards, i)
+
+		for rule in products:
+			rule.setup_parents(dict(wildcards), products[rule])
 
 	def is_producer(self, requested_output):
 		"""
@@ -130,7 +138,7 @@ class Rule:
 				return wildcards
 		return wildcards
 
-	def apply_rule(self, wildcards = {}, requested_output = None, dryrun = False, force =False):
+	def apply_rule(self, wildcards = {}, requested_output = [], dryrun = False, force =False):
 		"""
 		Apply the rule
 		
@@ -138,21 +146,24 @@ class Rule:
 		wildcards -- a dictionary of wildcards
 		requested_output -- the requested concrete output file 
 		"""
-		if requested_output:
-			wildcards = self.update_wildcards(wildcards, requested_output)
+		for o in requested_output:
+			wildcards = self.update_wildcards(wildcards, o)
 
 		output = [o.format(**wildcards) for o in self.output]
 		input = [i.format(**wildcards) for i in self.input]
 
-		results = []
-		for i in range(len(input)):
-			if input[i] in self.parents:
-				results.append((self.parents[input[i]], self.parents[input[i]].apply_rule(wildcards, input[i], dryrun=dryrun, force=force)))
-		Controller.get_instance().join_pool(results = results)
+		products = defaultdict(list)
+		for i in input:
+			if i in self.parents:
+				products[self.parents[i]].append(i)
+		jobs = []
+		for rule, files in products.items():
+			jobs.append((rule, rule.apply_rule(wildcards, files, dryrun = dryrun, force = force)))
+		Controller.get_instance().join_pool(jobs = jobs)
 
 		# all inputs have to be present after finishing parent jobs
 		if not dryrun and not Controller.get_instance().is_produced(input):
-			raise RuleException("Error: Could not execute rule {}: not all input files present.".format(self.name))
+			raise RuleException("Could not execute rule {}: not all input files present.".format(self.name))
 			
 		if len(output) > 0 and Controller.get_instance().is_produced(output):
 			# if output is already produced, only recalculate if input is newer.
@@ -201,12 +212,12 @@ class Controller:
 		return self.__pool
 
 
-	def join_pool(self, results = None, rule = None, result = None):
+	def join_pool(self, jobs = None, rule = None, result = None):
 		"""
 		Join all threads in pool together.
 		"""
-		if results:
-			for rule, result in results:
+		if jobs:
+			for rule, result in jobs:
 				if result:
 					try: result.get() # reraise eventual exceptions
 					except (Exception, BaseException) as ex:
