@@ -173,7 +173,8 @@ class States:
 	def _func_open(self, name):
 		''' Generate tokens for opening a function invocation with 
 		given name. '''
-		self.tokens.add(NAME, name) \
+		self.tokens.add(NEWLINE, '\n') \
+				   .add(NAME, name) \
 				   .add(LPAR, '(')
 
 	def _func_close(self):

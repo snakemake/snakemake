@@ -34,6 +34,7 @@ def run_wrapper(run, input, output, wildcards):
 			if os.path.isdir(o): os.rmdir(o)
 			elif os.path.exists(o): os.remove(o)
 		raise ex
+
 class Rule:
 	def __init__(self, name):
 		"""
