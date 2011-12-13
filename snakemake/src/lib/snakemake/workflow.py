@@ -109,7 +109,6 @@ class Rule:
 					self.parents[i] = rule
 					products[rule].append(i)
 					found = rule.name
-
 		for rule in products:
 			rule.setup_parents(dict(wildcards), products[rule])
 
@@ -119,7 +118,8 @@ class Rule:
 		"""
 		for o in self.regex_output:
 			match = re.match(o, requested_output)
-			if match: return True
+			if match and len(match.group()) == len(requested_output):
+				return True
 		return False
 
 	def update_wildcards(self, wildcards, requested_output):
