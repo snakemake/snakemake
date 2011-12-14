@@ -142,8 +142,7 @@ class Rule:
 			match = re.match(o, requested_output)
 			if match:
 				wildcards.update(match.groupdict())
-				return wildcards
-		return wildcards
+				return
 
 	def apply_rule(self, wildcards = {}, requested_output = [], dryrun = False, force =False):
 		"""
@@ -154,7 +153,7 @@ class Rule:
 		requested_output -- the requested concrete output file 
 		"""
 		for o in requested_output:
-			wildcards = self.update_wildcards(wildcards, o)
+			self.update_wildcards(wildcards, o)
 
 		output = [o.format(**wildcards) for o in self.output]
 		input = [i.format(**wildcards) for i in self.input]
@@ -169,7 +168,7 @@ class Rule:
 
 		jobs = []
 		for rule, files in products.items():
-			jobs.append((rule, rule.apply_rule(wildcards, files, dryrun = dryrun, force = force)))
+			jobs.append((rule, rule.apply_rule(dict(wildcards), files, dryrun = dryrun, force = force)))
 		Controller.get_instance().join_pool(jobs = jobs)
 
 		# all inputs have to be present after finishing parent jobs
