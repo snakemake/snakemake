@@ -171,10 +171,11 @@ class Rule:
 			if not force and Controller.get_instance().is_produced(input) and not Controller.get_instance().is_newer(input, time):
 				return
 
-		self.print_rule(input, output)
-		if not dryrun and self.name in globals():
-			# if there is a run body, run it asyncronously
-			return Controller.get_instance().get_pool().apply_async(run_wrapper, [globals()[self.name], input, output, wildcards])
+		if self.name in globals():
+			self.print_rule(input, output)
+			if not dryrun:
+				# if there is a run body, run it asyncronously
+				return Controller.get_instance().get_pool().apply_async(run_wrapper, [globals()[self.name], input, output, wildcards])
 	
 	def print_rule(self, input, output):
 		 logging.info("rule {name}:\n\tinput: {input}\n\toutput: {output}\n".format(name=self.name, input=", ".join(input), output=", ".join(output)))

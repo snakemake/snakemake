@@ -154,4 +154,5 @@ def compile_to_python(filepath):
 	"""
 	translated = list(translate(open(filepath).readline))
 	compilation = tokenize.untokenize(translated)
+	print(compilation)
 	return compilation
