@@ -122,6 +122,14 @@ class Rule:
 				return True
 		return False
 
+	def check_input(self, files):
+		"""
+		Check if all input files present.
+		"""
+		notpresent = [f for f in files if not os.path.exists(f)]
+		if len(notpresent) > 0:
+			raise RuleException("Missing input files for rule {}: {}".format(self.name, ", ".join(notpresent)))
+
 	def update_wildcards(self, wildcards, requested_output):
 		"""
 		Update the given wildcard dictionary by matching regular expression output files to the requested concrete ones.
@@ -153,17 +161,23 @@ class Rule:
 		input = [i.format(**wildcards) for i in self.input]
 
 		products = defaultdict(list)
+		notproduced = []
 		for i in input:
 			if i in self.parents:
 				products[self.parents[i]].append(i)
+			else:
+				notproduced.append(i)
+
 		jobs = []
 		for rule, files in products.items():
 			jobs.append((rule, rule.apply_rule(wildcards, files, dryrun = dryrun, force = force)))
 		Controller.get_instance().join_pool(jobs = jobs)
 
 		# all inputs have to be present after finishing parent jobs
-		if not dryrun and not Controller.get_instance().is_produced(input):
-			raise RuleException("Could not execute rule {}: not all input files present.".format(self.name))
+		if dryrun:
+			self.check_input(notproduced)
+		else:
+			self.check_input(input)
 			
 		if len(output) > 0 and Controller.get_instance().is_produced(output):
 			# if output is already produced, only recalculate if input is newer.
