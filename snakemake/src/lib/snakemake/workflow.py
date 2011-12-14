@@ -138,7 +138,6 @@ class Rule:
 		wildcards -- a dictionary of wildcards
 		requested_output -- a concrete filepath
 		"""
-		wildcards = dict(wildcards)
 		for o in self.regex_output:
 			match = re.match(o, requested_output)
 			if match:
