@@ -58,6 +58,7 @@ class Rule:
 		self.output = []
 		self.regex_output = []
 		self.parents = dict()
+		self.wildcard_names = set()
 
 	def __to_regex(self, output):
 		"""
@@ -67,6 +68,9 @@ class Rule:
 		output -- the filepath
 		"""
 		return re.sub('\{(?P<name>.+?)\}', lambda match: '(?P<{}>.+?)'.format(match.group('name')), output)
+
+	def _get_wildcard_names(self, output):
+		return set(match.group('name') for match in re.finditer("\{(?P<name>.+?)\}", output))
 
 	def add_input(self, input):
 		"""
@@ -89,6 +93,11 @@ class Rule:
 		for item in output:
 			if isinstance(item, list): self.add_output(item)
 			else:
+				wildcards = self._get_wildcard_names(item)
+				if self.output:
+					if self.wildcard_names != wildcards:
+						raise RuleException("Output in rule {} contains inconsistent wildcards.".format(self.name))
+					self.wildcard_names = wildcards
 				self.output.append(item)
 				self.regex_output.append(self.__to_regex(item))
 
@@ -99,8 +108,8 @@ class Rule:
 		"""
 		Setup the DAG by finding parent rules that create files needed as input for this rule
 		"""
-		for o in requested_output:
-			self.update_wildcards(wildcards, o)
+		if not wildcards and requested_output:
+			wildcards = self.get_wildcards(requested_output[0])
 
 		products = defaultdict(list)
 		for i in self.input:
@@ -118,8 +127,10 @@ class Rule:
 					self.parents[i] = rule
 					products[rule].append(i)
 					found = rule.name
-		for rule in products:
-			rule.setup_parents(dict(wildcards), products[rule])
+
+		for rule, files in products.items():
+			for partition in rule.partition_output(files):
+				rule.setup_parents(dict(wildcards), partition)
 
 	def is_producer(self, requested_output):
 		"""
@@ -157,7 +168,7 @@ class Rule:
 			expand(input, expanded)
 		return input
 
-	def update_wildcards(self, wildcards, requested_output):
+	def get_wildcards(self, requested_output):
 		"""
 		Update the given wildcard dictionary by matching regular expression output files to the requested concrete ones.
 		
@@ -168,9 +179,15 @@ class Rule:
 		for o in self.regex_output:
 			match = re.match(o, requested_output)
 			if match:
-				wildcards.update(match.groupdict())
-				return
+				return match.groupdict()
 
+	def partition_output(self, requested_outputs):
+		partition = defaultdict(list)
+		for r in requested_outputs:
+			wc = frozenset(self.get_wildcards(r).items())
+			partition[wc].append(r)
+		return partition.values()
+			
 	def apply_rule(self, wildcards = {}, requested_output = [], dryrun = False, force =False):
 		"""
 		Apply the rule
@@ -179,8 +196,8 @@ class Rule:
 		wildcards -- a dictionary of wildcards
 		requested_output -- the requested concrete output file 
 		"""
-		for o in requested_output:
-			self.update_wildcards(wildcards, o)
+		if not wildcards and requested_output:
+			wildcards = self.get_wildcards(requested_output[0]) # wildcards can be determined with only one output since each has to use the same
 
 		output = [o.format(**wildcards) for o in self.output]
 		input = [i.format(**wildcards) for i in self.input]
@@ -195,7 +212,8 @@ class Rule:
 
 		jobs = []
 		for rule, files in products.items():
-			jobs.append((rule, rule.apply_rule(dict(wildcards), files, dryrun = dryrun, force = force)))
+			for partition in rule.partition_output(files):
+				jobs.append((rule, rule.apply_rule(requested_output = partition, dryrun = dryrun, force = force)))
 		Controller.get_instance().join_pool(jobs = jobs)
 
 		# all inputs have to be present after finishing parent jobs

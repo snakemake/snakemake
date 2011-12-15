@@ -30,13 +30,7 @@ def main():
     # log info level and remove prefixes from output
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     
-    try:
-        exit(snakemake.snakemake(args.snakefile, list=args.list, jobs=args.jobs, directory=args.directory, rule=args.rule, dryrun=args.dryrun, force=args.force))
-    except RuleException:
-        # TODO mention at least rule name here.
-        logging.error("Error: Rule execution failed")
-        exit(1)
-        
+    exit(snakemake.snakemake(args.snakefile, list=args.list, jobs=args.jobs, directory=args.directory, rule=args.rule, dryrun=args.dryrun, force=args.force))        
 
 if __name__ == "__main__":
     main()
