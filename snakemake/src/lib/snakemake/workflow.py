@@ -15,7 +15,7 @@ from collections import defaultdict
 def shell(cmd, *args, **kwargs):
 	cmd = cmd.format(*args, **kwargs)
 	if "SHELL" in os.environ:
-		subprocess.check_call(cmd, executable = os.environ["SHELL"])
+		subprocess.check_call(cmd, shell=True, executable = os.environ["SHELL"])
 	else:
 		subprocess.check_call(cmd, shell=True)
 
