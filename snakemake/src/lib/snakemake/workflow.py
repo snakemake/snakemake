@@ -13,7 +13,11 @@ from collections import defaultdict
 
 # Global functions
 def shell(cmd, *args, **kwargs):
-	subprocess.check_call(cmd.format(*args, **kwargs), shell=True)
+	cmd = cmd.format(*args, **kwargs)
+	if "SHELL" in os.environ:
+		subprocess.check_call(cmd, executable = os.environ["SHELL"])
+	else:
+		subprocess.check_call(cmd, shell=True)
 
 class RuleException(Exception):
 	pass
