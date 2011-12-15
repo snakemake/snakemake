@@ -10,6 +10,7 @@ rule mapreads:
 	output: "mappped.bam"
 	run:
 		open(output[0], "w").write("test")
+		shell("touch tets")
 
 rule prepare_fasta:
 	output: "sample.5100.fastq", "5100.fasta"

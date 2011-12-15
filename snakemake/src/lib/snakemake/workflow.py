@@ -6,9 +6,14 @@ Created on 13.11.2011
 @author: Johannes Köster
 '''
 
-import re, os, logging
+import re, os, logging, subprocess, glob
 from multiprocessing import Pool
 from collections import defaultdict
+
+
+# Global functions
+def shell(cmd, *args, **kwargs):
+	subprocess.check_call(cmd.format(*args, **kwargs), shell=True)
 
 class RuleException(Exception):
 	pass
@@ -129,6 +134,24 @@ class Rule:
 		notpresent = [f for f in files if not os.path.exists(f)]
 		if len(notpresent) > 0:
 			raise RuleException("Missing input files for rule {}: {}".format(self.name, ", ".join(notpresent)))
+
+	def expand_input(self, input, flat = True):
+		"""
+		Expand unix wildcards in input files.
+		"""
+		expand = lambda input, expanded: input.append(expanded)
+		if flat:
+			expand = lambda input, expanded: input.extend(expanded)
+
+		input = list(input)
+		for i in input:
+			expanded = glob.glob(i)
+			if len(expanded) == 0:
+				expanded = i
+			elif len(expanded) == 1:
+				expanded = expanded[0]
+			expand(input, expanded)
+		return input
 
 	def update_wildcards(self, wildcards, requested_output):
 		"""
