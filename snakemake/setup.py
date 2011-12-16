@@ -15,7 +15,7 @@ setup(
     license = 'MIT',
     package_dir = {'': 'lib'},
     packages = ['snakemake'],
-    scripts = ['snakemake'],
+    scripts = ['bin/snakemake'],
     classifiers = [
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",

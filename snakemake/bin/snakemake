@@ -6,8 +6,8 @@ import argparse
 import logging
 
 # If running from within source directory,
-# add 'lib' to sys.path.
-_libdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'lib')
+# add '../snakemake' to sys.path.
+_libdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../')
 if os.path.isfile(os.path.join(_libdir, 'snakemake', '__init__.py')):
     sys.path.insert(0, _libdir)
 
