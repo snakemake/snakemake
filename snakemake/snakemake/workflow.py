@@ -68,7 +68,8 @@ class Rule:
 		Arguments
 		output -- the filepath
 		"""
-		return re.sub('\{(?P<name>\w+?)\}', lambda match: '(?P<{}>[^\.]+?)'.format(match.group('name')), output)
+		output = re.sub("\.", "\.", output)
+		return re.sub('\{(?P<name>\w+?)\}', lambda match: '(?P<{}>.+)'.format(match.group('name')), output)
 
 	def _get_wildcard_names(self, output):
 		return set(match.group('name') for match in re.finditer("\{(?P<name>\w+?)\}", output))
