@@ -96,7 +96,7 @@ class Rule:
 				wildcards = self._get_wildcard_names(item)
 				if self.output:
 					if self.wildcard_names != wildcards:
-						raise RuleException("Output in rule {} contains inconsistent wildcards.".format(self.name))
+						raise RuleException("Not all output files of rule {} contain the same wildcards. ".format(self.name))
 				else:
 					self.wildcard_names = wildcards
 				self.output.append(item)
