@@ -59,6 +59,7 @@ class Rule:
 		self.regex_output = []
 		self.parents = dict()
 		self.wildcard_names = set()
+		self.jobs = dict()
 
 	def __to_regex(self, output):
 		"""
@@ -236,12 +237,23 @@ class Rule:
 				return
 
 		if self.name in globals():
-			self.print_rule(input, output)
-			if not dryrun:
+			_output = tuple(output)
+			if dryrun:
+				if not _output in self.jobs:
+					# print job if not yet printed
+					self.print_job(input, output)
+			else:
+				if _output in self.jobs:
+					# job already started
+					return self.jobs[_output]
+					
+				self.print_job(input, output)
 				# if there is a run body, run it asyncronously
-				return Controller.get_instance().get_pool().apply_async(run_wrapper, [globals()[self.name], input, output, wildcards])
+				job = Controller.get_instance().get_pool().apply_async(run_wrapper, [globals()[self.name], input, output, wildcards])
+				self.jobs[_output] = job
+				return job
 	
-	def print_rule(self, input, output):
+	def print_job(self, input, output):
 		 logging.info("rule {name}:\n\tinput: {input}\n\toutput: {output}\n".format(name=self.name, input=", ".join(input), output=", ".join(output)))
 
 class Controller:
