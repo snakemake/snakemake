@@ -97,6 +97,7 @@ class Rule:
 				if self.output:
 					if self.wildcard_names != wildcards:
 						raise RuleException("Output in rule {} contains inconsistent wildcards.".format(self.name))
+				else:
 					self.wildcard_names = wildcards
 				self.output.append(item)
 				self.regex_output.append(self.__to_regex(item))
