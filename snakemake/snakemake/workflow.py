@@ -68,10 +68,10 @@ class Rule:
 		Arguments
 		output -- the filepath
 		"""
-		return re.sub('\{(?P<name>.+?)\}', lambda match: '(?P<{}>.+?)'.format(match.group('name')), output)
+		return re.sub('\{(?P<name>\w+?)\}', lambda match: '(?P<{}>[^\.]+?)'.format(match.group('name')), output)
 
 	def _get_wildcard_names(self, output):
-		return set(match.group('name') for match in re.finditer("\{(?P<name>.+?)\}", output))
+		return set(match.group('name') for match in re.finditer("\{(?P<name>\w+?)\}", output))
 
 	def add_input(self, input):
 		"""
@@ -129,10 +129,10 @@ class Rule:
 					self.parents[i] = rule
 					products[rule].append(i)
 					found = rule.name
-
+		
 		for rule, files in products.items():
 			for partition in rule.partition_output(files):
-				rule.setup_parents(dict(wildcards), partition)
+				rule.setup_parents(dict(), partition)
 
 	def is_producer(self, requested_output):
 		"""
@@ -184,10 +184,20 @@ class Rule:
 		wildcards -- a dictionary of wildcards
 		requested_output -- a concrete filepath
 		"""
+		bestmatchlen = 0
+		bestmatch = None
 		for o in self.regex_output:
 			match = re.match(o, requested_output)
-			if match:
-				return match.groupdict()
+			if match and len(match.group()) == len(requested_output):
+				l = self.get_wildcard_len(match.groupdict())
+				if not bestmatch or bestmatchlen > l:
+					bestmatch = match.groupdict()
+					bestmatchlen = l
+		return bestmatch
+		
+	
+	def get_wildcard_len(self, wildcards):
+		return sum(map(len, wildcards.values()))
 
 	def partition_output(self, requested_outputs):
 		partition = defaultdict(list)
