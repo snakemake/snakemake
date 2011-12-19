@@ -242,6 +242,7 @@ class Rule:
 				if not _output in self.jobs:
 					# print job if not yet printed
 					self.print_job(input, output)
+					self.jobs[_output] = None
 			else:
 				if _output in self.jobs:
 					# job already started
