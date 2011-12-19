@@ -143,13 +143,19 @@ class Rule:
 				return True
 		return False
 
-	def check_input(self, files):
+	def check_input(self, files, wildcards):
 		"""
 		Check if all input files present.
 		"""
 		notpresent = [f for f in files if not os.path.exists(f)]
-		if len(notpresent) > 0:
-			raise RuleException("Missing input files for rule {}: {}".format(self.name, ", ".join(notpresent)))
+		if notpresent:
+			raise RuleException("Missing input files for rule {}: {}\n{}".format(
+				self.name, ", ".join(notpresent), self._wildcards_to_str(wildcards)))
+			
+	def _wildcards_to_str(self, wildcards):
+		if wildcards:
+			return "Wildcards:\n" + "\n".join(": ".join(i) for i in wildcards.items())
+		return ""
 
 	def expand_input(self, input, flat = True):
 		"""
@@ -198,7 +204,7 @@ class Rule:
 		requested_output -- the requested concrete output file 
 		"""
 		if not wildcards and requested_output:
-			wildcards = self.get_wildcards(requested_output[0]) # wildcards can be determined with only one output since each has to use the same
+			wildcards = self.get_wildcards(requested_output[0]) # wildcards can be determined with only one output since each has to use the same		
 
 		output = [o.format(**wildcards) for o in self.output]
 		input = [i.format(**wildcards) for i in self.input]
@@ -219,9 +225,9 @@ class Rule:
 
 		# all inputs have to be present after finishing parent jobs
 		if dryrun:
-			self.check_input(notproduced)
+			self.check_input(notproduced, wildcards)
 		else:
-			self.check_input(input)
+			self.check_input(input, wildcards)
 			
 		if len(output) > 0 and Controller.get_instance().is_produced(output):
 			# if output is already produced, only recalculate if input is newer.
