@@ -10,7 +10,7 @@ rule mapreads:
 	output: "mappped.bam"
 	run:
 		open(output[0], "w").write("test")
-		shell("echo `echo $PATH`")
+		shell("ech `echo $PATH`")
 
 rule prepare_fasta:
 	output: "sample.5100.fastq", "5100.fasta"
