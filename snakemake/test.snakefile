@@ -3,14 +3,18 @@ reads = ["5100", "A1"]
 
 workdir: "test"
 
+CUFFDIFF = "path/to/cuffdiff"
+
 rule mapreads:
-	input: ["sample.{}.fastq".format(xy) for xy in reads],
-	       "hg19.fasta",
-	       "5100.fasta"
+	input: 
+		["sample.{}.fastq".format(xy) for xy in reads],
+		"hg19.fasta",
+		"5100.fasta"
 	output: "mappped.bam"
 	run:
 		open(output[0], "w").write("test")
-		shell("ech `echo $PATH`")
+		shell("echo {input[0]}")
+		shell("echo {CUFFDIFF}")
 
 rule prepare_fasta:
 	output: "sample.5100.fastq", "5100.fasta"

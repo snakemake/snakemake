@@ -6,14 +6,17 @@ Created on 13.11.2011
 @author: Johannes Köster
 '''
 
-import re, os, logging, subprocess, glob
+import re, os, logging, subprocess, glob, inspect
 from multiprocessing import Pool
 from collections import defaultdict
 
 
 # Global functions
 def shell(cmd, *args, **kwargs):
-	cmd = cmd.format(*args, **kwargs)
+	variables = dict(globals())
+	variables.update(inspect.currentframe().f_back.f_locals)
+	variables.update(kwargs)
+	cmd = cmd.format(*args, **variables)#*args, **kwargs)
 	if "SHELL" in os.environ:
 		subprocess.check_call(cmd, shell=True, executable = os.environ["SHELL"])
 	else:
