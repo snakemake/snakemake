@@ -37,6 +37,7 @@ rule prepare_fasta2:
 rule create_hg19:
 	output: "hg19.fasta"
 	shell:
+		# Execute a shell only rule.
 		"""
 		touch {output[0]}
 		echo "test..."

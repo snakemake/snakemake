@@ -175,9 +175,10 @@ class States:
 			self._func_open('shell')
 			self.tokens.add(token)
 			self._func_close()
-		elif token.type in (NEWLINE, INDENT, DEDENT, ENDMARKER):
+		elif token.type in (COMMENT, NEWLINE, NL, INDENT, DEDENT, ENDMARKER):
 			self.tokens.add(token)
 		else:
+			print(token)
 			raise self._syntax_error('Expected shell command in a string after shell keyword.', token)
 
 	def _check_colon(self, keyword, token):
