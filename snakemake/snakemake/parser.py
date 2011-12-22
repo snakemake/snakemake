@@ -103,7 +103,7 @@ class States:
 			self.tokens.add(token)
 		elif token.type == NAME and token.string in self.main_states:
 			self.state = self.main_states[token.string]
-		elif not token.type in (INDENT, DEDENT):
+		elif not token.type in (INDENT, DEDENT, COMMENT, NL):
 			raise self._syntax_error('Expected one of the keywords "input", "output", "run" or "rule" below rule definition', token)
 
 	def input(self, token):

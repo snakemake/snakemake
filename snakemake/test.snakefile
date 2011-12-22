@@ -6,11 +6,13 @@ workdir: "test"
 CUFFDIFF = "path/to/cuffdiff"
 
 rule mapreads:
+	# a nice rule
 	input: 
 		["sample.{}.fastq".format(xy) for xy in reads],
 		"hg19.fasta",
 		"5100.fasta"
 	output: "mappped.bam"
+	# Define a message that should be displayed on execution.
 	message: "mapping reads to {input[0]}"
 	run:
 		open(output[0], "w").write("test")
