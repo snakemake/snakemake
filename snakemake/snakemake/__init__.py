@@ -16,7 +16,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, rule = None, 
 	"""
 	def print_rules(log):
 		log("Defined rules:")
-		for rule in controller.get_rules(): log(rule.name)
+		for rule in workflow.get_rules(): log(rule.name)
 	
 	code = compile_to_python(snakefile)
 

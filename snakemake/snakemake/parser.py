@@ -65,13 +65,10 @@ class States:
 	def python(self, token):
 		''' The automaton state that handles ordinary python code. '''
 		if token.type == NAME and token.string in ('workdir', 'rule'):
+			self.tokens.add(NEWLINE, '\n')
 			self.state = self.main_states[token.string]
 		else:
 			self.tokens.add(token)
-
-	def wait_rule(self, token):
-		if token.type == NAME and token.string == 'rule':
-			self.state = self.rule
 
 	def workdir(self, token):
 		''' State that handles workdir definition. '''
@@ -144,7 +141,7 @@ class States:
 	def run_newline(self, token):
 		if token.type == NEWLINE:
 			self.tokens.add(token)
-			self.state = self.run_body
+			self.state = self.python
 		else:
 			raise self._syntax_error('Expected newline after run keyword.')
 
@@ -175,7 +172,7 @@ class States:
 			self._func_open('shell')
 			self.tokens.add(token)
 			self._func_close()
-			self.state = self.wait_rule
+			self.state = self.python
 		elif token.type in (COMMENT, NEWLINE, NL, INDENT, DEDENT, ENDMARKER):
 			self.tokens.add(token)
 		else:
