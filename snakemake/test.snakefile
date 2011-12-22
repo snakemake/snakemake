@@ -36,5 +36,8 @@ rule prepare_fasta2:
 
 rule create_hg19:
 	output: "hg19.fasta"
-	run:
-		open(output[0], "w").write("test")
+	shell:
+		"""
+		touch {output[0]}
+		echo "test..."
+		"""

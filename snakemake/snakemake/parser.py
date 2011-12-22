@@ -50,7 +50,8 @@ class States:
 			rule = self.rule,
 			input = self.input,
 			output = self.output,
-			run = self.run)
+			run = self.run,
+			shell = self.shell)
 		self.current_rule = None
 		self.tokens = Tokens()
 	
@@ -67,6 +68,10 @@ class States:
 			self.state = self.main_states[token.string]
 		else:
 			self.tokens.add(token)
+
+	def wait_rule(self, token):
+		if token.type == NAME and token.string == 'rule':
+			self.state = self.rule
 
 	def workdir(self, token):
 		''' State that handles workdir definition. '''
@@ -134,10 +139,14 @@ class States:
 		''' State that creates a run function for the current rule. '''
 		self._check_colon('run', token)
 		self._func_def(self.current_rule, ['input', 'output', 'wildcards'])
-		#self.tokens.add(NAME, 'try') \
-		#		   .add(OP, ':') \
-		#		   .add(NEWLINE, '\n')
-		self.state = self.run_body
+		self.state = self.run_newline
+
+	def run_newline(self, token):
+		if token.type == NEWLINE:
+			self.tokens.add(token)
+			self.state = self.run_body
+		else:
+			raise self._syntax_error('Expected newline after run keyword.')
 
 	def run_body(self, token):
 		''' State that collects the body of a rule's run function. '''
@@ -146,6 +155,30 @@ class States:
 			self.state = self.rule
 		else:
 			self.tokens.add(token)
+
+	def shell(self, token):
+		''' State that creates a run function for the current rule, interpreting shell commands directly. '''
+		self._check_colon('shell', token)
+		self._func_def(self.current_rule, ['input', 'output', 'wildcards'])
+		self.state = self.shell_newline
+
+	def shell_newline(self, token):
+		if token.type == NEWLINE:
+			self.tokens.add(token)
+			self.state = self.shell_body
+		else:
+			raise self._syntax_error('Expected newline after shell keyword.', token)
+
+	def shell_body(self, token):
+		''' State that collects the body of a rule's shell function. '''
+		if token.type == STRING:
+			self._func_open('shell')
+			self.tokens.add(token)
+			self._func_close()
+		elif token.type in (NEWLINE, INDENT, DEDENT, ENDMARKER):
+			self.tokens.add(token)
+		else:
+			raise self._syntax_error('Expected shell command in a string after shell keyword.', token)
 
 	def _check_colon(self, keyword, token):
 		''' Check wether the token is a colon, else raise a syntax error 
@@ -176,8 +209,7 @@ class States:
 	def _func_open(self, name):
 		''' Generate tokens for opening a function invocation with 
 		given name. '''
-		self.tokens.add(NEWLINE, '\n') \
-				   .add(NAME, name) \
+		self.tokens.add(NAME, name) \
 				   .add(LPAR, '(')
 
 	def _func_close(self):
@@ -207,5 +239,5 @@ def compile_to_python(filepath):
 		snakemake_tokens = list(snakemake_to_python(
 			tokenize.generate_tokens(snakefile.readline), filepath))
 		compilation = tokenize.untokenize(snakemake_tokens)
-#		print(compilation)
+		#print(compilation)
 		return compilation

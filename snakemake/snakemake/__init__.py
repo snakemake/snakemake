@@ -1,6 +1,6 @@
 import os, sys, logging
 from snakemake.workflow import workflow, RuleException
-from snakemake.parser2 import compile_to_python
+from snakemake.parser import compile_to_python
 
 def snakemake(snakefile, list = False, jobs = 1, directory = None, rule = None, dryrun = False, forcethis = False, forceall = False):
 	"""
