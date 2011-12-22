@@ -11,21 +11,26 @@ from multiprocessing import Pool
 from collections import defaultdict
 
 
+
 # Global functions
+if "SHELL" in os.environ:
+	def _shell(cmd):
+		subprocess.check_call(cmd, shell=True, executable = os.environ["SHELL"])
+else:
+	def _shell(cmd):
+		subprocess.check_call(cmd, shell=True)
+
 def shell(cmd, *args, **kwargs):
 	variables = dict(globals())
+	# add local variables from calling rule/function
 	variables.update(inspect.currentframe().f_back.f_locals)
 	variables.update(kwargs)
-	cmd = cmd.format(*args, **variables)#*args, **kwargs)
-	if "SHELL" in os.environ:
-		subprocess.check_call(cmd, shell=True, executable = os.environ["SHELL"])
-	else:
-		subprocess.check_call(cmd, shell=True)
+	_shell(cmd.format(*args, **variables))
 
 class RuleException(Exception):
 	pass
 
-def run_wrapper(run, input, output, wildcards):
+def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 	"""
 	Wrapper around the run method that handles directory creation and output file deletion on error.
 	
@@ -35,6 +40,8 @@ def run_wrapper(run, input, output, wildcards):
 	output -- list of output files
 	wildcards -- so far processed wildcards
 	"""
+	print(ruledesc)
+
 	for o in output:
 		dir = os.path.dirname(o)
 		if len(dir) > 0 and not os.path.exists(dir):
@@ -46,7 +53,10 @@ def run_wrapper(run, input, output, wildcards):
 		for o in output:
 			if os.path.isdir(o): os.rmdir(o)
 			elif os.path.exists(o): os.remove(o)
-		raise RuleException(str(ex))
+		raise RuleException(": ".join(type(ex).__name__,str(ex)))
+	for o in output:
+		if not os.path.exists(o):
+			raise RuleException("Output file {} not produced by rule {}.".format(o, rulename))
 
 class Rule:
 	def __init__(self, name):
@@ -106,37 +116,124 @@ class Rule:
 					self.wildcard_names = wildcards
 				self.output.append(item)
 				self.regex_output.append(self.__to_regex(item))
+	
+	def _expand_wildcards(self, requested_output):
+		if requested_output:
+			wildcards = self.get_wildcards(requested_output[0])
+		else:
+			return tuple(self.input), tuple(self.output), dict()
+
+		try:
+			input = tuple(i.format(**wildcards) for i in self.input)
+			output = tuple(o.format(**wildcards) for o in self.output)
+			return input, output, wildcards
+		except KeyError:
+			raise RuleException("Could not resolve wildcard in rule {}: {}".format(self.name, i))
+
+	def _to_visit(self, input, forceall = False):
+		if forceall:
+			missing_input = input
+		else:
+			missing_input = tuple(i for i in input if not os.path.exists(i))
+		rules = workflow.get_rules()
+
+		producer = defaultdict(list)
+		noproducer = set(missing_input)
+		for rule in rules:
+			if rule != self:
+				for i in missing_input:
+					if rule.is_producer(i):
+						producer[rule].append(i)
+						noproducer.remove(i)
+
+		if noproducer:
+			raise RuleException("Missing input files in rule {}:\n{}.".format(self.name, ", ".join(noproducer)))
+
+		tovisit = dict()
+		for rule, files in producer.items():
+			for request_output in rule.partition_output(files):
+				tovisit[rule] = request_output
+		return tovisit
+		
+	
+	def check_dag(self, requested_output = [], forceall = False, visited = set()):
+		visited.add(self)
+		nodes = 1
+
+		input, output, _ = self._expand_wildcards(requested_output)
+
+		tovisit = self._to_visit(input, forceall = forceall)
+		
+		input_provider = dict()
+		for rule, files in tovisit.items():
+			for i in files:
+				if i in input_provider:
+					raise RuleException("Ambiguous rules: {} and {}".format(rule.name, input_provider[i]))
+				elif rule in visited:
+					raise RuleException("Circular dependency between {} and {}".format(self.name, rule.name))
+				else:
+					input_provider[i] = rule
+
+		for rule in set(input_provider.values()):
+			nodes += rule.check_dag(tovisit[rule], visited = set(visited))
+		return nodes
+
+	def run(self, requested_output = [], jobs = dict(), forcethis = False, forceall = False):
+		input, output, wildcards = self._expand_wildcards(requested_output)
+		tovisit = self._to_visit(input, forceall = forceall)
+
+		todo = []
+		for rule, files in tovisit.items():
+			todo.append(rule.run(files, jobs, forceall = forceall))
+		for job in todo:
+			job.get()
+
+		if forcethis or forceall or self._need_run(input, output, jobs):
+			job = workflow.get_pool().apply_async(
+					run_wrapper, 
+					[self._get_run(), self.name, self._get_message(input, output, wildcards), input, output, wildcards])
+			jobs[output] = job
+			return job
+
+	def dryrun(self, requested_output = [], jobs = set(), forcethis = False, forceall = False):
+		input, output, wildcards = self._expand_wildcards(requested_output)
+		tovisit = self._to_visit(input, forceall = forceall)
+
+		for rule, files in tovisit.items():
+			rule.dryrun(files, jobs, forceall = forceall)
+
+		if forcethis or forceall or self._need_run(input, output, jobs):
+			print(self._get_message(input, output, wildcards))
+			jobs.add(output)
+
+	def check(self):
+		if self.output and not self.has_run():
+			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name))
+
+	def _need_run(self, input, output, jobs):
+		if not self.has_run():
+			return False
+		if output in jobs:
+			return False
+		for o in output:
+			if not os.path.exists(o): return True
+		mintime = min(map(lambda f: os.stat(f).st_mtime, output))
+		for i in input:
+			if os.stat(i).st_mtime >= mintime: return True
+		return False
+
+	def _get_run(self):
+		return globals()[self.name]
+
+	def has_run(self):
+		return self.name in globals()
+
+	def _get_message(self, input, output, wildcards):
+		return "rule {name}:\n\tinput: {input}\n\toutput: {output}\n".format(
+			name=self.name, input=", ".join(input), output=", ".join(output))
 
 	def is_parent(self, rule):
 		return self in rule.parents.values()
-
-	def setup_parents(self, wildcards = {}, requested_output = []):
-		"""
-		Setup the DAG by finding parent rules that create files needed as input for this rule
-		"""
-		if not wildcards and requested_output:
-			wildcards = self.get_wildcards(requested_output[0])
-
-		products = defaultdict(list)
-		for i in self.input:
-			try:
-				i = i.format(**wildcards)
-			except KeyError:
-				raise RuleException("Could not resolve wildcard in rule {}: {}".format(self.name, i))
-			found = None
-			for rule in Controller.get_instance().get_rules():
-				if rule != self and rule.is_producer(i):
-					if self.is_parent(rule):
-						raise IOError("Circular dependency between rules: {} and {}".format(rule.name, self.name))
-					if found:
-						raise IOError("Ambiguous rules: {} and {}".format(rule.name, found))
-					self.parents[i] = rule
-					products[rule].append(i)
-					found = rule.name
-		
-		for rule, files in products.items():
-			for partition in rule.partition_output(files):
-				rule.setup_parents(dict(), partition)
 
 	def is_producer(self, requested_output):
 		"""
@@ -161,24 +258,6 @@ class Rule:
 		if wildcards:
 			return "Wildcards:\n" + "\n".join(": ".join(i) for i in wildcards.items())
 		return ""
-
-	def expand_input(self, input, flat = True):
-		"""
-		Expand unix wildcards in input files.
-		"""
-		expand = lambda input, expanded: input.append(expanded)
-		if flat:
-			expand = lambda input, expanded: input.extend(expanded)
-
-		input = list(input)
-		for i in input:
-			expanded = glob.glob(i)
-			if len(expanded) == 0:
-				expanded = i
-			elif len(expanded) == 1:
-				expanded = expanded[0]
-			expand(input, expanded)
-		return input
 
 	def get_wildcards(self, requested_output):
 		"""
@@ -209,81 +288,8 @@ class Rule:
 			wc = frozenset(self.get_wildcards(r).items())
 			partition[wc].append(r)
 		return partition.values()
-			
-	def apply_rule(self, wildcards = {}, requested_output = [], dryrun = False, force =False):
-		"""
-		Apply the rule
-		
-		Arguments
-		wildcards -- a dictionary of wildcards
-		requested_output -- the requested concrete output file 
-		"""
-		if not wildcards and requested_output:
-			wildcards = self.get_wildcards(requested_output[0]) # wildcards can be determined with only one output since each has to use the same		
 
-		output = [o.format(**wildcards) for o in self.output]
-		input = [i.format(**wildcards) for i in self.input]
-
-		products = defaultdict(list)
-		notproduced = []
-		for i in input:
-			if i in self.parents:
-				products[self.parents[i]].append(i)
-			else:
-				notproduced.append(i)
-
-		jobs = []
-		for rule, files in products.items():
-			for partition in rule.partition_output(files):
-				jobs.append((rule, rule.apply_rule(requested_output = partition, dryrun = dryrun, force = force)))
-		Controller.get_instance().join_pool(jobs = jobs)
-
-		# all inputs have to be present after finishing parent jobs
-		if dryrun:
-			self.check_input(notproduced, wildcards)
-		else:
-			self.check_input(input, wildcards)
-			
-		if len(output) > 0 and Controller.get_instance().is_produced(output):
-			# if output is already produced, only recalculate if input is newer.
-			time = min(map(lambda f: os.stat(f).st_mtime, output))
-			if not force and Controller.get_instance().is_produced(input) and not Controller.get_instance().is_newer(input, time):
-				return
-
-		if self.name in globals():
-			_output = tuple(output)
-			if dryrun:
-				if not _output in self.jobs:
-					# print job if not yet printed
-					self.print_job(input, output)
-					self.jobs[_output] = None
-			else:
-				if _output in self.jobs:
-					# job already started
-					return self.jobs[_output]
-					
-				self.print_job(input, output)
-				# if there is a run body, run it asyncronously
-				job = Controller.get_instance().get_pool().apply_async(run_wrapper, [globals()[self.name], input, output, wildcards])
-				self.jobs[_output] = job
-				return job
-	
-	def print_job(self, input, output):
-		 logging.info("rule {name}:\n\tinput: {input}\n\toutput: {output}\n".format(name=self.name, input=", ".join(input), output=", ".join(output)))
-
-class Controller:
-	instance = None
-	jobs = 1
-
-	@classmethod
-	def get_instance(cls):
-		"""
-		Return the singleton instance of the controller.
-		"""
-		if cls.instance:
-			return cls.instance
-		cls.instance = cls()
-		return cls.instance
+class Workflow:
 
 	def __init__(self):
 		"""
@@ -294,30 +300,14 @@ class Controller:
 		self.__first = None
 		self.__workdir_set = False
 
-	def setup_pool(self):
-		self.__pool = Pool(processes=Controller.jobs)
+	def setup_pool(self, jobs):
+		self.__pool = Pool(processes=jobs)
 	
 	def get_pool(self):
 		"""
 		Return the current thread pool.
 		"""
 		return self.__pool
-
-
-	def join_pool(self, jobs = None, rule = None, result = None):
-		"""
-		Join all threads in pool together.
-		"""
-		if jobs:
-			for rule, result in jobs:
-				if result:
-					try: result.get() # reraise eventual exceptions
-					except (Exception, BaseException) as ex:
-						raise RuleException("Error: Could not execute rule {}: {}".format(rule.name, str(ex)))
-		elif rule and result:
-			try: result.get() # reraise eventual exceptions
-			except (Exception, BaseException) as ex:
-				raise RuleException("Error: Could not execute rule {}: {}".format(rule.name, str(ex)))
 	
 	def add_rule(self, rule):
 		"""
@@ -352,25 +342,37 @@ class Controller:
 		"""
 		return self.__last
 
-	def apply_first_rule(self, dryrun = False, force = False):
+	def run_first_rule(self, dryrun = False, forcethis = False, forceall = False):
 		"""
 		Apply the rule defined first.
 		"""
-		self.__first.setup_parents()
-		self.setup_pool()
-		self.join_pool(rule = self.__first, result = self.__first.apply_rule(dryrun = dryrun, force = force))
+		self.__first.check_dag()
+		if dryrun:
+			self.__first.dryrun(forcethis = forcethis, forceall = forceall)
+		else:
+			job = self.__first.run(forcethis = forcethis, forceall = forceall)
+			if job: job.get()		
 		
-		
-	def apply_rule(self, name, dryrun = False, force = False):
+	def run_rule(self, name, dryrun = False, forcethis = False, forceall = False):
 		"""
 		Apply a rule.
 		
 		Arguments
 		name -- the name of the rule to apply
 		"""
-		self.__rules[name].setup_parents()
-		self.setup_pool()
-		self.join_pool(rule = self.__rules[name], result = self.__rules[name].apply_rule(dryrun = dryrun, force = force))
+		rule = self.__rules[name]
+		if dryrun:
+			rule.dryrun(forcethis = forcethis, forceall = forceall)
+		else:
+			job = rule.run(forcethis = forcethis, forceall = forceall)
+			if job: job.get()
+
+	def check_rules(self):
+		"""
+		Check all rules.
+		"""
+		for rule in self.get_rules():
+			rule.check()
 
 	def get_rules(self):
 		"""
@@ -414,14 +416,16 @@ class Controller:
 			os.chdir(workdir)
 			self.__workdir_set = True
 
+workflow = Workflow()
+
 def _set_workdir(path):
-	Controller.get_instance().set_workdir(path)
+	workflow.set_workdir(path)
 
 def _add_rule(name):
-	Controller.get_instance().add_rule(Rule(name))
+	workflow.add_rule(Rule(name))
 
 def _set_input(paths):
-	Controller.get_instance().last_rule().add_input(paths)
+	workflow.last_rule().add_input(paths)
 
 def _set_output(paths):
-	Controller.get_instance().last_rule().add_output(paths)
+	workflow.last_rule().add_output(paths)
