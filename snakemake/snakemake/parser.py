@@ -50,6 +50,7 @@ class States:
 			rule = self.rule,
 			input = self.input,
 			output = self.output,
+			message = self.message,
 			run = self.run,
 			shell = self.shell)
 		self.current_rule = None
@@ -131,6 +132,23 @@ class States:
 			self._func_close()
 		else:
 			self.tokens.add(token)
+
+	def message(self, token):
+		''' State that handles message definition. '''
+		self._check_colon('message', token)
+		self._func_open('_set_message')
+		self.state = self.message_text
+
+	def message_text(self, token):
+		if token.type == STRING:
+			self.tokens.add(token)
+		elif token.type == NAME and token.string in self.main_states:
+			self.state = self.main_states[token.string]
+			self._func_close()
+		elif token.type == ENDMARKER:
+			self._func_close()
+		elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
+			raise self._syntax_error('Expected only string after message keyword.', token)
 			
 	def run(self, token):
 		''' State that creates a run function for the current rule. '''
@@ -143,7 +161,7 @@ class States:
 			self.tokens.add(token)
 			self.state = self.python
 		else:
-			raise self._syntax_error('Expected newline after run keyword.')
+			raise self._syntax_error('Expected newline after run keyword.', token)
 
 	def run_body(self, token):
 		''' State that collects the body of a rule's run function. '''

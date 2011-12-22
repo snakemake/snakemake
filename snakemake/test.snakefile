@@ -11,6 +11,7 @@ rule mapreads:
 		"hg19.fasta",
 		"5100.fasta"
 	output: "mappped.bam"
+	message: "mapping reads to {input[0]}"
 	run:
 		open(output[0], "w").write("test")
 		shell("echo {input[0]}")

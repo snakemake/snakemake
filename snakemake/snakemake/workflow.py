@@ -67,6 +67,7 @@ class Rule:
 		name -- the name of the rule
 		"""
 		self.name = name
+		self.message = None
 		self.input = []
 		self.output = []
 		self.regex_output = []
@@ -116,6 +117,12 @@ class Rule:
 					self.wildcard_names = wildcards
 				self.output.append(item)
 				self.regex_output.append(self.__to_regex(item))
+
+	def set_message(self, message):
+		"""
+		Set the message that is displayed when rule is executed.
+		"""
+		self.message = message
 	
 	def _expand_wildcards(self, requested_output):
 		if requested_output:
@@ -191,7 +198,7 @@ class Rule:
 		if forcethis or forceall or self._need_run(input, output, jobs):
 			job = workflow.get_pool().apply_async(
 					run_wrapper, 
-					[self._get_run(), self.name, self._get_message(input, output, wildcards), input, output, wildcards])
+					[self._get_run(), self.name, self.get_message(input, output, wildcards), input, output, wildcards])
 			jobs[output] = job
 			return job
 
@@ -203,7 +210,7 @@ class Rule:
 			rule.dryrun(files, jobs, forceall = forceall)
 
 		if forcethis or forceall or self._need_run(input, output, jobs):
-			print(self._get_message(input, output, wildcards))
+			print(self.get_message(input, output, wildcards))
 			jobs.add(output)
 
 	def check(self):
@@ -228,9 +235,13 @@ class Rule:
 	def has_run(self):
 		return self.name in globals()
 
-	def _get_message(self, input, output, wildcards):
-		return "rule {name}:\n\tinput: {input}\n\toutput: {output}\n".format(
-			name=self.name, input=", ".join(input), output=", ".join(output))
+	def get_message(self, input, output, wildcards, showmessage = True):
+		if self.message and showmessage:
+			variables = dict(globals())
+			variables.update(locals())
+			return self.message.format(**variables)
+		return "rule {}:\n\tinput: {}\n\toutput: {}\n".format(
+			self.name, ", ".join(input), ", ".join(output))
 
 	def is_parent(self, rule):
 		return self in rule.parents.values()
@@ -420,3 +431,6 @@ def _set_input(paths):
 
 def _set_output(paths):
 	workflow.last_rule().add_output(paths)
+
+def _set_message(message):
+	workflow.last_rule().set_message(message)
