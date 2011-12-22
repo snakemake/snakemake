@@ -244,15 +244,6 @@ class Rule:
 			if match and len(match.group()) == len(requested_output):
 				return True
 		return False
-
-	def check_input(self, files, wildcards):
-		"""
-		Check if all input files present.
-		"""
-		notpresent = [f for f in files if not os.path.exists(f)]
-		if notpresent:
-			raise RuleException("Missing input files for rule {}: {}\n{}".format(
-				self.name, ", ".join(notpresent), self._wildcards_to_str(wildcards)))
 			
 	def _wildcards_to_str(self, wildcards):
 		if wildcards:
