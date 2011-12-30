@@ -220,13 +220,14 @@ class Rule:
 	def _need_run(self, input, output, jobs):
 		if not self.has_run():
 			return False
-		if output in jobs:
-			return False
-		for o in output:
-			if not os.path.exists(o): return True
-		mintime = min(map(lambda f: os.stat(f).st_mtime, output))
-		for i in input:
-			if os.stat(i).st_mtime >= mintime: return True
+		if output:
+			if output in jobs:
+				return False
+			for o in output:
+				if not os.path.exists(o): return True
+			mintime = min(map(lambda f: os.stat(f).st_mtime, output))
+			for i in input:
+				if os.stat(i).st_mtime >= mintime: return True
 		return False
 
 	def _get_run(self):

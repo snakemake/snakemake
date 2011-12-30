@@ -8,7 +8,7 @@ class Tokens:
 		self._tokens = []
 		
 	def add(self, token, string = None):
-		''' Add a new token. Maybe a full TokenInfor object (first arg)
+		''' Add a new token. Maybe a full TokenInfo object (first arg)
 		or a pair of token type (e.g. NEWLINE) and string. '''
 		if string:
 			type = token
@@ -20,7 +20,7 @@ class Tokens:
 				line = '')
 		else:
 			# token is an original token that may have a wrong row
-			if token.start[0] < self._row:
+			if token.start[0] != self._row:
 				token = Tokens._setrow(token, self._row)
 		self._tokens.append(token)
 		if token.type in (NEWLINE, NL):
