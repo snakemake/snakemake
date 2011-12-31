@@ -193,7 +193,7 @@ class Rule:
 		for rule, files in tovisit.items():
 			todo.append(rule.run(files, jobs, forceall = forceall))
 		for job in todo:
-			job.get()
+			if job: job.get()
 
 		if forcethis or forceall or self._need_run(input, output, jobs):
 			job = workflow.get_pool().apply_async(
