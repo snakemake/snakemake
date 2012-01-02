@@ -160,10 +160,10 @@ class Rule:
 		if noproducer:
 			raise RuleException("Missing input files in rule {}:\n{}".format(self.name, ", ".join(noproducer)))
 
-		tovisit = dict()
+		tovisit = []
 		for rule, files in producer.items():
 			for request_output in rule.partition_output(files):
-				tovisit[rule] = request_output
+				tovisit.append((rule, request_output))
 		return tovisit
 		
 	
@@ -176,7 +176,7 @@ class Rule:
 		tovisit = self._to_visit(input, forceall = forceall)
 		
 		input_provider = dict()
-		for rule, files in tovisit.items():
+		for rule, files in tovisit:
 			for i in files:
 				if i in input_provider:
 					raise RuleException("Ambiguous rules: {} and {}".format(rule.name, input_provider[i]))
@@ -185,8 +185,8 @@ class Rule:
 				else:
 					input_provider[i] = rule
 
-		for rule in set(input_provider.values()):
-			nodes += rule.check_dag(tovisit[rule], visited = set(visited))
+		for rule, files in tovisit:
+			nodes += rule.check_dag(files, visited = set(visited))
 		return nodes
 
 	def run(self, requested_output = [], jobs = dict(), forcethis = False, forceall = False):
@@ -194,7 +194,7 @@ class Rule:
 		tovisit = self._to_visit(input, forceall = forceall)
 
 		todo = []
-		for rule, files in tovisit.items():
+		for rule, files in tovisit:
 			todo.append(rule.run(files, jobs, forceall = forceall))
 		for job in todo:
 			if job:	job.get()
@@ -210,7 +210,7 @@ class Rule:
 		input, output, wildcards = self._expand_wildcards(requested_output)
 		tovisit = self._to_visit(input, forceall = forceall)
 
-		for rule, files in tovisit.items():
+		for rule, files in tovisit:
 			rule.dryrun(files, jobs, forceall = forceall)
 
 		if self.has_run() and (forcethis or forceall or self._need_run(input, output, jobs)):
