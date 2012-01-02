@@ -53,7 +53,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 		for o in output:
 			if os.path.isdir(o): os.rmdir(o)
 			elif os.path.exists(o): os.remove(o)
-		raise RuleException(": ".join(type(ex).__name__,str(ex)))
+		raise RuleException(": ".join((type(ex).__name__,str(ex))))
 	for o in output:
 		if not os.path.exists(o):
 			raise RuleException("Output file {} not produced by rule {}.".format(o, rulename))
@@ -137,11 +137,14 @@ class Rule:
 		except KeyError:
 			raise RuleException("Could not resolve wildcard in rule {}: {}".format(self.name, i))
 
+	def _get_missing_input(self, input):
+		return tuple(i for i in input if not os.path.exists(i))
+
 	def _to_visit(self, input, forceall = False):
 		if forceall:
 			missing_input = input
 		else:
-			missing_input = tuple(i for i in input if not os.path.exists(i))
+			missing_input = self._get_missing_input(input)
 		rules = workflow.get_rules()
 
 		producer = defaultdict(list)
@@ -153,8 +156,9 @@ class Rule:
 						producer[rule].append(i)
 						noproducer.remove(i)
 
+		noproducer = self._get_missing_input(noproducer)
 		if noproducer:
-			raise RuleException("Missing input files in rule {}:\n{}.".format(self.name, ", ".join(noproducer)))
+			raise RuleException("Missing input files in rule {}:\n{}".format(self.name, ", ".join(noproducer)))
 
 		tovisit = dict()
 		for rule, files in producer.items():
@@ -193,9 +197,9 @@ class Rule:
 		for rule, files in tovisit.items():
 			todo.append(rule.run(files, jobs, forceall = forceall))
 		for job in todo:
-			if job: job.get()
+			if job:	job.get()
 
-		if forcethis or forceall or self._need_run(input, output, jobs):
+		if self.has_run() and (forcethis or forceall or self._need_run(input, output, jobs)):
 			job = workflow.get_pool().apply_async(
 					run_wrapper, 
 					[self._get_run(), self.name, self.get_message(input, output, wildcards), input, output, wildcards])
@@ -209,7 +213,7 @@ class Rule:
 		for rule, files in tovisit.items():
 			rule.dryrun(files, jobs, forceall = forceall)
 
-		if forcethis or forceall or self._need_run(input, output, jobs):
+		if self.has_run() and (forcethis or forceall or self._need_run(input, output, jobs)):
 			print(self.get_message(input, output, wildcards))
 			jobs.add(output)
 
@@ -218,8 +222,6 @@ class Rule:
 			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name))
 
 	def _need_run(self, input, output, jobs):
-		if not self.has_run():
-			return False
 		if output:
 			if output in jobs:
 				return False
