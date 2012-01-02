@@ -25,7 +25,10 @@ def shell(cmd, *args, **kwargs):
 	# add local variables from calling rule/function
 	variables.update(inspect.currentframe().f_back.f_locals)
 	variables.update(kwargs)
-	_shell(cmd.format(*args, **variables))
+	try:
+		_shell(cmd.format(*args, **variables))
+	except KeyError as ex:
+		raise RuleException("The variable {} is unknown in this context.".format(str(ex)))
 
 class RuleException(Exception):
 	pass
@@ -53,7 +56,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 		for o in output:
 			if os.path.isdir(o): os.rmdir(o)
 			elif os.path.exists(o): os.remove(o)
-		raise RuleException(": ".join((type(ex).__name__,str(ex))))
+		raise Exception(": ".join((type(ex).__name__,str(ex))))
 	for o in output:
 		if not os.path.exists(o):
 			raise RuleException("Output file {} not produced by rule {}.".format(o, rulename))
@@ -158,7 +161,7 @@ class Rule:
 
 		noproducer = self._get_missing_input(noproducer)
 		if noproducer:
-			raise RuleException("Missing input files in rule {}:\n{}".format(self.name, ", ".join(noproducer)))
+			raise RuleException("Missing input files in rule {}:\n{}".format(self.name, "\n".join(noproducer)))
 
 		tovisit = []
 		for rule, files in producer.items():
@@ -233,10 +236,10 @@ class Rule:
 		return False
 
 	def _get_run(self):
-		return globals()[self.name]
+		return globals()["__" + self.name]
 
 	def has_run(self):
-		return self.name in globals()
+		return "__" + self.name in globals()
 
 	def get_message(self, input, output, wildcards, showmessage = True):
 		if self.message and showmessage:
@@ -427,6 +430,8 @@ def _set_workdir(path):
 	workflow.set_workdir(path)
 
 def _add_rule(name):
+	if "__" + name in globals():
+		raise SyntaxError("The name __{} is already used by a variable or another rule.".format(name))
 	workflow.add_rule(Rule(name))
 
 def _set_input(paths):

@@ -153,7 +153,7 @@ class States:
 	def run(self, token):
 		''' State that creates a run function for the current rule. '''
 		self._check_colon('run', token)
-		self._func_def(self.current_rule, ['input', 'output', 'wildcards'])
+		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards'])
 		self.state = self.run_newline
 
 	def run_newline(self, token):
@@ -174,7 +174,7 @@ class States:
 	def shell(self, token):
 		''' State that creates a run function for the current rule, interpreting shell commands directly. '''
 		self._check_colon('shell', token)
-		self._func_def(self.current_rule, ['input', 'output', 'wildcards'])
+		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards'])
 		self.state = self.shell_newline
 
 	def shell_newline(self, token):
