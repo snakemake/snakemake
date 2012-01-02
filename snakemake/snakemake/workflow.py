@@ -430,8 +430,10 @@ def _set_workdir(path):
 	workflow.set_workdir(path)
 
 def _add_rule(name):
+	if workflow.is_rule(name):
+		raise SyntaxError("The name {} is already used by another rule".format(name))
 	if "__" + name in globals():
-		raise SyntaxError("The name __{} is already used by a variable or another rule.".format(name))
+		raise SyntaxError("The name __{} is already used by a variable.".format(name))
 	workflow.add_rule(Rule(name))
 
 def _set_input(paths):
