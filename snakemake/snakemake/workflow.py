@@ -91,6 +91,9 @@ class Rule:
 	def _get_wildcard_names(self, output):
 		return set(match.group('name') for match in re.finditer("\{(?P<name>\w+?)\}", output))
 
+	def has_wildcards(self):
+		return bool(self.wildcard_names)
+
 	def add_input(self, input):
 		"""
 		Add a list of input files. Recursive lists are flattened.
@@ -143,40 +146,40 @@ class Rule:
 	def _get_missing_input(self, input):
 		return tuple(i for i in input if not os.path.exists(i))
 
-	def _to_visit(self, input, forceall = False):
-		if forceall:
-			missing_input = input
-		else:
-			missing_input = self._get_missing_input(input)
+	def _to_visit(self, input):
+		""" Calculate a matching between rules and input files. """
 		rules = workflow.get_rules()
 
+		produces = defaultdict(list)
 		producer = defaultdict(list)
-		noproducer = set(missing_input)
+		noproducer = set(input)
 		for rule in rules:
 			if rule != self:
-				for i in missing_input:
+				for i in input:
 					if rule.is_producer(i):
-						producer[rule].append(i)
-						noproducer.remove(i)
+						produces[rule].append(i)
+						producer[i].append(rule)
+						if i in noproducer: noproducer.remove(i)
 
 		noproducer = self._get_missing_input(noproducer)
 		if noproducer:
 			raise RuleException("Missing input files in rule {}:\n{}".format(self.name, "\n".join(noproducer)))
 
 		tovisit = []
-		for rule, files in producer.items():
+		for rule, files in produces.items():
 			for request_output in rule.partition_output(files):
 				tovisit.append((rule, request_output))
 		return tovisit
 		
 	
 	def check_dag(self, requested_output = [], forceall = False, visited = set()):
+		""" Check the DAG for consistency. """
 		visited.add(self)
 		nodes = 1
 
 		input, output, _ = self._expand_wildcards(requested_output)
 
-		tovisit = self._to_visit(input, forceall = forceall)
+		tovisit = self._to_visit(input)
 		
 		input_provider = dict()
 		for rule, files in tovisit:
@@ -193,8 +196,9 @@ class Rule:
 		return nodes
 
 	def run(self, requested_output = [], jobs = dict(), forcethis = False, forceall = False):
+		""" Execute this rule and all necessary upstream rules. """
 		input, output, wildcards = self._expand_wildcards(requested_output)
-		tovisit = self._to_visit(input, forceall = forceall)
+		tovisit = self._to_visit(input)
 
 		todo = []
 		for rule, files in tovisit:
@@ -202,32 +206,39 @@ class Rule:
 		for job in todo:
 			if job:	job.get()
 
-		if self.has_run() and (forcethis or forceall or self._need_run(input, output, jobs)):
-			job = workflow.get_pool().apply_async(
+		if self.has_run() and (forcethis or forceall or self._need_run(input, output)):
+			if not self._is_queued(output, jobs):
+				job = workflow.get_pool().apply_async(
 					run_wrapper, 
 					[self._get_run(), self.name, self.get_message(input, output, wildcards), input, output, wildcards])
-			jobs[output] = job
-			return job
+				jobs[output] = job
+			return jobs[output]
 
 	def dryrun(self, requested_output = [], jobs = set(), forcethis = False, forceall = False):
+		""" Take a dry run through the DAG to display what rules need to be executed. """
 		input, output, wildcards = self._expand_wildcards(requested_output)
-		tovisit = self._to_visit(input, forceall = forceall)
+		tovisit = self._to_visit(input)
 
+		any_run = False
 		for rule, files in tovisit:
-			rule.dryrun(files, jobs, forceall = forceall)
+			any_run |= rule.dryrun(files, jobs, forceall = forceall)
 
-		if self.has_run() and (forcethis or forceall or self._need_run(input, output, jobs)):
-			print(self.get_message(input, output, wildcards))
-			jobs.add(output)
+		if self.has_run() and (forcethis or forceall or any_run or self._need_run(input, output)):
+			if not self._is_queued(output, jobs):
+				print(self.get_message(input, output, wildcards))
+				jobs.add(output)
+			return True
+		return False
 
 	def check(self):
 		if self.output and not self.has_run():
 			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name))
 
-	def _need_run(self, input, output, jobs):
+	def _is_queued(self, output, jobs):
+		return output in jobs
+
+	def _need_run(self, input, output):
 		if output:
-			if output in jobs:
-				return False
 			for o in output:
 				if not os.path.exists(o): return True
 			mintime = min(map(lambda f: os.stat(f).st_mtime, output))
@@ -297,6 +308,9 @@ class Rule:
 			partition[wc].append(r)
 		return partition.values()
 
+	def __repr__(self):
+		return "<Rule {}>".format(self.name)
+
 class Workflow:
 
 	def __init__(self):
@@ -354,6 +368,9 @@ class Workflow:
 		"""
 		Apply the rule defined first.
 		"""
+		if self.__first.has_wildcards():
+			raise RuleException("First rule must not contain any wildcard")
+
 		self.__first.check_dag()
 		if dryrun:
 			self.__first.dryrun(forcethis = forcethis, forceall = forceall)
@@ -369,6 +386,8 @@ class Workflow:
 		name -- the name of the rule to apply
 		"""
 		rule = self.__rules[name]
+		if rule.has_wildcards():
+			raise RuleException("Only rules without wildcards may be run directly from command line")
 		if dryrun:
 			rule.dryrun(forcethis = forcethis, forceall = forceall)
 		else:

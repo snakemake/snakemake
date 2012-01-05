@@ -16,7 +16,7 @@ from snakemake.workflow import RuleException
 
 def main():
 	parser = argparse.ArgumentParser(description="Execute workflow defined in the given snakefile.")
-	parser.add_argument("snakefile", metavar="SNAKEFILE", help="The workflow definition in a pythonic DSL.")
+	parser.add_argument("snakefile", metavar="SNAKEFILE", nargs="?", default="Snakefile", help="The workflow definition in a pythonic DSL.")
 	parser.add_argument("rule", nargs="?", metavar="RULE", default=None, help="The rule to be executed. If omitted, first rule in snakefile is used.")
 	parser.add_argument("-v", "--version", action="version", version='0.1')
 	parser.add_argument("-j", "--jobs", action="store", default=1, metavar="N", dest="jobs", type=int, help="Execute at most N jobs in parallel (default: 1).")
@@ -30,6 +30,10 @@ def main():
     
 	# log info level and remove prefixes from output
 	logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+	if not os.path.exists(args.snakefile):
+		print("Error: Snakefile \"{}\" not present.".format(args.snakefile), file=sys.stderr)
+		exit(1)
     
 	exit(
 		snakemake.snakemake(
