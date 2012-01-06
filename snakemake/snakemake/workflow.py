@@ -131,6 +131,7 @@ class Rule:
 		self.message = message
 	
 	def _expand_wildcards(self, requested_output):
+		""" Expand wildcards depending on the requested output. """
 		if requested_output:
 			wildcards = self.get_wildcards(requested_output[0])
 		else:
@@ -143,10 +144,18 @@ class Rule:
 		except KeyError:
 			raise RuleException("Could not resolve wildcard in rule {}: {}".format(self.name, i))
 
-	def _get_missing_input(self, input):
-		return tuple(i for i in input if not os.path.exists(i))
+	def _get_missing_files(self, files):
+		""" Return the tuple of files that are missing form the given ones. """
+		return tuple(f for f in files if not os.path.exists(f))
+	
+	def _has_missing_files(self, files):
+		""" Return True if any of the given files does not exist. """
+		for f in files:
+			if not os.path.exists(f):
+				return True
+		return False
 
-	def _to_visit(self, input):
+	def _to_visit(self, input, missing_output = False):
 		""" Calculate a matching between rules and input files. """
 		rules = workflow.get_rules()
 
@@ -161,8 +170,7 @@ class Rule:
 						producer[i].append(rule)
 						if i in noproducer: noproducer.remove(i)
 
-		noproducer = self._get_missing_input(noproducer)
-		if noproducer:
+		if missing_output and self._get_missing_files(noproducer):
 			raise RuleException("Missing input files in rule {}:\n{}".format(self.name, "\n".join(noproducer)))
 
 		tovisit = []
@@ -179,7 +187,7 @@ class Rule:
 
 		input, output, _ = self._expand_wildcards(requested_output)
 
-		tovisit = self._to_visit(input)
+		tovisit = self._to_visit(input, self._has_missing_files(output))
 		
 		input_provider = dict()
 		for rule, files in tovisit:
@@ -198,7 +206,8 @@ class Rule:
 	def run(self, requested_output = [], jobs = dict(), forcethis = False, forceall = False):
 		""" Execute this rule and all necessary upstream rules. """
 		input, output, wildcards = self._expand_wildcards(requested_output)
-		tovisit = self._to_visit(input)
+		
+		tovisit = self._to_visit(input, self._has_missing_files(output))
 
 		todo = []
 		for rule, files in tovisit:
@@ -217,7 +226,7 @@ class Rule:
 	def dryrun(self, requested_output = [], jobs = set(), forcethis = False, forceall = False):
 		""" Take a dry run through the DAG to display what rules need to be executed. """
 		input, output, wildcards = self._expand_wildcards(requested_output)
-		tovisit = self._to_visit(input)
+		tovisit = self._to_visit(input, self._has_missing_files(output))
 
 		any_run = False
 		for rule, files in tovisit:
@@ -235,15 +244,18 @@ class Rule:
 			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name))
 
 	def _is_queued(self, output, jobs):
+		""" Return True if a job for the requested output is already queued. """
 		return output in jobs
 
 	def _need_run(self, input, output):
+		""" Return True if rule needs to be run. """
 		if output:
-			for o in output:
-				if not os.path.exists(o): return True
+			if self._has_missing_files(output):
+				return True
 			mintime = min(map(lambda f: os.stat(f).st_mtime, output))
 			for i in input:
-				if os.stat(i).st_mtime >= mintime: return True
+				if os.path.exists(i) and os.stat(i).st_mtime >= mintime: 
+					return True
 		return False
 
 	def _get_run(self):
