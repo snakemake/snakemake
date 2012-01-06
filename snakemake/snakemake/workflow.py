@@ -166,6 +166,8 @@ class Rule:
 			if rule != self:
 				for i in input:
 					if rule.is_producer(i):
+						if i in producer:
+							raise RuleException("Ambiguous rules: {} and {}".format(rule.name, producer[i]))
 						produces[rule].append(i)
 						producer[i].append(rule)
 						if i in noproducer: noproducer.remove(i)
@@ -192,9 +194,7 @@ class Rule:
 		input_provider = dict()
 		for rule, files in tovisit:
 			for i in files:
-				if i in input_provider:
-					raise RuleException("Ambiguous rules: {} and {}".format(rule.name, input_provider[i]))
-				elif rule in visited:
+				if rule in visited:
 					raise RuleException("Circular dependency between {} and {}".format(self.name, rule.name))
 				else:
 					input_provider[i] = rule
