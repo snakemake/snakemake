@@ -167,7 +167,7 @@ class Rule:
 				for i in input:
 					if rule.is_producer(i):
 						if i in producer:
-							raise RuleException("Ambiguous rules: {} and {}".format(rule.name, producer[i]))
+							raise RuleException("Ambiguous rules: {} and {}".format(rule, producer[i][0]))
 						produces[rule].append(i)
 						producer[i].append(rule)
 						if i in noproducer: noproducer.remove(i)
@@ -195,7 +195,7 @@ class Rule:
 		for rule, files in tovisit:
 			for i in files:
 				if rule in visited:
-					raise RuleException("Circular dependency between {} and {}".format(self.name, rule.name))
+					raise RuleException("Circular dependency between {} and {}".format(self, rule))
 				else:
 					input_provider[i] = rule
 
@@ -321,7 +321,7 @@ class Rule:
 		return partition.values()
 
 	def __repr__(self):
-		return "<Rule {}>".format(self.name)
+		return self.name
 
 class Workflow:
 
