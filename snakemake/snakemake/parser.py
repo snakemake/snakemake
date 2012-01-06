@@ -159,9 +159,11 @@ class States:
 	def run_newline(self, token):
 		if token.type == NEWLINE:
 			self.tokens.add(token)
-			self.state = self.python
 		else:
-			raise self._syntax_error('Expected newline after run keyword.', token)
+			self.tokens.add(NEWLINE, '\n')
+			self.tokens.add(INDENT, '\t')
+			self.tokens.add(token)
+		self.state = self.python
 
 	def run_body(self, token):
 		''' State that collects the body of a rule's run function. '''
@@ -175,23 +177,18 @@ class States:
 		''' State that creates a run function for the current rule, interpreting shell commands directly. '''
 		self._check_colon('shell', token)
 		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards'])
-		self.state = self.shell_newline
-
-	def shell_newline(self, token):
-		if token.type == NEWLINE:
-			self.tokens.add(token)
-			self.state = self.shell_body
-		else:
-			raise self._syntax_error('Expected newline after shell keyword.', token)
+		self.tokens.add(NEWLINE, '\n')
+		self.tokens.add(INDENT, '\t')
+		self._func_open('shell')
+		self.state = self.shell_body
 
 	def shell_body(self, token):
 		''' State that collects the body of a rule's shell function. '''
 		if token.type == STRING:
-			self._func_open('shell')
 			self.tokens.add(token)
 			self._func_close()
 			self.state = self.python
-		elif token.type in (COMMENT, NEWLINE, NL, INDENT, DEDENT, ENDMARKER):
+		elif token.type in (COMMENT, NEWLINE, NL, INDENT, DEDENT):
 			self.tokens.add(token)
 		else:
 			raise self._syntax_error('Expected shell command in a string after shell keyword.', token)
