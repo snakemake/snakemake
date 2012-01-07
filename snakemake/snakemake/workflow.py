@@ -33,6 +33,31 @@ def shell(cmd, *args, **kwargs):
 class RuleException(Exception):
 	pass
 
+class MissingInputException(RuleException):
+	def __init__(self):
+		self.missing = defaultdict(set)
+	
+	def add(self, rule, file):
+		self.missing[rule].add(file)
+		
+	def add_all(self, missing):
+		for rule, files in missing.items():
+			self.missing[rule].update(files)
+			
+	def __str__(self):
+		s = ""
+		for rule, files in self.missing.items():
+			s += "Missing input files for rule {}:\n{}\n".format(rule, ", ".join(files))
+		return s
+
+class AmbiguousRuleException(RuleException):
+	def __init__(self, rule1, rule2):
+		super(AmbiguousRuleException, self).__init__("Ambiguous rules: {} and {}.".format(rule1, rule2))
+
+class CyclicGraphException(RuleException):
+	def __init__(self, rule1, rule2):
+		super(AmbiguousRuleException, self).__init__("Cyclic dependency between {} and {}.".format(rule1, rule2))
+
 def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 	"""
 	Wrapper around the run method that handles directory creation and output file deletion on error.
@@ -133,7 +158,7 @@ class Rule:
 	def _expand_wildcards(self, requested_output):
 		""" Expand wildcards depending on the requested output. """
 		if requested_output:
-			wildcards = self.get_wildcards(requested_output[0])
+			wildcards = self.get_wildcards(requested_output)
 		else:
 			return tuple(self.input), tuple(self.output), dict()
 
@@ -155,89 +180,102 @@ class Rule:
 				return True
 		return False
 
-	def _to_visit(self, input, missing_output = False):
-		""" Calculate a matching between rules and input files. """
-		rules = workflow.get_rules()
-
-		produces = defaultdict(list)
-		producer = defaultdict(list)
-		noproducer = set(input)
-		for rule in rules:
+	def _check_missing_input(self, input):
+		missing_input = self._get_missing_files(input)
+		if missing_input: 
+			raise MissingInputException()
+	
+	def _to_visit(self, input):
+		for rule in workflow.get_rules():
 			if rule != self:
 				for i in input:
 					if rule.is_producer(i):
-						if i in producer:
-							raise RuleException("Ambiguous rules: {} and {}".format(rule, producer[i][0]))
-						produces[rule].append(i)
-						producer[i].append(rule)
-						if i in noproducer: noproducer.remove(i)
-
-		if missing_output and self._get_missing_files(noproducer):
-			raise RuleException("Missing input files in rule {}:\n{}".format(self.name, "\n".join(noproducer)))
-
-		tovisit = []
-		for rule, files in produces.items():
-			for request_output in rule.partition_output(files):
-				tovisit.append((rule, request_output))
-		return tovisit
-		
-	
-	def check_dag(self, requested_output = [], forceall = False, visited = set()):
-		""" Check the DAG for consistency. """
-		visited.add(self)
-		nodes = 1
-
+						yield rule, i
+					
+	def check_dag(self, requested_output = None, forceall = False, visited = set(), jobs = set()):
+		if (self, requested_output) in visited:
+			raise CyclicGraphException(self)
+		visited.add((self, requested_output))
 		input, output, _ = self._expand_wildcards(requested_output)
-
-		tovisit = self._to_visit(input, self._has_missing_files(output))
 		
-		input_provider = dict()
-		for rule, files in tovisit:
-			for i in files:
-				if rule in visited:
-					raise RuleException("Circular dependency between {} and {}".format(self, rule))
+		if output and output in jobs:
+			return
+		
+		missing_input = defaultdict(list)
+		producer = dict()
+		for rule, file in self._to_visit(input):
+			try:
+				rule.check_dag(file, forceall = forceall, visited = set(visited))
+				if file in producer:
+					raise AmbiguousRuleException(producer[file], rule)
+				producer[file] = rule
+			except MissingInputException as ex:
+				missing_input[file].append(ex.missing)
+		
+		missing_input_ex = None
+		for i in self._get_missing_files(input):
+			if i not in producer:
+				if not missing_input_ex:
+					missing_input_ex = MissingInputException()
+				if i in missing_input:
+					for m in missing_input[i]:
+						missing_input_ex.add_all(m)
 				else:
-					input_provider[i] = rule
+					missing_input_ex.add(self, i)
+		if missing_input_ex:
+			raise missing_input_ex
+		
+		jobs.add(output)
 
-		for rule, files in tovisit:
-			nodes += rule.check_dag(files, visited = set(visited))
-		return nodes
-
-	def run(self, requested_output = [], jobs = dict(), forcethis = False, forceall = False):
-		""" Execute this rule and all necessary upstream rules. """
+	def dryrun(self, requested_output = None, forceall = False, forcethis = False, jobs = set()):		
 		input, output, wildcards = self._expand_wildcards(requested_output)
 		
-		tovisit = self._to_visit(input, self._has_missing_files(output))
-
-		todo = []
-		for rule, files in tovisit:
-			todo.append(rule.run(files, jobs, forceall = forceall))
-		for job in todo:
-			if job:	job.get()
-
-		if self.has_run() and (forcethis or forceall or self._need_run(input, output)):
-			if not self._is_queued(output, jobs):
-				job = workflow.get_pool().apply_async(
-					run_wrapper, 
-					[self._get_run(), self.name, self.get_message(input, output, wildcards), input, output, wildcards])
-				jobs[output] = job
-			return jobs[output]
-
-	def dryrun(self, requested_output = [], jobs = set(), forcethis = False, forceall = False):
-		""" Take a dry run through the DAG to display what rules need to be executed. """
-		input, output, wildcards = self._expand_wildcards(requested_output)
-		tovisit = self._to_visit(input, self._has_missing_files(output))
-
+		if output and output in jobs:
+			return False
+		
 		any_run = False
-		for rule, files in tovisit:
-			any_run |= rule.dryrun(files, jobs, forceall = forceall)
-
-		if self.has_run() and (forcethis or forceall or any_run or self._need_run(input, output)):
-			if not self._is_queued(output, jobs):
-				print(self.get_message(input, output, wildcards))
-				jobs.add(output)
+		produced = set()
+		for rule, file in self._to_visit(input):
+			try:
+				any_run |= rule.dryrun(file, forceall = forceall, jobs = jobs)
+				produced.add(file)
+			except MissingInputException:
+				continue
+		
+		self._check_missing_input(set(input) - produced)
+		
+		if self._need_run(forcethis or forceall or any_run, input, output):
+			print(self.get_message(input, output, wildcards))
+			jobs.add(output)
 			return True
 		return False
+	
+	def run(self, requested_output = None, forceall = False, forcethis = False, jobs = dict()):
+		input, output, wildcards = self._expand_wildcards(requested_output)
+		
+		if output and output in jobs:
+			return jobs[output]
+		
+		todo = []
+		for rule, file in self._to_visit(input):
+			try:
+				todo.append(rule.run(file, forceall = forceall, jobs = jobs))
+			except MissingInputException:
+				continue
+		
+		for job in todo:
+			if job:	job.get()
+		
+		self._check_missing_input(input)
+		
+		if self._need_run(forcethis or forceall, input, output):
+			job = workflow.get_pool().apply_async(
+					run_wrapper, 
+					[self._get_run(), self.name, 
+					self.get_message(input, output, wildcards), input, output, wildcards]
+					)
+			jobs[output] = job
+			return job
 
 	def check(self):
 		if self.output and not self.has_run():
@@ -247,9 +285,11 @@ class Rule:
 		""" Return True if a job for the requested output is already queued. """
 		return output in jobs
 
-	def _need_run(self, input, output):
+	def _need_run(self, force, input, output):
 		""" Return True if rule needs to be run. """
-		if output:
+		if self.has_run():
+			if force:
+				return True
 			if self._has_missing_files(output):
 				return True
 			mintime = min(map(lambda f: os.stat(f).st_mtime, output))
