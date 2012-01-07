@@ -199,16 +199,16 @@ class Rule:
 		input, output, _ = self._expand_wildcards(requested_output)
 		
 		if output and output in jobs:
-			return
+			return False
 		
 		missing_input = defaultdict(list)
 		producer = dict()
 		for rule, file in self._to_visit(input):
 			try:
-				rule.check_dag(file, forceall = forceall, visited = set(visited))
-				if file in producer:
-					raise AmbiguousRuleException(producer[file], rule)
-				producer[file] = rule
+				if rule.check_dag(file, forceall = forceall, visited = set(visited)):
+					if file in producer:
+						raise AmbiguousRuleException(producer[file], rule)
+					producer[file] = rule
 			except MissingInputException as ex:
 				missing_input[file].append(ex.missing)
 		
@@ -226,6 +226,7 @@ class Rule:
 			raise missing_input_ex
 		
 		jobs.add(output)
+		return True
 
 	def dryrun(self, requested_output = None, forceall = False, forcethis = False, jobs = set()):		
 		input, output, wildcards = self._expand_wildcards(requested_output)
