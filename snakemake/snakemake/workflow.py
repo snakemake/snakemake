@@ -57,6 +57,10 @@ class AmbiguousRuleException(RuleException):
 class CyclicGraphException(RuleException):
 	def __init__(self, rule1, rule2):
 		super(AmbiguousRuleException, self).__init__("Cyclic dependency between {} and {}.".format(rule1, rule2))
+		
+class MissingRuleException(RuleException):
+	def __init__(self, file):
+		super(MissingRuleException, self).__init__("No rule to produce {}.".format(file))
 
 def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 	"""
@@ -418,9 +422,7 @@ class Workflow:
 		"""
 		rule = self.__rules[name]
 		rule.check_dag(forceall = forceall)
-		job = rule.run(forcethis = forcethis, forceall = forceall, dryrun = dryrun)
-		job.run(callback = self._set_jobs_finished)
-		self._jobs_finished.wait()
+		self._run(rule, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
 			
 	def produce_file(self, file, dryrun = False, forcethis = False, forceall = False):
 		"""
@@ -432,15 +434,21 @@ class Workflow:
 		producer = None
 		for rule in self.__rules.values():
 			if rule.is_producer(file):
-				if producer:
-					raise AmbiguousRuleException(rule, producer)
-				producer = rule
-		if dryrun:
-			rule.dryrun(file, forcethis = forcethis, forceall = forceall)
-		else:
-			job = rule.run(file, forcethis = forcethis, forceall = forceall)
-			if job: job.get()
-			
+				try:
+					rule.check_dag(file, forceall = forceall)
+					if producer:
+						raise AmbiguousRuleException("Ambiguous rules: {} and {}".format(producer, rule))
+					producer = rule
+				except MissingInputException as ex:
+					continue
+		if not producer:
+			raise MissingRuleException(file)
+		self._run(producer, file, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
+	
+	def _run(self, rule, requested_output = None, dryrun = False, forcethis = False, forceall = False):
+		job = rule.run(requested_output, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
+		job.run(callback = self._set_jobs_finished)
+		self._jobs_finished.wait()
 
 	def check_rules(self):
 		"""
