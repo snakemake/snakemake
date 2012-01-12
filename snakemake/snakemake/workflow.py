@@ -7,7 +7,7 @@ Created on 13.11.2011
 '''
 
 import re, os, logging, subprocess, glob, inspect
-from multiprocessing import Pool
+from multiprocessing import Pool, Event
 from collections import defaultdict
 
 
@@ -258,25 +258,27 @@ class Rule:
 			return jobs[output]
 		
 		todo = []
+		produced = set()
 		for rule, file in self._to_visit(input):
 			try:
-				todo.append(rule.run(file, forceall = forceall, jobs = jobs))
+				job = rule.run(file, forceall = forceall, jobs = jobs)
+				if job.func:
+					todo.append(job)
+				produced.add(file)
 			except MissingInputException:
 				continue
 		
-		for job in todo:
-			if job:	job.get()
+		self._check_missing_input(set(input) - produced)
 		
-		self._check_missing_input(input)
-		
-		if self._need_run(forcethis or forceall, input, output):
-			job = workflow.get_pool().apply_async(
-					run_wrapper, 
-					[self._get_run(), self.name, 
-					self.get_message(input, output, wildcards), input, output, wildcards]
-					)
+		if self._need_run(forcethis or forceall or todo, input, output):
+			job = Job(
+				run_wrapper,
+				[self._get_run(), self.name, self.get_message(input, output, wildcards), input, output, wildcards],
+				todo
+			)
 			jobs[output] = job
 			return job
+		return Job(depends = todo)
 
 	def check(self):
 		if self.output and not self.has_run():
@@ -374,9 +376,13 @@ class Workflow:
 		self.__last = None
 		self.__first = None
 		self.__workdir_set = False
+		self._jobs_finished = Event()
 
 	def setup_pool(self, jobs):
 		self.__pool = Pool(processes=jobs)
+		
+	def _set_jobs_finished(self, job):
+		self._jobs_finished.set()
 	
 	def get_pool(self):
 		"""
@@ -429,7 +435,8 @@ class Workflow:
 			self.__first.dryrun(forcethis = forcethis, forceall = forceall)
 		else:
 			job = self.__first.run(forcethis = forcethis, forceall = forceall)
-			if job: job.get()		
+			job.run(callback = self._set_jobs_finished)
+			self._jobs_finished.wait()
 		
 	def run_rule(self, name, dryrun = False, forcethis = False, forceall = False):
 		"""
@@ -445,7 +452,7 @@ class Workflow:
 			rule.dryrun(forcethis = forcethis, forceall = forceall)
 		else:
 			job = rule.run(forcethis = forcethis, forceall = forceall)
-			if job: job.get()
+			job.run()
 
 	def check_rules(self):
 		"""
@@ -495,6 +502,39 @@ class Workflow:
 				os.makedirs(workdir)
 			os.chdir(workdir)
 			self.__workdir_set = True
+			
+class Job:
+	def __init__(self, func = None, args = None, depends = []):
+		self.func, self.args, self.depends = func, args, set(depends)
+		self.waiting = set()
+		self.visited = False
+		self._callbacks = list()
+	
+	def run(self, callback = None):
+		self._callbacks.append(callback)
+		if self.depends:
+			for job in self.depends:
+				job.run(callback = self._wakeup_if_ready)
+		else:
+			self._wakeup()
+	
+	def _wakeup_if_ready(self, job):
+		self.depends.remove(job)
+		if not self.depends:
+			self._wakeup()
+	
+	def _wakeup(self):
+		if self.func:
+			workflow.get_pool().apply_async(self.func, self.args, callback=self._wakeup_waiting, error_callback=self._raise_error)
+		else:
+			self._wakeup_waiting()
+	
+	def _wakeup_waiting(self, value = None):
+		for callback in self._callbacks:
+			callback(self)
+	
+	def _raise_error(self, error):
+		raise error
 
 workflow = Workflow()
 
