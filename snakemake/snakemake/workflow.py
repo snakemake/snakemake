@@ -34,16 +34,15 @@ class RuleException(Exception):
 	pass
 
 class MissingInputException(RuleException):
-	def __init__(self):
+	def __init__(self, rule = None, files = None, include = None):
 		self.missing = defaultdict(set)
-	
-	def add(self, rule, file):
-		self.missing[rule].add(file)
-		
-	def add_all(self, missing):
-		for rule, files in missing.items():
+		if files and rule:
 			self.missing[rule].update(files)
-			
+		if include:
+			for ex in include:
+				for rule, files in ex.missing.items():
+					self.missing[rule].update(files)
+	
 	def __str__(self):
 		s = ""
 		for rule, files in self.missing.items():
@@ -187,7 +186,7 @@ class Rule:
 	def _check_missing_input(self, input):
 		missing_input = self._get_missing_files(input)
 		if missing_input: 
-			raise MissingInputException()
+			raise MissingInputException(rule = self, files = missing_input)
 	
 	def _to_visit(self, input):
 		for rule in workflow.get_rules():
@@ -205,7 +204,7 @@ class Rule:
 		if (output, self) in jobs:
 			return False
 		
-		missing_input = defaultdict(list)
+		missing_input_ex = defaultdict(list)
 		producer = dict()
 		for rule, file in self._to_visit(input):
 			try:
@@ -214,20 +213,15 @@ class Rule:
 					raise AmbiguousRuleException(producer[file], rule)
 				producer[file] = rule
 			except MissingInputException as ex:
-				missing_input[file].append(ex.missing)
+				missing_input_ex[file].append(ex.missing)
 		
-		missing_input_ex = None
-		for i in self._get_missing_files(input):
-			if i not in producer:
-				if not missing_input_ex:
-					missing_input_ex = MissingInputException()
-				if i in missing_input:
-					for m in missing_input[i]:
-						missing_input_ex.add_all(m)
-				else:
-					missing_input_ex.add(self, i)
-		if missing_input_ex:
-			raise missing_input_ex
+		missing_input = self._get_missing_files(set(input) - producer.keys())
+		if missing_input:
+			raise MissingInputException(
+				rule = self, 
+				include = missing_input_ex, 
+				files = missing_input - missing_input_ex.keys()
+			)
 		
 		jobs.add((output, self))
 		return True
@@ -432,6 +426,7 @@ class Workflow:
 		file -- the path of the file to produce
 		"""
 		producer = None
+		missing_input_ex = []
 		for rule in self.__rules.values():
 			if rule.is_producer(file):
 				try:
@@ -440,8 +435,11 @@ class Workflow:
 						raise AmbiguousRuleException("Ambiguous rules: {} and {}".format(producer, rule))
 					producer = rule
 				except MissingInputException as ex:
-					continue
+					missing_input_ex.append(ex)
+		
 		if not producer:
+			if missing_input_ex:
+				raise MissingInputException(include = missing_input_ex)
 			raise MissingRuleException(file)
 		self._run(producer, file, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
 	
