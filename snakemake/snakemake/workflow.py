@@ -198,17 +198,17 @@ class Rule:
 		visited.add((self, requested_output))
 		input, output, _ = self._expand_wildcards(requested_output)
 		
-		if output and output in jobs:
+		if (output, self) in jobs:
 			return False
 		
 		missing_input = defaultdict(list)
 		producer = dict()
 		for rule, file in self._to_visit(input):
 			try:
-				if rule.check_dag(file, forceall = forceall, visited = set(visited)):
-					if file in producer:
-						raise AmbiguousRuleException(producer[file], rule)
-					producer[file] = rule
+				rule.check_dag(file, forceall = forceall, visited = set(visited))
+				if file in producer:
+					raise AmbiguousRuleException(producer[file], rule)
+				producer[file] = rule
 			except MissingInputException as ex:
 				missing_input[file].append(ex.missing)
 		
@@ -225,60 +225,40 @@ class Rule:
 		if missing_input_ex:
 			raise missing_input_ex
 		
-		jobs.add(output)
+		jobs.add((output, self))
 		return True
-
-	def dryrun(self, requested_output = None, forceall = False, forcethis = False, jobs = set()):		
-		input, output, wildcards = self._expand_wildcards(requested_output)
-		
-		if output and output in jobs:
-			return False
-		
-		any_run = False
-		produced = set()
-		for rule, file in self._to_visit(input):
-			try:
-				any_run |= rule.dryrun(file, forceall = forceall, jobs = jobs)
-				produced.add(file)
-			except MissingInputException:
-				continue
-		
-		self._check_missing_input(set(input) - produced)
-		
-		if self._need_run(forcethis or forceall or any_run, input, output):
-			print(self.get_message(input, output, wildcards))
-			jobs.add(output)
-			return True
-		return False
 	
-	def run(self, requested_output = None, forceall = False, forcethis = False, jobs = dict()):
+	def run(self, requested_output = None, forceall = False, forcethis = False, jobs = dict(), dryrun = False):
 		input, output, wildcards = self._expand_wildcards(requested_output)
 		
 		if output and output in jobs:
 			return jobs[output]
 		
-		todo = []
+		todo = set()
 		produced = set()
 		for rule, file in self._to_visit(input):
 			try:
-				job = rule.run(file, forceall = forceall, jobs = jobs)
-				if job.func:
-					todo.append(job)
+				job = rule.run(file, forceall = forceall, jobs = jobs, dryrun = dryrun)
+				todo.add(job)
 				produced.add(file)
 			except MissingInputException:
 				continue
 		
 		self._check_missing_input(set(input) - produced)
 		
-		if self._need_run(forcethis or forceall or todo, input, output):
-			job = Job(
-				run_wrapper,
-				[self._get_run(), self.name, self.get_message(input, output, wildcards), input, output, wildcards],
-				todo
-			)
-			jobs[output] = job
-			return job
-		return Job(depends = todo)
+		need_run = self._need_run(forcethis or forceall or todo, input, output)
+		job = Job(
+			rule = self, 
+			message = self.get_message(input, output, wildcards),
+			input = input,
+			output = output,
+			wildcards = wildcards,
+			depends = todo,
+			dryrun = dryrun,
+			needrun = need_run
+		)
+		jobs[output] = job
+		return job
 
 	def check(self):
 		if self.output and not self.has_run():
@@ -301,7 +281,7 @@ class Rule:
 					return True
 		return False
 
-	def _get_run(self):
+	def get_run(self):
 		return globals()["__" + self.name]
 
 	def has_run(self):
@@ -397,7 +377,7 @@ class Workflow:
 		self.__rules[rule.name] = rule
 		self.__last = rule
 		if not self.__first:
-			self.__first = rule
+			self.__first = rule.name
 			
 	def is_rule(self, name):
 		"""
@@ -427,16 +407,7 @@ class Workflow:
 		"""
 		Apply the rule defined first.
 		"""
-		if self.__first.has_wildcards():
-			raise RuleException("First rule must not contain any wildcard")
-
-		self.__first.check_dag()
-		if dryrun:
-			self.__first.dryrun(forcethis = forcethis, forceall = forceall)
-		else:
-			job = self.__first.run(forcethis = forcethis, forceall = forceall)
-			job.run(callback = self._set_jobs_finished)
-			self._jobs_finished.wait()
+		self.run_rule(self.__first, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
 		
 	def run_rule(self, name, dryrun = False, forcethis = False, forceall = False):
 		"""
@@ -446,13 +417,30 @@ class Workflow:
 		name -- the name of the rule to apply
 		"""
 		rule = self.__rules[name]
-		if rule.has_wildcards():
-			raise RuleException("Only rules without wildcards may be run directly from command line")
+		rule.check_dag(forceall = forceall)
+		job = rule.run(forcethis = forcethis, forceall = forceall, dryrun = dryrun)
+		job.run(callback = self._set_jobs_finished)
+		self._jobs_finished.wait()
+			
+	def produce_file(self, file, dryrun = False, forcethis = False, forceall = False):
+		"""
+		Apply a rule such that the requested file is produced.
+		
+		Arguments
+		file -- the path of the file to produce
+		"""
+		producer = None
+		for rule in self.__rules.values():
+			if rule.is_producer(file):
+				if producer:
+					raise AmbiguousRuleException(rule, producer)
+				producer = rule
 		if dryrun:
-			rule.dryrun(forcethis = forcethis, forceall = forceall)
+			rule.dryrun(file, forcethis = forcethis, forceall = forceall)
 		else:
-			job = rule.run(forcethis = forcethis, forceall = forceall)
-			job.run()
+			job = rule.run(file, forcethis = forcethis, forceall = forceall)
+			if job: job.get()
+			
 
 	def check_rules(self):
 		"""
@@ -504,17 +492,19 @@ class Workflow:
 			self.__workdir_set = True
 			
 class Job:
-	def __init__(self, func = None, args = None, depends = []):
-		self.func, self.args, self.depends = func, args, set(depends)
-		self.waiting = set()
-		self.visited = False
+	def __init__(self, rule = None, message = None, input = None, output = None, wildcards = None, depends = [], dryrun = False, needrun = True):
+		self.rule, self.message, self.input, self.output, self.wildcards = rule, message, input, output, wildcards
+		self.dryrun, self.needrun = dryrun, needrun
+		self.depends = depends
 		self._callbacks = list()
 	
 	def run(self, callback = None):
-		self._callbacks.append(callback)
+		if callback:
+			self._callbacks.append(callback)
 		if self.depends:
-			for job in self.depends:
-				job.run(callback = self._wakeup_if_ready)
+			for job in list(self.depends):
+				if job in self.depends:
+					job.run(callback = self._wakeup_if_ready)
 		else:
 			self._wakeup()
 	
@@ -524,9 +514,19 @@ class Job:
 			self._wakeup()
 	
 	def _wakeup(self):
-		if self.func:
-			workflow.get_pool().apply_async(self.func, self.args, callback=self._wakeup_waiting, error_callback=self._raise_error)
+		if self.rule.has_run() and self.needrun:
+			if self.dryrun:
+				print(self.message)
+				self._wakeup_waiting()
+			else:
+				workflow.get_pool().apply_async(
+					run_wrapper, 
+					(self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards), 
+					callback=self._wakeup_waiting, 
+					error_callback=self._raise_error
+				)
 		else:
+			
 			self._wakeup_waiting()
 	
 	def _wakeup_waiting(self, value = None):

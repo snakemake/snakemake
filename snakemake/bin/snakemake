@@ -16,15 +16,15 @@ from snakemake.workflow import RuleException
 
 def main():
 	parser = argparse.ArgumentParser(description="Execute workflow defined in the given snakefile.")
-	parser.add_argument("snakefile", metavar="SNAKEFILE", nargs="?", default="Snakefile", help="The workflow definition in a pythonic DSL.")
-	parser.add_argument("rule", nargs="?", metavar="RULE", default=None, help="The rule to be executed. If omitted, first rule in snakefile is used.")
-	parser.add_argument("-v", "--version", action="version", version='0.1')
+	parser.add_argument("target", nargs="?", default=None, help="A target to build. May be either a rule name or a file.")
+	parser.add_argument("--snakefile", "-s", default="Snakefile", help="The workflow definition in a pythonic DSL.")
 	parser.add_argument("-j", "--jobs", action="store", default=1, metavar="N", dest="jobs", type=int, help="Execute at most N jobs in parallel (default: 1).")
 	parser.add_argument("-l", "--list", action="store_true", dest="list", help="Show availiable rules in given snakefile.")
 	parser.add_argument("-d", "--directory", action="store", metavar="D", dest="directory", type=str, help="Specify working directory (relative paths in the snakefile will use this as their origin).")
 	parser.add_argument("-n", "--dry-run", action="store_true", dest="dryrun", help="Do not execute anything.")
 	parser.add_argument("-f", "--force", action="store_true", dest="forcethis", help="Force the execution of the selected (or the first) rule regardless of already created output.")
 	parser.add_argument("-F", "--forceall", action="store_true", dest="forceall", help="Force the execution of the selected (or the first) rule and all rules it is dependent on regardless of already created output.")
+	parser.add_argument("-v", "--version", action="version", version='0.1')
     
 	args = parser.parse_args()
     
@@ -41,7 +41,7 @@ def main():
 			list=args.list,
 			jobs=args.jobs, 
 			directory=args.directory, 
-			rule=args.rule, 
+			target=args.target, 
 			dryrun=args.dryrun, 
 			forcethis=args.forcethis,
 			forceall=args.forceall)
