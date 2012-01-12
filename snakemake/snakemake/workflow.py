@@ -204,7 +204,8 @@ class Rule:
 		if (output, self) in jobs:
 			return False
 		
-		missing_input_ex = defaultdict(list)
+		missing_input_exceptions = list()
+		files_produced_with_error = set()
 		producer = dict()
 		for rule, file in self._to_visit(input):
 			try:
@@ -213,14 +214,15 @@ class Rule:
 					raise AmbiguousRuleException(producer[file], rule)
 				producer[file] = rule
 			except MissingInputException as ex:
-				missing_input_ex[file].append(ex.missing)
+				missing_input_exceptions.append(ex)
+				files_produced_with_error.add(file)
 		
 		missing_input = self._get_missing_files(set(input) - producer.keys())
 		if missing_input:
 			raise MissingInputException(
 				rule = self, 
-				include = missing_input_ex, 
-				files = missing_input - missing_input_ex.keys()
+				include = missing_input_exceptions, 
+				files = set(missing_input) - files_produced_with_error
 			)
 		
 		jobs.add((output, self))
