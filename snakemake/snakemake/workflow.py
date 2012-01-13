@@ -239,7 +239,8 @@ class Rule:
 		for rule, file in self._to_visit(input):
 			try:
 				job = rule.run(file, forceall = forceall, jobs = jobs, dryrun = dryrun)
-				todo.add(job)
+				if job.needrun:
+					todo.add(job)
 				produced.add(file)
 			except MissingInputException:
 				continue
@@ -278,7 +279,9 @@ class Rule:
 			mintime = min(map(lambda f: os.stat(f).st_mtime, output))
 			for i in input:
 				if os.path.exists(i) and os.stat(i).st_mtime >= mintime: 
+					
 					return True
+			return False
 		return False
 
 	def get_run(self):
@@ -534,7 +537,6 @@ class Job:
 					error_callback=self._raise_error
 				)
 		else:
-			
 			self._wakeup_waiting()
 	
 	def _wakeup_waiting(self, value = None):
