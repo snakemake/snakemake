@@ -6,60 +6,12 @@ Created on 13.11.2011
 @author: Johannes Köster
 '''
 
-import re, os, logging, subprocess, glob, inspect
+import re, os, logging, glob
 from multiprocessing import Pool, Event
 from collections import defaultdict
 
-
-
-# Global functions
-if "SHELL" in os.environ:
-	def _shell(cmd):
-		subprocess.check_call(cmd, shell=True, executable = os.environ["SHELL"])
-else:
-	def _shell(cmd):
-		subprocess.check_call(cmd, shell=True)
-
-def shell(cmd, *args, **kwargs):
-	variables = dict(globals())
-	# add local variables from calling rule/function
-	variables.update(inspect.currentframe().f_back.f_locals)
-	variables.update(kwargs)
-	try:
-		_shell(cmd.format(*args, **variables))
-	except KeyError as ex:
-		raise RuleException("The variable {} is unknown in this context.".format(str(ex)))
-
-class RuleException(Exception):
-	pass
-
-class MissingInputException(RuleException):
-	def __init__(self, rule = None, files = None, include = None):
-		self.missing = defaultdict(set)
-		if files and rule:
-			self.missing[rule].update(files)
-		if include:
-			for ex in include:
-				for rule, files in ex.missing.items():
-					self.missing[rule].update(files)
-	
-	def __str__(self):
-		s = ""
-		for rule, files in self.missing.items():
-			s += "Missing input files for rule {}:\n{}\n".format(rule, ", ".join(files))
-		return s
-
-class AmbiguousRuleException(RuleException):
-	def __init__(self, rule1, rule2):
-		super(AmbiguousRuleException, self).__init__("Ambiguous rules: {} and {}.".format(rule1, rule2))
-
-class CyclicGraphException(RuleException):
-	def __init__(self, rule1, rule2):
-		super(AmbiguousRuleException, self).__init__("Cyclic dependency between {} and {}.".format(rule1, rule2))
-		
-class MissingRuleException(RuleException):
-	def __init__(self, file):
-		super(MissingRuleException, self).__init__("No rule to produce {}.".format(file))
+from snakemake.utils import shell
+from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException
 
 def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 	"""
@@ -84,10 +36,10 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 		for o in output:
 			if os.path.isdir(o): os.rmdir(o)
 			elif os.path.exists(o): os.remove(o)
-		raise Exception(": ".join((type(ex).__name__,str(ex))))
+		raise RuleException(": ".join((type(ex).__name__,str(ex))))
 	for o in output:
 		if not os.path.exists(o):
-			raise RuleException("Output file {} not produced by rule {}.".format(o, rulename))
+			raise MissingOutputException("Output file {} not produced by rule {}.".format(o, rulename))
 
 class Rule:
 	def __init__(self, name):
@@ -146,7 +98,7 @@ class Rule:
 				wildcards = self._get_wildcard_names(item)
 				if self.output:
 					if self.wildcard_names != wildcards:
-						raise RuleException("Not all output files of rule {} contain the same wildcards. ".format(self.name))
+						raise SyntaxError("Not all output files of rule {} contain the same wildcards. ".format(self.name))
 				else:
 					self.wildcard_names = wildcards
 				self.output.append(item)

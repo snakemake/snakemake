@@ -12,7 +12,6 @@ if os.path.isfile(os.path.join(_libdir, 'snakemake', '__init__.py')):
 	sys.path.insert(0, _libdir)
 
 import snakemake
-from snakemake.workflow import RuleException
 
 def main():
 	parser = argparse.ArgumentParser(description="Execute workflow defined in the given snakefile.")

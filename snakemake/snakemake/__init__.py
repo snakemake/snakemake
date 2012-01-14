@@ -1,5 +1,5 @@
-import os, sys, logging
-from snakemake.workflow import workflow, RuleException
+import os, logging, traceback, sys
+from snakemake.workflow import workflow
 from snakemake.parser import compile_to_python
 
 def snakemake(snakefile, list = False, jobs = 1, directory = None, target = None, dryrun = False, forcethis = False, forceall = False):
@@ -41,7 +41,8 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, target = None
 				workflow.run_rule(target, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
 			else:
 				workflow.produce_file(target, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
-	except RuleException as ex:
-		logging.error(str(ex))
+	except (Exception, BaseException) as ex:
+		print(type(ex).__name__, str(ex), file=sys.stderr, sep=": ")
+		print(traceback.format_tb(ex.__traceback__)[-1], file=sys.stderr)
 		return 1
 	return 0
