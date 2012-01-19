@@ -228,6 +228,8 @@ class Rule:
 				return True
 			if self._has_missing_files(output):
 				return True
+			if not output:
+				return True
 			mintime = min(map(lambda f: os.stat(f).st_mtime, output))
 			for i in input:
 				if os.path.exists(i) and os.stat(i).st_mtime >= mintime: 
