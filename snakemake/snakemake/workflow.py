@@ -146,58 +146,40 @@ class Rule:
 				for i in input:
 					if rule.is_producer(i):
 						yield rule, i
-					
-	def check_dag(self, requested_output = None, forceall = False, visited = set(), jobs = set()):
-		if (self, requested_output) in visited:
-			raise CyclicGraphException(self)
-		visited.add((self, requested_output))
-		input, output, _ = self._expand_wildcards(requested_output)
+	
+	def run(self, requested_output = None, forceall = False, forcethis = False, jobs = dict(), dryrun = False, quiet = False, visited = set()):
+		#if (self, requested_output) in visited:
+		#	raise CyclicGraphException(self)
+		#visited.add((self, requested_output))
 		
-		if (output, self) in jobs:
-			return False
+		input, output, wildcards = self._expand_wildcards(requested_output)
+		
+		if output and (output, self) in jobs:
+			return jobs[(output, self)]
 		
 		missing_input_exceptions = list()
 		files_produced_with_error = set()
-		producer = dict()
+		todo = set()
+		produced = dict()
 		for rule, file in self._to_visit(input):
 			try:
-				rule.check_dag(file, forceall = forceall, visited = set(visited))
-				if file in producer:
-					raise AmbiguousRuleException(producer[file], rule)
-				producer[file] = rule
+				job = rule.run(file, forceall = forceall, jobs = jobs, dryrun = dryrun, quiet = quiet, visited = set(visited))
+				if file in produced:
+					raise AmbiguousRuleException(produced[file], rule)
+				if job.needrun:
+					todo.add(job)
+				produced[file] = rule
 			except MissingInputException as ex:
 				missing_input_exceptions.append(ex)
 				files_produced_with_error.add(file)
 		
-		missing_input = self._get_missing_files(set(input) - producer.keys())
+		missing_input = self._get_missing_files(set(input) - produced.keys())
 		if missing_input:
 			raise MissingInputException(
 				rule = self, 
 				include = missing_input_exceptions, 
 				files = set(missing_input) - files_produced_with_error
 			)
-		
-		jobs.add((output, self))
-		return True
-	
-	def run(self, requested_output = None, forceall = False, forcethis = False, jobs = dict(), dryrun = False):
-		input, output, wildcards = self._expand_wildcards(requested_output)
-		
-		if output and output in jobs:
-			return jobs[output]
-		
-		todo = set()
-		produced = set()
-		for rule, file in self._to_visit(input):
-			try:
-				job = rule.run(file, forceall = forceall, jobs = jobs, dryrun = dryrun)
-				if job.needrun:
-					todo.add(job)
-				produced.add(file)
-			except MissingInputException:
-				continue
-		
-		self._check_missing_input(set(input) - produced)
 		
 		need_run = self._need_run(forcethis or forceall or todo, input, output)
 		job = Job(
@@ -208,9 +190,9 @@ class Rule:
 			wildcards = wildcards,
 			depends = todo,
 			dryrun = dryrun,
-			needrun = need_run
+			needrun = need_run or quiet
 		)
-		jobs[output] = job
+		jobs[(output, self)] = job
 		return job
 
 	def check(self):
@@ -374,7 +356,6 @@ class Workflow:
 		name -- the name of the rule to apply
 		"""
 		rule = self.__rules[name]
-		rule.check_dag(forceall = forceall)
 		self._run(rule, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
 			
 	def produce_file(self, file, dryrun = False, forcethis = False, forceall = False):
@@ -389,7 +370,7 @@ class Workflow:
 		for rule in self.__rules.values():
 			if rule.is_producer(file):
 				try:
-					rule.check_dag(file, forceall = forceall)
+					rule.run(file, jobs=dict(), forceall = forceall, dryrun = True, quiet = True)
 					if producer:
 						raise AmbiguousRuleException("Ambiguous rules: {} and {}".format(producer, rule))
 					producer = rule
@@ -403,7 +384,7 @@ class Workflow:
 		self._run(producer, file, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
 	
 	def _run(self, rule, requested_output = None, dryrun = False, forcethis = False, forceall = False):
-		job = rule.run(requested_output, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
+		job = rule.run(requested_output, jobs=dict(), forcethis = forcethis, forceall = forceall, dryrun = dryrun)
 		job.run(callback = self._set_jobs_finished)
 		self._jobs_finished.wait()
 
@@ -490,6 +471,7 @@ class Job:
 					callback=self._wakeup_waiting, 
 					error_callback=self._raise_error
 				)
+				
 		else:
 			self._wakeup_waiting()
 	
