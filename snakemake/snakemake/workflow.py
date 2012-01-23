@@ -6,7 +6,7 @@ Created on 13.11.2011
 @author: Johannes Köster
 '''
 
-import re, os, logging, glob
+import re, sys, os, traceback, logging, glob
 from multiprocessing import Pool, Event
 from collections import defaultdict
 
@@ -318,7 +318,7 @@ class Workflow:
 	def setup_pool(self, jobs):
 		self.__pool = Pool(processes=jobs)
 		
-	def _set_jobs_finished(self, job):
+	def set_jobs_finished(self, job = None):
 		self._jobs_finished.set()
 	
 	def get_pool(self):
@@ -403,7 +403,7 @@ class Workflow:
 	
 	def _run(self, rule, requested_output = None, dryrun = False, forcethis = False, forceall = False):
 		job = rule.run(requested_output, jobs=dict(), forcethis = forcethis, forceall = forceall, dryrun = dryrun)
-		job.run(callback = self._set_jobs_finished)
+		job.run(callback = self.set_jobs_finished)
 		self._jobs_finished.wait()
 
 	def check_rules(self):
@@ -498,7 +498,8 @@ class Job:
 			callback(self)
 	
 	def _raise_error(self, error):
-		raise error
+		print(error)
+		workflow.set_jobs_finished()
 
 workflow = Workflow()
 
