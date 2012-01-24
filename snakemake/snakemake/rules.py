@@ -77,15 +77,19 @@ class Rule:
 		""" Expand wildcards depending on the requested output. """
 		if requested_output:
 			wildcards = self.get_wildcards(requested_output)
+			missing_wildcards = set(wildcards.keys()) - self.wildcard_names 
+		elif self.has_wildcards():				
+			missing_wildcards = self.wildcard_names
 		else:
 			return tuple(self.input), tuple(self.output), dict()
+		
+		if missing_wildcards:
+			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)))
 
-		try:
-			input = tuple(i.format(**wildcards) for i in self.input)
-			output = tuple(o.format(**wildcards) for o in self.output)
-			return input, output, wildcards
-		except KeyError:
-			raise RuleException("Could not resolve wildcard in rule {}: {}".format(self.name, i))
+		input = tuple(i.format(**wildcards) for i in self.input)
+		output = tuple(o.format(**wildcards) for o in self.output)
+		return input, output, wildcards
+			
 
 	def _get_missing_files(self, files):
 		""" Return the tuple of files that are missing form the given ones. """

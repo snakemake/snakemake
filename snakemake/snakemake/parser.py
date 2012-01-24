@@ -55,6 +55,7 @@ class States:
 			shell = self.shell)
 		self.current_rule = None
 		self.tokens = Tokens()
+		self._rule_count = 0
 	
 	def __iter__(self):
 		return self.tokens.__iter__()
@@ -86,12 +87,16 @@ class States:
 
 	def rule(self, token):
 		''' State that handles rule definition. '''
-		if token.type == NAME:
+		if self._is_colon(token):
+			self._rule_count += 1
+			self.current_rule = str(self._rule_count)
+			self.state = self.rule_body
+		elif token.type == NAME:
 			self.current_rule = token.string
-			self._func('_add_rule', States._stringify(token.string))
 			self.state = self.rule_colon
 		else:
-			raise self._syntax_error('Expected name after rule keyword.', token)
+			raise self._syntax_error('Expected name or colon after rule keyword.', token)
+		self._func('_add_rule', States._stringify(self.current_rule))
 	
 	def rule_colon(self, token):
 		self._check_colon('rule', token)
@@ -193,10 +198,13 @@ class States:
 		else:
 			raise self._syntax_error('Expected shell command in a string after shell keyword.', token)
 
+	def _is_colon(self, token):
+		return token.type == tokenize.OP and token.string == ':'
+
 	def _check_colon(self, keyword, token):
 		''' Check wether the token is a colon, else raise a syntax error 
 		for the given keyword. '''
-		if not (token.type == tokenize.OP and token.string == ':'):
+		if not self._is_colon(token):
 			raise self._syntax_error('Expected ":" after {} keyword'.format(keyword), token)
 
 	def _func_def(self, name, args):

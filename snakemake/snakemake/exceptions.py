@@ -27,8 +27,8 @@ class AmbiguousRuleException(RuleException):
 		super(AmbiguousRuleException, self).__init__("Ambiguous rules: {} and {}.".format(rule1, rule2))
 
 class CyclicGraphException(RuleException):
-	def __init__(self, rule1, rule2):
-		super(AmbiguousRuleException, self).__init__("Cyclic dependency between {} and {}.".format(rule1, rule2))
+	def __init__(self, rule):
+		super(CyclicGraphException, self).__init__("Cyclic dependency on rule {}.".format(rule))
 		
 class MissingRuleException(RuleException):
 	def __init__(self, file):

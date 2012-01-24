@@ -110,7 +110,7 @@ class Workflow:
 		for rule in self.__rules.values():
 			if rule.is_producer(file):
 				try:
-					rule.run(file, jobs=dict(), forceall = forceall, dryrun = True, quiet = True)
+					rule.run(file, jobs=dict(), forceall = forceall, dryrun = True, quiet = True, visited = set())
 					if producer:
 						raise AmbiguousRuleException("Ambiguous rules: {} and {}".format(producer, rule))
 					producer = rule
@@ -124,7 +124,7 @@ class Workflow:
 		self._run(producer, file, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
 	
 	def _run(self, rule, requested_output = None, dryrun = False, forcethis = False, forceall = False):
-		job = rule.run(requested_output, jobs=dict(), forcethis = forcethis, forceall = forceall, dryrun = dryrun)
+		job = rule.run(requested_output, jobs=dict(), forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set())
 		job.run(callback = self.set_jobs_finished)
 		self._jobs_finished.wait()
 
