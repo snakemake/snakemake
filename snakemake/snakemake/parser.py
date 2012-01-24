@@ -123,17 +123,14 @@ class States:
 		''' State that handles in- and output definition (depending on type). '''
 		self._check_colon(type, token)
 		self._func_open('_set_{}'.format(type))
-		self.tokens.add(LSQB, '[')
 		self.state = self.inoutput_paths
 		
 	def inoutput_paths(self, token):
 		''' State that collects the arguments for in- or output definition '''
 		if token.type == NAME and token.string in self.main_states:
 			self.state = self.main_states[token.string]
-			self.tokens.add(RSQB, ']')
 			self._func_close()
 		elif token.type == ENDMARKER:
-			self.tokens.add(RSQB, ']')
 			self._func_close()
 		else:
 			self.tokens.add(token)

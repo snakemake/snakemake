@@ -1,7 +1,43 @@
 import os, re
+from operator import itemgetter
 from collections import defaultdict
 from snakemake.jobs import Job
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException
+
+class Namedlist(list):
+	def __init__(self, toclone = None, fromdict = None):
+		super(Namedlist, self).__init__()
+		self._names = dict()
+		if toclone:
+			self.extend(toclone)
+			if isinstance(toclone, Namedlist):
+				self.take_names(toclone.get_names())
+		if fromdict:
+			for key, item in fromdict.items():
+				self.append(item)
+				self.add_name(key)
+
+	def add_name(self, name):
+		self.set_name(name, len(self) - 1)
+	
+	def set_name(self, name, index):
+		self._names[name] = index
+		setattr(self, name, self[index])
+			
+	def get_names(self):
+		for name, index in self._names.items():
+			yield name, index
+	
+	def take_names(self, names):
+		for name, index in names:
+			self.set_name(name, index)
+	
+	def __hash__(self):
+		return hash(tuple(self))
+
+class Nameddict(dict):
+    __getattr__ = dict.__getitem__
+    __setattr__ = dict.__setitem__
 
 class Rule:
 	def __init__(self, name, workflow):
@@ -13,8 +49,8 @@ class Rule:
 		"""
 		self.name = name
 		self.message = None
-		self.input = []
-		self.output = []
+		self.input = Namedlist()
+		self.output = Namedlist()
 		self.regex_output = []
 		self.wildcard_names = set()
 		self.workflow = workflow
@@ -35,7 +71,7 @@ class Rule:
 	def has_wildcards(self):
 		return bool(self.wildcard_names)
 
-	def add_input(self, input):
+	def set_input(self, *input, **kwinput):
 		"""
 		Add a list of input files. Recursive lists are flattened.
 		
@@ -43,10 +79,11 @@ class Rule:
 		input -- the list of input files
 		"""
 		for item in input:
-			if isinstance(item, list): self.add_input(item)
-			else: self.input.append(item)
+			self._set_inoutput_item(item, self.input)
+		for name, item in kwinput.items():
+			self._set_inoutput_item(item, self.input, name = name)
 
-	def add_output(self, output):
+	def set_output(self, *output, **kwoutput):
 		"""
 		Add a list of output files. Recursive lists are flattened.
 		
@@ -54,16 +91,27 @@ class Rule:
 		output -- the list of output files
 		"""
 		for item in output:
-			if isinstance(item, list): self.add_output(item)
+			self._set_inoutput_item(item, self.output)
+		for name, item in kwoutput.items():
+			self._set_inoutput_item(item, self.output, name = name)
+		
+		for item in self.output:
+			wildcards = self._get_wildcard_names(item)
+			if self.wildcard_names:
+				if self.wildcard_names != wildcards:
+					raise SyntaxError("Not all output files of rule {} contain the same wildcards. ".format(self.name))
 			else:
-				wildcards = self._get_wildcard_names(item)
-				if self.output:
-					if self.wildcard_names != wildcards:
-						raise SyntaxError("Not all output files of rule {} contain the same wildcards. ".format(self.name))
-				else:
-					self.wildcard_names = wildcards
-				self.output.append(item)
-				self.regex_output.append(self._to_regex(item))
+				self.wildcard_names = wildcards
+			self.regex_output.append(self._to_regex(item))
+	
+	def _set_inoutput_item(self, item, inoutput, name=None):
+		if isinstance(item, str):
+			inoutput.append(item)
+			if name:
+				inoutput.add_name(name)
+		else:
+			for i in item:
+				self._set_inoutput_item(i)
 
 	def set_message(self, message):
 		"""
@@ -79,14 +127,20 @@ class Rule:
 		elif self.has_wildcards():				
 			missing_wildcards = self.wildcard_names
 		else:
-			return tuple(self.input), tuple(self.output), dict()
+			return Namedlist(self.input), Namedlist(self.output), dict()
 		
 		if missing_wildcards:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)))
 
-		input = tuple(i.format(**wildcards) for i in self.input)
-		output = tuple(o.format(**wildcards) for o in self.output)
-		return input, output, wildcards
+		try:
+			input = Namedlist(i.format(**wildcards) for i in self.input)
+			output = Namedlist(o.format(**wildcards) for o in self.output)
+			input.take_names(self.input.get_names())
+			output.take_names(self.output.get_names())
+			return input, output, wildcards
+		except KeyError as ex:
+			# this can only happen if an input file contains an unresolved wildcard.
+			raise SyntaxError("Wildcards in input file of rule {} do not appear in output files:\n{}".format(rule, str(ex)))
 			
 
 	def _get_missing_files(self, files):
@@ -148,7 +202,7 @@ class Rule:
 			message = self.get_message(input, output, wildcards),
 			input = input,
 			output = output,
-			wildcards = wildcards,
+			wildcards = Namedlist(fromdict = wildcards),
 			depends = todo,
 			dryrun = dryrun,
 			needrun = need_run or quiet

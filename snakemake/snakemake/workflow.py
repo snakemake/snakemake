@@ -185,11 +185,11 @@ def _set_workdir(path):
 def _add_rule(name):
 	workflow.add_rule(name)
 
-def _set_input(paths):
-	workflow.last_rule().add_input(paths)
+def _set_input(*paths, **kwpaths):
+	workflow.last_rule().set_input(*paths, **kwpaths)
 
-def _set_output(paths):
-	workflow.last_rule().add_output(paths)
+def _set_output(*paths, **kwpaths):
+	workflow.last_rule().set_output(*paths, **kwpaths)
 
 def _set_message(message):
 	workflow.last_rule().set_message(message)
