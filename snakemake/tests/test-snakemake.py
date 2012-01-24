@@ -36,7 +36,10 @@ def main():
 		tmpdir = mkdtemp()
 		try:
 			call('cp `find {} -maxdepth 1 -type f` {}'.format(f,tmpdir), shell=True)
-			exitcode = call('{0} -d {1} -s {1}/Snakefile > /dev/null 2>&1'.format(executable,tmpdir), shell=True)
+			additional_params = ''
+			if os.path.exists(f+'/params'):
+				additional_params = open(f+'/params').readline().strip()
+			exitcode = call('{0} -d {1} -s {1}/Snakefile {2} > /dev/null 2>&1'.format(executable,tmpdir,additional_params), shell=True)
 			fail = False
 			if exitcode != 0:
 				print(' - FAILED with exit code', exitcode)
