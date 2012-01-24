@@ -16,12 +16,10 @@ class Rule:
 		self.input = []
 		self.output = []
 		self.regex_output = []
-		self.parents = dict()
 		self.wildcard_names = set()
-		self.jobs = dict()
 		self.workflow = workflow
 
-	def __to_regex(self, output):
+	def _to_regex(self, output):
 		"""
 		Convert a filepath containing wildcards to a regular expression.
 		
@@ -65,7 +63,7 @@ class Rule:
 				else:
 					self.wildcard_names = wildcards
 				self.output.append(item)
-				self.regex_output.append(self.__to_regex(item))
+				self.regex_output.append(self._to_regex(item))
 
 	def set_message(self, message):
 		"""
@@ -101,11 +99,6 @@ class Rule:
 			if not os.path.exists(f):
 				return True
 		return False
-
-	def _check_missing_input(self, input):
-		missing_input = self._get_missing_files(input)
-		if missing_input: 
-			raise MissingInputException(rule = self, files = missing_input)
 	
 	def _to_visit(self, input):
 		for rule in self.workflow.get_rules():
@@ -167,10 +160,6 @@ class Rule:
 		if self.output and not self.has_run():
 			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name))
 
-	def _is_queued(self, output, jobs):
-		""" Return True if a job for the requested output is already queued. """
-		return output in jobs
-
 	def _need_run(self, force, input, output):
 		""" Return True if rule needs to be run. """
 		if self.has_run():
@@ -193,9 +182,6 @@ class Rule:
 
 	def has_run(self):
 		return self.workflow.has_run(self)
-	
-	def set_run(self, func):
-		self._run_function = func
 
 	def get_message(self, input, output, wildcards, showmessage = True):
 		if self.message and showmessage:
@@ -204,9 +190,6 @@ class Rule:
 			return self.message.format(**variables)
 		return "rule {}:\n\tinput: {}\n\toutput: {}\n".format(
 			self.name, ", ".join(input), ", ".join(output))
-
-	def is_parent(self, rule):
-		return self in rule.parents.values()
 
 	def is_producer(self, requested_output):
 		"""
@@ -217,11 +200,6 @@ class Rule:
 			if match and len(match.group()) == len(requested_output):
 				return True
 		return False
-			
-	def _wildcards_to_str(self, wildcards):
-		if wildcards:
-			return "Wildcards:\n" + "\n".join(": ".join(i) for i in wildcards.items())
-		return ""
 
 	def get_wildcards(self, requested_output):
 		"""
@@ -245,13 +223,6 @@ class Rule:
 	
 	def get_wildcard_len(self, wildcards):
 		return sum(map(len, wildcards.values()))
-
-	def partition_output(self, requested_outputs):
-		partition = defaultdict(list)
-		for r in requested_outputs:
-			wc = frozenset(self.get_wildcards(r).items())
-			partition[wc].append(r)
-		return partition.values()
 
 	def __repr__(self):
 		return self.name
