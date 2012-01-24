@@ -1,6 +1,7 @@
 import os, re
+from collections import defaultdict
 from snakemake.jobs import Job
-from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException
+from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException
 
 class Rule:
 	def __init__(self, name, workflow):
@@ -110,9 +111,9 @@ class Rule:
 						yield rule, i
 	
 	def run(self, requested_output = None, forceall = False, forcethis = False, jobs = dict(), dryrun = False, quiet = False, visited = set()):
-		#if (self, requested_output) in visited:
-		#	raise CyclicGraphException(self)
-		#visited.add((self, requested_output))
+		if (self, requested_output) in visited:
+			raise CyclicGraphException(self)
+		visited.add((self, requested_output))
 		
 		input, output, wildcards = self._expand_wildcards(requested_output)
 		
