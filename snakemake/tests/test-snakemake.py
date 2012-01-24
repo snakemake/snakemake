@@ -43,6 +43,7 @@ def main():
 				continue
 			fail = False
 			for resultfile in os.listdir(results_dir):
+				if not os.path.isfile(resultfile): continue
 				targetfile = '{}/{}'.format(tmpdir,resultfile)
 				expectedfile = '{}/{}'.format(results_dir,resultfile)
 				if not os.path.exists(targetfile):
