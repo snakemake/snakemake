@@ -33,3 +33,6 @@ class CyclicGraphException(RuleException):
 class MissingRuleException(RuleException):
 	def __init__(self, file):
 		super(MissingRuleException, self).__init__("No rule to produce {}.".format(file))
+
+class CreateRuleException(Exception):
+	pass

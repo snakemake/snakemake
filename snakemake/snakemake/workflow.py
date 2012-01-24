@@ -42,6 +42,10 @@ class Workflow:
 		"""
 		Add a rule.
 		"""
+		if self.is_rule(name):
+			raise CreateRuleException("The name {} is already used by another rule".format(name))
+		if "__" + name in globals():
+			raise CreateRuleException("The name __{} is already used by a variable.".format(name))
 		rule = Rule(name, self)
 		self.__rules[rule.name] = rule
 		self.__last = rule
@@ -179,10 +183,6 @@ def _set_workdir(path):
 	workflow.set_workdir(path)
 
 def _add_rule(name):
-	if workflow.is_rule(name):
-		raise SyntaxError("The name {} is already used by another rule".format(name))
-	if "__" + name in globals():
-		raise SyntaxError("The name __{} is already used by a variable.".format(name))
 	workflow.add_rule(name)
 
 def _set_input(paths):
