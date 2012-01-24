@@ -87,8 +87,8 @@ class States:
 
 	def rule(self, token):
 		''' State that handles rule definition. '''
+		self._rule_count += 1
 		if self._is_colon(token):
-			self._rule_count += 1
 			self.current_rule = str(self._rule_count)
 			self.state = self.rule_body
 		elif token.type == NAME:
