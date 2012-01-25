@@ -111,7 +111,7 @@ class Rule:
 				inoutput.add_name(name)
 		else:
 			for i in item:
-				self._set_inoutput_item(i)
+				self._set_inoutput_item(i, inoutput)
 
 	def set_message(self, message):
 		"""
