@@ -23,6 +23,7 @@ def main():
 	parser.add_argument("-n", "--dry-run", action="store_true", dest="dryrun", help="Do not execute anything.")
 	parser.add_argument("-f", "--force", action="store_true", dest="forcethis", help="Force the execution of the selected (or the first) rule regardless of already created output.")
 	parser.add_argument("-F", "--forceall", action="store_true", dest="forceall", help="Force the execution of the selected (or the first) rule and all rules it is dependent on regardless of already created output.")
+	parser.add_argument("--stats", help="Write stats about Snakefile execution to the given file.")
 	parser.add_argument("-v", "--version", action="version", version='0.1')
     
 	args = parser.parse_args()
@@ -43,7 +44,8 @@ def main():
 			target=args.target, 
 			dryrun=args.dryrun, 
 			forcethis=args.forcethis,
-			forceall=args.forceall)
+			forceall=args.forceall,
+			stats=args.stats)
 	)        
 
 if __name__ == "__main__":

@@ -38,7 +38,7 @@ def run(path, **params):
 		# The snakemake call changes the current working directory, so
 		# we need to remember it and restore it below.
 		olddir = os.getcwd()
-		exitcode = snakemake(snakefile, directory=tmpdir, **params)
+		exitcode = snakemake(snakefile, directory=tmpdir, stats = os.path.join(path, "stats.txt"),**params)
 		os.chdir(olddir)
 		assert exitcode == 0, "exit code is not zero, but {}".format(exitcode)
 		for resultfile in os.listdir(results_dir):

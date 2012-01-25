@@ -1,4 +1,4 @@
-import os
+import os, time, sys
 from snakemake.exceptions import MissingOutputException, RuleException
 
 class protect(str):
@@ -24,8 +24,10 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 		if len(dir) > 0 and not os.path.exists(dir):
 			os.makedirs(dir)
 	try:
+		t0 = time.time()
 		run(input, output, wildcards)
-		
+		runtime = time.time() - t0
+		return runtime
 	except (Exception, BaseException) as ex:
 		# Remove produced output on exception
 		for o in output:
@@ -79,6 +81,8 @@ class Job:
 			self._wakeup_waiting()
 	
 	def _wakeup_waiting(self, value = None):
+		if value != None:
+			self.workflow.report_runtime(self.rule, value)
 		for callback in self._callbacks:
 			callback(self)
 	

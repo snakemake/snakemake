@@ -26,6 +26,15 @@ class Workflow:
 		self.__workdir_set = False
 		self._jobs_finished = Event()
 		self._virgin_globals = None
+		self._runtimes = defaultdict(list)		
+	
+	def report_runtime(self, rule, runtime):
+		self._runtimes[rule].append(runtime)
+		
+	def get_runtimes(self):
+		for rule, runtimes in self._runtimes.items():
+			s = sum(runtimes)
+			yield rule, min(runtimes), max(runtimes), s, s / len(runtimes)
 		
 	def clear(self):
 		self.__rules.clear()
