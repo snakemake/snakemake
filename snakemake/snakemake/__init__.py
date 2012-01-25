@@ -1,4 +1,4 @@
-import os, logging, traceback, sys
+import os, logging, traceback, sys, imp
 from snakemake.workflow import workflow
 from snakemake.parser import compile_to_python
 
@@ -14,6 +14,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, target = None
 	rule -- execute this rule (default: first rule in snakefile).
 	dryrun -- print the rules that would be executed, but do not execute them.
 	"""
+	
 	def print_rules(log):
 		log("Defined rules:")
 		for rule in workflow.get_rules(): log(rule.name)
@@ -23,6 +24,8 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, target = None
 	if directory:
 		# change to the specified directory. This overrides eventually specified workdir in Snakefile
 		workflow.set_workdir(directory)    
+
+	workflow.clear()
 
 	workflow.execdsl(code)
 

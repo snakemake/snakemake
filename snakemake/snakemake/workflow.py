@@ -11,7 +11,7 @@ from multiprocessing import Pool, Event
 from collections import defaultdict
 
 from snakemake.rules import Rule
-from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException
+from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException
 from snakemake.utils import shell
 from snakemake.jobs import Job, protect
 
@@ -25,12 +25,26 @@ class Workflow:
 		self.__first = None
 		self.__workdir_set = False
 		self._jobs_finished = Event()
+		self._virgin_globals = None
+		
+	def clear(self):
+		self.__rules.clear()
+		self.__last = None
+		self.__first = None
+		self.__workdir_set = False
+		self._jobs_finished = Event()
+		for k in list(globals().keys()):
+			if k not in self._virgin_globals:
+				del globals()[k]
 
 	def setup_pool(self, jobs):
 		self.__pool = Pool(processes=jobs)
 		
 	def set_jobs_finished(self, job = None):
 		self._jobs_finished.set()
+		
+	def get_snakefile_globals(self):
+		return self.__snakefile_globals
 	
 	def get_pool(self):
 		"""
@@ -62,7 +76,7 @@ class Workflow:
 		return name in self.__rules
 	
 	def has_run(self, rule):
-		return "__" + rule.name in globals()
+		return "__" + rule.name in  globals()
 	
 	def get_run(self, rule):
 		return globals()["__" + rule.name]
@@ -193,3 +207,5 @@ def _set_output(*paths, **kwpaths):
 
 def _set_message(message):
 	workflow.last_rule().set_message(message)
+
+workflow._virgin_globals = dict(globals())

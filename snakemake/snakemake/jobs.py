@@ -72,7 +72,6 @@ class Job:
 					callback=self._wakeup_waiting, 
 					error_callback=self._raise_error
 				)
-				
 		else:
 			self._wakeup_waiting()
 	
