@@ -37,7 +37,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 			raise MissingOutputException("Output file {} not produced by rule {}.".format(o, rulename))
 
 class Job:
-	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, depends = list(), dryrun = False, needrun = True):
+	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, depends = set(), dryrun = False, needrun = True):
 		self.rule, self.message, self.input, self.output, self.wildcards = rule, message, input, output, wildcards
 		self.dryrun, self.needrun = dryrun, needrun
 		self.depends = depends
@@ -55,7 +55,8 @@ class Job:
 			self._wakeup()
 	
 	def _wakeup_if_ready(self, job):
-		self.depends.remove(job)
+		if job in self.depends:
+			self.depends.remove(job)
 		if not self.depends:
 			self._wakeup()
 	
