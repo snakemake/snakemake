@@ -4,7 +4,7 @@ from os.path import join
 from subprocess import call
 from tempfile import mkdtemp
 import hashlib
-#from snakemake import snakemake # TODO use this instead of calling the executable
+from snakemake import snakemake
 
 __author__ = "Tobias Marschall, Marcel Martin"
 
@@ -13,10 +13,6 @@ def dpath(path):
 	"""get path to a data file (relative to the directory this
 	test lives in)"""
 	return join(os.path.dirname(__file__), path)
-
-
-# TODO import snakemake instead
-EXECUTABLE = dpath('../bin/snakemake')
 
 
 def md5sum(filename):
@@ -38,17 +34,12 @@ def run(path, **params):
 	tmpdir = mkdtemp()
 	try:
 		call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir), shell=True)
-		additional_params = params['target'] if 'target' in params else ''
-		exitcode = call('{0} -d {1} -s {1}/Snakefile {2} > /dev/null 2>&1'.format(EXECUTABLE, tmpdir, additional_params), shell=True)
-
 		# TODO
 		# The snakemake call changes the current working directory, so
 		# we need to remember it and restore it below.
-
-		# TODO use this instead of call() above
-		#olddir = os.getcwd()
-		#exitcode = snakemake(snakefile, directory=tmpdir, **params)
-		#os.chdir(olddir)
+		olddir = os.getcwd()
+		exitcode = snakemake(snakefile, directory=tmpdir, **params)
+		os.chdir(olddir)
 		assert exitcode == 0, "exit code is not zero, but {}".format(exitcode)
 		for resultfile in os.listdir(results_dir):
 			if not os.path.isfile(resultfile):
@@ -75,21 +66,3 @@ def test03():
 
 def test04():
 	run(dpath("test04"), target='test.out')
-
-
-# alternativ zum obigen (dann wird das in der Ausgabe von
-# nosetests allerdings nicht als einzelner Test angezeigt)
-#def tests():
-	#for f in os.listdir(dpath('.')):
-		#path = dpath(f)
-		#print('f:', f, os.path.dirname(__file__))
-		#print("path:", path)
-		#if not os.path.isdir(path):
-			#continue
-		#if not f.startswith('test'):
-			#continue
-		#if not os.path.exists(join(path, 'Snakefile')):
-			#print('Warning: {}/Snakefile does not exist, skipping directory'.format(path), file=sys.stderr)
-			#continue
-		#run(path)
-
