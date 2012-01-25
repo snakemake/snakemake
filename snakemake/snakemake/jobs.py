@@ -1,6 +1,12 @@
 import os
 from snakemake.exceptions import MissingOutputException, RuleException
 
+class protect(str):
+	"""
+	A string that describes a path to a file that shall be write-protected.
+	"""
+	pass
+
 def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 	"""
 	Wrapper around the run method that handles directory creation and output file deletion on error.
@@ -19,6 +25,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 			os.makedirs(dir)
 	try:
 		run(input, output, wildcards)
+		
 	except (Exception, BaseException) as ex:
 		# Remove produced output on exception
 		for o in output:

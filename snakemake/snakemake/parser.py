@@ -257,5 +257,4 @@ def compile_to_python(filepath):
 		snakemake_tokens = list(snakemake_to_python(
 			tokenize.generate_tokens(snakefile.readline), filepath))
 		compilation = tokenize.untokenize(snakemake_tokens)
-		#print(compilation)
 		return compilation

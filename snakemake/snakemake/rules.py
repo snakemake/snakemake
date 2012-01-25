@@ -1,11 +1,20 @@
 import os, re
-from operator import itemgetter
-from collections import defaultdict
 from snakemake.jobs import Job
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException
 
 class Namedlist(list):
+	"""
+	A list that additionally provides functions to name items. Further,
+	it is hashable, however the hash does not consider the item names.
+	"""
 	def __init__(self, toclone = None, fromdict = None):
+		"""
+		Create the object.
+		
+		Arguments
+		toclone  -- another Namedlist that shall be cloned
+		fromdict -- a dict that shall be converted to a Namedlist (keys become names) 
+		"""
 		super(Namedlist, self).__init__()
 		self._names = dict()
 		if toclone:
@@ -18,26 +27,44 @@ class Namedlist(list):
 				self.add_name(key)
 
 	def add_name(self, name):
+		"""
+		Add a name to the last item.
+		
+		Arguments
+		name -- a name
+		"""
 		self.set_name(name, len(self) - 1)
 	
 	def set_name(self, name, index):
+		"""
+		Set the name of an item.
+		
+		Arguments
+		name  -- a name
+		index -- the item index
+		"""
 		self._names[name] = index
 		setattr(self, name, self[index])
 			
 	def get_names(self):
+		"""
+		Get the defined names as (name, index) pairs.
+		"""
 		for name, index in self._names.items():
 			yield name, index
 	
 	def take_names(self, names):
+		"""
+		Take over the given names.
+		
+		Arguments
+		names -- the given names as (name, index) pairs
+		"""
 		for name, index in names:
 			self.set_name(name, index)
 	
 	def __hash__(self):
 		return hash(tuple(self))
-
-class Nameddict(dict):
-    __getattr__ = dict.__getitem__
-    __setattr__ = dict.__setitem__
 
 class Rule:
 	def __init__(self, name, workflow):
@@ -66,9 +93,15 @@ class Rule:
 		return re.sub('\{(?P<name>\w+?)\}', lambda match: '(?P<{}>.+)'.format(match.group('name')), output)
 
 	def _get_wildcard_names(self, output):
+		"""
+		Return the names of detected wildcards.
+		"""
 		return set(match.group('name') for match in re.finditer("\{(?P<name>\w+?)\}", output))
 
 	def has_wildcards(self):
+		"""
+		Return True if rule contains wildcards.
+		"""
 		return bool(self.wildcard_names)
 
 	def set_input(self, *input, **kwinput):
@@ -105,6 +138,14 @@ class Rule:
 			self.regex_output.append(self._to_regex(item))
 	
 	def _set_inoutput_item(self, item, inoutput, name=None):
+		"""
+		Set an item to be input or output.
+		
+		Arguments
+		item     -- the item
+		inoutput -- either a Namedlist of input or output items
+		name     -- an optional name for the item
+		"""
 		if isinstance(item, str):
 			inoutput.append(item)
 			if name:
@@ -140,8 +181,7 @@ class Rule:
 			return input, output, wildcards
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
-			raise SyntaxError("Wildcards in input file of rule {} do not appear in output files:\n{}".format(rule, str(ex)))
-			
+			raise SyntaxError("Wildcards in input file of rule {} do not appear in output files:\n{}".format(self, str(ex)))
 
 	def _get_missing_files(self, files):
 		""" Return the tuple of files that are missing form the given ones. """
@@ -162,6 +202,18 @@ class Rule:
 						yield rule, i
 	
 	def run(self, requested_output = None, forceall = False, forcethis = False, jobs = dict(), dryrun = False, quiet = False, visited = set()):
+		"""
+		Run the rule.
+		
+		Arguments
+		requested_output -- the optional requested output file
+		forceall         -- whether all required rules shall be executed, even if the files already exists
+		forcethis        -- whether this rule shall be executed, even if the files already exists
+		jobs             -- dictionary containing all jobs currently queued
+		dryrun           -- whether rule execution shall be only simulated
+		quiet            -- whether rule shall be not printed out on execution
+		visited          -- set of already visited pairs of rules and requested output
+		"""
 		if (self, requested_output) in visited:
 			raise CyclicGraphException(self)
 		visited.add((self, requested_output))
@@ -211,6 +263,9 @@ class Rule:
 		return job
 
 	def check(self):
+		"""
+		Check if rule is well defined.
+		"""
 		if self.output and not self.has_run():
 			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name))
 
@@ -232,12 +287,23 @@ class Rule:
 		return False
 
 	def get_run(self):
+		""" Return the run method. """
 		return self.workflow.get_run(self)
 
 	def has_run(self):
+		""" Return True if rule has a run method. """
 		return self.workflow.has_run(self)
 
 	def get_message(self, input, output, wildcards, showmessage = True):
+		"""
+		Get the message that shall be printed upon rule execution.
+		
+		Arguments
+		input       -- the input of the rule
+		output      -- the output of the rule
+		wildcards   -- the wildcards of the rule
+		showmessage -- whether a user defined message shall be printed instead if existing  
+		"""
 		if self.message and showmessage:
 			variables = dict(globals())
 			variables.update(locals())
@@ -276,6 +342,12 @@ class Rule:
 		
 	
 	def get_wildcard_len(self, wildcards):
+		"""
+		Return the length of the given wildcard values.
+		
+		Arguments
+		wildcards -- a dict of wildcards
+		"""
 		return sum(map(len, wildcards.values()))
 
 	def __repr__(self):

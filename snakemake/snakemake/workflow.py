@@ -13,7 +13,7 @@ from collections import defaultdict
 from snakemake.rules import Rule
 from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException
 from snakemake.utils import shell
-from snakemake.jobs import Job
+from snakemake.jobs import Job, protect
 
 class Workflow:
 	def __init__(self):
