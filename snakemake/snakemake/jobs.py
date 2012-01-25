@@ -1,7 +1,7 @@
-import os, time, sys
+import os, time, sys, stat
 from snakemake.exceptions import MissingOutputException, RuleException
 
-class protect(str):
+class protected(str):
 	"""
 	A string that describes a path to a file that shall be write-protected.
 	"""
@@ -27,6 +27,13 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 		t0 = time.time()
 		run(input, output, wildcards)
 		runtime = time.time() - t0
+		for o in output:
+			if not os.path.exists(o):
+				raise MissingOutputException("Output file {} not produced by rule {}.".format(o, rulename))
+			else:
+				if isinstance(o, protected):
+					mode = os.stat(o).st_mode
+					os.chmod(o, mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH)
 		return runtime
 	except (Exception, BaseException) as ex:
 		# Remove produced output on exception
@@ -34,9 +41,6 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 			if os.path.isdir(o): os.rmdir(o)
 			elif os.path.exists(o): os.remove(o)
 		raise RuleException(": ".join((type(ex).__name__,str(ex))))
-	for o in output:
-		if not os.path.exists(o):
-			raise MissingOutputException("Output file {} not produced by rule {}.".format(o, rulename))
 
 class Job:
 	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, depends = set(), dryrun = False, needrun = True):

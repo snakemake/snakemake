@@ -248,6 +248,10 @@ class Rule:
 			)
 		
 		need_run = self._need_run(forcethis or forceall or todo, input, output)
+		
+		if need_run:
+			self.check_output_access(output)
+		
 		job = Job(
 			self.workflow,
 			rule = self, 
@@ -261,6 +265,11 @@ class Rule:
 		)
 		jobs[(output, self)] = job
 		return job
+
+	def check_output_access(self, output):
+		not_writeable = [o for o in output if os.path.exists(o) and not os.access(o, os.W_OK)]
+		if not_writeable:
+			raise IOError("Cannot write to files:\n{}".format("\n".join(not_writable)))
 
 	def check(self):
 		"""
