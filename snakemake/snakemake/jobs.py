@@ -43,16 +43,19 @@ class Job:
 		self.depends = depends
 		self._callbacks = list()
 		self.workflow = workflow
+		self._queued = False
 	
 	def run(self, callback = None):
 		if callback:
 			self._callbacks.append(callback)
-		if self.depends:
-			for job in list(self.depends):
-				if job in self.depends:
-					job.run(callback = self._wakeup_if_ready)
-		else:
-			self._wakeup()
+		if not self._queued:
+			self._queued = True
+			if self.depends:
+				for job in list(self.depends):
+					if job in self.depends:
+						job.run(callback = self._wakeup_if_ready)
+			else:
+				self._wakeup()
 	
 	def _wakeup_if_ready(self, job):
 		if job in self.depends:
