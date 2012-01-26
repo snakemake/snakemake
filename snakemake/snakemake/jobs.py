@@ -1,4 +1,4 @@
-import os, time, sys, stat
+import os, time, stat
 from snakemake.exceptions import MissingOutputException, RuleException
 
 class protected(str):
@@ -50,9 +50,13 @@ class Job:
 		self._callbacks = list()
 		self.workflow = workflow
 		self._queued = False
+		self._finished = False
 	
 	def run(self, callback = None):
 		if callback:
+			if self._finished:
+				callback(self)
+				return
 			self._callbacks.append(callback)
 		if not self._queued:
 			self._queued = True
@@ -85,6 +89,7 @@ class Job:
 			self._wakeup_waiting()
 	
 	def _wakeup_waiting(self, value = None):
+		self._finished = True
 		if value != None:
 			self.workflow.report_runtime(self.rule, value)
 		for callback in self._callbacks:
