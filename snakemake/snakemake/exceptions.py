@@ -1,4 +1,12 @@
+import sys, traceback
 from collections import defaultdict
+
+def print_exception(ex, rowmap):
+	for file, lineno, _, _ in traceback.extract_tb(ex.__traceback__):
+			if file == "<string>":
+				print("Error in line {} of Snakefile:\n{}".format(rowmap[lineno], str(ex)), file = sys.stderr)
+				return
+	traceback.print_tb(ex.__traceback__)
 
 class RuleException(Exception):
 	pass

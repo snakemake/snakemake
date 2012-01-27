@@ -151,8 +151,11 @@ class Rule:
 			if name:
 				inoutput.add_name(name)
 		else:
-			for i in item:
-				self._set_inoutput_item(i, inoutput)
+			try:
+				for i in item:
+					self._set_inoutput_item(i, inoutput)
+			except TypeError as ex:
+				raise SyntaxError("Input and output files must be specified as strings.")
 
 	def set_message(self, message):
 		"""

@@ -1,5 +1,5 @@
-import os, time, stat
-from snakemake.exceptions import MissingOutputException, RuleException
+import sys, os, time, stat, traceback
+from snakemake.exceptions import MissingOutputException, RuleException, print_exception
 
 class protected(str):
 	"""
@@ -7,7 +7,7 @@ class protected(str):
 	"""
 	pass
 
-def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
+def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmap):
 	"""
 	Wrapper around the run method that handles directory creation and output file deletion on error.
 	
@@ -36,11 +36,14 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards):
 					os.chmod(o, mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH)
 		return runtime
 	except (Exception, BaseException) as ex:
+		print_exception(ex, rowmap)
+		
 		# Remove produced output on exception
 		for o in output:
-			if os.path.isdir(o): os.rmdir(o)
-			elif os.path.exists(o): os.remove(o)
-		raise RuleException(": ".join((type(ex).__name__,str(ex))))
+			if os.path.exists(o) and not os.path.isdir(o): os.remove(o)
+		for o in output:
+			if os.path.exists(o) and os.path.isdir(o) and not os.listdir(o): os.rmdir(o)
+		raise Exception()
 
 class Job:
 	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, depends = set(), dryrun = False, needrun = True):
@@ -81,7 +84,7 @@ class Job:
 			else:
 				self.workflow.get_pool().apply_async(
 					run_wrapper, 
-					(self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards), 
+					(self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards, self.workflow.rowmap), 
 					callback=self._wakeup_waiting, 
 					error_callback=self._raise_error
 				)
@@ -96,5 +99,5 @@ class Job:
 			callback(self)
 	
 	def _raise_error(self, error):
-		print(error)
+		# simply stop because exception was printed in run_wrapper
 		self.workflow.set_jobs_finished()

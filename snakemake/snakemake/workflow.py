@@ -187,10 +187,11 @@ class Workflow:
 			if os.stat(f).st_mtime > time: return True
 		return False
 
-	def execdsl(self, compiled_dsl_code):
+	def execdsl(self, compiled_dsl_code, rowmap):
 		"""
 		Execute a piece of compiled snakemake DSL.
 		"""
+		self.rowmap = rowmap
 		exec(compiled_dsl_code, globals())
 
 	def set_workdir(self, workdir):

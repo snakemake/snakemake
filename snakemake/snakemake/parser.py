@@ -6,8 +6,9 @@ class Tokens:
 	def __init__(self):
 		self._row, self._col = 1, 0
 		self._tokens = []
+		self.rowmap = dict()
 		
-	def add(self, token, string = None):
+	def add(self, token, string = None, orig_token = None):
 		''' Add a new token. Maybe a full TokenInfo object (first arg)
 		or a pair of token type (e.g. NEWLINE) and string. '''
 		if string:
@@ -23,6 +24,10 @@ class Tokens:
 			if token.start[0] != self._row:
 				token = Tokens._setrow(token, self._row)
 		self._tokens.append(token)
+		
+		if orig_token:
+			self.rowmap[self._row] = orig_token.start[0]
+		
 		if token.type in (NEWLINE, NL):
 			self._row += 1
 			self._col = 0
@@ -67,10 +72,10 @@ class States:
 	def python(self, token):
 		''' The automaton state that handles ordinary python code. '''
 		if token.type == NAME and token.string in ('workdir', 'rule'):
-			self.tokens.add(NEWLINE, '\n')
+			self.tokens.add(NEWLINE, '\n', orig_token = token)
 			self.state = self.main_states[token.string]
 		else:
-			self.tokens.add(token)
+			self.tokens.add(token, orig_token = token)
 
 	def workdir(self, token):
 		''' State that handles workdir definition. '''
@@ -80,7 +85,7 @@ class States:
 	def workdir_path(self, token):
 		''' State that translates the workdir path into a function call. '''
 		if token.type == STRING:
-			self._func('_set_workdir', token.string)
+			self._func('_set_workdir', token.string, token)
 			self.state = self.python
 		else:
 			raise self._syntax_error('Expected string after workdir keyword', token)
@@ -96,7 +101,7 @@ class States:
 			self.state = self.rule_colon
 		else:
 			raise self._syntax_error('Expected name or colon after rule keyword.', token)
-		self._func('_add_rule', States._stringify(self.current_rule))
+		self._func('_add_rule', States._stringify(self.current_rule), token)
 	
 	def rule_colon(self, token):
 		self._check_colon('rule', token)
@@ -105,7 +110,7 @@ class States:
 	def rule_body(self, token):
 		''' State that handles the rule body. '''
 		if token.type == NEWLINE:
-			self.tokens.add(token)
+			self.tokens.add(token, orig_token = token)
 		elif token.type == NAME and token.string in self.main_states:
 			self.state = self.main_states[token.string]
 		elif not token.type in (INDENT, DEDENT, COMMENT, NL):
@@ -122,76 +127,76 @@ class States:
 	def inoutput(self, token, type):
 		''' State that handles in- and output definition (depending on type). '''
 		self._check_colon(type, token)
-		self._func_open('_set_{}'.format(type))
+		self._func_open('_set_{}'.format(type), token)
 		self.state = self.inoutput_paths
 		
 	def inoutput_paths(self, token):
 		''' State that collects the arguments for in- or output definition '''
 		if token.type == NAME and token.string in self.main_states:
 			self.state = self.main_states[token.string]
-			self._func_close()
+			self._func_close(token)
 		elif token.type == ENDMARKER:
-			self._func_close()
+			self._func_close(token)
 		else:
-			self.tokens.add(token)
+			self.tokens.add(token, orig_token = token)
 
 	def message(self, token):
 		''' State that handles message definition. '''
 		self._check_colon('message', token)
-		self._func_open('_set_message')
+		self._func_open('_set_message', token)
 		self.state = self.message_text
 
 	def message_text(self, token):
 		if token.type == STRING:
-			self.tokens.add(token)
+			self.tokens.add(token, orig_token = token)
 		elif token.type == NAME and token.string in self.main_states:
 			self.state = self.main_states[token.string]
-			self._func_close()
+			self._func_close(token)
 		elif token.type == ENDMARKER:
-			self._func_close()
+			self._func_close(token)
 		elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
 			raise self._syntax_error('Expected only string after message keyword.', token)
 			
 	def run(self, token):
 		''' State that creates a run function for the current rule. '''
 		self._check_colon('run', token)
-		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards'])
+		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards'], token)
 		self.state = self.run_newline
 
 	def run_newline(self, token):
 		if token.type == NEWLINE:
-			self.tokens.add(token)
+			self.tokens.add(token, orig_token = token)
 		else:
-			self.tokens.add(NEWLINE, '\n')
-			self.tokens.add(INDENT, '\t')
-			self.tokens.add(token)
+			self.tokens.add(NEWLINE, '\n', orig_token = token)\
+			           .add(INDENT, '\t', orig_token = token)\
+			           .add(token, orig_token = token)
 		self.state = self.python
 
 	def run_body(self, token):
 		''' State that collects the body of a rule's run function. '''
 		if token.type == NAME and token.string == 'rule':
-			self.tokens.add(NEWLINE, '\n')
+			self.tokens.add(NEWLINE, '\n', orig_token = token)
 			self.state = self.rule
 		else:
-			self.tokens.add(token)
+			self.tokens.add(token, orig_token = token)
 
 	def shell(self, token):
 		''' State that creates a run function for the current rule, interpreting shell commands directly. '''
 		self._check_colon('shell', token)
-		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards'])
-		self.tokens.add(NEWLINE, '\n')
-		self.tokens.add(INDENT, '\t')
-		self._func_open('shell')
+		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards'], token)
+		self.tokens.add(NEWLINE, '\n', orig_token = token)\
+		           .add(INDENT, '\t', orig_token = token)
+		self._func_open('shell', token)
 		self.state = self.shell_body
 
 	def shell_body(self, token):
 		''' State that collects the body of a rule's shell function. '''
 		if token.type == STRING:
-			self.tokens.add(token)
-			self._func_close()
+			self.tokens.add(token, orig_token = token)
+			self._func_close(token)
 			self.state = self.python
 		elif token.type in (COMMENT, NEWLINE, NL, INDENT, DEDENT):
-			self.tokens.add(token)
+			self.tokens.add(token, orig_token = token)
 		else:
 			raise self._syntax_error('Expected shell command in a string after shell keyword.', token)
 
@@ -204,44 +209,44 @@ class States:
 		if not self._is_colon(token):
 			raise self._syntax_error('Expected ":" after {} keyword'.format(keyword), token)
 
-	def _func_def(self, name, args):
+	def _func_def(self, name, args, orig_token):
 		''' Generate tokens for a function definition with given name 
 		and args. '''
-		self.tokens.add(NAME, 'def') \
-				   .add(NAME, name) \
-				   .add(LPAR, '(')
+		self.tokens.add(NAME, 'def', orig_token = orig_token) \
+				   .add(NAME, name, orig_token = orig_token) \
+				   .add(LPAR, '(', orig_token = orig_token)
 		for i in range(len(args)):
 			self.tokens.add(NAME, args[i])
 			if i < len(args) - 1: 
-				self.tokens.add(COMMA, ',')
-		self.tokens.add(RPAR, ')') \
-				   .add(COLON, ':')
+				self.tokens.add(COMMA, ',', orig_token = orig_token)
+		self.tokens.add(RPAR, ')', orig_token = orig_token) \
+				   .add(COLON, ':', orig_token = orig_token)
 
-	def _func(self, name, arg):
+	def _func(self, name, arg, orig_token):
 		''' Generate tokens for a function invocation with given name 
 		and args. '''
-		self._func_open(name)
-		self.tokens.add(STRING, arg)
-		self._func_close()
+		self._func_open(name, orig_token)
+		self.tokens.add(STRING, arg, orig_token = orig_token)
+		self._func_close(orig_token)
 		
-	def _func_open(self, name):
+	def _func_open(self, name, orig_token):
 		''' Generate tokens for opening a function invocation with 
 		given name. '''
-		self.tokens.add(NAME, name) \
-				   .add(LPAR, '(')
+		self.tokens.add(NAME, name, orig_token = orig_token) \
+				   .add(LPAR, '(', orig_token = orig_token)
 
-	def _func_close(self):
+	def _func_close(self, orig_token):
 		''' Generate tokens for closing a function invocation with 
 		given name. '''
-		self.tokens.add(RPAR, ')') \
-				   .add(NEWLINE, '\n')
+		self.tokens.add(RPAR, ')', orig_token = orig_token) \
+				   .add(NEWLINE, '\n', orig_token = orig_token)
 		
 	@staticmethod
 	def _stringify(tokenstring):
 		''' Encapsulate a string into additional quotes. '''
 		return '"{}"'.format(tokenstring)			
 
-def snakemake_to_python(tokens, filepath):
+def snakemake_to_python(tokens, filepath, rowmap = None):
 	''' Translate snakemake tokens into python tokens using 
 	a finite automaton. '''
 	states = States(filepath)
@@ -250,11 +255,19 @@ def snakemake_to_python(tokens, filepath):
 	for python_token in states:
 		if not python_token.type in (INDENT, DEDENT):
 			yield python_token
+	if rowmap != None:
+		rowmap.update(states.tokens.rowmap)
 
 def compile_to_python(filepath):
 	''' Compile a given Snakefile into python code. '''
 	with open(filepath) as snakefile:
-		snakemake_tokens = list(snakemake_to_python(
-			tokenize.generate_tokens(snakefile.readline), filepath))
+		rowmap = dict()
+		snakemake_tokens = list(
+			snakemake_to_python(
+				tokenize.generate_tokens(snakefile.readline), 
+				filepath,
+				rowmap = rowmap
+			)
+		)
 		compilation = tokenize.untokenize(snakemake_tokens)
-		return compilation
+		return compilation, rowmap

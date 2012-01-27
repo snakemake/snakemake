@@ -1,6 +1,7 @@
 import os, logging, traceback, sys, csv
 from snakemake.workflow import workflow
 from snakemake.parser import compile_to_python
+from snakemake.exceptions import print_exception
 
 def snakemake(snakefile, list = False, jobs = 1, directory = None, target = None, dryrun = False, forcethis = False, forceall = False, stats = None):
 	"""
@@ -22,7 +23,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, target = None
 		log("Defined rules:")
 		for rule in workflow.get_rules(): log(rule.name)
 	
-	code = compile_to_python(snakefile)
+	code, rowmap = compile_to_python(snakefile)
 
 	if directory:
 		# change to the specified directory. This overrides eventually specified workdir in Snakefile
@@ -30,16 +31,16 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, target = None
 
 	workflow.clear()
 
-	workflow.execdsl(code)
-
-	workflow.check_rules()
-
-	if list:
-		print_rules(logging.info)
-		return 0
-	
-	workflow.setup_pool(jobs)
 	try:
+		workflow.execdsl(code, rowmap)
+
+		workflow.check_rules()
+
+		if list:
+			print_rules(logging.info)
+			return 0
+	
+		workflow.setup_pool(jobs)
 		if not target: 
 			workflow.run_first_rule(dryrun = dryrun, forcethis = forcethis, forceall = forceall)
 		else:
@@ -57,7 +58,6 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, target = None
 			stats.writerow([])
 			stats.writerow(("Overall runtime", s))
 	except (Exception, BaseException) as ex:
-		print(type(ex).__name__, str(ex), file=sys.stderr, sep=": ")
-		print(traceback.format_tb(ex.__traceback__)[-1], file=sys.stderr)
+		print_exception(ex, rowmap)
 		return 1
 	return 0
