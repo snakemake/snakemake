@@ -85,16 +85,21 @@ class Job:
 				self.workflow.get_pool().apply_async(
 					run_wrapper, 
 					(self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards, self.workflow.rowmap), 
-					callback=self._wakeup_waiting, 
+					callback=self._finished_callback, 
 					error_callback=self._raise_error
 				)
 		else:
 			self._wakeup_waiting()
 	
-	def _wakeup_waiting(self, value = None):
+	def _finished_callback(self, value = None):
+		self.workflow.jobcounter.done()
+		print(self.workflow.jobcounter)
 		self._finished = True
 		if value != None:
 			self.workflow.report_runtime(self.rule, value)
+		self._wakeup_waiting()
+		
+	def _wakeup_waiting(self):
 		for callback in self._callbacks:
 			callback(self)
 	

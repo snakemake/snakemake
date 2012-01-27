@@ -15,6 +15,21 @@ from snakemake.exceptions import MissingOutputException, MissingInputException, 
 from snakemake.utils import shell
 from snakemake.jobs import Job, protected
 
+class Jobcounter:
+	def __init__(self):
+		self._count = 0
+		self._done = 0
+	
+	def add(self):
+		self._count += 1
+	
+	def done(self):
+		self._done += 1
+	
+	def __str__(self):
+		return "{} of {} steps ({}%) done".format(self._done, self._count, int(self._done / self._count * 100))
+	
+
 class Workflow:
 	def __init__(self):
 		"""
@@ -26,7 +41,8 @@ class Workflow:
 		self.__workdir_set = False
 		self._jobs_finished = Event()
 		self._virgin_globals = None
-		self._runtimes = defaultdict(list)		
+		self._runtimes = defaultdict(list)
+		self.jobcounter = None		
 	
 	def report_runtime(self, rule, runtime):
 		self._runtimes[rule].append(runtime)
@@ -42,6 +58,8 @@ class Workflow:
 		self.__first = None
 		self.__workdir_set = False
 		self._jobs_finished = Event()
+		self._runtimes = defaultdict(list)
+		self.jobcounter = None
 		for k in list(globals().keys()):
 			if k not in self._virgin_globals:
 				del globals()[k]
@@ -147,7 +165,8 @@ class Workflow:
 		self._run(producer, file, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
 	
 	def _run(self, rule, requested_output = None, dryrun = False, forcethis = False, forceall = False):
-		job = rule.run(requested_output, jobs=dict(), forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set())
+		self.jobcounter = Jobcounter()
+		job = rule.run(requested_output, jobs=dict(), forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set(), jobcounter = self.jobcounter)
 		job.run(callback = self.set_jobs_finished)
 		self._jobs_finished.wait()
 

@@ -7,6 +7,7 @@ def print_exception(ex, rowmap):
 				print("Error in line {} of Snakefile:\n{}".format(rowmap[lineno], str(ex)), file = sys.stderr)
 				return
 	traceback.print_tb(ex.__traceback__)
+	print(ex, file=sys.stderr)
 
 class RuleException(Exception):
 	pass

@@ -154,7 +154,7 @@ class Rule:
 			try:
 				for i in item:
 					self._set_inoutput_item(i, inoutput)
-			except TypeError as ex:
+			except TypeError:
 				raise SyntaxError("Input and output files must be specified as strings.")
 
 	def set_message(self, message):
@@ -204,7 +204,7 @@ class Rule:
 					if rule.is_producer(i):
 						yield rule, i
 	
-	def run(self, requested_output = None, forceall = False, forcethis = False, jobs = dict(), dryrun = False, quiet = False, visited = set()):
+	def run(self, requested_output = None, forceall = False, forcethis = False, jobs = dict(), dryrun = False, quiet = False, visited = set(), jobcounter = None):
 		"""
 		Run the rule.
 		
@@ -232,7 +232,7 @@ class Rule:
 		produced = dict()
 		for rule, file in self._to_visit(input):
 			try:
-				job = rule.run(file, forceall = forceall, jobs = jobs, dryrun = dryrun, quiet = quiet, visited = set(visited))
+				job = rule.run(file, forceall = forceall, jobs = jobs, dryrun = dryrun, quiet = quiet, visited = set(visited), jobcounter = jobcounter)
 				if file in produced:
 					raise AmbiguousRuleException(produced[file], rule)
 				if job.needrun:
@@ -267,6 +267,10 @@ class Rule:
 			needrun = need_run or quiet
 		)
 		jobs[(output, self)] = job
+		
+		if jobcounter and need_run:
+			jobcounter.add()
+		
 		return job
 
 	def check_output_access(self, output):
@@ -351,7 +355,6 @@ class Rule:
 					bestmatch = match.groupdict()
 					bestmatchlen = l
 		return bestmatch
-		
 	
 	def get_wildcard_len(self, wildcards):
 		"""
