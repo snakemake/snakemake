@@ -18,7 +18,6 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmap):
 	wildcards -- so far processed wildcards
 	"""
 	print(ruledesc)
-	print(wildcards)
 
 	for o in output:
 		dir = os.path.dirname(o)
