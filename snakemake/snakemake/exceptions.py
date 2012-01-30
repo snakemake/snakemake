@@ -6,7 +6,8 @@ def print_exception(ex, rowmap):
 			if file == "<string>":
 				print("Error in line {} of Snakefile:\n{}".format(rowmap[lineno], str(ex)), file = sys.stderr)
 				return
-	#traceback.print_tb(ex.__traceback__)
+	if not isinstance(ex, RuleException):
+		traceback.print_tb(ex.__traceback__)
 	print(ex, file=sys.stderr)
 
 class RuleException(Exception):
@@ -43,5 +44,5 @@ class MissingRuleException(RuleException):
 	def __init__(self, file):
 		super(MissingRuleException, self).__init__("No rule to produce {}.".format(file))
 
-class CreateRuleException(Exception):
+class CreateRuleException(RuleException):
 	pass
