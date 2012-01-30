@@ -1,4 +1,4 @@
-import os, re
+import os, re, sys
 from snakemake.jobs import Job
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException
 
@@ -17,12 +17,14 @@ class Namedlist(list):
 		"""
 		super(Namedlist, self).__init__()
 		self._names = dict()
+		
 		if toclone:
 			self.extend(toclone)
 			if isinstance(toclone, Namedlist):
 				self.take_names(toclone.get_names())
 		if fromdict:
 			for key, item in fromdict.items():
+				print(key, item)
 				self.append(item)
 				self.add_name(key)
 
@@ -254,6 +256,8 @@ class Rule:
 		
 		if need_run:
 			self.check_output_access(output)
+			
+		wildcards = Namedlist(fromdict = wildcards)
 		
 		job = Job(
 			self.workflow,
@@ -261,7 +265,7 @@ class Rule:
 			message = self.get_message(input, output, wildcards),
 			input = input,
 			output = output,
-			wildcards = Namedlist(fromdict = wildcards),
+			wildcards = wildcards,
 			depends = todo,
 			dryrun = dryrun,
 			needrun = need_run or quiet
