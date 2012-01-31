@@ -63,6 +63,8 @@ class shell(sp.Popen):
 shell("echo b; echo a; echo c > foo")
 shell("echo b; echo a; echo c") | shell("sort") | sys.stdout
 
+shell("echo a; echo b") | (shell("sort"), shell("cut -f1"))
+
 x = shell("echo 2; echo 1")
 x | shell("sort") | sys.stdout
 
