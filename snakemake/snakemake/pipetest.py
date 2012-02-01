@@ -19,16 +19,19 @@ class TextIOWriter(PipeWriter):
 		self._towrite.write(line.decode("utf-8"))
 
 class shell(sp.Popen):
-	processes = []
+	_processes = []
 	def __init__(self, cmd):
 		super(shell, self).__init__(cmd, shell=True, stdin = sp.PIPE, stdout=sp.PIPE, close_fds=True)
-		shell.processes.append(self)
+		self._stdout_free = True
+		shell._processes.append(self)
 		
 	@staticmethod
 	def join():
-		for p in shell.processes:
+		for p in shell._processes:
+			if p._stdout_free:
+				for l in p._stdoutlines(): pass
 			p.wait()
-		shell.processes = []
+		shell._processes = []
 		
 	def _stdoutlines(self):
 		while True:
@@ -60,9 +63,10 @@ class shell(sp.Popen):
 			elif isinstance(o, list):
 				writer = ListWriter(o)
 			else:
-				raise UnsupportedOperation("Only shell, files, stdout or lists allowed right to a shell pipe.")
+				raise ValueError("Only shell, files, stdout or lists allowed right to a shell pipe.")
 			pipes.append(writer)
 		
+		self._stdout_free = False
 		Thread(target = self._write_pipes, args = (pipes, toclose)).start()
 			
 		if len(other) == 1:
