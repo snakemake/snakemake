@@ -94,12 +94,12 @@ class Job:
 	def _finished_callback(self, value = None):
 		self.workflow.jobcounter.done()
 		print(self.workflow.jobcounter)
-		self._finished = True
 		if value != None:
 			self.workflow.report_runtime(self.rule, value)
 		self._wakeup_waiting()
 		
 	def _wakeup_waiting(self):
+		self._finished = True		
 		for callback in self._callbacks:
 			callback(self)
 	

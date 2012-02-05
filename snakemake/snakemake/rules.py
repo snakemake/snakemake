@@ -24,7 +24,6 @@ class Namedlist(list):
 				self.take_names(toclone.get_names())
 		if fromdict:
 			for key, item in fromdict.items():
-				print(key, item)
 				self.append(item)
 				self.add_name(key)
 
