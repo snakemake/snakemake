@@ -1,6 +1,6 @@
 import os, re, sys
-from snakemake.jobs import Job
-from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException
+from snakemake.jobs import Job, protected
+from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException
 
 class Namedlist(list):
 	"""
@@ -164,6 +164,12 @@ class Rule:
 		"""
 		self.message = message
 	
+	def _format_inoutput(self, inoutputfile, wildcards):
+		f = inoutputfile.format(**wildcards)
+		if isinstance(inoutputfile, protected):
+			f = protected(f)
+		return f
+	
 	def _expand_wildcards(self, requested_output):
 		""" Expand wildcards depending on the requested output. """
 		if requested_output:
@@ -177,9 +183,12 @@ class Rule:
 		if missing_wildcards:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)))
 
+		def format(io, wildcards):
+			f = io.format(**wildcards)
+			
 		try:
-			input = Namedlist(i.format(**wildcards) for i in self.input)
-			output = Namedlist(o.format(**wildcards) for o in self.output)
+			input = Namedlist(self._format_inoutput(i, wildcards) for i in self.input)
+			output = Namedlist(self._format_inoutput(o, wildcards) for o in self.output)
 			input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
 			return input, output, wildcards
@@ -227,7 +236,7 @@ class Rule:
 		if output and (output, self) in jobs:
 			return jobs[(output, self)]
 		
-		missing_input_exceptions = list()
+		exceptions = list()
 		files_produced_with_error = set()
 		todo = set()
 		produced = dict()
@@ -239,22 +248,24 @@ class Rule:
 				if job.needrun:
 					todo.add(job)
 				produced[file] = rule
-			except MissingInputException as ex:
-				missing_input_exceptions.append(ex)
+			except (ProtectedOutputException, MissingInputException) as ex:
+				exceptions.append(ex)
 				files_produced_with_error.add(file)
 		
 		missing_input = self._get_missing_files(set(input) - produced.keys())
 		if missing_input:
 			raise MissingInputException(
-				rule = self, 
-				include = missing_input_exceptions, 
-				files = set(missing_input) - files_produced_with_error
+				rule = self,
+				files = set(missing_input) - files_produced_with_error, 
+				include = exceptions
 			)
 		
 		need_run = self._need_run(forcethis or forceall or todo, input, output)
 		
-		if need_run:
-			self.check_output_access(output)
+		
+		protected_output = self._get_protected_output(output) if need_run else None
+		if protected_output or exceptions:
+			raise ProtectedOutputException(self, protected_output, include = exceptions)
 			
 		wildcards = Namedlist(fromdict = wildcards)
 		
@@ -276,10 +287,8 @@ class Rule:
 		
 		return job
 
-	def check_output_access(self, output):
-		not_writeable = [o for o in output if os.path.exists(o) and not os.access(o, os.W_OK)]
-		if not_writeable:
-			raise IOError("Cannot write to files:\n{}".format("\n".join(not_writable)))
+	def _get_protected_output(self, output):
+		return [o for o in output if os.path.exists(o) and not os.access(o, os.W_OK)]
 
 	def check(self):
 		"""

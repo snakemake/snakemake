@@ -11,26 +11,31 @@ def print_exception(ex, rowmap):
 	print(ex, file=sys.stderr)
 
 class RuleException(Exception):
-	pass
+	def __init__(self, message = None, include = list()):
+		super(RuleException, self).__init__(message)
+		self._include = set(ex for ex in include)
+	
+	def __str__(self):
+		messages = set(str(ex) for ex in self._include)
+		message = super(RuleException, self).__str__()
+		if message: messages.add(message)
+		return "\n".join(messages)
 
 class MissingOutputException(RuleException):
 	pass
+		
+class IOException(RuleException):
+	def __init__(self, prefix, rule, files, include = list()):
+		message = "{} for rule {}:\n{}".format(prefix, rule, "\n".join(files)) if files else ""
+		super(IOException, self).__init__(message = message, include = include)
 
-class MissingInputException(RuleException):
-	def __init__(self, rule = None, files = None, include = None):
-		self.missing = defaultdict(set)
-		if files and rule:
-			self.missing[rule].update(files)
-		if include:
-			for ex in include:
-				for rule, files in ex.missing.items():
-					self.missing[rule].update(files)
-	
-	def __str__(self):
-		s = ""
-		for rule, files in self.missing.items():
-			s += "Missing input files for rule {}:\n{}\n".format(rule, ", ".join(files))
-		return s
+class MissingInputException(IOException):
+	def __init__(self, rule, files, include = list()):
+		super(MissingInputException, self).__init__("Missing input files", rule, files, include)
+
+class ProtectedOutputException(IOException):
+	def __init__(self, rule, files, include = list()):
+		super(ProtectedOutputException, self).__init__("Protected output files", rule, files, include)
 
 class AmbiguousRuleException(RuleException):
 	def __init__(self, rule1, rule2):

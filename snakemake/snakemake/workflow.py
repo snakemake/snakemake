@@ -11,7 +11,7 @@ from multiprocessing import Pool, Event
 from collections import defaultdict
 
 from snakemake.rules import Rule
-from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException
+from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException, ProtectedOutputException
 from snakemake.shell import Shell, shell
 from snakemake.jobs import Job, protected
 
@@ -169,6 +169,7 @@ class Workflow:
 		job = rule.run(requested_output, jobs=dict(), forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set(), jobcounter = self.jobcounter)
 		job.run(callback = self.set_jobs_finished)
 		self._jobs_finished.wait()
+		
 
 	def check_rules(self):
 		"""

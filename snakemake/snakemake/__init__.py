@@ -58,6 +58,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, target = None
 			stats.writerow([])
 			stats.writerow(("Overall runtime", s))
 	except (Exception, BaseException) as ex:
+		print("blas")
 		print_exception(ex, rowmap)
 		return 1
 	return 0
