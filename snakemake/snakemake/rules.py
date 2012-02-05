@@ -236,7 +236,9 @@ class Rule:
 		if output and (output, self) in jobs:
 			return jobs[(output, self)]
 		
-		exceptions = list()
+		missing_input_exceptions = list()
+		protected_output_exceptions = list()
+		
 		files_produced_with_error = set()
 		todo = set()
 		produced = dict()
@@ -249,7 +251,10 @@ class Rule:
 					todo.add(job)
 				produced[file] = rule
 			except (ProtectedOutputException, MissingInputException) as ex:
-				exceptions.append(ex)
+				if isinstance(ex, ProtectedOutputException):
+					protected_output_exceptions.append(ex)
+				else:
+					missing_input_exceptions.append(ex)
 				files_produced_with_error.add(file)
 		
 		missing_input = self._get_missing_files(set(input) - produced.keys())
@@ -257,14 +262,14 @@ class Rule:
 			raise MissingInputException(
 				rule = self,
 				files = set(missing_input) - files_produced_with_error, 
-				include = exceptions
+				include = missing_input_exceptions
 			)
 		
 		need_run = self._need_run(forcethis or forceall or todo, input, output)
 		
 		
 		protected_output = self._get_protected_output(output) if need_run else None
-		if protected_output or exceptions:
+		if protected_output or protected_output_exceptions:
 			raise ProtectedOutputException(self, protected_output, include = exceptions)
 			
 		wildcards = Namedlist(fromdict = wildcards)
