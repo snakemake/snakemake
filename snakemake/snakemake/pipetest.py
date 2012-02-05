@@ -13,17 +13,24 @@ class PipeWriter:
 class ListWriter(PipeWriter):
 	def write(self, line):
 		self._towrite.append(line[:-1].decode("utf-8"))
+		print(line)
 
 class TextIOWriter(PipeWriter):
 	def write(self, line):
 		self._towrite.write(line.decode("utf-8"))
-
+		
 class shell(sp.Popen):
 	_processes = []
 	def __init__(self, cmd):
 		super(shell, self).__init__(cmd, shell=True, stdin = sp.PIPE, stdout=sp.PIPE, close_fds=True)
 		self._stdout_free = True
+		self._pipethread = None
 		shell._processes.append(self)
+	
+	def wait(self):
+		super(shell, self).wait()
+		if self._pipethread:
+			self._pipethread.join()
 		
 	@staticmethod
 	def join():
@@ -58,6 +65,8 @@ class shell(sp.Popen):
 			if isinstance(o, shell):
 				writer = PipeWriter(o.stdin)
 				toclose.append(o.stdin)
+				# move all stdin to the beginning of the pipe
+				o.stdin = self.stdin
 			elif isinstance(o, TextIOWrapper):
 				writer = TextIOWriter(o)
 			elif isinstance(o, list):
@@ -67,7 +76,7 @@ class shell(sp.Popen):
 			pipes.append(writer)
 		
 		self._stdout_free = False
-		Thread(target = self._write_pipes, args = (pipes, toclose)).start()
+		self._pipethread = Thread(target = self._write_pipes, args = (pipes, toclose)).start()
 			
 		if len(other) == 1:
 			return other[0]
@@ -86,6 +95,7 @@ print("test")
 y = []
 shell("echo foo; echo ''; echo bar") | y
 shell.join() # ensure that all shells are finished before next line
+import time; time.sleep(5)
 print(y)
 
 shell.join()
