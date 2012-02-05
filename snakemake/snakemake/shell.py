@@ -13,32 +13,32 @@ class PipeWriter:
 class ListWriter(PipeWriter):
 	def write(self, line):
 		self._towrite.append(line[:-1].decode("utf-8"))
-		print(line)
 
 class TextIOWriter(PipeWriter):
 	def write(self, line):
 		self._towrite.write(line.decode("utf-8"))
 		
-class shell(sp.Popen):
+class Shell(sp.Popen):
 	_processes = []
 	def __init__(self, cmd):
-		super(shell, self).__init__(cmd, shell=True, stdin = sp.PIPE, stdout=sp.PIPE, close_fds=True)
+		super(Shell, self).__init__(cmd, shell=True, stdin = sp.PIPE, stdout=sp.PIPE, close_fds=True)
 		self._stdout_free = True
 		self._pipethread = None
-		shell._processes.append(self)
+		self._stdin = self.stdin
+		Shell._processes.append(self)
 	
 	def wait(self):
-		super(shell, self).wait()
+		super(Shell, self).wait()
 		if self._pipethread:
 			self._pipethread.join()
 		
 	@staticmethod
 	def join():
-		for p in shell._processes:
+		for p in Shell._processes:
 			if p._stdout_free:
 				for l in p._stdoutlines(): pass
 			p.wait()
-		shell._processes = []
+		Shell._processes = []
 		
 	def _stdoutlines(self):
 		while True:
@@ -62,11 +62,11 @@ class shell(sp.Popen):
 		toclose = []
 		for o in other:
 			writer = None
-			if isinstance(o, shell):
-				writer = PipeWriter(o.stdin)
-				toclose.append(o.stdin)
+			if isinstance(o, Shell):
+				writer = PipeWriter(o._stdin)
+				toclose.append(o._stdin)
 				# move all stdin to the beginning of the pipe
-				o.stdin = self.stdin
+				o._stdin = self._stdin
 			elif isinstance(o, TextIOWrapper):
 				writer = TextIOWriter(o)
 			elif isinstance(o, list):
@@ -82,20 +82,22 @@ class shell(sp.Popen):
 			return other[0]
 	
 
-shell("echo b; echo a; echo c > foo")
-shell("echo b; echo a; echo c") | shell("sort") | sys.stdout
-
-shell("echo a; echo b") | (shell("sort"), shell("cut -f1"))
-
-x = shell("echo 2; echo 1")
-x | shell("sort") | sys.stdout
-shell.join() # ensure that all shells are finished before next line
-print("test")
-
-y = []
-shell("echo foo; echo ''; echo bar") | y
-shell.join() # ensure that all shells are finished before next line
-import time; time.sleep(5)
-print(y)
-
-shell.join()
+if __name__ == "__main__":
+	Shell("echo b; echo a; echo c > foo")
+	Shell("echo b; echo a; echo c") | Shell("sort") | sys.stdout
+	
+	Shell("echo a; echo b") | (Shell("sort"), Shell("cut -f1"))
+	
+	x = Shell("echo 2; echo 1")
+	x | Shell("sort") | sys.stdout
+	Shell.join() # ensure that all shells are finished before next line
+	print("test")
+	
+	y = []
+	Shell("echo foo; echo ''; echo bar") | y
+	Shell.join() # ensure that all shells are finished before next line
+	import time; time.sleep(5)
+	print(y)
+	
+	Shell.join()
+	
