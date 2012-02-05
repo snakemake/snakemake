@@ -12,7 +12,7 @@ from collections import defaultdict
 
 from snakemake.rules import Rule
 from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException
-from snakemake.utils import shell
+from snakemake.shell import Shell, shell
 from snakemake.jobs import Job, protected
 
 class Jobcounter:

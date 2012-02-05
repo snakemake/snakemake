@@ -1,7 +1,22 @@
-from io import TextIOWrapper
-import sys
+import _io
+import sys, os, inspect
 import subprocess as sp
 from threading import Thread
+
+def format(string, *args, stepout = 1, **kwargs):
+	frame = inspect.currentframe().f_back
+	while stepout > 1:
+		frame = frame.f_back
+		stepout -= 1
+	
+	variables = dict(frame.f_globals)
+	# add local variables from calling rule/function
+	variables.update(frame.f_locals)
+	variables.update(kwargs)
+	try:
+		return string.format(*args, **variables)
+	except KeyError as ex:
+		raise NameError("The name {} is unknown in this context.".format(str(ex)))
 
 class PipeWriter:
 	def __init__(self, towrite):
@@ -19,9 +34,11 @@ class TextIOWriter(PipeWriter):
 		self._towrite.write(line.decode("utf-8"))
 		
 class Shell(sp.Popen):
+	_process_args = {}
 	_processes = []
-	def __init__(self, cmd):
-		super(Shell, self).__init__(cmd, shell=True, stdin = sp.PIPE, stdout=sp.PIPE, close_fds=True)
+	
+	def __init__(self, cmd, *args, **kwargs):
+		super(Shell, self).__init__(format(cmd, *args, stepout = 3, **kwargs), shell=True, stdin = sp.PIPE, stdout=sp.PIPE, close_fds=True, **Shell._process_args)
 		self._stdout_free = True
 		self._pipethread = None
 		self._stdin = self.stdin
@@ -31,6 +48,7 @@ class Shell(sp.Popen):
 		super(Shell, self).wait()
 		if self._pipethread:
 			self._pipethread.join()
+			
 		
 	@staticmethod
 	def join():
@@ -67,20 +85,29 @@ class Shell(sp.Popen):
 				toclose.append(o._stdin)
 				# move all stdin to the beginning of the pipe
 				o._stdin = self._stdin
-			elif isinstance(o, TextIOWrapper):
+			elif isinstance(o, _io._TextIOBase):
 				writer = TextIOWriter(o)
 			elif isinstance(o, list):
 				writer = ListWriter(o)
 			else:
+				print(o, file=sys.stderr)
 				raise ValueError("Only shell, files, stdout or lists allowed right to a shell pipe.")
 			pipes.append(writer)
 		
 		self._stdout_free = False
-		self._pipethread = Thread(target = self._write_pipes, args = (pipes, toclose)).start()
+		self._pipethread = Thread(target = self._write_pipes, args = (pipes, toclose))
+		self._pipethread.start()
 			
 		if len(other) == 1:
 			return other[0]
-	
+
+if "SHELL" in os.environ:
+	Shell._process_args["executable"] = os.environ["SHELL"]
+
+def shell(cmd, *args, **kwargs):
+	p = Shell(cmd, *args, **kwargs)
+	p | sys.stdout
+	p.wait()
 
 if __name__ == "__main__":
 	Shell("echo b; echo a; echo c > foo")
@@ -91,12 +118,14 @@ if __name__ == "__main__":
 	x = Shell("echo 2; echo 1")
 	x | Shell("sort") | sys.stdout
 	Shell.join() # ensure that all shells are finished before next line
+	
+	#import time; time.sleep(1)
 	print("test")
 	
 	y = []
 	Shell("echo foo; echo ''; echo bar") | y
 	Shell.join() # ensure that all shells are finished before next line
-	import time; time.sleep(5)
+	#import time; time.sleep(5)
 	print(y)
 	
 	Shell.join()

@@ -1,5 +1,6 @@
 import sys, os, time, stat, traceback
 from snakemake.exceptions import MissingOutputException, RuleException, print_exception
+from snakemake.shell import Shell, shell
 
 class protected(str):
 	"""
@@ -25,7 +26,10 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmap):
 			os.makedirs(dir)
 	try:
 		t0 = time.time()
+		# execute the actual run method.
 		run(input, output, wildcards)
+		# finish all spawned shells.
+		Shell.join()
 		runtime = time.time() - t0
 		for o in output:
 			if not os.path.exists(o):
