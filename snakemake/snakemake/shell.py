@@ -105,9 +105,10 @@ if "SHELL" in os.environ:
 	Shell._process_args["executable"] = os.environ["SHELL"]
 
 def shell(cmd, *args, **kwargs):
-	p = Shell(cmd, *args, **kwargs)
-	p | sys.stdout
-	p.wait()
+	sp.check_call(format(cmd, *args, stepout=2, **kwargs), shell=True, **Shell._process_args)
+	#p = Shell(cmd, *args, **kwargs)
+	#p | sys.stdout
+	#p.wait()
 
 if __name__ == "__main__":
 	Shell("echo b; echo a; echo c > foo")
