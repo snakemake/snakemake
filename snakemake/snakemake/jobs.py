@@ -36,8 +36,15 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmap):
 				raise MissingOutputException("Output file {} not produced by rule {}.".format(o, rulename))
 			else:
 				if isinstance(o, protected):
-					mode = os.stat(o).st_mode
-					os.chmod(o, mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH)
+					mode = os.stat(o).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+					if os.path.isdir(o):
+						for root, dirs, files in os.walk(o):
+							for d in dirs:
+								os.chmod(d, mode)
+							for f in files:
+								os.chmod(f, mode)
+					else:
+						os.chmod(o, mode)
 		return runtime
 	except (Exception, BaseException) as ex:
 		print_exception(ex, rowmap)
