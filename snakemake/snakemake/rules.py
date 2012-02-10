@@ -86,7 +86,8 @@ class Rule:
 		self.wildcard_names = set()
 		self.workflow = workflow
 
-	def _to_regex(self, output):
+	@staticmethod
+	def _to_regex(output):
 		"""
 		Convert a filepath containing wildcards to a regular expression.
 		
@@ -96,7 +97,8 @@ class Rule:
 		output = re.sub("\.", "\.", output)
 		return re.sub('\{(?P<name>\w+?)\}', lambda match: '(?P<{}>.+)'.format(match.group('name')), output)
 
-	def _get_wildcard_names(self, output):
+	@staticmethod
+	def _get_wildcard_names(output):
 		"""
 		Return the names of detected wildcards.
 		"""
@@ -167,7 +169,8 @@ class Rule:
 		"""
 		self.message = message
 	
-	def _format_inoutput(self, inoutputfile, wildcards):
+	@staticmethod
+	def _format_inoutput(inoutputfile, wildcards):
 		f = inoutputfile.format(**wildcards)
 		if isinstance(inoutputfile, protected):
 			f = protected(f)
@@ -199,23 +202,18 @@ class Rule:
 			# this can only happen if an input file contains an unresolved wildcard.
 			raise SyntaxError("Wildcards in input file of rule {} do not appear in output files:\n{}".format(self, str(ex)))
 
-	def _get_missing_files(self, files):
+	@staticmethod
+	def _get_missing_files(files):
 		""" Return the tuple of files that are missing form the given ones. """
 		return tuple(f for f in files if not os.path.exists(f))
 	
-	def _has_missing_files(self, files):
+	@staticmethod
+	def _has_missing_files(files):
 		""" Return True if any of the given files does not exist. """
 		for f in files:
 			if not os.path.exists(f):
 				return True
 		return False
-	
-	def _to_visit(self, input):
-		for rule in self.workflow.get_rules():
-			if rule != self:
-				for i in input:
-					if rule.is_producer(i):
-						yield rule, i
 	
 	def run(self, requested_output = None, forceall = False, forcethis = False, jobs = dict(), dryrun = False, quiet = False, visited = set(), jobcounter = None):
 		"""
@@ -245,7 +243,7 @@ class Rule:
 		files_produced_with_error = set()
 		todo = set()
 		produced = dict()
-		for rule, file in self._to_visit(input):
+		for rule, file in self.workflow.get_producers(input, exclude=self):
 			try:
 				job = rule.run(file, forceall = forceall, jobs = jobs, dryrun = dryrun, quiet = quiet, visited = set(visited), jobcounter = jobcounter)
 				if file in produced:
@@ -273,7 +271,7 @@ class Rule:
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output or protected_output_exceptions:
-			raise ProtectedOutputException(self, protected_output, include = exceptions)
+			raise ProtectedOutputException(self, protected_output, include = protected_output_exceptions)
 			
 		wildcards = Namedlist(fromdict = wildcards)
 		
@@ -295,7 +293,8 @@ class Rule:
 		
 		return job
 
-	def _get_protected_output(self, output):
+	@staticmethod
+	def _get_protected_output(output):
 		return [o for o in output if os.path.exists(o) and not os.access(o, os.W_OK)]
 
 	def check(self):
@@ -376,7 +375,8 @@ class Rule:
 					bestmatchlen = l
 		return bestmatch
 	
-	def get_wildcard_len(self, wildcards):
+	@staticmethod
+	def get_wildcard_len(wildcards):
 		"""
 		Return the length of the given wildcard values.
 		

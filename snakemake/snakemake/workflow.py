@@ -107,6 +107,13 @@ class Workflow:
 	
 	def get_run(self, rule):
 		return globals()["__" + rule.name]
+	
+	def get_producers(self, files, exclude = None):
+		for rule in self.get_rules():
+			if rule != exclude:
+				for f in files:
+					if rule.is_producer(f):
+						yield rule, f
 
 	def get_rule(self, name):
 		"""
@@ -127,49 +134,61 @@ class Workflow:
 		"""
 		Apply the rule defined first.
 		"""
-		self.run_rule(self.__first, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
-		
-	def run_rule(self, name, dryrun = False, forcethis = False, forceall = False):
-		"""
-		Apply a rule.
-		
-		Arguments
-		name -- the name of the rule to apply
-		"""
-		rule = self.__rules[name]
-		self._run(rule, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
+		self._run({self.get_rule(self.__first): None}, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
 			
-	def produce_file(self, file, dryrun = False, forcethis = False, forceall = False):
+	def get_file_producers(self, files, dryrun = False, forcethis = False, forceall = False):
 		"""
-		Apply a rule such that the requested file is produced.
+		Return a dict of rules with requested files such that the requested files are produced.
 		
 		Arguments
-		file -- the path of the file to produce
+		files -- the paths of the files to produce
 		"""
-		producer = None
-		missing_input_ex = []
-		for rule in self.__rules.values():
-			if rule.is_producer(file):
-				try:
-					rule.run(file, jobs=dict(), forceall = forceall, dryrun = True, quiet = True, visited = set())
-					if producer:
-						raise AmbiguousRuleException("Ambiguous rules: {} and {}".format(producer, rule))
-					producer = rule
-				except MissingInputException as ex:
-					missing_input_ex.append(ex)
+		producers = dict()
+		missing_input_ex = defaultdict(list)
+		for rule, file in self.get_producers(files):
+			try:
+				rule.run(file, jobs=dict(), forceall = forceall, dryrun = True, quiet = True, visited = set())
+				if file in producers:
+					raise AmbiguousRuleException("Ambiguous rules: {} and {}".format(producer, rule))
+				producers[file] = rule
+			except MissingInputException as ex:
+				missing_input_ex[file].append(ex)
 		
-		if not producer:
-			if missing_input_ex:
-				raise MissingInputException(include = missing_input_ex)
-			raise MissingRuleException(file)
-		self._run(producer, file, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
+		toraise = []
+		for file in files:
+			if not file in producers:
+				if file in missing_input_ex:
+					toraise += missing_input_ex[file]
+				else:
+					toraise.append(MissingRuleException(file))
+		if toraise:
+			raise RuleException(include = toraise)
+
+		return dict((rule, file) for file, rule in producers.items())
 	
-	def _run(self, rule, requested_output = None, dryrun = False, forcethis = False, forceall = False):
-		self.jobcounter = Jobcounter()
-		job = rule.run(requested_output, jobs=dict(), forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set(), jobcounter = self.jobcounter)
-		job.run(callback = self.set_jobs_finished)
-		self._jobs_finished.wait()
+	def run_rules(self, targets, dryrun = False, forcethis = False, forceall = False):
+		ruletargets, filetargets = [], []
+		for target in targets:
+			if workflow.is_rule(target):
+				ruletargets.append(target)
+			else:
+				filetargets.append(target)
 		
+		torun = self.get_file_producers(filetargets, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
+		for name in ruletargets:
+			rule = self.__rules[name]
+			if not rule in torun:
+				torun[rule] = []
+		
+		self._run(torun, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
+	
+	def _run(self, torun, dryrun = False, forcethis = False, forceall = False):
+		self.jobcounter = Jobcounter()
+		jobs = dict()
+		for rule, requested_output in torun.items():
+			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set(), jobcounter = self.jobcounter)
+			job.run(callback = self.set_jobs_finished)
+		self._jobs_finished.wait()
 
 	def check_rules(self):
 		"""

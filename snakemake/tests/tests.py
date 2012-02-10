@@ -61,11 +61,15 @@ def test02():
 
 
 def test03():
-	run(dpath("test03"), target='test.out')
+	run(dpath("test03"), targets=['test.out'])
 
 
 def test04():
-	run(dpath("test04"), target='test.out')
+	run(dpath("test04"), targets=['test.out'])
 
 def test06():
-	run(dpath("test06"), target='test.bla.out')
+	run(dpath("test06"), targets=['test.bla.out'])
+
+def test07():
+	run(dpath("test07"), targets=['test.out', 'test2.out'])
+
