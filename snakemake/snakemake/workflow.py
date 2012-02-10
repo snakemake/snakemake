@@ -178,7 +178,7 @@ class Workflow:
 		for name in ruletargets:
 			rule = self.__rules[name]
 			if not rule in torun:
-				torun[rule] = []
+				torun[rule] = None
 		
 		self._run(torun, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
 	
