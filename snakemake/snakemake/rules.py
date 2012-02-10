@@ -67,6 +67,9 @@ class Namedlist(list):
 	def __hash__(self):
 		return hash(tuple(self))
 
+	def __str__(self):
+		return " ".join(self)
+
 class Rule:
 	def __init__(self, name, workflow):
 		"""
