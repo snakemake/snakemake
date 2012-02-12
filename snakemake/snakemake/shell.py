@@ -6,6 +6,8 @@ from threading import Thread
 def format(string, *args, stepout = 1, **kwargs):
 	frame = inspect.currentframe().f_back
 	while stepout > 1:
+		if not frame.f_back:
+			break
 		frame = frame.f_back
 		stepout -= 1
 	
@@ -33,30 +35,41 @@ class TextIOWriter(PipeWriter):
 	def write(self, line):
 		self._towrite.write(line.decode("utf-8"))
 		
-class Shell(sp.Popen):
+class shell(sp.Popen):
 	_process_args = {}
 	_processes = []
 	
-	def __init__(self, cmd, *args, **kwargs):
-		super(Shell, self).__init__(format(cmd, *args, stepout = 3, **kwargs), shell=True, stdin = sp.PIPE, stdout=sp.PIPE, close_fds=True, **Shell._process_args)
+	def __init__(self, cmd, *args, async = False, **kwargs):
+		stdout, stdin = (sys.stdout, None) if not async else (sp.PIPE, sp.PIPE)
+		if not isinstance(stdout, _io.TextIOWrapper):
+			# workaround for nosetest since it overwrites sys.stdout in a strange way that does not work with Popen
+			stdout = None
+		super(shell, self).__init__(format(cmd, *args, stepout = 3, **kwargs), shell=True, stdin = stdin, stdout=stdout, close_fds=True, **shell._process_args)
+		
+		if not async:
+			super(shell, self).wait()
+		else:
+			shell._processes.append(self)		
+		
+		self.async = async
 		self._stdout_free = True
 		self._pipethread = None
 		self._stdin = self.stdin
-		Shell._processes.append(self)
-	
+		
+			
 	def wait(self):
-		super(Shell, self).wait()
+		super(shell, self).wait()
 		if self._pipethread:
 			self._pipethread.join()
-			
 		
 	@staticmethod
 	def join():
-		for p in Shell._processes:
-			if p._stdout_free:
-				for l in p._stdoutlines(): pass
-			p.wait()
-		Shell._processes = []
+		for p in shell._processes:
+			if p.async:
+				if p._stdout_free:
+					for l in p._stdoutlines(): pass
+				p.wait()
+		shell._processes = []
 		
 	def _stdoutlines(self):
 		while True:
@@ -73,6 +86,8 @@ class Shell(sp.Popen):
 			pipe.close()
 				
 	def __or__(self, other):
+		if not self.async:
+			raise SyntaxError("Pipe operator \"|\" not allowed for synchronous shell() calls (i.e. without async=True).")
 		if not isinstance(other, tuple):
 			other = tuple([other])
 
@@ -80,7 +95,7 @@ class Shell(sp.Popen):
 		toclose = []
 		for o in other:
 			writer = None
-			if isinstance(o, Shell):
+			if isinstance(o, shell):
 				writer = PipeWriter(o._stdin)
 				toclose.append(o._stdin)
 				# move all stdin to the beginning of the pipe
@@ -102,32 +117,33 @@ class Shell(sp.Popen):
 			return other[0]
 
 if "SHELL" in os.environ:
-	Shell._process_args["executable"] = os.environ["SHELL"]
+	shell._process_args["executable"] = os.environ["SHELL"]
 
-def shell(cmd, *args, **kwargs):
-	sp.check_call(format(cmd, *args, stepout=2, **kwargs), shell=True, **Shell._process_args)
+#def shell(cmd, *args, **kwargs):
+#	sp.check_call(format(cmd, *args, stepout=2, **kwargs), shell=True, executable=os.environ["SHELL"])
 	#p = Shell(cmd, *args, **kwargs)
 	#p | sys.stdout
 	#p.wait()
 
 if __name__ == "__main__":
-	Shell("echo b; echo a; echo c > foo")
-	Shell("echo b; echo a; echo c") | Shell("sort") | sys.stdout
+	shell("echo b; echo a; echo c > foo", async=True)
+	shell("echo b; echo a; echo c", async=True) | shell("sort", async=True) | sys.stdout
 	
-	Shell("echo a; echo b") | (Shell("sort"), Shell("cut -f1"))
+	shell("echo a; echo b", async=True) | (shell("sort", async=True), shell("cut -f1", async=True))
 	
-	x = Shell("echo 2; echo 1")
-	x | Shell("sort") | sys.stdout
-	Shell.join() # ensure that all shells are finished before next line
+	x = shell("echo 2; echo 1", async=True)
+	x | shell("sort", async=True) | sys.stdout
+	shell.join() # ensure that all shells are finished before next line
 	
 	#import time; time.sleep(1)
 	print("test")
 	
 	y = []
-	Shell("echo foo; echo ''; echo bar") | y
-	Shell.join() # ensure that all shells are finished before next line
-	#import time; time.sleep(5)
+	shell("echo foo; for i in {{1..50000}}; do echo test; done; echo ''; echo bar", async=True) | y
+	shell.join() # ensure that all shells are finished before next line
 	print(y)
 	
-	Shell.join()
+	shell("echo foo; echo bar")
+	
+	shell.join()
 	

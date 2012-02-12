@@ -12,7 +12,7 @@ from collections import defaultdict
 
 from snakemake.rules import Rule
 from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException, ProtectedOutputException
-from snakemake.shell import Shell, shell
+from snakemake.shell import shell
 from snakemake.jobs import Job, protected
 
 class Jobcounter:
@@ -28,7 +28,19 @@ class Jobcounter:
 	
 	def __str__(self):
 		return "{} of {} steps ({}%) done".format(self._done, self._count, int(self._done / self._count * 100))
+
+class Semaphore:
+	def __init__(self, value):
+		self.value = value
+		self.event = Event()
 	
+	def release(self):
+		self.value -= 1
+		if self.value == 0:
+			self.event.set()
+	
+	def wait(self):
+		self.event.wait()
 
 class Workflow:
 	def __init__(self):
@@ -39,7 +51,7 @@ class Workflow:
 		self.__last = None
 		self.__first = None
 		self.__workdir_set = False
-		self._jobs_finished = Event()
+		self._jobs_finished = None
 		self._virgin_globals = None
 		self._runtimes = defaultdict(list)
 		self.jobcounter = None		
@@ -67,8 +79,8 @@ class Workflow:
 	def setup_pool(self, jobs):
 		self.__pool = Pool(processes=jobs)
 		
-	def set_jobs_finished(self, job = None):
-		self._jobs_finished.set()
+	def set_job_finished(self, job = None):
+		self._jobs_finished.release()
 		
 	def get_snakefile_globals(self):
 		return self.__snakefile_globals
@@ -185,9 +197,10 @@ class Workflow:
 	def _run(self, torun, dryrun = False, forcethis = False, forceall = False):
 		self.jobcounter = Jobcounter()
 		jobs = dict()
+		self._jobs_finished = Semaphore(len(torun))
 		for rule, requested_output in torun.items():
 			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set(), jobcounter = self.jobcounter)
-			job.run(callback = self.set_jobs_finished)
+			job.run(callback = self.set_job_finished)
 		self._jobs_finished.wait()
 
 	def check_rules(self):

@@ -1,6 +1,6 @@
 import sys, os, time, stat, traceback
 from snakemake.exceptions import MissingOutputException, RuleException, print_exception
-from snakemake.shell import Shell, shell
+from snakemake.shell import shell
 
 class protected(str):
 	"""
@@ -29,7 +29,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmap):
 		# execute the actual run method.
 		run(input, output, wildcards)
 		# finish all spawned shells.
-		Shell.join()
+		#shell.join()
 		runtime = time.time() - t0
 		for o in output:
 			if not os.path.exists(o):
@@ -116,4 +116,4 @@ class Job:
 	
 	def _raise_error(self, error):
 		# simply stop because exception was printed in run_wrapper
-		self.workflow.set_jobs_finished()
+		self.workflow.set_job_finished()
