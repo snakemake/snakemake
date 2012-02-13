@@ -101,7 +101,7 @@ class States:
 			self.state = self.rule_colon
 		else:
 			raise self._syntax_error('Expected name or colon after rule keyword.', token)
-		self._func('_add_rule', States._stringify(self.current_rule), token)
+		self._func('_add_rule', (States._stringify(self.current_rule), str(token.start[0])), token)
 	
 	def rule_colon(self, token):
 		self._check_colon('rule', token)
@@ -222,11 +222,15 @@ class States:
 		self.tokens.add(RPAR, ')', orig_token = orig_token) \
 				   .add(COLON, ':', orig_token = orig_token)
 
-	def _func(self, name, arg, orig_token):
+	def _func(self, name, args, orig_token):
 		''' Generate tokens for a function invocation with given name 
 		and args. '''
+		if not isinstance(args, tuple):
+			args = tuple(args)
 		self._func_open(name, orig_token)
-		self.tokens.add(STRING, arg, orig_token = orig_token)
+		for arg in args:
+			self.tokens.add(STRING, arg, orig_token = orig_token) \
+			           .add(COMMA, ',', orig_token = orig_token)
 		self._func_close(orig_token)
 		
 	def _func_open(self, name, orig_token):

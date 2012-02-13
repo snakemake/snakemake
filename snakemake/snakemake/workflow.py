@@ -11,7 +11,7 @@ from multiprocessing import Pool, Event
 from collections import defaultdict
 
 from snakemake.rules import Rule
-from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException, ProtectedOutputException
+from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException, ProtectedOutputException, UnknownRuleException, NoRulesException
 from snakemake.shell import shell
 from snakemake.jobs import Job, protected
 
@@ -91,7 +91,7 @@ class Workflow:
 		"""
 		return self.__pool
 	
-	def add_rule(self, name):
+	def add_rule(self, name, lineno = None):
 		"""
 		Add a rule.
 		"""
@@ -99,7 +99,7 @@ class Workflow:
 			raise CreateRuleException("The name {} is already used by another rule".format(name))
 		if "__" + name in globals():
 			raise CreateRuleException("The name __{} is already used by a variable.".format(name))
-		rule = Rule(name, self)
+		rule = Rule(name, self, lineno = lineno)
 		self.__rules[rule.name] = rule
 		self.__last = rule
 		if not self.__first:
@@ -134,6 +134,10 @@ class Workflow:
 		Arguments
 		name -- the name of the rule
 		"""
+		if not self.__rules:
+			raise NoRulesException()
+		if not name in self.__rules:
+			raise UnknownRuleException(name)
 		return self.__rules[name]
 
 	def last_rule(self):
@@ -258,8 +262,8 @@ workflow = Workflow()
 def _set_workdir(path):
 	workflow.set_workdir(path)
 
-def _add_rule(name):
-	workflow.add_rule(name)
+def _add_rule(name, lineno = None):
+	workflow.add_rule(name, lineno = lineno)
 
 def _set_input(*paths, **kwpaths):
 	workflow.last_rule().set_input(*paths, **kwpaths)

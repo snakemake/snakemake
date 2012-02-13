@@ -71,7 +71,7 @@ class Namedlist(list):
 		return " ".join(self)
 
 class Rule:
-	def __init__(self, name, workflow):
+	def __init__(self, name, workflow, lineno = None):
 		"""
 		Create a rule
 		
@@ -85,6 +85,7 @@ class Rule:
 		self.regex_output = []
 		self.wildcard_names = set()
 		self.workflow = workflow
+		self.lineno = lineno
 
 	@staticmethod
 	def _to_regex(output):
@@ -187,7 +188,7 @@ class Rule:
 			return Namedlist(self.input), Namedlist(self.output), dict()
 		
 		if missing_wildcards:
-			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)))
+			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno)
 
 		def format(io, wildcards):
 			f = io.format(**wildcards)
@@ -200,7 +201,7 @@ class Rule:
 			return input, output, wildcards
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
-			raise SyntaxError("Wildcards in input file of rule {} do not appear in output files:\n{}".format(self, str(ex)))
+			raise RuleException("Wildcards in input file of rule {} do not appear in output files:\n{}".format(self, str(ex)), lineno = self.lineno)
 
 	@staticmethod
 	def _get_missing_files(files):
@@ -229,7 +230,7 @@ class Rule:
 		visited          -- set of already visited pairs of rules and requested output
 		"""
 		if (self, requested_output) in visited:
-			raise CyclicGraphException(self)
+			raise CyclicGraphException(self, lineno = self.lineno)
 		visited.add((self, requested_output))
 		
 		input, output, wildcards = self._expand_wildcards(requested_output)
@@ -247,7 +248,7 @@ class Rule:
 			try:
 				job = rule.run(file, forceall = forceall, jobs = jobs, dryrun = dryrun, quiet = quiet, visited = set(visited), jobcounter = jobcounter)
 				if file in produced:
-					raise AmbiguousRuleException(produced[file], rule)
+					raise AmbiguousRuleException(produced[file], rule, lineno = self.lineno)
 				if job.needrun:
 					todo.add(job)
 				produced[file] = rule
@@ -263,7 +264,8 @@ class Rule:
 			raise MissingInputException(
 				rule = self,
 				files = set(missing_input) - files_produced_with_error, 
-				include = missing_input_exceptions
+				include = missing_input_exceptions,
+				lineno = self.lineno
 			)
 		
 		need_run = self._need_run(forcethis or forceall or todo, input, output)
@@ -271,7 +273,7 @@ class Rule:
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output or protected_output_exceptions:
-			raise ProtectedOutputException(self, protected_output, include = protected_output_exceptions)
+			raise ProtectedOutputException(self, protected_output, include = protected_output_exceptions, lineno = self.lineno)
 			
 		wildcards = Namedlist(fromdict = wildcards)
 		
