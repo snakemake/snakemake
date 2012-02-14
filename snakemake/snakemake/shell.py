@@ -44,7 +44,7 @@ class shell(sp.Popen):
 		if not isinstance(stdout, _io.TextIOWrapper):
 			# workaround for nosetest since it overwrites sys.stdout in a strange way that does not work with Popen
 			stdout = None
-		super(shell, self).__init__(format(cmd, *args, stepout = 3, **kwargs), shell=True, stdin = stdin, stdout=stdout, close_fds=True, **shell._process_args)
+		super(shell, self).__init__(format(cmd, *args, stepout = 2, **kwargs), shell=True, stdin = stdin, stdout=stdout, close_fds=True, **shell._process_args)
 		
 		if not async:
 			super(shell, self).wait()
