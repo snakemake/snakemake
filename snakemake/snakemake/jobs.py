@@ -2,13 +2,27 @@ import sys, os, time, stat, traceback
 from snakemake.exceptions import MissingOutputException, RuleException, print_exception
 from snakemake.shell import shell
 
+class temporary(str):
+	"""
+	A string that describes a path to a file that shall be removed once it is not needed any more.
+	"""
+	needed_by = dict()
+	def __init__(self, value):
+		super().__init__(value)
+		if not value in temporary.needed_by:
+			temporary.needed_by[value] = 0
+	
+	def add_needed(self):
+		needed_by[self] += 1
+		
+
 class protected(str):
 	"""
 	A string that describes a path to a file that shall be write-protected.
 	"""
 	pass
 
-def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmap):
+def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps):
 	"""
 	Wrapper around the run method that handles directory creation and output file deletion on error.
 	
@@ -29,7 +43,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmap):
 		# execute the actual run method.
 		run(input, output, wildcards)
 		# finish all spawned shells.
-		#shell.join()
+		shell.join()
 		runtime = time.time() - t0
 		for o in output:
 			if not os.path.exists(o):
@@ -40,14 +54,14 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmap):
 					if os.path.isdir(o):
 						for root, dirs, files in os.walk(o):
 							for d in dirs:
-								os.chmod(d, mode)
+								os.chmod(os.path.join(o, d), mode)
 							for f in files:
-								os.chmod(f, mode)
+								os.chmod(os.path.join(o, f), mode)
 					else:
 						os.chmod(o, mode)
 		return runtime
 	except (Exception, BaseException) as ex:
-		print_exception(ex, rowmap)
+		print_exception(ex, rowmaps)
 		
 		# Remove produced output on exception
 		for o in output:
@@ -95,7 +109,7 @@ class Job:
 			else:
 				self.workflow.get_pool().apply_async(
 					run_wrapper, 
-					(self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards, self.workflow.rowmap), 
+					(self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards, self.workflow.rowmaps), 
 					callback=self._finished_callback, 
 					error_callback=self._raise_error
 				)

@@ -21,36 +21,40 @@ class Tokens:
 				line = '')
 		else:
 			# token is an original token that may have a wrong row
-			if token.start[0] != self._row:
-				token = Tokens._setrow(token, self._row)
+			if token.start[0] < self._row:
+				token = Tokens._adjrow(token, self._row)
 		self._tokens.append(token)
-		
+				
 		if orig_token:
 			self.rowmap[self._row] = orig_token.start[0]
-		
+						
 		if token.type in (NEWLINE, NL):
 			self._row += 1
 			self._col = 0
 		else:
-			self._col += len(token.string) + 1
+			lines = token.string.split("\n")
+			self._row += len(lines) - 1
+			self._col += len(lines[-1]) + 1
 		
 		return self
 	
 	@staticmethod
-	def _setrow(token, row):
+	def _adjrow(token, row):
 		''' Force the row of a token to be of the given value. '''
-		return token._replace(start = (row, token.start[1]), 
-			end = (row, token.end[1]))
+		add = row - token.start[0]
+		return token._replace(start = (token.start[0] + add, token.start[1]), 
+			end = (token.end[0] + add, token.end[1]))
 	
 	def __iter__(self):
 		return self._tokens.__iter__()
 
 class States:
 	''' A finite automaton that translates snakemake tokens into python tokens. '''
-	def __init__(self, filename):
+	def __init__(self, filename, rule_count = 0):
 		self.state = self.python
 		self.filename = filename
 		self.main_states = dict(
+			snakeimport = self.snakeimport,
 			workdir = self.workdir,
 			rule = self.rule,
 			input = self.input,
@@ -60,7 +64,10 @@ class States:
 			shell = self.shell)
 		self.current_rule = None
 		self.tokens = Tokens()
-		self._rule_count = 0
+		self._rule_count = rule_count
+	
+	def get_rule_count(self):
+		return self._rule_count
 	
 	def __iter__(self):
 		return self.tokens.__iter__()
@@ -71,11 +78,24 @@ class States:
 
 	def python(self, token):
 		''' The automaton state that handles ordinary python code. '''
-		if token.type == NAME and token.string in ('workdir', 'rule'):
+		if token.type == NAME and token.string in ('snakeimport', 'workdir', 'rule'):
 			self.tokens.add(NEWLINE, '\n', orig_token = token)
 			self.state = self.main_states[token.string]
 		else:
 			self.tokens.add(token, orig_token = token)
+	
+	def snakeimport(self, token):
+		''' State that handles snakeimport definitions. '''
+		self._check_colon('snakeimport', token)
+		self.state = self.snakeimport_path
+	
+	def snakeimport_path(self, token):
+		''' State that translates the workdir path into a function call. '''
+		if token.type == STRING:
+			self._func('_snakeimport', (token.string,), token)
+			self.state = self.python
+		else:
+			raise self._syntax_error('Expected string after snakeimport keyword', token)
 
 	def workdir(self, token):
 		''' State that handles workdir definition. '''
@@ -94,14 +114,15 @@ class States:
 		''' State that handles rule definition. '''
 		self._rule_count += 1
 		if self._is_colon(token):
-			self.current_rule = str(self._rule_count)
+			name = str(self._rule_count)
 			self.state = self.rule_body
 		elif token.type == NAME:
-			self.current_rule = token.string
+			name = token.string
 			self.state = self.rule_colon
 		else:
 			raise self._syntax_error('Expected name or colon after rule keyword.', token)
-		self._func('_add_rule', (States._stringify(self.current_rule), str(token.start[0])), token)
+		self.current_rule = name
+		self._func('_add_rule', (self._stringify(self.current_rule), str(token.start[0]), self._stringify(self.filename)), token)
 	
 	def rule_colon(self, token):
 		self._check_colon('rule', token)
@@ -160,7 +181,7 @@ class States:
 	def run(self, token):
 		''' State that creates a run function for the current rule. '''
 		self._check_colon('run', token)
-		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards'], token)
+		self._func_def(self.current_rule, ['input', 'output', 'wildcards'], token)
 		self.state = self.run_newline
 
 	def run_newline(self, token):
@@ -244,34 +265,33 @@ class States:
 		given name. '''
 		self.tokens.add(RPAR, ')', orig_token = orig_token) \
 				   .add(NEWLINE, '\n', orig_token = orig_token)
-		
+
 	@staticmethod
 	def _stringify(tokenstring):
 		''' Encapsulate a string into additional quotes. '''
 		return '"{}"'.format(tokenstring)			
 
-def snakemake_to_python(tokens, filepath, rowmap = None):
+def snakemake_to_python(tokens, filepath, rowmap = None, rule_count = 0):
 	''' Translate snakemake tokens into python tokens using 
 	a finite automaton. '''
-	states = States(filepath)
+	states = States(filepath, rule_count = rule_count)
 	for snakemake_token in tokens:
 		states.state(snakemake_token)
-	for python_token in states:
-		if not python_token.type in (INDENT, DEDENT):
-			yield python_token
+	python_tokens = (python_token for python_token in states if not python_token.type in (INDENT, DEDENT))
 	if rowmap != None:
 		rowmap.update(states.tokens.rowmap)
+	return python_tokens, states.get_rule_count()
 
-def compile_to_python(filepath):
+def compile_to_python(filepath, rule_count = 0):
 	''' Compile a given Snakefile into python code. '''
 	with open(filepath) as snakefile:
 		rowmap = dict()
-		snakemake_tokens = list(
-			snakemake_to_python(
+		python_tokens, rule_count = snakemake_to_python(
 				tokenize.generate_tokens(snakefile.readline), 
 				filepath,
-				rowmap = rowmap
-			)
+				rowmap = rowmap,
+				rule_count = rule_count
 		)
-		compilation = tokenize.untokenize(snakemake_tokens)
-		return compilation, rowmap
+		
+		compilation = tokenize.untokenize(python_tokens)
+		return compilation, rowmap, rule_count

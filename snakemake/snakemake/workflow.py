@@ -9,11 +9,14 @@ Created on 13.11.2011
 import re, sys, os, traceback, logging, glob
 from multiprocessing import Pool, Event
 from collections import defaultdict
+from tempfile import TemporaryFile
 
 from snakemake.rules import Rule
 from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException, ProtectedOutputException, UnknownRuleException, NoRulesException
 from snakemake.shell import shell
 from snakemake.jobs import Job, protected
+from snakemake.parser import compile_to_python
+
 
 class Jobcounter:
 	def __init__(self):
@@ -54,7 +57,9 @@ class Workflow:
 		self._jobs_finished = None
 		self._virgin_globals = None
 		self._runtimes = defaultdict(list)
-		self.jobcounter = None		
+		self.rowmaps = dict()
+		self.jobcounter = None
+		self.rule_count = 0
 	
 	def report_runtime(self, rule, runtime):
 		self._runtimes[rule].append(runtime)
@@ -71,7 +76,9 @@ class Workflow:
 		self.__workdir_set = False
 		self._jobs_finished = Event()
 		self._runtimes = defaultdict(list)
+		self.rowmaps = dict()
 		self.jobcounter = None
+		self.rule_count = 0
 		for k in list(globals().keys()):
 			if k not in self._virgin_globals:
 				del globals()[k]
@@ -91,7 +98,7 @@ class Workflow:
 		"""
 		return self.__pool
 	
-	def add_rule(self, name, lineno = None):
+	def add_rule(self, name, lineno = None, snakefile = None):
 		"""
 		Add a rule.
 		"""
@@ -99,7 +106,7 @@ class Workflow:
 			raise CreateRuleException("The name {} is already used by another rule".format(name))
 		if "__" + name in globals():
 			raise CreateRuleException("The name __{} is already used by a variable.".format(name))
-		rule = Rule(name, self, lineno = lineno)
+		rule = Rule(name, self, lineno = lineno, snakefile = snakefile)
 		self.__rules[rule.name] = rule
 		self.__last = rule
 		if not self.__first:
@@ -163,7 +170,7 @@ class Workflow:
 		missing_input_ex = defaultdict(list)
 		for rule, file in self.get_producers(files):
 			try:
-				rule.run(file, jobs=dict(), forceall = forceall, dryrun = True, quiet = True, visited = set())
+				rule.run(file, jobs=dict(), forceall = forceall, dryrun = True, visited = set())
 				if file in producers:
 					raise AmbiguousRuleException("Ambiguous rules: {} and {}".format(producer, rule))
 				producers[file] = rule
@@ -243,12 +250,16 @@ class Workflow:
 			if os.stat(f).st_mtime > time: return True
 		return False
 
-	def execdsl(self, compiled_dsl_code, rowmap):
+	def snakeimport(self, snakefile, defines_first_rule = False):
 		"""
-		Execute a piece of compiled snakemake DSL.
+		Import a snakefile.
 		"""
-		self.rowmap = rowmap
-		exec(compiled_dsl_code, globals())
+		code, rowmap, rule_count = compile_to_python(snakefile, rule_count = self.rule_count)
+		self.rule_count += rule_count
+		self.rowmaps[snakefile] = rowmap
+		exec(compile(code, snakefile, "exec"), globals())
+		if not defines_first_rule:
+			self.__first = None
 
 	def set_workdir(self, workdir):
 		if not self.__workdir_set:
@@ -259,11 +270,14 @@ class Workflow:
 
 workflow = Workflow()
 
+def _snakeimport(path):
+	workflow.snakeimport(path)
+
 def _set_workdir(path):
 	workflow.set_workdir(path)
 
-def _add_rule(name, lineno = None):
-	workflow.add_rule(name, lineno = lineno)
+def _add_rule(name, lineno = None, snakefile = None):
+	workflow.add_rule(name, lineno = lineno, snakefile = snakefile)
 
 def _set_input(*paths, **kwpaths):
 	workflow.last_rule().set_input(*paths, **kwpaths)

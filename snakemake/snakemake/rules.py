@@ -1,5 +1,5 @@
 import os, re, sys
-from snakemake.jobs import Job, protected
+from snakemake.jobs import Job, protected, temporary
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException
 
 class Namedlist(list):
@@ -71,7 +71,7 @@ class Namedlist(list):
 		return " ".join(self)
 
 class Rule:
-	def __init__(self, name, workflow, lineno = None):
+	def __init__(self, name, workflow, lineno = None, snakefile = None):
 		"""
 		Create a rule
 		
@@ -86,6 +86,7 @@ class Rule:
 		self.wildcard_names = set()
 		self.workflow = workflow
 		self.lineno = lineno
+		self.snakefile = snakefile
 
 	@staticmethod
 	def _to_regex(output):
@@ -175,6 +176,8 @@ class Rule:
 		f = inoutputfile.format(**wildcards)
 		if isinstance(inoutputfile, protected):
 			f = protected(f)
+		elif isinstance(inoutputfile, temporary):
+			f = temporary(f)
 		return f
 	
 	def _expand_wildcards(self, requested_output):
@@ -188,7 +191,7 @@ class Rule:
 			return Namedlist(self.input), Namedlist(self.output), dict()
 		
 		if missing_wildcards:
-			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno)
+			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno, snakefile = self.snakefile)
 
 		def format(io, wildcards):
 			f = io.format(**wildcards)
@@ -201,7 +204,7 @@ class Rule:
 			return input, output, wildcards
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
-			raise RuleException("Wildcards in input file of rule {} do not appear in output files:\n{}".format(self, str(ex)), lineno = self.lineno)
+			raise RuleException("Wildcards in input file of rule {} do not appear in output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)
 
 	@staticmethod
 	def _get_missing_files(files):
@@ -226,11 +229,10 @@ class Rule:
 		forcethis        -- whether this rule shall be executed, even if the files already exists
 		jobs             -- dictionary containing all jobs currently queued
 		dryrun           -- whether rule execution shall be only simulated
-		quiet            -- whether rule shall be not printed out on execution
 		visited          -- set of already visited pairs of rules and requested output
 		"""
 		if (self, requested_output) in visited:
-			raise CyclicGraphException(self, lineno = self.lineno)
+			raise CyclicGraphException(self, lineno = self.lineno, snakefile = self.snakefile)
 		visited.add((self, requested_output))
 		
 		input, output, wildcards = self._expand_wildcards(requested_output)
@@ -248,7 +250,7 @@ class Rule:
 			try:
 				job = rule.run(file, forceall = forceall, jobs = jobs, dryrun = dryrun, quiet = quiet, visited = set(visited), jobcounter = jobcounter)
 				if file in produced:
-					raise AmbiguousRuleException(produced[file], rule, lineno = self.lineno)
+					raise AmbiguousRuleException(produced[file], rule, lineno = self.lineno, snakefile = self.snakefile)
 				if job.needrun:
 					todo.add(job)
 				produced[file] = rule
@@ -265,15 +267,15 @@ class Rule:
 				rule = self,
 				files = set(missing_input) - files_produced_with_error, 
 				include = missing_input_exceptions,
-				lineno = self.lineno
+				lineno = self.lineno, 
+				snakefile = self.snakefile
 			)
 		
-		need_run = self._need_run(forcethis or forceall or todo, input, output)
-		
+		need_run = self._need_run(forcethis or forceall or todo, input, output)		
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output or protected_output_exceptions:
-			raise ProtectedOutputException(self, protected_output, include = protected_output_exceptions, lineno = self.lineno)
+			raise ProtectedOutputException(self, protected_output, include = protected_output_exceptions, lineno = self.lineno, snakefile = self.snakefile)
 			
 		wildcards = Namedlist(fromdict = wildcards)
 		
@@ -286,7 +288,7 @@ class Rule:
 			wildcards = wildcards,
 			depends = todo,
 			dryrun = dryrun,
-			needrun = need_run or quiet
+			needrun = need_run
 		)
 		jobs[(output, self)] = job
 		
@@ -304,7 +306,7 @@ class Rule:
 		Check if rule is well defined.
 		"""
 		if self.output and not self.has_run():
-			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name))
+			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name), lineno = self.lineno, snakefile = self.snakefile)
 
 	def _need_run(self, force, input, output):
 		""" Return True if rule needs to be run. """

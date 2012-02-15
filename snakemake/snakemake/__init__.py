@@ -1,6 +1,5 @@
 import os, logging, traceback, sys, csv
 from snakemake.workflow import workflow
-from snakemake.parser import compile_to_python
 from snakemake.exceptions import print_exception
 
 def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, forcethis = False, forceall = False, stats = None):
@@ -22,8 +21,6 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	def print_rules(log):
 		log("Defined rules:")
 		for rule in workflow.get_rules(): log(rule.name)
-	
-	code, rowmap = compile_to_python(snakefile)
 
 	if directory:
 		# change to the specified directory. This overrides eventually specified workdir in Snakefile
@@ -32,7 +29,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	workflow.clear()
 
 	try:
-		workflow.execdsl(code, rowmap)
+		workflow.snakeimport(snakefile, defines_first_rule = True)
 
 		workflow.check_rules()
 
@@ -56,6 +53,6 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 			stats.writerow([])
 			stats.writerow(("Overall runtime", s))
 	except (Exception, BaseException) as ex:
-		print_exception(ex, rowmap)
+		print_exception(ex, workflow.rowmaps)
 		return 1
 	return 0
