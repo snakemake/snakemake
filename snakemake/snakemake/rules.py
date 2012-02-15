@@ -277,6 +277,10 @@ class Rule:
 		if protected_output or protected_output_exceptions:
 			raise ProtectedOutputException(self, protected_output, include = protected_output_exceptions, lineno = self.lineno, snakefile = self.snakefile)
 			
+		for f in input:
+			if isinstance(f, temporary):
+				f.add_need()
+			
 		wildcards = Namedlist(fromdict = wildcards)
 		
 		job = Job(

@@ -12,9 +12,13 @@ class temporary(str):
 		if not value in temporary.needed_by:
 			temporary.needed_by[value] = 0
 	
-	def add_needed(self):
-		needed_by[self] += 1
-		
+	def add_need(self):
+		temporary.needed_by[self] += 1
+	
+	def remove_need(self):
+		temporary.needed_by[self] -= 1
+		if not temporary.needed_by[self]:
+			os.remove(self)
 
 class protected(str):
 	"""
@@ -59,6 +63,10 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps):
 								os.chmod(os.path.join(o, f), mode)
 					else:
 						os.chmod(o, mode)
+		for i in input:
+			if isinstance(i, temporary):
+				i.remove_need()
+				
 		return runtime
 	except (Exception, BaseException) as ex:
 		print_exception(ex, rowmaps)
