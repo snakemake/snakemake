@@ -105,7 +105,7 @@ class States:
 	def workdir_path(self, token):
 		''' State that translates the workdir path into a function call. '''
 		if token.type == STRING:
-			self._func('_set_workdir', token.string, token)
+			self._func('_set_workdir', (token.string,), token)
 			self.state = self.python
 		else:
 			raise self._syntax_error('Expected string after workdir keyword', token)
