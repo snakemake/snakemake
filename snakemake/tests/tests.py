@@ -73,5 +73,5 @@ def test06():
 def test07():
 	run(dpath("test07"), targets=['test.out', 'test2.out'])
 
-def test08():
-	run(dpath("test08"))
+#def test08():
+#	run(dpath("test08"))

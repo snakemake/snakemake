@@ -31,7 +31,7 @@ class RuleException(Exception):
 		self._include = list(self._include)
 		self.lineno = lineno
 		self.filename = snakefile
-		self.omit = len(message) == 0
+		self.omit = not message
 
 class MissingOutputException(RuleException):
 	pass
