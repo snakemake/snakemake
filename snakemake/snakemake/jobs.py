@@ -26,7 +26,7 @@ class protected(str):
 	"""
 	pass
 
-def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps):
+def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps, rulelineno, rulesnakefile):
 	"""
 	Wrapper around the run method that handles directory creation and output file deletion on error.
 	
@@ -51,7 +51,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps):
 		runtime = time.time() - t0
 		for o in output:
 			if not os.path.exists(o):
-				raise MissingOutputException("Output file {} not produced by rule {}.".format(o, rulename))
+				raise MissingOutputException("Output file {} not produced by rule {}.".format(o, rulename), lineno = rulelineno, snakefile = rulesnakefile)
 			else:
 				if isinstance(o, protected):
 					mode = os.stat(o).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
@@ -117,7 +117,7 @@ class Job:
 			else:
 				self.workflow.get_pool().apply_async(
 					run_wrapper, 
-					(self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards, self.workflow.rowmaps), 
+					(self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards, self.workflow.rowmaps, self.rule.lineno, self.rule.snakefile), 
 					callback=self._finished_callback, 
 					error_callback=self._raise_error
 				)
