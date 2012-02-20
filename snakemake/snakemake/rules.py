@@ -1,5 +1,5 @@
 import os, re, sys
-from snakemake.jobs import Job, protected, temporary
+from snakemake.jobs import Job, protected, temp
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException
 
 class Namedlist(list):
@@ -197,8 +197,8 @@ class Rule:
 			f = io.format(**wildcards)
 			
 		try:
-			input = Namedlist(self._format_inoutput(i, wildcards) for i in self.input)
-			output = Namedlist(self._format_inoutput(o, wildcards) for o in self.output)
+			input = Namedlist(i.format(**wildcards) for i in self.input)
+			output = Namedlist(o.format(**wildcards) for o in self.output)
 			input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
 			return input, output, wildcards
@@ -278,7 +278,7 @@ class Rule:
 			raise ProtectedOutputException(self, protected_output, include = protected_output_exceptions, lineno = self.lineno, snakefile = self.snakefile)
 			
 		for f in input:
-			if isinstance(f, temporary):
+			if isinstance(f, temp):
 				f.add_need()
 			
 		wildcards = Namedlist(fromdict = wildcards)

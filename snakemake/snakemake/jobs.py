@@ -2,29 +2,33 @@ import sys, os, time, stat, traceback
 from snakemake.exceptions import MissingOutputException, RuleException, print_exception
 from snakemake.shell import shell
 
-class temporary(str):
+class temp(str):
 	"""
 	A string that describes a path to a file that shall be removed once it is not needed any more.
 	"""
 	needed_by = dict()
 	def __init__(self, value):
 		super().__init__(value)
-		if not value in temporary.needed_by:
-			temporary.needed_by[value] = 0
+		if not value in temp.needed_by:
+			temp.needed_by[value] = 0
 	
 	def add_need(self):
-		temporary.needed_by[self] += 1
+		temp.needed_by[self] += 1
 	
 	def remove_need(self):
-		temporary.needed_by[self] -= 1
-		if not temporary.needed_by[self]:
+		temp.needed_by[self] -= 1
+		if not temp.needed_by[self]:
 			os.remove(self)
+	
+	def format(self, *args, **kwargs):
+		return temp(super().format(*args, **kwargs))
 
 class protected(str):
 	"""
 	A string that describes a path to a file that shall be write-protected.
 	"""
-	pass
+	def format(self, *args, **kwargs):
+		return protected(super().format(*args, **kwargs))
 
 def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps, rulelineno, rulesnakefile):
 	"""
@@ -64,7 +68,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps, rule
 					else:
 						os.chmod(o, mode)
 		for i in input:
-			if isinstance(i, temporary):
+			if isinstance(i, temp):
 				i.remove_need()
 				
 		return runtime
