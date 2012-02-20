@@ -237,7 +237,7 @@ class Rule:
 		
 		input, output, wildcards = self._expand_wildcards(requested_output)
 		
-		if output and (output, self) in jobs:
+		if (output, self) in jobs:
 			return jobs[(output, self)]
 		
 		missing_input_exceptions = list()

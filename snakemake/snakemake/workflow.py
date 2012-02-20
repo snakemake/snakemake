@@ -161,7 +161,7 @@ class Workflow:
 		"""
 		Apply the rule defined first.
 		"""
-		return self._run({self.get_rule(self.__first): None}, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
+		return self._run([(self.get_rule(self.__first), None)], dryrun = dryrun, forcethis = forcethis, forceall = forceall)
 			
 	def get_file_producers(self, files, dryrun = False, forcethis = False, forceall = False):
 		"""
@@ -191,7 +191,7 @@ class Workflow:
 		if toraise:
 			raise RuleException(include = toraise)
 
-		return dict((rule, file) for file, rule in producers.items())
+		return [(rule, file) for file, rule in producers.items()]
 	
 	def run_rules(self, targets, dryrun = False, forcethis = False, forceall = False):
 		ruletargets, filetargets = [], []
@@ -201,19 +201,16 @@ class Workflow:
 			else:
 				filetargets.append(target)
 		
-		torun = self.get_file_producers(filetargets, forcethis = forcethis, forceall = forceall, dryrun = dryrun)
-		for name in ruletargets:
-			rule = self.__rules[name]
-			if not rule in torun:
-				torun[rule] = None
-		
+		torun = self.get_file_producers(filetargets, forcethis = forcethis, forceall = forceall, dryrun = dryrun) + \
+			[(self.get_rule(name), None) for name in ruletargets]
+				
 		return self._run(torun, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
 	
 	def _run(self, torun, dryrun = False, forcethis = False, forceall = False):
 		self.jobcounter = Jobcounter()
 		jobs = dict()
 		self._jobs_finished = Semaphore(len(torun))
-		for rule, requested_output in torun.items():
+		for rule, requested_output in torun:
 			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set(), jobcounter = self.jobcounter)
 			job.run(callback = self.set_job_finished)
 		self._jobs_finished.wait()
