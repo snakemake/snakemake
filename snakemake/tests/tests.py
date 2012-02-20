@@ -20,7 +20,7 @@ def md5sum(filename):
 	return hashlib.md5(data).hexdigest()
 
 
-def run(path, **params):
+def run(path, shouldfail=False, **params):
 	"""
 	Test the Snakefile in path.
 	There must be a Snakefile in the path and a subdirectory named
@@ -40,14 +40,17 @@ def run(path, **params):
 		olddir = os.getcwd()
 		exitcode = snakemake(snakefile, directory=tmpdir, stats = os.path.join(path, "stats.txt"),**params)
 		os.chdir(olddir)
-		assert exitcode == 0, "exit code is not zero, but {}".format(exitcode)
-		for resultfile in os.listdir(results_dir):
-			if not os.path.isfile(resultfile):
-				continue # skip .svn dirs etc.
-			targetfile = join(tmpdir, resultfile)
-			expectedfile = join(results_dir, resultfile)
-			assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(resultfile)
-			assert md5sum(targetfile) == md5sum(expectedfile), 'wrong result produced for file "{}"'.format(resultfile)
+		if shouldfail:
+			assert exitcode != 0, "expected non-zero exit code is found zero"
+		else:
+			assert exitcode == 0, "exit code is not zero, but {}".format(exitcode)
+			for resultfile in os.listdir(results_dir):
+				if not os.path.isfile(resultfile):
+					continue # skip .svn dirs etc.
+				targetfile = join(tmpdir, resultfile)
+				expectedfile = join(results_dir, resultfile)
+				assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(resultfile)
+				assert md5sum(targetfile) == md5sum(expectedfile), 'wrong result produced for file "{}"'.format(resultfile)
 	finally:
 		call(['rm', '-rf', tmpdir])
 
@@ -75,6 +78,9 @@ def test07():
 
 def test08():
 	run(dpath("test08"), targets=['test.out', 'test2.out'])
+
+def test09():
+	run(dpath("test09"), shouldfail=True)
 
 #def test08():
 #	run(dpath("test08"))
