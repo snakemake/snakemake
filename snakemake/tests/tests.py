@@ -58,14 +58,11 @@ def run(path, shouldfail=False, **params):
 def test01():
 	run(dpath("test01"))
 
-
 def test02():
 	run(dpath("test02"))
 
-
 def test03():
 	run(dpath("test03"), targets=['test.out'])
-
 
 def test04():
 	run(dpath("test04"), targets=['test.out'])
@@ -82,5 +79,5 @@ def test08():
 def test09():
 	run(dpath("test09"), shouldfail=True)
 
-#def test08():
-#	run(dpath("test08"))
+def test10():
+	run(dpath("test10"))
