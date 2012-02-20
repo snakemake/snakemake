@@ -81,3 +81,6 @@ def test09():
 
 def test10():
 	run(dpath("test10"))
+
+def test11():
+	run(dpath("test11"))

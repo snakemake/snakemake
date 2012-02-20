@@ -181,7 +181,7 @@ class States:
 	def run(self, token):
 		''' State that creates a run function for the current rule. '''
 		self._check_colon('run', token)
-		self._func_def(self.current_rule, ['input', 'output', 'wildcards'], token)
+		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards'], token)
 		self.state = self.run_newline
 
 	def run_newline(self, token):

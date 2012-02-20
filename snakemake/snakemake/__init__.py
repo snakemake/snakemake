@@ -39,11 +39,12 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	
 		workflow.setup_pool(jobs)
 		
+		ret = 0
 		if not targets: 
-			workflow.run_first_rule(dryrun = dryrun, forcethis = forcethis, forceall = forceall)
+			ret = workflow.run_first_rule(dryrun = dryrun, forcethis = forcethis, forceall = forceall)
 		else:
-			workflow.run_rules(targets, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
-		if stats:
+			ret = workflow.run_rules(targets, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
+		if ret == 0 and stats:
 			stats = csv.writer(open(stats, "w"), delimiter = "\t")
 			stats.writerow("rule minimum maximum sum mean".split())
 			s = 0
@@ -52,7 +53,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 				s += measurement[3]
 			stats.writerow([])
 			stats.writerow(("Overall runtime", s))
+		return ret
 	except (Exception, BaseException) as ex:
 		print_exception(ex, workflow.rowmaps)
 		return 1
-	return 0

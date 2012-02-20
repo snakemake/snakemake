@@ -44,23 +44,25 @@ class shell(sp.Popen):
 		if not isinstance(stdout, _io.TextIOWrapper):
 			# workaround for nosetest since it overwrites sys.stdout in a strange way that does not work with Popen
 			stdout = None
-		super(shell, self).__init__(format(cmd, *args, stepout = 2, **kwargs), shell=True, stdin = stdin, stdout=stdout, close_fds=True, **shell._process_args)
-		
-		if not async:
-			super(shell, self).wait()
-		else:
-			shell._processes.append(self)		
+		self.cmd = format(cmd, *args, stepout = 2, **kwargs)
+		super(shell, self).__init__(self.cmd, shell=True, stdin = stdin, stdout=stdout, close_fds=True, **shell._process_args)
 		
 		self.async = async
 		self._stdout_free = True
 		self._pipethread = None
 		self._stdin = self.stdin
 		
+		if not async:
+			self.wait()
+		else:
+			shell._processes.append(self)		
 			
 	def wait(self):
-		super(shell, self).wait()
+		ret = super(shell, self).wait()
 		if self._pipethread:
 			self._pipethread.join()
+		if ret != 0:
+			raise sp.CalledProcessError(ret, self.cmd)
 		
 	@staticmethod
 	def join():

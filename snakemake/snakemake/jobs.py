@@ -138,4 +138,4 @@ class Job:
 	
 	def _raise_error(self, error):
 		# simply stop because exception was printed in run_wrapper
-		self.workflow.set_job_finished()
+		self.workflow.set_job_finished(error = True)

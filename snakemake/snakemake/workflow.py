@@ -60,6 +60,7 @@ class Workflow:
 		self.rowmaps = dict()
 		self.jobcounter = None
 		self.rule_count = 0
+		self.errors = False
 	
 	def report_runtime(self, rule, runtime):
 		self._runtimes[rule].append(runtime)
@@ -74,11 +75,12 @@ class Workflow:
 		self.__last = None
 		self.__first = None
 		self.__workdir_set = False
-		self._jobs_finished = Event()
+		self._jobs_finished = None
 		self._runtimes = defaultdict(list)
 		self.rowmaps = dict()
 		self.jobcounter = None
 		self.rule_count = 0
+		self.errors = False
 		for k in list(globals().keys()):
 			if k not in self._virgin_globals:
 				del globals()[k]
@@ -86,7 +88,9 @@ class Workflow:
 	def setup_pool(self, jobs):
 		self.__pool = Pool(processes=jobs)
 		
-	def set_job_finished(self, job = None):
+	def set_job_finished(self, job = None, error = False):
+		if error:
+			self.errors = True
 		self._jobs_finished.release()
 		
 	def get_snakefile_globals(self):
@@ -157,7 +161,7 @@ class Workflow:
 		"""
 		Apply the rule defined first.
 		"""
-		self._run({self.get_rule(self.__first): None}, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
+		return self._run({self.get_rule(self.__first): None}, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
 			
 	def get_file_producers(self, files, dryrun = False, forcethis = False, forceall = False):
 		"""
@@ -203,7 +207,7 @@ class Workflow:
 			if not rule in torun:
 				torun[rule] = None
 		
-		self._run(torun, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
+		return self._run(torun, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
 	
 	def _run(self, torun, dryrun = False, forcethis = False, forceall = False):
 		self.jobcounter = Jobcounter()
@@ -213,6 +217,9 @@ class Workflow:
 			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set(), jobcounter = self.jobcounter)
 			job.run(callback = self.set_job_finished)
 		self._jobs_finished.wait()
+		if self.errors:
+			return 1
+		return 0
 
 	def check_rules(self):
 		"""
