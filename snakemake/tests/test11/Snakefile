@@ -1,0 +1,7 @@
+snakeimport: "import.snakefile"
+
+rule:
+	input: 'test.inter'
+	output: 'test.out'
+	shell: 
+		'cp {input} {output}'
