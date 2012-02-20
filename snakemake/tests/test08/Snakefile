@@ -1,0 +1,11 @@
+rule rule1:
+	input: '{file}.in'
+	output: '{file}.inter'
+	shell: 
+		'cp {input} {output}'
+
+rule rule2:
+	input: '{file}.inter'
+	output: '{file}.out'
+	shell: 
+		'cp {input} {output}'
