@@ -41,7 +41,7 @@ def run(path, shouldfail=False, **params):
 		exitcode = snakemake(snakefile, directory=tmpdir, stats = os.path.join(path, "stats.txt"),**params)
 		os.chdir(olddir)
 		if shouldfail:
-			assert exitcode != 0, "expected non-zero exit code is found zero"
+			assert exitcode != 0, "expected non-zero exit code but found zero"
 		else:
 			assert exitcode == 0, "exit code is not zero, but {}".format(exitcode)
 			for resultfile in os.listdir(results_dir):
