@@ -12,7 +12,6 @@ class IOFile(str):
 			obj = cls._register[file]
 		else:
 			obj = IOFile(file)
-			print(obj)
 			cls._register[file] = obj 
 		if obj._temp == None:
 			obj._temp = temp
