@@ -2,33 +2,78 @@ import sys, os, time, stat, traceback
 from snakemake.exceptions import MissingOutputException, RuleException, print_exception
 from snakemake.shell import shell
 
-class temp(str):
-	"""
-	A string that describes a path to a file that shall be removed once it is not needed any more.
-	"""
-	needed_by = dict()
-	def __init__(self, value):
-		super().__init__(value)
-		if not value in temp.needed_by:
-			temp.needed_by[value] = 0
+class IOFile(str):
+	_register = dict()
 	
-	def add_need(self):
-		temp.needed_by[self] += 1
+	@classmethod
+	def create(cls, file, temp = False):
+		obj = None
+		if file in cls._register:
+			obj = cls._register[file]
+		else:
+			obj = IOFile(file)
+			print(obj)
+			cls._register[file] = obj 
+		if obj._temp == None:
+			obj._temp = temp
+		return obj
 	
-	def remove_need(self):
-		temp.needed_by[self] -= 1
-		if not temp.needed_by[self]:
-			os.remove(self)
+	def __init__(self, file, protected = False):
+		self._file = file
+		self._needed = 0
+		self._temp = None
+		self._protected = protected
+		
+	def need(self):
+		self._needed += 1
 	
-	def format(self, *args, **kwargs):
-		return temp(super().format(*args, **kwargs))
+	def used(self):
+		self._needed -= 1
+		if self._temp:
+			os.remove(self._file)
+	
+	def prepare(self):
+		dir = os.path.dirname(self._file)
+		if len(dir) > 0 and not os.path.exists(dir):
+			os.makedirs(dir)
+	
+	def created(self, rulename, lineno, snakefile):
+		if not os.path.exists(self._file):
+			raise MissingOutputException("Output file {} not produced by rule {}.".format(self._file, rulename), lineno = lineno, snakefile = snakefile)
+		if self._protected:
+			mode = os.stat(o).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+			if os.path.isdir(o):
+				for root, dirs, files in os.walk(o):
+					for d in dirs:
+						os.chmod(os.path.join(o, d), mode)
+					for f in files:
+						os.chmod(os.path.join(o, f), mode)
+			else:
+				os.chmod(o, mode)
+	
+	def remove(self):
+		if os.path.exists(self._file):
+			if os.path.isdir(self._file):
+				for root, dirs, files in os.walk(o):
+					for f in files:
+						os.remove(f)
+				for root, dirs, files in os.walk(o):
+					for d in dirs:
+						os.rmdir(d)
+			else:
+				os.remove(o)
 
-class protected(str):
-	"""
-	A string that describes a path to a file that shall be write-protected.
-	"""
-	def format(self, *args, **kwargs):
-		return protected(super().format(*args, **kwargs))
+	def apply_wildcards(self, wildcards):
+		return self.create(self._file.format(**wildcards))
+	
+	def __str__(self):
+		return self._file
+
+def temp(file):
+	return IOFile.create(file, temp = True)
+
+def protected(file):
+	return IOFile.create(file, protected = True)
 
 def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps, rulelineno, rulesnakefile):
 	"""
@@ -43,9 +88,8 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps, rule
 	print(ruledesc)
 
 	for o in output:
-		dir = os.path.dirname(o)
-		if len(dir) > 0 and not os.path.exists(dir):
-			os.makedirs(dir)
+		o.prepare()
+		
 	try:
 		t0 = time.time()
 		# execute the actual run method.
@@ -54,32 +98,16 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps, rule
 		shell.join()
 		runtime = time.time() - t0
 		for o in output:
-			if not os.path.exists(o):
-				raise MissingOutputException("Output file {} not produced by rule {}.".format(o, rulename), lineno = rulelineno, snakefile = rulesnakefile)
-			else:
-				if isinstance(o, protected):
-					mode = os.stat(o).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
-					if os.path.isdir(o):
-						for root, dirs, files in os.walk(o):
-							for d in dirs:
-								os.chmod(os.path.join(o, d), mode)
-							for f in files:
-								os.chmod(os.path.join(o, f), mode)
-					else:
-						os.chmod(o, mode)
+			o.created(rulename, rulelineno, rulesnakefile)
 		for i in input:
-			if isinstance(i, temp):
-				i.remove_need()
-				
+			i.used()
 		return runtime
 	except (Exception, BaseException) as ex:
 		print_exception(ex, rowmaps)
 		
 		# Remove produced output on exception
 		for o in output:
-			if os.path.exists(o) and not os.path.isdir(o): os.remove(o)
-		for o in output:
-			if os.path.exists(o) and os.path.isdir(o) and not os.listdir(o): os.rmdir(o)
+			o.remove()
 		raise Exception()
 
 class Job:
