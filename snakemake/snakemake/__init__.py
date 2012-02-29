@@ -21,10 +21,12 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	def print_rules(log):
 		log("Defined rules:")
 		for rule in workflow.get_rules(): log(rule.name)
+	
+	olddir = os.getcwd()
 
 	if directory:
 		# change to the specified directory. This overrides eventually specified workdir in Snakefile
-		workflow.set_workdir(directory)    
+		workflow.set_workdir(directory)
 
 	workflow.clear()
 
@@ -53,7 +55,9 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 				s += measurement[3]
 			stats.writerow([])
 			stats.writerow(("Overall runtime", s))
+		os.chdir(olddir)
 		return ret
 	except (Exception, BaseException) as ex:
 		print_exception(ex, workflow.rowmaps)
+		os.chdir(olddir)
 		return 1

@@ -34,12 +34,7 @@ def run(path, shouldfail=False, **params):
 	tmpdir = mkdtemp()
 	try:
 		call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir), shell=True)
-		# TODO
-		# The snakemake call changes the current working directory, so
-		# we need to remember it and restore it below.
-		olddir = os.getcwd()
 		exitcode = snakemake(snakefile, directory=tmpdir, stats = os.path.join(path, "stats.txt"),**params)
-		os.chdir(olddir)
 		if shouldfail:
 			assert exitcode != 0, "expected non-zero exit code but found zero"
 		else:
@@ -84,3 +79,6 @@ def test10():
 
 def test11():
 	run(dpath("test11"))
+
+def test12():
+	run(dpath("test12"))
