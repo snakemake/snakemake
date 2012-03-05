@@ -31,7 +31,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	workflow.clear()
 
 	try:
-		workflow.snakeimport(snakefile, defines_first_rule = True)
+		workflow.snakeimport(snakefile, overwrite_first_rule = True)
 
 		workflow.check_rules()
 

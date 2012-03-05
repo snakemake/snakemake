@@ -8,12 +8,12 @@ Created on 13.11.2011
 
 import re, sys, os, traceback, logging, glob
 from multiprocessing import Pool, Event
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from tempfile import TemporaryFile
 
 from snakemake.rules import Rule
 from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException, ProtectedOutputException, UnknownRuleException, NoRulesException
-from snakemake.shell import shell
+from snakemake.shell import shell, format
 from snakemake.jobs import Job, protected, temp
 from snakemake.parser import compile_to_python
 
@@ -50,17 +50,7 @@ class Workflow:
 		"""
 		Create the controller.
 		"""
-		self.__rules = dict()
-		self.__last = None
-		self.__first = None
-		self.__workdir_set = False
-		self._jobs_finished = None
-		self._virgin_globals = None
-		self._runtimes = defaultdict(list)
-		self.rowmaps = dict()
-		self.jobcounter = None
-		self.rule_count = 0
-		self.errors = False
+		self.init()
 	
 	def report_runtime(self, rule, runtime):
 		self._runtimes[rule].append(runtime)
@@ -70,10 +60,17 @@ class Workflow:
 			s = sum(runtimes)
 			yield rule, min(runtimes), max(runtimes), s, s / len(runtimes)
 		
-	def clear(self):
-		self.__rules.clear()
+	def init(self, clear = False):
+		if clear:
+			for k in list(globals().keys()):
+				if k not in self._virgin_globals:
+					del globals()[k]
+		else:
+			self._virgin_globals = None
+		self.__rules = OrderedDict()
 		self.__last = None
 		self.__first = None
+		self.__altfirst = None
 		self.__workdir_set = False
 		self._jobs_finished = None
 		self._runtimes = defaultdict(list)
@@ -81,9 +78,9 @@ class Workflow:
 		self.jobcounter = None
 		self.rule_count = 0
 		self.errors = False
-		for k in list(globals().keys()):
-			if k not in self._virgin_globals:
-				del globals()[k]
+
+	def clear(self):
+		self.init(clear = True)
 
 	def setup_pool(self, jobs):
 		self.__pool = Pool(processes=jobs)
@@ -161,7 +158,12 @@ class Workflow:
 		"""
 		Apply the rule defined first.
 		"""
-		return self._run([(self.get_rule(self.__first), None)], dryrun = dryrun, forcethis = forcethis, forceall = forceall)
+		first = self.__first
+		if not first:
+			for key, value in self.__rules.items():
+				first = key
+				break
+		return self._run([(self.get_rule(first), None)], dryrun = dryrun, forcethis = forcethis, forceall = forceall)
 			
 	def get_file_producers(self, files, dryrun = False, forcethis = False, forceall = False):
 		"""
@@ -254,16 +256,17 @@ class Workflow:
 			if os.stat(f).st_mtime > time: return True
 		return False
 
-	def snakeimport(self, snakefile, defines_first_rule = False):
+	def snakeimport(self, snakefile, overwrite_first_rule = False):
 		"""
 		Import a snakefile.
 		"""
+		first_rule = self.__first
 		code, rowmap, rule_count = compile_to_python(snakefile, rule_count = self.rule_count)
 		self.rule_count += rule_count
 		self.rowmaps[snakefile] = rowmap
 		exec(compile(code, snakefile, "exec"), globals())
-		if not defines_first_rule:
-			self.__first = None
+		if not overwrite_first_rule:
+			self.__first = first_rule
 
 	def set_workdir(self, workdir):
 		if not self.__workdir_set:
