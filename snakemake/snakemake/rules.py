@@ -1,5 +1,6 @@
 import os, re, sys
-from snakemake.jobs import Job, IOFile, protected, temp
+from snakemake.jobs import Job
+from snakemake.io import IOFile, protected, temp
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException
 
 class Namedlist(list):
@@ -88,24 +89,6 @@ class Rule:
 		self.lineno = lineno
 		self.snakefile = snakefile
 
-	@staticmethod
-	def _to_regex(output):
-		"""
-		Convert a filepath containing wildcards to a regular expression.
-		
-		Arguments
-		output -- the filepath
-		"""
-		output = re.sub("\.", "\.", output)
-		return re.sub('\{(?P<name>\w+?)\}', lambda match: '(?P<{}>.+)'.format(match.group('name')), output)
-
-	@staticmethod
-	def _get_wildcard_names(output):
-		"""
-		Return the names of detected wildcards.
-		"""
-		return set(match.group('name') for match in re.finditer("\{(?P<name>\w+?)\}", output))
-
 	def has_wildcards(self):
 		"""
 		Return True if rule contains wildcards.
@@ -137,13 +120,13 @@ class Rule:
 			self._set_inoutput_item(item, self.output, name = name)
 		
 		for item in self.output:
-			wildcards = self._get_wildcard_names(item)
+			wildcards = item.get_wildcard_names()
 			if self.wildcard_names:
 				if self.wildcard_names != wildcards:
 					raise SyntaxError("Not all output files of rule {} contain the same wildcards. ".format(self.name))
 			else:
 				self.wildcard_names = wildcards
-			self.regex_output.append(self._to_regex(item))
+			self.regex_output.append(item.regex())
 	
 	def _set_inoutput_item(self, item, inoutput, name=None):
 		"""

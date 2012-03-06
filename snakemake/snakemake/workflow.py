@@ -14,8 +14,9 @@ from tempfile import TemporaryFile
 from snakemake.rules import Rule
 from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException, ProtectedOutputException, UnknownRuleException, NoRulesException
 from snakemake.shell import shell, format
-from snakemake.jobs import Job, protected, temp
+from snakemake.jobs import Job
 from snakemake.parser import compile_to_python
+from snakemake.io import protected, temp
 
 
 class Jobcounter:
