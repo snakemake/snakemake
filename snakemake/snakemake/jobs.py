@@ -89,7 +89,6 @@ class Job:
 		)
 	
 	def _finished_callback(self, value = None):
-		self.workflow.get_threads().release(self.threads)
 		self.workflow.jobcounter.done()
 		print(self.workflow.jobcounter)
 		if value != None:
@@ -103,5 +102,4 @@ class Job:
 	
 	def _raise_error(self, error):
 		# simply stop because exception was printed in run_wrapper
-		self.workflow.get_threads().release(self.threads)
 		self.workflow.set_job_finished(error = True)
