@@ -83,6 +83,7 @@ class Rule:
 		self.message = None
 		self.input = Namedlist()
 		self.output = Namedlist()
+		self.threads = 1
 		self.regex_output = []
 		self.wildcard_names = set()
 		self.workflow = workflow
@@ -156,6 +157,9 @@ class Rule:
 		Set the message that is displayed when rule is executed.
 		"""
 		self.message = message
+	
+	def set_threads(self, threads):
+		self.threads = threads
 		
 	def _expand_wildcards(self, requested_output):
 		""" Expand wildcards depending on the requested output. """
@@ -266,6 +270,7 @@ class Rule:
 			input = input,
 			output = output,
 			wildcards = wildcards,
+			threads = self.threads,
 			depends = todo,
 			dryrun = dryrun,
 			needrun = need_run

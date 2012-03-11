@@ -33,7 +33,7 @@ class Jobcounter:
 	def __str__(self):
 		return "{} of {} steps ({}%) done".format(self._done, self._count, int(self._done / self._count * 100))
 
-class Semaphore:
+class JobCounterSemaphore:
 	def __init__(self, value):
 		self.value = value
 		self.event = Event()
@@ -75,6 +75,7 @@ class Workflow:
 		self.__workdir_set = False
 		self._jobs_finished = None
 		self._runtimes = defaultdict(list)
+		self._threads = None
 		self.rowmaps = dict()
 		self.jobcounter = None
 		self.rule_count = 0
@@ -84,7 +85,7 @@ class Workflow:
 		self.init(clear = True)
 
 	def setup_pool(self, jobs):
-		self.__pool = Pool(processes=jobs)
+		self.__pool = Pool(processes=jobs)	
 		
 	def set_job_finished(self, job = None, error = False):
 		if error:
@@ -212,7 +213,7 @@ class Workflow:
 	def _run(self, torun, dryrun = False, forcethis = False, forceall = False):
 		self.jobcounter = Jobcounter()
 		jobs = dict()
-		self._jobs_finished = Semaphore(len(torun))
+		self._jobs_finished = JobCounterSemaphore(len(torun))
 		for rule, requested_output in torun:
 			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set(), jobcounter = self.jobcounter)
 			job.run(callback = self.set_job_finished)
@@ -295,5 +296,8 @@ def _set_output(*paths, **kwpaths):
 
 def _set_message(message):
 	workflow.last_rule().set_message(message)
+	
+def _set_threads(threads):
+	workflow.last_rule().set_threads(threads)
 
 workflow._virgin_globals = dict(globals())

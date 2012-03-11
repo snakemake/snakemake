@@ -1,9 +1,10 @@
 import sys, time
+from threading import Thread
 from snakemake.exceptions import MissingOutputException, RuleException, print_exception
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
 
-def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps, rulelineno, rulesnakefile):
+def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowmaps, rulelineno, rulesnakefile):
 	"""
 	Wrapper around the run method that handles directory creation and output file deletion on error.
 	
@@ -21,7 +22,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps, rule
 	try:
 		t0 = time.time()
 		# execute the actual run method.
-		run(input, output, wildcards)
+		run(input, output, wildcards, threads)
 		# finish all spawned shells.
 		shell.join()
 		runtime = time.time() - t0
@@ -39,8 +40,8 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, rowmaps, rule
 		raise Exception()
 
 class Job:
-	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, depends = set(), dryrun = False, needrun = True):
-		self.rule, self.message, self.input, self.output, self.wildcards = rule, message, input, output, wildcards
+	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, threads = 1, depends = set(), dryrun = False, needrun = True):
+		self.rule, self.message, self.input, self.output, self.wildcards, self.threads = rule, message, input, output, wildcards, threads
 		self.dryrun, self.needrun = dryrun, needrun
 		self.depends = depends
 		self._callbacks = list()
@@ -75,16 +76,20 @@ class Job:
 				print(self.message)
 				self._wakeup_waiting()
 			else:
-				self.workflow.get_pool().apply_async(
-					run_wrapper, 
-					(self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards, self.workflow.rowmaps, self.rule.lineno, self.rule.snakefile), 
-					callback=self._finished_callback, 
-					error_callback=self._raise_error
-				)
+				self._apply()
 		else:
 			self._wakeup_waiting()
 	
+	def _apply(self):
+		self.workflow.get_pool().apply_async(
+			run_wrapper, 
+			(self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards, self.threads, self.workflow.rowmaps, self.rule.lineno, self.rule.snakefile), 
+			callback=self._finished_callback,
+			error_callback=self._raise_error
+		)
+	
 	def _finished_callback(self, value = None):
+		self.workflow.get_threads().release(self.threads)
 		self.workflow.jobcounter.done()
 		print(self.workflow.jobcounter)
 		if value != None:
@@ -92,10 +97,11 @@ class Job:
 		self._wakeup_waiting()
 		
 	def _wakeup_waiting(self):
-		self._finished = True		
+		self._finished = True
 		for callback in self._callbacks:
 			callback(self)
 	
 	def _raise_error(self, error):
 		# simply stop because exception was printed in run_wrapper
+		self.workflow.get_threads().release(self.threads)
 		self.workflow.set_job_finished(error = True)

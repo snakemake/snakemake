@@ -60,6 +60,7 @@ class States:
 			input = self.input,
 			output = self.output,
 			message = self.message,
+			threads = self.threads,
 			run = self.run,
 			shell = self.shell)
 		self.current_rule = None
@@ -170,18 +171,27 @@ class States:
 	def message_text(self, token):
 		if token.type == STRING:
 			self.tokens.add(token, orig_token = token)
-		elif token.type == NAME and token.string in self.main_states:
-			self.state = self.main_states[token.string]
-			self._func_close(token)
-		elif token.type == ENDMARKER:
-			self._func_close(token)
+			self.state = self.close_param
 		elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
-			raise self._syntax_error('Expected only string after message keyword.', token)
+			raise self._syntax_error('Expected string after message keyword.', token)
+	
+	def threads(self, token):
+		''' State that handles definition of threads. '''
+		self._check_colon('thread', token)
+		self._func_open('_set_threads', token)
+		self.state = self.threads_value
+	
+	def threads_value(self, token):
+		if token.type == NUMBER:
+			self.tokens.add(token, orig_token = token)
+			self.state = self.close_param
+		elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
+			raise self._syntax_error('Expected number after threads keyword.', token)
 			
 	def run(self, token):
 		''' State that creates a run function for the current rule. '''
 		self._check_colon('run', token)
-		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards'], token)
+		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards', 'threads'], token)
 		self.state = self.run_newline
 
 	def run_newline(self, token):
@@ -204,7 +214,7 @@ class States:
 	def shell(self, token):
 		''' State that creates a run function for the current rule, interpreting shell commands directly. '''
 		self._check_colon('shell', token)
-		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards'], token)
+		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards', 'threads'], token)
 		self.tokens.add(NEWLINE, '\n', orig_token = token)\
 		           .add(INDENT, '\t', orig_token = token)
 		self._func_open('shell', token)
@@ -220,6 +230,14 @@ class States:
 			self.tokens.add(token, orig_token = token)
 		else:
 			raise self._syntax_error('Expected shell command in a string after shell keyword.', token)
+	
+	def close_param(self, token):
+		''' State that closes a function invocation based definition of a rule parameter. '''
+		if token.type == NAME and token.string in self.main_states:
+			self.state = self.main_states[token.string]
+			self._func_close(token)
+		elif token.type == ENDMARKER:
+			self._func_close(token)
 
 	def _is_colon(self, token):
 		return token.type == tokenize.OP and token.string == ':'
