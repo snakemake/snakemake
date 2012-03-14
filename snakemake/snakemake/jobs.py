@@ -3,6 +3,7 @@ from threading import Thread
 from snakemake.exceptions import MissingOutputException, RuleException, print_exception
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
+from multiprocessing import Process
 
 def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowmaps, rulelineno, rulesnakefile):
 	"""
@@ -103,3 +104,36 @@ class Job:
 	def _raise_error(self, error):
 		# simply stop because exception was printed in run_wrapper
 		self.workflow.set_job_finished(error = True)
+
+class JobScheduler:
+	def __init__(self, jobs, cores, workflow):
+		self.workflow = workflow
+		self.jobs = jobs
+		self.cores = cores
+		self.pool = Pool()
+	
+	def schedule(self):
+		ready = [job for job in self.jobs if not job.depends]
+		run = self.knapsack(ready)
+		for job in run:
+			self.pool.apply_async(
+				run_wrapper, 
+				(job.rule.get_run(), job.rule.name, job.message, job.input, job.output, job.wildcards, job.threads, job.workflow.rowmaps, job.rule.lineno, job.rule.snakefile),
+				callback = self.schedule,
+				error_callback = self.error
+			)
+
+	
+	def knapsack(self, jobs):
+		R = [[0 for j in range(self.cores)] for i in range(len(jobs))]
+		for i in range(len(jobs) - 1, -1, -1):
+			for j in range(self.cores):
+				if jobs[i].threads <= j + 1:
+					R[i][j] = max(jobs[i].threads + R[i + 1][j - jobs[i].threads], R[i + 1][j])
+		# backtrack best solution here
+		return solution
+
+	def error(self, error):
+		# simply stop because exception was printed in run_wrapper
+		self.workflow.set_job_finished(error = True)
+		
