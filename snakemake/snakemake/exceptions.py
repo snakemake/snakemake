@@ -1,25 +1,28 @@
-import sys, traceback
+import sys, traceback, logging
 from collections import defaultdict
 
 def format_error(ex, lineno, rowmaps = None, snakefile = None):
+	msg = str(ex)
 	if rowmaps and snakefile:
 		lineno = rowmaps[snakefile][lineno]
-	return '{} in line {} of {}:\n{}'.format(ex.__class__.__name__, lineno, snakefile, str(ex))
+		if isinstance(ex, SyntaxError):
+			msg = ex.msg
+	return '{} in line {} of {}:\n{}'.format(ex.__class__.__name__, lineno, snakefile, msg)
 
 def print_exception(ex, rowmaps):
 	for file, lineno, _, _ in traceback.extract_tb(ex.__traceback__):
 		if file in rowmaps:
-			print(format_error(ex, lineno, rowmaps = rowmaps, snakefile = file), file = sys.stderr)
+			logging.critical(format_error(ex, lineno, rowmaps = rowmaps, snakefile = file))
 			return
 	if isinstance(ex, SyntaxError):
-		print(format_error(ex, ex.lineno, rowmaps = rowmaps, snakefile = ex.filename), file = sys.stderr)
+		logging.critical(format_error(ex, ex.lineno, rowmaps = rowmaps, snakefile = ex.filename))
 	elif isinstance(ex, RuleException):
 		for e in ex._include + [ex]:
 			if not e.omit:
-				print(format_error(e, e.lineno, rowmaps = rowmaps, snakefile = e.filename), file = sys.stderr)
+				logging.critical(format_error(e, e.lineno, rowmaps = rowmaps, snakefile = e.filename))
 	else:
 		traceback.print_tb(ex.__traceback__)
-		print(ex, file=sys.stderr)
+		logging.critical(ex)
 
 class RuleException(Exception):
 	def __init__(self, message = None, include = list(), lineno = None, snakefile = None):

@@ -32,7 +32,7 @@ def main():
 	logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 	if not os.path.exists(args.snakefile):
-		print("Error: Snakefile \"{}\" not present.".format(args.snakefile), file=sys.stderr)
+		logging.error("Error: Snakefile \"{}\" not present.".format(args.snakefile))
 		exit(1)
     
 	exit(

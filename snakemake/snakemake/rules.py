@@ -332,8 +332,14 @@ class Rule:
 			variables = dict(globals())
 			variables.update(locals())
 			return self.message.format(**variables)
-		return "rule {}:\n\tinput: {}\n\toutput: {}\n".format(
-			self.name, ", ".join(input), ", ".join(output))
+		msg = "rule " + self.name
+		if input or output:
+			msg += ":"
+		if input:
+			msg += "\n\tinput: {}".format(", ".join(input))
+		if output:
+			msg += "\n\toutput: {}".format(", ".join(output))
+		return msg
 
 	def is_producer(self, requested_output):
 		"""

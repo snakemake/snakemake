@@ -1,4 +1,4 @@
-import sys, time
+import sys, time, logging
 from threading import Thread
 from snakemake.exceptions import MissingOutputException, RuleException, print_exception
 from snakemake.shell import shell
@@ -16,7 +16,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowm
 	output -- list of output files
 	wildcards -- so far processed wildcards
 	"""
-	print(ruledesc)
+	logging.info(ruledesc)
 
 	for o in output:
 		o.prepare()
@@ -66,7 +66,7 @@ class Job:
 		""" Set job to be finished. """
 		if self.needrun:
 			self.workflow.jobcounter.done()
-			print(self.workflow.jobcounter)
+			logging.info(self.workflow.jobcounter)
 			if runtime != None:
 				self.workflow.report_runtime(self.rule, runtime)
 		for callback in self._callbacks:
@@ -88,6 +88,7 @@ class KnapsackJobScheduler:
 			if not job.depends:
 				if job.threads > self._cores:
 					# reduce the number of threads so that it fits to available cores.
+					logging.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._cores))
 					job.threads = self._cores
 				if job.needrun: needrun.append(job)
 				else: norun.add(job)
@@ -116,7 +117,7 @@ class KnapsackJobScheduler:
 					error_callback = self._error
 				)
 			else:
-				print(job.message)
+				logging.info(job.message)
 				finished()
 	
 	def _error(self, error):
