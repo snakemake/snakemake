@@ -7,14 +7,14 @@ Created on 13.11.2011
 '''
 
 import re, sys, os, traceback, logging, glob
-from multiprocessing import Pool, Event
+from multiprocessing import Event
 from collections import defaultdict, OrderedDict
 from tempfile import TemporaryFile
 
 from snakemake.rules import Rule
 from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException, ProtectedOutputException, UnknownRuleException, NoRulesException
 from snakemake.shell import shell, format
-from snakemake.jobs import Job
+from snakemake.jobs import Job, KnapsackJobScheduler
 from snakemake.parser import compile_to_python
 from snakemake.io import protected, temp
 
@@ -53,14 +53,6 @@ class Workflow:
 		"""
 		self.init()
 	
-	def report_runtime(self, rule, runtime):
-		self._runtimes[rule].append(runtime)
-		
-	def get_runtimes(self):
-		for rule, runtimes in self._runtimes.items():
-			s = sum(runtimes)
-			yield rule, min(runtimes), max(runtimes), s, s / len(runtimes)
-		
 	def init(self, clear = False):
 		if clear:
 			for k in list(globals().keys()):
@@ -75,17 +67,30 @@ class Workflow:
 		self.__workdir_set = False
 		self._jobs_finished = None
 		self._runtimes = defaultdict(list)
-		self._threads = None
+		self._cores = 1
 		self.rowmaps = dict()
 		self.jobcounter = None
 		self.rule_count = 0
 		self.errors = False
+	
+	def get_cores(self):
+		return self._cores
+	
+	def set_cores(self, cores):
+		self._cores = cores
+	
+	def report_runtime(self, rule, runtime):
+		self._runtimes[rule].append(runtime)
+		
+	def get_runtimes(self):
+		for rule, runtimes in self._runtimes.items():
+			s = sum(runtimes)
+			yield rule, min(runtimes), max(runtimes), s, s / len(runtimes)
+		
+	
 
 	def clear(self):
 		self.init(clear = True)
-
-	def setup_pool(self, jobs):
-		self.__pool = Pool(processes=jobs)	
 		
 	def set_job_finished(self, job = None, error = False):
 		if error:
@@ -213,10 +218,16 @@ class Workflow:
 	def _run(self, torun, dryrun = False, forcethis = False, forceall = False):
 		self.jobcounter = Jobcounter()
 		jobs = dict()
-		self._jobs_finished = JobCounterSemaphore(len(torun))
+		
 		for rule, requested_output in torun:
 			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set(), jobcounter = self.jobcounter)
-			job.run(callback = self.set_job_finished)
+			job.add_callback(self.set_job_finished)
+		
+		self._jobs_finished = JobCounterSemaphore(len(torun))
+		
+		scheduler = KnapsackJobScheduler(set(jobs.values()), self)
+		scheduler.schedule()
+		
 		self._jobs_finished.wait()
 		if self.errors:
 			return 1
