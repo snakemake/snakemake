@@ -1,4 +1,5 @@
 import os, re
+from snakemake.exceptions import MissingOutputException
 
 class IOFile(str):
 	wildcard_regex = "\{(?P<name>\w+?)(,(?P<constraint>.*))?\}"
