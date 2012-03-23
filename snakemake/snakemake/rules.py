@@ -174,9 +174,6 @@ class Rule:
 		if missing_wildcards:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno, snakefile = self.snakefile)
 
-		def format(io, wildcards):
-			f = io.format(**wildcards)
-			
 		try:
 			input = Namedlist(i.apply_wildcards(wildcards) for i in self.input)
 			output = Namedlist(o.apply_wildcards(wildcards) for o in self.output)
@@ -206,8 +203,8 @@ class Rule:
 		
 		Arguments
 		requested_output -- the optional requested output file
-		forceall         -- whether all required rules shall be executed, even if the files already exists
-		forcethis        -- whether this rule shall be executed, even if the files already exists
+		forceall         -- whether all required rules shall be executed, even if the files already exist
+		forcethis        -- whether this rule shall be executed, even if the files already exist
 		jobs             -- dictionary containing all jobs currently queued
 		dryrun           -- whether rule execution shall be only simulated
 		visited          -- set of already visited pairs of rules and requested output

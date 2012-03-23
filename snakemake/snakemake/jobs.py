@@ -64,7 +64,7 @@ class Job:
 	
 	def finished(self, runtime = None):
 		""" Set job to be finished. """
-		if self.needrun:
+		if self.needrun and not self.dryrun:
 			self.workflow.jobcounter.done()
 			logging.info(self.workflow.jobcounter)
 			if runtime != None:
@@ -77,7 +77,8 @@ class KnapsackJobScheduler:
 	def __init__(self, jobs, workflow):
 		""" Create a new instance of KnapsackJobScheduler. """
 		self.workflow = workflow
-		self._cores = workflow.get_cores()
+		self._maxcores = workflow.get_cores()
+		self._cores = self._maxcores
 		self._pool = Pool(self._cores)
 		self._jobs = set(jobs)
 	
@@ -86,10 +87,11 @@ class KnapsackJobScheduler:
 		needrun, norun = [], set()
 		for job in self._jobs:
 			if not job.depends:
-				if job.threads > self._cores:
+				if job.threads > self._maxcores:
 					# reduce the number of threads so that it fits to available cores.
-					logging.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._cores))
-					job.threads = self._cores
+					if not job.dryrun:
+						logging.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._maxcores))
+					job.threads = self._maxcores
 				if job.needrun: needrun.append(job)
 				else: norun.add(job)
 		
