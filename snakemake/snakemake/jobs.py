@@ -3,7 +3,7 @@ from threading import Thread
 from snakemake.exceptions import MissingOutputException, RuleException, print_exception
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
-from multiprocessing import Process, Pool
+from multiprocessing import Process, Pool, Lock
 from itertools import chain
 
 def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowmaps, rulelineno, rulesnakefile):
@@ -52,7 +52,7 @@ class Job:
 		self.threads = threads
 		self.dryrun = dryrun
 		self.needrun = needrun
-		self.depends = depends
+		self.depends = set(depends)
 		self.depending = list()
 		self._callbacks = list()
 		for other in self.depends:
@@ -69,8 +69,13 @@ class Job:
 			logging.info(self.workflow.jobcounter)
 			if runtime != None:
 				self.workflow.report_runtime(self.rule, runtime)
+		for other in self.depending:
+			other.depends.remove(self)
 		for callback in self._callbacks:
 			callback(self)
+			
+	def __repr__(self):
+		return self.rule.name
 
 
 class KnapsackJobScheduler:
@@ -81,9 +86,11 @@ class KnapsackJobScheduler:
 		self._cores = self._maxcores
 		self._pool = Pool(self._cores)
 		self._jobs = set(jobs)
+		self._lock = Lock()
 	
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
+		#import pdb; pdb.set_trace()
 		needrun, norun = [], set()
 		for job in self._jobs:
 			if not job.depends:
@@ -100,27 +107,24 @@ class KnapsackJobScheduler:
 		self._jobs -= norun
 		self._cores -= sum(job.threads for job in run)
 		for job in chain(run, norun):
-			def finished(runtime = None):
-				""" Schedule remaining jobs. """
-				job.finished(runtime)
-				# remove this job from others dependencies
-				for other in job.depending:
-					other.depends.remove(job)
-				self._cores += job.threads
-				self.schedule()
+			job.add_callback(self._finished)
 			
 			if not job.needrun:
-				finished()
+				job.finished()
 			elif not job.dryrun:
 				self._pool.apply_async(
 					run_wrapper, 
 					(job.rule.get_run(), job.rule.name, job.message, job.input, job.output, job.wildcards, job.threads, job.workflow.rowmaps, job.rule.lineno, job.rule.snakefile),
-					callback = finished,
+					callback = job.finished,
 					error_callback = self._error
 				)
 			else:
 				logging.info(job.message)
-				finished()
+				job.finished()
+		
+	def _finished(self, job):
+		self._cores += job.threads
+		self.schedule()
 	
 	def _error(self, error):
 		# simply stop because exception was printed in run_wrapper
