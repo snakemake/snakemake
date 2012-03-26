@@ -2,7 +2,7 @@ import os, logging, traceback, sys, csv
 from snakemake.workflow import workflow
 from snakemake.exceptions import print_exception
 
-def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, forcethis = False, forceall = False, stats = None):
+def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None):
 	"""
 	Run snakemake on a given snakefile.
 		
@@ -43,9 +43,9 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 		
 		ret = 0
 		if not targets: 
-			ret = workflow.run_first_rule(dryrun = dryrun, forcethis = forcethis, forceall = forceall)
+			ret = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall)
 		else:
-			ret = workflow.run_rules(targets, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
+			ret = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall)
 		if ret == 0 and stats:
 			stats = csv.writer(open(stats, "w"), delimiter = "\t")
 			stats.writerow("rule minimum maximum sum mean".split())

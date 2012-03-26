@@ -161,7 +161,7 @@ class Workflow:
 		"""
 		return self.__last
 
-	def run_first_rule(self, dryrun = False, forcethis = False, forceall = False):
+	def run_first_rule(self, dryrun = False, touch = False, forcethis = False, forceall = False):
 		"""
 		Apply the rule defined first.
 		"""
@@ -170,7 +170,7 @@ class Workflow:
 			for key, value in self.__rules.items():
 				first = key
 				break
-		return self._run([(self.get_rule(first), None)], dryrun = dryrun, forcethis = forcethis, forceall = forceall)
+		return self._run([(self.get_rule(first), None)], dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall)
 			
 	def get_file_producers(self, files, dryrun = False, forcethis = False, forceall = False):
 		"""
@@ -202,7 +202,7 @@ class Workflow:
 
 		return [(rule, file) for file, rule in producers.items()]
 	
-	def run_rules(self, targets, dryrun = False, forcethis = False, forceall = False):
+	def run_rules(self, targets, dryrun = False, touch = False, forcethis = False, forceall = False):
 		ruletargets, filetargets = [], []
 		for target in targets:
 			if workflow.is_rule(target):
@@ -213,14 +213,14 @@ class Workflow:
 		torun = self.get_file_producers(filetargets, forcethis = forcethis, forceall = forceall, dryrun = dryrun) + \
 			[(self.get_rule(name), None) for name in ruletargets]
 				
-		return self._run(torun, dryrun = dryrun, forcethis = forcethis, forceall = forceall)
+		return self._run(torun, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall)
 	
-	def _run(self, torun, dryrun = False, forcethis = False, forceall = False):
+	def _run(self, torun, dryrun = False, touch = False, forcethis = False, forceall = False):
 		self.jobcounter = Jobcounter()
 		jobs = dict()
 		
 		for rule, requested_output in torun:
-			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set(), jobcounter = self.jobcounter)
+			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, touch = touch, visited = set(), jobcounter = self.jobcounter)
 			job.add_callback(self.set_job_finished)
 
 		self._jobs_finished = JobCounterSemaphore(len(torun))
@@ -240,8 +240,9 @@ class Workflow:
 		scheduler.terminate()
 		if self.errors:
 			try:
-				# make sure ill behaving child processes are really killed
-				os.killpg(0, signal.SIGKILL)
+				# make sure ill behaving child processes are really killed (this will fail if snakemake is called programatically since it will kill the whole process)
+				#os.killpg(0, signal.SIGKILL)
+				pass
 			except:
 				# ignore: if it does not work we can still work without it, but it may happen that some processes continue to run
 				pass

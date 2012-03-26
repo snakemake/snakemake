@@ -43,7 +43,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowm
 			raise Exception()
 
 class Job:
-	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, threads = 1, depends = set(), dryrun = False, needrun = True):
+	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, threads = 1, depends = set(), dryrun = False, touch = False, needrun = True):
 		self.workflow = workflow
 		self.rule = rule
 		self.message = message
@@ -52,12 +52,32 @@ class Job:
 		self.wildcards = wildcards
 		self.threads = threads
 		self.dryrun = dryrun
+		self.touch = touch
 		self.needrun = needrun
 		self.depends = set(depends)
 		self.depending = list()
 		self._callbacks = list()
 		for other in self.depends:
 			other.depending.append(self)
+			
+	def run(self, run_func):
+		if not self.needrun:
+			self.finished()
+		elif self.dryrun:
+			logging.info(self.message)
+			self.finished()
+		elif self.touch:
+			logging.info(self.message)
+			for o in self.output:
+				o.touch(self.rule.lineno, self.rule.snakefile)
+			# sleep shortly to ensure that output files of different rules are not touched at the same time.
+			time.sleep(0.1)
+			self.finished()
+		else:
+			run_func(self)
+	
+	def get_run_args(self):
+		return (self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards, self.threads, self.workflow.rowmaps, self.rule.lineno, self.rule.snakefile)
 	
 	def add_callback(self, callback):
 		""" Add a callback that is invoked when job is finished. """
@@ -113,19 +133,15 @@ class KnapsackJobScheduler:
 		self._cores -= sum(job.threads for job in run)
 		for job in chain(run, norun):
 			job.add_callback(self._finished)
-			
-			if not job.needrun:
-				job.finished()
-			elif not job.dryrun:
-				self._pool.apply_async(
-					run_wrapper, 
-					(job.rule.get_run(), job.rule.name, job.message, job.input, job.output, job.wildcards, job.threads, job.workflow.rowmaps, job.rule.lineno, job.rule.snakefile),
-					callback = job.finished,
-					error_callback = self._error
-				)
-			else:
-				logging.info(job.message)
-				job.finished()
+			job.run(self._run_job)
+	
+	def _run_job(self, job):
+		self._pool.apply_async(
+			run_wrapper, 
+			job.get_run_args(),
+			callback = job.finished,
+			error_callback = self._error
+		)
 		
 	def _finished(self, job):
 		self._cores += job.threads

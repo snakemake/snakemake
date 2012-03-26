@@ -61,6 +61,11 @@ class IOFile(str):
 						os.rmdir(d)
 			else:
 				os.remove(o)
+	
+	def touch(self, lineno, snakefile):
+		if not os.path.exists(self._file):
+			raise MissingOutputException("Output file {} shall be touched but does not exist.".format(self._file), lineno = lineno, snakefile = snakefile)
+		os.utime(self._file, None)
 
 	def apply_wildcards(self, wildcards):
 		return self.create(re.sub(self.wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), self._file))
