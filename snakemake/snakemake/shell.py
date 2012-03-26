@@ -1,7 +1,9 @@
 import _io
+import signal
 import sys, os, inspect
 import subprocess as sp
 from threading import Thread
+from snakemake.exceptions import TerminatedException
 
 def format(string, *args, stepout = 1, **kwargs):
 	frame = inspect.currentframe().f_back
@@ -51,27 +53,38 @@ class shell(sp.Popen):
 		self._stdout_free = True
 		self._pipethread = None
 		self._stdin = self.stdin
+
+		self._prog_term = False
 		
+		shell._processes.append(self)
+
+		signal.signal(signal.SIGTERM, self.terminate_all)
 		if not async:
 			self.wait()
-		else:
-			shell._processes.append(self)		
-			
+
 	def wait(self):
 		ret = super(shell, self).wait()
 		if self._pipethread:
 			self._pipethread.join()
+		if self._prog_term:
+			raise TerminatedException()
 		if ret != 0:
 			raise sp.CalledProcessError(ret, self.cmd)
 		
 	@staticmethod
-	def join():
+	def join_all():
 		for p in shell._processes:
 			if p.async:
 				if p._stdout_free:
 					for l in p._stdoutlines(): pass
 				p.wait()
 		shell._processes = []
+
+	@staticmethod
+	def terminate_all(*args):
+		for p in shell._processes:
+			p._prog_term = True
+			p.kill()
 		
 	def _stdoutlines(self):
 		while True:

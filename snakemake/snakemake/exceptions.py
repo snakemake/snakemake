@@ -74,3 +74,6 @@ class NoRulesException(RuleException):
 
 class CreateRuleException(RuleException):
 	pass
+
+class TerminatedException(Exception):
+	pass

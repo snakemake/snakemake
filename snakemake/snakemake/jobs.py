@@ -1,6 +1,7 @@
+import signal
 import sys, time, logging
 from threading import Thread
-from snakemake.exceptions import MissingOutputException, RuleException, print_exception
+from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, print_exception
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
 from multiprocessing import Process, Pool, Lock
@@ -26,7 +27,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowm
 		# execute the actual run method.
 		run(input, output, wildcards, threads)
 		# finish all spawned shells.
-		shell.join()
+		shell.join_all()
 		runtime = time.time() - t0
 		for o in output:
 			o.created(rulename, rulelineno, rulesnakefile)
@@ -34,12 +35,12 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowm
 			i.used()
 		return runtime
 	except (Exception, BaseException) as ex:
-		print_exception(ex, rowmaps)
-		
 		# Remove produced output on exception
 		for o in output:
 			o.remove()
-		raise Exception()
+		if not isinstance(ex, TerminatedException):
+			print_exception(ex, rowmaps)
+			raise Exception()
 
 class Job:
 	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, threads = 1, depends = set(), dryrun = False, needrun = True):
@@ -84,9 +85,13 @@ class KnapsackJobScheduler:
 		self.workflow = workflow
 		self._maxcores = workflow.get_cores()
 		self._cores = self._maxcores
-		self._pool = Pool(self._cores)
+		self._pool = Pool(self._cores, maxtasksperchild = 1)
 		self._jobs = set(jobs)
 		self._lock = Lock()
+
+	def terminate(self):
+		self._pool.close()
+		self._pool.terminate()
 	
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
