@@ -185,7 +185,7 @@ class Workflow:
 			try:
 				rule.run(file, jobs=dict(), forceall = forceall, dryrun = True, visited = set())
 				if file in producers:
-					raise AmbiguousRuleException("Ambiguous rules: {} and {}".format(producer, rule))
+					raise AmbiguousRuleException(producers[file], rule)
 				producers[file] = rule
 			except MissingInputException as ex:
 				missing_input_ex[file].append(ex)
@@ -222,7 +222,7 @@ class Workflow:
 		for rule, requested_output in torun:
 			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, visited = set(), jobcounter = self.jobcounter)
 			job.add_callback(self.set_job_finished)
-		
+
 		self._jobs_finished = JobCounterSemaphore(len(torun))
 		
 		scheduler = KnapsackJobScheduler(set(jobs.values()), self)
