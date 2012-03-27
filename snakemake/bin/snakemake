@@ -28,9 +28,6 @@ def main():
 	parser.add_argument("--version", "-v", action="version", version='0.1')
     
 	args = parser.parse_args()
-    
-	# log info level and remove prefixes from output
-	logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 	if not os.path.exists(args.snakefile):
 		logging.error("Error: Snakefile \"{}\" not present.".format(args.snakefile))
@@ -39,16 +36,17 @@ def main():
 	exit(
 		snakemake.snakemake(
 			args.snakefile, 
-			list=args.list,
-			jobs=args.jobs, 
-			directory=args.directory, 
-			targets=args.targets, 
-			dryrun=args.dryrun, 
+			list = args.list,
+			jobs = args.jobs, 
+			directory = args.directory, 
+			targets = args.targets, 
+			dryrun = args.dryrun, 
 			touch = args.touch, 
-			forcethis=args.force,
-			forceall=args.forceall,
-			stats=args.stats)
-	)        
+			forcethis = args.force,
+			forceall = args.forceall,
+			stats = args.stats,
+			standalone = True)
+	)
 
 if __name__ == "__main__":
 	main()

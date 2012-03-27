@@ -1,5 +1,6 @@
-import sys, traceback, logging
+import sys, traceback
 from collections import defaultdict
+from snakemake.logging import logger
 
 def format_error(ex, lineno, rowmaps = None, snakefile = None):
 	msg = str(ex)
@@ -12,17 +13,17 @@ def format_error(ex, lineno, rowmaps = None, snakefile = None):
 def print_exception(ex, rowmaps):
 	for file, lineno, _, _ in traceback.extract_tb(ex.__traceback__):
 		if file in rowmaps:
-			logging.critical(format_error(ex, lineno, rowmaps = rowmaps, snakefile = file))
+			logger.critical(format_error(ex, lineno, rowmaps = rowmaps, snakefile = file))
 			return
 	if isinstance(ex, SyntaxError):
-		logging.critical(format_error(ex, ex.lineno, rowmaps = rowmaps, snakefile = ex.filename))
+		logger.critical(format_error(ex, ex.lineno, rowmaps = rowmaps, snakefile = ex.filename))
 	elif isinstance(ex, RuleException):
 		for e in ex._include + [ex]:
 			if not e.omit:
-				logging.critical(format_error(e, e.lineno, rowmaps = rowmaps, snakefile = e.filename))
+				logger.critical(format_error(e, e.lineno, rowmaps = rowmaps, snakefile = e.filename))
 	else:
 		traceback.print_tb(ex.__traceback__)
-		logging.critical(ex)
+		logger.critical(ex)
 
 class RuleException(Exception):
 	def __init__(self, message = None, include = list(), lineno = None, snakefile = None):

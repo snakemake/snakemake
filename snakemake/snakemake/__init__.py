@@ -1,8 +1,9 @@
-import os, logging, traceback, sys, csv
+import os, traceback, sys, csv
 from snakemake.workflow import workflow
 from snakemake.exceptions import print_exception
+from snakemake.logging import logger
 
-def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None):
+def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, standalone = False):
 	"""
 	Run snakemake on a given snakefile.
 		
@@ -30,13 +31,21 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 
 	workflow.clear()
 
+	if standalone:
+		try:
+			# set the process group
+			os.setpgrp()
+		except:
+			# ignore: if it does not work we can still work without it
+			pass
+
 	try:
 		workflow.snakeimport(snakefile, overwrite_first_rule = True)
 
 		workflow.check_rules()
 
 		if list:
-			print_rules(logging.info)
+			print_rules(logger.info)
 			return 0
 	
 		workflow.set_cores(jobs)
@@ -56,6 +65,14 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 			stats.writerow([])
 			stats.writerow(("Overall runtime", s))
 		os.chdir(olddir)
+
+		if standalone and ret == 1:
+			try:
+				# make sure ill behaving child processes are really killed (this will fail if snakemake is called programatically since it will kill the whole process)
+				os.killpg(0, signal.SIGKILL)
+			except:
+				# ignore: if it does not work we can still work without it, but it may happen that some processes continue to run
+				pass
 		return ret
 	except (Exception, BaseException) as ex:
 		print_exception(ex, workflow.rowmaps)

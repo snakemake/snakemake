@@ -1,9 +1,10 @@
 import signal
-import sys, time, logging
+import sys, time
 from threading import Thread
 from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, print_exception
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
+from snakemake.logging import logger
 from multiprocessing import Process, Pool, Lock
 from itertools import chain
 
@@ -17,7 +18,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowm
 	output -- list of output files
 	wildcards -- so far processed wildcards
 	"""
-	logging.info(ruledesc)
+	logger.info(ruledesc)
 
 	for o in output:
 		o.prepare()
@@ -64,10 +65,10 @@ class Job:
 		if not self.needrun:
 			self.finished()
 		elif self.dryrun:
-			logging.info(self.message)
+			logger.info(self.message)
 			self.finished()
 		elif self.touch:
-			logging.info(self.message)
+			logger.info(self.message)
 			for o in self.output:
 				o.touch(self.rule.lineno, self.rule.snakefile)
 			# sleep shortly to ensure that output files of different rules are not touched at the same time.
@@ -87,7 +88,7 @@ class Job:
 		""" Set job to be finished. """
 		if self.needrun and not self.dryrun:
 			self.workflow.jobcounter.done()
-			logging.info(self.workflow.jobcounter)
+			logger.info(self.workflow.jobcounter)
 			if runtime != None:
 				self.workflow.report_runtime(self.rule, runtime)
 		for other in self.depending:
@@ -122,7 +123,7 @@ class KnapsackJobScheduler:
 				if job.threads > self._maxcores:
 					# reduce the number of threads so that it fits to available cores.
 					if not job.dryrun:
-						logging.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._maxcores))
+						logger.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._maxcores))
 					job.threads = self._maxcores
 				if job.needrun: needrun.append(job)
 				else: norun.add(job)

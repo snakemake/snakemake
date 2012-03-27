@@ -6,7 +6,7 @@ Created on 13.11.2011
 @author: Johannes Köster
 '''
 
-import re, sys, os, traceback, logging, glob, signal
+import re, sys, os, traceback, glob, signal
 from multiprocessing import Event
 from collections import defaultdict, OrderedDict
 from tempfile import TemporaryFile
@@ -225,12 +225,7 @@ class Workflow:
 
 		self._jobs_finished = JobCounterSemaphore(len(torun))
 		
-		try:
-			# set the process group
-			os.setpgrp()
-		except:
-			# ignore: if it does not work we can still work without it
-			pass
+		
 
 		scheduler = KnapsackJobScheduler(set(jobs.values()), self)
 		scheduler.schedule()
@@ -239,13 +234,6 @@ class Workflow:
 		self._jobs_finished.wait()
 		scheduler.terminate()
 		if self.errors:
-			try:
-				# make sure ill behaving child processes are really killed (this will fail if snakemake is called programatically since it will kill the whole process)
-				#os.killpg(0, signal.SIGKILL)
-				pass
-			except:
-				# ignore: if it does not work we can still work without it, but it may happen that some processes continue to run
-				pass
 			return 1
 		return 0
 
