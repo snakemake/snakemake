@@ -54,7 +54,7 @@ class States:
 		self.state = self.python
 		self.filename = filename
 		self.main_states = dict(
-			snakeimport = self.snakeimport,
+			include = self.include,
 			workdir = self.workdir,
 			rule = self.rule,
 			input = self.input,
@@ -79,24 +79,24 @@ class States:
 
 	def python(self, token):
 		''' The automaton state that handles ordinary python code. '''
-		if token.type == NAME and token.string in ('snakeimport', 'workdir', 'rule'):
+		if token.type == NAME and token.string in ('include', 'workdir', 'rule'):
 			self.tokens.add(NEWLINE, '\n', orig_token = token)
 			self.state = self.main_states[token.string]
 		else:
 			self.tokens.add(token, orig_token = token)
 	
-	def snakeimport(self, token):
-		''' State that handles snakeimport definitions. '''
-		self._check_colon('snakeimport', token)
-		self.state = self.snakeimport_path
+	def include(self, token):
+		''' State that handles include definitions. '''
+		self._check_colon('include', token)
+		self.state = self.include_path
 	
-	def snakeimport_path(self, token):
-		''' State that translates the workdir path into a function call. '''
+	def include_path(self, token):
+		''' State that translates the include path into a function call. '''
 		if token.type == STRING:
-			self._func('_snakeimport', (token.string,), token)
+			self._func('_include', (token.string,), token)
 			self.state = self.python
 		else:
-			raise self._syntax_error('Expected string after snakeimport keyword', token)
+			raise self._syntax_error('Expected string after include keyword', token)
 
 	def workdir(self, token):
 		''' State that handles workdir definition. '''

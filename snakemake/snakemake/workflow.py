@@ -273,9 +273,9 @@ class Workflow:
 			if os.stat(f).st_mtime > time: return True
 		return False
 
-	def snakeimport(self, snakefile, overwrite_first_rule = False):
+	def include(self, snakefile, overwrite_first_rule = False):
 		"""
-		Import a snakefile.
+		Include a snakefile.
 		"""
 		first_rule = self.__first
 		code, rowmap, rule_count = compile_to_python(snakefile, rule_count = self.rule_count)
@@ -294,8 +294,8 @@ class Workflow:
 
 workflow = Workflow()
 
-def _snakeimport(path):
-	workflow.snakeimport(path)
+def _include(path):
+	workflow.include(path)
 
 def _set_workdir(path):
 	workflow.set_workdir(path)

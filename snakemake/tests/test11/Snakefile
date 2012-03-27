@@ -1,4 +1,4 @@
-snakeimport: "import.snakefile"
+include: "import.snakefile"
 
 rule:
 	input: 'test.inter'
