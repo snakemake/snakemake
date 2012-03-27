@@ -1,9 +1,9 @@
 import os, traceback, sys, csv
 from snakemake.workflow import workflow
 from snakemake.exceptions import print_exception
-from snakemake.logging import logger
+from snakemake.logging import logger, ColorizingStreamHandler
 
-def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, standalone = False):
+def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, give_reason = False, nocolor = False, standalone = False):
 	"""
 	Run snakemake on a given snakefile.
 		
@@ -18,7 +18,10 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	forceall          -- force all rules to be executed
 	time_measurements -- measure the running times of all rules
 	"""
-	
+
+	if nocolor:
+		ColorizingStreamHandler.nocolor = True
+
 	def print_rules(log):
 		log("Defined rules:")
 		for rule in workflow.get_rules(): log(rule.name)
@@ -52,9 +55,9 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 		
 		ret = 0
 		if not targets: 
-			ret = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall)
+			ret = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason)
 		else:
-			ret = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall)
+			ret = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason)
 		if ret == 0 and stats:
 			stats = csv.writer(open(stats, "w"), delimiter = "\t")
 			stats.writerow("rule minimum maximum sum mean".split())

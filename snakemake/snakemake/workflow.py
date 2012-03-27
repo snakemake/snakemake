@@ -161,7 +161,7 @@ class Workflow:
 		"""
 		return self.__last
 
-	def run_first_rule(self, dryrun = False, touch = False, forcethis = False, forceall = False):
+	def run_first_rule(self, dryrun = False, touch = False, forcethis = False, forceall = False, give_reason = False):
 		"""
 		Apply the rule defined first.
 		"""
@@ -170,7 +170,7 @@ class Workflow:
 			for key, value in self.__rules.items():
 				first = key
 				break
-		return self._run([(self.get_rule(first), None)], dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall)
+		return self._run([(self.get_rule(first), None)], dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason)
 			
 	def get_file_producers(self, files, dryrun = False, forcethis = False, forceall = False):
 		"""
@@ -202,7 +202,7 @@ class Workflow:
 
 		return [(rule, file) for file, rule in producers.items()]
 	
-	def run_rules(self, targets, dryrun = False, touch = False, forcethis = False, forceall = False):
+	def run_rules(self, targets, dryrun = False, touch = False, forcethis = False, forceall = False, give_reason = False):
 		ruletargets, filetargets = [], []
 		for target in targets:
 			if workflow.is_rule(target):
@@ -213,14 +213,14 @@ class Workflow:
 		torun = self.get_file_producers(filetargets, forcethis = forcethis, forceall = forceall, dryrun = dryrun) + \
 			[(self.get_rule(name), None) for name in ruletargets]
 				
-		return self._run(torun, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall)
+		return self._run(torun, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason)
 	
-	def _run(self, torun, dryrun = False, touch = False, forcethis = False, forceall = False):
+	def _run(self, torun, dryrun = False, touch = False, forcethis = False, forceall = False, give_reason = False):
 		self.jobcounter = Jobcounter()
 		jobs = dict()
 		
 		for rule, requested_output in torun:
-			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, touch = touch, visited = set(), jobcounter = self.jobcounter)
+			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, give_reason = give_reason, touch = touch, visited = set(), jobcounter = self.jobcounter)
 			job.add_callback(self.set_job_finished)
 
 		self._jobs_finished = JobCounterSemaphore(len(torun))

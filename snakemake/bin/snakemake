@@ -24,7 +24,9 @@ def main():
 	parser.add_argument("--touch", "-t", action="store_true", help="Touch output files (mark them up to date without really changing them) instead of running their commands. This is used to pretend that the rules were executed, in order to fool future invocations of snakemake. Fails if a file does not yet exist.")
 	parser.add_argument("--force", "-f", action="store_true", help="Force the execution of the selected (or the first) rule regardless of already created output.")
 	parser.add_argument("--forceall", "-F", action="store_true", help="Force the execution of the selected (or the first) rule and all rules it is dependent on regardless of already created output.")
+	parser.add_argument("--reason", "-r", action = "store_true", help="Print the reason for each executed rule.")
 	parser.add_argument("--stats", help="Write stats about Snakefile execution to the given file.")
+	parser.add_argument("--nocolor", action = "store_true", help="Do not use a colored output.")
 	parser.add_argument("--version", "-v", action="version", version='0.1')
     
 	args = parser.parse_args()
@@ -45,6 +47,8 @@ def main():
 			forcethis = args.force,
 			forceall = args.forceall,
 			stats = args.stats,
+			give_reason = args.reason,
+			nocolor = args.nocolor,
 			standalone = True)
 	)
 

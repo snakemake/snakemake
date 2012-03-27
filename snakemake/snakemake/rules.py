@@ -197,7 +197,7 @@ class Rule:
 				return True
 		return False
 	
-	def run(self, requested_output = None, forceall = False, forcethis = False, jobs = dict(), dryrun = False, touch = False, quiet = False, visited = set(), jobcounter = None):
+	def run(self, requested_output = None, forceall = False, forcethis = False, give_reason = False, jobs = dict(), dryrun = False, touch = False, quiet = False, visited = set(), jobcounter = None):
 		"""
 		Run the rule.
 		
@@ -231,6 +231,7 @@ class Rule:
 					forceall = forceall, 
 					jobs = jobs, 
 					dryrun = dryrun, 
+					give_reason = give_reason,
 					touch = touch, 
 					quiet = quiet, 
 					visited = set(visited), 
@@ -257,7 +258,7 @@ class Rule:
 				snakefile = self.snakefile
 			)
 		
-		need_run = self._need_run(forcethis or forceall or todo, input, output)		
+		need_run, reason = self._need_run(forcethis or forceall, todo, input, output)
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output or protected_output_exceptions:
@@ -271,7 +272,7 @@ class Rule:
 		job = Job(
 			self.workflow,
 			rule = self, 
-			message = self.get_message(input, output, wildcards),
+			message = self.get_message(input, output, wildcards, reason if give_reason else None),
 			input = input,
 			output = output,
 			wildcards = wildcards,
@@ -279,7 +280,7 @@ class Rule:
 			depends = todo,
 			dryrun = dryrun,
 			touch = touch,
-			needrun = need_run
+			needrun = need_run,
 		)
 		jobs[(output, self)] = job
 		
@@ -299,22 +300,26 @@ class Rule:
 		if self.output and not self.has_run():
 			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name), lineno = self.lineno, snakefile = self.snakefile)
 
-	def _need_run(self, force, input, output):
+	def _need_run(self, force, todo, input, output):
 		""" Return True if rule needs to be run. """
 		if self.has_run():
 			if force:
-				return True
+				return True, "Forced rule execution."
+			if todo:
+				todo_output = set()
+				for job in todo:
+					todo_output.update(job.output)
+				return True, "Updated input files: {}".format(", ".join(set(input) & set(todo_output)))
 			if self._has_missing_files(output):
-				return True
+				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
 			if not output:
-				return True
+				return True, ""
 			mintime = min(map(lambda f: os.stat(f).st_mtime, output))
-			for i in input:
-				if os.path.exists(i) and os.stat(i).st_mtime >= mintime: 
-					
-					return True
-			return False
-		return False
+			newer = [i for i in input if os.path.exists(i) and os.stat(i).st_mtime >= mintime]
+			if newer:
+				return True, "Input files newer than output files: {}".format(", ".join(newer))
+			return False, ""
+		return False, ""
 
 	def get_run(self):
 		""" Return the run method. """
@@ -324,7 +329,7 @@ class Rule:
 		""" Return True if rule has a run method. """
 		return self.workflow.has_run(self)
 
-	def get_message(self, input, output, wildcards, showmessage = True):
+	def get_message(self, input, output, wildcards, reason, showmessage = True):
 		"""
 		Get the message that shall be printed upon rule execution.
 		
@@ -345,6 +350,8 @@ class Rule:
 			msg += "\n\tinput: {}".format(", ".join(input))
 		if output:
 			msg += "\n\toutput: {}".format(", ".join(output))
+		if reason:
+			msg += "\n\t" + reason
 		return msg
 
 	def is_producer(self, requested_output):
