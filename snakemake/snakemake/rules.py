@@ -342,7 +342,11 @@ class Rule:
 		if self.message and showmessage:
 			variables = dict(globals())
 			variables.update(locals())
-			return self.message.format(**variables)
+			msg = self.message.format(**variables)
+			if reason:
+				msg += "\n" + reason
+			return msg
+
 		msg = "rule " + self.name
 		if input or output:
 			msg += ":"
