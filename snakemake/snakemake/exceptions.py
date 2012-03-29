@@ -8,7 +8,7 @@ def format_error(ex, lineno, rowmaps = None, snakefile = None):
 		lineno = rowmaps[snakefile][lineno]
 		if isinstance(ex, SyntaxError):
 			msg = ex.msg
-	return '{} in line {} of {}:\n{}'.format(ex.__class__.__name__, lineno, snakefile, msg)
+	return '{} in line {} of {}{}'.format(ex.__class__.__name__, lineno, snakefile, ":\n" + msg if msg else ".")
 
 def print_exception(ex, rowmaps):
 	for file, lineno, _, _ in traceback.extract_tb(ex.__traceback__):

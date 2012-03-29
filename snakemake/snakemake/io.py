@@ -53,14 +53,14 @@ class IOFile(str):
 	def remove(self):
 		if os.path.exists(self._file):
 			if os.path.isdir(self._file):
-				for root, dirs, files in os.walk(o):
+				for root, dirs, files in os.walk(self._file):
 					for f in files:
 						os.remove(f)
-				for root, dirs, files in os.walk(o):
+				for root, dirs, files in os.walk(self._file):
 					for d in dirs:
 						os.rmdir(d)
 			else:
-				os.remove(o)
+				os.remove(self._file)
 	
 	def touch(self, lineno, snakefile):
 		if not os.path.exists(self._file):
