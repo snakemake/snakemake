@@ -120,12 +120,13 @@ class KnapsackJobScheduler:
 		needrun, norun = [], set()
 		for job in self._jobs:
 			if not job.depends:
-				if job.needrun and job.threads > self._maxcores:
-					# reduce the number of threads so that it fits to available cores.
-					if not job.dryrun:
-						logger.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._maxcores))
-					job.threads = self._maxcores
-				if job.needrun: needrun.append(job)
+				if job.needrun:
+					if job.threads > self._maxcores:
+						# reduce the number of threads so that it fits to available cores.
+						if not job.dryrun:
+							logger.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._maxcores))
+						job.threads = self._maxcores
+					needrun.append(job)
 				else: norun.add(job)
 		
 		run = self._knapsack(needrun)
