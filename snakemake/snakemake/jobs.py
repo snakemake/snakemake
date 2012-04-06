@@ -5,7 +5,8 @@ from snakemake.exceptions import TerminatedException, MissingOutputException, Ru
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
 from snakemake.logging import logger
-from multiprocessing import Process, Pool, Lock
+from multiprocessing import Process, Pool
+import threading
 from itertools import chain
 
 def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowmaps, rulelineno, rulesnakefile):
@@ -108,7 +109,6 @@ class KnapsackJobScheduler:
 		self._cores = self._maxcores
 		self._pool = Pool(self._cores, maxtasksperchild = 1)
 		self._jobs = set(jobs)
-		self._lock = Lock()
 
 	def terminate(self):
 		self._pool.close()
@@ -176,3 +176,40 @@ class KnapsackJobScheduler:
 		
 		return solution
 
+class ClusterJobScheduler:
+	def __init__(self, jobs, workflow, submitcmd = "qsub"):
+		self.workflow = workflow
+		self._jobs = set(jobs)
+		self._submitcmd = submitcmd
+		self._jobguards = dict()
+		self._lock = threading.Lock()
+
+	def schedule(self):
+		lock.acquire()
+		needrun, norun = set(), set()
+		for job in self._jobs:
+			if not job.depends:
+				if job.needrun:
+					needrun.add(job)
+				else: norun.add(job)
+		self._jobs -= needrun
+		self._jobs -= norun
+		for job in chain(run, norun):
+			job.add_callback(self._finished)
+			job.run(self._run_job)
+		lock.release()
+	
+	def _run_job(self, job):
+		jobid = "{}{}".format(job.output, time.time())
+		jobguard = ".{}.jobguard".format(jobid)
+		self._jobguards[job] = jobguard
+		shell("""
+			{self._submitcmd} "snakemake {job.output} && touch {jobguard}"
+		""")
+		threading.Thread(target=self._wait_for_job, args=(jobguard))
+		
+	def _wait_for_job(self, jobguard):
+		while not os.path.exists(jobguard):
+			time.sleep(10)
+		os.remove(jobguard)
+		self.schedule()

@@ -86,8 +86,6 @@ class Workflow:
 		for rule, runtimes in self._runtimes.items():
 			s = sum(runtimes)
 			yield rule, min(runtimes), max(runtimes), s, s / len(runtimes)
-		
-	
 
 	def clear(self):
 		self.init(clear = True)

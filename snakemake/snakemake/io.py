@@ -30,6 +30,15 @@ class IOFile(str):
 		self._needed -= 1
 		if self._temp:
 			os.remove(self._file)
+
+	def exists(self):
+		return os.path.exists(self._file)
+
+	def mtime(self):
+		return os.stat(self._file).st_mtime
+	
+	def is_newer(self, time):
+		return self.mtime() >= time
 	
 	def prepare(self):
 		dir = os.path.dirname(self._file)

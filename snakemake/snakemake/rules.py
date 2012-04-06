@@ -314,8 +314,8 @@ class Rule:
 				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
 			if not output:
 				return True, ""
-			mintime = min(map(lambda f: os.stat(f).st_mtime, output))
-			newer = [i for i in input if os.path.exists(i) and os.stat(i).st_mtime >= mintime]
+			mintime = min(o.mtime() for o in output)
+			newer = [i for i in input if os.path.exists(i) and i.is_newer(mintime)]
 			if newer:
 				return True, "Input files newer than output files: {}".format(", ".join(newer))
 			return False, ""
