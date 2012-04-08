@@ -23,7 +23,6 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowm
 
 	for o in output:
 		o.prepare()
-		
 	try:
 		t0 = time.time()
 		# execute the actual run method.
@@ -205,10 +204,10 @@ class ClusterJobScheduler:
 			job.run(self._run_job)
 	
 	def _run_job(self, job):
-		prefix = ".snakemake."
+		prefix = ".snakemake"
 		jobid = "{}{}".format(job.output, time.time())
-		jobscript = "{}{}.sh".format(prefix, jobid)
-		jobguard = "{}{}.jobguard".format(prefix, jobid)
+		jobscript = "{}.{}.sh".format(prefix, jobid)
+		jobguard = "{}.{}.jobguard".format(prefix, jobid)
 		shell("""
 			echo "#!/bin/sh\\nsnakemake {job.output} && touch {jobguard}" > {jobscript}
 			chmod +x {jobscript}

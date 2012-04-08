@@ -62,6 +62,9 @@ def test03():
 def test04():
 	run(dpath("test04"), targets=['test.out'])
 
+def test05():
+	run(dpath("test05"))
+
 def test06():
 	run(dpath("test06"), targets=['test.bla.out'])
 
@@ -82,3 +85,6 @@ def test11():
 
 def test12():
 	run(dpath("test12"))
+
+def test13():
+	run(dpath("test13"))
