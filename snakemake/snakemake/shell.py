@@ -57,8 +57,12 @@ class shell(sp.Popen):
 		self._prog_term = False
 		
 		shell._processes.append(self)
-
-		signal.signal(signal.SIGTERM, self.terminate_all)
+		
+		try:
+			signal.signal(signal.SIGTERM, self.terminate_all)
+		except ValueError:
+			# if signal handling cannot be set, ignore it. Snakemake will terminate for processes that are not ill-behaving anyway.
+			pass
 		if not async:
 			self.wait()
 

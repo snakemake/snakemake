@@ -1,5 +1,5 @@
 import signal
-import sys, time
+import sys, time, os
 from threading import Thread
 from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, print_exception
 from snakemake.shell import shell
@@ -85,7 +85,7 @@ class Job:
 		self._callbacks.append(callback)
 	
 	def finished(self, runtime = None):
-		""" Set job to be finished. """
+		""" Set job to be finished. """	
 		if self.needrun and not self.dryrun:
 			self.workflow.jobcounter.done()
 			logger.info(self.workflow.jobcounter)
@@ -186,12 +186,16 @@ class ClusterJobScheduler:
 		self._submitcmd = submitcmd
 		self._lock = threading.Lock()
 
+	def terminate(self):
+		pass
+
 	def schedule(self):
 		self._lock.acquire()
 		needrun, norun = set(), set()
 		for job in self._jobs:
 			if job.depends:
 				continue
+			print(job.rule)
 			if job.needrun:
 				needrun.add(job)
 			else: norun.add(job)
@@ -199,25 +203,29 @@ class ClusterJobScheduler:
 		self._jobs -= needrun
 		self._jobs -= norun
 		self._lock.release()
-		for job in chain(run, norun):
+		for job in chain(needrun, norun):
 			job.add_callback(self._finished)
 			job.run(self._run_job)
 	
 	def _run_job(self, job):
 		prefix = ".snakemake"
-		jobid = "{}{}".format(job.output, time.time())
+		jobid = "{}{}".format("_".join(job.output), time.time())
 		jobscript = "{}.{}.sh".format(prefix, jobid)
 		jobguard = "{}.{}.jobguard".format(prefix, jobid)
 		shell("""
-			echo "#!/bin/sh\\nsnakemake {job.output} && touch {jobguard}" > {jobscript}
+			echo '#!/bin/sh' > {jobscript}
+			echo 'snakemake {job.output} && touch {jobguard}' >> {jobscript}
 			chmod +x {jobscript}
 			{self._submitcmd} {jobscript}
 		""")
-		threading.Thread(target=self._wait_for_job, args=(jobguard, jobscript))
+		threading.Thread(target=self._wait_for_job, args=(job, jobguard, jobscript)).start()
+
+	def _finished(self, job):
+		self.schedule()
 		
-	def _wait_for_job(self, jobguard, jobscript):
+	def _wait_for_job(self, job, jobguard, jobscript):
 		while not os.path.exists(jobguard):
 			time.sleep(1)
 		os.remove(jobguard)
 		os.remove(jobscript)
-		self.schedule()
+		job.finished()

@@ -24,6 +24,7 @@ def main():
 	parser.add_argument("--touch", "-t", action="store_true", help="Touch output files (mark them up to date without really changing them) instead of running their commands. This is used to pretend that the rules were executed, in order to fool future invocations of snakemake. Fails if a file does not yet exist.")
 	parser.add_argument("--force", "-f", action="store_true", help="Force the execution of the selected (or the first) rule regardless of already created output.")
 	parser.add_argument("--forceall", "-F", action="store_true", help="Force the execution of the selected (or the first) rule and all rules it is dependent on regardless of already created output.")
+	parser.add_argument("--cluster", "-c", help="Execute snakemake rules with the given submit command, e.g. qsub. Snakemake compiles jobs into scripts that are submitted to the cluster with the given command, once all input files for a particular job are present.")
 	parser.add_argument("--reason", "-r", action = "store_true", help="Print the reason for each executed rule.")
 	parser.add_argument("--stats", help="Write stats about Snakefile execution to the given file.")
 	parser.add_argument("--nocolor", action = "store_true", help="Do not use a colored output.")
@@ -49,6 +50,7 @@ def main():
 			stats = args.stats,
 			give_reason = args.reason,
 			nocolor = args.nocolor,
+			cluster = args.cluster,
 			standalone = True)
 	)
 

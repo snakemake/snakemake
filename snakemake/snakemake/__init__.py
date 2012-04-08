@@ -3,7 +3,7 @@ from snakemake.workflow import workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import logger, ColorizingStreamHandler
 
-def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, give_reason = False, nocolor = False, standalone = False):
+def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, give_reason = False, nocolor = False, cluster = None, standalone = False):
 	"""
 	Run snakemake on a given snakefile.
 		
@@ -55,9 +55,9 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 		
 		ret = 0
 		if not targets: 
-			ret = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason)
+			ret = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster)
 		else:
-			ret = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason)
+			ret = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster)
 		if ret == 0 and stats:
 			stats = csv.writer(open(stats, "w"), delimiter = "\t")
 			stats.writerow("rule minimum maximum sum mean".split())
