@@ -1,0 +1,5 @@
+snakemake (1.0) oneiric; urgency=high
+
+  * Initial release.
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Sun, 08 Apr 2012 15:27:40 +0200

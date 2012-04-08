@@ -1,0 +1,2 @@
+snakemake/*.py /usr/lib/python3.2/dist-packages/snakemake/
+bin/snakemake /usr/bin/
