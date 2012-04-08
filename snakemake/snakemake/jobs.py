@@ -5,7 +5,7 @@ from snakemake.exceptions import TerminatedException, MissingOutputException, Ru
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
 from snakemake.logging import logger
-from multiprocessing import Process, Pool
+from multiprocessing import Process, Pool, Lock
 import threading
 from itertools import chain
 
@@ -109,6 +109,7 @@ class KnapsackJobScheduler:
 		self._cores = self._maxcores
 		self._pool = Pool(self._cores, maxtasksperchild = 1)
 		self._jobs = set(jobs)
+		self._lock = Lock()
 
 	def terminate(self):
 		self._pool.close()
@@ -116,23 +117,26 @@ class KnapsackJobScheduler:
 	
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
+		self._lock.acquire()
 		#import pdb; pdb.set_trace()
 		needrun, norun = [], set()
 		for job in self._jobs:
-			if not job.depends:
-				if job.needrun:
-					if job.threads > self._maxcores:
-						# reduce the number of threads so that it fits to available cores.
-						if not job.dryrun:
-							logger.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._maxcores))
-						job.threads = self._maxcores
-					needrun.append(job)
-				else: norun.add(job)
+			if job.depends:
+				continue
+			if job.needrun:
+				if job.threads > self._maxcores:
+					# reduce the number of threads so that it fits to available cores.
+					if not job.dryrun:
+						logger.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._maxcores))
+					job.threads = self._maxcores
+				needrun.append(job)
+			else: norun.add(job)
 		
 		run = self._knapsack(needrun)
 		self._jobs -= run
 		self._jobs -= norun
 		self._cores -= sum(job.threads for job in run)
+		self._lock.release()
 		for job in chain(run, norun):
 			job.add_callback(self._finished)
 			job.run(self._run_job)
@@ -181,35 +185,40 @@ class ClusterJobScheduler:
 		self.workflow = workflow
 		self._jobs = set(jobs)
 		self._submitcmd = submitcmd
-		self._jobguards = dict()
 		self._lock = threading.Lock()
 
 	def schedule(self):
-		lock.acquire()
+		self._lock.acquire()
 		needrun, norun = set(), set()
 		for job in self._jobs:
-			if not job.depends:
-				if job.needrun:
-					needrun.add(job)
-				else: norun.add(job)
+			if job.depends:
+				continue
+			if job.needrun:
+				needrun.add(job)
+			else: norun.add(job)
+
 		self._jobs -= needrun
 		self._jobs -= norun
+		self._lock.release()
 		for job in chain(run, norun):
 			job.add_callback(self._finished)
 			job.run(self._run_job)
-		lock.release()
 	
 	def _run_job(self, job):
+		prefix = ".snakemake."
 		jobid = "{}{}".format(job.output, time.time())
-		jobguard = ".{}.jobguard".format(jobid)
-		self._jobguards[job] = jobguard
+		jobscript = "{}{}.sh".format(prefix, jobid)
+		jobguard = "{}{}.jobguard".format(prefix, jobid)
 		shell("""
-			{self._submitcmd} "snakemake {job.output} && touch {jobguard}"
+			echo "#!/bin/sh\\nsnakemake {job.output} && touch {jobguard}" > {jobscript}
+			chmod +x {jobscript}
+			{self._submitcmd} {jobscript}
 		""")
-		threading.Thread(target=self._wait_for_job, args=(jobguard))
+		threading.Thread(target=self._wait_for_job, args=(jobguard, jobscript))
 		
-	def _wait_for_job(self, jobguard):
+	def _wait_for_job(self, jobguard, jobscript):
 		while not os.path.exists(jobguard):
-			time.sleep(10)
+			time.sleep(1)
 		os.remove(jobguard)
+		os.remove(jobscript)
 		self.schedule()
