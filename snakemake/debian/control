@@ -3,6 +3,7 @@ Section: science
 Priority: extra
 Maintainer: Johannes Koester <johannes.koester@tu-dortmund.de>
 Standards-Version: 3.9.2
+XS-Python3-Version: >= 3.2
 
 Package: python3-snakemake
 Architecture: any
