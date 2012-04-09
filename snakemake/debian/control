@@ -6,6 +6,6 @@ Standards-Version: 3.9.2
 XS-Python-Version: >= 3.2
 
 Package: python3-snakemake
-Architecture: any
+Architecture: all
 Depends: python3 (>= 3.2)
 Description: A Python based language and execution environment for make-like workflows.
