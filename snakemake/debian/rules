@@ -4,3 +4,6 @@
 
 override_dh_auto_clean:
 	python3 setup.py clean
+
+override_dh_auto_build:
+	python3 setup.py build
