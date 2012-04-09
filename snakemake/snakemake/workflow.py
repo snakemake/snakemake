@@ -1,11 +1,5 @@
 # -*- coding: utf-8 -*-
 
-'''
-Created on 13.11.2011
-
-@author: Johannes Köster
-'''
-
 import re, sys, os, traceback, glob, signal
 from multiprocessing import Event
 from collections import defaultdict, OrderedDict
@@ -18,6 +12,7 @@ from snakemake.jobs import Job, KnapsackJobScheduler, ClusterJobScheduler
 from snakemake.parser import compile_to_python
 from snakemake.io import protected, temp
 
+__author__ = "Johannes Köster"
 
 class Jobcounter:
 	def __init__(self):

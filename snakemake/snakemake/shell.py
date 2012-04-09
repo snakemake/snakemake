@@ -1,9 +1,13 @@
+# -*- coding: utf-8 -*-
+
 import _io
 import signal
 import sys, os, inspect
 import subprocess as sp
 from threading import Thread
 from snakemake.exceptions import TerminatedException
+
+__author__ = "Johannes Köster"
 
 def format(string, *args, stepout = 1, **kwargs):
 	frame = inspect.currentframe().f_back

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import signal
 import sys, time, os
 from threading import Thread
@@ -8,6 +10,8 @@ from snakemake.logging import logger
 from multiprocessing import Process, Pool, Lock
 import threading
 from itertools import chain
+
+__author__ = "Johannes Köster"
 
 def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowmaps, rulelineno, rulesnakefile):
 	"""

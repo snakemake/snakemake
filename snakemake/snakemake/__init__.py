@@ -1,7 +1,11 @@
+# -*- coding: utf-8 -*-
+
 import os, traceback, sys, csv
 from snakemake.workflow import workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import logger, ColorizingStreamHandler
+
+__author__ = "Johannes Köster"
 
 def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, give_reason = False, nocolor = False, cluster = None, standalone = False):
 	"""

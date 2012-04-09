@@ -1,5 +1,9 @@
+# -*- coding: utf-8 -*-
+
 import os, re
 from snakemake.exceptions import MissingOutputException
+
+__author__ = "Johannes Köster"
 
 class IOFile(str):
 	wildcard_regex = "\{(?P<name>\w+?)(,(?P<constraint>.*))?\}"

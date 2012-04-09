@@ -1,5 +1,9 @@
+# -*- coding: utf-8 -*-
+
 from tokenize import *
 import tokenize, collections, inspect
+
+__author__ = "Johannes Köster"
 
 class Tokens:
 	""" Recorder for emitted tokens. """

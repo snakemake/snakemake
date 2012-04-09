@@ -5,6 +5,8 @@ import os, sys
 import argparse
 import logging
 
+__author__ = "Johannes Köster"
+
 # If running from within source directory,
 # add '../snakemake' to sys.path.
 _libdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../')

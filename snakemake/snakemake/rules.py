@@ -1,7 +1,11 @@
+# -*- coding: utf-8 -*-
+
 import os, re, sys
 from snakemake.jobs import Job
 from snakemake.io import IOFile, protected, temp
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException
+
+__author__ = "Johannes Köster"
 
 class Namedlist(list):
 	"""

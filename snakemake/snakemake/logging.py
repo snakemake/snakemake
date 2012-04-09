@@ -1,5 +1,9 @@
+# -*- coding: utf-8 -*-
+
 import logging, string, platform
 from multiprocessing import Lock
+
+__author__ = "Johannes Köster"
 
 class ColorizingStreamHandler(logging.StreamHandler):
 	nocolor = False

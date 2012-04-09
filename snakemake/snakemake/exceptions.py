@@ -1,6 +1,10 @@
+# -*- coding: utf-8 -*-
+
 import sys, traceback
 from collections import defaultdict
 from snakemake.logging import logger
+
+__author__ = "Johannes Köster"
 
 def format_error(ex, lineno, rowmaps = None, snakefile = None):
 	msg = str(ex)
