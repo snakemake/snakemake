@@ -1,4 +1,7 @@
 #! /usr/bin/make -f
+
+DEFAULT_PYTHON = $(shell py3versions -d)
+
 %:
 	dh   $@
 
@@ -7,3 +10,8 @@ override_dh_auto_clean:
 
 override_dh_auto_build:
 	python3 setup.py build
+
+override_dh_auto_install:
+	python3 setup.py install --root=$(CURDIR)/debian/python3-snakemake--no-compile --install-layout=deb
+
+
