@@ -1,4 +1,4 @@
-snakemake (1.0) oneiric; urgency=high
+python3-snakemake (1.0) oneiric; urgency=high
 
   * Initial release.
 

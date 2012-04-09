@@ -1,10 +1,10 @@
-Source: snakemake
+Source: python3-snakemake
 Section: science
 Priority: extra
 Maintainer: Johannes Koester <johannes.koester@tu-dortmund.de>
 Standards-Version: 3.9.2
 
-Package: snakemake
+Package: python3-snakemake
 Architecture: any
-Depends: 
+Depends: python3 
 Description: A Python based language and execution environment for make-like workflows.
