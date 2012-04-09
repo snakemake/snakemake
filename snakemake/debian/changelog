@@ -1,3 +1,9 @@
+python3-snakemake (1.0.1) precise; urgency=high
+
+  * First maintenance release
+
+ -- Johannes Köster <johannes@johannes-macbook>  Mon, 09 Apr 2012 17:42:12 +0200
+
 python3-snakemake (1.0) oneiric; urgency=high
 
   * Initial release.
