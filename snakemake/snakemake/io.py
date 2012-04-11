@@ -32,7 +32,7 @@ class IOFile(str):
 	
 	def used(self):
 		self._needed -= 1
-		if self._temp:
+		if self._temp and not self._needed:
 			os.remove(self._file)
 
 	def exists(self):
