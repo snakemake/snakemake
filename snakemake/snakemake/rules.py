@@ -200,11 +200,11 @@ class Rule:
 	def _has_missing_files(files):
 		""" Return True if any of the given files does not exist. """
 		for f in files:
-			if not os.path.exists(f):
+			if not os.path.exists(f) and not f.is_temp():
 				return True
 		return False
 	
-	def run(self, requested_output = None, forceall = False, forcethis = False, give_reason = False, jobs = dict(), dryrun = False, touch = False, quiet = False, visited = set(), jobcounter = None):
+	def run(self, requested_output = None, forceall = False, forcethis = False, give_reason = False, jobs = dict(), dryrun = False, touch = False, quiet = False, visited = set(), jobcounter = None, parentmintime = None):
 		"""
 		Run the rule.
 		
@@ -224,6 +224,8 @@ class Rule:
 		
 		if (output, self) in jobs:
 			return jobs[(output, self)]
+
+		output_mintime = IOFile.mintime(output)
 		
 		missing_input_exceptions = list()
 		protected_output_exceptions = list()
@@ -242,7 +244,8 @@ class Rule:
 					touch = touch, 
 					quiet = quiet, 
 					visited = set(visited), 
-					jobcounter = jobcounter)
+					jobcounter = jobcounter,
+					parentmintime = output_mintime)
 				if file in produced:
 					raise AmbiguousRuleException(produced[file], rule, lineno = self.lineno, snakefile = self.snakefile)
 				if job.needrun:
@@ -265,7 +268,7 @@ class Rule:
 				snakefile = self.snakefile
 			)
 		
-		need_run, reason = self._need_run(forcethis or forceall, todo, input, output)
+		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, parentmintime)
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output or protected_output_exceptions:
@@ -307,7 +310,7 @@ class Rule:
 		if self.output and not self.has_run():
 			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name), lineno = self.lineno, snakefile = self.snakefile)
 
-	def _need_run(self, force, todo, input, output):
+	def _need_run(self, force, todo, input, output, parentmintime):
 		""" Return True if rule needs to be run. """
 		if self.has_run():
 			if force:
@@ -321,7 +324,13 @@ class Rule:
 				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
 			if not output:
 				return True, ""
-			mintime = min(o.mtime() for o in output)
+			mintime = IOFile.mintime(output)
+			if mintime == None:
+				if parentmintime != None:
+					mintime = parentmintime
+				else:
+					return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
+				
 			newer = [i for i in input if os.path.exists(i) and i.is_newer(mintime)]
 			if newer:
 				return True, "Input files newer than output files: {}".format(", ".join(newer))
@@ -354,13 +363,21 @@ class Rule:
 				msg += "\n" + reason
 			return msg
 
+		def showtype(iofile):
+			f = str(iofile)
+			if iofile.is_temp():
+				f += " (temporary)"
+			elif iofile.is_protected():
+				f += " (protected)"
+			return f
+
 		msg = "rule " + self.name
 		if input or output:
 			msg += ":"
 		if input:
-			msg += "\n\tinput: {}".format(", ".join(input))
+			msg += "\n\tinput: {}".format(", ".join(map(showtype, input)))
 		if output:
-			msg += "\n\toutput: {}".format(", ".join(output))
+			msg += "\n\toutput: {}".format(", ".join(map(showtype, output)))
 		if reason:
 			msg += "\n\t" + reason
 		return msg

@@ -28,6 +28,13 @@ class IOFile(str):
 		if protected:
 			obj._protected = protected
 		return obj
+
+	@staticmethod
+	def mintime(iofiles):
+		existing = [f.mtime() for f in iofiles if os.path.exists(f)]
+		if existing:
+			return min(existing)
+		return None
 	
 	def __init__(self, file):
 		self._file = file
@@ -37,13 +44,16 @@ class IOFile(str):
 
 	def is_temp(self):
 		return self._temp
+
+	def is_protected(self):
+		return self._protected
 		
 	def need(self):
 		self._needed += 1
 	
 	def used(self):
 		self._needed -= 1
-		if self._temp:
+		if self._temp and self._needed == 0:
 			logger.warning("Deleting temporary file {}".format(self))
 			os.remove(self._file)
 
