@@ -7,6 +7,7 @@ __author__ = "Johannes Köster"
 
 class ColorizingStreamHandler(logging.StreamHandler):
 	nocolor = False
+	quiet = False
 	_output_lock = Lock()
 
 	BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
@@ -29,6 +30,7 @@ class ColorizingStreamHandler(logging.StreamHandler):
 
 	def emit(self, record):
 		try:
+			if self.quiet and record.levelname in ('INFO', 'DEBUG'): return
 			message = self.format(record)
 			self._output_lock.acquire()
 			if self.is_tty:

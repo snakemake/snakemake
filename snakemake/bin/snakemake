@@ -30,6 +30,7 @@ def main():
 	parser.add_argument("--reason", "-r", action = "store_true", help="Print the reason for each executed rule.")
 	parser.add_argument("--stats", help="Write stats about Snakefile execution to the given file.")
 	parser.add_argument("--nocolor", action = "store_true", help="Do not use a colored output.")
+	parser.add_argument("--quiet", action = "store_true", help="Do not output any progress or rule information.")
 	parser.add_argument("--version", "-v", action="version", version='0.1')
     
 	args = parser.parse_args()
@@ -52,6 +53,7 @@ def main():
 			stats = args.stats,
 			give_reason = args.reason,
 			nocolor = args.nocolor,
+			quiet = args.quiet,
 			cluster = args.cluster,
 			standalone = True)
 	)

@@ -7,7 +7,7 @@ from snakemake.logging import logger, ColorizingStreamHandler
 
 __author__ = "Johannes Köster"
 
-def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, give_reason = False, nocolor = False, cluster = None, standalone = False):
+def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, give_reason = False, nocolor = False, quiet = False, cluster = None, standalone = False):
 	"""
 	Run snakemake on a given snakefile.
 		
@@ -25,6 +25,9 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 
 	if nocolor:
 		ColorizingStreamHandler.nocolor = True
+
+	if quiet:
+		ColorizingStreamHandler.quiet = True
 
 	def print_rules(log):
 		log("Defined rules:")

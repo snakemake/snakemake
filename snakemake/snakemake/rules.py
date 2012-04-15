@@ -3,7 +3,7 @@
 import os, re, sys
 from snakemake.jobs import Job
 from snakemake.io import IOFile, protected, temp
-from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException
+from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException, IOFileException
 
 __author__ = "Johannes Köster"
 
@@ -143,7 +143,10 @@ class Rule:
 		name     -- an optional name for the item
 		"""
 		if isinstance(item, str):
-			item = IOFile.create(item)
+			try:
+				item = IOFile.create(item, temp = isinstance(item, temp), protected = isinstance(item, protected))
+			except ValueError as ex:
+				raise IOFileException(str(ex), lineno = self.lineno, snakefile = self.snakefile)
 		
 		if isinstance(item, IOFile):
 			inoutput.append(item)

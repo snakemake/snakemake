@@ -13,7 +13,8 @@ class IOFile(str):
 	@classmethod
 	def create(cls, file, temp = False, protected = False):
 		if not isinstance(file, str):
-			raise IOException("Input and output files have to be specified as strings.")
+			print(file)
+			raise ValueError("Input and output files have to be specified as strings.")
 
 		obj = None
 		if file in cls._register:
@@ -87,9 +88,9 @@ class IOFile(str):
 			else:
 				os.remove(self._file)
 	
-	def touch(self, lineno, snakefile):
+	def touch(self, rulename, lineno, snakefile):
 		if not os.path.exists(self._file):
-			raise MissingOutputException("Output file {} shall be touched but does not exist.".format(self._file), lineno = lineno, snakefile = snakefile)
+			raise MissingOutputException("Output file {} of rule {} shall be touched but does not exist.".format(self._file, rulename), lineno = lineno, snakefile = snakefile)
 		os.utime(self._file, None)
 
 	def apply_wildcards(self, wildcards):
@@ -106,8 +107,8 @@ class IOFile(str):
 	def __str__(self):
 		return self._file
 
-def temp(file):
-	return IOFile.create(file, temp = True)
+class temp(str):
+	pass
 
-def protected(file):
-	return IOFile.create(file, protected = True)
+class protected(str):
+	pass

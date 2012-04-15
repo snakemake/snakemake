@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import signal
-import sys, time, os
+import sys, time, os, threading
 from threading import Thread
-from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, print_exception
+from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, ClusterJobException, print_exception
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
 from snakemake.logging import logger
 from multiprocessing import Process, Pool, Lock
-import threading
 from itertools import chain
 
 __author__ = "Johannes Köster"
@@ -64,17 +63,20 @@ class Job:
 		self._callbacks = list()
 		for other in self.depends:
 			other.depending.append(self)
-			
+	
+	def print_message(self):
+		logger.info(self.message)
+		
 	def run(self, run_func):
 		if not self.needrun:
 			self.finished()
 		elif self.dryrun:
-			logger.info(self.message)
+			self.print_message()
 			self.finished()
 		elif self.touch:
 			logger.info(self.message)
 			for o in self.output:
-				o.touch(self.rule.lineno, self.rule.snakefile)
+				o.touch(self.rule.name, self.rule.lineno, self.rule.snakefile)
 			# sleep shortly to ensure that output files of different rules are not touched at the same time.
 			time.sleep(0.1)
 			self.finished()
@@ -212,24 +214,34 @@ class ClusterJobScheduler:
 			job.run(self._run_job)
 	
 	def _run_job(self, job):
+		job.print_message()
 		prefix = ".snakemake"
-		jobid = "{}{}".format("_".join(job.output), time.time())
+		jobid = "_".join(job.output)
 		jobscript = "{}.{}.sh".format(prefix, jobid)
-		jobguard = "{}.{}.jobguard".format(prefix, jobid)
+		jobfinished = "{}.{}.jobfinished".format(prefix, jobid)
+		jobfailed = "{}.{}.jobfailed".format(prefix, jobid)
 		shell("""
-			echo '#!/bin/sh' > {jobscript}
-			echo 'snakemake {job.output} && touch {jobguard}' >> {jobscript}
-			chmod +x {jobscript}
-			{self._submitcmd} {jobscript}
+			echo '#!/bin/sh' > "{jobscript}"
+			echo 'snakemake --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"' >> "{jobscript}"
+			chmod +x "{jobscript}"
+			{self._submitcmd} "{jobscript}"
 		""")
-		threading.Thread(target=self._wait_for_job, args=(job, jobguard, jobscript)).start()
+		threading.Thread(target=self._wait_for_job, args=(job, jobfinished, jobfailed, jobscript)).start()
 
 	def _finished(self, job):
 		self.schedule()
 		
-	def _wait_for_job(self, job, jobguard, jobscript):
-		while not os.path.exists(jobguard):
+	def _wait_for_job(self, job, jobfinished, jobfailed, jobscript):
+		while True:
+			if os.path.exists(jobfinished):
+				os.remove(jobfinished)
+				os.remove(jobscript)
+				job.finished()
+				return
+			if os.path.exists(jobfailed):
+				os.remove(jobfailed)
+				os.remove(jobscript)
+				print_exception(ClusterJobException(job), self.workflow.rowmaps)
+				self.workflow.set_job_finished(error = True)
+				return
 			time.sleep(1)
-		os.remove(jobguard)
-		os.remove(jobscript)
-		job.finished()
