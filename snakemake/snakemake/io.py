@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import os, re
-from snakemake.exceptions import MissingOutputException
+from snakemake.exceptions import MissingOutputException, IOException
+from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
 
@@ -10,29 +11,39 @@ class IOFile(str):
 	_register = dict()
 	
 	@classmethod
-	def create(cls, file, temp = False):
+	def create(cls, file, temp = False, protected = False):
+		if not isinstance(file, str):
+			raise IOException("Input and output files have to be specified as strings.")
+
 		obj = None
 		if file in cls._register:
 			obj = cls._register[file]
 		else:
 			obj = IOFile(file)
-			cls._register[file] = obj 
-		if obj._temp == None:
+			cls._register[file] = obj
+
+		if temp:	
 			obj._temp = temp
+		if protected:
+			obj._protected = protected
 		return obj
 	
-	def __init__(self, file, protected = False):
+	def __init__(self, file):
 		self._file = file
 		self._needed = 0
-		self._temp = None
-		self._protected = protected
+		self._temp = False
+		self._protected = False
+
+	def is_temp(self):
+		return self._temp
 		
 	def need(self):
 		self._needed += 1
 	
 	def used(self):
 		self._needed -= 1
-		if self._temp and not self._needed:
+		if self._temp:
+			logger.warning("Deleting temporary file {}".format(self))
 			os.remove(self._file)
 
 	def exists(self):
@@ -53,6 +64,7 @@ class IOFile(str):
 		if not os.path.exists(self._file):
 			raise MissingOutputException("Output file {} not produced by rule {}.".format(self._file, rulename), lineno = lineno, snakefile = snakefile)
 		if self._protected:
+			logger.warning("Write protecting output file {}".format(self))
 			mode = os.stat(o).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
 			if os.path.isdir(o):
 				for root, dirs, files in os.walk(o):
@@ -81,8 +93,7 @@ class IOFile(str):
 		os.utime(self._file, None)
 
 	def apply_wildcards(self, wildcards):
-		return self.create(re.sub(self.wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), self._file))
-		#return self.create(f.format(**wildcards))
+		return self.create(re.sub(self.wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), self._file), protected = self._protected, temp = self._temp)
 		
 	def get_wildcard_names(self):
 		return set(match.group('name') for match in re.finditer(self.wildcard_regex, self._file))
