@@ -225,7 +225,7 @@ class Rule:
 		if (output, self) in jobs:
 			return jobs[(output, self)]
 
-		output_mintime = IOFile.mintime(output)
+		output_mintime = IOFile.mintime(output) or parentmintime
 		
 		missing_input_exceptions = list()
 		protected_output_exceptions = list()
@@ -268,7 +268,7 @@ class Rule:
 				snakefile = self.snakefile
 			)
 		
-		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, parentmintime)
+		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, output_mintime)
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output or protected_output_exceptions:
@@ -310,7 +310,7 @@ class Rule:
 		if self.output and not self.has_run():
 			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name), lineno = self.lineno, snakefile = self.snakefile)
 
-	def _need_run(self, force, todo, input, output, parentmintime):
+	def _need_run(self, force, todo, input, output, output_mintime):
 		""" Return True if rule needs to be run. """
 		if self.has_run():
 			if force:
@@ -324,14 +324,10 @@ class Rule:
 				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
 			if not output:
 				return True, ""
-			mintime = IOFile.mintime(output)
-			if mintime == None:
-				if parentmintime != None:
-					mintime = parentmintime
-				else:
-					return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
+			if output_mintime == None:
+				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
 				
-			newer = [i for i in input if os.path.exists(i) and i.is_newer(mintime)]
+			newer = [i for i in input if os.path.exists(i) and i.is_newer(output_mintime)]
 			if newer:
 				return True, "Input files newer than output files: {}".format(", ".join(newer))
 			return False, ""
