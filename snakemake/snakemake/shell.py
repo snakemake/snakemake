@@ -45,15 +45,19 @@ class shell(sp.Popen):
 	_process_args = {}
 	_processes = []
 	
-	def __init__(self, cmd, *args, async = False, **kwargs):
-		stdout, stdin = (sys.stdout, None) if not async else (sp.PIPE, sp.PIPE)
-		if not isinstance(stdout, _io.TextIOWrapper):
-			# workaround for nosetest since it overwrites sys.stdout in a strange way that does not work with Popen
-			stdout = None
+	def __init__(self, cmd, *args, async = False, iterable = False, **kwargs):
+		if async or iterable:
+			stdout, stdin = (sp.PIPE, sp.PIPE)
+		else:
+			stdout, stdin = (sys.stdout, None)
+			if not isinstance(sys.stdout, _io.TextIOWrapper):
+				# workaround for nosetest since it overwrites sys.stdout in a strange way that does not work with Popen
+				stdout = None
+
 		self.cmd = format(cmd, *args, stepout = 2, **kwargs)
-		super(shell, self).__init__(self.cmd, shell=True, stdin = stdin, stdout=stdout, close_fds=True, **shell._process_args)
+		super().__init__(self.cmd, shell=True, stdin = stdin, stdout=stdout, close_fds=True, **shell._process_args)
 		
-		self.async = async
+		self.async = async or iterable
 		self._stdout_free = True
 		self._pipethread = None
 		self._stdin = self.stdin
@@ -67,7 +71,7 @@ class shell(sp.Popen):
 		except ValueError:
 			# if signal handling cannot be set, ignore it. Snakemake will terminate for processes that are not ill-behaving anyway.
 			pass
-		if not async:
+		if not self.async:
 			self.wait()
 
 	def wait(self):
@@ -127,6 +131,7 @@ class shell(sp.Popen):
 				writer = TextIOWriter(o)
 			elif isinstance(o, list):
 				writer = ListWriter(o)
+				print("list")
 			else:
 				raise ValueError("Only shell, files, stdout or lists allowed right to a shell pipe.")
 			pipes.append(writer)
@@ -137,6 +142,12 @@ class shell(sp.Popen):
 			
 		if len(other) == 1:
 			return other[0]
+
+	def __iter__(self):
+		buf = list()
+		self | buf
+		shell.join_all()
+		return buf.__iter__()
 
 if "SHELL" in os.environ:
 	shell._process_args["executable"] = os.environ["SHELL"]
@@ -155,17 +166,17 @@ if __name__ == "__main__":
 	
 	x = shell("echo 2; echo 1", async=True)
 	x | shell("sort", async=True) | sys.stdout
-	shell.join() # ensure that all shells are finished before next line
+	shell.join_all() # ensure that all shells are finished before next line
 	
 	#import time; time.sleep(1)
 	print("test")
 	
 	y = []
 	shell("echo foo; for i in {{1..50000}}; do echo test; done; echo ''; echo bar", async=True) | y
-	shell.join() # ensure that all shells are finished before next line
+	shell.join_all() # ensure that all shells are finished before next line
 	print(y)
 	
 	shell("echo foo; echo bar")
 	
-	shell.join()
+	shell.join_all()
 	
