@@ -234,6 +234,7 @@ class Workflow:
 		self._jobs_finished.wait()
 		scheduler.terminate()
 		if self.errors:
+			Job.cleanup_unfinished(jobs.values())
 			return 1
 		return 0
 

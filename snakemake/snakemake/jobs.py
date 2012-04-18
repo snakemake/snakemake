@@ -48,6 +48,12 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowm
 
 class Job:
 	count = 0
+
+	@staticmethod
+	def cleanup_unfinished(jobs):
+		for job in jobs:
+			job.cleanup()
+
 	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, threads = 1, depends = set(), dryrun = False, touch = False, needrun = True):
 		self.workflow = workflow
 		self.rule = rule
@@ -61,6 +67,7 @@ class Job:
 		self.needrun = needrun
 		self.depends = set(depends)
 		self.depending = list()
+		self.is_finished = False
 		self._callbacks = list()
 		self.jobid = Job.count
 		Job.count += 1
@@ -95,6 +102,7 @@ class Job:
 	
 	def finished(self, runtime = None):
 		""" Set job to be finished. """	
+		self.is_finished = True
 		if self.needrun and not self.dryrun:
 			self.workflow.jobcounter.done()
 			logger.info(self.workflow.jobcounter)
@@ -104,6 +112,11 @@ class Job:
 			other.depends.remove(self)
 		for callback in self._callbacks:
 			callback(self)
+
+	def cleanup(self):
+		if not self.is_finished:
+			for o in self.output:
+				o.remove()
 
 	def dot(self):
 		label = self.rule.name
@@ -226,7 +239,7 @@ class ClusterJobScheduler:
 	def _run_job(self, job):
 		job.print_message()
 		prefix = ".snakemake"
-		jobid = "_".join(job.output.replace("/", "_"))
+		jobid = "_".join(job.output).replace("/", "_")
 		jobscript = "{}.{}.sh".format(prefix, jobid)
 		jobfinished = "{}.{}.jobfinished".format(prefix, jobid)
 		jobfailed = "{}.{}.jobfailed".format(prefix, jobid)
