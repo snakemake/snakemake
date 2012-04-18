@@ -23,6 +23,7 @@ def main():
 	parser.add_argument("--list", "-l", action="store_true", help="Show availiable rules in given snakefile.")
 	parser.add_argument("--directory", "-d", action="store", help="Specify working directory (relative paths in the snakefile will use this as their origin).")
 	parser.add_argument("--dryrun", "-n", action="store_true", help="Do not execute anything.")
+	parser.add_argument("--dag", action="store_true", help="Do not execute anything and print the directed acyclic graph of jobs to execute in the dot language.")
 	parser.add_argument("--touch", "-t", action="store_true", help="Touch output files (mark them up to date without really changing them) instead of running their commands. This is used to pretend that the rules were executed, in order to fool future invocations of snakemake. Fails if a file does not yet exist.")
 	parser.add_argument("--force", "-f", action="store_true", help="Force the execution of the selected (or the first) rule regardless of already created output.")
 	parser.add_argument("--forceall", "-F", action="store_true", help="Force the execution of the selected (or the first) rule and all rules it is dependent on regardless of already created output.")
@@ -55,7 +56,8 @@ def main():
 			nocolor = args.nocolor,
 			quiet = args.quiet,
 			cluster = args.cluster,
-			standalone = True)
+			standalone = True,
+			dag = args.dag)
 	)
 
 if __name__ == "__main__":

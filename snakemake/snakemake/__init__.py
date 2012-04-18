@@ -7,7 +7,7 @@ from snakemake.logging import logger, ColorizingStreamHandler
 
 __author__ = "Johannes Köster"
 
-def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, give_reason = False, nocolor = False, quiet = False, cluster = None, standalone = False):
+def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, give_reason = False, nocolor = False, quiet = False, cluster = None, standalone = False, dag = False):
 	"""
 	Run snakemake on a given snakefile.
 		
@@ -62,9 +62,9 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 		
 		ret = 0
 		if not targets: 
-			ret = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster)
+			ret = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster, dag = dag)
 		else:
-			ret = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster)
+			ret = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster, dag = dag)
 		if ret == 0 and stats:
 			stats = csv.writer(open(stats, "w"), delimiter = "\t")
 			stats.writerow("rule minimum maximum sum mean".split())

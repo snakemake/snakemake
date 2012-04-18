@@ -101,6 +101,9 @@ class Job:
 			other.depends.remove(self)
 		for callback in self._callbacks:
 			callback(self)
+
+	def dot(self):
+		return ("{} -> {};".format(j, self) for j in self.depends if j.needrun)
 			
 	def __repr__(self):
 		return self.rule.name
@@ -245,3 +248,10 @@ class ClusterJobScheduler:
 				self.workflow.set_job_finished(error = True)
 				return
 			time.sleep(1)
+
+def print_job_dag(jobs):
+	print("digraph snakemake_dag {")
+	for job in jobs:
+		for edge in job.dot():
+			print("\t" + edge)
+	print("}")
