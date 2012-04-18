@@ -47,6 +47,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowm
 			raise Exception()
 
 class Job:
+	count = 0
 	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, threads = 1, depends = set(), dryrun = False, touch = False, needrun = True):
 		self.workflow = workflow
 		self.rule = rule
@@ -61,6 +62,8 @@ class Job:
 		self.depends = set(depends)
 		self.depending = list()
 		self._callbacks = list()
+		self.jobid = Job.count
+		Job.count += 1
 		for other in self.depends:
 			other.depending.append(self)
 	
@@ -103,7 +106,11 @@ class Job:
 			callback(self)
 
 	def dot(self):
-		return ("{} -> {};".format(j, self) for j in self.depends if j.needrun)
+		label = self.rule.name
+		if not self.depends and self.wildcards:
+			for wildcard, value in self.wildcards.items():
+				label += "\\n{}: {}".format(wildcard, value)
+		return chain(("{} -> {};".format(j.jobid, self.jobid) for j in self.depends if j.needrun), ('{}[label = "{}"];'.format(self.jobid, label),))
 			
 	def __repr__(self):
 		return self.rule.name
@@ -219,7 +226,7 @@ class ClusterJobScheduler:
 	def _run_job(self, job):
 		job.print_message()
 		prefix = ".snakemake"
-		jobid = "_".join(job.output)
+		jobid = "_".join(job.output.replace("/", "_"))
 		jobscript = "{}.{}.sh".format(prefix, jobid)
 		jobfinished = "{}.{}.jobfinished".format(prefix, jobid)
 		jobfailed = "{}.{}.jobfailed".format(prefix, jobid)

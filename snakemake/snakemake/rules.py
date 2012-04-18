@@ -68,6 +68,10 @@ class Namedlist(list):
 		"""
 		for name, index in names:
 			self.set_name(name, index)
+
+	def items(self):
+		for name, index in self._names.items():
+			yield name, self[index]
 	
 	def __hash__(self):
 		return hash(tuple(self))

@@ -211,6 +211,7 @@ class Workflow:
 	def _run(self, torun, dryrun = False, touch = False, forcethis = False, forceall = False, give_reason = False, cluster = None, dag = False):
 		self.jobcounter = Jobcounter()
 		jobs = dict()
+		Job.count = 0
 		
 		for rule, requested_output in torun:
 			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, forceall = forceall, dryrun = dryrun, give_reason = give_reason, touch = touch, visited = set(), jobcounter = self.jobcounter)
