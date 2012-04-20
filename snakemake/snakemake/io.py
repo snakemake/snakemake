@@ -7,6 +7,9 @@ from snakemake.logging import logger
 __author__ = "Johannes Köster"
 
 class IOFile(str):
+	"""
+	A file that is either input or output of a rule.
+	"""
 	wildcard_regex = "\{(?P<name>\w+?)(,(?P<constraint>.*))?\}"
 	_register = dict()
 	

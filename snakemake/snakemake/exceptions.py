@@ -14,7 +14,14 @@ def format_error(ex, lineno, rowmaps = None, snakefile = None):
 			msg = ex.msg
 	return '{} in line {} of {}{}'.format(ex.__class__.__name__, lineno, snakefile, ":\n" + msg if msg else ".")
 
-def print_exception(ex, rowmaps):
+def print_exception(ex, linemaps):
+	"""
+	Print an error message for a given exception.
+
+	Arguments
+	ex -- the exception
+	linemaps -- a dict of a dict that maps for each snakefile the compiled lines to source code lines in the snakefile.
+	"""
 	for file, lineno, _, _ in traceback.extract_tb(ex.__traceback__):
 		if file in rowmaps:
 			logger.critical(format_error(ex, lineno, rowmaps = rowmaps, snakefile = file))
@@ -30,7 +37,19 @@ def print_exception(ex, rowmaps):
 		logger.critical(ex)
 
 class RuleException(Exception):
+	"""
+	Base class for exception occuring withing the execution or definition of rules.
+	"""
 	def __init__(self, message = None, include = list(), lineno = None, snakefile = None):
+		"""
+		Creates a new instance of RuleException.
+
+		Arguments
+		message -- the exception message
+		include -- iterable of other exceptions to be included
+		lineno -- the line the exception originates
+		snakefile -- the file the exception originates
+		"""
 		super(RuleException, self).__init__(message)
 		self._include = set()
 		for ex in include:
