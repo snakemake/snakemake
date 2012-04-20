@@ -12,7 +12,7 @@ class ColorizingStreamHandler(logging.StreamHandler):
 
 	BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 	RESET_SEQ = "\033[0m"
-	COLOR_SEQ = "\033[1;%dm"
+	COLOR_SEQ = "\033[%dm"
 	BOLD_SEQ = "\033[1m"
 
 	colors = {
@@ -50,7 +50,7 @@ class ColorizingStreamHandler(logging.StreamHandler):
 	def colorize(cls, record):
 		if not cls.nocolor and record.levelname in cls.colors and platform.system() != 'Windows':
 			return "{color}{message}{reset}".format(
-				color = cls.BOLD_SEQ + cls.COLOR_SEQ % (30 + cls.colors[record.levelname]),
+				color = cls.COLOR_SEQ % (30 + cls.colors[record.levelname]),
 				message = record.message,
 				reset = cls.RESET_SEQ
 			)
