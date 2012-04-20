@@ -6,6 +6,7 @@ from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
 
+
 def format_error(ex, lineno, rowmaps = None, snakefile = None):
 	msg = str(ex)
 	if rowmaps and snakefile:
@@ -14,13 +15,13 @@ def format_error(ex, lineno, rowmaps = None, snakefile = None):
 			msg = ex.msg
 	return '{} in line {} of {}{}'.format(ex.__class__.__name__, lineno, snakefile, ":\n" + msg if msg else ".")
 
-def print_exception(ex, linemaps):
+def print_exception(ex, rowmaps):
 	"""
 	Print an error message for a given exception.
 
 	Arguments
 	ex -- the exception
-	linemaps -- a dict of a dict that maps for each snakefile the compiled lines to source code lines in the snakefile.
+	rowmaps -- a dict of a dict that maps for each snakefile the compiled lines to source code lines in the snakefile.
 	"""
 	for file, lineno, _, _ in traceback.extract_tb(ex.__traceback__):
 		if file in rowmaps:
