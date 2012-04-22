@@ -113,9 +113,14 @@ class IOFile(str):
 		return set(match.group('name') for match in re.finditer(self.wildcard_regex, self._file))
 	
 	def regex(self):
-		f = re.sub("\.", "\.", self._file)
-		return re.sub(self.wildcard_regex, 
-			lambda match: '(?P<{}>{})'.format(match.group('name'), match.group('constraint') if match.group('constraint') else ".+"), f)
+		f = ""
+		last = 0
+		for match in re.finditer(self.wildcard_regex, self._file):
+			f += re.escape(self._file[last:match.start()])
+			f += "(?P<{}>{})".format(match.group("name"), match.group("constraint") if match.group("constraint") else ".+")
+			last = match.end()
+		f += re.escape(self._file[last:])
+		return f
 	
 	def __str__(self):
 		return self._file
@@ -125,3 +130,4 @@ class temp(str):
 
 class protected(str):
 	pass
+
