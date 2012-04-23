@@ -91,3 +91,7 @@ def test13():
 
 def test14():
 	run(dpath("test14"), cluster = "./qsub")
+
+def test15():
+	run(dpath("test15"))
+	

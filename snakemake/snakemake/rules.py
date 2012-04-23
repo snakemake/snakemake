@@ -112,9 +112,9 @@ class Rule:
 		input -- the list of input files
 		"""
 		for item in input:
-			self._set_inoutput_item(item, self.input)
+			self._set_inoutput_item(item)
 		for name, item in kwinput.items():
-			self._set_inoutput_item(item, self.input, name = name)
+			self._set_inoutput_item(item, name = name)
 
 	def set_output(self, *output, **kwoutput):
 		"""
@@ -124,9 +124,9 @@ class Rule:
 		output -- the list of output files
 		"""
 		for item in output:
-			self._set_inoutput_item(item, self.output)
+			self._set_inoutput_item(item, output = True)
 		for name, item in kwoutput.items():
-			self._set_inoutput_item(item, self.output, name = name)
+			self._set_inoutput_item(item, output = True, name = name)
 		
 		for item in self.output:
 			wildcards = item.get_wildcard_names()
@@ -137,7 +137,7 @@ class Rule:
 				self.wildcard_names = wildcards
 			self.regex_output.append(item.regex())
 	
-	def _set_inoutput_item(self, item, inoutput, name=None):
+	def _set_inoutput_item(self, item, output = False, name=None):
 		"""
 		Set an item to be input or output.
 		
@@ -146,20 +146,18 @@ class Rule:
 		inoutput -- either a Namedlist of input or output items
 		name     -- an optional name for the item
 		"""
-		if isinstance(item, str):
-			try:
-				item = IOFile.create(item, temp = isinstance(item, temp), protected = isinstance(item, protected))
-			except ValueError as ex:
-				raise IOFileException(str(ex), lineno = self.lineno, snakefile = self.snakefile)
-		
-		if isinstance(item, IOFile):
+		inoutput = self.output if output else self.input
+		if type(item).__name__ == "function" and output:
+			raise SyntaxError("Only input files can be specified as functions")
+		try:
+			item = IOFile.create(item, temp = isinstance(item, temp), protected = isinstance(item, protected))
 			inoutput.append(item)
 			if name:
 				inoutput.add_name(name)
-		else:
+		except ValueError:
 			try:
 				for i in item:
-					self._set_inoutput_item(i, inoutput)
+					self._set_inoutput_item(i, output = output)
 			except TypeError:
 				raise SyntaxError("Input and output files must be specified as strings.")
 
@@ -174,13 +172,12 @@ class Rule:
 		
 	def _expand_wildcards(self, requested_output):
 		""" Expand wildcards depending on the requested output. """
+		wildcards = dict()
 		if requested_output:
 			wildcards = self.get_wildcards(requested_output)
 			missing_wildcards = set(wildcards.keys()) - self.wildcard_names 
-		elif self.has_wildcards():				
-			missing_wildcards = self.wildcard_names
 		else:
-			return Namedlist(self.input), Namedlist(self.output), dict()
+			missing_wildcards = self.wildcard_names
 		
 		if missing_wildcards:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno, snakefile = self.snakefile)

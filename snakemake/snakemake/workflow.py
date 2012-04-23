@@ -59,7 +59,7 @@ class Workflow:
 		self.__last = None
 		self.__first = None
 		self.__altfirst = None
-		self.__workdir_set = False
+		self.workdir = None
 		self._jobs_finished = None
 		self._runtimes = defaultdict(list)
 		self._cores = 1
@@ -287,11 +287,11 @@ class Workflow:
 			self.__first = first_rule
 
 	def set_workdir(self, workdir):
-		if not self.__workdir_set:
+		if not self.workdir:
 			if not os.path.exists(workdir):
 				os.makedirs(workdir)
 			os.chdir(workdir)
-			self.__workdir_set = True
+			self.workdir = workdir
 
 workflow = Workflow()
 

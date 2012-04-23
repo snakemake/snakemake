@@ -238,6 +238,7 @@ class ClusterJobScheduler:
 	
 	def _run_job(self, job):
 		job.print_message()
+		workdir = os.getcwd()
 		prefix = ".snakemake"
 		jobid = "_".join(job.output).replace("/", "_")
 		jobscript = "{}.{}.sh".format(prefix, jobid)
@@ -245,7 +246,7 @@ class ClusterJobScheduler:
 		jobfailed = "{}.{}.jobfailed".format(prefix, jobid)
 		shell("""
 			echo '#!/bin/sh' > "{jobscript}"
-			echo 'snakemake --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"' >> "{jobscript}"
+			echo 'snakemake --force --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"' >> "{jobscript}"
 			chmod +x "{jobscript}"
 			{self._submitcmd} "{jobscript}"
 		""")
