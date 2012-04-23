@@ -1,5 +1,0 @@
-#!/bin/sh
-
-echo `date` >> qsub.log
-tail -n1 $1 >> qsub.log
-./$1
