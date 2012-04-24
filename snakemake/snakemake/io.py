@@ -111,7 +111,7 @@ class IOFile(str):
 	def apply_wildcards(self, wildcards):
 		f = self._file
 		if self._is_function:
-			f = self._file(wildcards)
+			f = self._file(Namedlist(fromdict = wildcards))
 		return self.create(re.sub(self.wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), protected = self._protected, temp = self._temp)
 		
 	def get_wildcard_names(self):
@@ -134,6 +134,81 @@ class IOFile(str):
 class temp(str):
 	pass
 
+class temporary(temp):
+	pass
+
 class protected(str):
 	pass
+
+class Namedlist(list):
+	"""
+	A list that additionally provides functions to name items. Further,
+	it is hashable, however the hash does not consider the item names.
+	"""
+	def __init__(self, toclone = None, fromdict = None):
+		"""
+		Create the object.
+		
+		Arguments
+		toclone  -- another Namedlist that shall be cloned
+		fromdict -- a dict that shall be converted to a Namedlist (keys become names) 
+		"""
+		super(Namedlist, self).__init__()
+		self._names = dict()
+		
+		if toclone:
+			self.extend(toclone)
+			if isinstance(toclone, Namedlist):
+				self.take_names(toclone.get_names())
+		if fromdict:
+			for key, item in fromdict.items():
+				self.append(item)
+				self.add_name(key)
+
+	def add_name(self, name):
+		"""
+		Add a name to the last item.
+		
+		Arguments
+		name -- a name
+		"""
+		self.set_name(name, len(self) - 1)
+	
+	def set_name(self, name, index):
+		"""
+		Set the name of an item.
+		
+		Arguments
+		name  -- a name
+		index -- the item index
+		"""
+		self._names[name] = index
+		setattr(self, name, self[index])
+			
+	def get_names(self):
+		"""
+		Get the defined names as (name, index) pairs.
+		"""
+		for name, index in self._names.items():
+			yield name, index
+	
+	def take_names(self, names):
+		"""
+		Take over the given names.
+		
+		Arguments
+		names -- the given names as (name, index) pairs
+		"""
+		for name, index in names:
+			self.set_name(name, index)
+
+	def items(self):
+		for name, index in self._names.items():
+			yield name, self[index]
+	
+	def __hash__(self):
+		return hash(tuple(self))
+
+	def __str__(self):
+		return " ".join(self)
 
