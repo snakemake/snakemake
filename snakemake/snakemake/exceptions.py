@@ -3,6 +3,7 @@
 import sys, traceback
 from collections import defaultdict
 from snakemake.logging import logger
+from tokenize import TokenError
 
 __author__ = "Johannes Köster"
 
@@ -13,7 +14,8 @@ def format_error(ex, lineno, rowmaps = None, snakefile = None):
 		lineno = rowmaps[snakefile][lineno]
 		if isinstance(ex, SyntaxError):
 			msg = ex.msg
-	return '{} in line {} of {}{}'.format(ex.__class__.__name__, lineno, snakefile, ":\n" + msg if msg else ".")
+	location = " in line {} of {}".format(lineno, snakefile) if lineno and snakefile else ""
+	return '{}{}{}'.format(ex.__class__.__name__, location, ":\n" + msg if msg else ".")
 
 def print_exception(ex, rowmaps):
 	"""

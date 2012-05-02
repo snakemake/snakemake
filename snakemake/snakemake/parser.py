@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from tokenize import TokenError
 from tokenize import *
 import tokenize, collections, inspect
 
@@ -297,8 +298,11 @@ def snakemake_to_python(tokens, filepath, rowmap = None, rule_count = 0):
 	""" Translate snakemake tokens into python tokens using 
 	a finite automaton. """
 	states = States(filepath, rule_count = rule_count)
-	for snakemake_token in tokens:
-		states.state(snakemake_token)
+	try:
+		for snakemake_token in tokens:
+			states.state(snakemake_token)
+	except TokenError as ex:
+		raise SyntaxError(str(ex))
 	python_tokens = (python_token for python_token in states if not python_token.type in (INDENT, DEDENT))
 	if rowmap != None:
 		rowmap.update(states.tokens.rowmap)
