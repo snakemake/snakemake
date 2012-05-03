@@ -295,25 +295,25 @@ class Workflow:
 
 workflow = Workflow()
 
-def _include(path):
+def include(path):
 	workflow.include(path)
 
-def _set_workdir(path):
+def set_workdir(path):
 	workflow.set_workdir(path)
 
-def _add_rule(name, lineno = None, snakefile = None):
+def add_rule(name, lineno = None, snakefile = None):
 	workflow.add_rule(name, lineno = lineno, snakefile = snakefile)
 
-def _set_input(*paths, **kwpaths):
+def set_input(*paths, **kwpaths):
 	workflow.last_rule().set_input(*paths, **kwpaths)
 
-def _set_output(*paths, **kwpaths):
+def set_output(*paths, **kwpaths):
 	workflow.last_rule().set_output(*paths, **kwpaths)
 
-def _set_message(message):
+def set_message(message):
 	workflow.last_rule().set_message(message)
 	
-def _set_threads(threads):
+def set_threads(threads):
 	workflow.last_rule().set_threads(threads)
 
 def run(f):
