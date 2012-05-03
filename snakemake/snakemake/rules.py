@@ -272,7 +272,7 @@ class Rule:
 
 	def has_run(self):
 		""" Return True if rule has a run method. """
-		return self.workflow.has_run(self)
+		return self.run_func != None
 
 	def get_message(self, input, output, wildcards, reason, showmessage = True):
 		"""
