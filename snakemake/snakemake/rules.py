@@ -27,6 +27,7 @@ class Rule:
 		self.workflow = workflow
 		self.lineno = lineno
 		self.snakefile = snakefile
+		self.run_func = None
 
 	def has_wildcards(self):
 		"""
@@ -266,7 +267,8 @@ class Rule:
 
 	def get_run(self):
 		""" Return the run method. """
-		return self.workflow.get_run(self)
+		#return self.workflow.get_run(self)
+		return self.run_func
 
 	def has_run(self):
 		""" Return True if rule has a run method. """

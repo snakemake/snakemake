@@ -196,6 +196,9 @@ class States:
 	def run(self, token):
 		""" State that creates a run function for the current rule. """
 		self._check_colon('run', token)
+		self.tokens.add(AT, '@', orig_token = token)\
+		           .add(NAME, 'run', orig_token = token)\
+		           .add(NEWLINE, '\n', orig_token = token)
 		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards', 'threads'], token)
 		self.state = self.run_newline
 
@@ -219,6 +222,9 @@ class States:
 	def shell(self, token):
 		""" State that creates a run function for the current rule, interpreting shell commands directly. """
 		self._check_colon('shell', token)
+		self.tokens.add(AT, '@', orig_token = token)\
+                           .add(NAME, 'run', orig_token = token)\
+                           .add(NEWLINE, '\n', orig_token = token)
 		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards', 'threads'], token)
 		self.tokens.add(NEWLINE, '\n', orig_token = token)\
 		           .add(INDENT, '\t', orig_token = token)

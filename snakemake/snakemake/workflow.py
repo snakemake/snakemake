@@ -316,4 +316,8 @@ def _set_message(message):
 def _set_threads(threads):
 	workflow.last_rule().set_threads(threads)
 
+def run(f):
+	workflow.last_rule().run_func = f
+	return f
+
 workflow._virgin_globals = dict(globals())
