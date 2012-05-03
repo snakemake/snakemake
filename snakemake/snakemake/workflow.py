@@ -10,7 +10,8 @@ from snakemake.exceptions import MissingOutputException, MissingInputException, 
 from snakemake.shell import shell, format
 from snakemake.jobs import Job, KnapsackJobScheduler, ClusterJobScheduler, print_job_dag
 from snakemake.parser import compile_to_python
-from snakemake.io import protected, temp, temporary
+from snakemake.io import protected, temp, temporary, splitted, IOFile
+
 
 __author__ = "Johannes Köster"
 
@@ -99,19 +100,23 @@ class Workflow:
 		"""
 		return self.__pool
 	
-	def add_rule(self, name, lineno = None, snakefile = None):
+	def add_rule(self, name = None, lineno = None, snakefile = None, set_last = True):
 		"""
 		Add a rule.
 		"""
+		if name == None:
+			name = str(len(self.__rules))
 		if self.is_rule(name):
 			raise CreateRuleException("The name {} is already used by another rule".format(name))
 		if "__" + name in globals():
 			raise CreateRuleException("The name __{} is already used by a variable.".format(name))
 		rule = Rule(name, self, lineno = lineno, snakefile = snakefile)
 		self.__rules[rule.name] = rule
-		self.__last = rule
+		if set_last:
+			self.__last = rule
 		if not self.__first:
 			self.__first = rule.name
+		return name
 			
 	def is_rule(self, name):
 		"""
@@ -293,31 +298,55 @@ class Workflow:
 			os.chdir(workdir)
 			self.workdir = workdir
 
+	def set_input(self, *paths, **kwpaths):
+		self.last_rule().set_input(*paths, **kwpaths)
+
+	def set_output(self, *paths, **kwpaths):
+		self.last_rule().set_output(*paths, **kwpaths)
+
+	def set_message(self, message):
+		self.last_rule().set_message(message)
+
+	def set_threads(self, threads):
+		self.last_rule().set_threads(threads)
+
+	def run(self, arg):
+		use_last = not isinstance(arg, str)
+		rule = self.last_rule() if use_last else self.get_rule(arg)
+		def _run(f):
+			rule.run_func = f
+			return f
+		return _run(arg) if use_last else _run
+
+	def split(self, infile, chunks = 2):
+		lastrule = self.last_rule()
+		self.add_rule()
+		self.set_input(infile)
+		self.set_output(IOFile.splittedfiles(infile, chunks = chunks))
+		@self.run
+		def _run_split(input, output, wildcards, threads):
+			input[0].split(chunks = chunks)
+
+		self.__last_rule = lastrule
+		return IOFile.splitpattern(infile)
+
+	def merge(self, infile, chunks = 2):
+		lastrule = self.last_rule()
+		self.add_rule()
+		self.set_input(IOFile.splittedfiles(infile, chunks = chunks))
+		self.set_output(infile)
+		@self.run
+		def _run_merge(input, output, wildcards, threads):
+			output[0].merge(chunks = chunks)
+
+		self.__last_rule = lastrule
+		return infile
+
+		
+		
+
 workflow = Workflow()
-
-def include(path):
-	workflow.include(path)
-
-def set_workdir(path):
-	workflow.set_workdir(path)
-
-def add_rule(name, lineno = None, snakefile = None):
-	workflow.add_rule(name, lineno = lineno, snakefile = snakefile)
-
-def set_input(*paths, **kwpaths):
-	workflow.last_rule().set_input(*paths, **kwpaths)
-
-def set_output(*paths, **kwpaths):
-	workflow.last_rule().set_output(*paths, **kwpaths)
-
-def set_message(message):
-	workflow.last_rule().set_message(message)
-	
-def set_threads(threads):
-	workflow.last_rule().set_threads(threads)
-
-def run(f):
-	workflow.last_rule().run_func = f
-	return f
-
 workflow._virgin_globals = dict(globals())
+
+split = workflow.split
+merge = workflow.merge

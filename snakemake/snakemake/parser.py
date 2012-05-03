@@ -98,7 +98,7 @@ class States:
 	def include_path(self, token):
 		""" State that translates the include path into a function call. """
 		if token.type == STRING:
-			self._func('include', (token.string,), token)
+			self._func('include', (token.string,), token, obj = 'workflow')
 			self.state = self.python
 		else:
 			raise self._syntax_error('Expected string after include keyword', token)
@@ -111,7 +111,7 @@ class States:
 	def workdir_path(self, token):
 		""" State that translates the workdir path into a function call. """
 		if token.type == STRING:
-			self._func('set_workdir', (token.string,), token)
+			self._func('set_workdir', (token.string,), token, obj = 'workflow')
 			self.state = self.python
 		else:
 			raise self._syntax_error('Expected string after workdir keyword', token)
@@ -128,7 +128,7 @@ class States:
 		else:
 			raise self._syntax_error('Expected name or colon after rule keyword.', token)
 		self.current_rule = name
-		self._func('add_rule', (self._stringify(self.current_rule), str(token.start[0]), self._stringify(self.filename)), token)
+		self._func('add_rule', (self._stringify(self.current_rule), str(token.start[0]), self._stringify(self.filename)), token, obj = 'workflow')
 	
 	def rule_colon(self, token):
 		self._check_colon('rule', token)
@@ -154,7 +154,7 @@ class States:
 	def inoutput(self, token, type):
 		""" State that handles in- and output definition (depending on type). """
 		self._check_colon(type, token)
-		self._func_open('set_{}'.format(type), token)
+		self._func_open('set_{}'.format(type), token, obj = 'workflow')
 		self.state = self.inoutput_paths
 		
 	def inoutput_paths(self, token):
@@ -170,7 +170,7 @@ class States:
 	def message(self, token):
 		""" State that handles message definition. """
 		self._check_colon('message', token)
-		self._func_open('set_message', token)
+		self._func_open('set_message', token, obj = 'workflow')
 		self.state = self.message_text
 
 	def message_text(self, token):
@@ -183,7 +183,7 @@ class States:
 	def threads(self, token):
 		""" State that handles definition of threads. """
 		self._check_colon('thread', token)
-		self._func_open('set_threads', token)
+		self._func_open('set_threads', token, obj = 'workflow')
 		self.state = self.threads_value
 	
 	def threads_value(self, token):
@@ -197,7 +197,7 @@ class States:
 		""" State that creates a run function for the current rule. """
 		self._check_colon('run', token)
 		self.tokens.add(AT, '@', orig_token = token)\
-		           .add(NAME, 'run', orig_token = token)\
+		           .add(NAME, 'workflow.run', orig_token = token)\
 		           .add(NEWLINE, '\n', orig_token = token)
 		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards', 'threads'], token)
 		self.state = self.run_newline
@@ -223,7 +223,7 @@ class States:
 		""" State that creates a run function for the current rule, interpreting shell commands directly. """
 		self._check_colon('shell', token)
 		self.tokens.add(AT, '@', orig_token = token)\
-                           .add(NAME, 'run', orig_token = token)\
+                           .add(NAME, 'workflow.run', orig_token = token)\
                            .add(NEWLINE, '\n', orig_token = token)
 		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards', 'threads'], token)
 		self.tokens.add(NEWLINE, '\n', orig_token = token)\
@@ -272,20 +272,23 @@ class States:
 		self.tokens.add(RPAR, ')', orig_token = orig_token) \
 				   .add(COLON, ':', orig_token = orig_token)
 
-	def _func(self, name, args, orig_token):
+	def _func(self, name, args, orig_token, obj = None):
 		""" Generate tokens for a function invocation with given name 
 		and args. """
 		if not isinstance(args, tuple):
 			args = tuple(args)
-		self._func_open(name, orig_token)
+		self._func_open(name, orig_token, obj = obj)
 		for arg in args:
 			self.tokens.add(STRING, arg, orig_token = orig_token) \
 			           .add(COMMA, ',', orig_token = orig_token)
 		self._func_close(orig_token)
 		
-	def _func_open(self, name, orig_token):
+	def _func_open(self, name, orig_token, obj = None):
 		""" Generate tokens for opening a function invocation with 
 		given name. """
+		if obj:
+			self.tokens.add(NAME, obj, orig_token = orig_token)\
+			           .add(DOT, '.', orig_token = orig_token)
 		self.tokens.add(NAME, name, orig_token = orig_token) \
 				   .add(LPAR, '(', orig_token = orig_token)
 
