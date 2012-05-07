@@ -10,7 +10,7 @@ class IOFile(str):
 	"""
 	A file that is either input or output of a rule.
 	"""
-	wildcard_regex = "\{(?P<name>\w+?)(,(?P<constraint>.*))?\}"
+	wildcard_regex = "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>.*))?\s*\}"
 	_register = dict()
 	
 	@classmethod
