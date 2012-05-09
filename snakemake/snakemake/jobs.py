@@ -7,7 +7,7 @@ from snakemake.exceptions import TerminatedException, MissingOutputException, Ru
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
 from snakemake.logging import logger
-from multiprocessing import Process, Pool, Lock
+from multiprocessing import Process, Pool, Lock, Event
 from itertools import chain
 
 __author__ = "Johannes Köster"
@@ -138,6 +138,8 @@ class KnapsackJobScheduler:
 		self._pool = Pool(self._cores, maxtasksperchild = 1)
 		self._jobs = set(jobs)
 		self._lock = Lock()
+		self._open_jobs = Event()
+		self._open_jobs.set()
 
 	def terminate(self):
 		self._pool.close()
@@ -145,29 +147,33 @@ class KnapsackJobScheduler:
 	
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
-		self._lock.acquire()
-		#import pdb; pdb.set_trace()
-		needrun, norun = [], set()
-		for job in self._jobs:
-			if job.depends:
-				continue
-			if job.needrun:
-				if job.threads > self._maxcores:
-					# reduce the number of threads so that it fits to available cores.
-					if not job.dryrun:
-						logger.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._maxcores))
-					job.threads = self._maxcores
-				needrun.append(job)
-			else: norun.add(job)
-		
-		run = self._knapsack(needrun)
-		self._jobs -= run
-		self._jobs -= norun
-		self._cores -= sum(job.threads for job in run)
-		self._lock.release()
-		for job in chain(run, norun):
-			job.add_callback(self._finished)
-			job.run(self._run_job)
+		while True:
+			self._open_jobs.wait()
+			self._open_jobs.clear()
+			if not self._jobs:
+				return
+
+			needrun, norun = [], set()
+			for job in self._jobs:
+				if job.depends:
+					continue
+				if job.needrun:
+					if job.threads > self._maxcores:
+						# reduce the number of threads so that it fits to available cores.
+						if not job.dryrun:
+							logger.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._maxcores))
+						job.threads = self._maxcores
+					needrun.append(job)
+				else: norun.add(job)
+			
+			run = self._knapsack(needrun)
+			self._jobs -= run
+			self._jobs -= norun
+			self._cores -= sum(job.threads for job in run)
+			for job in chain(run, norun):
+				job.add_callback(self._finished)
+				job.run(self._run_job)
+			
 	
 	def _run_job(self, job):
 		self._pool.apply_async(
@@ -179,10 +185,12 @@ class KnapsackJobScheduler:
 		
 	def _finished(self, job):
 		self._cores += job.threads
-		self.schedule()
+		self._open_jobs.set()
 	
 	def _error(self, error):
-		# simply stop because exception was printed in run_wrapper
+		# clear jobs and stop the workflow
+		self._jobs = []
+		self._open_jobs.set()
 		self.workflow.set_job_finished(error = True)
 	
 	def _knapsack(self, jobs):
@@ -213,28 +221,33 @@ class ClusterJobScheduler:
 		self.workflow = workflow
 		self._jobs = set(jobs)
 		self._submitcmd = submitcmd
-		self._lock = threading.Lock()
+		self._open_jobs = Event()
+		self._open_jobs.set()
 
 	def terminate(self):
 		pass
 
 	def schedule(self):
-		self._lock.acquire()
-		needrun, norun = set(), set()
-		for job in self._jobs:
-			if job.depends:
-				continue
-			print(job.rule)
-			if job.needrun:
-				needrun.add(job)
-			else: norun.add(job)
+		while True:
+			self._open_jobs.wait()
+			self._open_jobs.clear()
+			print("open")
+			if not self._jobs:
+				return
+			needrun, norun = set(), set()
+			for job in self._jobs:
+				if job.depends:
+					continue
+				print(job.rule)
+				if job.needrun:
+					needrun.add(job)
+				else: norun.add(job)
 
-		self._jobs -= needrun
-		self._jobs -= norun
-		self._lock.release()
-		for job in chain(needrun, norun):
-			job.add_callback(self._finished)
-			job.run(self._run_job)
+			self._jobs -= needrun
+			self._jobs -= norun
+			for job in chain(needrun, norun):
+				job.add_callback(self._finished)
+				job.run(self._run_job)
 	
 	def _run_job(self, job):
 		job.print_message()
@@ -253,7 +266,7 @@ class ClusterJobScheduler:
 		threading.Thread(target=self._wait_for_job, args=(job, jobfinished, jobfailed, jobscript)).start()
 
 	def _finished(self, job):
-		self.schedule()
+		self._open_jobs.set()
 		
 	def _wait_for_job(self, job, jobfinished, jobfailed, jobscript):
 		while True:
