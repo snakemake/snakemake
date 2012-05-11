@@ -10,10 +10,10 @@ rule extract_mismatch_counts:
 	input: 'mfa/{instance}.mfa'
 	output: 'fisher/{instance}.pairs.gz'
 	message: 'Extracting number mismatches for each pair of sequences from {input}'
-	shell: 'touch {output}'
+	shell: 'sleep 2; touch {output}'
 
 rule create_tree:
 	input: 'mfa/{instance}.mfa'
 	output: 'ph/{instance}.ph', 'ph/{instance}.ph.log'
 	message: 'Running CLUSTALW to compute NJ tree from {input}'
-	shell: "touch {output[0]}; touch {output[1]}"
+	shell: "sleep 2; touch {output[0]}; touch {output[1]}"

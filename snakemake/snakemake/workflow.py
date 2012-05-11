@@ -235,7 +235,6 @@ class Workflow:
 			scheduler = KnapsackJobScheduler(set(jobs.values()), self)
 		scheduler.schedule()
 
-
 		self._jobs_finished.wait()
 		scheduler.terminate()
 		if self.errors:

@@ -135,7 +135,7 @@ class KnapsackJobScheduler:
 		self.workflow = workflow
 		self._maxcores = workflow.get_cores()
 		self._cores = self._maxcores
-		self._pool = Pool(self._cores, maxtasksperchild = 1)
+		self._pool = Pool(self._cores)
 		self._jobs = set(jobs)
 		self._lock = Lock()
 		self._open_jobs = Event()
@@ -232,14 +232,12 @@ class ClusterJobScheduler:
 		while True:
 			self._open_jobs.wait()
 			self._open_jobs.clear()
-			print("open")
 			if not self._jobs:
 				return
 			needrun, norun = set(), set()
 			for job in self._jobs:
 				if job.depends:
 					continue
-				print(job.rule)
 				if job.needrun:
 					needrun.add(job)
 				else: norun.add(job)
@@ -280,6 +278,8 @@ class ClusterJobScheduler:
 				os.remove(jobfailed)
 				os.remove(jobscript)
 				print_exception(ClusterJobException(job), self.workflow.rowmaps)
+				self._jobs = set()
+				self._open_jobs.set()
 				self.workflow.set_job_finished(error = True)
 				return
 			time.sleep(1)
