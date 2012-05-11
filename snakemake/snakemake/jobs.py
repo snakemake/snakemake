@@ -195,9 +195,10 @@ class KnapsackJobScheduler:
 	
 	def _knapsack(self, jobs):
 		""" Solve 0-1 knapsack to maximize cpu utilization. """
-		K = [[0 for c in range(self._cores + 1)] for i in range(len(jobs) + 1)]
-		for i in range(1, len(jobs) + 1):
-			for j in range(1, self._cores + 1):
+		dimi, dimj = len(jobs) + 1, self._cores + 1
+		K = [[0 for c in range(dimj)] for i in range(dimi)]
+		for i in range(1, dimi):
+			for j in range(1, dimj):
 				t = jobs[i-1].threads
 				if t > j:
 					K[i][j] = K[i - 1][j]
@@ -205,8 +206,8 @@ class KnapsackJobScheduler:
 					K[i][j] = max(K[i - 1][j], t + K[i - 1][j - t])
 		
 		solution = set()
-		i = len(jobs)
-		j = self._cores
+		i = dimi - 1
+		j = dimj - 1
 		while i > 0:
 			if K[i][j] != K[i-1][j]:
 				job = jobs[i - 1]
