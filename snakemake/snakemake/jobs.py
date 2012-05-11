@@ -189,7 +189,7 @@ class KnapsackJobScheduler:
 	
 	def _error(self, error):
 		# clear jobs and stop the workflow
-		self._jobs = []
+		self._jobs = set()
 		self._open_jobs.set()
 		self.workflow.set_job_finished(error = True)
 	
