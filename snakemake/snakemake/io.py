@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, re
+import os, re, stat
 from snakemake.exceptions import MissingOutputException, IOException
 from snakemake.logging import logger
 
@@ -81,15 +81,15 @@ class IOFile(str):
 			raise MissingOutputException("Output file {} not produced by rule {}.".format(self.get_file(), rulename), lineno = lineno, snakefile = snakefile)
 		if self._protected:
 			logger.warning("Write protecting output file {}".format(self))
-			mode = os.stat(o).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
-			if os.path.isdir(o):
-				for root, dirs, files in os.walk(o):
+			mode = os.stat(self.get_file()).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+			if os.path.isdir(self.get_file()):
+				for root, dirs, files in os.walk(self.get_file()):
 					for d in dirs:
-						os.chmod(os.path.join(o, d), mode)
+						os.chmod(os.path.join(self.get_file(), d), mode)
 					for f in files:
-						os.chmod(os.path.join(o, f), mode)
+						os.chmod(os.path.join(self.get_file(), f), mode)
 			else:
-				os.chmod(o, mode)
+				os.chmod(self.get_file(), mode)
 	
 	def remove(self):
 		if os.path.exists(self.get_file()):
