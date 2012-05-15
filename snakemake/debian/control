@@ -4,7 +4,7 @@ Priority: extra
 Maintainer: Johannes Koester <johannes.koester@tu-dortmund.de>
 Standards-Version: 3.9.2
 XS-Python-Version: >= 3.2
-Build-Depends: debhelper (>=9.0)
+Build-Depends: debhelper (>=8.9)
 
 Package: python3-snakemake
 Architecture: all
