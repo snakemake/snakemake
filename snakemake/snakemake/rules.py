@@ -2,7 +2,7 @@
 
 import os, re, sys
 from snakemake.jobs import Job
-from snakemake.io import IOFile, protected, temp, Namedlist, minor
+from snakemake.io import IOFile, protected, temp, Namedlist
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException, IOFileException
 
 __author__ = "Johannes Köster"
@@ -81,7 +81,7 @@ class Rule:
 		if type(item).__name__ == "function" and output:
 			raise SyntaxError("Only input files can be specified as functions")
 		try:
-			item = IOFile.create(item, temp = isinstance(item, temp), protected = isinstance(item, protected), minor = isinstance(item, minor))
+			item = IOFile.create(item, temp = isinstance(item, temp), protected = isinstance(item, protected))
 			inoutput.append(item)
 			if name:
 				inoutput.add_name(name)
@@ -129,10 +129,10 @@ class Rule:
 		return tuple(f for f in files if not os.path.exists(f))
 	
 	@staticmethod
-	def _has_missing_files(files):
+	def _has_missing_files(files, requested):
 		""" Return True if any of the given files does not exist. """
 		for f in files:
-			if not os.path.exists(f) and not f.is_temp() and not f.is_minor():
+			if (requested == None or f.get_file() in requested) and not os.path.exists(f) and not f.is_temp():
 				return True
 		return False
 	
@@ -200,7 +200,7 @@ class Rule:
 				snakefile = self.snakefile
 			)
 		
-		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, output_mintime)
+		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, output_mintime, requested_output)
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output or protected_output_exceptions:
@@ -242,7 +242,7 @@ class Rule:
 		if self.output and not self.has_run():
 			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name), lineno = self.lineno, snakefile = self.snakefile)
 
-	def _need_run(self, force, todo, input, output, output_mintime):
+	def _need_run(self, force, todo, input, output, output_mintime, requested_output):
 		""" Return True if rule needs to be run. """
 		if self.has_run():
 			if force:
@@ -252,7 +252,7 @@ class Rule:
 				for job in todo:
 					todo_output.update(job.output)
 				return True, "Updated input files: {}".format(", ".join(set(input) & set(todo_output)))
-			if self._has_missing_files(output):
+			if self._has_missing_files(output, requested_output):
 				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
 			if not output:
 				return True, ""
