@@ -14,7 +14,7 @@ class IOFile(str):
 	_register = dict()
 	
 	@classmethod
-	def create(cls, file, temp = False, protected = False):	
+	def create(cls, file, temp = False, protected = False, minor = False):	
 		if not isinstance(file, str) and not type(file).__name__ == "function":
 			raise ValueError("Input and output files have to be specified as strings or functions that return a string given the used wildcards as single argument.")
 		if file in cls._register:
@@ -23,6 +23,8 @@ class IOFile(str):
 			obj = IOFile(file)
 			cls._register[file] = obj
 
+
+		obj._minor = minor or obj._minor
 		obj._temp = temp or obj._temp
 		obj._protected = protected or obj._protected
 		return obj
@@ -40,6 +42,7 @@ class IOFile(str):
 		self._needed = 0
 		self._temp = False
 		self._protected = False
+		self._minor = False
 	
 	def get_file(self):
 		if not self._is_function:
@@ -52,6 +55,9 @@ class IOFile(str):
 
 	def is_protected(self):
 		return self._protected
+
+	def is_minor(self):
+		return self._minor
 		
 	def need(self):
 		self._needed += 1
@@ -112,7 +118,7 @@ class IOFile(str):
 		f = self._file
 		if self._is_function:
 			f = self._file(Namedlist(fromdict = wildcards))
-		return self.create(re.sub(self.wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), protected = self._protected, temp = self._temp)
+		return self.create(re.sub(self.wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), protected = self._protected, temp = self._temp, minor = self._minor)
 		
 	def get_wildcard_names(self):
 		return set(match.group('name') for match in re.finditer(self.wildcard_regex, self.get_file()))
@@ -158,6 +164,9 @@ class IOFile(str):
 	def __str__(self):
 		return self.get_file()
 
+class minor(str):
+	""" A flag for an output file that contains output that is not worth re-running the rule if missing."""
+	pass
 	
 class temp(str):
 	""" A flag for an input or output file that shall be removed after usage. """

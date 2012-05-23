@@ -2,7 +2,7 @@
 
 import os, re, sys
 from snakemake.jobs import Job
-from snakemake.io import IOFile, protected, temp, Namedlist
+from snakemake.io import IOFile, protected, temp, Namedlist, minor
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException, IOFileException
 
 __author__ = "Johannes Köster"
@@ -81,7 +81,7 @@ class Rule:
 		if type(item).__name__ == "function" and output:
 			raise SyntaxError("Only input files can be specified as functions")
 		try:
-			item = IOFile.create(item, temp = isinstance(item, temp), protected = isinstance(item, protected))
+			item = IOFile.create(item, temp = isinstance(item, temp), protected = isinstance(item, protected), minor = isinstance(item, minor))
 			inoutput.append(item)
 			if name:
 				inoutput.add_name(name)
@@ -132,7 +132,7 @@ class Rule:
 	def _has_missing_files(files):
 		""" Return True if any of the given files does not exist. """
 		for f in files:
-			if not os.path.exists(f) and not f.is_temp():
+			if not os.path.exists(f) and not f.is_temp() and not f.is_minor():
 				return True
 		return False
 	
