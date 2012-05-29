@@ -38,7 +38,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 
 	if directory:
 		# change to the specified directory. This overrides eventually specified workdir in Snakefile
-		workflow.set_workdir(directory)
+		workflow.workdir(directory)
 
 	workflow.clear()
 

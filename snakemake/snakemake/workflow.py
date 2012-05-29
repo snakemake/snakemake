@@ -60,7 +60,7 @@ class Workflow:
 		self.__last = None
 		self.__first = None
 		self.__altfirst = None
-		self.workdir = None
+		self._workdir = None
 		self._jobs_finished = None
 		self._runtimes = defaultdict(list)
 		self._cores = 1
@@ -99,8 +99,11 @@ class Workflow:
 		Return the current thread pool.
 		"""
 		return self.__pool
+
+	def get_rule_count(self):
+		return len(self.__rules)
 	
-	def add_rule(self, name = None, lineno = None, snakefile = None, set_last = True):
+	def add_rule(self, name = None, lineno = None, snakefile = None):
 		"""
 		Add a rule.
 		"""
@@ -112,8 +115,6 @@ class Workflow:
 			raise CreateRuleException("The name __{} is already used by a variable.".format(name))
 		rule = Rule(name, self, lineno = lineno, snakefile = snakefile)
 		self.__rules[rule.name] = rule
-		if set_last:
-			self.__last = rule
 		if not self.__first:
 			self.__first = rule.name
 		return name
@@ -290,62 +291,69 @@ class Workflow:
 		if not overwrite_first_rule:
 			self.__first = first_rule
 
-	def set_workdir(self, workdir):
-		if not self.workdir:
+	def workdir(self, workdir):
+		if not self._workdir:
 			if not os.path.exists(workdir):
 				os.makedirs(workdir)
 			os.chdir(workdir)
-			self.workdir = workdir
+			self._workdir = workdir
 
-	def set_input(self, *paths, **kwpaths):
-		self.last_rule().set_input(*paths, **kwpaths)
+	def rule(self, name = None, lineno = None, snakefile = None):
+		name = self.add_rule(name, lineno, snakefile)
+		rule = self.get_rule(name)
+		def decorate(ruleinfo):
+			if ruleinfo.input:
+				rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
+			if ruleinfo.output:
+				rule.set_output(*ruleinfo.output[0], **ruleinfo.output[1])
+			if ruleinfo.threads:
+				rule.set_threads(ruleinfo.threads)
+			if ruleinfo.message:
+				rule.set_message(ruleinfo.message)
+			rule.run_func = ruleinfo.func
+			return ruleinfo.func
+		return decorate
 
-	def set_output(self, *paths, **kwpaths):
-		self.last_rule().set_output(*paths, **kwpaths)
 
-	def set_message(self, message):
-		self.last_rule().set_message(message)
+	def input(self, *paths, **kwpaths):
+		def decorate(ruleinfo):
+			ruleinfo.input = (paths, kwpaths)
+			return ruleinfo
+		return decorate
 
-	def set_threads(self, threads):
-		self.last_rule().set_threads(threads)
+	def output(self, *paths, **kwpaths):
+		def decorate(ruleinfo):
+			ruleinfo.output = (paths, kwpaths)
+			return ruleinfo
+		return decorate
 
-	def run(self, arg):
-		use_last = not isinstance(arg, str)
-		rule = self.last_rule() if use_last else self.get_rule(arg)
-		def _run(f):
-			rule.run_func = f
-			return f
-		return _run(arg) if use_last else _run
+	def message(self, message):
+		def decorate(ruleinfo):
+			ruleinfo.message = message
+			return ruleinfo
+		return decorate
 
-	def split(self, infile, chunks = 2):
-		lastrule = self.last_rule()
-		self.add_rule()
-		self.set_input(infile)
-		self.set_output(IOFile.splittedfiles(infile, chunks = chunks))
-		@self.run
-		def _run_split(input, output, wildcards, threads):
-			input[0].split(chunks = chunks)
+	def threads(self, threads):
+		def decorate(ruleinfo):
+			ruleinfo.threads = threads
+			return ruleinfo
+		return decorate
 
-		self.__last_rule = lastrule
-		return IOFile.splitpattern(infile)
+	def run(self, func):
+		return RuleInfo(func)
 
-	def merge(self, infile, chunks = 2):
-		lastrule = self.last_rule()
-		self.add_rule()
-		self.set_input(IOFile.splittedfiles(infile, chunks = chunks))
-		self.set_output(infile)
-		@self.run
-		def _run_merge(input, output, wildcards, threads):
-			output[0].merge(chunks = chunks)
+	@staticmethod
+	def _empty_decorator(f):
+		return f
 
-		self.__last_rule = lastrule
-		return infile
 
-		
-		
+class RuleInfo:
+	def __init__(self, func):
+		self.func = func
+		self.input = None
+		self.output = None
+		self.message = None
+		self.threads = None
 
 workflow = Workflow()
 workflow._virgin_globals = dict(globals())
-
-split = workflow.split
-merge = workflow.merge

@@ -26,8 +26,9 @@ class Tokens:
 				line = '')
 		else:
 			# token is an original token that may have a wrong row
-			if token.start[0] < self._row:
+			if token.start[0] != self._row:
 				token = Tokens._adjrow(token, self._row)
+		
 		self._tokens.append(token)
 				
 		if orig_token:
@@ -53,6 +54,9 @@ class Tokens:
 	def __iter__(self):
 		return self._tokens.__iter__()
 
+	def __str__(self):
+		return " ".join(map(str, self))
+
 class States:
 	""" A finite automaton that translates snakemake tokens into python tokens. """
 	def __init__(self, filename, rule_count = 0):
@@ -68,7 +72,9 @@ class States:
 			threads = self.threads,
 			run = self.run,
 			shell = self.shell)
+		self.rule_params = set(["input", "output", "message", "threads", "run", "shell"])
 		self.current_rule = None
+		self.empty_rule = True
 		self.tokens = Tokens()
 		self._rule_count = rule_count
 	
@@ -111,13 +117,21 @@ class States:
 	def workdir_path(self, token):
 		""" State that translates the workdir path into a function call. """
 		if token.type == STRING:
-			self._func('set_workdir', (token.string,), token, obj = 'workflow')
+			self._func('workdir', (token.string,), token, obj = 'workflow')
 			self.state = self.python
 		else:
 			raise self._syntax_error('Expected string after workdir keyword', token)
 
 	def rule(self, token):
 		""" State that handles rule definition. """
+		if self.empty_rule and self.current_rule:
+			# close previous rule if empty
+			self._run_def(token)
+			self.tokens.add(NEWLINE, '\n', token)\
+			           .add(INDENT, '\t', token)\
+			           .add(NAME, 'pass', token)\
+			           .add(NEWLINE, '\n', token)
+
 		self._rule_count += 1
 		if self._is_colon(token):
 			name = str(self._rule_count)
@@ -128,7 +142,9 @@ class States:
 		else:
 			raise self._syntax_error('Expected name or colon after rule keyword.', token)
 		self.current_rule = name
-		self._func('add_rule', (self._stringify(self.current_rule), str(token.start[0]), self._stringify(self.filename)), token, obj = 'workflow')
+		self.empty_rule = True
+		self.tokens.add(AT, "@", token)
+		self._func("rule", (self._stringify(name), str(token.start[0]), self._stringify(self.filename)), token, obj = 'workflow')
 	
 	def rule_colon(self, token):
 		self._check_colon('rule', token)
@@ -137,11 +153,12 @@ class States:
 	def rule_body(self, token):
 		""" State that handles the rule body. """
 		if token.type == NEWLINE:
-			self.tokens.add(token, orig_token = token)
-		elif token.type == NAME and token.string in self.main_states:
+			pass
+			#self.tokens.add(token, orig_token = token)
+		elif token.type == NAME and token.string in ("input", "output", "run", "shell", "threads", "message"):
 			self.state = self.main_states[token.string]
 		elif not token.type in (INDENT, DEDENT, COMMENT, NL):
-			raise self._syntax_error('Expected one of the keywords "input", "output", "run" or "rule" below rule definition', token)
+			raise self._syntax_error('Expected one of the keywords "input", "output", "run", "shell", "threads" or "message" below rule definition', token)
 
 	def input(self, token):
 		""" State that handles input definition. """
@@ -154,7 +171,11 @@ class States:
 	def inoutput(self, token, type):
 		""" State that handles in- and output definition (depending on type). """
 		self._check_colon(type, token)
-		self._func_open('set_{}'.format(type), token, obj = 'workflow')
+		#self._func_open('set_{}'.format(type), token, obj = 'workflow')
+		self.tokens.add(NEWLINE, "\n", token)\
+		           .add(AT, "@", token)
+		self._func_open(type, token, obj = 'workflow')
+		           
 		self.state = self.inoutput_paths
 		
 	def inoutput_paths(self, token):
@@ -170,7 +191,10 @@ class States:
 	def message(self, token):
 		""" State that handles message definition. """
 		self._check_colon('message', token)
-		self._func_open('set_message', token, obj = 'workflow')
+		self.tokens.add(NEWLINE, "\n", token)\
+		           .add(AT, "@", token)
+		self._func_open('message', token, obj = 'workflow')
+		#self._func_open('set_message', token, obj = 'workflow')
 		self.state = self.message_text
 
 	def message_text(self, token):
@@ -183,7 +207,10 @@ class States:
 	def threads(self, token):
 		""" State that handles definition of threads. """
 		self._check_colon('thread', token)
-		self._func_open('set_threads', token, obj = 'workflow')
+		self.tokens.add(NEWLINE, "\n", token)\
+		           .add(AT, "@", token)
+		self._func_open('threads', token, obj = 'workflow')
+		#self._func_open('set_threads', token, obj = 'workflow')
 		self.state = self.threads_value
 	
 	def threads_value(self, token):
@@ -193,13 +220,21 @@ class States:
 		elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
 			raise self._syntax_error('Expected number after threads keyword.', token)
 			
+
+	def _run_def(self, token):
+		self.tokens.add(NEWLINE, "\n", token)\
+		           .add(AT, "@", token)\
+		           .add(NAME, 'workflow', token)\
+		           .add(DOT, '.', token)\
+		           .add(NAME, 'run', token)\
+		           .add(NEWLINE, '\n', token)
+		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards', 'threads'], token)
+
 	def run(self, token):
 		""" State that creates a run function for the current rule. """
+		self.empty_rule = False
 		self._check_colon('run', token)
-		self.tokens.add(AT, '@', orig_token = token)\
-		           .add(NAME, 'workflow.run', orig_token = token)\
-		           .add(NEWLINE, '\n', orig_token = token)
-		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards', 'threads'], token)
+		self._run_def(token)
 		self.state = self.run_newline
 
 	def run_newline(self, token):
@@ -221,11 +256,10 @@ class States:
 
 	def shell(self, token):
 		""" State that creates a run function for the current rule, interpreting shell commands directly. """
+		self.empty_rule = False
 		self._check_colon('shell', token)
-		self.tokens.add(AT, '@', orig_token = token)\
-                           .add(NAME, 'workflow.run', orig_token = token)\
-                           .add(NEWLINE, '\n', orig_token = token)
-		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards', 'threads'], token)
+		self._run_def(token)
+		
 		self.tokens.add(NEWLINE, '\n', orig_token = token)\
 		           .add(INDENT, '\t', orig_token = token)
 		self._func_open('shell', token)
@@ -286,17 +320,18 @@ class States:
 	def _func_open(self, name, orig_token, obj = None):
 		""" Generate tokens for opening a function invocation with 
 		given name. """
-		if obj:
-			self.tokens.add(NAME, obj, orig_token = orig_token)\
-			           .add(DOT, '.', orig_token = orig_token)
+		if obj != None:
+			if obj:
+				self.tokens.add(NAME, obj, orig_token = orig_token)
+			self.tokens.add(DOT, '.', orig_token = orig_token)
 		self.tokens.add(NAME, name, orig_token = orig_token) \
 				   .add(LPAR, '(', orig_token = orig_token)
 
 	def _func_close(self, orig_token):
 		""" Generate tokens for closing a function invocation with 
 		given name. """
-		self.tokens.add(RPAR, ')', orig_token = orig_token) \
-				   .add(NEWLINE, '\n', orig_token = orig_token)
+		self.tokens.add(RPAR, ')', orig_token = orig_token) #\
+		#		   .add(NEWLINE, '\n', orig_token = orig_token)
 
 	@staticmethod
 	def _stringify(tokenstring):
@@ -327,6 +362,6 @@ def compile_to_python(filepath, rule_count = 0):
 				rowmap = rowmap,
 				rule_count = rule_count
 		)
-		
 		compilation = tokenize.untokenize(python_tokens)
+		print(compilation)
 		return compilation, rowmap, rule_count
