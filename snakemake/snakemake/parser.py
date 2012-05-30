@@ -363,5 +363,4 @@ def compile_to_python(filepath, rule_count = 0):
 				rule_count = rule_count
 		)
 		compilation = tokenize.untokenize(python_tokens)
-		print(compilation)
 		return compilation, rowmap, rule_count
