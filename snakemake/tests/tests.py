@@ -34,7 +34,7 @@ def run(path, shouldfail=False, **params):
 	tmpdir = mkdtemp()
 	try:
 		call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir), shell=True)
-		exitcode = snakemake(snakefile, directory=tmpdir, stats = os.path.join(path, "stats.txt"),**params)
+		exitcode = snakemake(snakefile, jobs=3, directory=tmpdir, stats = os.path.join(path, "stats.txt"), **params)
 		if shouldfail:
 			assert exitcode != 0, "expected non-zero exit code but found zero"
 		else:

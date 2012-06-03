@@ -140,6 +140,7 @@ class KnapsackJobScheduler:
 		self._lock = Lock()
 		self._open_jobs = Event()
 		self._open_jobs.set()
+		self._errors = False
 
 	def terminate(self):
 		self._pool.close()
@@ -150,7 +151,13 @@ class KnapsackJobScheduler:
 		while True:
 			self._open_jobs.wait()
 			self._open_jobs.clear()
+			if self._errors:
+				self._pool.close()
+				self._pool.terminate()
+				return
 			if not self._jobs:
+				self._pool.close()
+				self._pool.join()
 				return
 
 			needrun, norun = [], set()
@@ -189,6 +196,7 @@ class KnapsackJobScheduler:
 	
 	def _error(self, error):
 		# clear jobs and stop the workflow
+		self._errors = True
 		self._jobs = set()
 		self._open_jobs.set()
 		self.workflow.set_job_finished(error = True)

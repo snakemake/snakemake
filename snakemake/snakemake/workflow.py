@@ -29,19 +29,6 @@ class Jobcounter:
 	def __str__(self):
 		return "{} of {} steps ({}%) done".format(self._done, self._count, int(self._done / self._count * 100))
 
-class JobCounterSemaphore:
-	def __init__(self, value):
-		self.value = value
-		self.event = Event()
-	
-	def release(self):
-		self.value -= 1
-		if self.value == 0:
-			self.event.set()
-	
-	def wait(self):
-		self.event.wait()
-
 class Workflow:
 	def __init__(self):
 		"""
@@ -61,7 +48,6 @@ class Workflow:
 		self.__first = None
 		self.__altfirst = None
 		self._workdir = None
-		self._jobs_finished = None
 		self._runtimes = defaultdict(list)
 		self._cores = 1
 		self.rowmaps = dict()
@@ -89,7 +75,6 @@ class Workflow:
 	def set_job_finished(self, job = None, error = False):
 		if error:
 			self.errors = True
-		self._jobs_finished.release()
 		
 	def get_snakefile_globals(self):
 		return self.__snakefile_globals
@@ -127,12 +112,6 @@ class Workflow:
 		name -- a name
 		"""
 		return name in self.__rules
-	
-	def has_run(self, rule):
-		return "__" + rule.name in  globals()
-	
-	def get_run(self, rule):
-		return globals()["__" + rule.name]
 	
 	def get_producers(self, files, exclude = None):
 		for rule in self.get_rules():
@@ -227,17 +206,12 @@ class Workflow:
 			print_job_dag(jobs.values())
 			return
 
-		self._jobs_finished = JobCounterSemaphore(len(torun))
-		
-		
 		if cluster:
 			scheduler = ClusterJobScheduler(set(jobs.values()), self, submitcmd = cluster)
 		else:
 			scheduler = KnapsackJobScheduler(set(jobs.values()), self)
 		scheduler.schedule()
 
-		self._jobs_finished.wait()
-		scheduler.terminate()
 		if self.errors:
 			Job.cleanup_unfinished(jobs.values())
 			return 1

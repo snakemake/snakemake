@@ -96,7 +96,11 @@ class shell(sp.Popen):
 	def terminate_all(*args):
 		for p in shell._processes:
 			p._prog_term = True
-			p.kill()
+			try:
+				p.kill()
+			except OSError:
+				# if killing fails, then the process is already killed.
+				pass
 		
 	def _stdoutlines(self):
 		while True:
