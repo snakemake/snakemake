@@ -34,15 +34,6 @@ class Workflow:
 		"""
 		Create the controller.
 		"""
-		self.init()
-	
-	def init(self, clear = False):
-		if clear:
-			for k in list(globals().keys()):
-				if k not in self._virgin_globals:
-					del globals()[k]
-		else:
-			self._virgin_globals = None
 		self.__rules = OrderedDict()
 		self.__last = None
 		self.__first = None
@@ -69,22 +60,10 @@ class Workflow:
 			s = sum(runtimes)
 			yield rule, min(runtimes), max(runtimes), s, s / len(runtimes)
 
-	def clear(self):
-		self.init(clear = True)
-		
 	def set_job_finished(self, job = None, error = False):
 		if error:
 			self.errors = True
 		
-	def get_snakefile_globals(self):
-		return self.__snakefile_globals
-	
-	def get_pool(self):
-		"""
-		Return the current thread pool.
-		"""
-		return self.__pool
-
 	def get_rule_count(self):
 		return len(self.__rules)
 	
@@ -96,8 +75,6 @@ class Workflow:
 			name = str(len(self.__rules))
 		if self.is_rule(name):
 			raise CreateRuleException("The name {} is already used by another rule".format(name))
-		if "__" + name in globals():
-			raise CreateRuleException("The name __{} is already used by a variable.".format(name))
 		rule = Rule(name, self, lineno = lineno, snakefile = snakefile)
 		self.__rules[rule.name] = rule
 		if not self.__first:
@@ -257,6 +234,8 @@ class Workflow:
 		"""
 		Include a snakefile.
 		"""
+		global workflow
+		workflow = self
 		first_rule = self.__first
 		code, rowmap, rule_count = compile_to_python(snakefile, rule_count = self.rule_count)
 		self.rule_count += rule_count
@@ -329,5 +308,4 @@ class RuleInfo:
 		self.message = None
 		self.threads = None
 
-workflow = Workflow()
-workflow._virgin_globals = dict(globals())
+#workflow = Workflow()

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os, traceback, sys, csv
-from snakemake.workflow import workflow
+from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import logger, ColorizingStreamHandler
 
@@ -36,11 +36,11 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	
 	olddir = os.getcwd()
 
+	workflow = Workflow()
+
 	if directory:
 		# change to the specified directory. This overrides eventually specified workdir in Snakefile
 		workflow.workdir(directory)
-
-	workflow.clear()
 
 	if standalone:
 		try:
