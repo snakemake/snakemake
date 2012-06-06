@@ -222,7 +222,7 @@ class Rule:
 			depends = todo,
 			dryrun = dryrun,
 			touch = touch,
-			needrun = need_run,
+			needrun = need_run
 		)
 		jobs[(output, self)] = job
 		
