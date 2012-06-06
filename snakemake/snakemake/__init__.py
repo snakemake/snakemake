@@ -77,7 +77,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 			stats.writerow(("Overall runtime", s))
 		os.chdir(olddir)
 
-		if standalone and ret == 1:
+		if False and standalone and ret == 1:
 			try:
 				# make sure ill behaving child processes are really killed (this will fail if snakemake is called programatically since it will kill the whole process)
 				os.killpg(0, signal.SIGKILL)

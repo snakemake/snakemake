@@ -5,6 +5,7 @@ from multiprocessing import Event
 from collections import defaultdict, OrderedDict
 from tempfile import TemporaryFile
 
+from snakemake.logging import logger
 from snakemake.rules import Rule
 from snakemake.exceptions import MissingOutputException, MissingInputException, AmbiguousRuleException, CyclicGraphException, MissingRuleException, RuleException, CreateRuleException, ProtectedOutputException, UnknownRuleException, NoRulesException
 from snakemake.shell import shell, format
@@ -187,10 +188,11 @@ class Workflow:
 			scheduler = ClusterJobScheduler(set(jobs.values()), self, submitcmd = cluster)
 		else:
 			scheduler = KnapsackJobScheduler(set(jobs.values()), self)
-		scheduler.schedule()
+		success = scheduler.schedule()
 
-		if self.errors:
+		if not success:
 			Job.cleanup_unfinished(jobs.values())
+			logger.critical("Exiting because a job execution failed. Look above for error message")
 			return 1
 		return 0
 

@@ -45,7 +45,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowm
 			o.remove()
 		if not isinstance(ex, TerminatedException):
 			print_exception(ex, rowmaps)
-			raise Exception()
+			#raise Exception()
 
 class Job(Process):
 	count = 0
@@ -81,26 +81,17 @@ class Job(Process):
 		logger.info(self.message)
 	
 	def run(self):
-		try:
-			runtime = run_wrapper(*self.get_run_args())
-			print("finished", file=sys.stderr)
-		except:
-			for c in self.error_callbacks:
-				c()
-		self.finished(runtime)
+		run_wrapper(*self.get_run_args())
 	
 	def start(self):
 		if not self.needrun:
-			self.finished()
+			return
 		elif self.dryrun:
 			self.print_message()
-			self.finished()
 		elif self.touch:
 			logger.info(self.message)
 			for o in self.output:
 				o.touch(self.rule.name, self.rule.lineno, self.rule.snakefile)
-			# sleep shortly to ensure that output files of different rules are not touched at the same time.
-			time.sleep(0.1)
 			self.finished()
 		else:
 			super().start()
@@ -117,7 +108,6 @@ class Job(Process):
 	
 	def finished(self, runtime = None):
 		""" Set job to be finished. """	
-		print("callback", file=sys.stderr)
 		self.is_finished = True
 		if self.needrun and not self.dryrun:
 			self.workflow.jobcounter.done()
@@ -146,36 +136,49 @@ class Job(Process):
 
 
 class KnapsackJobScheduler:
-	def __init__(self, jobs, workflow):
+	def __init__(self, jobs, workflow, dryrun = False):
 		""" Create a new instance of KnapsackJobScheduler. """
 		self.workflow = workflow
 		self._maxcores = workflow.get_cores()
 		self._cores = self._maxcores
-		#self._pool = Pool(self._cores)
 		self._jobs = set(jobs)
 		self._lock = Lock()
 		self._open_jobs = Event()
 		self._open_jobs.set()
 		self._errors = False
+		self._active_jobs = set()
+		self._dryrun = dryrun
 
 	def terminate(self):
 		self._pool.close()
 		self._pool.terminate()
+
+	def has_finished_jobs(self):
+		has_finished = False
+		error = False
+		for job in list(self._active_jobs):
+			if not job.is_alive() or self._dryrun:
+				has_finished = True
+				self._cores += job.threads
+				self._active_jobs.remove(job)
+				if not self._dryrun:
+					error = job.exitcode < 0
+				job.finished()
+		return has_finished, error
 	
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
+		ready, error = True, False
 		while True:
-			self._open_jobs.wait()
-			self._open_jobs.clear()
-			print("scheduling", file=sys.stderr)
-			if self._errors:
-				for job in self._jobs:
-					job.terminate()
-				return
 			if not self._jobs:
-				return
-
-			print("ok", file=sys.stderr)
+				return True
+			if not ready:
+				continue
+			if error:
+				for job in self._jobs:
+					if job.pid:
+						job.terminate()
+				return False
 
 			needrun, norun = [], set()
 			for job in self._jobs:
@@ -191,17 +194,16 @@ class KnapsackJobScheduler:
 				else: norun.add(job)
 			
 			run = self._knapsack(needrun)
-			print(run, file=sys.stderr)
 			self._jobs -= run
 			self._jobs -= norun
 			self._cores -= sum(job.threads for job in run)
-			print(run, file=sys.stderr)
 			for job in chain(run, norun):
-				job.add_callback(self._finished)
-				job.add_error_callback(self._error)
-				print("Starting", file=sys.stderr)
 				job.start()
-			
+			self._active_jobs.update(run)
+			if not self._dryrun:		
+				time.sleep(0.1)
+			ready, error = self.has_finished_jobs()
+	
 	
 	def _run_job(self, job):
 		self._pool.apply_async(
@@ -211,11 +213,6 @@ class KnapsackJobScheduler:
 			error_callback = self._error
 		)
 		
-	def _finished(self, job):
-		self._cores += job.threads
-		print(self._cores)
-		self._open_jobs.set()
-	
 	def _error(self, error):
 		# clear jobs and stop the workflow
 		self._errors = True
@@ -243,7 +240,6 @@ class KnapsackJobScheduler:
 				solution.add(job)
 				j = j - job.threads
 			i -= 1
-		print(dimi, dimj, file=sys.stderr)
 		return solution
 
 class ClusterJobScheduler:

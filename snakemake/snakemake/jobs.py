@@ -8,7 +8,9 @@ from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
 from snakemake.logging import logger
 from multiprocessing import Process, Pool, Lock, Event
+import multiprocessing
 from itertools import chain
+from concurrent.futures import ProcessPoolExecutor
 
 __author__ = "Johannes Köster"
 
@@ -69,6 +71,7 @@ class Job:
 		self.depending = list()
 		self.is_finished = False
 		self._callbacks = list()
+		self._error_callbacks = list()
 		self.jobid = Job.count
 		Job.count += 1
 		for other in self.depends:
@@ -99,15 +102,24 @@ class Job:
 	def add_callback(self, callback):
 		""" Add a callback that is invoked when job is finished. """
 		self._callbacks.append(callback)
+
+	def add_error_callback(self, callback):
+		self._error_callbacks.append(callback)
 	
-	def finished(self, runtime = None):
+	def finished(self, future = None):
 		""" Set job to be finished. """	
+		if future:
+			ex = future.exception()
+			if ex:
+				for callback in self._error_callbacks:
+					callback()
+				return
 		self.is_finished = True
 		if self.needrun and not self.dryrun:
 			self.workflow.jobcounter.done()
 			logger.info(self.workflow.jobcounter)
-			if runtime != None:
-				self.workflow.report_runtime(self.rule, runtime)
+			if future != None:
+				self.workflow.report_runtime(self.rule, future.result())
 		for other in self.depending:
 			other.depends.remove(self)
 		for callback in self._callbacks:
@@ -135,7 +147,7 @@ class KnapsackJobScheduler:
 		self.workflow = workflow
 		self._maxcores = workflow.get_cores()
 		self._cores = self._maxcores
-		self._pool = Pool(self._cores)
+		self._pool = ProcessPoolExecutor(max_workers = self._cores)
 		self._jobs = set(jobs)
 		self._lock = Lock()
 		self._open_jobs = Event()
@@ -152,13 +164,11 @@ class KnapsackJobScheduler:
 			self._open_jobs.wait()
 			self._open_jobs.clear()
 			if self._errors:
-				self._pool.close()
-				self._pool.terminate()
-				return
+				self._pool.shutdown()
+				return False
 			if not self._jobs:
-				self._pool.close()
-				self._pool.join()
-				return
+				self._pool.shutdown()
+				return True
 
 			needrun, norun = [], set()
 			for job in self._jobs:
@@ -179,22 +189,25 @@ class KnapsackJobScheduler:
 			self._cores -= sum(job.threads for job in run)
 			for job in chain(run, norun):
 				job.add_callback(self._finished)
+				job.add_error_callback(self._error)
 				job.run(self._run_job)
 			
 	
 	def _run_job(self, job):
-		self._pool.apply_async(
-			run_wrapper, 
-			job.get_run_args(),
-			callback = job.finished,
-			error_callback = self._error
-		)
+		future = self._pool.submit(run_wrapper, *job.get_run_args())
+		future.add_done_callback(job.finished)
+		#self._pool.apply_async(
+		#	run_wrapper, 
+		#	job.get_run_args(),
+		#	callback = job.finished,
+		#	error_callback = self._error
+		#)
 		
 	def _finished(self, job):
 		self._cores += job.threads
 		self._open_jobs.set()
 	
-	def _error(self, error):
+	def _error(self):
 		# clear jobs and stop the workflow
 		self._errors = True
 		self._jobs = set()
@@ -232,6 +245,7 @@ class ClusterJobScheduler:
 		self._submitcmd = submitcmd
 		self._open_jobs = Event()
 		self._open_jobs.set()
+		self._error = False
 
 	def terminate(self):
 		pass
@@ -240,8 +254,10 @@ class ClusterJobScheduler:
 		while True:
 			self._open_jobs.wait()
 			self._open_jobs.clear()
+			if self._error:
+				return False
 			if not self._jobs:
-				return
+				return True
 			needrun, norun = set(), set()
 			for job in self._jobs:
 				if job.depends:
@@ -286,6 +302,7 @@ class ClusterJobScheduler:
 				os.remove(jobfailed)
 				os.remove(jobscript)
 				print_exception(ClusterJobException(job), self.workflow.rowmaps)
+				self._error = True
 				self._jobs = set()
 				self._open_jobs.set()
 				self.workflow.set_job_finished(error = True)

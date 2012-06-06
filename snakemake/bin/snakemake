@@ -40,8 +40,7 @@ def main():
 		logging.error("Error: Snakefile \"{}\" not present.".format(args.snakefile))
 		exit(1)
     
-	exit(
-		snakemake.snakemake(
+	ret = snakemake.snakemake(
 			args.snakefile, 
 			list = args.list,
 			jobs = args.jobs, 
@@ -58,7 +57,7 @@ def main():
 			cluster = args.cluster,
 			standalone = True,
 			dag = args.dag)
-	)
+	sys.exit(ret)
 
 if __name__ == "__main__":
 	main()

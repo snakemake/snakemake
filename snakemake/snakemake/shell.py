@@ -6,6 +6,7 @@ import sys, os, inspect
 import subprocess as sp
 from threading import Thread
 from snakemake.exceptions import TerminatedException
+import atexit
 
 __author__ = "Johannes Köster"
 
@@ -142,6 +143,7 @@ class shell(sp.Popen):
 		
 		self._stdout_free = False
 		self._pipethread = Thread(target = self._write_pipes, args = (pipes, toclose))
+		self._pipethread.daemon = True
 		self._pipethread.start()
 			
 		if len(other) == 1:
@@ -152,6 +154,8 @@ class shell(sp.Popen):
 		self | buf
 		shell.join_all()
 		return buf.__iter__()
+
+atexit.register(shell.terminate_all)
 
 if "SHELL" in os.environ:
 	shell._process_args["executable"] = os.environ["SHELL"]
