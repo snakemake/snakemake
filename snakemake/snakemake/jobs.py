@@ -3,7 +3,8 @@
 import signal
 import sys, time, os, threading
 from threading import Thread
-from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, ClusterJobException, print_exception
+from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, \
+	ClusterJobException, print_exception
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
 from snakemake.logging import logger
@@ -14,9 +15,11 @@ from concurrent.futures import ProcessPoolExecutor
 
 __author__ = "Johannes Köster"
 
-def run_wrapper(run, rulename, ruledesc, input, output, wildcards, threads, rowmaps, rulelineno, rulesnakefile):
+def run_wrapper(run, rulename, ruledesc, input, output, wildcards, 
+		threads, rowmaps, rulelineno, rulesnakefile):
 	"""
-	Wrapper around the run method that handles directory creation and output file deletion on error.
+	Wrapper around the run method that handles directory creation and
+	output file deletion on error.
 	
 	Arguments
 	run -- the run method
@@ -56,7 +59,10 @@ class Job:
 		for job in jobs:
 			job.cleanup()
 
-	def __init__(self, workflow, rule = None, message = None, input = None, output = None, wildcards = None, threads = 1, depends = set(), dryrun = False, touch = False, needrun = True):
+	def __init__(self, workflow, rule = None, message = None, 
+			input = None, output = None, wildcards = None, 
+			threads = 1, depends = set(), dryrun = False, 
+			touch = False, needrun = True):
 		self.workflow = workflow
 		self.rule = rule
 		self.message = message
@@ -90,14 +96,17 @@ class Job:
 			logger.info(self.message)
 			for o in self.output:
 				o.touch(self.rule.name, self.rule.lineno, self.rule.snakefile)
-			# sleep shortly to ensure that output files of different rules are not touched at the same time.
+			# sleep shortly to ensure that output files of different rules 
+			# are not touched at the same time.
 			time.sleep(0.1)
 			self.finished()
 		else:
 			run_func(self)
 	
 	def get_run_args(self):
-		return (self.rule.get_run(), self.rule.name, self.message, self.input, self.output, self.wildcards, self.threads, self.workflow.rowmaps, self.rule.lineno, self.rule.snakefile)
+		return (self.rule.get_run(), self.rule.name, self.message, 
+			self.input, self.output, self.wildcards, self.threads, 
+			self.workflow.rowmaps, self.rule.lineno, self.rule.snakefile)
 	
 	def add_callback(self, callback):
 		""" Add a callback that is invoked when job is finished. """
@@ -135,7 +144,10 @@ class Job:
 		if not self.depends and self.wildcards:
 			for wildcard, value in self.wildcards.items():
 				label += "\\n{}: {}".format(wildcard, value)
-		return chain(("{} -> {};".format(j.jobid, self.jobid) for j in self.depends if j.needrun), ('{}[label = "{}"];'.format(self.jobid, label),))
+		edges = ("{} -> {};".format(j.jobid, self.jobid) 
+			for j in self.depends if j.needrun)
+		node = ('{}[label = "{}"];'.format(self.jobid, label),)
+		return chain(node, edges)
 			
 	def __repr__(self):
 		return self.rule.name
@@ -145,7 +157,7 @@ class KnapsackJobScheduler:
 	def __init__(self, jobs, workflow):
 		""" Create a new instance of KnapsackJobScheduler. """
 		self.workflow = workflow
-		self._maxcores = workflow.get_cores()
+		self._maxcores = workflow.cores
 		self._cores = self._maxcores
 		self._pool = ProcessPoolExecutor(max_workers = self._cores)
 		self._jobs = set(jobs)
@@ -177,9 +189,12 @@ class KnapsackJobScheduler:
 					continue
 				if job.needrun:
 					if job.threads > self._maxcores:
-						# reduce the number of threads so that it fits to available cores.
+						# reduce the number of threads so that it 
+						# fits to available cores.
 						if not job.dryrun:
-							logger.warn("Rule {} defines too many threads ({}), Scaling down to {}.".format(job.rule, job.threads, self._maxcores))
+							logger.warn(
+								"Rule {} defines too many threads ({}), Scaling down to {}."
+								.format(job.rule, job.threads, self._maxcores))
 						job.threads = self._maxcores
 					needrun.append(job)
 				else: norun.add(job)
@@ -197,12 +212,6 @@ class KnapsackJobScheduler:
 	def _run_job(self, job):
 		future = self._pool.submit(run_wrapper, *job.get_run_args())
 		future.add_done_callback(job.finished)
-		#self._pool.apply_async(
-		#	run_wrapper, 
-		#	job.get_run_args(),
-		#	callback = job.finished,
-		#	error_callback = self._error
-		#)
 		
 	def _finished(self, job):
 		self._cores += job.threads
@@ -213,7 +222,6 @@ class KnapsackJobScheduler:
 		self._errors = True
 		self._jobs = set()
 		self._open_jobs.set()
-		self.workflow.set_job_finished(error = True)
 	
 	def _knapsack(self, jobs):
 		""" Solve 0-1 knapsack to maximize cpu utilization. """

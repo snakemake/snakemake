@@ -59,7 +59,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 			print_rules(logger.info)
 			return 0
 	
-		workflow.set_cores(jobs)
+		workflow.cores = jobs
 		
 		ret = 0
 		if not targets: 

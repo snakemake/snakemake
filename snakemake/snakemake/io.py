@@ -36,6 +36,7 @@ class IOFile(str):
 		return None
 	
 	def __init__(self, file):
+		super().__init__(file)
 		self._is_function = type(file).__name__ == "function"
 		self._file = file
 		self._needed = 0
@@ -128,37 +129,6 @@ class IOFile(str):
 		f += re.escape(self.get_file()[last:])
 		return f
 
-	@classmethod
-	def splitpattern(cls, path):
-		return path + "{chunk}"
-
-	@classmethod
-	def splittedpaths(cls, path, chunks = 2):
-		pattern = cls.splitpattern(path)
-		return [pattern.format(chunk = "{:03}".format(c)) for c in range(chunks)]
-
-	def split(self, chunks = 2):
-		with open(self._file) as f:
-			lines = sum(1 for l in f)
-	
-		splitpattern = self.splitpattern(chunks)
-		chunksize = lines // chunks
-		with open(self._file) as f:
-			for chunkpath in self.splittedpaths(self._file, chunks = chunks):
-				with open(chunkpath) as chunkfile:
-					for i in range(chunksize):
-						chunkfile.write(next(f))
-
-	def merge(self, chunks = 2):
-		with open(self._file) as f:
-			for chunkpath in self.splittedpaths(self._file, chunks = chunks):
-				with open(chunkpath) as chunkfile:
-					for l in chunkfile:
-						f.write(l)
-	
-	def __str__(self):
-		return self.get_file()
-
 class temp(str):
 	""" A flag for an input or output file that shall be removed after usage. """
 	pass
@@ -170,9 +140,6 @@ class temporary(temp):
 class protected(str):
 	""" A flag for a file that shall be write protected after creation. """
 	pass
-
-def splitted(iofile):
-	return IOFile.splitpattern(iofile)
 	
 class Namedlist(list):
 	"""
