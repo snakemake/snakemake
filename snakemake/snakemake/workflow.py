@@ -307,5 +307,3 @@ class RuleInfo:
 		self.output = None
 		self.message = None
 		self.threads = None
-
-#workflow = Workflow()
