@@ -164,6 +164,7 @@ class KnapsackJobScheduler:
 			self._open_jobs.wait()
 			self._open_jobs.clear()
 			if self._errors:
+				logger.warning("Will exit after finishing currently running jobs.")
 				self._pool.shutdown()
 				return False
 			if not self._jobs:
@@ -255,6 +256,7 @@ class ClusterJobScheduler:
 			self._open_jobs.wait()
 			self._open_jobs.clear()
 			if self._error:
+				logger.warning("Will exit after finishing currently running jobs.")
 				return False
 			if not self._jobs:
 				return True
