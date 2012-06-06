@@ -194,8 +194,8 @@ class Workflow:
 			Job.cleanup_unfinished(jobs.values())
 			logger.critical(
 				"Exiting because a job execution failed. Look above for error message")
-			return 1
-		return 0
+			return False
+		return True
 
 	def check_rules(self):
 		"""

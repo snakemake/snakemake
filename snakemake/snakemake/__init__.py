@@ -61,12 +61,12 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	
 		workflow.cores = jobs
 		
-		ret = 0
+		success = True
 		if not targets: 
-			ret = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster, dag = dag)
+			success = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster, dag = dag)
 		else:
-			ret = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster, dag = dag)
-		if ret == 0 and stats:
+			success = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster, dag = dag)
+		if success and stats:
 			stats = csv.writer(open(stats, "w"), delimiter = "\t")
 			stats.writerow("rule minimum maximum sum mean".split())
 			s = 0
@@ -76,16 +76,8 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 			stats.writerow([])
 			stats.writerow(("Overall runtime", s))
 		os.chdir(olddir)
-
-		if False and standalone and ret == 1:
-			try:
-				# make sure ill behaving child processes are really killed (this will fail if snakemake is called programatically since it will kill the whole process)
-				os.killpg(0, signal.SIGKILL)
-			except:
-				# ignore: if it does not work we can still work without it, but it may happen that some processes continue to run
-				pass
-		return ret
+		return success
 	except (Exception, BaseException) as ex:
 		print_exception(ex, workflow.rowmaps)
 		os.chdir(olddir)
-		return 1
+		return False

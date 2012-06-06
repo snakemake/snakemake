@@ -35,6 +35,8 @@ def print_exception(ex, rowmaps):
 		for e in ex._include + [ex]:
 			if not e.omit:
 				logger.critical(format_error(e, e.lineno, rowmaps = rowmaps, snakefile = e.filename))
+	elif isinstance(ex, KeyboardInterrupt):
+		logger.warning("Cancelling snakemake on user request.")
 	else:
 		traceback.print_tb(ex.__traceback__)
 		logger.critical(ex)
