@@ -38,7 +38,7 @@ def run(path, shouldfail=False, **params):
 		if shouldfail:
 			assert not success, "expected error on execution"
 		else:
-			assert success, "expected successful execution".format(exitcode)
+			assert success, "expected successful execution"
 			for resultfile in os.listdir(results_dir):
 				if not os.path.isfile(resultfile):
 					continue # skip .svn dirs etc.

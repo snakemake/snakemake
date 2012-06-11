@@ -175,7 +175,7 @@ class KnapsackJobScheduler:
 		""" Schedule jobs that are ready, maximizing cpu usage. """
 		while True:
 			self._open_jobs.wait()
-			self._lock.acquire()
+			#self._lock.acquire()
 			self._open_jobs.clear()
 			if self._errors:
 				logger.warning("Will exit after finishing currently running jobs.")
@@ -205,7 +205,7 @@ class KnapsackJobScheduler:
 			self._jobs -= run
 			self._jobs -= norun
 			self._cores -= sum(job.threads for job in run)
-			self._lock.release()
+			#self._lock.release()
 			for job in chain(run, norun):
 				job.add_callback(self._finished)
 				job.add_error_callback(self._error)
@@ -217,10 +217,10 @@ class KnapsackJobScheduler:
 		future.add_done_callback(job.finished)
 		
 	def _finished(self, job):
-		self._lock.acquire()
+		#self._lock.acquire()
 		if job.needrun:
 			self._cores += job.threads
-		self._lock.release()
+		#self._lock.release()
 		self._open_jobs.set()
 	
 	def _error(self):

@@ -6,7 +6,6 @@ rule all:
 rule compute1:
 	input: '{name}.in'
 	output: ['{name}.%s.inter'%c for c in chromosomes]
-	message: 'Computing results for {input[0]}'
 	run: 
 		for out in output:
 			shell('(cat {input[0]} && echo "Part {out}") > {out}')
@@ -14,12 +13,10 @@ rule compute1:
 rule compute2:
 	input: '{name}.{chromosome}.inter'
 	output: '{name}.{chromosome}.inter2'
-	message: 'Converting {input[0]} --> {output[0]}'
 	shell: 'cp {input[0]} {output[0]}'
 
 rule gather:
 	input: ['{name}.%s.inter2'%c for c in chromosomes]
 	output: '{name}.predictions'
-	message: 'Gathering results'
 	run:
 		shell('cat {} > {}'.format(' '.join(input), output[0]))
