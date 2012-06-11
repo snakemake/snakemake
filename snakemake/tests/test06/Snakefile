@@ -1,8 +1,9 @@
 rule all:
-	input: 'test.bla.out'
+	input: 'test.bla.out', 'test.blub.out'
 
 rule wildcards:
 	input: 'test.in'
 	output: 'test.{xyz}.out'
 	message: 'Creating file {output[0]}, xyz={wildcards.xyz}'
-	shell: 'echo {wildcards.xyz} > {output[0]}'
+	threads: 2
+	shell: 'sleep 5; echo {wildcards.xyz} > {output[0]}'
