@@ -159,7 +159,7 @@ class Workflow:
 			if workflow.is_rule(target):
 				ruletargets.append(target)
 			else:
-				filetargets.append(target)
+				filetargets.append(os.path.relpath(target))
 		
 		torun = self.get_file_producers(filetargets, forcethis = forcethis, 
 			forceall = forceall, dryrun = dryrun) + \
