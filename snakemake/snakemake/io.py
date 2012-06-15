@@ -60,7 +60,7 @@ class IOFile(str):
 	
 	def used(self):
 		self._needed -= 1
-		if self._temp and self._needed == 0:
+		if self._temp and self._needed == 0 and os.path.exists(self.get_file()):
 			logger.warning("Deleting temporary file {}".format(self))
 			os.remove(self.get_file())
 
