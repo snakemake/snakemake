@@ -152,9 +152,8 @@ class States:
 
 	def rule_body(self, token):
 		""" State that handles the rule body. """
-		if token.type == NEWLINE:
+		if token.type == NEWLINE or token.type == STRING:
 			pass
-			#self.tokens.add(token, orig_token = token)
 		elif token.type == NAME and token.string in ("input", "output", "run", "shell", "threads", "message"):
 			self.state = self.main_states[token.string]
 		elif not token.type in (INDENT, DEDENT, COMMENT, NL):
