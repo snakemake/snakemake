@@ -2,7 +2,7 @@
 
 import _io
 import signal
-import sys, os, inspect
+import sys, os, inspect, time
 import subprocess as sp
 from threading import Thread
 from snakemake.exceptions import TerminatedException
@@ -76,7 +76,17 @@ class shell(sp.Popen):
 			self.wait()
 
 	def wait(self):
-		ret = super(shell, self).wait()
+		#ret = super().wait()
+		ret = self.poll()
+		while ret == None:
+			if self._prog_term:
+				try:
+					self.kill()
+				except OSError:
+					pass
+				raise sp.CalledProcessError(-2, self.cmd)
+			time.sleep(0.1)
+			ret = self.poll()
 		if self._pipethread:
 			self._pipethread.join()
 		if self._prog_term:
@@ -97,11 +107,6 @@ class shell(sp.Popen):
 	def terminate_all(*args):
 		for p in shell._processes:
 			p._prog_term = True
-			try:
-				p.kill()
-			except OSError:
-				# if killing fails, then the process is already killed.
-				pass
 		
 	def _stdoutlines(self):
 		while True:

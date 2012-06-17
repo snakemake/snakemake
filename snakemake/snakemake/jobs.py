@@ -2,16 +2,20 @@
 
 import signal
 import sys, time, os, threading
-from threading import Thread
+from itertools import chain
 from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, \
 	ClusterJobException, print_exception
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected
 from snakemake.logging import logger
-from multiprocessing import Process, Pool, Lock, Event
-import multiprocessing
-from itertools import chain
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+
+if os.name == "posix":
+	from multiprocessing import Event
+	PoolExecutor = ProcessPoolExecutor
+else:
+	from threading import Event
+	PoolExecutor = ThreadPoolExecutor
 
 __author__ = "Johannes Köster"
 
@@ -159,23 +163,16 @@ class KnapsackJobScheduler:
 		self.workflow = workflow
 		self._maxcores = workflow.cores
 		self._cores = self._maxcores
-		self._cores_lock = Lock()
-		self._pool = ProcessPoolExecutor(max_workers = self._cores)
+		self._pool = PoolExecutor(max_workers = self._cores)
 		self._jobs = set(jobs)
-		self._lock = Lock()
 		self._open_jobs = Event()
 		self._open_jobs.set()
 		self._errors = False
 
-	def terminate(self):
-		self._pool.close()
-		self._pool.terminate()
-	
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
 		while True:
 			self._open_jobs.wait()
-			#self._lock.acquire()
 			self._open_jobs.clear()
 			if self._errors:
 				logger.warning("Will exit after finishing currently running jobs.")
@@ -205,7 +202,6 @@ class KnapsackJobScheduler:
 			self._jobs -= run
 			self._jobs -= norun
 			self._cores -= sum(job.threads for job in run)
-			#self._lock.release()
 			for job in chain(run, norun):
 				job.add_callback(self._finished)
 				job.add_error_callback(self._error)
@@ -217,10 +213,8 @@ class KnapsackJobScheduler:
 		future.add_done_callback(job.finished)
 		
 	def _finished(self, job):
-		#self._lock.acquire()
 		if job.needrun:
 			self._cores += job.threads
-		#self._lock.release()
 		self._open_jobs.set()
 	
 	def _error(self):
@@ -261,9 +255,6 @@ class ClusterJobScheduler:
 		self._open_jobs = Event()
 		self._open_jobs.set()
 		self._error = False
-
-	def terminate(self):
-		pass
 
 	def schedule(self):
 		while True:
