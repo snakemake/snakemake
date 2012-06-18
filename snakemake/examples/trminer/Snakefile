@@ -1,5 +1,5 @@
 
-DATASETS = "adhesome".split()
+DATASETS = "adhesome ecm".split()
 
 rule all:
 	input: "{ds}/matches.html".format(ds=ds) for ds in DATASETS 
