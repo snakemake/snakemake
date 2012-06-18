@@ -4,7 +4,6 @@
 import os, sys
 import argparse
 import logging
-import multiprocessing as mp
 
 __author__ = "Johannes Köster"
 
@@ -17,22 +16,51 @@ if os.path.isfile(os.path.join(_libdir, 'snakemake', '__init__.py')):
 import snakemake
 
 def main():
-	parser = argparse.ArgumentParser(description="Execute workflow defined in the given snakefile.")
-	parser.add_argument("targets", nargs="*", default=None, help="Targets to build. May be rules or files.")
-	parser.add_argument("--snakefile", "-s", metavar="FILE", default="Snakefile", help="The workflow definition in a pythonic DSL.")
-	parser.add_argument("--jobs", "-j", action="store", default=1, const=mp.cpu_count(), nargs="?", metavar="N", dest="jobs", type=int, help="Execute at most N jobs in parallel (default: 1). If N is omitted, the limit is set to the number of available cores.")
-	parser.add_argument("--list", "-l", action="store_true", help="Show availiable rules in given snakefile.")
-	parser.add_argument("--directory", "-d", metavar="DIR", action="store", help="Specify working directory (relative paths in the snakefile will use this as their origin).")
-	parser.add_argument("--dryrun", "-n", action="store_true", help="Do not execute anything.")
-	parser.add_argument("--dag", action="store_true", help="Do not execute anything and print the directed acyclic graph of jobs to execute in the dot language.")
-	parser.add_argument("--touch", "-t", action="store_true", help="Touch output files (mark them up to date without really changing them) instead of running their commands. This is used to pretend that the rules were executed, in order to fool future invocations of snakemake. Fails if a file does not yet exist.")
-	parser.add_argument("--force", "-f", action="store_true", help="Force the execution of the selected (or the first) rule regardless of already created output.")
-	parser.add_argument("--forceall", "-F", action="store_true", help="Force the execution of the selected (or the first) rule and all rules it is dependent on regardless of already created output.")
-	parser.add_argument("--cluster", "-c", metavar="CMD", help="Execute snakemake rules with the given submit command, e.g. qsub. Snakemake compiles jobs into scripts that are submitted to the cluster with the given command, once all input files for a particular job are present.")
-	parser.add_argument("--reason", "-r", action = "store_true", help="Print the reason for each executed rule.")
-	parser.add_argument("--stats", metavar="FILE", help="Write stats about Snakefile execution to the given file.")
-	parser.add_argument("--nocolor", action = "store_true", help="Do not use a colored output.")
-	parser.add_argument("--quiet", action = "store_true", help="Do not output any progress or rule information.")
+	parser = argparse.ArgumentParser(description="Snakemake is a Python based language and execution environment for make-like workflows.")
+	parser.add_argument("target", nargs="*", default=None, 
+	                    help="Targets to build. May be rules or files.")
+	parser.add_argument("--snakefile", "-s", metavar="FILE", 
+	                    default="Snakefile", help="The workflow definition in a snakefile.")
+	parser.add_argument("--jobs", "-j", action="store", default=1, 
+	                    const=None, nargs="?", metavar="N", 
+	                    dest="jobs", type=int, 
+	                    help=("Execute at most N jobs in parallel (default: 1). "
+	                          "If N is omitted, the limit is set to the number of available cores."))
+	parser.add_argument("--list", "-l", action="store_true", 
+	                    help="Show availiable rules in given snakefile.")
+	parser.add_argument("--directory", "-d", metavar="DIR", action="store", 
+	                    help=("Specify working directory (relative paths in "
+	                          "the snakefile will use this as their origin)."))
+	parser.add_argument("--dryrun", "-n", action="store_true", 
+	                    help="Do not execute anything.")
+	parser.add_argument("--dag", action="store_true", 
+	                    help=("Do not execute anything and print the directed "
+	                          "acyclic graph of jobs to execute in the dot language."))
+	parser.add_argument("--touch", "-t", action="store_true", 
+	                    help=("Touch output files (mark them up to date without really "
+	                          "changing them) instead of running their commands. This is "
+	                          "used to pretend that the rules were executed, in order to "
+	                          "fool future invocations of snakemake. Fails if a file does "
+	                          "not yet exist."))
+	parser.add_argument("--force", "-f", action="store_true", 
+	                    help=("Force the execution of the selected (or the first) rule "
+	                          "regardless of already created output."))
+	parser.add_argument("--forceall", "-F", action="store_true", 
+	                    help=("Force the execution of the selected (or the first) rule and "
+	                         "all rules it is dependent on regardless of already created output."))
+	parser.add_argument("--cluster", "-c", metavar="CMD", 
+	                    help=("Execute snakemake rules with the given submit command, e.g. qsub. "
+	                          "Snakemake compiles jobs into scripts that are submitted to the "
+	                          "cluster with the given command, once all input files for a "
+	                          "particular job are present."))
+	parser.add_argument("--reason", "-r", action = "store_true", 
+	                    help="Print the reason for each executed rule.")
+	parser.add_argument("--stats", metavar="FILE", 
+	                    help="Write stats about Snakefile execution to the given file.")
+	parser.add_argument("--nocolor", action = "store_true", 
+	                    help="Do not use a colored output.")
+	parser.add_argument("--quiet", action = "store_true", 
+	                    help="Do not output any progress or rule information.")
 	parser.add_argument("--version", "-v", action="version", version=snakemake.__version__)
     
 	args = parser.parse_args()
@@ -46,7 +74,7 @@ def main():
 			list = args.list,
 			jobs = args.jobs, 
 			directory = args.directory, 
-			targets = args.targets, 
+			targets = args.target, 
 			dryrun = args.dryrun, 
 			touch = args.touch, 
 			forcethis = args.force,

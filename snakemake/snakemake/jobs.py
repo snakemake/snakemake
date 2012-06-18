@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import signal
-import sys, time, os, threading
+import sys, time, os, threading, multiprocessing
 from itertools import chain
 from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, \
 	ClusterJobException, print_exception
@@ -161,7 +161,7 @@ class KnapsackJobScheduler:
 	def __init__(self, jobs, workflow):
 		""" Create a new instance of KnapsackJobScheduler. """
 		self.workflow = workflow
-		self._maxcores = workflow.cores
+		self._maxcores = workflow.cores if workflow.cores else multiprocessing.cpu_count()
 		self._cores = self._maxcores
 		self._pool = PoolExecutor(max_workers = self._cores)
 		self._jobs = set(jobs)
@@ -255,6 +255,7 @@ class ClusterJobScheduler:
 		self._open_jobs = Event()
 		self._open_jobs.set()
 		self._error = False
+		self._cores = workflow.cores
 
 	def schedule(self):
 		while True:
@@ -287,9 +288,10 @@ class ClusterJobScheduler:
 		jobscript = "{}.{}.sh".format(prefix, jobid)
 		jobfinished = "{}.{}.jobfinished".format(prefix, jobid)
 		jobfailed = "{}.{}.jobfailed".format(prefix, jobid)
+		cores = self._cores if self._cores else ""
 		shell("""
 			echo '#!/bin/sh' > "{jobscript}"
-			echo 'snakemake --force --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"' >> "{jobscript}"
+			echo 'snakemake --force -j{self._cores} --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"' >> "{jobscript}"
 			chmod +x "{jobscript}"
 			{self._submitcmd} "{jobscript}"
 		""")
