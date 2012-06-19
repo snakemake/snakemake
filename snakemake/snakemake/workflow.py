@@ -105,7 +105,7 @@ class Workflow:
 
 	def run_first_rule(self, dryrun = False, touch = False, 
 		forcethis = False, forceall = False, give_reason = False, 
-		cluster = None, dag = False):
+		cluster = None, dag = False, ignore_ambiguity = False):
 		"""
 		Apply the rule defined first.
 		"""
@@ -117,10 +117,10 @@ class Workflow:
 		return self._run([(self.get_rule(first), None)], 
 			dryrun = dryrun, touch = touch, forcethis = forcethis, 
 			forceall = forceall, give_reason = give_reason, 
-			cluster = cluster, dag = dag)
+			cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
 			
 	def get_file_producers(self, files, dryrun = False, 
-		forcethis = False, forceall = False):
+		forcethis = False, forceall = False, ignore_ambiguity = False):
 		"""
 		Return a dict of rules with requested files such that the requested files are produced.
 		
@@ -134,6 +134,8 @@ class Workflow:
 				rule.run(file, jobs=dict(), forceall = forceall, 
 					dryrun = True, visited = set())
 				if file in producers:
+					if ignore_ambiguity:
+						continue
 					raise AmbiguousRuleException(producers[file], rule)
 				producers[file] = rule
 			except MissingInputException as ex:
@@ -153,7 +155,7 @@ class Workflow:
 	
 	def run_rules(self, targets, dryrun = False, touch = False, 
 		forcethis = False, forceall = False, give_reason = False, 
-		cluster = None, dag = False):
+		cluster = None, dag = False, ignore_ambiguity = False):
 		ruletargets, filetargets = [], []
 		for target in targets:
 			if workflow.is_rule(target):
@@ -162,7 +164,7 @@ class Workflow:
 				filetargets.append(os.path.relpath(target))
 		
 		torun = self.get_file_producers(filetargets, forcethis = forcethis, 
-			forceall = forceall, dryrun = dryrun) + \
+			forceall = forceall, dryrun = dryrun, ignore_ambiguity = ignore_ambiguity) + \
 			[(self.get_rule(name), None) for name in ruletargets]
 				
 		return self._run(torun, dryrun = dryrun, touch = touch, 
@@ -170,7 +172,8 @@ class Workflow:
 			give_reason = give_reason, cluster = cluster, dag = dag)
 	
 	def _run(self, torun, dryrun = False, touch = False, forcethis = False, 
-		forceall = False, give_reason = False, cluster = None, dag = False):
+		forceall = False, give_reason = False, cluster = None, dag = False,
+		ignore_ambiguity = False):
 		self.jobcounter = Jobcounter()
 		jobs = dict()
 		Job.count = 0
@@ -178,7 +181,8 @@ class Workflow:
 		for rule, requested_output in torun:
 			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, 
 				forceall = forceall, dryrun = dryrun, give_reason = give_reason, 
-				touch = touch, visited = set(), jobcounter = self.jobcounter)
+				touch = touch, visited = set(), jobcounter = self.jobcounter, 
+				ignore_ambiguity = ignore_ambiguity)
 		
 		if dag:
 			print_job_dag(jobs.values())

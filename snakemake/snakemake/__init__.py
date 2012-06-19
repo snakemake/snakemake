@@ -8,7 +8,7 @@ from snakemake.logging import logger, ColorizingStreamHandler
 __author__ = "Johannes Köster"
 __version__ = "1.1.4"
 
-def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, give_reason = False, nocolor = False, quiet = False, cluster = None, standalone = False, dag = False):
+def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, give_reason = False, nocolor = False, quiet = False, cluster = None, standalone = False, dag = False, ignore_ambiguity = False):
 	"""
 	Run snakemake on a given snakefile.
 		
@@ -63,9 +63,9 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 		
 		success = True
 		if not targets: 
-			success = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster, dag = dag)
+			success = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
 		else:
-			success = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster, dag = dag)
+			success = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, give_reason = give_reason, cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
 		if success and stats:
 			stats = csv.writer(open(stats, "w"), delimiter = "\t")
 			stats.writerow("rule minimum maximum sum mean".split())

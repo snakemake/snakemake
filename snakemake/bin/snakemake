@@ -48,6 +48,10 @@ def main():
 	parser.add_argument("--forceall", "-F", action="store_true", 
 	                    help=("Force the execution of the selected (or the first) rule and "
 	                         "all rules it is dependent on regardless of already created output."))
+	parser.add_argument("--ignore-ambiguity", action="store_true",
+	                    help=("Don't check for ambiguous rules and simply use the first if "
+	                          "several can produce the same file. This allows the user to "
+	                          "prioritize rules by their order in the snakefile."))
 	parser.add_argument("--cluster", "-c", metavar="CMD", 
 	                    help=("Execute snakemake rules with the given submit command, e.g. qsub. "
 	                          "Snakemake compiles jobs into scripts that are submitted to the "
@@ -85,7 +89,8 @@ def main():
 			quiet = args.quiet,
 			cluster = args.cluster,
 			standalone = True,
-			dag = args.dag)
+			dag = args.dag,
+			ignore_ambiguity = options.ignore_ambiguity)
 	exit(0 if success else 1)
 
 if __name__ == "__main__":

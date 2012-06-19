@@ -136,7 +136,10 @@ class Rule:
 				return True
 		return False
 	
-	def run(self, requested_output = None, forceall = False, forcethis = False, give_reason = False, jobs = dict(), dryrun = False, touch = False, quiet = False, visited = set(), jobcounter = None, parentmintime = None):
+	def run(self, requested_output = None, forceall = False, forcethis = False, 
+	        give_reason = False, jobs = dict(), dryrun = False, touch = False, 
+	        quiet = False, visited = set(), jobcounter = None, parentmintime = None, 
+	        ignore_ambiguity = False):
 		"""
 		Run the rule.
 		
@@ -160,8 +163,7 @@ class Rule:
 		output_mintime = IOFile.mintime(output) or parentmintime
 		
 		missing_input_exceptions = list()
-		protected_output_exceptions = list()
-		
+		protected_output_exceptions = list()	
 		files_produced_with_error = set()
 		todo = set()
 		produced = dict()
@@ -179,7 +181,12 @@ class Rule:
 					jobcounter = jobcounter,
 					parentmintime = output_mintime)
 				if file in produced:
-					raise AmbiguousRuleException(produced[file], rule, lineno = self.lineno, snakefile = self.snakefile)
+					if ignore_ambiguity:
+						# ignore this job but don't throw error
+						continue
+					raise AmbiguousRuleException(produced[file], rule, 
+					                             lineno = self.lineno, 
+					                             snakefile = self.snakefile)
 				if job.needrun:
 					todo.add(job)
 				produced[file] = rule
@@ -204,7 +211,9 @@ class Rule:
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output or protected_output_exceptions:
-			raise ProtectedOutputException(self, protected_output, include = protected_output_exceptions, lineno = self.lineno, snakefile = self.snakefile)
+			raise ProtectedOutputException(self, protected_output, 
+			                               include = protected_output_exceptions, 
+			                               lineno = self.lineno, snakefile = self.snakefile)
 			
 		for f in input:
 			f.need()
@@ -214,7 +223,8 @@ class Rule:
 		job = Job(
 			self.workflow,
 			rule = self, 
-			message = self.get_message(input, output, wildcards, reason if give_reason else None),
+			message = self.get_message(input, output, wildcards, 
+			                           reason if give_reason else None),
 			input = input,
 			output = output,
 			wildcards = wildcards,
