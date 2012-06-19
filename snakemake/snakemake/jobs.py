@@ -314,7 +314,6 @@ class ClusterJobScheduler:
 				self._error = True
 				self._jobs = set()
 				self._open_jobs.set()
-				self.workflow.set_job_finished(error = True)
 				return
 			time.sleep(1)
 

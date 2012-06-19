@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os, re, sys
+from snakemake.logging import logger
 from snakemake.jobs import Job
 from snakemake.io import IOFile, protected, temp, Namedlist
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException, IOFileException
@@ -184,6 +185,7 @@ class Rule:
 				if file in produced:
 					if ignore_ambiguity:
 						# ignore this job but don't throw error
+						logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file]))
 						continue
 					raise AmbiguousRuleException(file, produced[file], rule, 
 					                             lineno = self.lineno, 

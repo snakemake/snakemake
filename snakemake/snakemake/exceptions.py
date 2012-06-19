@@ -84,7 +84,7 @@ class ProtectedOutputException(IOException):
 class AmbiguousRuleException(RuleException):
 	def __init__(self, filename, rule1, rule2, lineno = None, snakefile = None):
 		super().__init__("Rules {} and {} are ambiguous for the file {}.".format(rule1, rule2, filename), lineno = lineno, snakefile = snakefile)
-
+	
 class CyclicGraphException(RuleException):
 	def __init__(self, rule, lineno = None, snakefile = None):
 		super().__init__("Cyclic dependency on rule {}.".format(rule), lineno = lineno, snakefile = snakefile)

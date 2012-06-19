@@ -135,6 +135,7 @@ class Workflow:
 					dryrun = True, visited = set())
 				if file in producers:
 					if ignore_ambiguity:
+						logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file]))
 						continue
 					raise AmbiguousRuleException(file, producers[file], rule)
 				producers[file] = rule

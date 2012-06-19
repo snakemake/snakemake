@@ -48,7 +48,7 @@ def main():
 	parser.add_argument("--forceall", "-F", action="store_true", 
 	                    help=("Force the execution of the selected (or the first) rule and "
 	                         "all rules it is dependent on regardless of already created output."))
-	parser.add_argument("--ignore-ambiguity", action="store_true",
+	parser.add_argument("--allow-ambiguity", "-a", action="store_true",
 	                    help=("Don't check for ambiguous rules and simply use the first if "
 	                          "several can produce the same file. This allows the user to "
 	                          "prioritize rules by their order in the snakefile."))
@@ -90,7 +90,7 @@ def main():
 			cluster = args.cluster,
 			standalone = True,
 			dag = args.dag,
-			ignore_ambiguity = args.ignore_ambiguity)
+			ignore_ambiguity = args.allow_ambiguity)
 	exit(0 if success else 1)
 
 if __name__ == "__main__":

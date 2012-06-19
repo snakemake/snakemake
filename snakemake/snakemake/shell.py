@@ -10,6 +10,18 @@ import atexit
 
 __author__ = "Johannes Köster"
 
+class SequenceFormatter:
+	def __init__(self, sequence):
+		self._sequence = sequence
+
+	def __getitem__(self, i):
+		return self._sequence[i]
+
+	def __str__(self):
+		return " ".join(self._sequence)
+
+
+
 def format(string, *args, stepout = 1, **kwargs):
 	frame = inspect.currentframe().f_back
 	while stepout > 1:
@@ -22,6 +34,10 @@ def format(string, *args, stepout = 1, **kwargs):
 	# add local variables from calling rule/function
 	variables.update(frame.f_locals)
 	variables.update(kwargs)
+	strmethods = list()
+	for key, value in list(variables.items()):
+		if type(value) == list or type(value) == tuple:
+			variables[key] = SequenceFormatter(value)
 	try:
 		return string.format(*args, **variables)
 	except KeyError as ex:
