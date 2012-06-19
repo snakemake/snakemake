@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os, re, sys
+from collections import defaultdict
 from snakemake.logging import logger
 from snakemake.jobs import Job
 from snakemake.io import IOFile, protected, temp, Namedlist
@@ -163,9 +164,7 @@ class Rule:
 
 		output_mintime = IOFile.mintime(output) or parentmintime
 		
-		missing_input_exceptions = list()
-		protected_output_exceptions = list()	
-		files_produced_with_error = set()
+		exceptions = defaultdict(list)
 		todo = set()
 		produced = dict()
 		for rule, file in self.workflow.get_producers(input, exclude=self):
@@ -194,19 +193,19 @@ class Rule:
 				if job.needrun:
 					todo.add(job)
 				produced[file] = rule
-			except (ProtectedOutputException, MissingInputException) as ex:
-				if isinstance(ex, ProtectedOutputException):
-					protected_output_exceptions.append(ex)
-				else:
-					missing_input_exceptions.append(ex)
-				files_produced_with_error.add(file)
+			except (ProtectedOutputException, MissingInputException, CyclicGraphException) as ex:
+				exceptions[file].append(ex)
 		
 		missing_input = self._get_missing_files(set(input) - produced.keys())
 		if missing_input:
+			_ex = list()
+			for file, exs in exceptions.items():
+				if file not in produced:
+					_ex.extend(exs)
 			raise MissingInputException(
 				rule = self,
-				files = set(missing_input) - files_produced_with_error, 
-				include = missing_input_exceptions,
+				files = set(missing_input) - exceptions.keys(), 
+				include = _ex,
 				lineno = self.lineno, 
 				snakefile = self.snakefile
 			)
@@ -214,10 +213,10 @@ class Rule:
 		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, output_mintime, requested_output)
 		
 		protected_output = self._get_protected_output(output) if need_run else None
-		if protected_output or protected_output_exceptions:
+		if protected_output:
 			raise ProtectedOutputException(self, protected_output, 
-			                               include = protected_output_exceptions, 
-			                               lineno = self.lineno, snakefile = self.snakefile)
+			                               lineno = self.lineno, 
+			                               snakefile = self.snakefile)
 			
 		for f in input:
 			f.need()
