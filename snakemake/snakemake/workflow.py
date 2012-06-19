@@ -136,7 +136,7 @@ class Workflow:
 				if file in producers:
 					if ignore_ambiguity:
 						continue
-					raise AmbiguousRuleException(producers[file], rule)
+					raise AmbiguousRuleException(file, producers[file], rule)
 				producers[file] = rule
 			except MissingInputException as ex:
 				missing_input_ex[file].append(ex)

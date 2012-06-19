@@ -185,7 +185,7 @@ class Rule:
 					if ignore_ambiguity:
 						# ignore this job but don't throw error
 						continue
-					raise AmbiguousRuleException(produced[file], rule, 
+					raise AmbiguousRuleException(file, produced[file], rule, 
 					                             lineno = self.lineno, 
 					                             snakefile = self.snakefile)
 				jobs.update(_jobs)
