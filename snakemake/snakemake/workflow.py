@@ -169,7 +169,8 @@ class Workflow:
 				
 		return self._run(torun, dryrun = dryrun, touch = touch, 
 			forcethis = forcethis, forceall = forceall, 
-			give_reason = give_reason, cluster = cluster, dag = dag)
+			give_reason = give_reason, cluster = cluster, dag = dag, 
+			ignore_ambiguity = ignore_ambiguity)
 	
 	def _run(self, torun, dryrun = False, touch = False, forcethis = False, 
 		forceall = False, give_reason = False, cluster = None, dag = False,
