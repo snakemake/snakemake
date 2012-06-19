@@ -169,10 +169,11 @@ class Rule:
 		produced = dict()
 		for rule, file in self.workflow.get_producers(input, exclude=self):
 			try:
+				_jobs = dict(jobs)
 				job = rule.run(
 					file, 
 					forceall = forceall, 
-					jobs = jobs, 
+					jobs = _jobs, 
 					dryrun = dryrun, 
 					give_reason = give_reason,
 					touch = touch, 
@@ -187,6 +188,7 @@ class Rule:
 					raise AmbiguousRuleException(produced[file], rule, 
 					                             lineno = self.lineno, 
 					                             snakefile = self.snakefile)
+				jobs.update(_jobs)
 				if job.needrun:
 					todo.add(job)
 				produced[file] = rule
