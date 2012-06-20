@@ -140,7 +140,7 @@ class Rule:
 	
 	def run(self, requested_output = None, forceall = False, forcethis = False, 
 	        give_reason = False, jobs = dict(), dryrun = False, touch = False, 
-	        quiet = False, visited = set(), jobcounter = None, parentmintime = None, 
+	        quiet = False, visited = set(), parentmintime = None, 
 	        ignore_ambiguity = False):
 		"""
 		Run the rule.
@@ -169,17 +169,15 @@ class Rule:
 		produced = dict()
 		for rule, file in self.workflow.get_producers(input, exclude=self):
 			try:
-				_jobs = dict(jobs)
 				job = rule.run(
 					file, 
 					forceall = forceall, 
-					jobs = _jobs, 
+					jobs = jobs, 
 					dryrun = dryrun, 
 					give_reason = give_reason,
 					touch = touch, 
 					quiet = quiet, 
 					visited = set(visited), 
-					jobcounter = jobcounter,
 					parentmintime = output_mintime)
 				if file in produced:
 					if ignore_ambiguity:
@@ -189,7 +187,6 @@ class Rule:
 					raise AmbiguousRuleException(file, produced[file], rule, 
 					                             lineno = self.lineno, 
 					                             snakefile = self.snakefile)
-				jobs.update(_jobs)
 				if job.needrun:
 					todo.add(job)
 				produced[file] = rule
@@ -238,9 +235,6 @@ class Rule:
 			needrun = need_run
 		)
 		jobs[(output, self)] = job
-		
-		if jobcounter and need_run:
-			jobcounter.add()
 		
 		return job
 

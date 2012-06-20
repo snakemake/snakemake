@@ -86,6 +86,12 @@ class Job:
 		Job.count += 1
 		for other in self.depends:
 			other.depending.append(self)
+
+	def all_jobs(self):
+		yield self
+		for job in self.depends:
+			for j in job.all_jobs():
+				yield j
 	
 	def print_message(self):
 		logger.info(self.message)

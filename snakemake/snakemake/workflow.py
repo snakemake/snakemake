@@ -20,12 +20,9 @@ from snakemake.io import protected, temp, temporary, IOFile
 __author__ = "Johannes Köster"
 
 class Jobcounter:
-	def __init__(self):
-		self._count = 0
+	def __init__(self, count):
+		self._count = count
 		self._done = 0
-	
-	def add(self):
-		self._count += 1
 	
 	def done(self):
 		self._done += 1
@@ -153,7 +150,7 @@ class Workflow:
 			raise RuleException(include = toraise)
 
 		return [(rule, file) for file, rule in producers.items()]
-	
+
 	def run_rules(self, targets, dryrun = False, touch = False, 
 		forcethis = False, forceall = False, give_reason = False, 
 		cluster = None, dag = False, ignore_ambiguity = False):
@@ -176,28 +173,34 @@ class Workflow:
 	def _run(self, torun, dryrun = False, touch = False, forcethis = False, 
 		forceall = False, give_reason = False, cluster = None, dag = False,
 		ignore_ambiguity = False):
-		self.jobcounter = Jobcounter()
 		jobs = dict()
 		Job.count = 0
 		
+		root_jobs = set()
 		for rule, requested_output in torun:
-			job = rule.run(requested_output, jobs=jobs, forcethis = forcethis, 
+			root_jobs.add(rule.run(requested_output, jobs=jobs, forcethis = forcethis, 
 				forceall = forceall, dryrun = dryrun, give_reason = give_reason, 
-				touch = touch, visited = set(), jobcounter = self.jobcounter, 
-				ignore_ambiguity = ignore_ambiguity)
+				touch = touch, visited = set(), 
+				ignore_ambiguity = ignore_ambiguity))
+
+		# collect all jobs
+		all_jobs = set()
+		for job in root_jobs:
+			all_jobs.update(job.all_jobs())
+
+		self.jobcounter = Jobcounter(len(all_jobs))
 		
 		if dag:
-			print_job_dag(jobs.values())
+			print_job_dag(all_jobs)
 			return
-
 		if cluster:
-			scheduler = ClusterJobScheduler(set(jobs.values()), self, submitcmd = cluster)
+			scheduler = ClusterJobScheduler(all_jobs, self, submitcmd = cluster)
 		else:
-			scheduler = KnapsackJobScheduler(set(jobs.values()), self)
+			scheduler = KnapsackJobScheduler(all_jobs, self)
 		success = scheduler.schedule()
 
 		if not success:
-			Job.cleanup_unfinished(jobs.values())
+			Job.cleanup_unfinished(all_jobs)
 			logger.critical(
 				"Exiting because a job execution failed. Look above for error message")
 			return False
