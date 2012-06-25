@@ -79,7 +79,7 @@ class MissingInputException(IOException):
 
 class ProtectedOutputException(IOException):
 	def __init__(self, rule, files, include = list(), lineno = None, snakefile = None):
-		super().__init__("Protected output files", rule, files, include, lineno = lineno, snakefile = snakefile)
+		super().__init__("Write-protected output files", rule, files, include, lineno = lineno, snakefile = snakefile)
 
 class AmbiguousRuleException(RuleException):
 	def __init__(self, filename, rule1, rule2, lineno = None, snakefile = None):
