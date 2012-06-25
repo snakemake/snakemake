@@ -6,7 +6,7 @@ from collections import defaultdict, OrderedDict
 from tempfile import TemporaryFile
 
 from snakemake.logging import logger
-from snakemake.rules import Rule
+from snakemake.rules import Rule, Ruleorder
 from snakemake.exceptions import MissingOutputException, MissingInputException, \
 	AmbiguousRuleException, CyclicGraphException, MissingRuleException, \
 	RuleException, CreateRuleException, ProtectedOutputException, \
@@ -39,6 +39,7 @@ class Workflow:
 		self._first = None
 		self._workdir = None
 		self._runtimes = defaultdict(list)
+		self._ruleorder = Ruleorder()
 		self.cores = 1
 		self.rowmaps = dict()
 		self.jobcounter = None
@@ -47,6 +48,9 @@ class Workflow:
 	
 	def report_runtime(self, rule, runtime):
 		self._runtimes[rule].append(runtime)
+
+	def get_ruleorder(self):
+		return self._ruleorder
 		
 	def get_runtimes(self):
 		for rule, runtimes in self._runtimes.items():
@@ -262,6 +266,9 @@ class Workflow:
 				os.makedirs(workdir)
 			os.chdir(workdir)
 			self._workdir = workdir
+
+	def ruleorder(self, *rulenames):
+		self._ruleorder.add(*rulenames)
 
 	def rule(self, name = None, lineno = None, snakefile = None):
 		name = self.add_rule(name, lineno, snakefile)

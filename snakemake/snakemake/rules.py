@@ -9,8 +9,6 @@ from snakemake.exceptions import MissingInputException, AmbiguousRuleException, 
 
 __author__ = "Johannes Köster"
 
-
-
 class Rule:
 	def __init__(self, name, workflow, lineno = None, snakefile = None):
 		"""
@@ -180,13 +178,19 @@ class Rule:
 					visited = set(visited), 
 					parentmintime = output_mintime)
 				if file in produced:
-					if ignore_ambiguity:
-						# ignore this job but don't throw error
-						logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file]))
+					if produced[file] > rule:
 						continue
-					raise AmbiguousRuleException(file, produced[file], rule, 
-					                             lineno = self.lineno, 
-					                             snakefile = self.snakefile)
+					elif produced[file] < rule:
+						# prefer this rule, hence go on below
+						pass
+					else:
+						if ignore_ambiguity:
+							# ignore this job but don't throw error
+							logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file]))
+							continue
+						raise AmbiguousRuleException(file, produced[file], rule, 
+						                             lineno = self.lineno, 
+						                             snakefile = self.snakefile)
 				if job.needrun:
 					todo.add(job)
 				produced[file] = rule
@@ -357,5 +361,46 @@ class Rule:
 		"""
 		return sum(map(len, wildcards.values()))
 
+	def __lt__(self, rule):
+		comp = self.workflow.get_ruleorder().compare(self.name, rule.name)
+		return comp < 0
+
+	def __gt__(self, rule):
+		comp = self.workflow.get_ruleorder().compare(self.name, rule.name)
+		return comp > 0
+
 	def __repr__(self):
 		return self.name
+
+
+class Ruleorder:
+	def __init__(self):
+		self.order = list()
+
+	def add(self, *rulenames):
+		"""
+		Records the order of given rules as rule1 > rule2 > rule3, ...
+		"""
+		self.order.append(list(rulenames))
+
+	def compare(self, rule1name, rule2name):
+		"""
+		Return whether rule2 has a higher priority that rule1.
+		"""
+		comp = None
+		for clause in self.order:
+			try:
+				i = clause.index(rule1name)
+				j = clause.index(rule2name)
+				# rules with higher priority should have a smaller index
+				_comp = j - i
+				if _comp < 0: 
+					_comp = -1
+				elif _comp > 0:
+					_comp = 1
+				if comp != None and comp != _comp:
+					raise ValueError("Contradicting orders for rule {} and {}.".format(rule1name, rule2name))
+				comp = _comp
+			except ValueError:
+				pass
+		return comp if comp != None else 0

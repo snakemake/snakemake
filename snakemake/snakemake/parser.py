@@ -65,6 +65,7 @@ class States:
 		self.main_states = dict(
 			include = self.include,
 			workdir = self.workdir,
+			ruleorder = self.ruleorder,
 			rule = self.rule,
 			input = self.input,
 			output = self.output,
@@ -90,7 +91,7 @@ class States:
 
 	def python(self, token):
 		""" The automaton state that handles ordinary python code. """
-		if token.type == NAME and token.string in ('include', 'workdir', 'rule'):
+		if token.type == NAME and token.string in ('include', 'workdir', 'ruleorder', 'rule'):
 			self.tokens.add(NEWLINE, '\n', orig_token = token)
 			self.state = self.main_states[token.string]
 		else:
@@ -121,6 +122,24 @@ class States:
 			self.state = self.python
 		else:
 			raise self._syntax_error('Expected string after workdir keyword', token)
+
+	def ruleorder(self, token):
+		""" State that handles ruleorder definitions. """
+		self._check_colon('ruleorder', token)
+		self._func_open('ruleorder', token, obj = 'workflow')
+		self.state = self.ruleorder_order
+	
+	def ruleorder_order(self, token):
+		if token.type == OP and token.string == '>':
+			self.tokens.add(COMMA, ",", orig_token = token)
+		elif token.type == NAME:
+			self.tokens.add(STRING, self._stringify(token.string), orig_token = token)
+		elif token.type == NEWLINE or token.type == NL or token.type == ENDMARKER:
+			self._func_close(token)
+			self.tokens.add(NEWLINE, '\n', orig_token = token)
+			self.state = self.python
+		elif not token.type in (INDENT, DEDENT, COMMENT):
+			self._syntax_error('Expected a descending order of rule names, e.g. rule1 > rule2 > rule3 ...', token)
 
 	def rule(self, token):
 		""" State that handles rule definition. """
