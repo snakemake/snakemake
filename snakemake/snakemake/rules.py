@@ -178,22 +178,20 @@ class Rule:
 					visited = set(visited), 
 					parentmintime = output_mintime)
 				if file in produced:
-					if produced[file] > rule:
+					if produced[file].rule > rule:
 						continue
-					elif produced[file] < rule:
+					elif produced[file].rule < rule:
 						# prefer this rule, hence go on below
 						pass
 					else:
 						if ignore_ambiguity:
 							# ignore this job but don't throw error
-							logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file]))
+							logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file].rule))
 							continue
-						raise AmbiguousRuleException(file, produced[file], rule, 
+						raise AmbiguousRuleException(file, produced[file].rule, rule, 
 						                             lineno = self.lineno, 
 						                             snakefile = self.snakefile)
-				if job.needrun:
-					todo.add(job)
-				produced[file] = rule
+				produced[file] = job
 			except (ProtectedOutputException, MissingInputException, CyclicGraphException) as ex:
 				exceptions[file].append(ex)
 		
@@ -210,6 +208,8 @@ class Rule:
 				lineno = self.lineno, 
 				snakefile = self.snakefile
 			)
+
+		todo = {job for job in produced.values() if job.needrun}
 		
 		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, output_mintime, requested_output)
 		
@@ -387,20 +387,18 @@ class Ruleorder:
 		"""
 		Return whether rule2 has a higher priority that rule1.
 		"""
-		comp = None
-		for clause in self.order:
+		# try the last clause first, i.e. clauses added later overwrite those before.
+		for clause in reversed(self.order):
 			try:
 				i = clause.index(rule1name)
 				j = clause.index(rule2name)
 				# rules with higher priority should have a smaller index
-				_comp = j - i
-				if _comp < 0: 
-					_comp = -1
-				elif _comp > 0:
-					_comp = 1
-				if comp != None and comp != _comp:
-					raise ValueError("Contradicting orders for rule {} and {}.".format(rule1name, rule2name))
-				comp = _comp
+				comp = j - i
+				if comp < 0: 
+					comp = -1
+				elif comp > 0:
+					comp = 1
+				return comp
 			except ValueError:
 				pass
-		return comp if comp != None else 0
+		return 0
