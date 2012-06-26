@@ -30,6 +30,10 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	if quiet:
 		ColorizingStreamHandler.quiet = True
 
+	if not os.path.exists(snakefile):
+		logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))
+		return False
+
 	def print_rules(log):
 		log("Defined rules:")
 		for rule in workflow.get_rules(): log(rule.name)

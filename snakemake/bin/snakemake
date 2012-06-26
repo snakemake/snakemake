@@ -69,10 +69,6 @@ def main():
     
 	args = parser.parse_args()
 
-	if not os.path.exists(args.snakefile):
-		logging.error("Error: Snakefile \"{}\" not present.".format(args.snakefile))
-		exit(1)
-
 	success = snakemake.snakemake(
 			args.snakefile, 
 			list = args.list,
