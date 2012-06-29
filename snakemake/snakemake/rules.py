@@ -199,7 +199,7 @@ class Rule:
 		if missing_input:
 			_ex = list()
 			for file, exs in exceptions.items():
-				if file not in produced:
+				if file in missing_input:
 					_ex.extend(exs)
 			raise MissingInputException(
 				rule = self,
