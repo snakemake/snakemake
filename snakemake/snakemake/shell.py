@@ -61,6 +61,10 @@ class TextIOWriter(PipeWriter):
 class shell(sp.Popen):
 	_process_args = {}
 	_processes = []
+
+	@classmethod
+	def executable(cls, cmd):
+		cls._process_args["executable"] = cmd
 	
 	def __init__(self, cmd, *args, async = False, iterable = False, **kwargs):
 		if async or iterable:
@@ -179,13 +183,8 @@ class shell(sp.Popen):
 atexit.register(shell.terminate_all)
 
 if "SHELL" in os.environ:
-	shell._process_args["executable"] = os.environ["SHELL"]
-
-#def shell(cmd, *args, **kwargs):
-#	sp.check_call(format(cmd, *args, stepout=2, **kwargs), shell=True, executable=os.environ["SHELL"])
-	#p = Shell(cmd, *args, **kwargs)
-	#p | sys.stdout
-	#p.wait()
+	#shell._process_args["executable"] = os.environ["SHELL"]
+	shell.executable(os.environ["SHELL"])
 
 if __name__ == "__main__":
 	shell("echo b; echo a; echo c > foo", async=True)
