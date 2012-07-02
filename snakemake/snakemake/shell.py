@@ -2,7 +2,7 @@
 
 import _io
 import signal
-import sys, os, inspect, time
+import sys, os, inspect, time, shlex
 import subprocess as sp
 from threading import Thread
 from snakemake.exceptions import TerminatedException
@@ -60,11 +60,16 @@ class TextIOWriter(PipeWriter):
 		
 class shell(sp.Popen):
 	_process_args = {}
+	_process_prefix = ""
 	_processes = []
 
 	@classmethod
 	def executable(cls, cmd):
 		cls._process_args["executable"] = cmd
+
+	@classmethod
+	def prefix(cls, prefix):
+		cls._process_prefix = prefix
 	
 	def __init__(self, cmd, *args, async = False, iterable = False, **kwargs):
 		if async or iterable:
@@ -76,7 +81,7 @@ class shell(sp.Popen):
 				stdout = None
 
 		self.cmd = format(cmd, *args, stepout = 2, **kwargs)
-		super().__init__(self.cmd, shell=True, stdin = stdin, stdout=stdout, close_fds=True, **shell._process_args)
+		super().__init__(self._process_prefix + self.cmd, shell=True, stdin = stdin, stdout=stdout, close_fds=True, **shell._process_args)
 		
 		self.async = async or iterable
 		self._stdout_free = True

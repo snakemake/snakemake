@@ -156,7 +156,7 @@ class Rule:
 		visited.add((self, requested_output))
 		
 		input, output, wildcards = self._expand_wildcards(requested_output)
-		
+
 		if (output, self) in jobs:
 			return jobs[(output, self)]
 
@@ -239,7 +239,6 @@ class Rule:
 			needrun = need_run
 		)
 		jobs[(output, self)] = job
-		
 		return job
 
 	@staticmethod
