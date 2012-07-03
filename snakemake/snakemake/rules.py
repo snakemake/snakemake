@@ -157,14 +157,23 @@ class Rule:
 		
 		input, output, wildcards = self._expand_wildcards(requested_output)
 
-		if (output, self) in jobs:
-			return jobs[(output, self)]
-
+	
 		output_mintime = IOFile.mintime(output) or parentmintime
 		
 		exceptions = defaultdict(list)
 		todo = set()
 		produced = dict()
+
+		if (output, self) in jobs:
+			job = jobs[(output, self)]
+			if not job.needrun:
+				# update the job if it needs to run due to the new requested file
+				needrun, reason = self._need_run(False, todo, input, output, output_mintime, requested_output)
+				job.needrun = needrun
+				job.message = self.get_message(input, output, wildcards,
+				                               reason if give_reason else None)
+			return job
+
 		for rule, file in self.workflow.get_producers(input, exclude=self):
 			try:
 				job = rule.run(
@@ -268,10 +277,10 @@ class Rule:
 				return True, ""
 			if output_mintime == None:
 				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
-				
 			newer = [i for i in input if os.path.exists(i) and i.is_newer(output_mintime)]
 			if newer:
 				return True, "Input files newer than output files: {}".format(", ".join(newer))
+			
 			return False, ""
 		return False, ""
 
