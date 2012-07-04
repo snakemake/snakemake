@@ -135,10 +135,17 @@ class Workflow:
 				rule.run(file, jobs=dict(), forceall = forceall, 
 					dryrun = True, visited = set())
 				if file in producers:
-					if ignore_ambiguity:
-						logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file]))
+					if producers[file] > rule:
 						continue
-					raise AmbiguousRuleException(file, producers[file], rule)
+					elif producers[file] < rule:
+						pass
+					else:
+						if ignore_ambiguity:
+							logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file]))
+							continue
+						raise AmbiguousRuleException(file, producers[file], rule,
+						                             lineno = rule.lineno,
+						                             snakefile = rule.snakefile)
 				producers[file] = rule
 			except MissingInputException as ex:
 				missing_input_ex[file].append(ex)
