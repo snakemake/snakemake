@@ -151,14 +151,24 @@ class Job:
 
 	def dot(self):
 		label = self.rule.name
-		if not self.depends and self.wildcards:
-			for wildcard, value in self.wildcards.items():
+		new_wildcards = self.new_wildcards()
+		if not self.depends or new_wildcards:
+			for wildcard, value in new_wildcards:
 				label += "\\n{}: {}".format(wildcard, value)
 		edges = ("{} -> {};".format(j.jobid, self.jobid) 
 			for j in self.depends if j.needrun)
 		node = ('{}[label = "{}"];'.format(self.jobid, label),)
 		return chain(node, edges)
-			
+
+	def new_wildcards(self):
+		new_wildcards = set(self.wildcards.items())
+		for job in self.depends:
+			if not new_wildcards:
+				return set()
+			for wildcard in job.wildcards.items():
+				new_wildcards.discard(wildcard)
+		return new_wildcards
+
 	def __repr__(self):
 		return self.rule.name
 

@@ -82,8 +82,9 @@ class ProtectedOutputException(IOException):
 		super().__init__("Write-protected output files", rule, files, include, lineno = lineno, snakefile = snakefile)
 
 class AmbiguousRuleException(RuleException):
-	def __init__(self, filename, rule1, rule2, lineno = None, snakefile = None):
-		super().__init__("Rules {} and {} are ambiguous for the file {}.".format(rule1, rule2, filename), lineno = lineno, snakefile = snakefile)
+	def __init__(self, filename, job1, job2, lineno = None, snakefile = None):
+		super().__init__("Rules {} and {} are ambiguous for the file {}. Advice: Use --dag to see the two alternative DAGs.".format(job1.rule, job2.rule, filename), lineno = lineno, snakefile = snakefile)
+		self.job1, self.job2 = job1, job2
 	
 class CyclicGraphException(RuleException):
 	def __init__(self, rule, lineno = None, snakefile = None):

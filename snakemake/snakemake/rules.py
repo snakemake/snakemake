@@ -197,7 +197,7 @@ class Rule:
 							# ignore this job but don't throw error
 							logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file].rule))
 							continue
-						raise AmbiguousRuleException(file, produced[file].rule, rule, 
+						raise AmbiguousRuleException(file, produced[file], job, 
 						                             lineno = self.lineno, 
 						                             snakefile = self.snakefile)
 				produced[file] = job

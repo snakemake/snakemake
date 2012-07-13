@@ -132,21 +132,21 @@ class Workflow:
 		missing_input_ex = defaultdict(list)
 		for rule, file in self.get_producers(files):
 			try:
-				rule.run(file, jobs=dict(), forceall = forceall, 
+				job = rule.run(file, jobs=dict(), forceall = forceall, 
 					dryrun = True, visited = set())
 				if file in producers:
-					if producers[file] > rule:
+					if producers[file].rule > rule:
 						continue
-					elif producers[file] < rule:
+					elif producers[file].rule < rule:
 						pass
 					else:
 						if ignore_ambiguity:
-							logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file]))
+							logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file].rule))
 							continue
-						raise AmbiguousRuleException(file, producers[file], rule,
+						raise AmbiguousRuleException(file, producers[file], job,
 						                             lineno = rule.lineno,
 						                             snakefile = rule.snakefile)
-				producers[file] = rule
+				producers[file] = job
 			except MissingInputException as ex:
 				missing_input_ex[file].append(ex)
 		
@@ -160,7 +160,7 @@ class Workflow:
 		if toraise:
 			raise RuleException(include = toraise)
 
-		return [(rule, file) for file, rule in producers.items()]
+		return [(job.rule, file) for file, job in producers.items()]
 
 	def run_rules(self, targets, dryrun = False, touch = False, 
 		forcethis = False, forceall = False, give_reason = False, 
@@ -171,10 +171,15 @@ class Workflow:
 				ruletargets.append(target)
 			else:
 				filetargets.append(os.path.relpath(target))
-		
-		torun = self.get_file_producers(filetargets, forcethis = forcethis, 
-			forceall = forceall, dryrun = dryrun, ignore_ambiguity = ignore_ambiguity) + \
-			[(self.get_rule(name), None) for name in ruletargets]
+		try:
+			torun = self.get_file_producers(filetargets, forcethis = forcethis, 
+				forceall = forceall, dryrun = dryrun, ignore_ambiguity = ignore_ambiguity) + \
+				[(self.get_rule(name), None) for name in ruletargets]
+		except AmbiguousRuleException as ex:
+			if not dag:
+				raise ex
+			print_job_dag(chain(ex.job1.all_jobs(), ex.job2.all_jobs()))
+			return
 				
 		return self._run(torun, dryrun = dryrun, touch = touch, 
 			forcethis = forcethis, forceall = forceall, 
