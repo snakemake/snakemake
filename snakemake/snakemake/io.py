@@ -98,7 +98,7 @@ class IOFile(str):
 	def remove(self):
 		if os.path.exists(self.get_file()):
 			if os.path.isdir(self.get_file()):
-				shutil.rmtree(self.get_file())
+				shutil.rmtree(self.get_file(), True)
 			else:
 				os.remove(self.get_file())
 	
