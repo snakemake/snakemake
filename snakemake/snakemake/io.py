@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, re, stat
+import os, re, stat, shutil
 from snakemake.exceptions import MissingOutputException, IOException
 from snakemake.logging import logger
 
@@ -98,12 +98,7 @@ class IOFile(str):
 	def remove(self):
 		if os.path.exists(self.get_file()):
 			if os.path.isdir(self.get_file()):
-				for root, dirs, files in os.walk(self.get_file()):
-					for f in files:
-						os.remove(f)
-				for root, dirs, files in os.walk(self.get_file()):
-					for d in dirs:
-						os.rmdir(d)
+				shutil.rmtree(self.get_file())
 			else:
 				os.remove(self.get_file())
 	
