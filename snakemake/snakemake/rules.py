@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os, re, sys
+import sre_constants
 from collections import defaultdict
 from snakemake.logging import logger
 from snakemake.jobs import Job
@@ -334,11 +335,14 @@ class Rule:
 		"""
 		Returns True if this rule is a producer of the requested output.
 		"""
-		for o in self.regex_output:
-			match = re.match(o, requested_output)
-			if match and len(match.group()) == len(requested_output):
-				return True
-		return False
+		try:
+			for o in self.regex_output:
+				match = re.match(o, requested_output)
+				if match and len(match.group()) == len(requested_output):
+					return True
+			return False
+		except sre_constants.error as ex:
+			raise IOFileException("{} in wildcard statement".format(ex), snakefile=self.snakefile, lineno=self.lineno)
 
 	def get_wildcards(self, requested_output):
 		"""
