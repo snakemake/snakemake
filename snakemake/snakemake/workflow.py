@@ -3,6 +3,7 @@
 import re, sys, os, traceback, glob, signal
 from multiprocessing import Event
 from collections import defaultdict, OrderedDict
+from itertools import chain
 from tempfile import TemporaryFile
 
 from snakemake.logging import logger
@@ -85,6 +86,7 @@ class Workflow:
 		return name in self._rules
 	
 	def get_producers(self, files, exclude = None):
+		files = set(files)
 		for rule in self.get_rules():
 			if rule != exclude:
 				for f in files:
@@ -193,18 +195,25 @@ class Workflow:
 		Job.count = 0
 		
 		root_jobs = set()
-		for rule, requested_output in torun:
-			root_jobs.add(rule.run(requested_output, jobs=jobs, forcethis = forcethis, 
-				forceall = forceall, dryrun = dryrun, give_reason = give_reason, 
-				touch = touch, visited = set(), 
-				ignore_ambiguity = ignore_ambiguity))
+		try:
+			for rule, requested_output in torun:
+				root_jobs.add(rule.run(requested_output, jobs=jobs, forcethis = forcethis, 
+					forceall = forceall, dryrun = dryrun, give_reason = give_reason, 
+					touch = touch, visited = set(), 
+					ignore_ambiguity = ignore_ambiguity))
+		
 
-		# collect all jobs
-		all_jobs = set()
-		for job in root_jobs:
-			all_jobs.update(job.all_jobs())
+			# collect all jobs
+			all_jobs = set()
+			for job in root_jobs:
+				all_jobs.update(job.all_jobs())
 
-		self.jobcounter = Jobcounter(len(all_jobs))
+			self.jobcounter = Jobcounter(len(all_jobs))
+		except AmbiguousRuleException as ex:
+			if not dag:
+				raise ex
+			else:
+				all_jobs = chain(ex.job1.all_jobs(), ex.job2.all_jobs())
 		
 		if dag:
 			print_job_dag(all_jobs)
