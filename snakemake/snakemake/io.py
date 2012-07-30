@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os, re, stat, shutil
+from itertools import product
 from snakemake.exceptions import MissingOutputException, IOException
 from snakemake.logging import logger
 
@@ -137,6 +138,19 @@ class temporary(temp):
 class protected(str):
 	""" A flag for a file that shall be write protected after creation. """
 	pass
+
+def files(filepatterns, **wildcards):
+	if not isinstance(filepatterns, list) or isinstance(filepatterns, tuple):
+		filepatterns = [filepatterns]
+	def flatten(wildcards):
+		for wildcard, values in wildcards.items():
+			if not isinstance(values, list) or isinstance(values, tuple):
+				values = [values]
+			yield [(wildcard, value) for value in values]
+	for comb in product(*flatten(wildcards)):
+		comb = dict(comb)
+		for filepattern in filepatterns:
+			yield filepattern.format(**comb)
 	
 class Namedlist(list):
 	"""

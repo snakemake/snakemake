@@ -15,7 +15,7 @@ from snakemake.exceptions import MissingOutputException, MissingInputException, 
 from snakemake.shell import shell, format
 from snakemake.jobs import Job, KnapsackJobScheduler, ClusterJobScheduler, print_job_dag
 from snakemake.parser import compile_to_python
-from snakemake.io import protected, temp, temporary, IOFile
+from snakemake.io import protected, temp, temporary, files, IOFile
 
 
 __author__ = "Johannes Köster"

@@ -25,7 +25,7 @@ def print_exception(ex, rowmaps):
 	ex -- the exception
 	rowmaps -- a dict of a dict that maps for each snakefile the compiled lines to source code lines in the snakefile.
 	"""
-	for file, lineno, _, _ in traceback.extract_tb(ex.__traceback__):
+	for file, lineno, _, _ in reversed(traceback.extract_tb(ex.__traceback__)):
 		if file in rowmaps:
 			logger.critical(format_error(ex, lineno, rowmaps = rowmaps, snakefile = file))
 			return
