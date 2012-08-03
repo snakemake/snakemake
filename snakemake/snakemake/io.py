@@ -139,7 +139,7 @@ class protected(str):
 	""" A flag for a file that shall be write protected after creation. """
 	pass
 
-def files(filepatterns, **wildcards):
+def expand(filepatterns, **wildcards):
 	if not isinstance(filepatterns, list) or isinstance(filepatterns, tuple):
 		filepatterns = [filepatterns]
 	def flatten(wildcards):
