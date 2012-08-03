@@ -138,8 +138,8 @@ class Rule:
 		return False
 	
 	def run(self, requested_output = None, forceall = False, forcethis = False, 
-	        give_reason = False, jobs = dict(), dryrun = False, touch = False, 
-	        quiet = False, visited = set(), parentmintime = None, 
+	        give_reason = False, jobs = None, dryrun = False, touch = False, 
+	        quiet = False, visited = None, parentmintime = None, 
 	        ignore_ambiguity = False):
 		"""
 		Run the rule.
@@ -152,6 +152,11 @@ class Rule:
 		dryrun           -- whether rule execution shall be only simulated
 		visited          -- set of already visited pairs of rules and requested output
 		"""
+		if jobs is None:
+			jobs = dict()
+		if visited is None:
+			visited = set()
+
 		if (self, requested_output) in visited:
 			raise CyclicGraphException(self, lineno = self.lineno, snakefile = self.snakefile)
 		visited.add((self, requested_output))
@@ -187,6 +192,7 @@ class Rule:
 					quiet = quiet, 
 					visited = set(visited), 
 					parentmintime = output_mintime)
+				
 				if file in produced:
 					if produced[file].rule > rule:
 						continue
@@ -202,6 +208,7 @@ class Rule:
 						                             lineno = self.lineno, 
 						                             snakefile = self.snakefile)
 				produced[file] = job
+				
 			except (ProtectedOutputException, MissingInputException, CyclicGraphException) as ex:
 				exceptions[file].append(ex)
 		

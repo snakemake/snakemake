@@ -4,6 +4,7 @@ import re, sys, os, traceback, glob, signal
 from multiprocessing import Event
 from collections import defaultdict, OrderedDict
 from itertools import chain
+from functools import lru_cache
 from tempfile import TemporaryFile
 
 from snakemake.logging import logger
@@ -87,11 +88,18 @@ class Workflow:
 	
 	def get_producers(self, files, exclude = None):
 		files = set(files)
+		for f in files:
+			for item in self._get_producers(f, exclude=exclude):
+				yield item
+
+	@lru_cache()
+	def _get_producers(self, file, exclude = None):
+		producers = []
 		for rule in self.get_rules():
 			if rule != exclude:
-				for f in files:
-					if rule.is_producer(f):
-						yield rule, f
+				if rule.is_producer(file):
+					producers.append((rule, file))
+		return producers
 
 	def get_rule(self, name):
 		"""
