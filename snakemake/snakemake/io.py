@@ -11,7 +11,6 @@ class IOFile(str):
 	"""
 	A file that is either input or output of a rule.
 	"""
-	wildcard_regex = "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>.*))?\s*\}"
 	_register = dict()
 	
 	@classmethod
@@ -112,20 +111,25 @@ class IOFile(str):
 		f = self._file
 		if self._is_function:
 			f = self._file(Namedlist(fromdict = wildcards))
-		return self.create(re.sub(self.wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), protected = self._protected, temp = self._temp, origin = self)
+		return self.create(re.sub(_wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), protected = self._protected, temp = self._temp, origin = self)
 		
 	def get_wildcard_names(self):
-		return set(match.group('name') for match in re.finditer(self.wildcard_regex, self.get_file()))
-	
+		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.get_file()))
+
 	def regex(self):
-		f = ""
-		last = 0
-		for match in re.finditer(self.wildcard_regex, self.get_file()):
-			f += re.escape(self.get_file()[last:match.start()])
-			f += "(?P<{}>{})".format(match.group("name"), match.group("constraint") if match.group("constraint") else ".+")
-			last = match.end()
-		f += re.escape(self.get_file()[last:])
-		return f
+		return regex(self.get_file())
+
+
+_wildcard_regex = "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>.*))?\s*\}"
+def regex(filepattern):
+	f = ""
+	last = 0
+	for match in re.finditer(_wildcard_regex, filepattern):
+		f += re.escape(filepattern[last:match.start()])
+		f += "(?P<{}>{})".format(match.group("name"), match.group("constraint") if match.group("constraint") else ".+")
+		last = match.end()
+	f += re.escape(filepattern[last:])
+	return f
 
 class temp(str):
 	""" A flag for an input or output file that shall be removed after usage. """
