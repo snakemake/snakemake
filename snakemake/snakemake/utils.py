@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os, re
-from snakemake.io import regex
+from snakemake.io import regex, Namedlist
 
 __author__ = "Johannes Köster"
 
@@ -24,6 +24,8 @@ def listdir(dirname, pattern = None):
 			yield f, filepath
 
 def makedirs(dirnames):
+	if isinstance(dirnames, str):
+		dirnames = [dirnames]
 	for dirname in dirnames:
 		if not os.path.exists(dirname):
 			os.makedirs(dirname)
