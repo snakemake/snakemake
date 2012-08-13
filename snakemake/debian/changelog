@@ -1,3 +1,10 @@
+python3-snakemake (1.2.2) precise; urgency=high
+
+  * New upstream release.
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Mon, 13 Aug 2012 15:19:46 +0100
+
+
 python3-snakemake (1.2.1) precise; urgency=high
 
   * New upstream release.
