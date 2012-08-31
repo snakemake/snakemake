@@ -88,11 +88,11 @@ class Workflow:
 	
 	def get_producers(self, files, exclude = None):
 		checked = set()
-		for i, f in enumerate(files):
+		for f in files:
 			if not f in checked:
 				checked.add(f)
-				for rule, file in self._get_producers(f, exclude=exclude):
-					yield (rule, file, i)
+				for item in self._get_producers(f, exclude=exclude):
+					yield item
 
 	@lru_cache()
 	def _get_producers(self, file, exclude = None):
@@ -142,7 +142,7 @@ class Workflow:
 		"""
 		producers = dict()
 		missing_input_ex = defaultdict(list)
-		for rule, file, _ in self.get_producers(files):
+		for rule, file in self.get_producers(files):
 			try:
 				job = rule.run(file, jobs=dict(), forceall = forceall, 
 					dryrun = True, visited = set())

@@ -24,7 +24,7 @@ class Rule:
 			self.message = None
 			self.input = Namedlist()
 			self.output = Namedlist()
-			self.dynamic = set()
+			self.dynamic = dict()
 			self.threads = 1
 			self.wildcard_names = set()
 			self.workflow = workflow
@@ -53,6 +53,19 @@ class Rule:
 		Return True if rule contains wildcards.
 		"""
 		return bool(self.wildcard_names)
+
+	def is_dynamic(self, file):
+		return file in self.dynamic
+
+	def set_dynamic(self, file, dynamic):
+		if dynamic:
+			# create a bipartite graph that assigns a concrete to each dynamic file
+			concrete = file.fill_wildcards()
+			self.dynamic[file] = concrete
+			self.dynamic[concrete] = file
+		else:
+			del self.dynamic[self.dynamic[file]]
+			del self.dynamic[file]
 
 	def set_input(self, *input, **kwinput):
 		"""
@@ -104,7 +117,7 @@ class Rule:
 			if name:
 				inoutput.add_name(name)
 			if isinstance(item, dynamic):
-				self.dynamic.add(_item)
+				self.set_dynamic(_item, True)
 		except ValueError:
 			try:
 				for i in item:
@@ -137,8 +150,8 @@ class Rule:
 		try:
 			input = Namedlist()
 			for i in self.input:
-				if i in self.dynamic:
-					input.append(i.fill_wildcards())
+				if self.is_dynamic(i):
+					input.append(self.dynamic[i])
 				else:
 					input.append(i.apply_wildcards(wildcards))
 			output = Namedlist(o.apply_wildcards(wildcards) for o in self.output)
@@ -205,8 +218,7 @@ class Rule:
 				                               reason if give_reason else None)
 			return job
 
-		for rule, file, i in self.workflow.get_producers(input, exclude=self):
-			orig_file = self.input[i]
+		for rule, file in self.workflow.get_producers(input, exclude=self):
 			try:
 				job = rule.run(
 					file, 
@@ -218,7 +230,7 @@ class Rule:
 					quiet = quiet, 
 					visited = set(visited), 
 					parentmintime = output_mintime,
-					skip_until_dynamic = orig_file in self.dynamic or skip_until_dynamic)
+					skip_until_dynamic = self.is_dynamic(file) or skip_until_dynamic)
 				
 				if file in produced:
 					if produced[file].rule > rule:
@@ -257,7 +269,7 @@ class Rule:
 		
 		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, output_mintime, requested_output)
 
-		pseudo = skip_until_dynamic and matching_output not in self.dynamic
+		pseudo = skip_until_dynamic and not self.is_dynamic(matching_output)
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output:

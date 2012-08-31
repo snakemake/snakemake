@@ -7,7 +7,7 @@ from collections import defaultdict
 from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, \
 	ClusterJobException, print_exception, format_error
 from snakemake.shell import shell
-from snakemake.io import IOFile, temp, protected, expand
+from snakemake.io import IOFile, temp, protected, expand, touch
 from snakemake.utils import listfiles
 from snakemake.logging import logger
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -112,7 +112,6 @@ class Job:
 			self.print_message()
 			self.finished()
 		elif self.touch:
-			# TODO think about touch for dynamic files
 			logger.info(self.message)
 			for o in self.output:
 				o.touch(self.rule.name, self.rule.lineno, self.rule.snakefile)
@@ -145,8 +144,8 @@ class Job:
 
 			if not self.dryrun and not self.pseudo:
 				# check the produced files
-				for i, o in enumerate(self.output):
-					if not self.rule.output[i] in self.rule.dynamic:
+				for o in self.output:
+					if not self.rule.is_dynamic(o):
 						o.created(self.rule.name, self.rule.lineno, self.rule.snakefile)
 				for f in self.input:
 					f.used()
@@ -169,15 +168,15 @@ class Job:
 
 		# TODO add jobs to the DAG that depend on dynamic files of this one	
 		if not self.dryrun and self.dynamic_output:
-			self.handle_dynamic_output()				
+			self.handle_dynamic_output()		
 
 		for callback in self._callbacks:
 			callback(self)
 
 	def cleanup(self):
 		if not self.is_finished:
-			for i, o in enumerate(self.output):
-				if self.rule.output[i] not in self.rule.dynamic:
+			for o in self.output:
+				if not self.rule.is_dynamic(o):
 					o.remove()
 				else:
 					for f in expand(self.rule.output[i]):
@@ -185,10 +184,11 @@ class Job:
 
 	def handle_dynamic_output(self):
 		wildcard_expansion = defaultdict(list)
-		for o in self.dynamic_output:
-			for f, wildcards in listfiles(o):
-				for name, value in wildcards.items():
-					wildcard_expansion[name].append(value)
+		for o in self.rule.output:
+			if self.rule.is_dynamic(o):
+				for f, wildcards in listfiles(o):
+					for name, value in wildcards.items():
+						wildcard_expansion[name].append(value)
 		for job in self.ancestors():
 			job.handle_dynamic_input(wildcard_expansion)
 
@@ -196,17 +196,16 @@ class Job:
 		r = self.rule.clone()
 		modified = False
 		for i, f in enumerate(self.rule.input):
-			if f in self.rule.dynamic: # check if file is a dynamic placeholder
+			if self.rule.is_dynamic(f):
 				try:
 					d = r.input[i]
 					r.input.pop(i)
 					for e in reversed(expand(d, zip, **wildcard_expansion)):
 						e = IOFile.create(e, temp = d.is_temp(), protected = d.is_protected())
 						r.input.insert(i, e)
-					r.dynamic.remove(d)
+					r.set_dynamic(d, False)
 					modified = True
 				except Exception as ex:
-					print(ex)
 					# keep the file if expansion fails
 					pass
 		if not modified:
@@ -215,10 +214,11 @@ class Job:
 		try:
 			job = r.run(self.output[0] if self.output else None)
 			self.needrun = False
-			logger.warning("Dynamically adding jobs")
 			jobs = list(job.all_jobs())
+			n = len(jobs) - 1
+			logger.warning("Dynamically adding {} jobs".format(n))
 			self.scheduler.add_jobs(jobs)
-			self.workflow.jobcounter.count += len(jobs) - 1 # -1 because we replace current job
+			self.workflow.jobcounter.count += n # -1 because we replace current job
 		except Exception as ex:
 			# there seem to be missing files, so ignore this
 			pass

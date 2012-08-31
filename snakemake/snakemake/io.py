@@ -108,9 +108,14 @@ class IOFile(str):
 				os.remove(self.get_file())
 	
 	def touch(self, rulename, lineno, snakefile):
-		if not os.path.exists(self.get_file()):
-			raise MissingOutputException("Output file {} of rule {} shall be touched but does not exist.".format(self.get_file(), rulename), lineno = lineno, snakefile = snakefile)
-		os.utime(self.get_file(), None)
+		try:
+			touch(self.get_file())
+		except OSError as e:
+			if e.errno == 2:
+				raise MissingOutputException("Output file {} of rule {} shall be touched but does not exist.".format(self.get_file(), rulename), lineno = lineno, snakefile = snakefile)
+			else:
+				raise e
+
 
 	def apply_wildcards(self, wildcards):
 		f = self._file
@@ -136,7 +141,9 @@ class IOFile(str):
 			return match
 		return None
 
-
+def touch(file):
+	os.utime(self.get_file(), None)
+	
 _wildcard_regex = re.compile("\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>.*))?\s*\}")
 
 def regex(filepattern):
