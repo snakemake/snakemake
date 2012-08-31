@@ -5,30 +5,48 @@ import sre_constants
 from collections import defaultdict
 from snakemake.logging import logger
 from snakemake.jobs import Job
-from snakemake.io import IOFile, protected, temp, Namedlist
+from snakemake.io import IOFile, protected, temp, dynamic, Namedlist
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException, IOFileException
 
 __author__ = "Johannes Köster"
 
 class Rule:
-	def __init__(self, name, workflow, lineno = None, snakefile = None):
+	def __init__(self, *args, lineno = None, snakefile = None):
 		"""
 		Create a rule
 		
 		Arguments
 		name -- the name of the rule
 		"""
-		self.name = name
-		self.message = None
-		self.input = Namedlist()
-		self.output = Namedlist()
-		self.threads = 1
-		self.regex_output = []
-		self.wildcard_names = set()
-		self.workflow = workflow
-		self.lineno = lineno
-		self.snakefile = snakefile
-		self.run_func = None
+		if len(args) == 2:
+			name, workflow = args
+			self.name = name
+			self.message = None
+			self.input = Namedlist()
+			self.output = Namedlist()
+			self.dynamic = set()
+			self.threads = 1
+			self.wildcard_names = set()
+			self.workflow = workflow
+			self.lineno = lineno
+			self.snakefile = snakefile
+			self.run_func = None
+		elif len(args) == 1:
+			other = args[0]
+			self.name = other.name
+			self.message = other.message
+			self.input = other.input
+			self.output = other.output
+			self.dynamic = other.dynamic
+			self.threads = other.threads
+			self.wildcard_names = other.wildcard_names
+			self.workflow = other.workflow
+			self.lineno = other.lineno
+			self.snakefile = other.snakefile
+			self.run_func = other.run_func
+		else:
+			raise ValueError("Rule expects either 1 or 2 positional args.")
+
 
 	def has_wildcards(self):
 		"""
@@ -67,7 +85,6 @@ class Rule:
 					raise SyntaxError("Not all output files of rule {} contain the same wildcards. ".format(self.name))
 			else:
 				self.wildcard_names = wildcards
-			self.regex_output.append(item.regex())
 	
 	def _set_inoutput_item(self, item, output = False, name=None):
 		"""
@@ -82,10 +99,12 @@ class Rule:
 		if type(item).__name__ == "function" and output:
 			raise SyntaxError("Only input files can be specified as functions")
 		try:
-			item = IOFile.create(item, temp = isinstance(item, temp), protected = isinstance(item, protected))
-			inoutput.append(item)
+			_item = IOFile.create(item, temp = isinstance(item, temp), protected = isinstance(item, protected))
+			inoutput.append(_item)
 			if name:
 				inoutput.add_name(name)
+			if isinstance(item, dynamic):
+				self.dynamic.add(_item)
 		except ValueError:
 			try:
 				for i in item:
@@ -106,20 +125,26 @@ class Rule:
 		""" Expand wildcards depending on the requested output. """
 		wildcards = dict()
 		if requested_output:
-			wildcards = self.get_wildcards(requested_output)
+			wildcards, matching_output = self.get_wildcards(requested_output)
 			missing_wildcards = set(wildcards.keys()) - self.wildcard_names 
 		else:
 			missing_wildcards = self.wildcard_names
+			matching_output = None
 		
 		if missing_wildcards:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno, snakefile = self.snakefile)
 
 		try:
-			input = Namedlist(i.apply_wildcards(wildcards) for i in self.input)
+			input = Namedlist()
+			for i in self.input:
+				if i in self.dynamic:
+					input.append(i.fill_wildcards())
+				else:
+					input.append(i.apply_wildcards(wildcards))
 			output = Namedlist(o.apply_wildcards(wildcards) for o in self.output)
 			input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
-			return input, output, wildcards
+			return input, output, wildcards, matching_output
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
 			raise RuleException("Wildcards in input file of rule {} do not appear in output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)
@@ -140,7 +165,7 @@ class Rule:
 	def run(self, requested_output = None, forceall = False, forcethis = False, 
 	        give_reason = False, jobs = None, dryrun = False, touch = False, 
 	        quiet = False, visited = None, parentmintime = None, 
-	        ignore_ambiguity = False):
+	        ignore_ambiguity = False, skip_until_dynamic = False):
 		"""
 		Run the rule.
 		
@@ -161,7 +186,7 @@ class Rule:
 			raise CyclicGraphException(self, lineno = self.lineno, snakefile = self.snakefile)
 		visited.add((self, requested_output))
 		
-		input, output, wildcards = self._expand_wildcards(requested_output)
+		input, output, wildcards, matching_output = self._expand_wildcards(requested_output)
 
 	
 		output_mintime = IOFile.mintime(output) or parentmintime
@@ -180,7 +205,8 @@ class Rule:
 				                               reason if give_reason else None)
 			return job
 
-		for rule, file in self.workflow.get_producers(input, exclude=self):
+		for rule, file, i in self.workflow.get_producers(input, exclude=self):
+			orig_file = self.input[i]
 			try:
 				job = rule.run(
 					file, 
@@ -191,7 +217,8 @@ class Rule:
 					touch = touch, 
 					quiet = quiet, 
 					visited = set(visited), 
-					parentmintime = output_mintime)
+					parentmintime = output_mintime,
+					skip_until_dynamic = orig_file in self.dynamic or skip_until_dynamic)
 				
 				if file in produced:
 					if produced[file].rule > rule:
@@ -229,23 +256,25 @@ class Rule:
 		todo = {job for job in produced.values() if job.needrun}
 		
 		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, output_mintime, requested_output)
+
+		pseudo = skip_until_dynamic and matching_output not in self.dynamic
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output:
 			raise ProtectedOutputException(self, protected_output, 
 			                               lineno = self.lineno, 
 			                               snakefile = self.snakefile)
-			
+	
 		for f in input:
 			f.need()
-			
-		wildcards = Namedlist(fromdict = wildcards)
 		
+		wildcards = Namedlist(fromdict = wildcards)
+
 		job = Job(
 			self.workflow,
 			rule = self, 
 			message = self.get_message(input, output, wildcards, 
-			                           reason if give_reason else None),
+							   reason if give_reason else None),
 			input = input,
 			output = output,
 			wildcards = wildcards,
@@ -253,8 +282,11 @@ class Rule:
 			depends = todo,
 			dryrun = dryrun,
 			touch = touch,
-			needrun = need_run
+			needrun = need_run,
+			pseudo = pseudo,
+			dynamic_output = [o for o in self.output if o in self.dynamic]
 		)
+
 		jobs[(output, self)] = job
 		return job
 
@@ -319,21 +351,26 @@ class Rule:
 				msg += "\n" + reason
 			return msg
 
-		def showtype(iofile):
-			f = str(iofile)
-			if iofile.is_temp():
-				f += " (temporary)"
-			elif iofile.is_protected():
-				f += " (protected)"
-			return f
+		def showtype(orig_iofiles, iofiles):
+			for i, iofile in enumerate(iofiles):
+				if orig_iofiles[i] in self.dynamic:
+					f = str(orig_iofiles[i])
+					f += " (dynamic)"
+				else:
+					f = str(iofile)
+				if iofile.is_temp():
+					f += " (temporary)"
+				if iofile.is_protected():
+					f += " (protected)"
+				yield f
 
 		msg = "rule " + self.name
 		if input or output:
 			msg += ":"
 		if input:
-			msg += "\n\tinput: {}".format(", ".join(map(showtype, input)))
+			msg += "\n\tinput: {}".format(", ".join(showtype(self.input, input)))
 		if output:
-			msg += "\n\toutput: {}".format(", ".join(map(showtype, output)))
+			msg += "\n\toutput: {}".format(", ".join(showtype(self.output, output)))
 		if reason:
 			msg += "\n\t" + reason
 		return msg
@@ -343,8 +380,8 @@ class Rule:
 		Returns True if this rule is a producer of the requested output.
 		"""
 		try:
-			for o in self.regex_output:
-				match = re.match(o, requested_output)
+			for o in self.output:
+				match = o.match(requested_output)
 				if match and len(match.group()) == len(requested_output):
 					return True
 			return False
@@ -361,14 +398,19 @@ class Rule:
 		"""
 		bestmatchlen = 0
 		bestmatch = None
-		for o in self.regex_output:
-			match = re.match(o, requested_output)
-			if match and len(match.group()) == len(requested_output):
+		bestmatch_output = None
+		for i, o in enumerate(self.output):
+			match = o.match(requested_output)
+			if match:
 				l = self.get_wildcard_len(match.groupdict())
 				if not bestmatch or bestmatchlen > l:
 					bestmatch = match.groupdict()
 					bestmatchlen = l
-		return bestmatch
+					bestmatch_output = self.output[i]
+		return bestmatch, bestmatch_output
+
+	def clone(self):
+		return Rule(self)
 	
 	@staticmethod
 	def get_wildcard_len(wildcards):

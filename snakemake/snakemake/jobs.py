@@ -3,10 +3,12 @@
 import signal
 import sys, time, os, threading, multiprocessing
 from itertools import chain
+from collections import defaultdict
 from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, \
-	ClusterJobException, print_exception
+	ClusterJobException, print_exception, format_error
 from snakemake.shell import shell
-from snakemake.io import IOFile, temp, protected
+from snakemake.io import IOFile, temp, protected, expand
+from snakemake.utils import listfiles
 from snakemake.logging import logger
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
@@ -35,25 +37,18 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards,
 
 	for o in output:
 		o.prepare()
+		
+	t0 = time.time()
 	try:
-		t0 = time.time()
 		# execute the actual run method.
 		run(input, output, wildcards, threads)
 		# finish all spawned shells.
 		shell.join_all()
 		runtime = time.time() - t0
-		for o in output:
-			o.created(rulename, rulelineno, rulesnakefile)
-		for i in input:
-			i.used()
 		return runtime
 	except (Exception, BaseException) as ex:
-		# Remove produced output on exception
-		for o in output:
-			o.remove()
-		if not isinstance(ex, TerminatedException):
-			print_exception(ex, rowmaps)
-			raise Exception()
+		# this ensures that exception can be re-raised in the parent thread
+		raise RuleException(format_error(ex, rulelineno, rowmaps=rowmaps, snakefile=rulesnakefile), )
 
 class Job:
 	count = 0
@@ -66,8 +61,9 @@ class Job:
 	def __init__(self, workflow, rule = None, message = None, 
 			input = None, output = None, wildcards = None, 
 			threads = 1, depends = set(), dryrun = False, 
-			touch = False, needrun = True):
+			touch = False, needrun = True, pseudo = False, dynamic_output = False):
 		self.workflow = workflow
+		self.scheduler = None
 		self.rule = rule
 		self.message = message
 		self.input = input
@@ -77,6 +73,8 @@ class Job:
 		self.dryrun = dryrun
 		self.touch = touch
 		self.needrun = needrun
+		self.pseudo = pseudo
+		self.dynamic_output = dynamic_output
 		self.depends = set(depends)
 		self.depending = list()
 		self.is_finished = False
@@ -89,20 +87,32 @@ class Job:
 
 	def all_jobs(self):
 		yield self
+		for job in self.descendants():
+			yield job
+
+	def descendants(self):
 		for job in self.depends:
-			for j in job.all_jobs():
+			yield job
+			for j in job.descendants():
+				yield j
+
+	def ancestors(self):
+		for job in self.depending:
+			yield job
+			for j in job.ancestors():
 				yield j
 	
 	def print_message(self):
 		logger.info(self.message)
 		
 	def run(self, run_func):
-		if not self.needrun:
+		if not self.needrun or self.pseudo:
 			self.finished()
 		elif self.dryrun:
 			self.print_message()
 			self.finished()
 		elif self.touch:
+			# TODO think about touch for dynamic files
 			logger.info(self.message)
 			for o in self.output:
 				o.touch(self.rule.name, self.rule.lineno, self.rule.snakefile)
@@ -126,13 +136,28 @@ class Job:
 		self._error_callbacks.append(callback)
 	
 	def finished(self, future = None):
-		""" Set job to be finished. """	
-		if future:
-			ex = future.exception()
-			if ex:
-				for callback in self._error_callbacks:
-					callback()
-				return
+		""" Set job to be finished. """
+		try:
+			if future and not self.pseudo:
+				ex = future.exception()
+				if ex:
+					raise ex
+
+			if not self.dryrun and not self.pseudo:
+				# check the produced files
+				for i, o in enumerate(self.output):
+					if not self.rule.output[i] in self.rule.dynamic:
+						o.created(self.rule.name, self.rule.lineno, self.rule.snakefile)
+				for f in self.input:
+					f.used()
+		except (Exception, BaseException) as ex:
+			# in case of an error, execute all callbacks and delete output
+			print_exception(ex, self.workflow.rowmaps)
+			self.cleanup()
+			for callback in self._error_callbacks:
+				callback()
+			return
+
 		self.is_finished = True
 		if self.needrun and not self.dryrun:
 			self.workflow.jobcounter.done()
@@ -141,13 +166,63 @@ class Job:
 				self.workflow.report_runtime(self.rule, future.result())
 		for other in self.depending:
 			other.depends.remove(self)
+
+		# TODO add jobs to the DAG that depend on dynamic files of this one	
+		if not self.dryrun and self.dynamic_output:
+			self.handle_dynamic_output()				
+
 		for callback in self._callbacks:
 			callback(self)
 
 	def cleanup(self):
 		if not self.is_finished:
-			for o in self.output:
-				o.remove()
+			for i, o in enumerate(self.output):
+				if self.rule.output[i] not in self.rule.dynamic:
+					o.remove()
+				else:
+					for f in expand(self.rule.output[i]):
+						f.remove()
+
+	def handle_dynamic_output(self):
+		wildcard_expansion = defaultdict(list)
+		for o in self.dynamic_output:
+			for f, wildcards in listfiles(o):
+				for name, value in wildcards.items():
+					wildcard_expansion[name].append(value)
+		for job in self.ancestors():
+			job.handle_dynamic_input(wildcard_expansion)
+
+	def handle_dynamic_input(self, wildcard_expansion):
+		r = self.rule.clone()
+		modified = False
+		for i, f in enumerate(self.rule.input):
+			if f in self.rule.dynamic: # check if file is a dynamic placeholder
+				try:
+					d = r.input[i]
+					r.input.pop(i)
+					for e in reversed(expand(d, zip, **wildcard_expansion)):
+						e = IOFile.create(e, temp = d.is_temp(), protected = d.is_protected())
+						r.input.insert(i, e)
+					r.dynamic.remove(d)
+					modified = True
+				except Exception as ex:
+					print(ex)
+					# keep the file if expansion fails
+					pass
+		if not modified:
+			return
+		# disable the current job since it will be replaced with the expanded
+		try:
+			job = r.run(self.output[0] if self.output else None)
+			self.needrun = False
+			logger.warning("Dynamically adding jobs")
+			jobs = list(job.all_jobs())
+			self.scheduler.add_jobs(jobs)
+			self.workflow.jobcounter.count += len(jobs) - 1 # -1 because we replace current job
+		except Exception as ex:
+			# there seem to be missing files, so ignore this
+			pass
+		
 
 	def dot(self):
 		label = self.rule.name
@@ -180,10 +255,16 @@ class KnapsackJobScheduler:
 		self._maxcores = workflow.cores if workflow.cores else multiprocessing.cpu_count()
 		self._cores = self._maxcores
 		self._pool = PoolExecutor(max_workers = self._cores)
-		self._jobs = set(jobs)
+		self._jobs = set()
+		self.add_jobs(jobs)
 		self._open_jobs = Event()
 		self._open_jobs.set()
 		self._errors = False
+
+	def add_jobs(self, jobs):
+		for job in jobs:
+			job.scheduler = self
+			self._jobs.add(job)
 
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
@@ -266,12 +347,18 @@ class KnapsackJobScheduler:
 class ClusterJobScheduler:
 	def __init__(self, jobs, workflow, submitcmd = "qsub"):
 		self.workflow = workflow
-		self._jobs = set(jobs)
+		self._jobs = set()
+		self.add_jobs(jobs)
 		self._submitcmd = submitcmd
 		self._open_jobs = Event()
 		self._open_jobs.set()
 		self._error = False
 		self._cores = workflow.cores
+
+	def add_jobs(self, jobs):
+		for job in jobs:
+			job.scheduler = self
+			self._jobs.add(job)
 
 	def schedule(self):
 		while True:

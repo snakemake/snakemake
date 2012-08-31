@@ -41,9 +41,14 @@ class IOFile(str):
 		super().__init__(file)
 		self._is_function = type(file).__name__ == "function"
 		self._file = file
+		self._regex = None
 		self._needed = 0
 		self._temp = False
 		self._protected = False
+
+		if not self._is_function:
+			# create a regular expression
+			self._regex = re.compile(regex(self._file))
 	
 	def get_file(self):
 		if not self._is_function:
@@ -112,15 +117,28 @@ class IOFile(str):
 		if self._is_function:
 			f = self._file(Namedlist(fromdict = wildcards))
 		return self.create(re.sub(_wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), protected = self._protected, temp = self._temp, origin = self)
+
+	def fill_wildcards(self):
+		f = self._file
+		if self._is_function:
+			raise ValueError("Cannot fill wildcards of function.")
+		return self.create(re.sub(_wildcard_regex, lambda match: '{}'.format("dynamic"), f), protected = self._protected, temp = self._temp)
 		
 	def get_wildcard_names(self):
 		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.get_file()))
 
 	def regex(self):
-		return regex(self.get_file())
+		return self._regex
+
+	def match(self, target):
+		match = re.match(self._regex, target)
+		if match and len(match.group()) == len(target):
+			return match
+		return None
 
 
-_wildcard_regex = "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>.*))?\s*\}"
+_wildcard_regex = re.compile("\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>.*))?\s*\}")
+
 def regex(filepattern):
 	f = ""
 	last = 0
@@ -143,7 +161,24 @@ class protected(str):
 	""" A flag for a file that shall be write protected after creation. """
 	pass
 
-def expand(filepatterns, **wildcards):
+class dynamic(str):
+	""" A flag for a file that shall be dynamic, i.e. the multiplicity (and wildcard values) will be expanded after a certain rule has been run """
+	pass
+
+
+def expand(*args, **wildcards):
+	""" 
+	Expand wildcards in given filepatterns. 
+
+	Arguments
+	*args -- first arg: filepatterns as list or one single filepattern, second arg (optional): a function to combine wildcard values (itertools.product per default)
+	**wildcards -- the wildcards as keyword arguments with their values as lists
+	"""
+	filepatterns = args[0]
+	if len(args) == 1:
+		combinator = product
+	elif len(args) == 2:
+		combinator = args[1]
 	if not isinstance(filepatterns, list) or isinstance(filepatterns, tuple):
 		filepatterns = [filepatterns]
 	def flatten(wildcards):
@@ -151,10 +186,12 @@ def expand(filepatterns, **wildcards):
 			if not isinstance(values, list) or isinstance(values, tuple):
 				values = [values]
 			yield [(wildcard, value) for value in values]
-	for comb in product(*flatten(wildcards)):
+	expanded = list()
+	for comb in combinator(*flatten(wildcards)):
 		comb = dict(comb)
 		for filepattern in filepatterns:
-			yield filepattern.format(**comb)
+			expanded.append(filepattern.format(**comb))
+	return expanded
 	
 class Namedlist(list):
 	"""

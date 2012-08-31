@@ -16,21 +16,21 @@ from snakemake.exceptions import MissingOutputException, MissingInputException, 
 from snakemake.shell import shell, format
 from snakemake.jobs import Job, KnapsackJobScheduler, ClusterJobScheduler, print_job_dag
 from snakemake.parser import compile_to_python
-from snakemake.io import protected, temp, temporary, expand, IOFile
+from snakemake.io import protected, temp, temporary, expand, dynamic, IOFile
 
 
 __author__ = "Johannes Köster"
 
 class Jobcounter:
 	def __init__(self, count):
-		self._count = count
+		self.count = count
 		self._done = 0
 	
 	def done(self):
 		self._done += 1
 	
 	def __str__(self):
-		return "{} of {} steps ({}%) done".format(self._done, self._count, int(self._done / self._count * 100))
+		return "{} of {} steps ({}%) done".format(self._done, self.count, int(self._done / self.count * 100))
 
 class Workflow:
 	def __init__(self):
@@ -87,10 +87,12 @@ class Workflow:
 		return name in self._rules
 	
 	def get_producers(self, files, exclude = None):
-		files = set(files)
-		for f in files:
-			for item in self._get_producers(f, exclude=exclude):
-				yield item
+		checked = set()
+		for i, f in enumerate(files):
+			if not f in checked:
+				checked.add(f)
+				for rule, file in self._get_producers(f, exclude=exclude):
+					yield (rule, file, i)
 
 	@lru_cache()
 	def _get_producers(self, file, exclude = None):
@@ -140,7 +142,7 @@ class Workflow:
 		"""
 		producers = dict()
 		missing_input_ex = defaultdict(list)
-		for rule, file in self.get_producers(files):
+		for rule, file, _ in self.get_producers(files):
 			try:
 				job = rule.run(file, jobs=dict(), forceall = forceall, 
 					dryrun = True, visited = set())

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import os, re
+import os, re, fnmatch
+from itertools import chain
 from snakemake.io import regex, Namedlist
 
 __author__ = "Johannes Köster"
@@ -15,27 +16,33 @@ def linecount(filename):
 	with open(filename) as f:
 		return sum(1 for l in f)
 
-def listdir(dirname, pattern = None):
+def listfiles(pattern):
 	"""
-	Yield a tuple of filenames and full filepaths in the given directory.
+	Yield a tuple of existing filepaths for the given pattern.
 	If pattern is specified, wildcard values are yielded as the third tuple item.
 
 	Arguments
-	dirname -- the path to the directory to list
-	pattern -- an optional filepattern relative to dirname. Wildcards are specified in snakemake syntax, e.g. "{id}.txt"
+	pattern -- a filepattern. Wildcards are specified in snakemake syntax, e.g. "{id}.txt"
 	"""
-	if pattern:
-		pattern = re.compile(regex(pattern))
-		for f in os.listdir(dirname):
+	first_wildcard = re.search("{[^{]", pattern)
+	if first_wildcard:
+		dirname = os.path.dirname(pattern[:first_wildcard.start()])
+		if not dirname:
+			dirname = "."
+			pattern = os.path.join(".", pattern)
+		else:
+			pattern = pattern[len(dirname)+1:]
+	else:
+		dirname = os.path.dirname(pattern)
+		pattern = os.path.basename(pattern)
+	pattern = re.compile(regex(pattern))
+	for dirpath, dirnames, filenames in os.walk(dirname):
+		for f in chain(filenames, dirnames):
+			f = os.path.join(dirpath, f)
 			match = re.match(pattern, f)
 			if match and len(match.group()) == len(f):
 				wildcards = Namedlist(fromdict = match.groupdict())
-				filepath = os.path.join(dirname, f)
-				yield f, filepath, wildcards
-	else:
-		for f in os.listdir(dirname):
-			filepath = os.path.join(dirname, f)
-			yield f, filepath
+				yield f, wildcards
 
 def makedirs(dirnames):
 	"""
