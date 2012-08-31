@@ -1,0 +1,14 @@
+# snakemake
+
+rule all:
+	input: dynamic("test.{n}.out")
+
+rule inter:
+	input: "test.{n}.inter"
+	output: "test.{n}.out"
+	shell: "cp {input} {output}"
+
+rule dynoutput:
+	input: "test.in"
+	output: dynamic("test.{n}.inter")
+	shell: "for i in {{1..3}}; do touch test.$i.inter; done"
