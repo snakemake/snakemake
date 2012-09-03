@@ -45,11 +45,7 @@ class IOFile(str):
 		self._needed = 0
 		self._temp = False
 		self._protected = False
-
-		if not self._is_function:
-			# create a regular expression
-			self._regex = re.compile(regex(self._file))
-	
+				
 	def get_file(self):
 		if not self._is_function:
 			return self._file
@@ -133,19 +129,22 @@ class IOFile(str):
 		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.get_file()))
 
 	def regex(self):
+		if not self._regex:
+			# create a regular expression
+			self._regex = re.compile(regex(self._file))
 		return self._regex
 
 	def match(self, target):
-		match = re.match(self._regex, target)
+		match = re.match(self.regex(), target)
 		if match and len(match.group()) == len(target):
 			return match
 		return None
 
+_wildcard_regex = "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}"
+
 def touch(file):
 	os.utime(self.get_file(), None)
 	
-_wildcard_regex = re.compile("\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>.*))?\s*\}")
-
 def regex(filepattern):
 	f = ""
 	last = 0

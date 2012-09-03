@@ -36,7 +36,7 @@ def format(string, *args, stepout = 1, **kwargs):
 	variables.update(kwargs)
 	strmethods = list()
 	for key, value in list(variables.items()):
-		if type(value) == list or type(value) == tuple:
+		if type(value) in (list, tuple, set, frozenset):
 			variables[key] = SequenceFormatter(value)
 	try:
 		return string.format(*args, **variables)
@@ -69,7 +69,7 @@ class shell(sp.Popen):
 
 	@classmethod
 	def prefix(cls, prefix):
-		cls._process_prefix = prefix
+		cls._process_prefix = format(prefix, stepout = 2)
 	
 	def __init__(self, cmd, *args, async = False, iterable = False, **kwargs):
 		if async or iterable:
