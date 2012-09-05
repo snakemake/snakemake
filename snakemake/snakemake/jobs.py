@@ -5,7 +5,7 @@ import sys, time, os, threading, multiprocessing
 from itertools import chain
 from collections import defaultdict
 from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, \
-	ClusterJobException, print_exception, format_error
+	ClusterJobException, print_exception, format_error, get_lineno
 from snakemake.shell import shell
 from snakemake.io import IOFile, temp, protected, expand, touch
 from snakemake.utils import listfiles
@@ -48,7 +48,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards,
 		return runtime
 	except (Exception, BaseException) as ex:
 		# this ensures that exception can be re-raised in the parent thread
-		raise RuleException(format_error(ex, rulelineno, rowmaps=rowmaps, snakefile=rulesnakefile), )
+		raise RuleException(format_error(ex, get_lineno(ex, rowmaps), rowmaps=rowmaps, snakefile=rulesnakefile), )
 
 class Job:
 	count = 0
