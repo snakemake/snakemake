@@ -6,6 +6,7 @@ from collections import defaultdict
 from snakemake.logging import logger
 from snakemake.jobs import Job
 from snakemake.io import IOFile, protected, temp, dynamic, Namedlist
+from snakemake.utils import listfiles
 from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException, IOFileException
 
 __author__ = "Johannes Köster"
@@ -217,12 +218,12 @@ class Rule:
 			job = jobs[(output, self)]
 			if not job.needrun:
 				# update the job if it needs to run due to the new requested file
-				needrun, reason = self._need_run(False, todo, input, output, output_mintime, requested_output)
+				needrun, reason = self._need_run(False, todo, input, output, parentmintime, requested_output)
 				job.needrun = needrun
 				job.message = self.get_message(input, output, wildcards,
 				                               reason if give_reason else None)
 			return job
-
+		
 		for rule, file in self.workflow.get_producers(input, exclude=self):
 			try:
 				job = rule.run(
@@ -270,9 +271,9 @@ class Rule:
 				snakefile = self.snakefile
 			)
 
-		todo = {job for job in produced.values() if job.needrun}
+		todo = {job for job in produced.values() if job.needrun or job.pseudo}
 		
-		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, output_mintime, requested_output)
+		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, parentmintime, requested_output)
 
 		pseudo = skip_until_dynamic and not self.is_dynamic(matching_output)
 		
@@ -299,7 +300,7 @@ class Rule:
 			depends = todo,
 			dryrun = dryrun,
 			touch = touch,
-			needrun = need_run,
+			needrun = need_run and not pseudo,
 			pseudo = pseudo,
 			dynamic_output = [o for o in self.output if o in self.dynamic]
 		)
@@ -318,7 +319,7 @@ class Rule:
 		if self.output and not self.has_run():
 			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name), lineno = self.lineno, snakefile = self.snakefile)
 
-	def _need_run(self, force, todo, input, output, output_mintime, requested_output):
+	def _need_run(self, force, todo, input, output, parentmintime, requested_output):
 		""" Return True if rule needs to be run. """
 		if self.has_run():
 			if force:
@@ -328,6 +329,21 @@ class Rule:
 				for job in todo:
 					todo_output.update(job.output)
 				return True, "Updated input files: {}".format(", ".join(set(input) & set(todo_output)))
+
+			concrete_output = []
+			for i, f in enumerate(output):
+				_f = self.output[i]
+				if self.is_dynamic(_f):
+					if f == requested_output:
+						# remove requested output as it is only a placeholder
+						requested_output = None
+					concrete_output.extend([IOFile.create(d, temp=f.is_temp(), protected=f.is_protected()) for d, _ in listfiles(_f)])
+				else:
+					concrete_output.append(f)
+			output = concrete_output
+			
+			output_mintime = IOFile.mintime(output) or parentmintime
+
 			if self._has_missing_files(output, requested_output):
 				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
 			if not output:

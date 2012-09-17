@@ -2,6 +2,8 @@
 
 rule all:
 	input: dynamic("test.{n}.out")
+	run:
+		pass
 
 rule inter:
 	input: "test.{n}.inter"

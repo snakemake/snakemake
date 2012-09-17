@@ -163,7 +163,7 @@ class Job:
 			return
 
 		self.is_finished = True
-		if self.needrun and not self.dryrun:
+		if self.needrun and not self.dryrun and not self.pseudo:
 			self.workflow.jobcounter.done()
 			logger.info(self.workflow.jobcounter)
 			if future != None:
