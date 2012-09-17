@@ -207,6 +207,8 @@ class Rule:
 		visited.add((self, requested_output))
 		
 		input, output, wildcards, matching_output = self._expand_wildcards(requested_output)
+		
+		skip_until_dynamic = skip_until_dynamic and not self.is_dynamic(matching_output)
 	
 		output_mintime = IOFile.mintime(output) or parentmintime
 		
@@ -271,11 +273,10 @@ class Rule:
 				snakefile = self.snakefile
 			)
 
+		# collect the jobs that will actually run (including pseudo-jobs)
 		todo = {job for job in produced.values() if job.needrun or job.pseudo}
 		
 		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, parentmintime, requested_output)
-
-		pseudo = skip_until_dynamic and not self.is_dynamic(matching_output)
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output:
@@ -287,6 +288,8 @@ class Rule:
 			f.need()
 		
 		wildcards = Namedlist(fromdict = wildcards)
+
+		pseudo = skip_until_dynamic
 
 		job = Job(
 			self.workflow,
@@ -300,7 +303,7 @@ class Rule:
 			depends = todo,
 			dryrun = dryrun,
 			touch = touch,
-			needrun = need_run and not pseudo,
+			needrun = need_run,
 			pseudo = pseudo,
 			dynamic_output = [o for o in self.output if o in self.dynamic]
 		)
