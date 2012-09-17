@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, re, stat, shutil
+import os, sys, re, stat, shutil, random
 from itertools import product
 from snakemake.exceptions import MissingOutputException, IOException
 from snakemake.logging import logger
@@ -97,11 +97,7 @@ class IOFile(str):
 				os.chmod(self.get_file(), mode)
 	
 	def remove(self):
-		if os.path.exists(self.get_file()):
-			if os.path.isdir(self.get_file()):
-				shutil.rmtree(self.get_file(), True)
-			else:
-				os.remove(self.get_file())
+		remove(self.get_file())
 	
 	def touch(self, rulename, lineno, snakefile):
 		try:
@@ -123,7 +119,7 @@ class IOFile(str):
 		f = self._file
 		if self._is_function:
 			raise ValueError("Cannot fill wildcards of function.")
-		return self.create(re.sub(_wildcard_regex, lambda match: '{}'.format("dynamic"), f), protected = self._protected, temp = self._temp)
+		return self.create(re.sub(_wildcard_regex, lambda match: '{}'.format(random.randint(1, 1000000)), f), protected = self._protected, temp = self._temp)
 		
 	def get_wildcard_names(self):
 		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.get_file()))
@@ -141,6 +137,17 @@ class IOFile(str):
 		return None
 
 _wildcard_regex = "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}"
+
+def remove(file):
+	if os.path.exists(file):
+		if os.path.isdir(file):
+			try:
+				os.removedirs(file)
+			except OSError:
+				# ignore non empty directories
+				pass
+		else:
+			os.remove(file)
 
 def touch(file):
 	os.utime(self.get_file(), None)

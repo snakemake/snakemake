@@ -2,12 +2,12 @@
 
 import signal
 import sys, time, os, threading, multiprocessing
-from itertools import chain
+from itertools import chain, filterfalse
 from collections import defaultdict
 from snakemake.exceptions import TerminatedException, MissingOutputException, RuleException, \
-	ClusterJobException, print_exception, format_error, get_lineno
+	ClusterJobException, print_exception, format_error, get_exception_origin
 from snakemake.shell import shell
-from snakemake.io import IOFile, temp, protected, expand, touch
+from snakemake.io import IOFile, temp, protected, expand, touch, remove
 from snakemake.utils import listfiles
 from snakemake.logging import logger
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -48,7 +48,8 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards,
 		return runtime
 	except (Exception, BaseException) as ex:
 		# this ensures that exception can be re-raised in the parent thread
-		raise RuleException(format_error(ex, get_lineno(ex, rowmaps), rowmaps=rowmaps, snakefile=rulesnakefile), )
+		lineno, file = get_exception_origin(ex, rowmaps)
+		raise RuleException(format_error(ex, lineno, rowmaps=rowmaps, snakefile=file), )
 
 class Job:
 	count = 0
@@ -113,8 +114,12 @@ class Job:
 			self.finished()
 		elif self.touch:
 			logger.info(self.message)
-			for o in self.output:
-				o.touch(self.rule.name, self.rule.lineno, self.rule.snakefile)
+			for i, o in enumerate(self.output):
+				if not self.rule.is_dynamic(self.rule.output[i]):
+					o.touch(self.rule.name, self.rule.lineno, self.rule.snakefile)
+			for o in filter(self.rule.is_dynamic, self.rule.output):
+				for f, _ in listfiles(o):
+					touch(f)
 			# sleep shortly to ensure that output files of different rules 
 			# are not touched at the same time.
 			time.sleep(0.1)
@@ -144,8 +149,8 @@ class Job:
 
 			if not self.dryrun and not self.pseudo:
 				# check the produced files
-				for o in self.output:
-					if not self.rule.is_dynamic(o):
+				for i, o in enumerate(self.output):
+					if not self.rule.is_dynamic(self.rule.output[i]):
 						o.created(self.rule.name, self.rule.lineno, self.rule.snakefile)
 				for f in self.input:
 					f.used()
@@ -175,12 +180,12 @@ class Job:
 
 	def cleanup(self):
 		if not self.is_finished:
-			for o in self.output:
-				if not self.rule.is_dynamic(o):
+			for i, o in enumerate(self.output):
+				if not self.rule.is_dynamic(self.rule.output[i]):
 					o.remove()
 				else:
-					for f in expand(self.rule.output[i]):
-						f.remove()
+					for f, _ in listfiles(self.rule.output[i]):
+						remove(f)
 
 	def handle_dynamic_output(self):
 		wildcard_expansion = defaultdict(list)
@@ -193,10 +198,12 @@ class Job:
 			job.handle_dynamic_input(wildcard_expansion)
 
 	def handle_dynamic_input(self, wildcard_expansion):
-		r = self.rule.clone()
+		r = None
 		modified = False
 		for i, f in enumerate(self.rule.input):
 			if self.rule.is_dynamic(f):
+				if r is None:
+					r = self.rule.clone()
 				try:
 					d = r.input[i]
 					r.input.pop(i)

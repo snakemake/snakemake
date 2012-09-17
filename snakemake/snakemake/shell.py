@@ -166,7 +166,6 @@ class shell(sp.Popen):
 				writer = TextIOWriter(o)
 			elif isinstance(o, list):
 				writer = ListWriter(o)
-				print("list")
 			else:
 				raise ValueError("Only shell, files, stdout or lists allowed right to a shell pipe.")
 			pipes.append(writer)

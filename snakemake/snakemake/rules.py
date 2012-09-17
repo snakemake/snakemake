@@ -64,8 +64,12 @@ class Rule:
 			self.dynamic[file] = concrete
 			self.dynamic[concrete] = file
 		else:
-			del self.dynamic[self.dynamic[file]]
+			concrete = self.dynamic[file]
 			del self.dynamic[file]
+			del self.dynamic[concrete]
+	
+	def get_non_dynamic_output(self, output):
+		return [f for i, f in enumerate(output) if not self.is_dynamic(self.output[i])]	
 
 	def set_input(self, *input, **kwinput):
 		"""
@@ -117,6 +121,8 @@ class Rule:
 			if name:
 				inoutput.add_name(name)
 			if isinstance(item, dynamic):
+				if len(_item.get_wildcard_names()) > 1:
+					raise SyntaxError("Dynamic files may not contain more than one wildcard.")
 				self.set_dynamic(_item, True)
 		except ValueError:
 			try:
@@ -200,7 +206,6 @@ class Rule:
 		visited.add((self, requested_output))
 		
 		input, output, wildcards, matching_output = self._expand_wildcards(requested_output)
-
 	
 		output_mintime = IOFile.mintime(output) or parentmintime
 		

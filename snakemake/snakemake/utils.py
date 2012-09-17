@@ -29,16 +29,13 @@ def listfiles(pattern):
 		dirname = os.path.dirname(pattern[:first_wildcard.start()])
 		if not dirname:
 			dirname = "."
-			pattern = os.path.join(".", pattern)
-		else:
-			pattern = pattern[len(dirname)+1:]
 	else:
 		dirname = os.path.dirname(pattern)
-		pattern = os.path.basename(pattern)
 	pattern = re.compile(regex(pattern))
 	for dirpath, dirnames, filenames in os.walk(dirname):
 		for f in chain(filenames, dirnames):
-			f = os.path.join(dirpath, f)
+			if dirpath != ".":
+				f = os.path.join(dirpath, f)
 			match = re.match(pattern, f)
 			if match and len(match.group()) == len(f):
 				wildcards = Namedlist(fromdict = match.groupdict())

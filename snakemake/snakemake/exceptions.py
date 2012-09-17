@@ -17,11 +17,11 @@ def format_error(ex, lineno, rowmaps = None, snakefile = None):
 	location = " in line {} of {}".format(lineno, snakefile) if lineno and snakefile else ""
 	return '{}{}{}'.format(ex.__class__.__name__, location, ":\n" + msg if msg else ".")
 
-def get_lineno(ex, rowmaps):
+def get_exception_origin(ex, rowmaps):
 	for file, lineno, _, _ in reversed(traceback.extract_tb(ex.__traceback__)):
 		#traceback.print_tb(ex.__traceback__)
 		if file in rowmaps:
-			return lineno
+			return lineno, file
 
 def print_exception(ex, rowmaps):
 	"""
@@ -31,8 +31,9 @@ def print_exception(ex, rowmaps):
 	ex -- the exception
 	rowmaps -- a dict of a dict that maps for each snakefile the compiled lines to source code lines in the snakefile.
 	"""
-	lineno = get_lineno(ex, rowmaps)
-	if not lineno is None:
+	origin = get_exception_origin(ex, rowmaps)
+	if not origin is None:
+		lineno, file = origin
 		logger.critical(format_error(ex, lineno, rowmaps = rowmaps, snakefile = file))
 		return
 	if isinstance(ex, SyntaxError):
