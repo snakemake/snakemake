@@ -209,6 +209,7 @@ class Rule:
 		input, output, wildcards, matching_output = self._expand_wildcards(requested_output)
 		
 		skip_until_dynamic = skip_until_dynamic and not self.is_dynamic(matching_output)
+		pseudo = skip_until_dynamic
 	
 		output_mintime = IOFile.mintime(output) or parentmintime
 		
@@ -220,7 +221,7 @@ class Rule:
 			job = jobs[(output, self)]
 			if not job.needrun:
 				# update the job if it needs to run due to the new requested file
-				needrun, reason = self._need_run(False, todo, input, output, parentmintime, requested_output)
+				needrun, reason = self._need_run(False, todo, input, output, parentmintime, requested_output, pseudo)
 				job.needrun = needrun
 				job.message = self.get_message(input, output, wildcards,
 				                               reason if give_reason else None)
@@ -276,7 +277,15 @@ class Rule:
 		# collect the jobs that will actually run (including pseudo-jobs)
 		todo = {job for job in produced.values() if job.needrun or job.pseudo}
 		
-		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, parentmintime, requested_output)
+		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, parentmintime, requested_output, pseudo)
+		
+		if need_run:
+			# enforce running jobs that created temporary files
+			for file, job in produced.items():
+				if not job.needrun and file.is_temp() and not file.exists():
+					job.needrun = True
+					job.reason = "Output file needed by rule {}: {}".format(self, file)
+					todo.add(job)
 		
 		protected_output = self._get_protected_output(output) if need_run else None
 		if protected_output:
@@ -289,13 +298,11 @@ class Rule:
 		
 		wildcards = Namedlist(fromdict = wildcards)
 
-		pseudo = skip_until_dynamic
-
 		job = Job(
 			self.workflow,
 			rule = self, 
-			message = self.get_message(input, output, wildcards, 
-							   reason if give_reason else None),
+			message = self.get_message(input, output, wildcards),
+			reason = reason if give_reason else None,
 			input = input,
 			output = output,
 			wildcards = wildcards,
@@ -322,37 +329,44 @@ class Rule:
 		if self.output and not self.has_run():
 			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name), lineno = self.lineno, snakefile = self.snakefile)
 
-	def _need_run(self, force, todo, input, output, parentmintime, requested_output):
+	def _need_run(self, force, todo, input, output, parentmintime, requested_output, pseudo):
 		""" Return True if rule needs to be run. """
 		if self.has_run():
 			if force:
 				return True, "Forced rule execution."
-			if todo:
-				todo_output = set()
-				for job in todo:
-					todo_output.update(job.output)
-				return True, "Updated input files: {}".format(", ".join(set(input) & set(todo_output)))
+			if not output:
+				return True, ""
 
+			# translate dynamic output to concrete output
 			concrete_output = []
-			for i, f in enumerate(output):
-				_f = self.output[i]
-				if self.is_dynamic(_f):
-					if f == requested_output:
-						# remove requested output as it is only a placeholder
-						requested_output = None
-					concrete_output.extend([IOFile.create(d, temp=f.is_temp(), protected=f.is_protected()) for d, _ in listfiles(_f)])
-				else:
-					concrete_output.append(f)
+			if not pseudo:
+				for i, f in enumerate(output):
+					_f = self.output[i]
+					if self.is_dynamic(_f):
+						if f == requested_output:
+							# remove requested output as it is only a placeholder
+							requested_output = None
+						concrete_output.extend([IOFile.create(d, temp=f.is_temp(), protected=f.is_protected()) for d, _ in listfiles(_f)])
+					else:
+						concrete_output.append(f)
 			output = concrete_output
 			
 			output_mintime = IOFile.mintime(output) or parentmintime
 
 			if self._has_missing_files(output, requested_output):
 				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
-			if not output:
-				return True, ""
-			if output_mintime == None:
+			if output_mintime == None: # TODO remove this since it cannot happen?
 				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
+
+			if todo:
+				todo_output = set()
+				for job in todo:
+					if not job.pseudo or job.needrun:
+						todo_output.update(job.output)
+				if todo_output:
+					return True, "Updated input files: {}".format(", ".join(set(input) & set(todo_output)))
+
+
 			newer = [i for i in input if os.path.exists(i) and i.is_newer(output_mintime)]
 			if newer:
 				return True, "Input files newer than output files: {}".format(", ".join(newer))
@@ -369,7 +383,7 @@ class Rule:
 		""" Return True if rule has a run method. """
 		return self.run_func != None
 
-	def get_message(self, input, output, wildcards, reason, showmessage = True):
+	def get_message(self, input, output, wildcards, showmessage = True):
 		"""
 		Get the message that shall be printed upon rule execution.
 		
@@ -383,8 +397,6 @@ class Rule:
 			variables = dict(globals())
 			variables.update(locals())
 			msg = self.message.format(**variables)
-			if reason:
-				msg += "\n" + reason
 			return msg
 
 		def showtype(orig_iofiles, iofiles):
@@ -407,8 +419,6 @@ class Rule:
 			msg += "\n\tinput: {}".format(", ".join(showtype(self.input, input)))
 		if output:
 			msg += "\n\toutput: {}".format(", ".join(showtype(self.output, output)))
-		if reason:
-			msg += "\n\t" + reason
 		return msg
 
 	def is_producer(self, requested_output):

@@ -59,7 +59,7 @@ class Job:
 		for job in jobs:
 			job.cleanup()
 
-	def __init__(self, workflow, rule = None, message = None, 
+	def __init__(self, workflow, rule = None, message = None, reason = None,
 			input = None, output = None, wildcards = None, 
 			threads = 1, depends = set(), dryrun = False, 
 			touch = False, needrun = True, pseudo = False, dynamic_output = False):
@@ -67,6 +67,7 @@ class Job:
 		self.scheduler = None
 		self.rule = rule
 		self.message = message
+		self.reason = reason
 		self.input = input
 		self.output = output
 		self.wildcards = wildcards
@@ -105,6 +106,8 @@ class Job:
 	
 	def print_message(self):
 		logger.info(self.message)
+		if self.reason:
+			logger.warning("\t{}".format(self.reason))
 		
 	def run(self, run_func):
 		if not self.needrun or self.pseudo:
@@ -153,6 +156,7 @@ class Job:
 					if not self.rule.is_dynamic(self.rule.output[i]):
 						o.created(self.rule.name, self.rule.lineno, self.rule.snakefile)
 				for f in self.input:
+					#import pdb; pdb.set_trace()
 					f.used()
 		except (Exception, BaseException) as ex:
 			# in case of an error, execute all callbacks and delete output
@@ -217,10 +221,18 @@ class Job:
 					pass
 		if not modified:
 			return
-		# disable the current job since it will be replaced with the expanded
 		try:
 			job = r.run(self.output[0] if self.output else None)
+
+			# remove current job from DAG and add new
+			for j in self.depending:
+				j.depends.remove(self)	
+				j.depends.add(job)
+				job.depending.append(j)
+			self.depending = list()
 			self.needrun = False
+
+			# schedule new jobs
 			jobs = list(job.all_jobs())
 			n = len(jobs) - 1
 			logger.warning("Dynamically adding {} jobs".format(n))

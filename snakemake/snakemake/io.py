@@ -12,18 +12,23 @@ class IOFile(str):
 	A file that is either input or output of a rule.
 	"""
 	_register = dict()
+
+	@classmethod
+	def clear(cls):
+		cls._register.clear()
 	
 	@classmethod
 	def create(cls, file, temp = False, protected = False, origin = None):	
 		if not isinstance(file, str) and not type(file).__name__ == "function":
 			raise ValueError("Input and output files have to be specified as strings or functions that return a string given the used wildcards as single argument.")
+		if origin is None:
+			origin = file
 		fid = (origin, file)
 		if fid in cls._register:
 			obj = cls._register[fid]
 		else:
 			obj = IOFile(file)
 			cls._register[fid] = obj
-
 
 		obj._temp = temp or obj._temp
 		obj._protected = protected or obj._protected

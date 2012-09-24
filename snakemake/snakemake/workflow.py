@@ -172,6 +172,9 @@ class Workflow:
 		if toraise:
 			raise RuleException(include = toraise)
 
+		# clear eventually created IOFiles. especially needed to empty the count for needed files
+		IOFile.clear()
+
 		return [(job.rule, file) for file, job in producers.items()]
 
 	def run_rules(self, targets, dryrun = False, touch = False, 
