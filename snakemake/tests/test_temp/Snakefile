@@ -1,0 +1,9 @@
+rule:
+	input: "input.txt"
+	output: temp("temp.txt")
+	shell: "cp input.txt temp.txt"
+
+rule:
+	input: "temp.txt", "other.txt"
+	output: "result.txt"
+	shell: "cat {input} > {output}"
