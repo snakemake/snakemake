@@ -6,7 +6,7 @@ from snakemake.exceptions import print_exception
 from snakemake.logging import logger, ColorizingStreamHandler
 
 __author__ = "Johannes Köster"
-__version__ = "1.2.2"
+__version__ = "1.2.3"
 
 def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, stats = None, give_reason = False, nocolor = False, quiet = False, cluster = None, standalone = False, dag = False, ignore_ambiguity = False):
 	"""
