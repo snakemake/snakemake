@@ -90,4 +90,6 @@ def main():
 	exit(0 if success else 1)
 
 if __name__ == "__main__":
+	#import cProfile
+	#cProfile.run('main()')
 	main()

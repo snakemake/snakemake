@@ -84,7 +84,12 @@ class IOFile(str):
 	def prepare(self):
 		dir = os.path.dirname(self.get_file())
 		if len(dir) > 0 and not os.path.exists(dir):
-			os.makedirs(dir)
+			try:
+				os.makedirs(dir)
+			except OSError as e:
+				# ignore Errno 17 "File exists" (may happen due to multiprocessing)
+				if e.errno != 17:
+					raise e
 	
 	def created(self, rulename, lineno, snakefile):
 		if not os.path.exists(self.get_file()):
