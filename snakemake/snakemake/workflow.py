@@ -214,7 +214,6 @@ class Workflow:
 					forceall = forceall, dryrun = dryrun, give_reason = give_reason, 
 					touch = touch, visited = set(), 
 					ignore_ambiguity = ignore_ambiguity))
-		
 
 			# collect all jobs
 			all_jobs = set()

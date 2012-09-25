@@ -226,7 +226,7 @@ class Rule:
 				job.message = self.get_message(input, output, wildcards,
 				                               reason if give_reason else None)
 			return job
-		
+
 		for rule, file in self.workflow.get_producers(input, exclude=self):
 			try:
 				job = rule.run(
@@ -257,7 +257,9 @@ class Rule:
 						                             snakefile = self.snakefile)
 				produced[file] = job
 				
-			except (ProtectedOutputException, MissingInputException, CyclicGraphException) as ex:
+			except (ProtectedOutputException, MissingInputException, CyclicGraphException, RuntimeError) as ex:
+				if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
+					raise RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic file:\n{}".format(file), lineno = self.lineno, snakefile = self.snakefile)
 				exceptions[file].append(ex)
 		
 		missing_input = self._get_missing_files(set(input) - produced.keys())
