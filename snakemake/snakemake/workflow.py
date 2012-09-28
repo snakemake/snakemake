@@ -117,7 +117,7 @@ class Workflow:
 		return self._rules[name]
 
 	def run_first_rule(self, dryrun = False, touch = False, 
-		forcethis = False, forceall = False, give_reason = False, 
+		forcethis = False, forceall = False, forcerules = None, give_reason = False, 
 		cluster = None, dag = False, ignore_ambiguity = False):
 		"""
 		Apply the rule defined first.
@@ -129,11 +129,11 @@ class Workflow:
 				break
 		return self._run([(self.get_rule(first), None)], 
 			dryrun = dryrun, touch = touch, forcethis = forcethis, 
-			forceall = forceall, give_reason = give_reason, 
+			forceall = forceall, forcerules = forcerules, give_reason = give_reason, 
 			cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
 			
 	def get_file_producers(self, files, dryrun = False, 
-		forcethis = False, forceall = False, ignore_ambiguity = False):
+		forcethis = False, forceall = False, forcerules = None, ignore_ambiguity = False):
 		"""
 		Return a dict of rules with requested files such that the requested files are produced.
 		
@@ -145,7 +145,7 @@ class Workflow:
 		for rule, file in self.get_producers(files):
 			try:
 				job = rule.run(file, jobs=dict(), forceall = forceall, 
-					dryrun = True, visited = set())
+					forcerules = forcerules, dryrun = True, visited = set())
 				if file in producers:
 					if producers[file].rule > rule:
 						continue
@@ -178,7 +178,7 @@ class Workflow:
 		return [(job.rule, file) for file, job in producers.items()]
 
 	def run_rules(self, targets, dryrun = False, touch = False, 
-		forcethis = False, forceall = False, give_reason = False, 
+		forcethis = False, forceall = False, forcerules = None, give_reason = False, 
 		cluster = None, dag = False, ignore_ambiguity = False):
 		ruletargets, filetargets = [], []
 		for target in targets:
@@ -188,7 +188,7 @@ class Workflow:
 				filetargets.append(os.path.relpath(target))
 		try:
 			torun = self.get_file_producers(filetargets, forcethis = forcethis, 
-				forceall = forceall, dryrun = dryrun, ignore_ambiguity = ignore_ambiguity) + \
+				forceall = forceall, forcerules = forcerules, dryrun = dryrun, ignore_ambiguity = ignore_ambiguity) + \
 				[(self.get_rule(name), None) for name in ruletargets]
 		except AmbiguousRuleException as ex:
 			if not dag:
@@ -197,13 +197,13 @@ class Workflow:
 			return
 				
 		return self._run(torun, dryrun = dryrun, touch = touch, 
-			forcethis = forcethis, forceall = forceall, 
+			forcethis = forcethis, forceall = forceall, forcerules = forcerules,
 			give_reason = give_reason, cluster = cluster, dag = dag, 
 			ignore_ambiguity = ignore_ambiguity)
 	
 	def _run(self, torun, dryrun = False, touch = False, forcethis = False, 
-		forceall = False, give_reason = False, cluster = None, dag = False,
-		ignore_ambiguity = False):
+		forceall = False, forcerules = None, give_reason = False, cluster = None, 
+		dag = False, ignore_ambiguity = False):
 		jobs = dict()
 		Job.count = 0
 		
@@ -211,8 +211,8 @@ class Workflow:
 		try:
 			for rule, requested_output in torun:
 				root_jobs.add(rule.run(requested_output, jobs=jobs, forcethis = forcethis, 
-					forceall = forceall, dryrun = dryrun, give_reason = give_reason, 
-					touch = touch, visited = set(), 
+					forceall = forceall, forcerules = forcerules, dryrun = dryrun, 
+					give_reason = give_reason, touch = touch, visited = set(), 
 					ignore_ambiguity = ignore_ambiguity))
 
 			# collect all jobs

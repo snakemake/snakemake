@@ -188,7 +188,7 @@ class Rule:
 				return True
 		return False
 	
-	def run(self, requested_output = None, forceall = False, forcethis = False, 
+	def run(self, requested_output = None, forceall = False, forcerules = None, forcethis = False, 
 	        give_reason = False, jobs = None, dryrun = False, touch = False, 
 	        quiet = False, visited = None, parentmintime = None, 
 	        ignore_ambiguity = False, skip_until_dynamic = False):
@@ -207,6 +207,8 @@ class Rule:
 			jobs = dict()
 		if visited is None:
 			visited = set()
+		if forcerules is None:
+			forcerules = set()
 
 		if (self, requested_output) in visited:
 			raise CyclicGraphException(self, lineno = self.lineno, snakefile = self.snakefile)
@@ -237,6 +239,7 @@ class Rule:
 				job = rule.run(
 					file, 
 					forceall = forceall, 
+					forcerules = forcerules,
 					jobs = jobs, 
 					dryrun = dryrun, 
 					give_reason = give_reason,
@@ -284,7 +287,7 @@ class Rule:
 		# collect the jobs that will actually run (including pseudo-jobs)
 		todo = {job for job in produced.values() if job.needrun or job.pseudo}
 		
-		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, parentmintime, requested_output, skip_until_dynamic)
+		need_run, reason = self._need_run(forcethis or forceall or self.name in forcerules, todo, input, output, parentmintime, requested_output, skip_until_dynamic)
 		
 		if need_run:
 			# enforce running jobs that created temporary files

@@ -47,7 +47,10 @@ def main():
 	                          "regardless of already created output."))
 	parser.add_argument("--forceall", "-F", action="store_true", 
 	                    help=("Force the execution of the selected (or the first) rule and "
-	                         "all rules it is dependent on regardless of already created output."))
+	                          "all rules it is dependent on regardless of already created output."))
+	parser.add_argument("--forcerules", "-R", nargs="+", 
+	                    help=("Force the execution of the selected (or the first) rule and "
+	                          "all rules that are mentioned here regardless of already created output."))
 	parser.add_argument("--allow-ambiguity", "-a", action="store_true",
 	                    help=("Don't check for ambiguous rules and simply use the first if "
 	                          "several can produce the same file. This allows the user to "
@@ -79,6 +82,7 @@ def main():
 			touch = args.touch, 
 			forcethis = args.force,
 			forceall = args.forceall,
+			forcerules = args.forcerules,
 			stats = args.stats,
 			give_reason = args.reason,
 			nocolor = args.nocolor,
