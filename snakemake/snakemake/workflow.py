@@ -313,6 +313,8 @@ class Workflow:
 				rule.set_output(*ruleinfo.output[0], **ruleinfo.output[1])
 			if ruleinfo.threads:
 				rule.set_threads(ruleinfo.threads)
+			if ruleinfo.log:
+				rule.set_log(ruleinfo.log)
 			if ruleinfo.message:
 				rule.set_message(ruleinfo.message)
 			rule.run_func = ruleinfo.func
@@ -344,6 +346,12 @@ class Workflow:
 			return ruleinfo
 		return decorate
 
+	def log(self, log):
+		def decorate(ruleinfo):
+			ruleinfo.log = log
+			return ruleinfo
+		return decorate
+
 	def run(self, func):
 		return RuleInfo(func)
 
@@ -359,3 +367,4 @@ class RuleInfo:
 		self.output = None
 		self.message = None
 		self.threads = None
+		self.log = None

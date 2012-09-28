@@ -22,7 +22,7 @@ else:
 __author__ = "Johannes Köster"
 
 def run_wrapper(run, rulename, ruledesc, input, output, wildcards, 
-		threads, rowmaps, rulelineno, rulesnakefile):
+		threads, log, rowmaps, rulelineno, rulesnakefile):
 	"""
 	Wrapper around the run method that handles directory creation and
 	output file deletion on error.
@@ -37,11 +37,13 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards,
 
 	for o in output:
 		o.prepare()
+	if log:
+		log.prepare()
 		
 	t0 = time.time()
 	try:
 		# execute the actual run method.
-		run(input, output, wildcards, threads)
+		run(input, output, wildcards, threads, log)
 		# finish all spawned shells.
 		shell.join_all()
 		runtime = time.time() - t0
@@ -61,7 +63,7 @@ class Job:
 
 	def __init__(self, workflow, rule = None, message = None, reason = None,
 			input = None, output = None, wildcards = None, 
-			threads = 1, depends = set(), dryrun = False, 
+			threads = 1, log = None, depends = set(), dryrun = False, 
 			touch = False, needrun = True, pseudo = False, dynamic_output = False):
 		self.workflow = workflow
 		self.scheduler = None
@@ -72,6 +74,7 @@ class Job:
 		self.output = output
 		self.wildcards = wildcards
 		self.threads = threads
+		self.log = log
 		self.dryrun = dryrun
 		self.touch = touch
 		self.needrun = needrun
@@ -132,7 +135,7 @@ class Job:
 	
 	def get_run_args(self):
 		return (self.rule.get_run(), self.rule.name, self.message, 
-			self.input, self.output, self.wildcards, self.threads, 
+			self.input, self.output, self.wildcards, self.threads, self.log, 
 			self.workflow.rowmaps, self.rule.lineno, self.rule.snakefile)
 	
 	def add_callback(self, callback):

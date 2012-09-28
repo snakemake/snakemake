@@ -5,8 +5,9 @@ rule rule1:
 	input: '{name}.in'
 	output: '{name}.inter'
 	message: 'Copying {input[0]} to {output[0]}'
+	log: "logs/{name}.log"
 	shell:
-		'cp {input[0]} {output[0]}'
+		'echo test > {log}; cp {input[0]} {output[0]}'
 
 rule rule2:
 	input: '{name}.inter'

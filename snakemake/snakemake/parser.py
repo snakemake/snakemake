@@ -71,9 +71,10 @@ class States:
 			output = self.output,
 			message = self.message,
 			threads = self.threads,
+			log = self.log,
 			run = self.run,
 			shell = self.shell)
-		self.rule_params = set(["input", "output", "message", "threads", "run", "shell"])
+		self.rule_params = set(["input", "output", "message", "threads", "log", "run", "shell"])
 		self.current_rule = None
 		self.empty_rule = True
 		self.tokens = Tokens()
@@ -213,7 +214,6 @@ class States:
 		self.tokens.add(NEWLINE, "\n", token)\
 		           .add(AT, "@", token)
 		self._func_open('message', token, obj = 'workflow')
-		#self._func_open('set_message', token, obj = 'workflow')
 		self.state = self.message_text
 
 	def message_text(self, token):
@@ -229,7 +229,6 @@ class States:
 		self.tokens.add(NEWLINE, "\n", token)\
 		           .add(AT, "@", token)
 		self._func_open('threads', token, obj = 'workflow')
-		#self._func_open('set_threads', token, obj = 'workflow')
 		self.state = self.threads_value
 	
 	def threads_value(self, token):
@@ -238,7 +237,21 @@ class States:
 			self.state = self.close_param
 		elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
 			raise self._syntax_error('Expected number after threads keyword.', token)
-			
+	
+	def log(self, token):
+		self._check_colon('thread', token)
+		self.tokens.add(NEWLINE, "\n", token)\
+		           .add(AT, "@", token)
+		self._func_open('log', token, obj='workflow')
+		self.state = self.log_value
+
+	def log_value(self, token):
+		if token.type == STRING:
+			self.tokens.add(token, orig_token=token)
+			self.state = self.close_param
+		elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
+			raise self._syntax_error('Expected string after log keyword.', token)
+	
 
 	def _run_def(self, token):
 		self.tokens.add(NEWLINE, "\n", token)\
@@ -247,7 +260,7 @@ class States:
 		           .add(DOT, '.', token)\
 		           .add(NAME, 'run', token)\
 		           .add(NEWLINE, '\n', token)
-		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards', 'threads'], token)
+		self._func_def("__" + self.current_rule, ['input', 'output', 'wildcards', 'threads', 'log'], token)
 
 	def run(self, token):
 		""" State that creates a run function for the current rule. """

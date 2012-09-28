@@ -27,6 +27,7 @@ class Rule:
 			self.output = Namedlist()
 			self.dynamic = dict()
 			self.threads = 1
+			self.log = None
 			self.wildcard_names = set()
 			self.workflow = workflow
 			self.lineno = lineno
@@ -40,6 +41,7 @@ class Rule:
 			self.output = other.output
 			self.dynamic = other.dynamic
 			self.threads = other.threads
+			self.log = other.log
 			self.wildcard_names = other.wildcard_names
 			self.workflow = other.workflow
 			self.lineno = other.lineno
@@ -140,6 +142,9 @@ class Rule:
 	
 	def set_threads(self, threads):
 		self.threads = threads
+
+	def set_log(self, log):
+		self.log = IOFile.create(log)
 		
 	def _expand_wildcards(self, requested_output):
 		""" Expand wildcards depending on the requested output. """
@@ -164,10 +169,11 @@ class Rule:
 			output = Namedlist(o.apply_wildcards(wildcards) for o in self.output)
 			input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
-			return input, output, wildcards, matching_output
+			log = self.log.apply_wildcards(wildcards) if self.log else None
+			return input, output, log, wildcards, matching_output
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
-			raise RuleException("Wildcards in input file of rule {} do not appear in output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)
+			raise RuleException("Wildcards in input or log file of rule {} do not appear in output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)
 
 	@staticmethod
 	def _get_missing_files(files):
@@ -206,10 +212,9 @@ class Rule:
 			raise CyclicGraphException(self, lineno = self.lineno, snakefile = self.snakefile)
 		visited.add((self, requested_output))
 		
-		input, output, wildcards, matching_output = self._expand_wildcards(requested_output)
+		input, output, log, wildcards, matching_output = self._expand_wildcards(requested_output)
 		
 		skip_until_dynamic = skip_until_dynamic and not self.is_dynamic(matching_output)
-		pseudo = skip_until_dynamic
 	
 		output_mintime = IOFile.mintime(output) or parentmintime
 		
@@ -221,7 +226,7 @@ class Rule:
 			job = jobs[(output, self)]
 			if not job.needrun:
 				# update the job if it needs to run due to the new requested file
-				needrun, reason = self._need_run(False, todo, input, output, parentmintime, requested_output, pseudo)
+				needrun, reason = self._need_run(False, todo, input, output, parentmintime, requested_output, skip_until_dynamic)
 				job.needrun = needrun
 				job.message = self.get_message(input, output, wildcards,
 				                               reason if give_reason else None)
@@ -279,7 +284,7 @@ class Rule:
 		# collect the jobs that will actually run (including pseudo-jobs)
 		todo = {job for job in produced.values() if job.needrun or job.pseudo}
 		
-		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, parentmintime, requested_output, pseudo)
+		need_run, reason = self._need_run(forcethis or forceall, todo, input, output, parentmintime, requested_output, skip_until_dynamic)
 		
 		if need_run:
 			# enforce running jobs that created temporary files
@@ -309,11 +314,12 @@ class Rule:
 			output = output,
 			wildcards = wildcards,
 			threads = self.threads,
+			log = log,
 			depends = todo,
 			dryrun = dryrun,
 			touch = touch,
 			needrun = need_run,
-			pseudo = pseudo,
+			pseudo = skip_until_dynamic,
 			dynamic_output = [o for o in self.output if o in self.dynamic]
 		)
 
