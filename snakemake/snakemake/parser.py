@@ -12,6 +12,7 @@ class Tokens:
 		self._row, self._col = 1, 0
 		self._tokens = []
 		self.rowmap = dict()
+		self.last = None
 		
 	def add(self, token, string = None, orig_token = None):
 		""" Add a new token. Maybe a full TokenInfo object (first arg)
@@ -30,10 +31,13 @@ class Tokens:
 				token = Tokens._adjrow(token, self._row)
 		
 		self._tokens.append(token)
+
+		if token.type != COMMENT:
+			self.last = token
 				
 		if orig_token:
 			self.rowmap[self._row] = orig_token.start[0]
-						
+
 		if token.type in (NEWLINE, NL):
 			self._row += 1
 			self._col = 0
@@ -175,10 +179,8 @@ class States:
 		""" State that handles the rule body. """
 		if token.type == NEWLINE or token.type == STRING:
 			pass
-		elif token.type == NAME and token.string in ("input", "output", "run", "shell", "threads", "message"):
+		elif token.type == NAME and token.string in self.main_states:
 			self.state = self.main_states[token.string]
-		elif not token.type in (INDENT, DEDENT, COMMENT, NL):
-			raise self._syntax_error('Expected one of the keywords "input", "output", "run", "shell", "threads" or "message" below rule definition', token)
 
 	def input(self, token):
 		""" State that handles input definition. """
@@ -191,7 +193,6 @@ class States:
 	def inoutput(self, token, type):
 		""" State that handles in- and output definition (depending on type). """
 		self._check_colon(type, token)
-		#self._func_open('set_{}'.format(type), token, obj = 'workflow')
 		self.tokens.add(NEWLINE, "\n", token)\
 		           .add(AT, "@", token)
 		self._func_open(type, token, obj = 'workflow')
@@ -200,9 +201,10 @@ class States:
 		
 	def inoutput_paths(self, token):
 		""" State that collects the arguments for in- or output definition """
-		if token.type == NAME and token.string in self.main_states:
-			self.state = self.main_states[token.string]
+		if token.type in (NEWLINE, NL, ENDMARKER) and self.tokens.last != COMMA:
 			self._func_close(token)
+			self.tokens.add(token)
+			self.state = self.rule_body
 		elif token.type == ENDMARKER:
 			self._func_close(token)
 		else:
@@ -403,4 +405,5 @@ def compile_to_python(filepath, rule_count = 0):
 				rule_count = rule_count
 		)
 		compilation = tokenize.untokenize(python_tokens)
+		#print(compilation)
 		return compilation, rowmap, rule_count

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, re, fnmatch
+import os, re, fnmatch, mimetypes, base64
 from itertools import chain
 from snakemake.io import regex, Namedlist
 
@@ -50,3 +50,26 @@ def makedirs(dirnames):
 	for dirname in dirnames:
 		if not os.path.exists(dirname):
 			os.makedirs(dirname)
+
+'''
+def report(outfile, abstract, files, captions):
+	content = list()
+	for caption, file in zip(captions, files):
+		mime, encoding = mimetypes.guess_type(file)
+		with open(file, "rb") as f:
+			b64 = base64.b64encode(f.read())
+		file = '<a class="btn" href="data:{};base64,{}">Open</a>'.format(mime, b64.decode())
+		content.append("<p>{}<br/>{}</p><hr/>".format(caption, file))
+	html = """
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.1.0/css/bootstrap-combined.min.css" rel="stylesheet">
+</head>
+<body>
+{content}
+</body>
+</html>
+""".format(content="\n".join(content))
+	outfile.write(html)
+'''
