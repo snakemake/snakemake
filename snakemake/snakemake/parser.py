@@ -227,7 +227,7 @@ class States:
 	
 	def threads(self, token):
 		""" State that handles definition of threads. """
-		self._check_colon('thread', token)
+		self._check_colon('threads', token)
 		self.tokens.add(NEWLINE, "\n", token)\
 		           .add(AT, "@", token)
 		self._func_open('threads', token, obj = 'workflow')
@@ -241,7 +241,7 @@ class States:
 			raise self._syntax_error('Expected number after threads keyword.', token)
 	
 	def log(self, token):
-		self._check_colon('thread', token)
+		self._check_colon('log', token)
 		self.tokens.add(NEWLINE, "\n", token)\
 		           .add(AT, "@", token)
 		self._func_open('log', token, obj='workflow')
