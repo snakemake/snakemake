@@ -52,7 +52,7 @@ class RuleException(Exception):
 	"""
 	Base class for exception occuring withing the execution or definition of rules.
 	"""
-	def __init__(self, message = None, include = list(), lineno = None, snakefile = None):
+	def __init__(self, message = None, include = None, lineno = None, snakefile = None):
 		"""
 		Creates a new instance of RuleException.
 
@@ -64,9 +64,10 @@ class RuleException(Exception):
 		"""
 		super(RuleException, self).__init__(message)
 		self._include = set()
-		for ex in include:
-			self._include.add(ex)
-			self._include.update(ex._include)
+		if include:
+			for ex in include:
+				self._include.add(ex)
+				self._include.update(ex._include)
 		self._include = list(self._include)
 		self.lineno = lineno
 		self.filename = snakefile
@@ -76,16 +77,16 @@ class MissingOutputException(RuleException):
 	pass
 		
 class IOException(RuleException):
-	def __init__(self, prefix, rule, files, include = list(), lineno = None, snakefile = None):
+	def __init__(self, prefix, rule, files, include = None, lineno = None, snakefile = None):
 		message = "{} for rule {}:\n{}".format(prefix, rule, "\n".join(files)) if files else ""
 		super().__init__(message = message, include = include, lineno = lineno, snakefile = snakefile)
 
 class MissingInputException(IOException):
-	def __init__(self, rule, files, include = list(), lineno = None, snakefile = None):
+	def __init__(self, rule, files, include = None, lineno = None, snakefile = None):
 		super().__init__("Missing input files", rule, files, include, lineno = lineno, snakefile = snakefile)
 
 class ProtectedOutputException(IOException):
-	def __init__(self, rule, files, include = list(), lineno = None, snakefile = None):
+	def __init__(self, rule, files, include = None, lineno = None, snakefile = None):
 		super().__init__("Write-protected output files", rule, files, include, lineno = lineno, snakefile = snakefile)
 
 class AmbiguousRuleException(RuleException):
