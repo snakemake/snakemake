@@ -377,7 +377,7 @@ class Rule:
 				if todo_output:
 					return True, "Updated input files: {}".format(", ".join(set(input) & set(todo_output)))
 
-
+			# TODO for dynamic output, output_mintime may refer to a previous run that spit out more files!! -> this leads to false needruns!
 			newer = [i for i in input if os.path.exists(i) and i.is_newer(output_mintime)]
 			if newer:
 				return True, "Input files newer than output files: {}".format(", ".join(newer))

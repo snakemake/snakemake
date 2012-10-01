@@ -35,11 +35,7 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards,
 	"""
 	logger.info(ruledesc)
 
-	for o in output:
-		o.prepare()
-	if log:
-		log.prepare()
-		
+			
 	t0 = time.time()
 	try:
 		# execute the actual run method.
@@ -131,6 +127,19 @@ class Job:
 			time.sleep(0.1)
 			self.finished()
 		else:
+			for i, o in enumerate(self.output):
+				# TODO what if a directory inside o is dynamic?
+				o.prepare()
+				o_ = self.rule.output[i]
+				if self.rule.is_dynamic(o_):
+					for f, _ in listfiles(o_):
+						try:
+							IOFile(f).remove()
+						except OSError:
+							raise RuleException("Could not remove dynamic output file {}.".format(f), lineno=self.rule.lineno, snakefile=self.rule.snakefile)
+			if self.log:
+				log.prepare()
+
 			run_func(self)
 	
 	def get_run_args(self):
