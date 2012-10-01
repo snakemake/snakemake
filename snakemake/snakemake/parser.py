@@ -201,9 +201,10 @@ class States:
 		
 	def inoutput_paths(self, token):
 		""" State that collects the arguments for in- or output definition """
-		if token.type in (NEWLINE, NL, ENDMARKER) and self.tokens.last != COMMA:
-			self._func_close(token)
+		last = self.tokens.last
+		if token.type in (NEWLINE, NL, ENDMARKER) and not (last.type == OP and last.string == ","):
 			self.tokens.add(token)
+			self._func_close(token)
 			self.state = self.rule_body
 		elif token.type == ENDMARKER:
 			self._func_close(token)
