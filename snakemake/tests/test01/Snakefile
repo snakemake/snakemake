@@ -1,6 +1,7 @@
 rule rule1:
 	''' This rule creates an intermediate file. '''
-	input: 'test.inter'
+	input: 
+		'test.inter'
 	output: 'test.out'
 	message: 'Copying {input[0]} to {output[0]}'
 	shell: 

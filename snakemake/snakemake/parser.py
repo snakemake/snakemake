@@ -32,10 +32,10 @@ class Tokens:
 		
 		self._tokens.append(token)
 
-		if token.type != COMMENT:
-			self.last = token
 				
 		if orig_token:
+			if orig_token.type != COMMENT:
+				self.last = orig_token
 			self.rowmap[self._row] = orig_token.start[0]
 
 		if token.type in (NEWLINE, NL):
@@ -202,7 +202,7 @@ class States:
 	def inoutput_paths(self, token):
 		""" State that collects the arguments for in- or output definition """
 		last = self.tokens.last
-		if token.type in (NEWLINE, NL, ENDMARKER) and not (last.type == OP and last.string == ","):
+		if token.type in (NEWLINE, NL, ENDMARKER) and not ((last.type == OP and last.string == ",") or self._is_colon(last)):
 			self.tokens.add(token)
 			self._func_close(token)
 			self.state = self.rule_body
