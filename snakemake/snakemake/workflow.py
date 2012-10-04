@@ -116,7 +116,7 @@ class Workflow:
 			raise UnknownRuleException(name)
 		return self._rules[name]
 
-	def run_first_rule(self, dryrun = False, touch = False, 
+	def run_first_rule(self, dryrun = False, printshellcmds = False, quiet = False, touch = False, 
 		forcethis = False, forceall = False, forcerules = None, give_reason = False, 
 		cluster = None, dag = False, ignore_ambiguity = False):
 		"""
@@ -128,7 +128,7 @@ class Workflow:
 				first = key
 				break
 		return self._run([(self.get_rule(first), None)], 
-			dryrun = dryrun, touch = touch, forcethis = forcethis, 
+			dryrun = dryrun, printshellcmds = printshellcmds, quiet = quiet, touch = touch, forcethis = forcethis, 
 			forceall = forceall, forcerules = forcerules, give_reason = give_reason, 
 			cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
 			
@@ -177,7 +177,7 @@ class Workflow:
 
 		return [(job.rule, file) for file, job in producers.items()]
 
-	def run_rules(self, targets, dryrun = False, touch = False, 
+	def run_rules(self, targets, dryrun = False, printshellcmds = False, quiet = False, touch = False, 
 		forcethis = False, forceall = False, forcerules = None, give_reason = False, 
 		cluster = None, dag = False, ignore_ambiguity = False):
 		ruletargets, filetargets = [], []
@@ -196,12 +196,12 @@ class Workflow:
 			print_job_dag(chain(ex.job1.all_jobs(), ex.job2.all_jobs()))
 			return
 				
-		return self._run(torun, dryrun = dryrun, touch = touch, 
+		return self._run(torun, dryrun = dryrun, printshellcmds = printshellcmds, quiet = quiet, touch = touch, 
 			forcethis = forcethis, forceall = forceall, forcerules = forcerules,
 			give_reason = give_reason, cluster = cluster, dag = dag, 
 			ignore_ambiguity = ignore_ambiguity)
 	
-	def _run(self, torun, dryrun = False, touch = False, forcethis = False, 
+	def _run(self, torun, dryrun = False, printshellcmds = False, quiet = False, touch = False, forcethis = False, 
 		forceall = False, forcerules = None, give_reason = False, cluster = None, 
 		dag = False, ignore_ambiguity = False):
 		jobs = dict()
@@ -211,7 +211,7 @@ class Workflow:
 		try:
 			for rule, requested_output in torun:
 				root_jobs.add(rule.run(requested_output, jobs=jobs, forcethis = forcethis, 
-					forceall = forceall, forcerules = forcerules, dryrun = dryrun, 
+					forceall = forceall, forcerules = forcerules, dryrun = dryrun, printshellcmds = printshellcmds, quiet = quiet, 
 					give_reason = give_reason, touch = touch, visited = set(), 
 					ignore_ambiguity = ignore_ambiguity))
 
@@ -318,6 +318,7 @@ class Workflow:
 			if ruleinfo.message:
 				rule.set_message(ruleinfo.message)
 			rule.run_func = ruleinfo.func
+			rule.shellcmd = ruleinfo.shellcmd
 			return ruleinfo.func
 		return decorate
 
@@ -352,8 +353,15 @@ class Workflow:
 			return ruleinfo
 		return decorate
 
+	def shellcmd(self, cmd):
+		def decorate(ruleinfo):
+			ruleinfo.shellcmd = cmd
+			return ruleinfo
+		return decorate
+
 	def run(self, func):
 		return RuleInfo(func)
+
 
 	@staticmethod
 	def _empty_decorator(f):
@@ -363,6 +371,7 @@ class Workflow:
 class RuleInfo:
 	def __init__(self, func):
 		self.func = func
+		self.shellcmd = None
 		self.input = None
 		self.output = None
 		self.message = None

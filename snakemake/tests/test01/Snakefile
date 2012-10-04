@@ -16,6 +16,6 @@ rule rule2:
 
 # this should be ignored since test.in is present
 rule rule3:
-	input: "test.out"
-	output: "test.in"
+	input: "{a}.out"
+	output: "{a}.in"
 	shell: "cp {input} {output}"

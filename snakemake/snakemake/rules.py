@@ -33,6 +33,7 @@ class Rule:
 			self.lineno = lineno
 			self.snakefile = snakefile
 			self.run_func = None
+			self.shellcmd = None
 		elif len(args) == 1:
 			other = args[0]
 			self.name = other.name
@@ -47,6 +48,7 @@ class Rule:
 			self.lineno = other.lineno
 			self.snakefile = other.snakefile
 			self.run_func = other.run_func
+			self.shellcmd = other.shellcmd
 		else:
 			raise ValueError("Rule expects either 1 or 2 positional args.")
 
@@ -189,7 +191,7 @@ class Rule:
 		return False
 	
 	def run(self, requested_output = None, forceall = False, forcerules = None, forcethis = False, 
-	        give_reason = False, jobs = None, dryrun = False, touch = False, 
+	        give_reason = False, jobs = None, dryrun = False, printshellcmds = False, touch = False, 
 	        quiet = False, visited = None, parentmintime = None, 
 	        ignore_ambiguity = False, skip_until_dynamic = False):
 		"""
@@ -210,7 +212,7 @@ class Rule:
 		if forcerules is None:
 			forcerules = set()
 
-		if (self, requested_output) in visited:
+		if (self, requested_output) in visited or (self, None) in visited:
 			raise CyclicGraphException(self, lineno = self.lineno, snakefile = self.snakefile)
 		visited.add((self, requested_output))
 		
@@ -230,8 +232,6 @@ class Rule:
 				# update the job if it needs to run due to the new requested file
 				needrun, reason = self._need_run(False, todo, input, output, parentmintime, requested_output, skip_until_dynamic)
 				job.needrun = needrun
-				job.message = self.get_message(input, output, wildcards,
-				                               reason if give_reason else None)
 			return job
 
 		for rule, file in self.workflow.get_producers(input, exclude=self):
@@ -245,6 +245,7 @@ class Rule:
 					give_reason = give_reason,
 					touch = touch, 
 					quiet = quiet, 
+					printshellcmds = printshellcmds,
 					visited = set(visited), 
 					parentmintime = output_mintime,
 					skip_until_dynamic = self.is_dynamic(file) or skip_until_dynamic)
@@ -267,7 +268,7 @@ class Rule:
 				
 			except (ProtectedOutputException, MissingInputException, CyclicGraphException, RuntimeError) as ex:
 				if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
-					raise RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic file:\n{}".format(file), lineno = self.lineno, snakefile = self.snakefile)
+					raise RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), lineno = self.lineno, snakefile = self.snakefile)
 				exceptions[file].append(ex)
 		
 		missing_input = self._get_missing_files(set(input) - produced.keys())
@@ -311,7 +312,7 @@ class Rule:
 		job = Job(
 			self.workflow,
 			rule = self, 
-			message = self.get_message(input, output, wildcards),
+			message = self.message,
 			reason = reason if give_reason else None,
 			input = input,
 			output = output,
@@ -320,7 +321,9 @@ class Rule:
 			log = log,
 			depends = todo,
 			dryrun = dryrun,
+			quiet = quiet,
 			touch = touch,
+			shellcmd = self.shellcmd if printshellcmds else None,
 			needrun = need_run,
 			pseudo = skip_until_dynamic,
 			dynamic_output = [o for o in self.output if o in self.dynamic]
@@ -387,50 +390,11 @@ class Rule:
 
 	def get_run(self):
 		""" Return the run method. """
-		#return self.workflow.get_run(self)
 		return self.run_func
 
 	def has_run(self):
 		""" Return True if rule has a run method. """
 		return self.run_func != None
-
-	def get_message(self, input, output, wildcards, showmessage = True):
-		"""
-		Get the message that shall be printed upon rule execution.
-		
-		Arguments
-		input       -- the input of the rule
-		output      -- the output of the rule
-		wildcards   -- the wildcards of the rule
-		showmessage -- whether a user defined message shall be printed instead if existing  
-		"""
-		if self.message and showmessage:
-			variables = dict(globals())
-			variables.update(locals())
-			msg = self.message.format(**variables)
-			return msg
-
-		def showtype(orig_iofiles, iofiles):
-			for i, iofile in enumerate(iofiles):
-				if orig_iofiles[i] in self.dynamic:
-					f = str(orig_iofiles[i])
-					f += " (dynamic)"
-				else:
-					f = str(iofile)
-				if iofile.is_temp():
-					f += " (temporary)"
-				if iofile.is_protected():
-					f += " (protected)"
-				yield f
-
-		msg = "rule " + self.name
-		if input or output:
-			msg += ":"
-		if input:
-			msg += "\n\tinput: {}".format(", ".join(showtype(self.input, input)))
-		if output:
-			msg += "\n\toutput: {}".format(", ".join(showtype(self.output, output)))
-		return msg
 
 	def is_producer(self, requested_output):
 		"""

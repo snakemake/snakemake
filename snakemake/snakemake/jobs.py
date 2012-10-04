@@ -58,8 +58,8 @@ class Job:
 			job.cleanup()
 
 	def __init__(self, workflow, rule = None, message = None, reason = None,
-			input = None, output = None, wildcards = None, 
-			threads = 1, log = None, depends = set(), dryrun = False, 
+			input = None, output = None, wildcards = None, shellcmd = None,
+			threads = 1, log = None, depends = set(), dryrun = False, quiet = False,
 			touch = False, needrun = True, pseudo = False, dynamic_output = False):
 		self.workflow = workflow
 		self.scheduler = None
@@ -72,7 +72,9 @@ class Job:
 		self.threads = threads
 		self.log = log
 		self.dryrun = dryrun
+		self.quiet = quiet
 		self.touch = touch
+		self.shellcmd = shellcmd
 		self.needrun = needrun
 		self.pseudo = pseudo
 		self.dynamic_output = dynamic_output
@@ -103,10 +105,42 @@ class Job:
 			for j in job.ancestors():
 				yield j
 	
+	def get_message(self):
+		msg = ""
+		if not self.quiet:
+			if self.message:
+				msg += self.message.format(input=self.input, output=self.output, wildcards=self.wildcards, threads=self.threads, log=self.log, **globals())
+			else:
+				def showtype(orig_iofiles, iofiles):
+					for i, iofile in enumerate(iofiles):
+						if orig_iofiles[i] in self.rule.dynamic:
+							f = str(orig_iofiles[i])
+							f += " (dynamic)"
+						else:
+							f = str(iofile)
+						if iofile.is_temp():
+							f += " (temporary)"
+						if iofile.is_protected():
+							f += " (protected)"
+						yield f
+				
+				msg += "rule " + self.rule.name
+				if self.input or self.output:
+					msg += ":"
+				if self.input:
+					msg += "\n\tinput: {}".format(", ".join(showtype(self.rule.input, self.input)))
+				if self.output:
+					msg += "\n\toutput: {}".format(", ".join(showtype(self.rule.output, self.output)))
+				if self.reason:
+					msg += "\n\t{}".format(self.reason)
+		if self.shellcmd:
+			if not self.quiet:
+				msg += "\n"
+			msg += self.shellcmd.format(input=self.input, output=self.output, wildcards=self.wildcards, threads=self.threads, log=self.log, **globals())
+		return msg
+		
 	def print_message(self):
-		logger.info(self.message)
-		if self.reason:
-			logger.warning("\t{}".format(self.reason))
+		logger.info(self.get_message())
 		
 	def run(self, run_func):
 		if not self.needrun or self.pseudo:
@@ -138,12 +172,12 @@ class Job:
 						except OSError:
 							raise RuleException("Could not remove dynamic output file {}.".format(f), lineno=self.rule.lineno, snakefile=self.rule.snakefile)
 			if self.log:
-				log.prepare()
+				self.log.prepare()
 
 			run_func(self)
 	
 	def get_run_args(self):
-		return (self.rule.get_run(), self.rule.name, self.message, 
+		return (self.rule.get_run(), self.rule.name, self.get_message(), 
 			self.input, self.output, self.wildcards, self.threads, self.log, 
 			self.workflow.rowmaps, self.rule.lineno, self.rule.snakefile)
 	

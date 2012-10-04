@@ -33,6 +33,8 @@ def main():
 	                          "the snakefile will use this as their origin)."))
 	parser.add_argument("--dryrun", "-n", action="store_true", 
 	                    help="Do not execute anything.")
+	parser.add_argument("--printshellcmds", "-p", action="store_true", 
+	                    help="Print out the shell commands that will be executed.")
 	parser.add_argument("--dag", action="store_true", 
 	                    help=("Do not execute anything and print the directed "
 	                          "acyclic graph of jobs to execute in the dot language."))
@@ -66,7 +68,7 @@ def main():
 	                    help="Write stats about Snakefile execution to the given file.")
 	parser.add_argument("--nocolor", action = "store_true", 
 	                    help="Do not use a colored output.")
-	parser.add_argument("--quiet", action = "store_true", 
+	parser.add_argument("--quiet", "-q", action = "store_true", 
 	                    help="Do not output any progress or rule information.")
 	parser.add_argument("--version", "-v", action="version", version=snakemake.__version__)
     
@@ -79,6 +81,7 @@ def main():
 			directory = args.directory, 
 			targets = args.target, 
 			dryrun = args.dryrun, 
+			printshellcmds = args.printshellcmds, 
 			touch = args.touch, 
 			forcethis = args.force,
 			forceall = args.forceall,

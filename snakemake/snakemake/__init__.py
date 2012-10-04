@@ -8,7 +8,7 @@ from snakemake.logging import logger, ColorizingStreamHandler
 __author__ = "Johannes Köster"
 __version__ = "1.2.3"
 
-def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, forcerules = None, stats = None, give_reason = False, nocolor = False, quiet = False, cluster = None, standalone = False, dag = False, ignore_ambiguity = False):
+def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, forcerules = None, stats = None, give_reason = False, nocolor = False, printshellcmds = False, quiet = False, cluster = None, standalone = False, dag = False, ignore_ambiguity = False):
 	"""
 	Run snakemake on a given snakefile.
 		
@@ -28,9 +28,6 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 
 	if nocolor:
 		ColorizingStreamHandler.nocolor = True
-
-	if quiet:
-		ColorizingStreamHandler.quiet = True
 
 	if not os.path.exists(snakefile):
 		logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))
@@ -69,9 +66,9 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 		
 		success = True
 		if not targets: 
-			success = workflow.run_first_rule(dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, forcerules = forcerules, give_reason = give_reason, cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
+			success = workflow.run_first_rule(dryrun = dryrun, printshellcmds = printshellcmds, quiet = quiet, touch = touch, forcethis = forcethis, forceall = forceall, forcerules = forcerules, give_reason = give_reason, cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
 		else:
-			success = workflow.run_rules(targets, dryrun = dryrun, touch = touch, forcethis = forcethis, forceall = forceall, forcerules = forcerules, give_reason = give_reason, cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
+			success = workflow.run_rules(targets, dryrun = dryrun, printshellcmds = printshellcmds, quiet = quiet, touch = touch, forcethis = forcethis, forceall = forceall, forcerules = forcerules, give_reason = give_reason, cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
 		if success and stats:
 			stats = csv.writer(open(stats, "w"), delimiter = "\t")
 			stats.writerow("rule minimum maximum sum mean".split())

@@ -293,21 +293,27 @@ class States:
 		""" State that creates a run function for the current rule, interpreting shell commands directly. """
 		self.empty_rule = False
 		self._check_colon('shell', token)
-		self._run_def(token)
-		
-		self.tokens.add(NEWLINE, '\n', orig_token = token)\
-		           .add(INDENT, '\t', orig_token = token)
-		self._func_open('shell', token)
 		self.state = self.shell_body
 
 	def shell_body(self, token):
 		""" State that collects the body of a rule's shell function. """
 		if token.type == STRING:
+			self.tokens.add(NEWLINE, "\n", token)\
+			           .add(AT, "@", token)
+			self._func_open('shellcmd', token, obj='workflow')
+			self.tokens.add(token, orig_token = token)
+			self._func_close(token)
+			self._newline(token)
+			self._run_def(token)
+			self._newline(token)
+			self._indent(token)
+			self._func_open('shell', token)
 			self.tokens.add(token, orig_token = token)
 			self._func_close(token)
 			self.state = self.python
 		elif token.type in (COMMENT, NEWLINE, NL, INDENT, DEDENT):
-			self.tokens.add(token, orig_token = token)
+			pass
+			#self.tokens.add(token, orig_token = token)
 		else:
 			raise self._syntax_error('Expected shell command in a string after shell keyword.', token)
 	
@@ -373,8 +379,13 @@ class States:
 	def _func_close(self, orig_token):
 		""" Generate tokens for closing a function invocation with 
 		given name. """
-		self.tokens.add(RPAR, ')', orig_token = orig_token) #\
-		#		   .add(NEWLINE, '\n', orig_token = orig_token)
+		self.tokens.add(RPAR, ')', orig_token = orig_token)
+
+	def _newline(self, orig_token):
+		self.tokens.add(NEWLINE, '\n', orig_token=orig_token)
+
+	def _indent(self, orig_token):
+		self.tokens.add(INDENT, '\t', orig_token=orig_token)
 
 	@staticmethod
 	def _stringify(tokenstring):
