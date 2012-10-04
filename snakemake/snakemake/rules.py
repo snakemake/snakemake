@@ -213,7 +213,7 @@ class Rule:
 			forcerules = set()
 
 		if (self, requested_output) in visited or (self, None) in visited:
-			raise CyclicGraphException(self, lineno = self.lineno, snakefile = self.snakefile)
+			raise CyclicGraphException(self, requested_output, lineno = self.lineno, snakefile = self.snakefile)
 		visited.add((self, requested_output))
 		
 		input, output, log, wildcards, matching_output = self._expand_wildcards(requested_output)
@@ -269,6 +269,9 @@ class Rule:
 			except (ProtectedOutputException, MissingInputException, CyclicGraphException, RuntimeError) as ex:
 				if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
 					raise RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), lineno = self.lineno, snakefile = self.snakefile)
+				if isinstance(ex, CyclicGraphException) and ex.file == file:
+					# raise the CyclicGraphException to the correct recursion level
+					raise ex
 				exceptions[file].append(ex)
 		
 		missing_input = self._get_missing_files(set(input) - produced.keys())

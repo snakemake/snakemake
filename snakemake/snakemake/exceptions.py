@@ -95,8 +95,9 @@ class AmbiguousRuleException(RuleException):
 		self.job1, self.job2 = job1, job2
 	
 class CyclicGraphException(RuleException):
-	def __init__(self, rule, lineno = None, snakefile = None):
+	def __init__(self, rule, file, lineno = None, snakefile = None):
 		super().__init__("Cyclic dependency on rule {}.".format(rule), lineno = lineno, snakefile = snakefile)
+		self.file = file
 		
 class MissingRuleException(RuleException):
 	def __init__(self, file, lineno = None, snakefile = None):
