@@ -451,7 +451,7 @@ class ClusterJobScheduler:
 	def _run_job(self, job):
 		job.print_message()
 		workdir = os.getcwd()
-		prefix = ".snakemake"
+		prefix = ".snakemake.{}.".format(job.rule.name)
 		jobid = "_".join(job.output).replace("/", "_")
 		jobscript = "{}.{}.sh".format(prefix, jobid)
 		jobfinished = "{}.{}.jobfinished".format(prefix, jobid)
