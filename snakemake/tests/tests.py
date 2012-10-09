@@ -8,12 +8,12 @@ from snakemake import snakemake
 
 __author__ = "Tobias Marschall, Marcel Martin"
 
-
 def dpath(path):
 	"""get path to a data file (relative to the directory this
 	test lives in)"""
 	return join(os.path.dirname(__file__), path)
 
+SCRIPTPATH = dpath("../bin/snakemake")
 
 def md5sum(filename):
 	data = open(filename, 'rb').read()
@@ -34,7 +34,7 @@ def run(path, shouldfail=False, **params):
 	tmpdir = mkdtemp()
 	try:
 		call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir), shell=True)
-		success = snakemake(snakefile, jobs=3, directory=tmpdir, stats = "stats.txt", **params)
+		success = snakemake(snakefile, jobs=3, directory=tmpdir, stats = "stats.txt", scriptpath = SCRIPTPATH, **params)
 		if shouldfail:
 			assert not success, "expected error on execution"
 		else:

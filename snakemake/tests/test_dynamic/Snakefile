@@ -18,4 +18,4 @@ rule dynoutput:
 rule:
 	input: dynamic("test.{n}.inter")
 	output: "test.txt"
-	shell: "echo blaaaa; touch test.txt"
+	shell: "touch test.txt"

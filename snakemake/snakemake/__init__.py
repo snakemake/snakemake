@@ -8,7 +8,7 @@ from snakemake.logging import logger, ColorizingStreamHandler
 __author__ = "Johannes Köster"
 __version__ = "1.2.3"
 
-def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, forcerules = None, stats = None, give_reason = False, nocolor = False, printshellcmds = False, quiet = False, cluster = None, standalone = False, dag = False, ignore_ambiguity = False):
+def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, forcerules = None, stats = None, give_reason = False, nocolor = False, printshellcmds = False, quiet = False, cluster = None, standalone = False, dag = False, ignore_ambiguity = False, scriptpath = None):
 	"""
 	Run snakemake on a given snakefile.
 		
@@ -39,7 +39,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	
 	olddir = os.getcwd()
 
-	workflow = Workflow()
+	workflow = Workflow(scriptpath = scriptpath)
 
 	if directory:
 		# change to the specified directory. This overrides eventually specified workdir in Snakefile

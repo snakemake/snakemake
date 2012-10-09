@@ -468,9 +468,15 @@ class ClusterJobScheduler:
 		jobfinished = "{}.{}.jobfinished".format(prefix, jobid)
 		jobfailed = "{}.{}.jobfailed".format(prefix, jobid)
 		cores = self._cores if self._cores else ""
+		scriptpath = self.workflow.scriptpath
+		if not scriptpath:
+			scriptpath = "snakemake"
 		shell("""
 			echo '#!/bin/sh' > "{jobscript}"
-			echo 'snakemake --force -j{self._cores} --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"' >> "{jobscript}"
+			echo '#rule: {job}' >> "{jobscript}"
+			echo '#input: {job.input}' >> "{jobscript}"
+			echo '#output: {job.output}' >> "{jobscript}"
+			echo '{scriptpath} --force -j{self._cores} --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"' >> "{jobscript}"
 			chmod +x "{jobscript}"
 			{self._submitcmd} "{jobscript}"
 		""")

@@ -202,7 +202,7 @@ class States:
 	def inoutput_paths(self, token):
 		""" State that collects the arguments for in- or output definition """
 		last = self.tokens.last
-		if token.type in (NEWLINE, NL, ENDMARKER) and not ((last.type == OP and last.string == ",") or self._is_colon(last)):
+		if token.type in (NEWLINE, NL, ENDMARKER) and not ((last.type == OP and last.string == ",") or (last.type == COMMENT) or self._is_colon(last)):
 			self.tokens.add(token)
 			self._func_close(token)
 			self.state = self.rule_body

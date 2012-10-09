@@ -33,7 +33,7 @@ class Jobcounter:
 		return "{} of {} steps ({}%) done".format(self._done, self.count, int(self._done / self.count * 100))
 
 class Workflow:
-	def __init__(self):
+	def __init__(self, scriptpath = None):
 		"""
 		Create the controller.
 		"""
@@ -47,6 +47,7 @@ class Workflow:
 		self.jobcounter = None
 		self.rule_count = 0
 		self.errors = False
+		self.scriptpath = scriptpath
 	
 	def report_runtime(self, rule, runtime):
 		self._runtimes[rule].append(runtime)
