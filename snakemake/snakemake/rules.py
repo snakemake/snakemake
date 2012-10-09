@@ -218,7 +218,7 @@ class Rule:
 		
 		input, output, log, wildcards, matching_output = self._expand_wildcards(requested_output)
 		
-		skip_until_dynamic = skip_until_dynamic and not self.is_dynamic(matching_output)
+		skip_until_dynamic = skip_until_dynamic and not self.is_dynamic(requested_output)
 	
 		output_mintime = IOFile.mintime(output) or parentmintime
 		
@@ -328,8 +328,8 @@ class Rule:
 			touch = touch,
 			shellcmd = self.shellcmd if printshellcmds else None,
 			needrun = need_run,
-			pseudo = skip_until_dynamic,
-			dynamic_output = [o for o in self.output if o in self.dynamic]
+			pseudo = skip_until_dynamic, 
+			visited = visited
 		)
 
 		jobs[(output, self)] = job
@@ -383,7 +383,6 @@ class Rule:
 				if todo_output:
 					return True, "Updated input files: {}".format(", ".join(set(input) & set(todo_output)))
 
-			# TODO for dynamic output, output_mintime may refer to a previous run that spit out more files!! -> this leads to false needruns!
 			newer = [i for i in input if os.path.exists(i) and i.is_newer(output_mintime)]
 			if newer:
 				return True, "Input files newer than output files: {}".format(", ".join(newer))

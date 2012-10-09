@@ -129,7 +129,7 @@ class IOFile(str):
 		f = self._file
 		if self._is_function:
 			raise ValueError("Cannot fill wildcards of function.")
-		return self.create(re.sub(_wildcard_regex, lambda match: '{}'.format(random.randint(1, 1000000)), f), protected = self._protected, temp = self._temp)
+		return self.create(re.sub(_wildcard_regex, lambda match: "0", f), protected = self._protected, temp = self._temp, origin = self)
 		
 	def get_wildcard_names(self):
 		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.get_file()))
@@ -287,4 +287,5 @@ class Namedlist(list):
 
 	def __str__(self):
 		return " ".join(self)
+
 

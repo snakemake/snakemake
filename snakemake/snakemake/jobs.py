@@ -60,7 +60,7 @@ class Job:
 	def __init__(self, workflow, rule = None, message = None, reason = None,
 			input = None, output = None, wildcards = None, shellcmd = None,
 			threads = 1, log = None, depends = set(), dryrun = False, quiet = False,
-			touch = False, needrun = True, pseudo = False, dynamic_output = False):
+			touch = False, needrun = True, pseudo = False, visited = None):
 		self.workflow = workflow
 		self.scheduler = None
 		self.rule = rule
@@ -77,13 +77,14 @@ class Job:
 		self.shellcmd = shellcmd
 		self.needrun = needrun
 		self.pseudo = pseudo
-		self.dynamic_output = dynamic_output
 		self.depends = set(depends)
 		self.depending = list()
 		self.is_finished = False
 		self._callbacks = list()
 		self._error_callbacks = list()
 		self.jobid = Job.count
+		self.visited = visited
+		self.ignore = False
 		Job.count += 1
 		for other in self.depends:
 			other.depending.append(self)
@@ -100,10 +101,15 @@ class Job:
 				yield j
 
 	def ancestors(self):
-		for job in self.depending:
+		queue = [job for job in self.depending]
+		visited = set(queue)
+		while queue:
+			job = queue.pop(0)
+			for j in job.depending:
+				if j not in visited:
+					queue.append(j)
+					visited.add(j)
 			yield job
-			for j in job.ancestors():
-				yield j
 	
 	def get_message(self):
 		msg = ""
@@ -113,7 +119,7 @@ class Job:
 			else:
 				def showtype(orig_iofiles, iofiles):
 					for i, iofile in enumerate(iofiles):
-						if orig_iofiles[i] in self.rule.dynamic:
+						if self.rule.is_dynamic(iofile):
 							f = str(orig_iofiles[i])
 							f += " (dynamic)"
 						else:
@@ -143,34 +149,34 @@ class Job:
 		logger.info(self.get_message())
 		
 	def run(self, run_func):
-		if not self.needrun or self.pseudo:
+		if not self.needrun or self.pseudo or self.ignore:
 			self.finished()
 		elif self.dryrun:
 			self.print_message()
 			self.finished()
 		elif self.touch:
 			logger.info(self.message)
-			for i, o in enumerate(self.output):
-				if not self.rule.is_dynamic(self.rule.output[i]):
+			for o in self.output:
+				if self.rule.is_dynamic(o):
+					for f, _ in listfiles(o):
+						touch(f)
+				else:
 					o.touch(self.rule.name, self.rule.lineno, self.rule.snakefile)
-			for o in filter(self.rule.is_dynamic, self.rule.output):
-				for f, _ in listfiles(o):
-					touch(f)
 			# sleep shortly to ensure that output files of different rules 
 			# are not touched at the same time.
 			time.sleep(0.1)
 			self.finished()
 		else:
-			for i, o in enumerate(self.output):
-				# TODO what if a directory inside o is dynamic?
-				o.prepare()
-				o_ = self.rule.output[i]
-				if self.rule.is_dynamic(o_):
-					for f, _ in listfiles(o_):
+			for o in self.output:
+				if self.rule.is_dynamic(o):
+					for f, _ in listfiles(o):
 						try:
 							IOFile(f).remove()
 						except OSError:
 							raise RuleException("Could not remove dynamic output file {}.".format(f), lineno=self.rule.lineno, snakefile=self.rule.snakefile)
+				else:
+					# TODO what if a directory inside o is dynamic?
+					o.prepare()
 			if self.log:
 				self.log.prepare()
 
@@ -190,100 +196,105 @@ class Job:
 	
 	def finished(self, future = None):
 		""" Set job to be finished. """
-		try:
-			if future and not self.pseudo:
-				ex = future.exception()
-				if ex:
-					raise ex
-
-			if not self.dryrun and not self.pseudo:
-				# check the produced files
-				for i, o in enumerate(self.output):
-					if not self.rule.is_dynamic(self.rule.output[i]):
-						o.created(self.rule.name, self.rule.lineno, self.rule.snakefile)
-				for f in self.input:
-					#import pdb; pdb.set_trace()
-					f.used()
-		except (Exception, BaseException) as ex:
-			# in case of an error, execute all callbacks and delete output
-			print_exception(ex, self.workflow.rowmaps)
-			self.cleanup()
-			for callback in self._error_callbacks:
-				callback()
-			return
-
 		self.is_finished = True
-		if self.needrun and not self.dryrun and not self.pseudo:
-			self.workflow.jobcounter.done()
-			logger.info(self.workflow.jobcounter)
-			if future != None:
-				self.workflow.report_runtime(self.rule, future.result())
-		for other in self.depending:
-			other.depends.remove(self)
+		if not self.ignore:
+			dynamic_output = False
+			if self.needrun and not self.pseudo:
+				try:
+					if future:
+						ex = future.exception()
+						if ex:
+							raise ex
 
-		# TODO add jobs to the DAG that depend on dynamic files of this one	
-		if not self.dryrun and self.dynamic_output:
-			self.handle_dynamic_output()		
+					if not self.dryrun:
+						# check the produced files
+						for o in self.output:
+							if not self.rule.is_dynamic(o):
+								o.created(self.rule.name, self.rule.lineno, self.rule.snakefile)
+							else:
+								dynamic_output = True
+						for f in self.input:
+							f.used()
+				except (Exception, BaseException) as ex:
+					# in case of an error, execute all callbacks and delete output
+					print_exception(ex, self.workflow.rowmaps)
+					self.cleanup()
+					for callback in self._error_callbacks:
+						callback()
+					return
+
+			if self.needrun and not self.dryrun and not self.pseudo:
+				self.workflow.jobcounter.done()
+				if not self.quiet:
+					logger.info(self.workflow.jobcounter)
+				if future != None:
+					self.workflow.report_runtime(self.rule, future.result())
+			for other in self.depending:
+				other.depends.remove(self)
+
+			if not self.dryrun and dynamic_output:
+				self.handle_dynamic_output()	
 
 		for callback in self._callbacks:
 			callback(self)
 
 	def cleanup(self):
 		if not self.is_finished:
-			for i, o in enumerate(self.output):
-				if not self.rule.is_dynamic(self.rule.output[i]):
-					o.remove()
-				else:
-					for f, _ in listfiles(self.rule.output[i]):
+			for o in self.output:
+				if self.rule.is_dynamic(o):
+					for f, _ in listfiles(o):
 						remove(f)
-
+				else:
+					o.remove()
+				
 	def handle_dynamic_output(self):
 		wildcard_expansion = defaultdict(list)
-		for o in self.rule.output:
+		for i, o in enumerate(self.output):
 			if self.rule.is_dynamic(o):
-				for f, wildcards in listfiles(o):
+				for f, wildcards in listfiles(self.rule.output[i]):
 					for name, value in wildcards.items():
 						wildcard_expansion[name].append(value)
+		new_jobs = set()
+		dynamic = 0
+		jobs = dict()
 		for job in self.ancestors():
-			job.handle_dynamic_input(wildcard_expansion)
+			j = job.handle_dynamic_input(wildcard_expansion, jobs)
+			if j:
+				new_jobs.update(j.all_jobs())
+				dynamic += 1
+				
+		n = len(new_jobs) - dynamic
+		logger.warning("Dynamically adding {} new jobs".format(n))
+		self.scheduler.add_jobs(new_jobs)
+		self.workflow.jobcounter.count += n
 
-	def handle_dynamic_input(self, wildcard_expansion):
-		r = None
-		modified = False
+	def handle_dynamic_input(self, wildcard_expansion, jobs):
+		expansion = defaultdict(list)
 		for i, f in enumerate(self.rule.input):
 			if self.rule.is_dynamic(f):
-				if r is None:
-					r = self.rule.clone()
 				try:
-					d = r.input[i]
-					r.input.pop(i)
-					for e in reversed(expand(d, zip, **wildcard_expansion)):
-						e = IOFile.create(e, temp = d.is_temp(), protected = d.is_protected())
-						r.input.insert(i, e)
-					r.set_dynamic(d, False)
-					modified = True
+					for e in reversed(expand(f, zip, **wildcard_expansion)):
+						expansion[i].append(IOFile.create(e, temp = f.is_temp(), protected = f.is_protected()))
 				except Exception as ex:
 					# keep the file if expansion fails
-					pass
-		if not modified:
+					return
+		if not expansion:
 			return
+		# replace the dynamic input with the expanded files
+		for i, e in reversed(list(expansion.items())):
+			self.rule.set_dynamic(self.rule.input[i], False)
+			self.rule.input[i:i+1] = e
 		try:
-			job = r.run(self.output[0] if self.output else None)
+			# TODO what if self.output[0] is dynamic?
+			job = self.rule.run(self.output[0] if self.output else None, jobs=jobs)
 
-			# remove current job from DAG and add new
-			for j in self.depending:
-				j.depends.remove(self)	
-				j.depends.add(job)
-				job.depending.append(j)
-			self.depending = list()
-			self.needrun = False
+			# remove current job from DAG
+			for j in self.depends:
+				j.depending.remove(self)
+			self.depends = list()
+			self.ignore = True
 
-			# schedule new jobs
-			jobs = list(job.all_jobs())
-			n = len(jobs) - 1
-			logger.warning("Dynamically adding {} jobs".format(n))
-			self.scheduler.add_jobs(jobs)
-			self.workflow.jobcounter.count += n # -1 because we replace current job
+			return job
 		except Exception as ex:
 			# there seem to be missing files, so ignore this
 			pass
