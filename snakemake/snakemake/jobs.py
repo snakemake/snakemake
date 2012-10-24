@@ -60,7 +60,7 @@ class Job:
 	def __init__(self, workflow, rule = None, message = None, reason = None,
 			input = None, output = None, wildcards = None, shellcmd = None,
 			threads = 1, log = None, depends = set(), dryrun = False, quiet = False,
-			touch = False, needrun = True, pseudo = False, visited = None):
+			touch = False, needrun = True, pseudo = False, visited = None, dynamic_output = False, forced = False):
 		self.workflow = workflow
 		self.scheduler = None
 		self.rule = rule
@@ -77,6 +77,8 @@ class Job:
 		self.shellcmd = shellcmd
 		self.needrun = needrun
 		self.pseudo = pseudo
+		self.forced = forced
+		self.dynamic_output = dynamic_output
 		self.depends = set(depends)
 		self.depending = list()
 		self.is_finished = False
@@ -174,9 +176,8 @@ class Job:
 							IOFile(f).remove()
 						except OSError:
 							raise RuleException("Could not remove dynamic output file {}.".format(f), lineno=self.rule.lineno, snakefile=self.rule.snakefile)
-				else:
-					# TODO what if a directory inside o is dynamic?
-					o.prepare()
+				# TODO what if a directory inside o is dynamic?
+				o.prepare()
 			if self.log:
 				self.log.prepare()
 
@@ -198,7 +199,6 @@ class Job:
 		""" Set job to be finished. """
 		self.is_finished = True
 		if not self.ignore:
-			dynamic_output = False
 			if self.needrun and not self.pseudo:
 				try:
 					if future:
@@ -211,8 +211,6 @@ class Job:
 						for o in self.output:
 							if not self.rule.is_dynamic(o):
 								o.created(self.rule.name, self.rule.lineno, self.rule.snakefile)
-							else:
-								dynamic_output = True
 						for f in self.input:
 							f.used()
 				except (Exception, BaseException) as ex:
@@ -223,16 +221,17 @@ class Job:
 						callback()
 					return
 
-			if self.needrun and not self.dryrun and not self.pseudo:
-				self.workflow.jobcounter.done()
-				if not self.quiet:
-					logger.info(self.workflow.jobcounter)
-				if future != None:
-					self.workflow.report_runtime(self.rule, future.result())
+				if not self.dryrun:
+					self.workflow.jobcounter.done()
+					if not self.quiet:
+						logger.info(self.workflow.jobcounter)
+					if not future is None:
+						self.workflow.report_runtime(self.rule, future.result())
+
 			for other in self.depending:
 				other.depends.remove(self)
 
-			if not self.dryrun and dynamic_output:
+			if not self.dryrun and self.dynamic_output:
 				self.handle_dynamic_output()	
 
 		for callback in self._callbacks:
@@ -248,23 +247,35 @@ class Job:
 					o.remove()
 				
 	def handle_dynamic_output(self):
-		wildcard_expansion = defaultdict(list)
+		wildcard_expansion = defaultdict(set)
 		for i, o in enumerate(self.output):
 			if self.rule.is_dynamic(o):
 				for f, wildcards in listfiles(self.rule.output[i]):
 					for name, value in wildcards.items():
-						wildcard_expansion[name].append(value)
+						wildcard_expansion[name].add(value)
+		# determine jobs to add
 		new_jobs = set()
 		dynamic = 0
-		jobs = dict()
+		jobs = {(self.output, self.rule): self} # TODO add current non-dynamic jobs here?
 		for job in self.ancestors():
 			j = job.handle_dynamic_input(wildcard_expansion, jobs)
 			if j:
 				new_jobs.update(j.all_jobs())
 				dynamic += 1
-				
+		# remove this job from the DAG as it would induce the dynamic loop again
+		# TODO better set needrun = False above!
+		if self in new_jobs:
+			new_jobs.remove(self)
+			for job in self.depending:
+				try:
+					job.depends.remove(self)
+				except:
+					pass
+
+		# calculate how many jobs have to be added
 		n = len(new_jobs) - dynamic
-		logger.warning("Dynamically adding {} new jobs".format(n))
+		if n:
+			logger.warning("Dynamically adding {} new jobs".format(n))
 		self.scheduler.add_jobs(new_jobs)
 		self.workflow.jobcounter.count += n
 
@@ -286,11 +297,16 @@ class Job:
 			self.rule.input[i:i+1] = e
 		try:
 			# TODO what if self.output[0] is dynamic?
-			job = self.rule.run(self.output[0] if self.output else None, jobs=jobs)
+			job = self.rule.run(self.output[0] if self.output else None, jobs=jobs, forcethis=self.forced)
 
 			# remove current job from DAG
 			for j in self.depends:
 				j.depending.remove(self)
+			for j in self.depending:
+				j.depends.remove(self)
+				# TODO handle depending jobs!
+				#j.depends.add(job)
+				#job.depending.add(j)
 			self.depends = list()
 			self.ignore = True
 

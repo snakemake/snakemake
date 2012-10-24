@@ -202,11 +202,11 @@ def expand(*args, **wildcards):
 		combinator = product
 	elif len(args) == 2:
 		combinator = args[1]
-	if not isinstance(filepatterns, list) or isinstance(filepatterns, tuple):
+	if isinstance(filepatterns, str):
 		filepatterns = [filepatterns]
 	def flatten(wildcards):
 		for wildcard, values in wildcards.items():
-			if not isinstance(values, list) or isinstance(values, tuple):
+			if isinstance(values, str):
 				values = [values]
 			yield [(wildcard, value) for value in values]
 	expanded = list()

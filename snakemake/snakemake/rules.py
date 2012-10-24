@@ -217,8 +217,9 @@ class Rule:
 		visited.add((self, requested_output))
 		
 		input, output, log, wildcards, matching_output = self._expand_wildcards(requested_output)
+		dynamic_output = self.is_dynamic(requested_output)
 		
-		skip_until_dynamic = skip_until_dynamic and not self.is_dynamic(requested_output)
+		skip_until_dynamic = skip_until_dynamic and not dynamic_output
 	
 		output_mintime = IOFile.mintime(output) or parentmintime
 		
@@ -228,6 +229,8 @@ class Rule:
 
 		if (output, self) in jobs:
 			job = jobs[(output, self)]
+			if not job.dynamic_output:
+				job.dynamic_output = dynamic_output
 			if not job.needrun:
 				# update the job if it needs to run due to the new requested file
 				needrun, reason = self._need_run(False, todo, input, output, parentmintime, requested_output, skip_until_dynamic)
@@ -289,28 +292,27 @@ class Rule:
 			)
 
 		# collect the jobs that will actually run (including pseudo-jobs)
-		todo = {job for job in produced.values() if job.needrun or job.pseudo}
-		
-		need_run, reason = self._need_run(forcethis or forceall or self.name in forcerules, todo, input, output, parentmintime, requested_output, skip_until_dynamic)
+		todo = {job for job in produced.values() if job.needrun or job.pseudo or job.dynamic_output}
+	
+		forced = forcethis or forceall or self.name in forcerules	
+		need_run, reason = self._need_run(forced, todo, input, output, parentmintime, requested_output, skip_until_dynamic)
 		
 		if need_run:
 			# enforce running jobs that created temporary files
 			for file, job in produced.items():
 				if not job.needrun and file.is_temp() and not file.exists():
 					job.needrun = True
-					job.reason = "Output file needed by rule {}: {}".format(self, file)
+					job.reason = "Output file needed by rule {}: {}".format(self, file) if give_reason else None
 					todo.add(job)
-		
-		protected_output = self._get_protected_output(output) if need_run else None
-		if protected_output:
-			raise ProtectedOutputException(self, protected_output, 
-			                               lineno = self.lineno, 
-			                               snakefile = self.snakefile)
+			# raise error if there are protected output files
+			if self._get_protected_output(output):
+				raise ProtectedOutputException(self, protected_output, 
+				                               lineno = self.lineno, 
+				                               snakefile = self.snakefile)
 	
 		for f in input:
 			f.need()
-		
-		wildcards = Namedlist(fromdict = wildcards)
+
 
 		job = Job(
 			self.workflow,
@@ -319,7 +321,7 @@ class Rule:
 			reason = reason if give_reason else None,
 			input = input,
 			output = output,
-			wildcards = wildcards,
+			wildcards = Namedlist(fromdict = wildcards),
 			threads = self.threads,
 			log = log,
 			depends = todo,
@@ -328,8 +330,10 @@ class Rule:
 			touch = touch,
 			shellcmd = self.shellcmd if printshellcmds else None,
 			needrun = need_run,
+			forced = forced,
 			pseudo = skip_until_dynamic, 
-			visited = visited
+			visited = visited,
+			dynamic_output = dynamic_output
 		)
 
 		jobs[(output, self)] = job
@@ -378,7 +382,7 @@ class Rule:
 			if todo:
 				todo_output = set()
 				for job in todo:
-					if not job.pseudo or job.needrun:
+					if (not job.pseudo and not job.dynamic_output) or job.needrun:
 						todo_output.update(job.output)
 				if todo_output:
 					return True, "Updated input files: {}".format(", ".join(set(input) & set(todo_output)))
