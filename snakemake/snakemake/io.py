@@ -30,6 +30,7 @@ class IOFile(str):
 			obj = IOFile(file)
 			cls._register[fid] = obj
 
+		# TODO this only works if temp is specified for input files and protected for output files!
 		obj._temp = temp or obj._temp
 		obj._protected = protected or obj._protected
 

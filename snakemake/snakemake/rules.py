@@ -276,7 +276,8 @@ class Rule:
 					# raise the CyclicGraphException to the correct recursion level
 					raise ex
 				exceptions[file].append(ex)
-		
+
+		# TODO in case of forceall it does not make sense to look only at missing files with exceptions...	
 		missing_input = self._get_missing_files(set(input) - produced.keys())
 		if missing_input:
 			_ex = list()
@@ -305,7 +306,8 @@ class Rule:
 					job.reason = "Output file needed by rule {}: {}".format(self, file) if give_reason else None
 					todo.add(job)
 			# raise error if there are protected output files
-			if self._get_protected_output(output):
+			protected_output = self._get_protected_output(output)
+			if protected_output:
 				raise ProtectedOutputException(self, protected_output, 
 				                               lineno = self.lineno, 
 				                               snakefile = self.snakefile)
