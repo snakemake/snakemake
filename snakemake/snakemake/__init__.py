@@ -3,7 +3,7 @@
 import os, traceback, sys, csv
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
-from snakemake.logging import logger, ColorizingStreamHandler
+from snakemake.logging import logger, init_logger
 
 __author__ = "Johannes Köster"
 __version__ = "1.2.3"
@@ -11,6 +11,7 @@ __version__ = "1.2.3"
 def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, forcerules = None, stats = None, give_reason = False, nocolor = False, printshellcmds = False, quiet = False, cluster = None, standalone = False, dag = False, ignore_ambiguity = False, scriptpath = None):
 	"""
 	Run snakemake on a given snakefile.
+	Note: at the moment, this function is not thread-safe!
 		
 	Arguments
 	snakefile         -- the snakefile.
@@ -26,8 +27,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	if forcerules:
 		forcerules = set(forcerules) # ensure O(1) access since this will be done for every rule
 
-	if nocolor:
-		ColorizingStreamHandler.nocolor = True
+	init_logger(nocolor=nocolor, stdout=dryrun)
 
 	if not os.path.exists(snakefile):
 		logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))

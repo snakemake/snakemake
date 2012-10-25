@@ -1,5 +1,5 @@
 rule rule1:
-	input: temp('test.inter')
+	input: 'test.inter'
 	output: 'test.out'
 	#message: 'Copying {input[0]} to {output[0]}'
 	shell: 
@@ -7,7 +7,7 @@ rule rule1:
 
 rule rule2:
 	input: 'test.in'
-	output: 'test.inter'
+	output: temp('test.inter')
 	#message: 'Copying {input[0]} to {output[0]}'
 	shell:
 		'cp {input[0]} {output[0]}'

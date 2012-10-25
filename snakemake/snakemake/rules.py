@@ -121,7 +121,9 @@ class Rule:
 		if type(item).__name__ == "function" and output:
 			raise SyntaxError("Only input files can be specified as functions")
 		try:
-			_item = IOFile.create(item, temp = isinstance(item, temp), protected = isinstance(item, protected))
+			_item = IOFile.create(item, 
+			                      temp = self if isinstance(item, temp) else None, 
+			                      protected = self if isinstance(item, protected) else None)
 			inoutput.append(_item)
 			if name:
 				inoutput.add_name(name)

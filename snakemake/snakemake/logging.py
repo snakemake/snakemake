@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import logging, string, platform
+import logging, string, platform, sys
 from multiprocessing import Lock
 
 __author__ = "Johannes Köster"
 
 class ColorizingStreamHandler(logging.StreamHandler):
-	nocolor = False
-	quiet = False
 	_output_lock = Lock()
 
 	BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
@@ -23,6 +21,10 @@ class ColorizingStreamHandler(logging.StreamHandler):
 		'ERROR': RED
 	}
 
+	def __init__(self, nocolor = False, stream = sys.stderr):
+		super().__init__(stream=stream)
+		self.nocolor = nocolor
+
 	@property
 	def is_tty(self):
 		isatty = getattr(self.stream, 'isatty', None)
@@ -30,7 +32,6 @@ class ColorizingStreamHandler(logging.StreamHandler):
 
 	def emit(self, record):
 		try:
-			if self.quiet and record.levelname in ('INFO', 'DEBUG'): return
 			message = self.format(record)
 			self._output_lock.acquire()
 			if self.is_tty:
@@ -46,17 +47,22 @@ class ColorizingStreamHandler(logging.StreamHandler):
 			self.handleError(record)
 			self._output_lock.release()
 	
-	@classmethod
-	def colorize(cls, record):
-		if not cls.nocolor and record.levelname in cls.colors and platform.system() != 'Windows':
+	def colorize(self, record):
+		if not self.nocolor and record.levelname in self.colors and platform.system() != 'Windows':
 			return "{color}{message}{reset}".format(
-				color = cls.COLOR_SEQ % (30 + cls.colors[record.levelname]),
+				color = self.COLOR_SEQ % (30 + self.colors[record.levelname]),
 				message = record.message,
-				reset = cls.RESET_SEQ
+				reset = self.RESET_SEQ
 			)
 		return record.message
 
 logger = logging.getLogger(__name__)
-logger.addHandler(ColorizingStreamHandler())
-logger.setLevel(logging.INFO)
-	
+handler = None
+def init_logger(nocolor = False, stdout = False):
+	global logger
+	global handler
+	if handler:
+		logger.removeHandler(handler)
+	handler = ColorizingStreamHandler(nocolor=nocolor, stream=sys.stdout if stdout else sys.stderr)
+	logger.addHandler(handler)
+	logger.setLevel(logging.INFO)

@@ -227,6 +227,9 @@ class Workflow:
 				raise ex
 			else:
 				all_jobs = chain(ex.job1.all_jobs(), ex.job2.all_jobs())
+
+		# clean up temp and protected flags to consider only really used jobs
+		IOFile.cleanup(all_jobs)
 		
 		if dag:
 			print_job_dag(all_jobs)
