@@ -50,7 +50,9 @@ class Workflow:
 		self.scriptpath = scriptpath
 	
 	def report_runtime(self, rule, runtime):
-		self._runtimes[rule].append(runtime)
+		t0, t1 = runtime
+		duration = t1 -t0
+		self._runtimes[rule].append(duration)
 
 	def get_ruleorder(self):
 		return self._ruleorder

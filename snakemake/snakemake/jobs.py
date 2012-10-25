@@ -42,8 +42,8 @@ def run_wrapper(run, rulename, ruledesc, input, output, wildcards,
 		run(input, output, wildcards, threads, log)
 		# finish all spawned shells.
 		shell.join_all()
-		runtime = time.time() - t0
-		return runtime
+		t1 = time.time()
+		return t0, t1
 	except (Exception, BaseException) as ex:
 		# this ensures that exception can be re-raised in the parent thread
 		lineno, file = get_exception_origin(ex, rowmaps)
