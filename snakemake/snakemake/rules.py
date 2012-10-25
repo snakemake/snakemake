@@ -22,6 +22,7 @@ class Rule:
 		if len(args) == 2:
 			name, workflow = args
 			self.name = name
+			self.docstring = None
 			self.message = None
 			self.input = Namedlist()
 			self.output = Namedlist()
@@ -37,6 +38,7 @@ class Rule:
 		elif len(args) == 1:
 			other = args[0]
 			self.name = other.name
+			self.docstring = other.docstring
 			self.message = other.message
 			self.input = other.input
 			self.output = other.output

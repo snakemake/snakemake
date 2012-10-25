@@ -33,9 +33,15 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 		logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))
 		return False
 
-	def print_rules(log):
+	def print_rules(log, details = False):
 		log("Defined rules:")
-		for rule in workflow.get_rules(): log(rule.name)
+		for rule in workflow.get_rules(): 
+			log(rule.name)
+			if details:
+				if rule.docstring:
+					for line in rule.docstring.split("\n"):
+						log("\t" + line)
+			
 	
 	olddir = os.getcwd()
 
@@ -59,7 +65,7 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 		workflow.check_rules()
 
 		if list:
-			print_rules(logger.info)
+			print_rules(logger.info, details=True)
 			return 0
 	
 		workflow.cores = jobs

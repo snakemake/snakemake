@@ -80,6 +80,7 @@ class States:
 			shell = self.shell)
 		self.rule_params = set(["input", "output", "message", "threads", "log", "run", "shell"])
 		self.current_rule = None
+		self.rule_docstring = None
 		self.empty_rule = True
 		self.tokens = Tokens()
 		self._rule_count = rule_count
@@ -177,8 +178,12 @@ class States:
 
 	def rule_body(self, token):
 		""" State that handles the rule body. """
-		if token.type == NEWLINE or token.type == STRING:
+		if token.type == NEWLINE:
 			pass
+		elif token.type == STRING:
+			self.tokens.add(NEWLINE, "\n", token)\
+			           .add(AT, "@", token)
+			self._func("docstring", [token.string], token, obj = 'workflow')
 		elif token.type == NAME and token.string in self.main_states:
 			self.state = self.main_states[token.string]
 

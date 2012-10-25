@@ -11,6 +11,7 @@ rule map_reads :
   shell: "touch {output}"
 
 rule sai_to_bam:
+  """Creates bam files"""
   input: REF, "{sample}.1.sai", "{sample}.2.sai"#, "{sample}.1.trimmed.cor.fastq", "{sample}.2.trimmed.cor.fastq"
   output: temp("{sample,[^\.]+}.bam")
   shell: "touch {output}"

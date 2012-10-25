@@ -321,11 +321,17 @@ class Workflow:
 				rule.set_log(ruleinfo.log)
 			if ruleinfo.message:
 				rule.set_message(ruleinfo.message)
+			rule.docstring = ruleinfo.docstring
 			rule.run_func = ruleinfo.func
 			rule.shellcmd = ruleinfo.shellcmd
 			return ruleinfo.func
 		return decorate
 
+	def docstring(self, string):
+		def decorate(ruleinfo):
+			ruleinfo.docstring = string
+			return ruleinfo
+		return decorate
 
 	def input(self, *paths, **kwpaths):
 		def decorate(ruleinfo):
@@ -381,3 +387,4 @@ class RuleInfo:
 		self.message = None
 		self.threads = None
 		self.log = None
+		self.docstring = None
