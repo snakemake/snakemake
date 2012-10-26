@@ -80,7 +80,7 @@ class Job:
 		self.forced = forced
 		self.dynamic_output = dynamic_output
 		self.depends = set(depends)
-		self.depending = list()
+		self.depending = set()
 		self.is_finished = False
 		self._callbacks = list()
 		self._error_callbacks = list()
@@ -89,7 +89,7 @@ class Job:
 		self.ignore = False
 		Job.count += 1
 		for other in self.depends:
-			other.depending.append(self)
+			other.depending.add(self)
 
 	def all_jobs(self):
 		yield self
@@ -232,7 +232,7 @@ class Job:
 				other.depends.remove(self)
 
 			if not self.dryrun and self.dynamic_output:
-				self.handle_dynamic_output()	
+				self.handle_dynamic_output()
 
 		for callback in self._callbacks:
 			callback(self)
@@ -253,24 +253,26 @@ class Job:
 				for f, wildcards in listfiles(self.rule.output[i]):
 					for name, value in wildcards.items():
 						wildcard_expansion[name].add(value)
+		#import pdb; pdb.set_trace()
 		# determine jobs to add
 		new_jobs = set()
 		dynamic = 0
-		jobs = {(self.output, self.rule): self} # TODO add current non-dynamic jobs here?
+		jobs = {(self.output, self.rule): self}
+		for job in self.scheduler.get_jobs():
+			if not job.pseudo:
+				jobs[(job.output, job.rule)] = job
 		for job in self.ancestors():
 			j = job.handle_dynamic_input(wildcard_expansion, jobs)
 			if j:
 				new_jobs.update(j.all_jobs())
 				dynamic += 1
 		# remove this job from the DAG as it would induce the dynamic loop again
-		# TODO better set needrun = False above!
 		if self in new_jobs:
 			new_jobs.remove(self)
-			for job in self.depending:
-				try:
+			for job in list(self.depending):
+				if self in job.depends:
 					job.depends.remove(self)
-				except:
-					pass
+					self.depending.remove(job)
 
 		# calculate how many jobs have to be added
 		n = len(new_jobs) - dynamic
@@ -294,24 +296,32 @@ class Job:
 		# replace the dynamic input with the expanded files
 		for i, e in reversed(list(expansion.items())):
 			self.rule.set_dynamic(self.rule.input[i], False)
-			self.rule.input[i:i+1] = e
+			#self.rule.input[i:i+1] = e
+			self.rule.input.insert_items(i, e)
+		if self.pseudo:
+			return
 		try:
-			# TODO what if self.output[0] is dynamic?
-			job = self.rule.run(self.output[0] if self.output else None, jobs=jobs, forcethis=self.forced)
+			try:
+				del jobs[self.output, self.rule]
+			except KeyError:
+				# job is not registered yet
+				pass
+			
+			non_dynamic_output = [o for o in self.output if not self.rule.is_dynamic(o)]
+			job = self.rule.run(non_dynamic_output[0] if non_dynamic_output else None, dryrun = self.dryrun, jobs=jobs, forcethis=self.forced, give_reason=self.reason)
 
 			# remove current job from DAG
 			for j in self.depends:
 				j.depending.remove(self)
-			for j in self.depending:
+			for j in list(self.depending):
 				j.depends.remove(self)
-				# TODO handle depending jobs!
-				#j.depends.add(job)
-				#job.depending.add(j)
+				j.depends.add(job)
+				job.depending.add(j)
 			self.depends = list()
 			self.ignore = True
 
 			return job
-		except Exception as ex:
+		except RuleException as ex:
 			# there seem to be missing files, so ignore this
 			pass
 		
@@ -353,10 +363,16 @@ class KnapsackJobScheduler:
 		self._open_jobs.set()
 		self._errors = False
 
+	def get_jobs(self):
+		return self._jobs
+
 	def add_jobs(self, jobs):
 		for job in jobs:
 			job.scheduler = self
 			self._jobs.add(job)
+
+	def remove_job(self, job):
+		self._jobs.remove(job)
 
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
@@ -386,6 +402,7 @@ class KnapsackJobScheduler:
 						job.threads = self._maxcores
 					needrun.append(job)
 				else: norun.add(job)
+
 			
 			run = self._knapsack(needrun)
 			self._jobs -= run

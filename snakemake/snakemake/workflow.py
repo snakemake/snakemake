@@ -223,7 +223,7 @@ class Workflow:
 			for job in root_jobs:
 				all_jobs.update(job.all_jobs())
 
-			self.jobcounter = Jobcounter(sum(1 for job in all_jobs if not job.pseudo))
+			self.jobcounter = Jobcounter(sum(1 for job in all_jobs if not job.pseudo and not (job.dynamic_output and not job.needrun)))
 		except AmbiguousRuleException as ex:
 			if not dag:
 				raise ex

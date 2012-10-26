@@ -287,6 +287,12 @@ class Namedlist(list):
 	def items(self):
 		for name, index in self._names.items():
 			yield name, self[index]
+
+	def insert_items(self, index, items):
+		self[index:index+1] = items
+		for name, i in self._names.items():
+			if i > index:
+				self._names[name] += len(items) - 1
 	
 	def __hash__(self):
 		return hash(tuple(self))
