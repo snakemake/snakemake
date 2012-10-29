@@ -13,7 +13,7 @@ class DAG:
 	             forcetargets = False, 
 	             forcerules = None,
 	             ignore_ambiguity = False):
-		self.parents = defaultdict(list)
+		self.dependencies = defaultdict(list)
 		self.workflow = workflow
 		self.rules = workflow.rules
 		self.targetfiles = targetfiles
@@ -25,55 +25,35 @@ class DAG:
 			self.forcerules = forcerules
 		if forcetargets:
 			self.forcerules.update(targetrules)
-		self.ignore_ambiguity = ignore_ambiguity
+		if ignore_ambiguity:
+			self.select_parent = self.select_parent_ign_amb
 		
 		targetjobs = map(partial(self.rule2job, self.rules), self.targetrules)
-		self.update(targetjobs)
-		self.check(children)
+		for job in targetjobs:
+			self.update(job)
 		
-	def update(self, jobs):
-		self.check(self.collect_children(jobs))
+	def update(self, job, visited = None):
+		if visited is None:
+			visited = set(job)
+		dependencies = self.dependencies[job]
+		potential_dependencies = self.collect_dependencies(job).items()
+		for file, jobs in potential_dependencies:
+			job_ = self.select_dependencies(jobs, visited)
+			self.update(job_, visited=set(visited))
+			dependencies.append(job_)
+		missing_input = #TODO missing input - potential_dependencies.keys()
+		if missing_input:
+			raise MissingInputFileException()
 		
-	def check(self, children, targetjobs):
-		parents = self.parents
-		if self.ignore_ambiguity:
-			select_parent = itemgetter(0)
-		else:
-			def select_parent(jobs):
-				jobs = sorted(jobs)
-				if jobs[-1] > jobs[-2]:
-					return job
-				else:
-					raise AmbiguousRuleException()
 		
-		# BFS
-		queue = list(targetjobs)
-		visited = set(queue)
-		while queue:
-			job = queue.pop(0)
-			for file, jobs in children[job].items():
-				job_ = select_parent(jobs)
-				parents[job_] = job_
-				if job_ not in visited:
-					
 	
-	def collect_children(self, jobs):
-		children = defaultdict(partial(defaultdict, list))
+	def collect_dependencies(self, job):
 		file2jobs = partial(file2jobs, self.rules)
-		
-		# BFS
-		queue = list(jobs) 
-		visited = set()
-		while queue:
-			job = queue.pop(0)
-			for file in job.input:
-				for job_ in file2jobs(file):
-					if job_ not in visited:
-						queue.append(job_)
-						visited.add(job_)
-						children[job][file].append(job_)
-						# TODO pumping lemma test!
-		return children
+		dependencies = defaultdict(list)
+		for file in job.input:
+			for job_ in file2jobs(file):
+				dependencies[file].append(job_)
+		return dependencies
 	
 	@lru_cache()
 	@staticmethod
@@ -86,3 +66,18 @@ class DAG:
 		for rule in rules:
 			if rule.is_producer(file):
 				yield Job(rule, *rule.expand_wildcards(file))
+	
+	def select_parent(self, jobs, visited):
+		jobs = sorted(jobs)
+		for i, job in reversed(enumerate(jobs)):
+			if job not in visited and i > 0 and job > jobs[i-1]:
+				return job
+			else:
+				raise AmbiguousRuleException()
+		raise CyclicGraphException()
+	
+	def select_parent_ign_amb(self, jobs, visited):
+		for job in jobs:
+			if job not in visited:
+				return job
+		raise CyclicGraphException()
