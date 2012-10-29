@@ -60,7 +60,7 @@ class Job:
 	def __init__(self, workflow, rule = None, message = None, reason = None,
 			input = None, output = None, wildcards = None, shellcmd = None,
 			threads = 1, log = None, depends = set(), dryrun = False, quiet = False,
-			touch = False, needrun = True, pseudo = False, visited = None, dynamic_output = False, forced = False):
+			touch = False, needrun = True, pseudo = False, visited = None, dynamic_output = False, forced = False, forcerules = None, forceall = False):
 		self.workflow = workflow
 		self.scheduler = None
 		self.rule = rule
@@ -78,6 +78,8 @@ class Job:
 		self.needrun = needrun
 		self.pseudo = pseudo
 		self.forced = forced
+		self.forcerules = forcerules
+		self.forceall = forceall
 		self.dynamic_output = dynamic_output
 		self.depends = set(depends)
 		self.depending = set()
@@ -308,7 +310,7 @@ class Job:
 				pass
 			
 			non_dynamic_output = [o for o in self.output if not self.rule.is_dynamic(o)]
-			job = self.rule.run(non_dynamic_output[0] if non_dynamic_output else None, dryrun = self.dryrun, jobs=jobs, forcethis=self.forced, give_reason=self.reason)
+			job = self.rule.run(non_dynamic_output[0] if non_dynamic_output else None, dryrun = self.dryrun, jobs=jobs, forcethis=self.forced, give_reason=self.reason, forceall=self.forceall, forcerules=self.forcerules)
 
 			# remove current job from DAG
 			for j in self.depends:

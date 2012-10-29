@@ -337,6 +337,8 @@ class Rule:
 			shellcmd = self.shellcmd if printshellcmds else None,
 			needrun = need_run,
 			forced = forced,
+			forcerules = forcerules,
+			forceall = forceall,
 			pseudo = skip_until_dynamic, 
 			visited = visited,
 			dynamic_output = dynamic_output
