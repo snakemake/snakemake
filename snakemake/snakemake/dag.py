@@ -1,6 +1,7 @@
 from collections import defaultdict
 from itertools import chain, combinations
 from functools import partial
+from operator import itemgetter
 
 
 class DAG:
@@ -35,34 +36,34 @@ class DAG:
 		
 	def check(self, children, targetjobs):
 		parents = self.parents
+		if self.ignore_ambiguity:
+			select_parent = itemgetter(0)
+		else:
+			def select_parent(jobs):
+				jobs = sorted(jobs)
+				if jobs[-1] > jobs[-2]:
+					return job
+				else:
+					raise AmbiguousRuleException()
 		
+		# BFS
 		queue = list(targetjobs)
 		visited = set(queue)
-		
 		while queue:
 			job = queue.pop(0)
 			for file, jobs in children[job].items():
-				for i, job_ in reversed(enumerate(sorted(jobs))):
-					if job_ > jobs[i-1]:
-						parents[job_] = job
+				job_ = select_parent(jobs)
+				parents[job_] = job_
+				if job_ not in visited:
 					
-			
-		for job, children_ in list(children.items()):
-			
-				
-		
-			for a, b in combinations(list(parents), 2):
-				if set(a.output).isdisjoint(b.output): # TODO inefficient: implement isdisjoint in Namedlist
-					if a.rule > b.rule:
-						
 	
 	def collect_children(self, jobs):
 		children = defaultdict(partial(defaultdict, list))
 		file2jobs = partial(file2jobs, self.rules)
 		
+		# BFS
 		queue = list(jobs) 
 		visited = set()
-
 		while queue:
 			job = queue.pop(0)
 			for file in job.input:
