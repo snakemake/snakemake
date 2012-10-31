@@ -231,7 +231,8 @@ class Job:
 						self.workflow.report_runtime(self.rule, future.result())
 
 			for other in self.depending:
-				other.depends.remove(self)
+				if self in other.depends: # TODO this is not a proper fix!
+					other.depends.remove(self)
 
 			if not self.dryrun and self.dynamic_output:
 				self.handle_dynamic_output()
