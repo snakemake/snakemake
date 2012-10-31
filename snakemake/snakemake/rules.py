@@ -171,11 +171,11 @@ class Rule:
 				if self.is_dynamic(i):
 					input.append(self.dynamic[i])
 				else:
-					input.append(i.apply_wildcards(wildcards))
-			output = Namedlist(o.apply_wildcards(wildcards) for o in self.output)
+					input.append(i.apply_wildcards(wildcards, self.lineno, self.snakefile))
+			output = Namedlist(o.apply_wildcards(wildcards, self.lineno, self.snakefile) for o in self.output)
 			input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
-			log = self.log.apply_wildcards(wildcards) if self.log else None
+			log = self.log.apply_wildcards(wildcards, self.lineno, self.snakefile) if self.log else None
 			return input, output, log, wildcards, matching_output
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.

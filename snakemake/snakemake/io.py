@@ -125,10 +125,12 @@ class IOFile(str):
 				raise e
 
 
-	def apply_wildcards(self, wildcards):
+	def apply_wildcards(self, wildcards, lineno, snakefile):
 		f = self._file
 		if self._is_function:
 			f = self._file(Namedlist(fromdict = wildcards))
+			if not isinstance(f, str):
+				raise IOFileException("Function as input must return a single string.", lineno=lineno, snakefile=snakefile)
 		return self.create(re.sub(_wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), protected = self._protected, temp = self._temp)
 
 	def fill_wildcards(self):
