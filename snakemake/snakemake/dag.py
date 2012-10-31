@@ -28,25 +28,51 @@ class DAG:
 		if ignore_ambiguity:
 			self.select_parent = self.select_parent_ign_amb
 		
-		targetjobs = map(partial(self.rule2job, self.rules), self.targetrules)
-		for job in targetjobs:
+		self.targetjobs = map(partial(self.rule2job, self.rules), self.targetrules)
+		for job in self.targetjobs:
 			self.update(job)
 		
-	def update(self, job, visited = None):
+	def update(self, job, visited = None, parentmintime = None):
 		if job in self.dependencies:
 			return
 		if visited is None:
 			visited = set(job)
 		dependencies = self.dependencies[job]
 		potential_dependencies = self.collect_dependencies(job).items()
-		for file, jobs in potential_dependencies:
+
+		updated_input = list()		
+		output_mintime = IOFile.mintime(job.output) or parentmintime
+		
+		for file, jobs in potential_dependencies.items():
 			job_ = self.select_dependencies(jobs, visited)
-			self.update(job_, visited=set(visited))
+			self.update(job_, visited=set(visited), parentmintime=output_mintime)
 			dependencies.add(job_)
 			self.depending[job_].add(job)
+			if job_.needrun:
+				updated_input.append(file)
 		missing_input = job.rule.get_missing_files() - potential_dependencies.keys()
 		if missing_input:
 			raise MissingInputFileException()
+		job.needrun, job.reason = self.needrun(self, job, updated_input, output_mintime)
+	
+	def needrun(self, job, updated_input, output_mintime):
+		# forced?
+		if job.rule in self.forcerules or (forcetargets and job in self.targetjobs):
+			return True, "Forced execution"
+			
+		# missing output?
+		output_missing = [f for f in job.output if not f.exists()]
+		if output_missing:
+			return True, "Missing output files: {}".format(", ".join(output_missing))
+			
+		# updated input?
+		for f in job.input:
+			if f.exists() and f.is_newer(output_mintime):
+				updated_input.append(f)
+		if updated_input:
+			return True, "Updated input files: {}".format(", ".join(updated_input))
+			
+		return False, None
 	
 	def delete_job(self, job):
 		for job_ in self.depending[job]:
