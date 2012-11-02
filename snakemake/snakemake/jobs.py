@@ -171,9 +171,9 @@ class Job:
 			time.sleep(0.1)
 			self.finished()
 		else:
-			for o in self.output:
+			for i, o in enumerate(self.output):
 				if self.rule.is_dynamic(o):
-					for f, _ in listfiles(o):
+					for f, _ in listfiles(self.rule.output[i]):
 						try:
 							IOFile(f).remove()
 						except OSError:
@@ -256,7 +256,6 @@ class Job:
 				for f, wildcards in listfiles(self.rule.output[i]):
 					for name, value in wildcards.items():
 						wildcard_expansion[name].add(value)
-		#import pdb; pdb.set_trace()
 		# determine jobs to add
 		new_jobs = set()
 		dynamic = 0
@@ -294,7 +293,7 @@ class Job:
 				except Exception as ex:
 					# keep the file if expansion fails
 					return
-		if not expansion:
+		if not expansion and len(self.rule.input) == len(self.input):
 			return
 		# replace the dynamic input with the expanded files
 		for i, e in reversed(list(expansion.items())):

@@ -29,7 +29,8 @@ class IOFile(str):
 
 		for (oflags, flag) in ((obj._temp, temp), (obj._protected, protected)):
 			if not isinstance(flag, set):
-				oflags.add(flag)
+				if flag:
+					oflags.add(flag)
 			else:
 				oflags.update(flag)
 		return obj
