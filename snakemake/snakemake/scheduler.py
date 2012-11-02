@@ -1,29 +1,25 @@
 
+from snakemake.executors import DryrunExecutor, TouchExecutor, ClusterExecutor, CPUExecutor
 
-
-class KnapsackJobScheduler:
-	def __init__(self, jobs, workflow):
+class JobScheduler:
+	def __init__(self, dag, cores, dryrun = False, touch = False, cluster = False):
 		""" Create a new instance of KnapsackJobScheduler. """
-		self.workflow = workflow
-		self._maxcores = workflow.cores if workflow.cores else multiprocessing.cpu_count()
+		self.dag = dag
+		self.dryrun = dryrun
+		self.maxcores = cores
 		self._cores = self._maxcores
-		self._pool = PoolExecutor(max_workers = self._cores)
-		self._jobs = set()
-		self.add_jobs(jobs)
 		self._open_jobs = Event()
 		self._open_jobs.set()
 		self._errors = False
-
-	def get_jobs(self):
-		return self._jobs
-
-	def add_jobs(self, jobs):
-		for job in jobs:
-			job.scheduler = self
-			self._jobs.add(job)
-
-	def remove_job(self, job):
-		self._jobs.remove(job)
+		if dryrun:
+			self._executor = DryrunExecutor()
+		elif touch:
+			self._executor = TouchExecutor()
+		elif cluster:
+			self._executor = ClusterExecutor()
+		else:
+			self._executor = CPUExecutor()
+			self._selector = self._thread_based_selector
 
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
@@ -32,42 +28,31 @@ class KnapsackJobScheduler:
 			self._open_jobs.clear()
 			if self._errors:
 				logger.warning("Will exit after finishing currently running jobs.")
-				self._pool.shutdown()
+				self._executor.shutdown()
 				return False
-			if not self._jobs:
-				self._pool.shutdown()
-				return True
 
-			needrun, norun = [], set()
-			for job in self._jobs:
-				if job.depends:
+			needrun = list()
+			for job, dependencies in self.dag.dependencies.items():
+				if dependencies:
 					continue
 				if job.needrun:
 					if job.threads > self._maxcores:
 						# reduce the number of threads so that it 
 						# fits to available cores.
-						if not job.dryrun:
+						if not self.dryrun:
 							logger.warn(
 								"Rule {} defines too many threads ({}), Scaling down to {}."
 								.format(job.rule, job.threads, self._maxcores))
 						job.threads = self._maxcores
 					needrun.append(job)
-				else: norun.add(job)
+			if not needrun:
+				self._pool.shutdown()
+				return True
 
-			
-			run = self._knapsack(needrun)
-			self._jobs -= run
-			self._jobs -= norun
+			run = self._selector(needrun)
 			self._cores -= sum(job.threads for job in run)
-			for job in chain(run, norun):
-				job.add_callback(self._finished)
-				job.add_error_callback(self._error)
-				job.run(self._run_job)
-			
-	
-	def _run_job(self, job):
-		future = self._pool.submit(run_wrapper, *job.get_run_args())
-		future.add_done_callback(job.finished)
+			for job in run:
+				self._executor.add_job(job, callback=self._finished, error_callback=self._error)
 		
 	def _finished(self, job):
 		if job.needrun:
@@ -80,7 +65,10 @@ class KnapsackJobScheduler:
 		self._jobs = set()
 		self._open_jobs.set()
 	
-	def _knapsack(self, jobs):
+	def _selector(self, jobs):
+		return jobs[:self._cores]
+	
+	def _thread_based_selector(self, jobs):
 		""" Solve 0-1 knapsack to maximize cpu utilization. """
 		dimi, dimj = len(jobs) + 1, self._cores + 1
 		K = [[0 for c in range(dimj)] for i in range(dimi)]
@@ -101,88 +89,4 @@ class KnapsackJobScheduler:
 				solution.add(job)
 				j = j - job.threads
 			i -= 1
-		
 		return solution
-
-class ClusterJobScheduler:
-	def __init__(self, jobs, workflow, submitcmd = "qsub"):
-		self.workflow = workflow
-		self._jobs = set()
-		self.add_jobs(jobs)
-		self._submitcmd = submitcmd
-		self._open_jobs = Event()
-		self._open_jobs.set()
-		self._error = False
-		self._cores = workflow.cores
-
-	def add_jobs(self, jobs):
-		for job in jobs:
-			job.scheduler = self
-			self._jobs.add(job)
-
-	def schedule(self):
-		while True:
-			self._open_jobs.wait()
-			self._open_jobs.clear()
-			if self._error:
-				logger.warning("Will exit after finishing currently running jobs.")
-				return False
-			if not self._jobs:
-				return True
-			needrun, norun = set(), set()
-			for job in self._jobs:
-				if job.depends:
-					continue
-				if job.needrun:
-					needrun.add(job)
-				else: norun.add(job)
-
-			self._jobs -= needrun
-			self._jobs -= norun
-			for job in chain(needrun, norun):
-				job.add_callback(self._finished)
-				job.run(self._run_job)
-	
-	def _run_job(self, job):
-		job.print_message()
-		workdir = os.getcwd()
-		prefix = ".snakemake.{}.".format(job.rule.name)
-		jobid = "_".join(job.output).replace("/", "_")
-		jobscript = "{}.{}.sh".format(prefix, jobid)
-		jobfinished = "{}.{}.jobfinished".format(prefix, jobid)
-		jobfailed = "{}.{}.jobfailed".format(prefix, jobid)
-		cores = self._cores if self._cores else ""
-		scriptpath = self.workflow.scriptpath
-		if not scriptpath:
-			scriptpath = "snakemake"
-		shell("""
-			echo '#!/bin/sh' > "{jobscript}"
-			echo '#rule: {job}' >> "{jobscript}"
-			echo '#input: {job.input}' >> "{jobscript}"
-			echo '#output: {job.output}' >> "{jobscript}"
-			echo '{scriptpath} --force -j{self._cores} --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"' >> "{jobscript}"
-			chmod +x "{jobscript}"
-			{self._submitcmd} "{jobscript}"
-		""")
-		threading.Thread(target=self._wait_for_job, args=(job, jobfinished, jobfailed, jobscript)).start()
-
-	def _finished(self, job):
-		self._open_jobs.set()
-		
-	def _wait_for_job(self, job, jobfinished, jobfailed, jobscript):
-		while True:
-			if os.path.exists(jobfinished):
-				os.remove(jobfinished)
-				os.remove(jobscript)
-				job.finished()
-				return
-			if os.path.exists(jobfailed):
-				os.remove(jobfailed)
-				os.remove(jobscript)
-				print_exception(ClusterJobException(job), self.workflow.rowmaps)
-				self._error = True
-				self._jobs = set()
-				self._open_jobs.set()
-				return
-			time.sleep(1)
-
