@@ -199,7 +199,6 @@ class Job:
 	
 	def finished(self, future = None):
 		""" Set job to be finished. """
-		self.is_finished = True
 		if not self.ignore:
 			if self.needrun and not self.pseudo:
 				try:
@@ -222,6 +221,7 @@ class Job:
 					for callback in self._error_callbacks:
 						callback()
 					return
+				self.is_finished = True
 
 				if not self.dryrun:
 					self.workflow.jobcounter.done()
@@ -236,6 +236,8 @@ class Job:
 
 			if not self.dryrun and self.dynamic_output:
 				self.handle_dynamic_output()
+		else:
+			self.is_finished = True
 
 		for callback in self._callbacks:
 			callback(self)
