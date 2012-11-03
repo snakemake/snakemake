@@ -32,8 +32,8 @@ class JobScheduler:
 				return False
 
 			needrun = list()
-			for job, dependencies in self.dag.dependencies.items():
-				if dependencies:
+			for job in self.dag.jobs:
+				if self.dag.dependencies[job]:
 					continue
 				if job.needrun:
 					if job.threads > self._maxcores:
@@ -57,6 +57,8 @@ class JobScheduler:
 	def _finished(self, job):
 		if job.needrun:
 			self._cores += job.threads
+		job.finished = True
+		self.dag.dynamic_update(job)
 		self._open_jobs.set()
 	
 	def _error(self):

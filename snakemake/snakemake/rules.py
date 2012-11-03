@@ -20,6 +20,7 @@ class Rule:
 		self._input = Namedlist()
 		self._output = Namedlist()
 		self.dynamic_output = set()
+		self.dynamic_input = set()
 		self.temp_output = set()
 		self.protected_output = set()
 		self.threads = 1
@@ -30,6 +31,21 @@ class Rule:
 		self.run_func = None
 		self.shellcmd = None
 
+	def dynamic_update(self, wildcards):
+		expansion = defaultdict(list)
+		for i, f in enumerate(self.input):
+			if f in self.dynamic_input:
+				try:
+					for e in reversed(expand(f, zip, **wildcards)):
+						expansion[i].append(IOFile(e))
+				except KeyError:
+					return False
+		# replace the dynamic input with the expanded files
+		for i, e in reversed(list(expansion.items())):
+			self.rule.set_dynamic(self.rule.input[i], False)
+			self.rule.input.insert_items(i, e)
+		return True
+		
 
 	def has_wildcards(self):
 		"""
@@ -100,9 +116,7 @@ class Rule:
 		if type(item).__name__ == "function" and output:
 			raise SyntaxError("Only input files can be specified as functions")
 		try:
-			_item = IOFile.create(item, 
-			                      temp = self if isinstance(item, temp) else None, 
-			                      protected = self if isinstance(item, protected) else None)
+			_item = IOFile(item)
 			if isinstance(item, temp):
 				if not output:
 					raise SyntaxError("Only output files may be temporary")
@@ -116,6 +130,8 @@ class Rule:
 					raise SyntaxError("Dynamic files may not contain more than one wildcard.")
 				if output:
 					self.dynamic_output.add(_item)
+				else:
+					self.dynamic_input.add(_item)
 			inoutput.append(_item)
 			if name:
 				inoutput.add_name(name)

@@ -6,6 +6,7 @@ class Job:
 	def __init__(self, rule, targetfile = None):
 		self.rule = rule
 		self.targetfile = targetfile
+		self.finished = False
 		
 		self.input, self.output, self.log, self.wildcards = rule.expand_wildcards(self.targetfile)
 		self.message = rule.message.format(input=self.input, 
@@ -24,6 +25,29 @@ class Job:
 				self.temp_output.add(f)
 			if f_ in self.rule.protected_output:
 				self.protected_output.add(f)
+	
+	@property
+	def expanded_output(self):
+		for i, f in enumerate(self.output):
+			if f in self.dynamic_output:
+				for f, _ in listfiles(self.rule.output[i]):
+					yield IOFile(f)
+			else:
+				yield f
+	
+	@property
+	def dynamic_wildcards(self):
+		wildcards = defaultdict(set)
+		for i, f in enumerate(self.output):
+			if f in self.dynamic_output:
+				for f, w in listfiles(self.rule.output[i]):
+					for name, value in w.items():
+						wildcards[name].add(value)
+		return wildcards
+	
+	@property
+	def missing_input(self):
+		return set(f for f in self.input if not f.exists())
 
 	def __repr__(self):
 		return self.rule.name
