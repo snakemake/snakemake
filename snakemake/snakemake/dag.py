@@ -23,9 +23,9 @@ class DAG:
 		self.targetrules = targetrules
 		self.forcerules = set()
 		if forceall:
-			self.forcerules = self.rules
+			self.forcerules.update(self.rules)
 		elif forcerules:
-			self.forcerules = forcerules
+			self.forcerules.update(forcerules)
 		if forcetargets:
 			self.forcerules.update(targetrules)
 		if ignore_ambiguity:

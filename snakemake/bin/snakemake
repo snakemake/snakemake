@@ -78,14 +78,14 @@ def main():
 
 	success = snakemake.snakemake(
 			args.snakefile, 
-			list = args.list,
+			listrules = args.list,
 			jobs = args.jobs, 
 			directory = args.directory, 
 			targets = args.target, 
 			dryrun = args.dryrun, 
 			printshellcmds = args.printshellcmds, 
 			touch = args.touch, 
-			forcethis = args.force,
+			forcetargets = args.force,
 			forceall = args.forceall,
 			forcerules = args.forcerules,
 			stats = args.stats,

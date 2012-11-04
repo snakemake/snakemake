@@ -71,11 +71,20 @@ class Workflow:
 		if not name in self._rules:
 			raise UnknownRuleException(name)
 		return self._rules[name]
+	
+	def list_rules(details = False, log = logger.info):
+		log("Available rules:")
+		for rule in workflow.get_rules(): 
+			log(rule.name)
+			if details:
+				if rule.docstring:
+					for line in rule.docstring.split("\n"):
+						log("\t" + line)
 
 	def run(self, targets = None, dryrun = False,  touch = False, 
-	              forcethis = False, forceall = False, forcerules = None, quiet = False, 
+	              forcetargets = False, forceall = False, forcerules = None, quiet = False, 
 	              printshellcmds = False, printreason = False, printdag = False,
-	              cluster = None,  ignore_ambiguity = False, workdir = None):
+	              cluster = None,  ignore_ambiguity = False, workdir = None, stats = None):
 		if workdir is None:
 			workdir = os.getcwd() if self.workdir is None else self.workdir
 		os.chdir(workdir)
@@ -98,9 +107,13 @@ class Workflow:
 		scheduler = JobScheduler(dag, cores, dryrun=dryrun, touch=touch, cluster=cluster, quiet=quiet, printshellcmds=printshellcmds)
 		success = scheduler.schedule()
 		
-		if not success:
+		if success:
+			if stats:
+				dag.stats.to_csv(stats)
+		else:
 			logger.critical("Exiting because a job execution failed. Look above for error message")
 			return False
+		
 		return True
 
 	def include(self, snakefile, overwrite_first_rule = False):

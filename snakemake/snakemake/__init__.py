@@ -8,7 +8,26 @@ from snakemake.logging import logger, init_logger
 __author__ = "Johannes Köster"
 __version__ = "1.2.3"
 
-def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = None, dryrun = False, touch = False, forcethis = False, forceall = False, forcerules = None, stats = None, give_reason = False, nocolor = False, printshellcmds = False, quiet = False, cluster = None, standalone = False, dag = False, ignore_ambiguity = False, scriptpath = None):
+def snakemake(snakefile, 
+              listrules = False, 
+              cores = 1, 
+              workdir = None, 
+              targets = None, 
+              dryrun = False, 
+              touch = False, 
+              forcetargets = False, 
+              forceall = False, 
+              forcerules = None, 
+              stats = None, 
+              printreason = False, 
+              printshellcmds = False, 
+              printdag = False, 
+              nocolor = False, 
+              quiet = False, 
+              cluster = None, 
+              standalone = False,
+              ignore_ambiguity = False, 
+              snakemakepath = None):
 	"""
 	Run snakemake on a given snakefile.
 	Note: at the moment, this function is not thread-safe!
@@ -24,32 +43,15 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 	forceall          -- force all rules to be executed
 	time_measurements -- measure the running times of all rules
 	"""
-	if forcerules:
-		forcerules = set(forcerules) # ensure O(1) access since this will be done for every rule
-
 	init_logger(nocolor=nocolor, stdout=dryrun)
 
 	if not os.path.exists(snakefile):
 		logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))
 		return False
-
-	def print_rules(log, details = False):
-		log("Defined rules:")
-		for rule in workflow.get_rules(): 
-			log(rule.name)
-			if details:
-				if rule.docstring:
-					for line in rule.docstring.split("\n"):
-						log("\t" + line)
-			
 	
-	olddir = os.getcwd()
-
-	workflow = Workflow(scriptpath = scriptpath)
-
-	if directory:
-		# change to the specified directory. This overrides eventually specified workdir in Snakefile
-		workflow.workdir(directory)
+	if workdir:
+		olddir = os.getcwd()
+	workflow = Workflow(snakemakepath = snakemakepath)
 
 	if standalone:
 		try:
@@ -59,34 +61,18 @@ def snakemake(snakefile, list = False, jobs = 1, directory = None, targets = Non
 			# ignore: if it does not work we can still work without it
 			pass
 
+	success = False
 	try:
 		workflow.include(snakefile, overwrite_first_rule = True)
 
-		workflow.check_rules()
-
-		if list:
-			print_rules(logger.info, details=True)
-			return 0
-	
-		workflow.cores = jobs
+		if listrules:
+			workflow.list_rules()
+			return True
 		
-		success = True
-		if not targets: 
-			success = workflow.run_first_rule(dryrun = dryrun, printshellcmds = printshellcmds, quiet = quiet, touch = touch, forcethis = forcethis, forceall = forceall, forcerules = forcerules, give_reason = give_reason, cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
-		else:
-			success = workflow.run_rules(targets, dryrun = dryrun, printshellcmds = printshellcmds, quiet = quiet, touch = touch, forcethis = forcethis, forceall = forceall, forcerules = forcerules, give_reason = give_reason, cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
-		if success and stats:
-			stats = csv.writer(open(stats, "w"), delimiter = "\t")
-			stats.writerow("rule minimum maximum sum mean".split())
-			s = 0
-			for measurement in workflow.get_runtimes():
-				stats.writerow(measurement)
-				s += measurement[3]
-			stats.writerow([])
-			stats.writerow(("Overall runtime", s))
-		os.chdir(olddir)
-		return success
+		success = workflow.run(targets=targets, dryrun=dryrun, touch=touch, forcetargets=forcetargets, forceall=forceall, forcerules=forcerules, quiet=quiet, printshellcmds=printshellcmds, printreason=printreason, printdag=printdag, cluster=cluster, ignore_ambiguity=ignore_ambiguity, workdir=workdir, stats=stats)
+		
 	except (Exception, BaseException) as ex:
 		print_exception(ex, workflow.rowmaps)
+	if workdir:
 		os.chdir(olddir)
-		return False
+	return success

@@ -68,7 +68,7 @@ class CPUExecutor(DryrunExecutor):
 				f.remove()
 		except OSError as ex:
 			print_exception("Could not remove output file {} of dynamic rule {}".format(f, job.rule), self.workflow.linemaps)
-		future = self._pool.submit(run_wrapper, *job.get_run_args())
+		future = self._pool.submit(run_wrapper, job.input, job.output, job.wildcards, job.threads, job.log, self.workflow.linemaps)
 		future.add_done_callback(partial(self._callback, job, callback, error_callback))
 	
 	def _callback(self, job, callback, error_callback, future):
@@ -114,6 +114,7 @@ class ClusterExecutor(DryrunExecutor):
 			                                       #input: {job.input}
 			                                       #output: {job.output}
 			                                       {self.workflow.snakemakepath} --force -j{self._cores} --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"
+			                                       exit 0
 			                                       """)), file=f)
 		os.chmod(fpath, stat.S_IEXEC)
 		shell('{self.submitcmd} "{scriptpath}"')
@@ -138,30 +139,25 @@ class ClusterExecutor(DryrunExecutor):
 			time.sleep(1)
 
 
-def run_wrapper(run, rulename, ruledesc, input, output, wildcards, 
-		threads, log, rowmaps, rulelineno, rulesnakefile):
+def run_wrapper(run, input, output, wildcards, threads, log, linemaps):
 	"""
 	Wrapper around the run method that handles directory creation and
 	output file deletion on error.
 	
 	Arguments
-	run -- the run method
-	input -- list of input files
-	output -- list of output files
+	run       -- the run method
+	input     -- list of input files
+	output    -- list of output files
 	wildcards -- so far processed wildcards
+	threads   -- usable threads
+	log       -- path to log file
 	"""
-	logger.info(ruledesc)
-
-			
-	t0 = time.time()
 	try:
 		# execute the actual run method.
 		run(input, output, wildcards, threads, log)
 		# finish all spawned shells.
 		shell.join_all()
-		t1 = time.time()
-		return t0, t1
 	except (Exception, BaseException) as ex:
 		# this ensures that exception can be re-raised in the parent thread
-		lineno, file = get_exception_origin(ex, rowmaps)
-		raise RuleException(format_error(ex, lineno, rowmaps=rowmaps, snakefile=file), )
+		lineno, file = get_exception_origin(ex, linemaps)
+		raise RuleException(format_error(ex, lineno, linemaps=linemaps, snakefile=file))
