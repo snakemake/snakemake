@@ -119,133 +119,30 @@ class Workflow:
 			raise UnknownRuleException(name)
 		return self._rules[name]
 
-	def run_first_rule(self, dryrun = False, printshellcmds = False, quiet = False, touch = False, 
-		forcethis = False, forceall = False, forcerules = None, give_reason = False, 
-		cluster = None, dag = False, ignore_ambiguity = False):
-		"""
-		Apply the rule defined first.
-		"""
-		first = self._first
-		if not first:
-			for key, value in self._rules.items():
-				first = key
-				break
-		return self._run([(self.get_rule(first), None)], 
-			dryrun = dryrun, printshellcmds = printshellcmds, quiet = quiet, touch = touch, forcethis = forcethis, 
-			forceall = forceall, forcerules = forcerules, give_reason = give_reason, 
-			cluster = cluster, dag = dag, ignore_ambiguity = ignore_ambiguity)
-			
-	def get_file_producers(self, files, dryrun = False, 
-		forcethis = False, forceall = False, forcerules = None, ignore_ambiguity = False):
-		"""
-		Return a dict of rules with requested files such that the requested files are produced.
-		
-		Arguments
-		files -- the paths of the files to produce
-		"""
-		producers = dict()
-		missing_input_ex = defaultdict(list)
-		for rule, file in self.get_producers(files):
-			try:
-				job = rule.run(file, jobs=dict(), forceall = forceall, 
-					forcerules = forcerules, dryrun = True, visited = set())
-				if file in producers:
-					if producers[file].rule > rule:
-						continue
-					elif producers[file].rule < rule:
-						pass
-					else:
-						if ignore_ambiguity:
-							logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file].rule))
-							continue
-						raise AmbiguousRuleException(file, producers[file], job,
-						                             lineno = rule.lineno,
-						                             snakefile = rule.snakefile)
-				producers[file] = job
-			except MissingInputException as ex:
-				missing_input_ex[file].append(ex)
-		
-		toraise = []
-		for file in files:
-			if not file in producers:
-				if file in missing_input_ex:
-					toraise += missing_input_ex[file]
-				else:
-					toraise.append(MissingRuleException(file))
-		if toraise:
-			raise RuleException(include = toraise)
-
-		# clear eventually created IOFiles. especially needed to empty the count for needed files
-		IOFile.clear()
-
-		return [(job.rule, file) for file, job in producers.items()]
-
-	def run_rules(self, targets, dryrun = False, printshellcmds = False, quiet = False, touch = False, 
-		forcethis = False, forceall = False, forcerules = None, give_reason = False, 
-		cluster = None, dag = False, ignore_ambiguity = False):
+	def run_rules(self, targets = None, dryrun = False,  touch = False, 
+	              forcethis = False, forceall = False, forcerules = None, quiet = False, 
+	              printshellcmds = False, printreason = False, printdag = False,
+	              cluster = None,  ignore_ambiguity = False):
 		ruletargets, filetargets = [], []
+		if not targets:
+			targets = [self.firstrule]
 		for target in targets:
 			if workflow.is_rule(target):
 				ruletargets.append(target)
 			else:
 				filetargets.append(os.path.relpath(target))
-		try:
-			torun = self.get_file_producers(filetargets, forcethis = forcethis, 
-				forceall = forceall, forcerules = forcerules, dryrun = dryrun, ignore_ambiguity = ignore_ambiguity) + \
-				[(self.get_rule(name), None) for name in ruletargets]
-		except AmbiguousRuleException as ex:
-			if not dag:
-				raise ex
-			print_job_dag(chain(ex.job1.all_jobs(), ex.job2.all_jobs()))
-			return
-				
-		return self._run(torun, dryrun = dryrun, printshellcmds = printshellcmds, quiet = quiet, touch = touch, 
-			forcethis = forcethis, forceall = forceall, forcerules = forcerules,
-			give_reason = give_reason, cluster = cluster, dag = dag, 
-			ignore_ambiguity = ignore_ambiguity)
-	
-	def _run(self, torun, dryrun = False, printshellcmds = False, quiet = False, touch = False, forcethis = False, 
-		forceall = False, forcerules = None, give_reason = False, cluster = None, 
-		dag = False, ignore_ambiguity = False):
-		jobs = dict()
-		Job.count = 0
 		
-		root_jobs = set()
-		try:
-			for rule, requested_output in torun:
-				root_jobs.add(rule.run(requested_output, jobs=jobs, forcethis = forcethis, 
-					forceall = forceall, forcerules = forcerules, dryrun = dryrun, printshellcmds = printshellcmds, quiet = quiet, 
-					give_reason = give_reason, touch = touch, visited = set(), 
-					ignore_ambiguity = ignore_ambiguity))
-
-			# collect all jobs
-			all_jobs = set()
-			for job in root_jobs:
-				all_jobs.update(job.all_jobs())
-
-			self.jobcounter = Jobcounter(sum(1 for job in all_jobs if not job.pseudo and not (job.dynamic_output and not job.needrun)))
-		except AmbiguousRuleException as ex:
-			if not dag:
-				raise ex
-			else:
-				all_jobs = chain(ex.job1.all_jobs(), ex.job2.all_jobs())
-
-		# clean up temp and protected flags to consider only really used jobs
-		IOFile.cleanup(all_jobs)
+		dag = DAG(self, targetfiles=filetargets, targetrules=ruletargets, forceall=forceall, forcetargets=forcetargets, forcerules=forcerules, ignore_ambiguity=ignore_ambiguity)
 		
-		if dag:
-			print_job_dag(all_jobs)
-			return
-		if cluster:
-			scheduler = ClusterJobScheduler(all_jobs, self, submitcmd = cluster)
-		else:
-			scheduler = KnapsackJobScheduler(all_jobs, self)
+		if printdag:
+			print(dag)
+			return True
+		
+		scheduler = JobScheduler(dag, cores, dryrun=dryrun, touch=touch, cluster=cluster, quiet=quiet, printshellcmds=printshellcmds)
 		success = scheduler.schedule()
-
+		
 		if not success:
-			Job.cleanup_unfinished(all_jobs)
-			logger.critical(
-				"Exiting because a job execution failed. Look above for error message")
+			logger.critical("Exiting because a job execution failed. Look above for error message")
 			return False
 		return True
 

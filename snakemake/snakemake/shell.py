@@ -20,29 +20,6 @@ class SequenceFormatter:
 	def __str__(self):
 		return " ".join(self._sequence)
 
-
-
-def format(string, *args, stepout = 1, **kwargs):
-	frame = inspect.currentframe().f_back
-	while stepout > 1:
-		if not frame.f_back:
-			break
-		frame = frame.f_back
-		stepout -= 1
-	
-	variables = dict(frame.f_globals)
-	# add local variables from calling rule/function
-	variables.update(frame.f_locals)
-	variables.update(kwargs)
-	strmethods = list()
-	for key, value in list(variables.items()):
-		if type(value) in (list, tuple, set, frozenset):
-			variables[key] = SequenceFormatter(value)
-	try:
-		return string.format(*args, **variables)
-	except KeyError as ex:
-		raise NameError("The name {} is unknown in this context.".format(str(ex)))
-
 class PipeWriter:
 	def __init__(self, towrite):
 		self._towrite = towrite

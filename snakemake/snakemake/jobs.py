@@ -9,12 +9,8 @@ class Job:
 		self.finished = False
 		
 		self.input, self.output, self.log, self.wildcards = rule.expand_wildcards(self.targetfile)
-		self.message = rule.message.format(input=self.input, 
-		                                   output=self.output, 
-		                                   wildcards=self.wildcards, 
-		                                   threads=self.threads, 
-		                                   log=self.log, 
-		                                   **globals())
+		self.message = self._format_wildcards(rule.message)
+		self.shellcmd = self._format_wildcards(rule.shellcmd) if rule.shellcmd else None
 		
 		self.dynamic_output, self.temp_output, self.protected_output = set(), set(), set()
 		for i, f in self.output:
@@ -48,6 +44,14 @@ class Job:
 	@property
 	def missing_input(self):
 		return set(f for f in self.input if not f.exists())
+	
+	def _format_wildcards(self, string):
+		return format_wildcards(string, 
+		                        input=self.input, 
+		                        output=self.output, 
+		                        wildcards=self.wildcards, 
+		                        threads=self.threads, 
+		                        log=self.log)
 
 	def __repr__(self):
 		return self.rule.name

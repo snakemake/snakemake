@@ -2,7 +2,7 @@
 from snakemake.executors import DryrunExecutor, TouchExecutor, ClusterExecutor, CPUExecutor
 
 class JobScheduler:
-	def __init__(self, dag, cores, dryrun = False, touch = False, cluster = False):
+	def __init__(self, workflow, dag, cores, dryrun = False, touch = False, cluster = False, reason=False, quiet=False, printshellcmds=False):
 		""" Create a new instance of KnapsackJobScheduler. """
 		self.dag = dag
 		self.dryrun = dryrun
@@ -12,13 +12,13 @@ class JobScheduler:
 		self._open_jobs.set()
 		self._errors = False
 		if dryrun:
-			self._executor = DryrunExecutor()
+			self._executor = DryrunExecutor(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		elif touch:
-			self._executor = TouchExecutor()
+			self._executor = TouchExecutor(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		elif cluster:
-			self._executor = ClusterExecutor()
+			self._executor = ClusterExecutor(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		else:
-			self._executor = CPUExecutor()
+			self._executor = CPUExecutor(workflow, cores, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 			self._selector = self._thread_based_selector
 
 	def schedule(self):
