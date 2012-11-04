@@ -11,28 +11,6 @@ class IOFile(str):
 	"""
 	A file that is either input or output of a rule.
 	"""
-	_register = dict()
-
-	@classmethod
-	def clear(cls):
-		cls._register.clear()
-	
-	@classmethod
-	def create(cls, file, temp = None, protected = None):	
-		if not isinstance(file, str) and not type(file).__name__ == "function":
-			raise ValueError("Input and output files have to be specified as strings or functions that return a string given the used wildcards as single argument.")
-		if file in cls._register:
-			obj = cls._register[file]
-		else:
-			obj = IOFile(file)
-			cls._register[file] = obj
-
-		for (oflags, flag) in ((obj._temp, temp), (obj._protected, protected)):
-			if not isinstance(flag, set):
-				oflags.add(flag)
-			else:
-				oflags.update(flag)
-		return obj
 
 	@staticmethod
 	def mintime(iofiles):
@@ -40,22 +18,12 @@ class IOFile(str):
 		if existing:
 			return min(existing)
 		return None
-
-	@classmethod
-	def cleanup(cls, jobs):
-		rules = set(j.rule for j in jobs)
-		for iofile in cls._register.values():
-			iofile._temp &= rules
-			iofile._protected &= rules
 	
 	def __init__(self, file):
 		super().__init__(file)
 		self._is_function = type(file).__name__ == "function"
 		self._file = file
 		self._regex = None
-		self._needed = 0
-		self._temp = set()
-		self._protected = set()
 				
 	def get_file(self):
 		if not self._is_function:
@@ -129,13 +97,13 @@ class IOFile(str):
 		f = self._file
 		if self._is_function:
 			f = self._file(Namedlist(fromdict = wildcards))
-		return self.create(re.sub(_wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), protected = self._protected, temp = self._temp)
+		return IOFile(re.sub(_wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f))
 
 	def fill_wildcards(self):
 		f = self._file
 		if self._is_function:
 			raise ValueError("Cannot fill wildcards of function.")
-		return self.create(re.sub(_wildcard_regex, lambda match: "0", f), protected = self._protected, temp = self._temp)
+		return IOFile(re.sub(_wildcard_regex, lambda match: "0", f))
 		
 	def get_wildcard_names(self):
 		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.get_file()))
@@ -151,6 +119,12 @@ class IOFile(str):
 		if match and len(match.group()) == len(target):
 			return match
 		return None
+	
+	def __eq__(self, other):
+		return self._file == other._file
+	
+	def __hash__(self):
+		return self._file.__hash__()
 
 _wildcard_regex = "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}"
 

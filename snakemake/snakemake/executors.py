@@ -34,7 +34,8 @@ class DryrunExecutor:
 			items = [job.input, job.output]
 			if self.printreason:
 				items.append(job.reason)
-			desc = ["rule {}:".format(job.rule.name), *map(self.format_ruleitem, items)]
+			desc = ["rule {}:".format(job.rule.name)]
+			desc.extend(map(self.format_ruleitem, items))
 			if self.printshellcmds and job.shellcmd:
 				desc.append(job.shellcmd)
 			logger.info("\n".join(desc))
@@ -79,6 +80,7 @@ class CPUExecutor(DryrunExecutor):
 				raise ex
 			for f in job.expanded_output:
 				f.created()
+			# TODO handle temp and protected files
 			callback()
 		except (Exception, BaseException) as ex:
 			print_exception(ex, self.workflow.linemaps)
@@ -128,6 +130,7 @@ class ClusterExecutor(DryrunExecutor):
 				os.remove(jobfinished)
 				os.remove(jobscript)
 				job.finished()
+				# TODO handle temp and protected files
 				return
 			if os.path.exists(jobfailed):
 				os.remove(jobfailed)

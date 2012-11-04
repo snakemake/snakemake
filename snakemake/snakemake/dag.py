@@ -1,9 +1,12 @@
+import textwrap
 from collections import defaultdict
 from itertools import chain, combinations
-from functools import partial
+from functools import partial, lru_cache
 from operator import itemgetter
 
+from snakemake.io import IOFile
 from snakemake.jobs import Job
+from snakemake.exceptions import RuleException, MissingInputException, AmbiguousRuleException, CyclicGraphException
 
 class DAG:
 	def __init__(self, 
@@ -31,7 +34,6 @@ class DAG:
 		if ignore_ambiguity:
 			self.select_dependency = self.select_dependency_ign_amb
 		
-
 		self.targetjobs = list(map(self.rule2job, self.targetrules))
 		exceptions = defaultdict(list)		
 		for file in self.targetfiles:
@@ -48,9 +50,10 @@ class DAG:
 			except MissingInputException as ex:
 				exceptions[job.targetfile].append(ex)
 		for file in has_producer:
-			exceptions.remove(file)
+			if file in exceptions:
+				del exceptions[file]
 		if exceptions:
-			raise RuleException(include=exceptions.values())
+			raise RuleException(include=chain(*exceptions.values()))
 
 	@property
 	def jobs(self):
@@ -61,16 +64,17 @@ class DAG:
 		if job in self.dependencies:
 			return
 		if visited is None:
-			visited = set(job)
+			visited = set([job])
 		dependencies = self.dependencies[job]
 		potential_dependencies = self.collect_potential_dependencies(job).items()
 
 		output_mintime = IOFile.mintime(job.output) or parentmintime
 		skip_until_dynamic = not job.dynamic_output and (skip_until_dynamic or job.dynamic_input)
 			
+		#import pdb; pdb.set_trace()	
 		missing_input = job.missing_input
 		exceptions = list()
-		for file, jobs in potential_dependencies.items():
+		for file, jobs in potential_dependencies:
 			try:
 				job_ = self.select_dependency(file, jobs, visited)
 				self.update(job_, visited=set(visited), parentmintime=output_mintime, skip_until_dynamic=skip_until_dynamic)
@@ -82,15 +86,15 @@ class DAG:
 			except RuleException as ex:
 				exceptions.append(ex)
 		if missing_input:
-			raise MissingInputFileException(job.rule, missing_input)
+			raise MissingInputException(job.rule, missing_input)
 			
-		job.needrun, job.reason = self.needrun(self, job, output_mintime)
-		if needrun:
+		job.needrun, job.reason = self.needrun(job, output_mintime)
+		if job.needrun:
 			self.update_needrun_temp(job)
 	
 	def needrun(self, job, output_mintime):
 		# forced?
-		if job.rule in self.forcerules or (forcetargets and job in self.targetjobs):
+		if job.rule in self.forcerules:
 			return True, "Forced execution"
 			
 		# missing output?
@@ -129,7 +133,7 @@ class DAG:
 				self.delete_job(job_)
 		del self.dependencies[job]
 	
-	def update_needrun_temp(self, job)
+	def update_needrun_temp(self, job):
 		for job_, files in self.dependencies[job].items():
 			for f in files:
 				if f in job_.temp_output and not f.exists():
@@ -137,21 +141,21 @@ class DAG:
 					self.update_needrun_temp(job_)
 	
 	def collect_potential_dependencies(self, job):
-		file2jobs = partial(file2jobs, self.rules)
 		dependencies = defaultdict(list)
 		for file in job.input:
-			for job_ in file2jobs(file):
+			for job_ in self.file2jobs(file):
 				dependencies[file].append(job_)
 		return dependencies
 
 	def select_dependency(self, file, jobs, visited):
 		jobs = sorted(jobs)
-		for i, job in reversed(enumerate(jobs)):
-			if job not in visited and i > 0 and job > jobs[i-1]:
-				return job
-			else:
-				raise AmbiguousRuleException(file, job.rule, jobs[i-1].rule)
-		raise CyclicGraphException()
+		for i, job in reversed(list(enumerate(jobs))):
+			if job not in visited:
+				if i == 0 or job > jobs[i-1]:
+					return job
+				else:
+					raise AmbiguousRuleException(file, job.rule, jobs[i-1].rule)
+		raise CyclicGraphException(job.rule, file)
 	
 	def select_dependency_ign_amb(self, file, jobs, visited):
 		for job in jobs:
@@ -165,7 +169,7 @@ class DAG:
 		while queue:
 			job = queue.pop(0)
 			yield job
-			for job_, _ in direction[job]:
+			for job_, _ in direction[job].items():
 				if not job_ in visited:
 					queue.append(job_)
 					visited.add(job_)
@@ -184,17 +188,16 @@ class DAG:
 		nodes, edges = list(), list()
 		for job in self.jobs:
 			label = "\n".join([job.rule.name] + list(map(": ".join, self.new_wildcards(job))))
-			nodes.append('{}[label = "{}"];'.format(jobid[job], label))
+			nodes.append('\t{}[label = "{}"];'.format(jobid[job], label))
 			for job_ in self.dependencies[job]:
-				edges.append("{} -> {};".format(jobid[job_], jobid[job])
-		
-		return textwrap.dedent("""
-		                    digraph snakemake_dag {
+				edges.append("\t{} -> {};".format(jobid[job_], jobid[job]))
+		return textwrap.dedent("""\
+		                    digraph snakemake_dag {{
 		                    	node[shape=Msquare];
-		                    	{nodes}
-		                    	{edges}
-		                    }
-		                    """.format(nodes=nodes, edges=edges)
+		                    {nodes}
+		                    {edges}
+		                    }}\
+		                    """).format(nodes="\n".join(nodes), edges="\n".join(edges))
 
 	def __len__(self):
 		if self._len is None:
@@ -202,11 +205,11 @@ class DAG:
 		return self._len
 	
 	@lru_cache()
-	def rule2job(targetrule):
+	def rule2job(self, targetrule):
 		return Job(rule=targetrule)
 	
 	@lru_cache()
-	def file2jobs(targetfile):
+	def file2jobs(self, targetfile):
 		jobs = list()
 		for rule in self.rules:
 			if rule.is_producer(targetfile):

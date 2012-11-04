@@ -57,16 +57,15 @@ class Rule:
 	def log(self):
 		return self._log
 	
-	@property.setter
-	def log(self, log)
+	@log.setter
+	def log(self, log):
 		self.log = IOFile.create(log)
 
 	@property
 	def input(self):
 		return self._input
 
-	@input.setter
-	def input(self, *input, **kwinput):
+	def set_input(self, *input, **kwinput):
 		"""
 		Add a list of input files. Recursive lists are flattened.
 		
@@ -81,9 +80,8 @@ class Rule:
 	@property
 	def output(self):
 		return self._output
-	
-	@output.setter
-	def output(self, *output, **kwoutput):
+
+	def set_output(self, *output, **kwoutput):
 		"""
 		Add a list of output files. Recursive lists are flattened.
 		
@@ -146,27 +144,26 @@ class Rule:
 		""" Expand wildcards depending on the requested output. """
 		wildcards = dict()
 		if requested_output:
-			wildcards, matching_output = self.get_wildcards(requested_output)
+			wildcards = self.get_wildcards(requested_output)
 			missing_wildcards = set(wildcards.keys()) - self.wildcard_names 
 		else:
 			missing_wildcards = self.wildcard_names
-			matching_output = None
 		
 		if missing_wildcards:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno, snakefile = self.snakefile)
 
 		try:
 			input = Namedlist()
-			for i in self.input:
-				if self.is_dynamic(i):
-					input.append(self.dynamic[i])
+			for f in self.input:
+				if f in self.dynamic_input:
+					input.append(self.dynamic[f])
 				else:
-					input.append(i.apply_wildcards(wildcards))
+					input.append(f.apply_wildcards(wildcards))
 			output = Namedlist(o.apply_wildcards(wildcards) for o in self.output)
 			input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
 			log = self.log.apply_wildcards(wildcards) if self.log else None
-			return input, output, log, wildcards, matching_output
+			return input, output, log, wildcards
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
 			raise RuleException("Wildcards in input or log file of rule {} do not appear in output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)
@@ -203,7 +200,7 @@ class Rule:
 					bestmatch = match.groupdict()
 					bestmatchlen = l
 					bestmatch_output = self.output[i]
-		return bestmatch, bestmatch_output
+		return bestmatch
 	
 	@staticmethod
 	def get_wildcard_len(wildcards):

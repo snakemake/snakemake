@@ -65,7 +65,7 @@ class JobScheduler:
 		job.finished = True
 		self.finished_jobs += 1
 		self.dag.dynamic_update(job)
-		logger.info("{} of {} steps ({}) done".format(self.finished_jobs, len(self.dag), self.finished_jobs / len(self.dag))
+		logger.info("{} of {} steps ({}) done".format(self.finished_jobs, len(self.dag), self.finished_jobs / len(self.dag)))
 		self._open_jobs.set()
 	
 	def _error(self):

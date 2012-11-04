@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, re, fnmatch, mimetypes, base64
+import os, re, fnmatch, mimetypes, base64, inspect
 from itertools import chain
 from snakemake.io import regex, Namedlist
 

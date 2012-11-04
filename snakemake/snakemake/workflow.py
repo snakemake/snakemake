@@ -10,8 +10,9 @@ from snakemake.exceptions import MissingOutputException, MissingInputException, 
 	AmbiguousRuleException, CyclicGraphException, MissingRuleException, \
 	RuleException, CreateRuleException, ProtectedOutputException, \
 	UnknownRuleException, NoRulesException
-from snakemake.shell import shell, format
-from snakemake.jobs import Job, KnapsackJobScheduler, ClusterJobScheduler, print_job_dag
+from snakemake.shell import shell
+from snakemake.dag import DAG
+from snakemake.scheduler import JobScheduler
 from snakemake.parser import compile_to_python
 from snakemake.io import protected, temp, temporary, expand, dynamic, IOFile
 
@@ -47,7 +48,7 @@ class Workflow:
 		rule = Rule(name, self, lineno = lineno, snakefile = snakefile)
 		self._rules[rule.name] = rule
 		if not self.first_rule:
-			self.first_rule = rule
+			self.first_rule = rule.name
 		return name
 			
 	def is_rule(self, name):
@@ -81,7 +82,7 @@ class Workflow:
 					for line in rule.docstring.split("\n"):
 						log("\t" + line)
 
-	def run(self, targets = None, dryrun = False,  touch = False, 
+	def execute(self, targets = None, dryrun = False,  touch = False, 
 	              forcetargets = False, forceall = False, forcerules = None, quiet = False, 
 	              printshellcmds = False, printreason = False, printdag = False,
 	              cluster = None,  ignore_ambiguity = False, workdir = None, stats = None):
@@ -93,8 +94,8 @@ class Workflow:
 		if not targets:
 			targets = [self.first_rule]
 		for target in targets:
-			if workflow.is_rule(target):
-				ruletargets.append(target)
+			if self.is_rule(target):
+				ruletargets.append(self._rules[target])
 			else:
 				filetargets.append(os.path.relpath(target))
 		
@@ -123,9 +124,9 @@ class Workflow:
 		global workflow
 		workflow = self
 		first_rule = self.first_rule
-		code, rowmap, rule_count = compile_to_python(snakefile, rule_count = self.rule_count)
+		code, linemap, rule_count = compile_to_python(snakefile, rule_count = self.rule_count)
 		self.rule_count += rule_count
-		self.rowmaps[snakefile] = rowmap
+		self.linemaps[snakefile] = linemap
 		exec(compile(code, snakefile, "exec"), globals())
 		if not overwrite_first_rule:
 			self.first_rule = first_rule
@@ -148,11 +149,11 @@ class Workflow:
 			if ruleinfo.output:
 				rule.set_output(*ruleinfo.output[0], **ruleinfo.output[1])
 			if ruleinfo.threads:
-				rule.set_threads(ruleinfo.threads)
+				rule.set_threads = ruleinfo.threads
 			if ruleinfo.log:
-				rule.set_log(ruleinfo.log)
+				rule.set_log = ruleinfo.log
 			if ruleinfo.message:
-				rule.set_message(ruleinfo.message)
+				rule.set_message = ruleinfo.message
 			rule.docstring = ruleinfo.docstring
 			rule.run_func = ruleinfo.func
 			rule.shellcmd = ruleinfo.shellcmd

@@ -21,10 +21,9 @@ def main():
 	                    help="Targets to build. May be rules or files.")
 	parser.add_argument("--snakefile", "-s", metavar="FILE", 
 	                    default="Snakefile", help="The workflow definition in a snakefile.")
-	parser.add_argument("--jobs", "-j", action="store", default=1, 
-	                    const=None, nargs="?", metavar="N", 
-	                    dest="jobs", type=int, 
-	                    help=("Execute at most N jobs in parallel (default: 1). "
+	parser.add_argument("--cores", "--jobs", "-j", action="store", default=1, 
+	                    const=None, nargs="?", metavar="N", type=int, 
+	                    help=("Use at most N cores in parallel (default: 1). "
 	                          "If N is omitted, the limit is set to the number of available cores."))
 	parser.add_argument("--list", "-l", action="store_true", 
 	                    help="Show availiable rules in given snakefile.")
@@ -74,29 +73,29 @@ def main():
     
 	args = parser.parse_args()
 
-	scriptpath = os.path.realpath(__file__)
-
+	snakemakepath = os.path.realpath(__file__)
+	
 	success = snakemake.snakemake(
 			args.snakefile, 
 			listrules = args.list,
-			jobs = args.jobs, 
-			directory = args.directory, 
+			cores = args.cores, 
+			workdir = args.directory, 
 			targets = args.target, 
 			dryrun = args.dryrun, 
 			printshellcmds = args.printshellcmds, 
+			printreason = args.reason,
+			printdag = args.dag,
 			touch = args.touch, 
 			forcetargets = args.force,
 			forceall = args.forceall,
 			forcerules = args.forcerules,
 			stats = args.stats,
-			give_reason = args.reason,
 			nocolor = args.nocolor,
 			quiet = args.quiet,
 			cluster = args.cluster,
 			standalone = True,
-			dag = args.dag,
 			ignore_ambiguity = args.allow_ambiguity,
-			scriptpath = scriptpath)
+			snakemakepath = snakemakepath)
 	exit(0 if success else 1)
 
 if __name__ == "__main__":

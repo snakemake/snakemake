@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from functools import lru_cache
+
 from snakemake.utils import format
 
 __author__ = "Johannes Köster"
@@ -9,20 +11,24 @@ class Job:
 		self.rule = rule
 		self.targetfile = targetfile
 		self.finished = False
+		self._hash = None
 		
 		self.input, self.output, self.log, self.wildcards = rule.expand_wildcards(self.targetfile)
-		self.message = self._format_wildcards(rule.message)
+		self.threads = rule.threads
+		self.message = self._format_wildcards(rule.message) if rule.message else None
 		self.shellcmd = self._format_wildcards(rule.shellcmd) if rule.shellcmd else None
 		
-		self.dynamic_output, self.temp_output, self.protected_output = set(), set(), set()
-		for i, f in self.output:
-			f_ = self.rule.output[i]
+		self.dynamic_output, self.dynamic_input, self.temp_output, self.protected_output = [set()]*4
+		for f, f_ in zip(self.output, self.rule.output):
 			if f_ in self.rule.dynamic_output:
 				self.dynamic_output.add(f)
 			if f_ in self.rule.temp_output:
 				self.temp_output.add(f)
 			if f_ in self.rule.protected_output:
 				self.protected_output.add(f)
+		for f, f_ in zip(self.input, self.rule.input):
+			if f_ in self.rule.dynamic_input:
+				self.dynamic_input.add(f)
 	
 	@property
 	def expanded_output(self):
@@ -58,13 +64,12 @@ class Job:
 	def __str__(self):
 		return self.rule.name
 	
-	@lru_cache()			
 	def __eq__(self, other):
 		return self.rule == other.rule and self.output == other.output
 	
-	@lru_cache()
 	def __hash__(self):
-		h = self.rule.__hash__()
-		for o in self.output:
-			h ^= o.__hash__()
-		return h
+		if self._hash is None:
+			self._hash = self.rule.__hash__()
+			for o in self.output:
+				self._hash ^= o.__hash__()
+		return self._hash
