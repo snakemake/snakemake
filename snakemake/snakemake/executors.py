@@ -2,6 +2,7 @@
 import os
 
 from snakemake.logging import logger
+from snakemake.utils import format
 
 if os.name == "posix":
 	from multiprocessing import Event
@@ -108,7 +109,7 @@ class ClusterExecutor(DryrunExecutor):
 		jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
 		cores = self._cores if self._cores else ""
 		with open(jobscript, "w") as f:
-			print(format_wildcards(textwrap.dedent("""
+			print(format(textwrap.dedent("""
 			                                       #!/bin/sh
 			                                       #rule: {job}
 			                                       #input: {job.input}

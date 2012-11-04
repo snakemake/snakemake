@@ -74,7 +74,7 @@ def report(outfile, abstract, files, captions):
 	outfile.write(html)
 '''
 
-def format_wildcards(string, *args, stepout = 1, **kwargs):
+def format(string, *args, stepout = 1, **kwargs):
 	frame = inspect.currentframe().f_back
 	while stepout > 1:
 		if not frame.f_back:

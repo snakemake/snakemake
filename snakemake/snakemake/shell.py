@@ -6,6 +6,7 @@ import sys, os, inspect, time, shlex
 import subprocess as sp
 from threading import Thread
 from snakemake.exceptions import TerminatedException
+from snakemake.utils import format
 import atexit
 
 __author__ = "Johannes Köster"

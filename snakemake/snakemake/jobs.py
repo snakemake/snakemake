@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from snakemake.utils import format
+
 __author__ = "Johannes Köster"
 
 class Job:
@@ -46,12 +48,12 @@ class Job:
 		return set(f for f in self.input if not f.exists())
 	
 	def _format_wildcards(self, string):
-		return format_wildcards(string, 
-		                        input=self.input, 
-		                        output=self.output, 
-		                        wildcards=self.wildcards, 
-		                        threads=self.threads, 
-		                        log=self.log)
+		return format(string, 
+		              input=self.input, 
+		              output=self.output, 
+		              wildcards=self.wildcards, 
+		              threads=self.threads, 
+		              log=self.log)
 
 	def __str__(self):
 		return self.rule.name
