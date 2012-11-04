@@ -1,5 +1,6 @@
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, ClusterExecutor, CPUExecutor
+from snakemake.stats import Stats
 
 class JobScheduler:
 	def __init__(self, workflow, dag, cores, dryrun = False, touch = False, cluster = False, reason=False, quiet=False, printshellcmds=False):
@@ -7,6 +8,8 @@ class JobScheduler:
 		self.dag = dag
 		self.dryrun = dryrun
 		self.maxcores = cores
+		self.finished_jobs = 0
+		self.stats = Stats()
 		self._cores = self._maxcores
 		self._open_jobs = Event()
 		self._open_jobs.set()
@@ -52,13 +55,17 @@ class JobScheduler:
 			run = self._selector(needrun)
 			self._cores -= sum(job.threads for job in run)
 			for job in run:
+				self.stats.report_job_start(job)
 				self._executor.add_job(job, callback=self._finished, error_callback=self._error)
 		
 	def _finished(self, job):
+		self.stats.report_job_end(job)
 		if job.needrun:
 			self._cores += job.threads
 		job.finished = True
+		self.finished_jobs += 1
 		self.dag.dynamic_update(job)
+		logger.info("{} of {} steps ({}) done".format(self.finished_jobs, len(self.dag), self.finished_jobs / len(self.dag))
 		self._open_jobs.set()
 	
 	def _error(self):

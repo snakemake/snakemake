@@ -53,7 +53,7 @@ class Job:
 		                        threads=self.threads, 
 		                        log=self.log)
 
-	def __repr__(self):
+	def __str__(self):
 		return self.rule.name
 	
 	@lru_cache()			

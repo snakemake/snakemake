@@ -142,7 +142,7 @@ class Rule:
 			except TypeError:
 				raise SyntaxError("Input and output files must be specified as strings.")
 		
-	def _expand_wildcards(self, requested_output):
+	def expand_wildcards(self, requested_output):
 		""" Expand wildcards depending on the requested output. """
 		wildcards = dict()
 		if requested_output:
@@ -223,7 +223,7 @@ class Rule:
 		comp = self.workflow.get_ruleorder().compare(self.name, rule.name)
 		return comp > 0
 
-	def __repr__(self):
+	def __str__(self):
 		return self.name
 
 

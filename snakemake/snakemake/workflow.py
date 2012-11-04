@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import re, sys, os, traceback, glob, signal
-from multiprocessing import Event
-from collections import defaultdict, OrderedDict
+import re, os
+from collections import OrderedDict
 from itertools import chain
-from functools import lru_cache
-from tempfile import TemporaryFile
 
 from snakemake.logging import logger
 from snakemake.rules import Rule, Ruleorder
@@ -21,49 +18,22 @@ from snakemake.io import protected, temp, temporary, expand, dynamic, IOFile
 
 __author__ = "Johannes Köster"
 
-class Jobcounter:
-	def __init__(self, count):
-		self.count = count
-		self._done = 0
-	
-	def done(self):
-		self._done += 1
-	
-	def __str__(self):
-		return "{} of {} steps ({}%) done".format(self._done, self.count, int(self._done / self.count * 100))
-
 class Workflow:
-	def __init__(self, scriptpath = None):
+	def __init__(self, snakemakepath = None):
 		"""
 		Create the controller.
 		"""
 		self._rules = OrderedDict()
-		self._first = None
-		self._workdir = None
-		self._runtimes = defaultdict(list)
-		self._ruleorder = Ruleorder()
-		self.cores = 1
-		self.rowmaps = dict()
-		self.jobcounter = None
+		self.first_rule = None
+		self.workdir = None
+		self.ruleorder = Ruleorder()
+		self.linemaps = dict()
 		self.rule_count = 0
-		self.errors = False
-		self.scriptpath = scriptpath
+		self.snakemakepath = snakemakepath
 	
-	def report_runtime(self, rule, runtime):
-		t0, t1 = runtime
-		duration = t1 -t0
-		self._runtimes[rule].append(duration)
-
-	def get_ruleorder(self):
-		return self._ruleorder
-		
-	def get_runtimes(self):
-		for rule, runtimes in self._runtimes.items():
-			s = sum(runtimes)
-			yield rule, min(runtimes), max(runtimes), s, s / len(runtimes)
-
-	def get_rule_count(self):
-		return len(self._rules)
+	@property
+	def rules(self):
+		return self._rules.values()
 	
 	def add_rule(self, name = None, lineno = None, snakefile = None):
 		"""
@@ -76,8 +46,8 @@ class Workflow:
 				"The name {} is already used by another rule".format(name))
 		rule = Rule(name, self, lineno = lineno, snakefile = snakefile)
 		self._rules[rule.name] = rule
-		if not self._first:
-			self._first = rule.name
+		if not self.first_rule:
+			self.first_rule = rule
 		return name
 			
 	def is_rule(self, name):
@@ -88,23 +58,6 @@ class Workflow:
 		name -- a name
 		"""
 		return name in self._rules
-	
-	def get_producers(self, files, exclude = None):
-		checked = set()
-		for f in files:
-			if not f in checked:
-				checked.add(f)
-				for item in self._get_producers(f, exclude=exclude):
-					yield item
-
-	@lru_cache()
-	def _get_producers(self, file, exclude = None):
-		producers = []
-		for rule in self.get_rules():
-			if rule != exclude:
-				if rule.is_producer(file):
-					producers.append((rule, file))
-		return producers
 
 	def get_rule(self, name):
 		"""
@@ -119,13 +72,17 @@ class Workflow:
 			raise UnknownRuleException(name)
 		return self._rules[name]
 
-	def run_rules(self, targets = None, dryrun = False,  touch = False, 
+	def run(self, targets = None, dryrun = False,  touch = False, 
 	              forcethis = False, forceall = False, forcerules = None, quiet = False, 
 	              printshellcmds = False, printreason = False, printdag = False,
-	              cluster = None,  ignore_ambiguity = False):
+	              cluster = None,  ignore_ambiguity = False, workdir = None):
+		if workdir is None:
+			workdir = os.getcwd() if self.workdir is None else self.workdir
+		os.chdir(workdir)
+		
 		ruletargets, filetargets = [], []
 		if not targets:
-			targets = [self.firstrule]
+			targets = [self.first_rule]
 		for target in targets:
 			if workflow.is_rule(target):
 				ruletargets.append(target)
@@ -146,62 +103,25 @@ class Workflow:
 			return False
 		return True
 
-	def check_rules(self):
-		"""
-		Check all rules.
-		"""
-		for rule in self.get_rules():
-			rule.check()
-
-	def get_rules(self):
-		"""
-		Get the list of rules.
-		"""
-		return self._rules.values()
-
-	def is_produced(self, files):
-		"""
-		Return True if files are already produced.
-		
-		Arguments
-		files -- files to check
-		"""
-		for f in files:
-			if not os.path.exists(f): return False
-		return True
-	
-	def is_newer(self, files, time):
-		"""
-		Return True if files are newer than a time
-		
-		Arguments
-		files -- files to check
-		time -- a time
-		"""
-		for f in files:
-			if os.stat(f).st_mtime > time: return True
-		return False
-
 	def include(self, snakefile, overwrite_first_rule = False):
 		"""
 		Include a snakefile.
 		"""
 		global workflow
 		workflow = self
-		first_rule = self._first
+		first_rule = self.first_rule
 		code, rowmap, rule_count = compile_to_python(snakefile, rule_count = self.rule_count)
 		self.rule_count += rule_count
 		self.rowmaps[snakefile] = rowmap
 		exec(compile(code, snakefile, "exec"), globals())
 		if not overwrite_first_rule:
-			self._first = first_rule
+			self.first_rule = first_rule
 
 	def workdir(self, workdir):
-		if not self._workdir:
+		if self.workdir is None:
 			if not os.path.exists(workdir):
 				os.makedirs(workdir)
-			os.chdir(workdir)
-			self._workdir = workdir
+			self.workdir = workdir
 
 	def ruleorder(self, *rulenames):
 		self._ruleorder.add(*rulenames)
