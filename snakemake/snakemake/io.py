@@ -7,22 +7,21 @@ from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
 
-class IOFile(str):
+def IOFile(file, rule):
+	f = _IOFile(file)
+	f.rule = rule
+	return f
+
+class _IOFile(str):
 	"""
 	A file that is either input or output of a rule.
 	"""
-
-	@staticmethod
-	def mintime(iofiles):
-		existing = [f.mtime() for f in iofiles if os.path.exists(f)]
-		if existing:
-			return min(existing)
-		return None
 	
 	def __init__(self, file):
 		super().__init__(file)
 		self._is_function = type(file).__name__ == "function"
 		self._file = file
+		self.rule = None
 		self._regex = None
 				
 	def get_file(self):
@@ -30,12 +29,6 @@ class IOFile(str):
 			return self._file
 		else:
 			raise ValueError("This IOFile is specified as a function and may not be used directly.")
-
-	def is_temp(self):
-		return self._temp
-
-	def is_protected(self):
-		return self._protected
 
 	def need(self):
 		self._needed += 1
@@ -65,30 +58,27 @@ class IOFile(str):
 				if e.errno != 17:
 					raise e
 	
-	def created(self, rulename, lineno, snakefile):
-		if not os.path.exists(self.get_file()):
-			raise MissingOutputException("Output file {} not produced by rule {}.".format(self.get_file(), rulename), lineno = lineno, snakefile = snakefile)
-		if self._protected:
-			logger.warning("Write protecting output file {}".format(self))
-			mode = os.stat(self.get_file()).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
-			if os.path.isdir(self.get_file()):
-				for root, dirs, files in os.walk(self.get_file()):
-					for d in dirs:
-						os.chmod(os.path.join(self.get_file(), d), mode)
-					for f in files:
-						os.chmod(os.path.join(self.get_file(), f), mode)
-			else:
-				os.chmod(self.get_file(), mode)
+	def protect(self):
+		logger.warning("Write protecting output file {}".format(self))
+		mode = os.stat(self.get_file()).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+		if os.path.isdir(self.get_file()):
+			for root, dirs, files in os.walk(self.get_file()):
+				for d in dirs:
+					os.chmod(os.path.join(self.get_file(), d), mode)
+				for f in files:
+					os.chmod(os.path.join(self.get_file(), f), mode)
+		else:
+			os.chmod(self.get_file(), mode)
 	
 	def remove(self):
 		remove(self.get_file())
 	
-	def touch(self, rulename, lineno, snakefile):
+	def touch(self):
 		try:
 			touch(self.get_file())
 		except OSError as e:
 			if e.errno == 2:
-				raise MissingOutputException("Output file {} of rule {} shall be touched but does not exist.".format(self.get_file(), rulename), lineno = lineno, snakefile = snakefile)
+				raise MissingOutputException("Output file {} of rule {} shall be touched but does not exist.".format(self.get_file(), self.rule.name), lineno = self.rule.lineno, snakefile = self.rule.snakefile)
 			else:
 				raise e
 
@@ -97,13 +87,13 @@ class IOFile(str):
 		f = self._file
 		if self._is_function:
 			f = self._file(Namedlist(fromdict = wildcards))
-		return IOFile(re.sub(_wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f))
+		return IOFile(re.sub(_wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), rule=self.rule)
 
 	def fill_wildcards(self):
 		f = self._file
 		if self._is_function:
 			raise ValueError("Cannot fill wildcards of function.")
-		return IOFile(re.sub(_wildcard_regex, lambda match: "0", f))
+		return IOFile(re.sub(_wildcard_regex, lambda match: "0", f), rule=self.rule)
 		
 	def get_wildcard_names(self):
 		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.get_file()))

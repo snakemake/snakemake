@@ -37,7 +37,7 @@ class Rule:
 			if f in self.dynamic_input:
 				try:
 					for e in reversed(expand(f, zip, **wildcards)):
-						expansion[i].append(IOFile(e))
+						expansion[i].append(IOFile(e, rule=self))
 				except KeyError:
 					return False
 		# replace the dynamic input with the expanded files
@@ -59,7 +59,7 @@ class Rule:
 	
 	@log.setter
 	def log(self, log):
-		self.log = IOFile.create(log)
+		self.log = IOFile(log, rule=self)
 
 	@property
 	def input(self):
@@ -114,7 +114,7 @@ class Rule:
 		if type(item).__name__ == "function" and output:
 			raise SyntaxError("Only input files can be specified as functions")
 		try:
-			_item = IOFile(item)
+			_item = IOFile(item, rule=self)
 			if isinstance(item, temp):
 				if not output:
 					raise SyntaxError("Only output files may be temporary")

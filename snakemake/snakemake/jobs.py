@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import os
+
+from collections import defaultdict
 from functools import lru_cache
 
 from snakemake.utils import format
@@ -11,6 +14,7 @@ class Job:
 		self.rule = rule
 		self.targetfile = targetfile
 		self.finished = False
+		self.needrun = False
 		self._hash = None
 		
 		self.input, self.output, self.log, self.wildcards = rule.expand_wildcards(self.targetfile)
@@ -52,6 +56,27 @@ class Job:
 	@property
 	def missing_input(self):
 		return set(f for f in self.input if not f.exists())
+		
+	def output_mintime(self):
+		existing = [f.mtime() for f in self.output if f.exists()]
+		if existing:
+			return min(existing)
+		return None
+		
+	def check_output(self):
+		for f in self.expanded_output:
+			if not f.exists():
+				raise MissingOutputException("Output file {} not produced by rule {}.".format(f, self.rule.name), lineno = self.rule.lineno, snakefile = self.rule.snakefile)
+	
+	def protect_output(self):
+		for f in self.expanded_output:
+			if f in self.protected_output:
+				f.protect()
+	
+	def cleanup(self):
+		for f in self.output:
+			if f.exists():
+				f.remove()
 	
 	def _format_wildcards(self, string):
 		return format(string, 
@@ -61,7 +86,7 @@ class Job:
 		              threads=self.threads, 
 		              log=self.log)
 
-	def __str__(self):
+	def __repr__(self):
 		return self.rule.name
 	
 	def __eq__(self, other):

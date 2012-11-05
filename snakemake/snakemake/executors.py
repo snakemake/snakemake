@@ -1,8 +1,11 @@
 
 import os
+from functools import partial
 
+from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.utils import format
+from snakemake.exceptions import print_exception, get_exception_origin
 
 if os.name == "posix":
 	from multiprocessing import Event
@@ -24,6 +27,9 @@ class DryrunExecutor:
 	def run(self, job, callback = None, error_callback = None):
 		self._run(job)
 		callback(job)
+
+	def shutdown(self):
+		pass
 	
 	def _run(self, job):
 		assert job.needrun
@@ -31,18 +37,19 @@ class DryrunExecutor:
 			logger.info(job.message)
 		else:
 			# TODO show file types
-			items = [job.input, job.output]
+			items = dict(input=job.input, output=job.output)
 			if self.printreason:
-				items.append(job.reason)
+				items["reason"] = job.reason
 			desc = ["rule {}:".format(job.rule.name)]
-			desc.extend(map(self.format_ruleitem, items))
+			desc.extend(map(self.format_ruleitem, items.items()))
 			if self.printshellcmds and job.shellcmd:
 				desc.append(job.shellcmd)
 			logger.info("\n".join(desc))
 		
 	@staticmethod
-	def format_ruleitem(name, item):
-		return "" if not item else "{}: {}".format(name, item)
+	def format_ruleitem(item):
+		name, value = item
+		return "" if not value else "\t{}: {}".format(name, value)
 
 class TouchExecutor(DryrunExecutor):
 
@@ -70,21 +77,24 @@ class CPUExecutor(DryrunExecutor):
 				f.remove()
 		except OSError as ex:
 			print_exception("Could not remove output file {} of dynamic rule {}".format(f, job.rule), self.workflow.linemaps)
-		future = self._pool.submit(run_wrapper, job.input, job.output, job.wildcards, job.threads, job.log, self.workflow.linemaps)
+		future = self._pool.submit(run_wrapper, job.rule.run_func, job.input, job.output, job.wildcards, job.threads, job.log, self.workflow.linemaps)
 		future.add_done_callback(partial(self._callback, job, callback, error_callback))
+	
+	def shutdown(self):
+		self._pool.shutdown()
 	
 	def _callback(self, job, callback, error_callback, future):
 		try:
 			ex = future.exception()
 			if ex:
 				raise ex
-			for f in job.expanded_output:
-				f.created()
+			job.check_output()
+			job.protect_output()
 			# TODO handle temp and protected files
-			callback()
+			callback(job)
 		except (Exception, BaseException) as ex:
 			print_exception(ex, self.workflow.linemaps)
-			self.cleanup()
+			job.cleanup()
 			error_callback()
 			
 class ClusterExecutor(DryrunExecutor):

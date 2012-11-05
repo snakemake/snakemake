@@ -82,7 +82,7 @@ class Workflow:
 					for line in rule.docstring.split("\n"):
 						log("\t" + line)
 
-	def execute(self, targets = None, dryrun = False,  touch = False, 
+	def execute(self, targets = None, dryrun = False,  touch = False, cores = 1,
 	              forcetargets = False, forceall = False, forcerules = None, quiet = False, 
 	              printshellcmds = False, printreason = False, printdag = False,
 	              cluster = None,  ignore_ambiguity = False, workdir = None, stats = None):
@@ -105,7 +105,7 @@ class Workflow:
 			print(dag)
 			return True
 		
-		scheduler = JobScheduler(dag, cores, dryrun=dryrun, touch=touch, cluster=cluster, quiet=quiet, printshellcmds=printshellcmds)
+		scheduler = JobScheduler(self, dag, cores, dryrun=dryrun, touch=touch, cluster=cluster, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds)
 		success = scheduler.schedule()
 		
 		if success:

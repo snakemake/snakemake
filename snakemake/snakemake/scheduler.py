@@ -1,21 +1,30 @@
 
+import os
+
+if os.name == "posix":
+	from multiprocessing import Event
+else:
+	from threading import Event
+
 from snakemake.executors import DryrunExecutor, TouchExecutor, ClusterExecutor, CPUExecutor
 from snakemake.stats import Stats
+from snakemake.logging import logger
 
 class JobScheduler:
-	def __init__(self, workflow, dag, cores, dryrun = False, touch = False, cluster = False, reason=False, quiet=False, printshellcmds=False):
+	def __init__(self, workflow, dag, cores, dryrun = False, touch = False, cluster = False, quiet = False, printreason = False, printshellcmds = False):
 		""" Create a new instance of KnapsackJobScheduler. """
 		self.dag = dag
 		self.dryrun = dryrun
 		self.maxcores = cores
 		self.finished_jobs = 0
 		self.stats = Stats()
-		self._cores = self._maxcores
+		self._cores = self.maxcores
 		self._open_jobs = Event()
 		self._open_jobs.set()
 		self._errors = False
 		if dryrun:
 			self._executor = DryrunExecutor(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
+			self.progress = lambda: None
 		elif touch:
 			self._executor = TouchExecutor(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		elif cluster:
@@ -35,37 +44,34 @@ class JobScheduler:
 				return False
 
 			needrun = list()
-			for job in self.dag.jobs:
-				if self.dag.dependencies[job]:
-					continue
+			for job in self.dag.ready_jobs:
 				if job.needrun:
-					if job.threads > self._maxcores:
+					if job.threads > self.maxcores:
 						# reduce the number of threads so that it 
 						# fits to available cores.
 						if not self.dryrun:
 							logger.warn(
 								"Rule {} defines too many threads ({}), Scaling down to {}."
-								.format(job.rule, job.threads, self._maxcores))
-						job.threads = self._maxcores
+								.format(job.rule, job.threads, self.maxcores))
+						job.threads = self.maxcores
 					needrun.append(job)
 			if not needrun:
-				self._pool.shutdown()
+				self._executor.shutdown()
 				return True
 
 			run = self._selector(needrun)
 			self._cores -= sum(job.threads for job in run)
 			for job in run:
 				self.stats.report_job_start(job)
-				self._executor.add_job(job, callback=self._finished, error_callback=self._error)
+				self._executor.run(job, callback=self._finished, error_callback=self._error)
 		
 	def _finished(self, job):
 		self.stats.report_job_end(job)
 		if job.needrun:
 			self._cores += job.threads
-		job.finished = True
 		self.finished_jobs += 1
-		self.dag.dynamic_update(job)
-		logger.info("{} of {} steps ({}) done".format(self.finished_jobs, len(self.dag), self.finished_jobs / len(self.dag)))
+		self.dag.finish(job)
+		self.progress()
 		self._open_jobs.set()
 	
 	def _error(self):
@@ -99,3 +105,6 @@ class JobScheduler:
 				j = j - job.threads
 			i -= 1
 		return solution
+	
+	def progress(self):
+		logger.info("{} of {} steps ({:.0%}) done".format(self.finished_jobs, len(self.dag), self.finished_jobs / len(self.dag)))

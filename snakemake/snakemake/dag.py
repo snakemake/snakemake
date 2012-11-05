@@ -1,6 +1,6 @@
 import textwrap
 from collections import defaultdict
-from itertools import chain, combinations
+from itertools import chain, combinations, filterfalse
 from functools import partial, lru_cache
 from operator import itemgetter
 
@@ -59,6 +59,18 @@ class DAG:
 	def jobs(self):
 		for job in self.bfs(self.dependencies, *self.targetjobs):
 			yield job
+	
+	@property
+	def open_jobs(self):
+		for job in self.bfs(self.dependencies, *self.targetjobs, stop=lambda job: job.finished):
+			yield job
+			
+	@property
+	def ready_jobs(self):
+		def notready(job):
+			return any(map(lambda job: not job.finished, self.dependencies[job]))
+		for job in filterfalse(notready, self.open_jobs):
+			yield job
 		
 	def update(self, job, visited = None, parentmintime = None, skip_until_dynamic = False):
 		if job in self.dependencies:
@@ -68,7 +80,7 @@ class DAG:
 		dependencies = self.dependencies[job]
 		potential_dependencies = self.collect_potential_dependencies(job).items()
 
-		output_mintime = IOFile.mintime(job.output) or parentmintime
+		output_mintime = job.output_mintime() or parentmintime
 		skip_until_dynamic = not job.dynamic_output and (skip_until_dynamic or job.dynamic_input)
 			
 		#import pdb; pdb.set_trace()	
@@ -78,12 +90,17 @@ class DAG:
 			try:
 				job_ = self.select_dependency(file, jobs, visited)
 				self.update(job_, visited=set(visited), parentmintime=output_mintime, skip_until_dynamic=skip_until_dynamic)
-				missing_input.remove(file)
+				if file in missing_input:
+					missing_input.remove(file)
 				# TODO check for pumping up wildcards...
 				if not skip_until_dynamic:
 					dependencies[job_].append(file)
 					self.depending[job_][job].append(file)
-			except RuleException as ex:
+			except (RuleException, RuntimeError) as ex:
+				if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
+					raise RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), lineno = job.rule.lineno, snakefile = job.rule.snakefile)
+				if isinstance(ex, CyclicGraphException) and ex.file == file:
+					raise ex
 				exceptions.append(ex)
 		if missing_input:
 			raise MissingInputException(job.rule, missing_input)
@@ -103,7 +120,7 @@ class DAG:
 			return True, "Missing output files: {}".format(", ".join(output_missing))
 			
 		# updated input?
-		updated_input = set(f for job_, f in self.dependencies[job] if job_.needrun)
+		updated_input = set(chain(*(f for job_, f in self.dependencies[job].items() if job_.needrun)))
 		for f in job.input:
 			if f.exists() and f.is_newer(output_mintime):
 				updated_input.add(f)
@@ -112,15 +129,17 @@ class DAG:
 			
 		return False, None
 	
-	def dynamic_update(self, job):
-		self._len = None
-		dynamic_wildcards = job.dynamic_wildcards
-		if dynamic_wildcards:
-			for job_ in self.bfs(self.depending, job):
-				if not job_.finished and job_.dynamic_input:
-					if job_.rule.dynamic_update(dynamic_wildcards):
-						self.delete_job(job_)
-						self.update(Job(rule, targetfile=job_.targetfile))
+	def finish(self, job):
+		job.finished = True
+		if job.dynamic_output:
+			self._len = None
+			dynamic_wildcards = job.dynamic_wildcards
+			if dynamic_wildcards:
+				for job_ in self.bfs(self.depending, job):
+					if not job_.finished and job_.dynamic_input:
+						if job_.rule.dynamic_update(dynamic_wildcards):
+							self.delete_job(job_)
+							self.update(Job(rule, targetfile=job_.targetfile))
 	
 	def delete_job(self, job):
 		for job_ in self.depending[job]:
@@ -163,11 +182,14 @@ class DAG:
 				return job
 		raise CyclicGraphException(job.rule, file)
 	
-	def bfs(self, direction, *jobs):
+	def bfs(self, direction, *jobs, stop=lambda job: False):
 		queue = list(jobs)
 		visited = set()
 		while queue:
 			job = queue.pop(0)
+			if stop(job):
+				# stop criterion reached for this node
+				continue
 			yield job
 			for job_, _ in direction[job].items():
 				if not job_ in visited:
@@ -187,13 +209,13 @@ class DAG:
 		jobid = dict((job, i) for i, job in enumerate(self.jobs))
 		nodes, edges = list(), list()
 		for job in self.jobs:
-			label = "\n".join([job.rule.name] + list(map(": ".join, self.new_wildcards(job))))
+			label = "\\n".join([job.rule.name] + list(map(": ".join, self.new_wildcards(job))))
 			nodes.append('\t{}[label = "{}"];'.format(jobid[job], label))
 			for job_ in self.dependencies[job]:
 				edges.append("\t{} -> {};".format(jobid[job_], jobid[job]))
 		return textwrap.dedent("""\
 		                    digraph snakemake_dag {{
-		                    	node[shape=Msquare];
+		                    	node[shape=box,style=rounded];
 		                    {nodes}
 		                    {edges}
 		                    }}\
