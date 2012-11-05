@@ -1,5 +1,5 @@
 
-import os
+import os, time
 from functools import partial
 
 from snakemake.shell import shell

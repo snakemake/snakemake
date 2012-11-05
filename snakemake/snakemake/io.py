@@ -75,7 +75,7 @@ class _IOFile(str):
 	
 	def touch(self):
 		try:
-			touch(self.get_file())
+			os.utime(self.get_file(), None)
 		except OSError as e:
 			if e.errno == 2:
 				raise MissingOutputException("Output file {} of rule {} shall be touched but does not exist.".format(self.get_file(), self.rule.name), lineno = self.rule.lineno, snakefile = self.rule.snakefile)
@@ -128,9 +128,6 @@ def remove(file):
 				pass
 		else:
 			os.remove(file)
-
-def touch(file):
-	os.utime(self.get_file(), None)
 	
 def regex(filepattern):
 	f = ""
