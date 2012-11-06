@@ -22,7 +22,7 @@ class Job:
 		self.message = self._format_wildcards(rule.message) if rule.message else None
 		self.shellcmd = self._format_wildcards(rule.shellcmd) if rule.shellcmd else None
 		
-		self.dynamic_output, self.dynamic_input, self.temp_output, self.protected_output = [set()]*4
+		self.dynamic_output, self.dynamic_input, self.temp_output, self.protected_output = set(), set(), set(), set()
 		for f, f_ in zip(self.output, self.rule.output):
 			if f_ in self.rule.dynamic_output:
 				self.dynamic_output.add(f)

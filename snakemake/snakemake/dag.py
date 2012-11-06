@@ -48,6 +48,7 @@ class DAG:
 			except MissingRuleException as ex:
 				exceptions[file].append(ex)
 		has_producer = set()
+		
 		for job in self.targetjobs:
 			try:
 				self.update(job)
@@ -97,9 +98,8 @@ class DAG:
 				if file in missing_input:
 					missing_input.remove(file)
 				# TODO check for pumping up wildcards...
-				if not skip_until_dynamic:
-					dependencies[job_].append(file)
-					self.depending[job_][job].append(file)
+				dependencies[job_].append(file)
+				self.depending[job_][job].append(file)
 			except (RuleException, RuntimeError) as ex:
 				if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
 					raise RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), lineno = job.rule.lineno, snakefile = job.rule.snakefile)
