@@ -5,6 +5,7 @@ import os
 from collections import defaultdict
 from functools import lru_cache
 
+from snakemake.io import IOFile
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import MissingOutputException
 
@@ -38,7 +39,7 @@ class Job:
 		for i, f in enumerate(self.output):
 			if f in self.dynamic_output:
 				for f, _ in listfiles(self.rule.output[i]):
-					yield IOFile(f)
+					yield IOFile(f, self.rule)
 			else:
 				yield f
 	

@@ -1,10 +1,5 @@
 
-import os
-
-if os.name == "posix":
-	from multiprocessing import Event
-else:
-	from threading import Event
+import os, threading
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, ClusterExecutor, CPUExecutor
 from snakemake.stats import Stats
@@ -15,12 +10,13 @@ class JobScheduler:
 		""" Create a new instance of KnapsackJobScheduler. """
 		self.dag = dag
 		self.dryrun = dryrun
+		self.quiet = quiet
 		self.maxcores = cores
 		self.finished_jobs = 0
 		self.stats = Stats()
 		self._cores = self.maxcores
-		self._open_jobs = Event()
-		self._open_jobs.set()
+		use_threads = os.name == "posix"
+		self._open_jobs = multiprocessing.Event() if not use_threads else threading.Event()
 		self._errors = False
 		if dryrun:
 			self._executor = DryrunExecutor(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
@@ -30,9 +26,11 @@ class JobScheduler:
 		elif cluster:
 			# TODO properly set cores
 			self._executor = ClusterExecutor(workflow, None, submitcmd=cluster, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
+			self._open_jobs = threading.Event()
 		else:
-			self._executor = CPUExecutor(workflow, cores, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
+			self._executor = CPUExecutor(workflow, cores, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds, threads=use_threads)
 			self._selector = self._thread_based_selector
+		self._open_jobs.set()
 
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
@@ -44,6 +42,7 @@ class JobScheduler:
 				self._executor.shutdown()
 				return False
 
+			#import pdb; pdb.set_trace()
 			needrun = list()
 			for job in self.dag.ready_jobs:
 				if job in self.dag.needrun:
@@ -72,7 +71,8 @@ class JobScheduler:
 			self._cores += job.threads
 		self.finished_jobs += 1
 		self.dag.finish(job)
-		self.progress()
+		if not self.quiet:
+			self.progress()
 		self._open_jobs.set()
 	
 	def _error(self):

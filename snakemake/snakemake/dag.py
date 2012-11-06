@@ -28,12 +28,14 @@ class DAG:
 		self.targetfiles = targetfiles
 		self.targetrules = targetrules
 		self.forcerules = set()
+		self.forcefiles = set()
 		if forceall:
 			self.forcerules.update(self.rules)
 		elif forcerules:
 			self.forcerules.update(forcerules)
 		if forcetargets:
 			self.forcerules.update(targetrules)
+			self.forcefiles.update(targetfiles)
 		if ignore_ambiguity:
 			self.select_dependency = self.select_dependency_ign_amb
 		
@@ -71,7 +73,7 @@ class DAG:
 	@property
 	def ready_jobs(self):
 		def ready(job):
-			return all(map(self.finished.__contains__, self.dependencies[job]))
+			return all(map(lambda job: job in self.finished or job not in self.needrun, self.dependencies[job]))
 		for job in filter(ready, self.open_jobs):
 			yield job
 		
@@ -116,7 +118,7 @@ class DAG:
 	
 	def _needrun(self, job, output_mintime):
 		# forced?
-		if job.rule in self.forcerules:
+		if job.rule in self.forcerules or job.targetfile in self.forcefiles:
 			return True, "Forced execution"
 			
 		# missing output?
@@ -141,11 +143,10 @@ class DAG:
 			self._len = None
 			dynamic_wildcards = job.dynamic_wildcards
 			if dynamic_wildcards:
-				for job_ in self.bfs(self.depending, job):
-					if not job_.finished and job_.dynamic_input:
+				for job_ in filter(lambda job: not job in self.finished and job.dynamic_input, self.bfs(self.depending, job)):
 						if job_.rule.dynamic_update(dynamic_wildcards):
 							self.delete_job(job_)
-							self.update(Job(rule, targetfile=job_.targetfile))
+							self.update(Job(job_.rule, targetfile=job_.targetfile))
 	
 	def delete_job(self, job):
 		for job_ in self.depending[job]:

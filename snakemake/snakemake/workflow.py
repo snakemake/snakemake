@@ -73,9 +73,9 @@ class Workflow:
 			raise UnknownRuleException(name)
 		return self._rules[name]
 	
-	def list_rules(details = False, log = logger.info):
+	def list_rules(details = True, log = logger.info):
 		log("Available rules:")
-		for rule in workflow.get_rules(): 
+		for rule in workflow.rules: 
 			log(rule.name)
 			if details:
 				if rule.docstring:
@@ -99,7 +99,17 @@ class Workflow:
 			else:
 				filetargets.append(os.path.relpath(target))
 		
-		dag = DAG(self, targetfiles=filetargets, targetrules=ruletargets, forceall=forceall, forcetargets=forcetargets, forcerules=forcerules, ignore_ambiguity=ignore_ambiguity)
+		try:
+			forcerules_ = list()
+			if forcerules:
+				for r in forcerules:
+					forcerules_.append(self._rules[r])
+		except KeyError as ex:
+			logger.critical("Rule {} is not available.".format(r))
+			self.list_rules()
+			return False
+		
+		dag = DAG(self, targetfiles=filetargets, targetrules=ruletargets, forceall=forceall, forcetargets=forcetargets, forcerules=forcerules_, ignore_ambiguity=ignore_ambiguity)
 		
 		if printdag:
 			print(dag)

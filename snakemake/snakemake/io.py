@@ -111,7 +111,8 @@ class _IOFile(str):
 		return None
 	
 	def __eq__(self, other):
-		return self._file == other._file
+		f = other._file if isinstance(other, _IOFile) else other
+		return self._file == f
 	
 	def __hash__(self):
 		return self._file.__hash__()

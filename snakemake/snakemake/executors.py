@@ -1,20 +1,12 @@
 
-import os, time, textwrap, stat, shutil, random, string
+import os, time, textwrap, stat, shutil, random, string, threading
+import concurrent.futures
 from functools import partial
 
 from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.utils import format
-from snakemake.exceptions import print_exception, get_exception_origin, format_error, RuleException
-
-if os.name == "posix":
-	from multiprocessing import Event
-	from concurrent.futures import ProcessPoolExecutor
-	PoolExecutor = ProcessPoolExecutor
-else:
-	from threading import Event
-	from concurrent.futures import ThreadPoolExecutor
-	PoolExecutor = ThreadPoolExecutor
+from snakemake.exceptions import print_exception, get_exception_origin, format_error, RuleException, ClusterJobException
 	
 class DryrunExecutor:
 
@@ -36,15 +28,18 @@ class DryrunExecutor:
 			logger.info(job.message)
 		else:
 			# TODO show file types
-			desc = ["rule {}:".format(job.rule.name)]
-			for name, value in (("input", job.input), 
-			                    ("output", job.output), 
-			                    ("reason", job.reason if self.printreason else None)):
-				if value:
-					desc.append(self.format_ruleitem(name, value))
+			desc = list()
+			if not self.quiet:
+				desc.append("rule {}:".format(job.rule.name))
+				for name, value in (("input", job.input), 
+				                    ("output", job.output), 
+				                    ("reason", job.reason if self.printreason else None)):
+					if value:
+						desc.append(self.format_ruleitem(name, value))
 			if self.printshellcmds and job.shellcmd:
 				desc.append(job.shellcmd)
-			logger.info("\n".join(desc))
+			if desc:
+				logger.info("\n".join(desc))
 		
 	@staticmethod
 	def format_ruleitem(name, value):
@@ -65,9 +60,9 @@ class TouchExecutor(DryrunExecutor):
 
 class CPUExecutor(DryrunExecutor):
 
-	def __init__(self, workflow, cores, printreason=False, quiet=False, printshellcmds=False):
+	def __init__(self, workflow, cores, printreason=False, quiet=False, printshellcmds=False, threads=False):
 		super().__init__(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
-		self._pool = PoolExecutor(max_workers = cores)
+		self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=cores) if threads else concurrent.futures.ProcessPoolExecutor(max_workers=cores)
 
 	def run(self, job, callback = None, error_callback = None):
 		super()._run(job)
@@ -76,11 +71,11 @@ class CPUExecutor(DryrunExecutor):
 				f.remove()
 		except OSError as ex:
 			print_exception("Could not remove output file {} of dynamic rule {}".format(f, job.rule), self.workflow.linemaps)
-		future = self._pool.submit(run_wrapper, job.rule.run_func, job.input, job.output, job.wildcards, job.threads, job.log, self.workflow.linemaps)
+		future = self.pool.submit(run_wrapper, job.rule.run_func, job.input, job.output, job.wildcards, job.threads, job.log, self.workflow.linemaps)
 		future.add_done_callback(partial(self._callback, job, callback, error_callback))
 	
 	def shutdown(self):
-		self._pool.shutdown()
+		self.pool.shutdown()
 	
 	def _callback(self, job, callback, error_callback, future):
 		try:
@@ -99,13 +94,13 @@ class CPUExecutor(DryrunExecutor):
 class ClusterExecutor(DryrunExecutor):
 
 	def __init__(self, workflow, cores, submitcmd="qsub", printreason=False, quiet=False, printshellcmds=False):
+		super().__init__(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		if workflow.snakemakepath is None:
 			raise ValueError("Cluster executor needs to know the path to the snakemake binary.")
-		super().__init__(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
-		self.cores = cores
 		self.submitcmd = submitcmd
 		self.startedjobs = 0
 		self._tmpdir = None
+		self.cores = cores if cores else ""
 	
 	def __del__(self):
 		shutil.rmtree(self.tmpdir)
@@ -118,37 +113,33 @@ class ClusterExecutor(DryrunExecutor):
 		jobscript = os.path.join(self.tmpdir, "{}.sh".format(jobid))
 		jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
 		jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
-		cores = self.cores if self.cores else ""
 		with open(jobscript, "w") as f:
 			print(format(textwrap.dedent("""
 			                                       #!/bin/sh
 			                                       #rule: {job}
 			                                       #input: {job.input}
 			                                       #output: {job.output}
-			                                       {self.workflow.snakemakepath} --force -j{cores} --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"
+			                                       {self.workflow.snakemakepath} --force -j{self.cores} --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"
 			                                       exit 0
 			                                       """)), file=f)
-		print(os.getcwd())
-		os.chmod(jobscript, stat.S_IEXEC)
-		shell('ls -l {jobscript}; {self.submitcmd} "{jobscript}"')
+		os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
+		shell('{self.submitcmd} "{jobscript}"')
 		self.startedjobs += 1
-		threading.Thread(target=self._wait_for_job, args=(job, jobscript, jobfinished, jobfailed)).start()
+		threading.Thread(target=self._wait_for_job, args=(job, callback, error_callback, jobscript, jobfinished, jobfailed)).start()
 	
-	def _wait_for_job(self, job, jobfinished, jobfailed, jobscript):
+	def _wait_for_job(self, job, callback, error_callback, jobscript, jobfinished, jobfailed):
 		while True:
 			if os.path.exists(jobfinished):
+				#import pdb; pdb.set_trace()
 				os.remove(jobfinished)
 				os.remove(jobscript)
-				job.finished()
-				# TODO handle temp and protected files
+				callback(job)
 				return
 			if os.path.exists(jobfailed):
 				os.remove(jobfailed)
 				os.remove(jobscript)
 				print_exception(ClusterJobException(job), self.workflow.linemaps)
-				self._error = True
-				self._jobs = set()
-				self._open_jobs.set()
+				error_callback()
 				return
 			time.sleep(1)
 			
@@ -159,6 +150,7 @@ class ClusterExecutor(DryrunExecutor):
 				self._tmpdir = ".snakemake.tmp." + "".join(random.sample(string.ascii_uppercase + string.digits,6))
 				if not os.path.exists(self._tmpdir):
 					os.mkdir(self._tmpdir)
+					break
 		return self._tmpdir
 
 

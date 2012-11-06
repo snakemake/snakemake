@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import os, re, sys, sre_constants
-from snakemake.io import IOFile, protected, temp, dynamic, Namedlist
+from collections import defaultdict
+
+from snakemake.io import IOFile, protected, temp, dynamic, Namedlist, expand
 from snakemake.exceptions import RuleException
 
 __author__ = "Johannes Köster"
@@ -43,8 +45,8 @@ class Rule:
 					return False
 		# replace the dynamic input with the expanded files
 		for i, e in reversed(list(expansion.items())):
-			self.rule.set_dynamic(self.rule.input[i], False)
-			self.rule.input.insert_items(i, e)
+			self.dynamic_input.remove(self.input[i])
+			self.input.insert_items(i, e)
 		return True
 		
 
@@ -157,7 +159,7 @@ class Rule:
 			input = Namedlist()
 			for f in self.input:
 				if f in self.dynamic_input:
-					input.append(self.dynamic[f])
+					input.append(f.fill_wildcards())
 				else:
 					input.append(f.apply_wildcards(wildcards))
 			output = Namedlist(o.apply_wildcards(wildcards) for o in self.output)
