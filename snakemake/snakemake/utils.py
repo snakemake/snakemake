@@ -75,6 +75,16 @@ def report(outfile, abstract, files, captions):
 '''
 
 def format(string, *args, stepout = 1, **kwargs):
+	class SequenceFormatter:
+		def __init__(self, sequence):
+			self._sequence = sequence
+
+		def __getitem__(self, i):
+			return self._sequence[i]
+
+		def __str__(self):
+			return " ".join(self._sequence)
+		
 	frame = inspect.currentframe().f_back
 	while stepout > 1:
 		if not frame.f_back:

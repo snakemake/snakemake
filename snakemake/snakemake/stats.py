@@ -1,5 +1,6 @@
 
 import time, csv
+from collections import defaultdict
 
 class Stats:
 	def __init__(self):
@@ -17,7 +18,7 @@ class Stats:
 		runtimes = defaultdict(list)
 		for job, t in self.starttime.items():
 			runtimes[job.rule].append(self.endtime[job] - t)
-		for rule, runtimes in runtimes:
+		for rule, runtimes in runtimes.items():
 			yield rule, sum(runtimes) / len(runtimes), min(runtimes), max(runtimes)
 	
 	@property

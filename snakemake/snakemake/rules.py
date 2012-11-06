@@ -164,7 +164,7 @@ class Rule:
 			input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
 			log = self.log.apply_wildcards(wildcards) if self.log else None
-			return input, output, log, wildcards
+			return input, output, log, Namedlist(fromdict = wildcards)
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
 			raise RuleException("Wildcards in input or log file of rule {} do not appear in output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)

@@ -11,7 +11,7 @@ from snakemake.stats import Stats
 from snakemake.logging import logger
 
 class JobScheduler:
-	def __init__(self, workflow, dag, cores, dryrun = False, touch = False, cluster = False, quiet = False, printreason = False, printshellcmds = False):
+	def __init__(self, workflow, dag, cores, dryrun = False, touch = False, cluster = None, quiet = False, printreason = False, printshellcmds = False):
 		""" Create a new instance of KnapsackJobScheduler. """
 		self.dag = dag
 		self.dryrun = dryrun
@@ -28,7 +28,8 @@ class JobScheduler:
 		elif touch:
 			self._executor = TouchExecutor(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		elif cluster:
-			self._executor = ClusterExecutor(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
+			# TODO properly set cores
+			self._executor = ClusterExecutor(workflow, None, submitcmd=cluster, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		else:
 			self._executor = CPUExecutor(workflow, cores, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 			self._selector = self._thread_based_selector
@@ -45,7 +46,7 @@ class JobScheduler:
 
 			needrun = list()
 			for job in self.dag.ready_jobs:
-				if job.needrun:
+				if job in self.dag.needrun:
 					if job.threads > self.maxcores:
 						# reduce the number of threads so that it 
 						# fits to available cores.
@@ -67,7 +68,7 @@ class JobScheduler:
 		
 	def _finished(self, job):
 		self.stats.report_job_end(job)
-		if job.needrun:
+		if job in self.dag.needrun:
 			self._cores += job.threads
 		self.finished_jobs += 1
 		self.dag.finish(job)

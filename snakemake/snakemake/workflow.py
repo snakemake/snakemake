@@ -110,20 +110,22 @@ class Workflow:
 		
 		if success:
 			if stats:
-				dag.stats.to_csv(stats)
+				scheduler.stats.to_csv(stats)
 		else:
 			logger.critical("Exiting because a job execution failed. Look above for error message")
 			return False
 		
 		return True
 
-	def include(self, snakefile, overwrite_first_rule = False):
+	def include(self, snakefile, workdir = None, overwrite_first_rule = False):
 		"""
 		Include a snakefile.
 		"""
 		global workflow
 		workflow = self
 		first_rule = self.first_rule
+		if workdir:
+			os.chdir(workdir)
 		code, linemap, rule_count = compile_to_python(snakefile, rule_count = self.rule_count)
 		self.rule_count += rule_count
 		self.linemaps[snakefile] = linemap

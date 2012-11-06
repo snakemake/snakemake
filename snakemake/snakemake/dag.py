@@ -65,14 +65,14 @@ class DAG:
 	
 	@property
 	def open_jobs(self):
-		for job in self.bfs(self.dependencies, *self.targetjobs, stop=self.finished.contains):
+		for job in self.bfs(self.dependencies, *self.targetjobs, stop=self.finished.__contains__):
 			yield job
 			
 	@property
 	def ready_jobs(self):
-		def notready(job):
-			return all(map(self.finished.contains, self.dependencies[job]))
-		for job in filterfalse(notready, self.open_jobs):
+		def ready(job):
+			return all(map(self.finished.__contains__, self.dependencies[job]))
+		for job in filter(ready, self.open_jobs):
 			yield job
 		
 	def update(self, job, visited = None, parentmintime = None, skip_until_dynamic = False):
@@ -107,14 +107,14 @@ class DAG:
 		if missing_input:
 			raise MissingInputException(job.rule, missing_input)
 		
-		needrun, reason = self.needrun(job, output_mintime)
+		needrun, reason = self._needrun(job, output_mintime)
 		if needrun:
 			self.needrun.add(job)
 			self.reason[job] = reason
 			self.update_needrun_temp(job)
 
 	
-	def needrun(self, job, output_mintime):
+	def _needrun(self, job, output_mintime):
 		# forced?
 		if job.rule in self.forcerules:
 			return True, "Forced execution"
@@ -123,19 +123,20 @@ class DAG:
 		output_missing = [f for f in job.output if not f.exists()]
 		if output_missing:
 			return True, "Missing output files: {}".format(", ".join(output_missing))
-			
+		
 		# updated input?
-		updated_input = set(chain(*(f for job_, f in self.dependencies[job].items() if job_.needrun)))
-		for f in job.input:
-			if f.exists() and f.is_newer(output_mintime):
-				updated_input.add(f)
+		updated_input = set(chain(*(f for job_, f in self.dependencies[job].items() if job_ in self.needrun)))
+		if output_mintime:
+			for f in job.input:
+				if f.exists() and f.is_newer(output_mintime):
+					updated_input.add(f)
 		if updated_input:
 			return True, "Updated input files: {}".format(", ".join(updated_input))
 			
 		return False, None
 	
 	def finish(self, job):
-		job.finished = True
+		self.finished.add(job)
 		if job.dynamic_output:
 			self._len = None
 			dynamic_wildcards = job.dynamic_wildcards
@@ -218,7 +219,7 @@ class DAG:
 		nodes, edges = list(), list()
 		for job in self.jobs:
 			label = "\\n".join([job.rule.name] + list(map(": ".join, self.new_wildcards(job))))
-			nodes.append('\t{}[label = "{}"];'.format(jobid[job], label))
+			nodes.append('\t{}[label = "{}"{}];'.format(jobid[job], label, "" if job in self.needrun else ',style="rounded,dashed"'))
 			for job_ in self.dependencies[job]:
 				edges.append("\t{} -> {};".format(jobid[job_], jobid[job]))
 		return textwrap.dedent("""\

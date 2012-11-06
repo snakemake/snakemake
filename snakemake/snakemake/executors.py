@@ -1,11 +1,11 @@
 
-import os, time
+import os, time, textwrap, stat, shutil, random, string
 from functools import partial
 
 from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.utils import format
-from snakemake.exceptions import print_exception, get_exception_origin
+from snakemake.exceptions import print_exception, get_exception_origin, format_error, RuleException
 
 if os.name == "posix":
 	from multiprocessing import Event
@@ -32,7 +32,6 @@ class DryrunExecutor:
 		pass
 	
 	def _run(self, job):
-		assert job.needrun
 		if job.message:
 			logger.info(job.message)
 		else:
@@ -99,17 +98,17 @@ class CPUExecutor(DryrunExecutor):
 			
 class ClusterExecutor(DryrunExecutor):
 
-	def __init__(self, workflow, cores, submitcmd, printreason=False, quiet=False, printshellcmds=False):
+	def __init__(self, workflow, cores, submitcmd="qsub", printreason=False, quiet=False, printshellcmds=False):
 		if workflow.snakemakepath is None:
 			raise ValueError("Cluster executor needs to know the path to the snakemake binary.")
 		super().__init__(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		self.cores = cores
 		self.submitcmd = submitcmd
-		self.tmpdir = tempfile.mkdtemp(prefix="snakemake")
 		self.startedjobs = 0
+		self._tmpdir = None
 	
 	def __del__(self):
-		os.remove(self.tmpdir)
+		shutil.rmtree(self.tmpdir)
 	
 	def run(self, job, callback = None, error_callback = None):
 		super()._run(job)
@@ -119,18 +118,19 @@ class ClusterExecutor(DryrunExecutor):
 		jobscript = os.path.join(self.tmpdir, "{}.sh".format(jobid))
 		jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
 		jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
-		cores = self._cores if self._cores else ""
+		cores = self.cores if self.cores else ""
 		with open(jobscript, "w") as f:
 			print(format(textwrap.dedent("""
 			                                       #!/bin/sh
 			                                       #rule: {job}
 			                                       #input: {job.input}
 			                                       #output: {job.output}
-			                                       {self.workflow.snakemakepath} --force -j{self._cores} --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"
+			                                       {self.workflow.snakemakepath} --force -j{cores} --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"
 			                                       exit 0
 			                                       """)), file=f)
-		os.chmod(fpath, stat.S_IEXEC)
-		shell('{self.submitcmd} "{scriptpath}"')
+		print(os.getcwd())
+		os.chmod(jobscript, stat.S_IEXEC)
+		shell('ls -l {jobscript}; {self.submitcmd} "{jobscript}"')
 		self.startedjobs += 1
 		threading.Thread(target=self._wait_for_job, args=(job, jobscript, jobfinished, jobfailed)).start()
 	
@@ -151,6 +151,15 @@ class ClusterExecutor(DryrunExecutor):
 				self._open_jobs.set()
 				return
 			time.sleep(1)
+			
+	@property
+	def tmpdir(self):
+		if self._tmpdir is None:		
+			while True:
+				self._tmpdir = ".snakemake.tmp." + "".join(random.sample(string.ascii_uppercase + string.digits,6))
+				if not os.path.exists(self._tmpdir):
+					os.mkdir(self._tmpdir)
+		return self._tmpdir
 
 
 def run_wrapper(run, input, output, wildcards, threads, log, linemaps):

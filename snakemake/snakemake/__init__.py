@@ -63,7 +63,7 @@ def snakemake(snakefile,
 
 	success = False
 	try:
-		workflow.include(snakefile, overwrite_first_rule = True)
+		workflow.include(snakefile, workdir=workdir, overwrite_first_rule=True)
 
 		if listrules:
 			workflow.list_rules()

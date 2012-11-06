@@ -5,7 +5,8 @@ import os
 from collections import defaultdict
 from functools import lru_cache
 
-from snakemake.utils import format
+from snakemake.utils import format, listfiles
+from snakemake.exceptions import MissingOutputException
 
 __author__ = "Johannes Köster"
 

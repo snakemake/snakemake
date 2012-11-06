@@ -11,16 +11,6 @@ import atexit
 
 __author__ = "Johannes Köster"
 
-class SequenceFormatter:
-	def __init__(self, sequence):
-		self._sequence = sequence
-
-	def __getitem__(self, i):
-		return self._sequence[i]
-
-	def __str__(self):
-		return " ".join(self._sequence)
-
 class PipeWriter:
 	def __init__(self, towrite):
 		self._towrite = towrite
