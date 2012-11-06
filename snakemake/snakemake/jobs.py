@@ -13,8 +13,6 @@ class Job:
 	def __init__(self, rule, targetfile = None):
 		self.rule = rule
 		self.targetfile = targetfile
-		self.finished = False
-		self.needrun = False
 		self._hash = None
 		
 		self.input, self.output, self.log, self.wildcards = rule.expand_wildcards(self.targetfile)

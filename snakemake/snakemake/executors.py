@@ -37,18 +37,18 @@ class DryrunExecutor:
 			logger.info(job.message)
 		else:
 			# TODO show file types
-			items = dict(input=job.input, output=job.output)
-			if self.printreason:
-				items["reason"] = job.reason
 			desc = ["rule {}:".format(job.rule.name)]
-			desc.extend(map(self.format_ruleitem, items.items()))
+			for name, value in (("input", job.input), 
+			                    ("output", job.output), 
+			                    ("reason", job.reason if self.printreason else None)):
+				if value:
+					desc.append(self.format_ruleitem(name, value))
 			if self.printshellcmds and job.shellcmd:
 				desc.append(job.shellcmd)
 			logger.info("\n".join(desc))
 		
 	@staticmethod
-	def format_ruleitem(item):
-		name, value = item
+	def format_ruleitem(name, value):
 		return "" if not value else "\t{}: {}".format(name, value)
 
 class TouchExecutor(DryrunExecutor):

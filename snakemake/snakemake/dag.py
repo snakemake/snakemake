@@ -6,7 +6,7 @@ from operator import itemgetter
 
 from snakemake.io import IOFile
 from snakemake.jobs import Job
-from snakemake.exceptions import RuleException, MissingInputException, AmbiguousRuleException, CyclicGraphException
+from snakemake.exceptions import RuleException, MissingInputException, MissingRuleException, AmbiguousRuleException, CyclicGraphException
 
 class DAG:
 	def __init__(self, 
@@ -19,6 +19,9 @@ class DAG:
 	             ignore_ambiguity = False):
 		self.dependencies = defaultdict(partial(defaultdict, list))
 		self.depending = defaultdict(partial(defaultdict, list))
+		self.needrun = set()
+		self.reason = dict()
+		self.finished = set()
 		self._len = None
 		self.workflow = workflow
 		self.rules = workflow.rules
@@ -38,7 +41,7 @@ class DAG:
 		exceptions = defaultdict(list)		
 		for file in self.targetfiles:
 			try:
-				for job in self.file2job(file):
+				for job in self.file2jobs(file):
 					self.targetjobs.append(job)
 			except MissingRuleException as ex:
 				exceptions[file].append(ex)
@@ -62,13 +65,13 @@ class DAG:
 	
 	@property
 	def open_jobs(self):
-		for job in self.bfs(self.dependencies, *self.targetjobs, stop=lambda job: job.finished):
+		for job in self.bfs(self.dependencies, *self.targetjobs, stop=self.finished.contains):
 			yield job
 			
 	@property
 	def ready_jobs(self):
 		def notready(job):
-			return any(map(lambda job: not job.finished, self.dependencies[job]))
+			return all(map(self.finished.contains, self.dependencies[job]))
 		for job in filterfalse(notready, self.open_jobs):
 			yield job
 		
@@ -82,8 +85,7 @@ class DAG:
 
 		output_mintime = job.output_mintime() or parentmintime
 		skip_until_dynamic = not job.dynamic_output and (skip_until_dynamic or job.dynamic_input)
-			
-		#import pdb; pdb.set_trace()	
+		
 		missing_input = job.missing_input
 		exceptions = list()
 		for file, jobs in potential_dependencies:
@@ -104,10 +106,13 @@ class DAG:
 				exceptions.append(ex)
 		if missing_input:
 			raise MissingInputException(job.rule, missing_input)
-			
-		job.needrun, job.reason = self.needrun(job, output_mintime)
-		if job.needrun:
+		
+		needrun, reason = self.needrun(job, output_mintime)
+		if needrun:
+			self.needrun.add(job)
+			self.reason[job] = reason
 			self.update_needrun_temp(job)
+
 	
 	def needrun(self, job, output_mintime):
 		# forced?
@@ -162,8 +167,11 @@ class DAG:
 	def collect_potential_dependencies(self, job):
 		dependencies = defaultdict(list)
 		for file in job.input:
-			for job_ in self.file2jobs(file):
-				dependencies[file].append(job_)
+			try:
+				for job_ in self.file2jobs(file):
+					dependencies[file].append(job_)
+			except MissingRuleException as ex:
+				pass
 		return dependencies
 
 	def select_dependency(self, file, jobs, visited):

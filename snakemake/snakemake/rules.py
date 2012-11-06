@@ -2,6 +2,7 @@
 
 import os, re, sys, sre_constants
 from snakemake.io import IOFile, protected, temp, dynamic, Namedlist
+from snakemake.exceptions import RuleException
 
 __author__ = "Johannes Köster"
 
@@ -113,7 +114,7 @@ class Rule:
 		inoutput = self.output if output else self.input
 		if type(item).__name__ == "function" and output:
 			raise SyntaxError("Only input files can be specified as functions")
-		try:
+		if isinstance(item, str) or type(item).__name__ == "function":
 			_item = IOFile(item, rule=self)
 			if isinstance(item, temp):
 				if not output:
@@ -133,7 +134,7 @@ class Rule:
 			inoutput.append(_item)
 			if name:
 				inoutput.add_name(name)
-		except ValueError:
+		else:
 			try:
 				for i in item:
 					self._set_inoutput_item(i, output = output)
