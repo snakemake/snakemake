@@ -32,7 +32,7 @@ class DryrunExecutor:
 			if not self.quiet:
 				desc.append("rule {}:".format(job.rule.name))
 				for name, value in (("input", job.input), 
-				                    ("output", job.output), 
+				                    ("output", self.format_output(job)),
 				                    ("reason", job.reason if self.printreason else None)):
 					if value:
 						desc.append(self.format_ruleitem(name, value))
@@ -40,10 +40,21 @@ class DryrunExecutor:
 				desc.append(job.shellcmd)
 			if desc:
 				logger.info("\n".join(desc))
+				if job.dynamic_output:
+					logger.warning("Subsequent jobs will be added dynamically depending on the output of this rule")
+	
+	@staticmethod
+	def format_output(job):
+		for f, f_ in zip(job.output, job.rule.output):
+			if f in job.dynamic_output:
+				yield "{} (dynamic)".format(f_)
+			else:
+				yield f
 		
 	@staticmethod
 	def format_ruleitem(name, value):
-		return "" if not value else "\t{}: {}".format(name, value)
+		
+		return "" if not value else "\t{}: {}".format(name, ", ".join(value))
 
 class TouchExecutor(DryrunExecutor):
 

@@ -34,10 +34,11 @@ class Rule:
 		self.run_func = None
 		self.shellcmd = None
 
-	def dynamic_update(self, wildcards):
+	def dynamic_update(self, wildcards, input=True):
+		io, dynamic_io = (self.input, self.dynamic_input) if input else (self.output, self.dynamic_output)
 		expansion = defaultdict(list)
-		for i, f in enumerate(self.input):
-			if f in self.dynamic_input:
+		for i, f in enumerate(io):
+			if f in dynamic_io:
 				try:
 					for e in reversed(expand(f, zip, **wildcards)):
 						expansion[i].append(IOFile(e, rule=self))
@@ -45,8 +46,10 @@ class Rule:
 					return False
 		# replace the dynamic input with the expanded files
 		for i, e in reversed(list(expansion.items())):
-			self.dynamic_input.remove(self.input[i])
-			self.input.insert_items(i, e)
+			dynamic_io.remove(io[i])
+			io.insert_items(i, e)
+		if not input:
+			self.wildcard_names.clear()
 		return True
 		
 

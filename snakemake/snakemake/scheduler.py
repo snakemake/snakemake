@@ -44,17 +44,16 @@ class JobScheduler:
 
 			#import pdb; pdb.set_trace()
 			needrun = list()
-			for job in self.dag.ready_jobs:
-				if job in self.dag.needrun:
-					if job.threads > self.maxcores:
-						# reduce the number of threads so that it 
-						# fits to available cores.
-						if not self.dryrun:
-							logger.warn(
-								"Rule {} defines too many threads ({}), Scaling down to {}."
-								.format(job.rule, job.threads, self.maxcores))
-						job.threads = self.maxcores
-					needrun.append(job)
+			for job in filter(self.dag.needrun, self.dag.ready_jobs):
+				if job.threads > self.maxcores:
+					# reduce the number of threads so that it 
+					# fits to available cores.
+					if not self.dryrun:
+						logger.warn(
+							"Rule {} defines too many threads ({}), Scaling down to {}."
+							.format(job.rule, job.threads, self.maxcores))
+					job.threads = self.maxcores
+				needrun.append(job)
 			if not needrun:
 				self._executor.shutdown()
 				return True
@@ -67,7 +66,7 @@ class JobScheduler:
 		
 	def _finished(self, job):
 		self.stats.report_job_end(job)
-		if job in self.dag.needrun:
+		if self.dag.needrun(job):
 			self._cores += job.threads
 		self.finished_jobs += 1
 		self.dag.finish(job)
