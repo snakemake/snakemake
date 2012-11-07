@@ -17,8 +17,8 @@ class DAG:
 	             forcetargets = False, 
 	             forcerules = None,
 	             ignore_ambiguity = False):
-		self.dependencies = defaultdict(partial(defaultdict, list))
-		self.depending = defaultdict(partial(defaultdict, list))
+		self.dependencies = defaultdict(partial(defaultdict, set))
+		self.depending = defaultdict(partial(defaultdict, set))
 		self._needrun = set()
 		self._reason = dict()
 		self._finished = set()
@@ -45,7 +45,7 @@ class DAG:
 		for file in self.targetfiles:
 			try:
 				for job in self.file2jobs(file):
-					self.targetjobs.append(job)
+					self.targetjobs.add(job)
 			except MissingRuleException as ex:
 				exceptions[file].append(ex)
 		has_producer = set()
@@ -64,7 +64,7 @@ class DAG:
 		
 		for job in filter(lambda job: job.dynamic_output and not self.needrun(job), self.jobs):
 			self.update_dynamic(job)
-			
+		self.update_needrun_temp()
 
 	@property
 	def jobs(self):
@@ -78,10 +78,11 @@ class DAG:
 			
 	@property
 	def ready_jobs(self):
-		def ready(job):
-			return all(map(lambda job: self.finished(job) or not self.needrun(job), self.dependencies[job]))
-		for job in filter(ready, self.open_jobs):
+		for job in filter(self.ready, self.open_jobs):
 			yield job
+			
+	def ready(self, job):
+		return all(map(lambda job: self.finished(job) or not self.needrun(job), self.dependencies[job])) and not self.dynamic(job) and not job.dynamic_input
 	
 	def needrun(self, job):
 		return job in self._needrun
@@ -94,8 +95,31 @@ class DAG:
 	
 	def dynamic(self, job):
 		return job in self._dynamic
+	
+	def missing_temp(self, job):
+		for job_, files in self.depending[job].items():
+			if self.needrun(job_) and any(not f.exists() for f in files):
+				return True
+		return False
 		
-	def update(self, job, visited = None, parentmintime = None, skip_until_dynamic = False, noneedrun = False):
+	def check_output(self, job):
+		for f in job.expanded_output:
+			if not f.exists():
+				raise MissingOutputException("Output file {} not produced by rule {}.".format(f, job.rule.name), lineno = job.rule.lineno, snakefile = job.rule.snakefile)
+	
+	def handle_protected(self, job):
+		for f in job.expanded_output:
+			if f in job.protected_output:
+				f.protect()
+	
+	def handle_temp(self, job):
+		needed = lambda job, f: any(f in files for job_, files in self.depending[job].items() if not self.finished(job_))
+		for job_ , files in self.dependencies[job].items():
+			for f in files:
+				if not needed(job_, f):
+					f.remove()
+		
+	def update(self, job, visited = None, parentmintime = None, skip_until_dynamic = False, count = False, skipneedrun = False):
 		if job in self.dependencies:
 			return
 		if visited is None:
@@ -117,8 +141,8 @@ class DAG:
 				if file in missing_input:
 					missing_input.remove(file)
 				# TODO check for pumping up wildcards...
-				dependencies[job_].append(file)
-				self.depending[job_][job].append(file)
+				dependencies[job_].add(file)
+				self.depending[job_][job].add(file)
 			except (RuleException, RuntimeError) as ex:
 				if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
 					raise RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), lineno = job.rule.lineno, snakefile = job.rule.snakefile)
@@ -128,20 +152,17 @@ class DAG:
 		if missing_input:
 			raise MissingInputException(job.rule, missing_input)
 		
-		# TODO needrun is not propagated for dynamic jobs!
 		if skip_until_dynamic:
 			self._dynamic.add(job)
-		else:
-			if noneedrun:
-				self._len += 1
-			else:
-				needrun, reason = self._calc_needrun(job, output_mintime)
-				if needrun:
-					#print(job, job.output, reason, skip_until_dynamic)
-					self._len += 1
-					self._needrun.add(job)
-					self._reason[job] = reason
-					self.update_needrun_temp(job)
+		if not skipneedrun:
+			needrun, reason = self._calc_needrun(job, output_mintime)
+			if needrun:
+				#print(job, job.output, reason, skip_until_dynamic)
+				count = True
+				self._needrun.add(job)
+				self._reason[job] = reason
+		if count:
+			self._len += 1
 
 	
 	def _calc_needrun(self, job, output_mintime):
@@ -167,8 +188,11 @@ class DAG:
 			
 		return False, None
 	
-	def finish(self, job):
+	def finish(self, job, update_dynamic = True):
 		self._finished.add(job)
+		if update_dynamic:
+			self.update_dynamic(job)
+			self.update_needrun_temp()
 	
 	def update_dynamic(self, job):
 		dynamic_wildcards = job.dynamic_wildcards
@@ -180,15 +204,12 @@ class DAG:
 		newjob = Job(job.rule)
 		self.replace_job(job, newjob)
 		for job_ in depending:
-			if self.dynamic(job_):
-				self.delete_job(job_)
-			else:
-				if job_.dynamic_input:
-					if job_.rule.update_dynamic(dynamic_wildcards):
+			if job_.dynamic_input:
+				if job_.rule.update_dynamic(dynamic_wildcards):
+					if not self.dynamic(job_):
 						#print(job_, job_.targetfile, job_.dynamic_output)
 						newjob = Job(job_.rule, targetfile=job_.targetfile)
 						self.replace_job(job_, newjob)
-				
 	
 	def delete_job(self, job):
 		for job_ in self.depending[job]:
@@ -212,19 +233,19 @@ class DAG:
 	def replace_job(self, job, newjob):
 		finished = self.finished(job)
 		self.delete_job(job)
-		self.update(newjob, noneedrun=finished)
+		self.update(newjob, count=finished, skipneedrun=finished)
 		if job in self.targetjobs:
 			self.targetjobs.remove(job)
 			self.targetjobs.add(newjob)
 	
-	def update_needrun_temp(self, job):
-		for job_, files in self.dependencies[job].items():
-			for f in files:
-				if f in job_.temp_output and not f.exists():
-					needrun, reason = True, "Missing temp files for rule {}".format(job)
-					self._needrun.add(job_)
-					self._reason[job_] = reason
-					self.update_needrun_temp(job_)
+	def update_needrun_temp(self):
+		for job in filter(lambda job: job.temp_output, 
+		                  self.bfs(self.dependencies, 
+		                           *self.targetjobs, 
+		                           stop=lambda job: self.finished(job) or not self.needrun(job) and not job.temp_output)):
+			if self.missing_temp(job):
+				self._needrun.add(job)
+				self._reason[job] = "Missing temp file"
 	
 	def collect_potential_dependencies(self, job):
 		dependencies = defaultdict(list)
@@ -297,8 +318,6 @@ class DAG:
 		                    """).format(nodes="\n".join(nodes), edges="\n".join(edges))
 
 	def __len__(self):
-		#if self._len is None:
-		#	self._len = sum(1 for job in self.jobs if self.needrun(job))
 		return self._len
 	
 	def rule2job(self, targetrule):

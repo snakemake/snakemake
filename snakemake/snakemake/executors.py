@@ -44,6 +44,11 @@ class DryrunExecutor:
 				if job.dynamic_output:
 					logger.warning("Subsequent jobs will be added dynamically depending on the output of this rule")
 	
+	def finish_job(self, job):
+		self.dag.check_output(job)
+		self.dag.handle_protected(job)
+		self.dag.handle_temp(job)
+	
 	@staticmethod
 	def format_output(job):
 		for f, f_ in zip(job.output, job.rule.output):
@@ -95,9 +100,7 @@ class CPUExecutor(DryrunExecutor):
 			ex = future.exception()
 			if ex:
 				raise ex
-			job.check_output()
-			job.protect_output()
-			# TODO handle temp and protected files
+			self.finish_job(job)
 			callback(job)
 		except (Exception, BaseException) as ex:
 			print_exception(ex, self.workflow.linemaps)
@@ -146,6 +149,7 @@ class ClusterExecutor(DryrunExecutor):
 				#import pdb; pdb.set_trace()
 				os.remove(jobfinished)
 				os.remove(jobscript)
+				self.finish_job(job)
 				callback(job)
 				return
 			if os.path.exists(jobfailed):

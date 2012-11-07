@@ -70,16 +70,6 @@ class Job:
 		if existing:
 			return min(existing)
 		return None
-		
-	def check_output(self):
-		for f in self.expanded_output:
-			if not f.exists():
-				raise MissingOutputException("Output file {} not produced by rule {}.".format(f, self.rule.name), lineno = self.rule.lineno, snakefile = self.rule.snakefile)
-	
-	def protect_output(self):
-		for f in self.expanded_output:
-			if f in self.protected_output:
-				f.protect()
 	
 	def cleanup(self):
 		for f in self.output:

@@ -67,12 +67,9 @@ class JobScheduler:
 	def _finished(self, job):
 		self.stats.report_job_end(job)
 		self.finished_jobs += 1
-		self.dag.finish(job)
 		needrun = self.dag.needrun(job)
-		if needrun:
-			self._cores += job.threads
-		if not self.dryrun or not needrun:
-			self.dag.update_dynamic(job)
+		self.dag.finish(job, update_dynamic=not self.dryrun)
+		self._cores += job.threads
 		if not self.quiet:
 			self.progress()
 		self._open_jobs.set()
