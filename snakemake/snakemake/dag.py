@@ -95,7 +95,7 @@ class DAG:
 	def dynamic(self, job):
 		return job in self._dynamic
 		
-	def update(self, job, visited = None, parentmintime = None, skip_until_dynamic = False):
+	def update(self, job, visited = None, parentmintime = None, skip_until_dynamic = False, noneedrun = False):
 		if job in self.dependencies:
 			return
 		if visited is None:
@@ -103,15 +103,17 @@ class DAG:
 		dependencies = self.dependencies[job]
 		potential_dependencies = self.collect_potential_dependencies(job).items()
 
-		output_mintime = job.output_mintime() or parentmintime
-		skip_until_dynamic = not job.dynamic_output and (skip_until_dynamic or job.dynamic_input)
+		output_mintime = job.output_mintime or parentmintime
+		#if job.rule.name == "annotate_clusters" and not skip_until_dynamic:
+		#	import pdb; pdb.set_trace()
+		skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 		
 		missing_input = job.missing_input
 		exceptions = list()
 		for file, jobs in potential_dependencies:
 			try:
 				job_ = self.select_dependency(file, jobs, visited)
-				self.update(job_, visited=set(visited), parentmintime=output_mintime, skip_until_dynamic=skip_until_dynamic)
+				self.update(job_, visited=set(visited), parentmintime=output_mintime, skip_until_dynamic=skip_until_dynamic or file in job.dynamic_input)
 				if file in missing_input:
 					missing_input.remove(file)
 				# TODO check for pumping up wildcards...
@@ -126,18 +128,25 @@ class DAG:
 		if missing_input:
 			raise MissingInputException(job.rule, missing_input)
 		
+		# TODO needrun is not propagated for dynamic jobs!
 		if skip_until_dynamic:
 			self._dynamic.add(job)
 		else:
-			needrun, reason = self._calc_needrun(job, output_mintime)
-			if needrun:
+			if noneedrun:
 				self._len += 1
-				self._needrun.add(job)
-				self._reason[job] = reason
-				self.update_needrun_temp(job)
+			else:
+				needrun, reason = self._calc_needrun(job, output_mintime)
+				if needrun:
+					#print(job, job.output, reason, skip_until_dynamic)
+					self._len += 1
+					self._needrun.add(job)
+					self._reason[job] = reason
+					self.update_needrun_temp(job)
 
 	
 	def _calc_needrun(self, job, output_mintime):
+		#if job.rule.name == "list_clusters":
+		#	import pdb; pdb.set_trace()
 		# forced?
 		if job.rule in self.forcerules or job.targetfile in self.forcefiles:
 			return True, "Forced execution"
@@ -166,20 +175,20 @@ class DAG:
 		if not dynamic_wildcards:
 			# this happens e.g. in dryrun if output is not yet present
 			return
-		depending = list(filter(lambda job_: not self.finished(job_) and self.dynamic(job_), self.bfs(self.depending, job)))
+		depending = list(filter(lambda job_: not self.finished(job_), self.bfs(self.depending, job)))
 		job.rule.update_dynamic(dynamic_wildcards, input=False)
-		if self.needrun(job):
-			# increase len if job was needrun before
-			self._len += 1
 		newjob = Job(job.rule)
 		self.replace_job(job, newjob)
 		for job_ in depending:
-			if job_.dynamic_input:
-				if job_.rule.update_dynamic(dynamic_wildcards):
-					newjob = Job(job_.rule, targetfile=job_.targetfile)
-					self.replace_job(job_, newjob)
-			else:
+			if self.dynamic(job_):
 				self.delete_job(job_)
+			else:
+				if job_.dynamic_input:
+					if job_.rule.update_dynamic(dynamic_wildcards):
+						#print(job_, job_.targetfile, job_.dynamic_output)
+						newjob = Job(job_.rule, targetfile=job_.targetfile)
+						self.replace_job(job_, newjob)
+				
 	
 	def delete_job(self, job):
 		for job_ in self.depending[job]:
@@ -201,8 +210,9 @@ class DAG:
 			self._dynamic.remove(job)
 	
 	def replace_job(self, job, newjob):
+		finished = self.finished(job)
 		self.delete_job(job)
-		self.update(newjob)
+		self.update(newjob, noneedrun=finished)
 		if job in self.targetjobs:
 			self.targetjobs.remove(job)
 			self.targetjobs.add(newjob)
@@ -273,7 +283,7 @@ class DAG:
 			style = ""
 			if not self.needrun(job):
 				style = ',style="rounded,dashed"'
-			if self.dynamic(job):
+			if self.dynamic(job) or job.dynamic_input:
 				style = ',style="rounded,dotted"'
 			nodes.append('\t{}[label = "{}"{}];'.format(jobid[job], label, style))
 			for job_ in self.dependencies[job]:

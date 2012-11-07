@@ -63,9 +63,10 @@ class Job:
 	@property
 	def missing_output(self):
 		return set(f for f in self.expanded_output if not f.exists())
-		
+	
+	@property
 	def output_mintime(self):
-		existing = [f.mtime() for f in self.output if f.exists()]
+		existing = [f.mtime() for f in self.expanded_output if f.exists()]
 		if existing:
 			return min(existing)
 		return None
