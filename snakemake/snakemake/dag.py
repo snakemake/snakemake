@@ -1,6 +1,6 @@
 import textwrap
 from collections import defaultdict
-from itertools import chain, combinations, filterfalse
+from itertools import chain, combinations, filterfalse, product
 from functools import partial, lru_cache
 from operator import itemgetter
 
@@ -299,23 +299,37 @@ class DAG:
 	def __str__(self):
 		jobid = dict((job, i) for i, job in enumerate(self.jobs))
 		nodes, edges = list(), list()
+		types = ["running job", "not running job", "dynamic job"]
+		styles = ["rounded", "rounded,dashed", "rounded,dotted"]
+		used_types = set()
 		for job in self.jobs:
 			label = "\\n".join([job.rule.name] + list(map(": ".join, self.new_wildcards(job))))
-			style = ""
+			t = 0
 			if not self.needrun(job):
-				style = ',style="rounded,dashed"'
+				t = 1
 			if self.dynamic(job) or job.dynamic_input:
-				style = ',style="rounded,dotted"'
-			nodes.append('\t{}[label = "{}"{}];'.format(jobid[job], label, style))
+				t = 2
+			used_types.add(t)
+			nodes.append('\t{}[label = "{}", style="{}"];'.format(jobid[job], label, styles[t]))
 			for job_ in self.dependencies[job]:
 				edges.append("\t{} -> {};".format(jobid[job_], jobid[job]))
+		legend = list()
+		for t in used_types:
+			legend.append('\tlegend{}[label="{}", style="{}"];'.format(t, types[t], styles[t]))
+			for target in map(jobid.__getitem__, self.targetjobs):
+				legend.append("\t{} -> legend{}[style=invis];".format(target, t))
+				
 		return textwrap.dedent("""\
 		                    digraph snakemake_dag {{
+		                    	graph[bgcolor=white];
 		                    	node[shape=box,style=rounded];
 		                    {nodes}
 		                    {edges}
+		                    {legend}
 		                    }}\
-		                    """).format(nodes="\n".join(nodes), edges="\n".join(edges))
+		                    """).format(nodes="\n".join(nodes), 
+		                                edges="\n".join(edges), 
+		                                legend="\n".join(legend))
 
 	def __len__(self):
 		return self._len

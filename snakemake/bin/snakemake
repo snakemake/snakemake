@@ -36,7 +36,8 @@ def main():
 	                    help="Print out the shell commands that will be executed.")
 	parser.add_argument("--dag", action="store_true", 
 	                    help=("Do not execute anything and print the directed "
-	                          "acyclic graph of jobs to execute in the dot language."))
+	                          "acyclic graph of jobs in the dot language."
+	                          "Recommended use on Unix systems: snakemake --dag | dot | display"))
 	parser.add_argument("--touch", "-t", action="store_true", 
 	                    help=("Touch output files (mark them up to date without really "
 	                          "changing them) instead of running their commands. This is "
