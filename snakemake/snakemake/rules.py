@@ -34,7 +34,7 @@ class Rule:
 		self.run_func = None
 		self.shellcmd = None
 
-	def dynamic_update(self, wildcards, input=True):
+	def update_dynamic(self, wildcards, input=True):
 		io, dynamic_io = (self.input, self.dynamic_input) if input else (self.output, self.dynamic_output)
 		expansion = defaultdict(list)
 		for i, f in enumerate(io):

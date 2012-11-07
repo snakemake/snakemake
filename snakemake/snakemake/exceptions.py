@@ -31,7 +31,7 @@ def print_exception(ex, linemaps):
 	ex -- the exception
 	linemaps -- a dict of a dict that maps for each snakefile the compiled lines to source code lines in the snakefile.
 	"""
-	#traceback.print_exception(type(ex), ex, ex.__traceback__)
+	traceback.print_exception(type(ex), ex, ex.__traceback__)
 	origin = get_exception_origin(ex, linemaps)
 	if origin is not None:
 		lineno, file = origin

@@ -1,3 +1,5 @@
+TEST = "abc"
+
 rule rule1:
 	''' This rule creates an intermediate file. '''
 	input: 
@@ -5,7 +7,7 @@ rule rule1:
 	output: 'test.out'
 	message: 'Copying {input[0]} to {output[0]}'
 	shell: 
-		'cp {input[0]} {output[0]}'
+		'echo {TEST}; cp {input[0]} {output[0]}'
 
 rule rule2:
 	input: 'test.in'

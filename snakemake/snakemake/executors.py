@@ -10,8 +10,9 @@ from snakemake.exceptions import print_exception, get_exception_origin, format_e
 	
 class DryrunExecutor:
 
-	def __init__(self, workflow, printreason=False, quiet=False, printshellcmds=False):
+	def __init__(self, workflow, dag, printreason=False, quiet=False, printshellcmds=False):
 		self.workflow = workflow
+		self.dag = dag
 		self.quiet = quiet
 		self.printreason = printreason
 		self.printshellcmds = printshellcmds
@@ -32,8 +33,8 @@ class DryrunExecutor:
 			if not self.quiet:
 				desc.append("rule {}:".format(job.rule.name))
 				for name, value in (("input", job.input), 
-				                    ("output", self.format_output(job)),
-				                    ("reason", job.reason if self.printreason else None)):
+				                    ("output", list(self.format_output(job))),
+				                    ("reason", self.dag.reason(job) if self.printreason else None)):
 					if value:
 						desc.append(self.format_ruleitem(name, value))
 			if self.printshellcmds and job.shellcmd:
@@ -53,8 +54,9 @@ class DryrunExecutor:
 		
 	@staticmethod
 	def format_ruleitem(name, value):
-		
-		return "" if not value else "\t{}: {}".format(name, ", ".join(value))
+		if not type(value) == str:
+			value = ", ".join(value)
+		return "" if not value else "\t{}: {}".format(name, value)
 
 class TouchExecutor(DryrunExecutor):
 
@@ -71,8 +73,8 @@ class TouchExecutor(DryrunExecutor):
 
 class CPUExecutor(DryrunExecutor):
 
-	def __init__(self, workflow, cores, printreason=False, quiet=False, printshellcmds=False, threads=False):
-		super().__init__(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
+	def __init__(self, workflow, dag, cores, printreason=False, quiet=False, printshellcmds=False, threads=False):
+		super().__init__(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=cores) if threads else concurrent.futures.ProcessPoolExecutor(max_workers=cores)
 
 	def run(self, job, callback = None, error_callback = None):
@@ -104,8 +106,8 @@ class CPUExecutor(DryrunExecutor):
 			
 class ClusterExecutor(DryrunExecutor):
 
-	def __init__(self, workflow, cores, submitcmd="qsub", printreason=False, quiet=False, printshellcmds=False):
-		super().__init__(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
+	def __init__(self, workflow, dag, cores, submitcmd="qsub", printreason=False, quiet=False, printshellcmds=False):
+		super().__init__(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		if workflow.snakemakepath is None:
 			raise ValueError("Cluster executor needs to know the path to the snakemake binary.")
 		self.submitcmd = submitcmd

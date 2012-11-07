@@ -36,9 +36,12 @@ class Job:
 	
 	@property
 	def expanded_output(self):
-		for i, f in enumerate(self.output):
+		for f, f_ in zip(self.output, self.rule.output):
 			if f in self.dynamic_output:
-				for f, _ in listfiles(self.rule.output[i]):
+				expansion = list(listfiles(f_))
+				if not expansion:
+					yield f_
+				for f, _ in expansion:
 					yield IOFile(f, self.rule)
 			else:
 				yield f
@@ -46,9 +49,9 @@ class Job:
 	@property
 	def dynamic_wildcards(self):
 		wildcards = defaultdict(set)
-		for i, f in enumerate(self.output):
+		for f, f_ in zip(self.output, self.rule.output):
 			if f in self.dynamic_output:
-				for f, w in listfiles(self.rule.output[i]):
+				for f, w in listfiles(f_):
 					for name, value in w.items():
 						wildcards[name].add(value)
 		return wildcards
@@ -56,6 +59,10 @@ class Job:
 	@property
 	def missing_input(self):
 		return set(f for f in self.input if not f.exists())
+
+	@property
+	def missing_output(self):
+		return set(f for f in self.expanded_output if not f.exists())
 		
 	def output_mintime(self):
 		existing = [f.mtime() for f in self.output if f.exists()]
@@ -84,7 +91,7 @@ class Job:
 		              output=self.output, 
 		              wildcards=self.wildcards, 
 		              threads=self.threads, 
-		              log=self.log)
+		              log=self.log, **self.rule.workflow.globals)
 
 	def __repr__(self):
 		return self.rule.name

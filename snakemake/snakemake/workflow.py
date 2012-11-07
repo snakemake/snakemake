@@ -26,11 +26,12 @@ class Workflow:
 		"""
 		self._rules = OrderedDict()
 		self.first_rule = None
-		self.workdir = None
+		self._workdir = None
 		self.ruleorder = Ruleorder()
 		self.linemaps = dict()
 		self.rule_count = 0
 		self.snakemakepath = snakemakepath
+		self.globals = globals()
 	
 	@property
 	def rules(self):
@@ -87,7 +88,7 @@ class Workflow:
 	              printshellcmds = False, printreason = False, printdag = False,
 	              cluster = None,  ignore_ambiguity = False, workdir = None, stats = None):
 		if workdir is None:
-			workdir = os.getcwd() if self.workdir is None else self.workdir
+			workdir = os.getcwd() if self._workdir is None else self._workdir
 		os.chdir(workdir)
 		
 		ruletargets, filetargets = [], []
@@ -139,15 +140,15 @@ class Workflow:
 		code, linemap, rule_count = compile_to_python(snakefile, rule_count = self.rule_count)
 		self.rule_count += rule_count
 		self.linemaps[snakefile] = linemap
-		exec(compile(code, snakefile, "exec"), globals())
+		exec(compile(code, snakefile, "exec"), self.globals)
 		if not overwrite_first_rule:
 			self.first_rule = first_rule
 
 	def workdir(self, workdir):
-		if self.workdir is None:
+		if self._workdir is None:
 			if not os.path.exists(workdir):
 				os.makedirs(workdir)
-			self.workdir = workdir
+			self._workdir = workdir
 
 	def ruleorder(self, *rulenames):
 		self._ruleorder.add(*rulenames)

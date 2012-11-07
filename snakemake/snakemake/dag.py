@@ -23,7 +23,7 @@ class DAG:
 		self._reason = dict()
 		self._finished = set()
 		self._dynamic = set()
-		self._len = None
+		self._len = 0
 		self.workflow = workflow
 		self.rules = workflow.rules
 		self.targetfiles = targetfiles
@@ -62,7 +62,7 @@ class DAG:
 		if exceptions:
 			raise RuleException(include=chain(*exceptions.values()))
 		
-		for job in filter(lambda job: job.dynamic_output, self.jobs):
+		for job in filter(lambda job: job.dynamic_output and not self.needrun(job), self.jobs):
 			self.update_dynamic(job)
 			
 
@@ -131,6 +131,7 @@ class DAG:
 		else:
 			needrun, reason = self._calc_needrun(job, output_mintime)
 			if needrun:
+				self._len += 1
 				self._needrun.add(job)
 				self._reason[job] = reason
 				self.update_needrun_temp(job)
@@ -142,9 +143,9 @@ class DAG:
 			return True, "Forced execution"
 			
 		# missing output?
-		output_missing = [f for f in job.output if not f.exists()]
-		if output_missing:
-			return True, "Missing output files: {}".format(", ".join(output_missing))
+		missing_output = job.missing_output
+		if missing_output:
+			return True, "Missing output files: {}".format(", ".join(missing_output))
 		
 		# updated input?
 		updated_input = set(chain(*(f for job_, f in self.dependencies[job].items() if self.needrun(job_))))
@@ -159,26 +160,25 @@ class DAG:
 	
 	def finish(self, job):
 		self._finished.add(job)
-		if job.dynamic_output:
-			#import pdb; pdb.set_trace()
-			self.update_dynamic(job)
 	
 	def update_dynamic(self, job):
 		dynamic_wildcards = job.dynamic_wildcards
 		if not dynamic_wildcards:
 			# this happens e.g. in dryrun if output is not yet present
 			return
-		self._len = None
-		depending = list(filter(lambda job_: not self.finished(job_), self.bfs(self.depending, job)))
-		job.rule.dynamic_update(dynamic_wildcards, input=False)
+		depending = list(filter(lambda job_: not self.finished(job_) and self.dynamic(job_), self.bfs(self.depending, job)))
+		job.rule.update_dynamic(dynamic_wildcards, input=False)
+		if self.needrun(job):
+			# increase len if job was needrun before
+			self._len += 1
 		newjob = Job(job.rule)
 		self.replace_job(job, newjob)
 		for job_ in depending:
 			if job_.dynamic_input:
-				if job_.rule.dynamic_update(dynamic_wildcards):
+				if job_.rule.update_dynamic(dynamic_wildcards):
 					newjob = Job(job_.rule, targetfile=job_.targetfile)
 					self.replace_job(job_, newjob)
-			elif self.dynamic(job_):
+			else:
 				self.delete_job(job_)
 	
 	def delete_job(self, job):
@@ -192,6 +192,7 @@ class DAG:
 				self.delete_job(job_)
 		del self.dependencies[job]
 		if job in self._needrun:
+			self._len -= 1
 			self._needrun.remove(job)
 			del self._reason[job]
 		if job in self._finished:
@@ -286,8 +287,8 @@ class DAG:
 		                    """).format(nodes="\n".join(nodes), edges="\n".join(edges))
 
 	def __len__(self):
-		if self._len is None:
-			self._len = sum(1 for job in self.jobs if self.needrun(job))
+		#if self._len is None:
+		#	self._len = sum(1 for job in self.jobs if self.needrun(job))
 		return self._len
 	
 	def rule2job(self, targetrule):

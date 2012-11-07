@@ -19,16 +19,16 @@ class JobScheduler:
 		self._open_jobs = multiprocessing.Event() if not use_threads else threading.Event()
 		self._errors = False
 		if dryrun:
-			self._executor = DryrunExecutor(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
+			self._executor = DryrunExecutor(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 			self.progress = lambda: None
 		elif touch:
-			self._executor = TouchExecutor(workflow, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
+			self._executor = TouchExecutor(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		elif cluster:
 			# TODO properly set cores
-			self._executor = ClusterExecutor(workflow, None, submitcmd=cluster, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
+			self._executor = ClusterExecutor(workflow, dag, None, submitcmd=cluster, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 			self._open_jobs = threading.Event()
 		else:
-			self._executor = CPUExecutor(workflow, cores, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds, threads=use_threads)
+			self._executor = CPUExecutor(workflow, dag, cores, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds, threads=use_threads)
 			self._selector = self._thread_based_selector
 		self._open_jobs.set()
 
@@ -66,10 +66,13 @@ class JobScheduler:
 		
 	def _finished(self, job):
 		self.stats.report_job_end(job)
-		if self.dag.needrun(job):
-			self._cores += job.threads
 		self.finished_jobs += 1
 		self.dag.finish(job)
+		needrun = self.dag.needrun(job)
+		if needrun:
+			self._cores += job.threads
+		if not self.dryrun or not needrun:
+			self.dag.update_dynamic(job)
 		if not self.quiet:
 			self.progress()
 		self._open_jobs.set()
