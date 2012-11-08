@@ -83,7 +83,6 @@ class JobScheduler:
 		self._cores += job.threads
 		if not self.quiet:
 			self.progress()
-		
 		if any(self.open_jobs) or self.finished:
 			self._open_jobs.set()
 	
