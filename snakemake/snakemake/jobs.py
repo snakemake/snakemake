@@ -59,10 +59,6 @@ class Job:
 	@property
 	def missing_input(self):
 		return set(f for f in self.input if not f.exists())
-
-	@property
-	def missing_output(self):
-		return set(f for f in self.expanded_output if not f.exists())
 	
 	@property
 	def output_mintime(self):
@@ -70,6 +66,18 @@ class Job:
 		if existing:
 			return min(existing)
 		return None
+	
+	def missing_output(self, requested = None):
+		if requested is None:
+			requested = set(self.output)
+		files = set()
+		for f, f_ in zip(self.output, self.rule.output):
+			if f in requested:
+				if f in self.dynamic_output:
+					files.add("{} (dynamic)".format(f_))
+				elif not f.exists():
+					files.add(f)
+		return files
 	
 	def cleanup(self):
 		for f in self.output:
@@ -88,6 +96,8 @@ class Job:
 		return self.rule.name
 	
 	def __eq__(self, other):
+		if other is None:
+			return False
 		return self.rule == other.rule and self.output == other.output
 	
 	def __hash__(self):

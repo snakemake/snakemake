@@ -65,7 +65,7 @@ class DAG:
 		
 		for job in filter(lambda job: job.dynamic_output and not self.needrun(job), self.jobs):
 			self.update_dynamic(job)
-		self.update_needrun()
+		#self.update_needrun()
 
 	@property
 	def jobs(self):
@@ -154,7 +154,7 @@ class DAG:
 		if skip_until_dynamic:
 			self._dynamic.add(job)
 
-	def update_needrun(self):
+	def update_needrun(self, noforce = None):
 		def output_mintime(job):
 			for job_ in self.bfs(self.depending, job):
 				t = job.output_mintime 
@@ -162,15 +162,16 @@ class DAG:
 					return t
 		def needrun(job):
 			reason = self.reason(job)
-			if job.rule in self.forcerules or job.targetfile in self.forcefiles:
+			if job != noforce and job.rule in self.forcerules or job.targetfile in self.forcefiles:
 				reason.forced = True
 			elif job in self.targetjobs:
 				if not job.output:
 					reason.updated_input.update([f for f in job.input if not f.exists()])
 				else:
-					missing_output = job.missing_output
-					if not job.rule in self.targetrules:
-						missing_output &= set(chain(*self.depending[job].values())) | self.targetfiles
+					if job.rule in self.targetrules:
+						missing_output = job.missing_output()
+					else:
+						missing_output = job.missing_output(requested=set(chain(*self.depending[job].values())) | self.targetfiles)
 					reason.missing_output.update(missing_output)
 			else:
 				output_mintime_ = output_mintime(job)
@@ -178,7 +179,6 @@ class DAG:
 					updated_input = [f for f in job.input if not f.exists() or f.is_newer(output_mintime_)]
 					reason.updated_input.update(updated_input)
 			return job
-
 		queue = list(filter(self.reason, map(needrun, self.jobs)))
 		visited = set(queue)
 		while queue:
@@ -186,7 +186,7 @@ class DAG:
 			self._needrun.add(job)
 
 			for job_, files in self.dependencies[job].items():
-				missing_output = job_.missing_output & files
+				missing_output = job_.missing_output(requested=files)
 				self.reason(job_).missing_output.update(missing_output)
 				if missing_output and not job_ in visited:
 					visited.add(job_)
@@ -203,10 +203,11 @@ class DAG:
 	def finish(self, job, update_dynamic = True):
 		self._finished.add(job)
 		if update_dynamic:
-			self.update_dynamic(job)
-			self.update_needrun()
-			# add 1 since the finished dynamic job was replaced by a not needrun job
-			self._len += 1
+			newjob = self.update_dynamic(job)
+			if newjob:
+				self.update_needrun(noforce=newjob)
+				# add 1 since the finished dynamic job was replaced by a not needrun job
+				self._len += 1
 	
 	def update_dynamic(self, job):
 		dynamic_wildcards = job.dynamic_wildcards
@@ -222,8 +223,9 @@ class DAG:
 				if job_.rule.update_dynamic(dynamic_wildcards):
 					if not self.dynamic(job_):
 						#print(job_, job_.targetfile, job_.dynamic_output)
-						newjob = Job(job_.rule, targetfile=job_.targetfile)
-						self.replace_job(job_, newjob)
+						newjob_ = Job(job_.rule, targetfile=job_.targetfile)
+						self.replace_job(job_, newjob_)
+		return newjob
 	
 	def delete_job(self, job):
 		for job_ in self.depending[job]:
@@ -299,7 +301,19 @@ class DAG:
 			for wildcard in job_.wildcards.items():
 				new_wildcards.discard(wildcard)
 		return new_wildcards
-
+	
+	def rule2job(self, targetrule):
+		return Job(rule=targetrule)
+	
+	def file2jobs(self, targetfile):
+		jobs = list()
+		for rule in self.rules:
+			if rule.is_producer(targetfile):
+				jobs.append(Job(rule, targetfile=targetfile))
+		if not jobs:
+			raise MissingRuleException(targetfile)
+		return jobs
+	
 	def __str__(self):
 		jobid = dict((job, i) for i, job in enumerate(self.jobs))
 		nodes, edges = list(), list()
@@ -337,15 +351,3 @@ class DAG:
 
 	def __len__(self):
 		return self._len
-	
-	def rule2job(self, targetrule):
-		return Job(rule=targetrule)
-	
-	def file2jobs(self, targetfile):
-		jobs = list()
-		for rule in self.rules:
-			if rule.is_producer(targetfile):
-				jobs.append(Job(rule, targetfile=targetfile))
-		if not jobs:
-			raise MissingRuleException(targetfile)
-		return jobs
