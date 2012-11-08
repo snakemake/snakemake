@@ -66,7 +66,7 @@ class DAG:
 		
 		for job in filter(lambda job: job.dynamic_output and not self.needrun(job), self.jobs):
 			self.update_dynamic(job)
-		#self.update_needrun()
+		self.update_needrun()
 
 	@property
 	def jobs(self):
@@ -84,7 +84,7 @@ class DAG:
 			yield job
 			
 	def ready(self, job):
-		return all(map(lambda job: self.finished(job) or not self.needrun(job), self.dependencies[job])) and not self.dynamic(job) and not job.dynamic_input
+		return all(map(lambda job: self.finished(job) or not self.needrun(job), self.dependencies[job]))
 	
 	def needrun(self, job):
 		return job in self._needrun

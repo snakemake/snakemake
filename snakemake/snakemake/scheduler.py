@@ -32,15 +32,18 @@ class JobScheduler:
 			self._executor = CPUExecutor(workflow, dag, cores, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds, threads=use_threads)
 			self._selector = self._thread_based_selector
 		self._open_jobs.set()
-		
+	
+	def candidate(self, job):
+		return job not in self.running and not self.dag.dynamic(job) and not job.dynamic_input
+	
 	@property
 	def open_jobs(self):
-		return filter(lambda job: job not in self.running and self.dag.needrun(job), self.dag.ready_jobs)
+		return filter(self.candidate, self.dag.ready_jobs)
 	
 	@property
 	def finished(self):
-		return self.finished_jobs == len(self.dag)
-
+		return all(map(self.dag.finished, filter(self.candidate, self.dag.needrun_jobs)))
+	
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
 		while True:

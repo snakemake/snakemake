@@ -35,15 +35,15 @@ class Job:
 				self.dynamic_input.add(f)
 	
 	@property
-	def expanded_output(self):
+	def expanded_output(self, skip_static = False):
 		for f, f_ in zip(self.output, self.rule.output):
 			if f in self.dynamic_output:
-				expansion = list(listfiles(f_))
+				expansion = self.expand_dynamic(f_)
 				if not expansion:
 					yield f_
 				for f, _ in expansion:
 					yield IOFile(f, self.rule)
-			else:
+			elif not skip_static:
 				yield f
 	
 	@property
@@ -51,7 +51,7 @@ class Job:
 		wildcards = defaultdict(set)
 		for f, f_ in zip(self.output, self.rule.output):
 			if f in self.dynamic_output:
-				for f, w in listfiles(f_):
+				for f, w in self.expand_dynamic(f_):
 					for name, value in w.items():
 						wildcards[name].add(value)
 		return wildcards
@@ -73,7 +73,7 @@ class Job:
 		files = set()
 		for f, f_ in zip(self.output, self.rule.output):
 			if f in requested:
-				if f in self.dynamic_output:
+				if f in self.dynamic_output and not self.expand_dynamic(f_):
 					files.add("{} (dynamic)".format(f_))
 				elif not f.exists():
 					files.add(f)
@@ -106,6 +106,10 @@ class Job:
 			for o in self.output:
 				self._hash ^= o.__hash__()
 		return self._hash
+	
+	@staticmethod
+	def expand_dynamic(pattern):
+		return list(listfiles(pattern))
 
 class Reason:
 	def __init__(self):
