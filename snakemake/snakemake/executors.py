@@ -32,8 +32,8 @@ class DryrunExecutor:
 			desc = list()
 			if not self.quiet:
 				desc.append("rule {}:".format(job.rule.name))
-				for name, value in (("input", job.input), 
-				                    ("output", list(self.format_output(job))),
+				for name, value in (("input", ", ".join(job.input)), 
+				                    ("output", ", ".join(self.format_output(job))),
 				                    ("reason", self.dag.reason(job) if self.printreason else None)):
 					if value:
 						desc.append(self.format_ruleitem(name, value))
@@ -59,8 +59,6 @@ class DryrunExecutor:
 		
 	@staticmethod
 	def format_ruleitem(name, value):
-		if not type(value) == str:
-			value = ", ".join(value)
 		return "" if not value else "\t{}: {}".format(name, value)
 
 class TouchExecutor(DryrunExecutor):

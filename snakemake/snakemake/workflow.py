@@ -91,14 +91,14 @@ class Workflow:
 			workdir = os.getcwd() if self._workdir is None else self._workdir
 		os.chdir(workdir)
 		
-		ruletargets, filetargets = [], []
+		ruletargets, filetargets = set(), set()
 		if not targets:
-			targets = [self.first_rule]
+			targets = set([self.first_rule])
 		for target in targets:
 			if self.is_rule(target):
-				ruletargets.append(self._rules[target])
+				ruletargets.add(self._rules[target])
 			else:
-				filetargets.append(os.path.relpath(target))
+				filetargets.add(os.path.relpath(target))
 		
 		try:
 			forcerules_ = list()

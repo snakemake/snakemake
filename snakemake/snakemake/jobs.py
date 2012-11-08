@@ -96,3 +96,21 @@ class Job:
 			for o in self.output:
 				self._hash ^= o.__hash__()
 		return self._hash
+
+class Reason:
+	def __init__(self):
+		self.updated_input = set()
+		self.missing_output = set()
+		self.forced = False
+
+	def __str__(self):
+		if self.forced:
+			return "Forced execution"
+		if self.missing_output:
+			return "Missing output files: {}".format(", ".join(self.missing_output))
+		if self.updated_input:
+			return "Updated input files: {}".format(", ".join(self.updated_input))
+		return ""
+
+	def __bool__(self):
+		return bool(self.updated_input or self.missing_output or self.forced)
