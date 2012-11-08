@@ -7,6 +7,7 @@ from operator import itemgetter
 from snakemake.io import IOFile
 from snakemake.jobs import Job, Reason
 from snakemake.exceptions import RuleException, MissingInputException, MissingRuleException, AmbiguousRuleException, CyclicGraphException
+from snakemake.logging import logger
 
 class DAG:
 	def __init__(self, 
@@ -73,13 +74,13 @@ class DAG:
 			yield job
 	
 	@property
-	def open_jobs(self):
+	def needrun_jobs(self):
 		for job in filter(self.needrun, self.bfs(self.dependencies, *self.targetjobs, stop=self.finished)):
 			yield job
 			
 	@property
 	def ready_jobs(self):
-		for job in filter(self.ready, self.open_jobs):
+		for job in filter(self.ready, self.needrun_jobs):
 			yield job
 			
 	def ready(self, job):
@@ -202,7 +203,8 @@ class DAG:
 	
 	def finish(self, job, update_dynamic = True):
 		self._finished.add(job)
-		if update_dynamic:
+		if update_dynamic and job.dynamic_output:
+			logger.warning("Dynamically updating jobs")
 			newjob = self.update_dynamic(job)
 			if newjob:
 				self.update_needrun(noforce=newjob)

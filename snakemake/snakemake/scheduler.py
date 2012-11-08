@@ -12,6 +12,7 @@ class JobScheduler:
 		self.dryrun = dryrun
 		self.quiet = quiet
 		self.maxcores = cores
+		self.running = set()
 		self.finished_jobs = 0
 		self.stats = Stats()
 		self._cores = self.maxcores
@@ -31,6 +32,14 @@ class JobScheduler:
 			self._executor = CPUExecutor(workflow, dag, cores, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds, threads=use_threads)
 			self._selector = self._thread_based_selector
 		self._open_jobs.set()
+		
+	@property
+	def open_jobs(self):
+		return filter(lambda job: job not in self.running and self.dag.needrun(job), self.dag.ready_jobs)
+	
+	@property
+	def finished(self):
+		return self.finished_jobs == len(self.dag)
 
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
@@ -41,10 +50,12 @@ class JobScheduler:
 				logger.warning("Will exit after finishing currently running jobs.")
 				self._executor.shutdown()
 				return False
+			if self.finished:
+				self._executor.shutdown()
+				return True
 
-			#import pdb; pdb.set_trace()
 			needrun = list()
-			for job in filter(self.dag.needrun, self.dag.ready_jobs):
+			for job in self.open_jobs:
 				if job.threads > self.maxcores:
 					# reduce the number of threads so that it 
 					# fits to available cores.
@@ -54,25 +65,27 @@ class JobScheduler:
 							.format(job.rule, job.threads, self.maxcores))
 					job.threads = self.maxcores
 				needrun.append(job)
-			if not needrun:
-				self._executor.shutdown()
-				return True
+			assert needrun
 
 			run = self._selector(needrun)
+			self.running.update(run)
 			self._cores -= sum(job.threads for job in run)
 			for job in run:
-				self.stats.report_job_start(job)
-				self._executor.run(job, callback=self._finished, error_callback=self._error)
+				self.stats.report_job_start(job)	
+				self._executor.run(job, callback=self._finish_job, error_callback=self._error)
 		
-	def _finished(self, job):
+	def _finish_job(self, job):
 		self.stats.report_job_end(job)
 		self.finished_jobs += 1
+		self.running.remove(job)
 		needrun = self.dag.needrun(job)
 		self.dag.finish(job, update_dynamic=not self.dryrun)
 		self._cores += job.threads
 		if not self.quiet:
 			self.progress()
-		self._open_jobs.set()
+		
+		if any(self.open_jobs) or self.finished:
+			self._open_jobs.set()
 	
 	def _error(self):
 		# clear jobs and stop the workflow

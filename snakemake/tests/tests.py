@@ -34,7 +34,7 @@ def run(path, shouldfail=False, **params):
 	tmpdir = mkdtemp()
 	try:
 		call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir), shell=True)
-		success = snakemake(snakefile, cores=1, workdir=tmpdir, stats = "stats.txt", snakemakepath = SCRIPTPATH, **params)
+		success = snakemake(snakefile, cores=3, workdir=tmpdir, stats = "stats.txt", snakemakepath = SCRIPTPATH, **params)
 		if shouldfail:
 			assert not success, "expected error on execution"
 		else:
