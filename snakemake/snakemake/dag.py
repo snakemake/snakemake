@@ -28,6 +28,7 @@ class DAG:
 		self._len = 0
 		self.workflow = workflow
 		self.rules = workflow.rules
+		self.ignore_ambiguity = ignore_ambiguity
 		self.targetfiles = targetfiles
 		self.targetrules = targetrules
 		self.targetjobs = set()
@@ -40,9 +41,6 @@ class DAG:
 		if forcetargets:
 			self.forcerules.update(targetrules)
 			self.forcefiles.update(targetfiles)
-		if ignore_ambiguity:
-			self.select_dependency = self.select_dependency_ign_amb
-
 
 	def init(self):
 		potential_targetjobs = set(map(self.rule2job, self.targetrules))
@@ -226,9 +224,9 @@ class DAG:
 
 		self._len = len(self._needrun)
 	
-	def finish(self, job, update_dynamic = True):
+	def finish(self, job):
 		self._finished.add(job)
-		if update_dynamic and job.dynamic_output:
+		if job.dynamic_output:
 			logger.warning("Dynamically updating jobs")
 			newjob = self.update_dynamic(job)
 			if newjob:
@@ -294,16 +292,10 @@ class DAG:
 		jobs = sorted(jobs)
 		for i, job in reversed(list(enumerate(jobs))):
 			if job not in visited:
-				if i == 0 or job > jobs[i-1]:
+				if self.ignore_ambiguity or i == 0 or job > jobs[i-1]:
 					return job
 				else:
 					raise AmbiguousRuleException(file, job.rule, jobs[i-1].rule)
-		raise CyclicGraphException(job.rule, file)
-	
-	def select_dependency_ign_amb(self, file, jobs, visited):
-		for job in jobs:
-			if job not in visited:
-				return job
 		raise CyclicGraphException(job.rule, file)
 	
 	def bfs(self, direction, *jobs, stop=lambda job: False):
@@ -340,6 +332,36 @@ class DAG:
 		if not jobs:
 			raise MissingRuleException(targetfile)
 		return jobs
+		
+	def printjob(self, job, quiet = False, printshellcmds = False, printreason = False):
+		def format_files(job, io, ruleio, dynamicio):
+			for f, f_ in zip(io, ruleio):
+				if f in dynamicio:
+					yield "{} (dynamic)".format(f_)
+				else:
+					yield f
+		def format_ruleitem(name, value):
+			return "" if not value else "\t{}: {}".format(name, value)
+			
+		desc = list()
+		if not quiet:
+			desc.append("rule {}:".format(job.rule.name))
+			for name, value in (("input", ", ".join(format_files(job, job.input, job.rule.input, job.dynamic_input))), 
+			                    ("output", ", ".join(format_files(job, job.output, job.rule.output, job.dynamic_output))),
+			                    ("reason", self.reason(job) if printreason else None)):
+				if value:
+					desc.append(format_ruleitem(name, value))
+		if printshellcmds and job.shellcmd:
+			desc.append(job.shellcmd)
+		if desc:
+			logger.info("\n".join(desc))
+			if job.dynamic_output:
+				logger.warning("Subsequent jobs will be added dynamically depending on the output of this rule")
+		
+	def dryrun(self, quiet = False, printshellcmds = False, printreason = False):
+		for job in reversed(list(self.needrun_jobs)):
+			if not self.dynamic(job):
+				self.printjob(job, quiet=quiet, printshellcmds=printshellcmds, printreason=printreason)
 	
 	def dot(self, errors = False):
 		jobid = dict((job, i) for i, job in enumerate(self.jobs))

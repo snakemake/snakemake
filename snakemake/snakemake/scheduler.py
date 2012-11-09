@@ -1,7 +1,7 @@
 
 import os, threading
 
-from snakemake.executors import DryrunExecutor, TouchExecutor, ClusterExecutor, CPUExecutor
+from snakemake.executors import TouchExecutor, ClusterExecutor, CPUExecutor
 from snakemake.stats import Stats
 from snakemake.logging import logger
 
@@ -9,7 +9,6 @@ class JobScheduler:
 	def __init__(self, workflow, dag, cores, dryrun = False, touch = False, cluster = None, quiet = False, printreason = False, printshellcmds = False):
 		""" Create a new instance of KnapsackJobScheduler. """
 		self.dag = dag
-		self.dryrun = dryrun
 		self.quiet = quiet
 		self.maxcores = cores
 		self.running = set()
@@ -19,10 +18,7 @@ class JobScheduler:
 		use_threads = os.name == "posix"
 		self._open_jobs = multiprocessing.Event() if not use_threads else threading.Event()
 		self._errors = False
-		if dryrun:
-			self._executor = DryrunExecutor(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
-			self.progress = lambda: None
-		elif touch:
+		if touch:
 			self._executor = TouchExecutor(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
 		elif cluster:
 			# TODO properly set cores
@@ -62,8 +58,7 @@ class JobScheduler:
 				if job.threads > self.maxcores:
 					# reduce the number of threads so that it 
 					# fits to available cores.
-					if not self.dryrun:
-						logger.warn(
+					logger.warn(
 							"Rule {} defines too many threads ({}), Scaling down to {}."
 							.format(job.rule, job.threads, self.maxcores))
 					job.threads = self.maxcores
@@ -82,7 +77,7 @@ class JobScheduler:
 		self.finished_jobs += 1
 		self.running.remove(job)
 		needrun = self.dag.needrun(job)
-		self.dag.finish(job, update_dynamic=not self.dryrun)
+		self.dag.finish(job)
 		self._cores += job.threads
 		if not self.quiet:
 			self.progress()

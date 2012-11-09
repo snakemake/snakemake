@@ -114,18 +114,17 @@ class Workflow:
 		try:
 			dag.init()
 		except (Exception, BaseException) as ex:
-			# TODO maybe find a nice way to print a DAG although we have errors
-			#if printdag:
-			#	print(dag.dot(errors=True))
-			#else:
 			print_exception(ex, self.linemaps)
 			return False
 		
 		if printdag:
 			print(dag)
 			return True
+		if dryrun:
+			dag.dryrun(quiet=quiet, printshellcmds=printshellcmds, printreason=printreason)
+			return True
 		
-		scheduler = JobScheduler(self, dag, cores, dryrun=dryrun, touch=touch, cluster=cluster, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds)
+		scheduler = JobScheduler(self, dag, cores, touch=touch, cluster=cluster, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds)
 		success = scheduler.schedule()
 		
 		if success:

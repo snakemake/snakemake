@@ -9,7 +9,7 @@ from snakemake.logging import logger
 from snakemake.utils import format
 from snakemake.exceptions import print_exception, get_exception_origin, format_error, RuleException, ClusterJobException, ProtectedOutputException
 	
-class DryrunExecutor:
+class AbstractExecutor:
 
 	def __init__(self, workflow, dag, printreason=False, quiet=False, printshellcmds=False):
 		self.workflow = workflow
@@ -29,40 +29,14 @@ class DryrunExecutor:
 		if job.message:
 			logger.info(job.message)
 		else:
-			# TODO show file types
-			desc = list()
-			if not self.quiet:
-				desc.append("rule {}:".format(job.rule.name))
-				for name, value in (("input", ", ".join(job.input)), 
-				                    ("output", ", ".join(self.format_output(job))),
-				                    ("reason", self.dag.reason(job) if self.printreason else None)):
-					if value:
-						desc.append(self.format_ruleitem(name, value))
-			if self.printshellcmds and job.shellcmd:
-				desc.append(job.shellcmd)
-			if desc:
-				logger.info("\n".join(desc))
-				if job.dynamic_output:
-					logger.warning("Subsequent jobs will be added dynamically depending on the output of this rule")
+			self.dag.printjob(job, quiet=self.quiet)
 	
 	def finish_job(self, job):
 		self.dag.check_output(job)
 		self.dag.handle_protected(job)
 		self.dag.handle_temp(job)
-	
-	@staticmethod
-	def format_output(job):
-		for f, f_ in zip(job.output, job.rule.output):
-			if f in job.dynamic_output:
-				yield "{} (dynamic)".format(f_)
-			else:
-				yield f
-		
-	@staticmethod
-	def format_ruleitem(name, value):
-		return "" if not value else "\t{}: {}".format(name, value)
 
-class TouchExecutor(DryrunExecutor):
+class TouchExecutor(AbstractExecutor):
 
 	def run(self, job, callback = None, error_callback = None):
 		super()._run(job)
@@ -75,7 +49,7 @@ class TouchExecutor(DryrunExecutor):
 			print_exception(ex, self.workflow.linemaps)
 			error_callback()
 
-class CPUExecutor(DryrunExecutor):
+class CPUExecutor(AbstractExecutor):
 
 	def __init__(self, workflow, dag, cores, printreason=False, quiet=False, printshellcmds=False, threads=False):
 		super().__init__(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
@@ -108,7 +82,7 @@ class CPUExecutor(DryrunExecutor):
 			job.cleanup()
 			error_callback()
 			
-class ClusterExecutor(DryrunExecutor):
+class ClusterExecutor(AbstractExecutor):
 
 	def __init__(self, workflow, dag, cores, submitcmd="qsub", printreason=False, quiet=False, printshellcmds=False):
 		super().__init__(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
