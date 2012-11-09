@@ -9,7 +9,7 @@ from snakemake.rules import Rule, Ruleorder
 from snakemake.exceptions import MissingOutputException, MissingInputException, \
 	AmbiguousRuleException, CyclicGraphException, MissingRuleException, \
 	RuleException, CreateRuleException, ProtectedOutputException, \
-	UnknownRuleException, NoRulesException
+	UnknownRuleException, NoRulesException, print_exception
 from snakemake.shell import shell
 from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
@@ -111,6 +111,15 @@ class Workflow:
 			return False
 		
 		dag = DAG(self, targetfiles=filetargets, targetrules=ruletargets, forceall=forceall, forcetargets=forcetargets, forcerules=forcerules_, ignore_ambiguity=ignore_ambiguity)
+		try:
+			dag.init()
+		except (Exception, BaseException) as ex:
+			# TODO maybe find a nice way to print a DAG although we have errors
+			#if printdag:
+			#	print(dag.dot(errors=True))
+			#else:
+			print_exception(ex, self.linemaps)
+			return False
 		
 		if printdag:
 			print(dag)
@@ -125,7 +134,6 @@ class Workflow:
 		else:
 			logger.critical("Exiting because a job execution failed. Look above for error message")
 			return False
-		
 		return True
 
 	def include(self, snakefile, workdir = None, overwrite_first_rule = False):

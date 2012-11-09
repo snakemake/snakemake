@@ -24,6 +24,7 @@ class DAG:
 		self._reason = defaultdict(Reason)
 		self._finished = set()
 		self._dynamic = set()
+		self._job_exceptions = dict()
 		self._len = 0
 		self.workflow = workflow
 		self.rules = workflow.rules
@@ -41,7 +42,9 @@ class DAG:
 			self.forcefiles.update(targetfiles)
 		if ignore_ambiguity:
 			self.select_dependency = self.select_dependency_ign_amb
-		
+
+
+	def init(self):
 		potential_targetjobs = set(map(self.rule2job, self.targetrules))
 		exceptions = defaultdict(list)		
 		for file in self.targetfiles:
@@ -101,6 +104,9 @@ class DAG:
 	def dynamic(self, job):
 		return job in self._dynamic
 	
+	def exception(self, job):
+		return self._job_exceptions.get(job, None)
+	
 	def missing_temp(self, job):
 		for job_, files in self.depending[job].items():
 			if self.needrun(job_) and any(not f.exists for f in files):
@@ -149,8 +155,11 @@ class DAG:
 				self.depending[job_][job].add(file)
 			except (RuleException, RuntimeError) as ex:
 				if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
-					raise RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), lineno = job.rule.lineno, snakefile = job.rule.snakefile)
+					ex = RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), lineno = job.rule.lineno, snakefile = job.rule.snakefile)
+					self._job_exceptions[job] = ex
+					raise ex
 				if isinstance(ex, CyclicGraphException) and ex.file == file:
+					self._job_exceptions[job] = ex
 					raise ex
 				exceptions[file].append(ex)
 
@@ -163,7 +172,9 @@ class DAG:
 				else:
 					noproducer.append(f)
 			if noproducer:
-				include.append(MissingInputException(job.rule, missing_input))
+				ex = MissingInputException(job.rule, noproducer)
+				self._job_exceptions[job] = ex
+				include.append(ex)
 			raise RuleException(include=include)
 		
 		if skip_until_dynamic:
@@ -330,11 +341,11 @@ class DAG:
 			raise MissingRuleException(targetfile)
 		return jobs
 	
-	def __str__(self):
+	def dot(self, errors = False):
 		jobid = dict((job, i) for i, job in enumerate(self.jobs))
 		nodes, edges = list(), list()
-		types = ["running job", "not running job", "dynamic job"]
-		styles = ["rounded", "rounded,dashed", "rounded,dotted"]
+		types = ["running job", "not running job", "dynamic job", "error"]
+		styles = ['style="rounded"', 'style="rounded,dashed"', 'style="rounded,dotted"', 'style="rounded,filled", fillcolor="red"']
 		used_types = set()
 		for job in self.jobs:
 			label = "\\n".join([job.rule.name] + list(map(": ".join, self.new_wildcards(job))))
@@ -343,13 +354,17 @@ class DAG:
 				t = 1
 			if self.dynamic(job) or job.dynamic_input:
 				t = 2
+			exception = self.exception(job)
+			if not exception is None:
+				t = 3
+				label += "\\n{}".format("\\n".join(exception.messages).replace("\n", " "))
 			used_types.add(t)
-			nodes.append('\t{}[label = "{}", style="{}"];'.format(jobid[job], label, styles[t]))
+			nodes.append('\t{}[label = "{}", {}];'.format(jobid[job], label, styles[t]))
 			for job_ in self.dependencies[job]:
 				edges.append("\t{} -> {};".format(jobid[job_], jobid[job]))
 		legend = list()
 		for t in used_types:
-			legend.append('\tlegend{}[label="{}", style="{}"];'.format(t, types[t], styles[t]))
+			legend.append('\tlegend{}[label="{}", {}];'.format(t, types[t], styles[t]))
 			for target in map(jobid.__getitem__, self.targetjobs):
 				legend.append("\t{} -> legend{}[style=invis];".format(target, t))
 				
@@ -364,6 +379,9 @@ class DAG:
 		                    """).format(nodes="\n".join(nodes), 
 		                                edges="\n".join(edges), 
 		                                legend="\n".join(legend))
+	
+	def __str__(self):
+		return self.dot()
 
 	def __len__(self):
 		return self._len

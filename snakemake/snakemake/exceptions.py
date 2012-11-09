@@ -77,6 +77,10 @@ class RuleException(Exception):
 		self.lineno = lineno
 		self.filename = snakefile
 		self.omit = not message
+	
+	@property
+	def messages(self):
+		return map(str, (ex for ex in self._include + [self] if not ex.omit))
 
 class MissingOutputException(RuleException):
 	pass
