@@ -24,32 +24,30 @@ class _IOFile(str):
 		self.rule = None
 		self._regex = None
 				
-	def get_file(self):
+	@property
+	def file(self):
 		if not self._is_function:
 			return self._file
 		else:
 			raise ValueError("This IOFile is specified as a function and may not be used directly.")
 
-	def need(self):
-		self._needed += 1
-	
-	def used(self):
-		self._needed -= 1
-		if self._temp and self._needed == 0 and os.path.exists(self.get_file()):
-			logger.warning("Deleting temporary file {}".format(self))
-			os.remove(self.get_file())
-
+	@property
 	def exists(self):
-		return os.path.exists(self.get_file())
+		return os.path.exists(self.file)
+	
+	@property
+	def protected(self):
+		return self.exists and not os.access(self.file, os.W_OK)
 
+	@property
 	def mtime(self):
-		return os.stat(self.get_file()).st_mtime
+		return os.stat(self.file).st_mtime
 	
 	def is_newer(self, time):
-		return self.mtime() >= time
+		return self.mtime >= time
 	
 	def prepare(self):
-		dir = os.path.dirname(self.get_file())
+		dir = os.path.dirname(self.file)
 		if len(dir) > 0 and not os.path.exists(dir):
 			try:
 				os.makedirs(dir)
@@ -60,25 +58,25 @@ class _IOFile(str):
 	
 	def protect(self):
 		logger.warning("Write protecting output file {}".format(self))
-		mode = os.stat(self.get_file()).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
-		if os.path.isdir(self.get_file()):
-			for root, dirs, files in os.walk(self.get_file()):
+		mode = os.stat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+		if os.path.isdir(self.file):
+			for root, dirs, files in os.walk(self.file):
 				for d in dirs:
-					os.chmod(os.path.join(self.get_file(), d), mode)
+					os.chmod(os.path.join(self.file, d), mode)
 				for f in files:
-					os.chmod(os.path.join(self.get_file(), f), mode)
+					os.chmod(os.path.join(self.file, f), mode)
 		else:
-			os.chmod(self.get_file(), mode)
+			os.chmod(self.file, mode)
 	
 	def remove(self):
-		remove(self.get_file())
+		remove(self.file)
 	
 	def touch(self):
 		try:
-			os.utime(self.get_file(), None)
+			os.utime(self.file, None)
 		except OSError as e:
 			if e.errno == 2:
-				raise MissingOutputException("Output file {} of rule {} shall be touched but does not exist.".format(self.get_file(), self.rule.name), lineno = self.rule.lineno, snakefile = self.rule.snakefile)
+				raise MissingOutputException("Output file {} of rule {} shall be touched but does not exist.".format(self.file, self.rule.name), lineno = self.rule.lineno, snakefile = self.rule.snakefile)
 			else:
 				raise e
 
@@ -96,12 +94,12 @@ class _IOFile(str):
 		return IOFile(re.sub(_wildcard_regex, lambda match: "0", f), rule=self.rule)
 		
 	def get_wildcard_names(self):
-		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.get_file()))
+		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.file))
 
 	def regex(self):
 		if not self._regex:
 			# create a regular expression
-			self._regex = re.compile(regex(self._file))
+			self._regex = re.compile(regex(self.file))
 		return self._regex
 
 	def match(self, target):

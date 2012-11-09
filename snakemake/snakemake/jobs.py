@@ -35,7 +35,7 @@ class Job:
 				self.dynamic_input.add(f)
 	
 	@property
-	def expanded_output(self, skip_static = False):
+	def expanded_output(self):
 		for f, f_ in zip(self.output, self.rule.output):
 			if f in self.dynamic_output:
 				expansion = self.expand_dynamic(f_)
@@ -43,7 +43,7 @@ class Job:
 					yield f_
 				for f, _ in expansion:
 					yield IOFile(f, self.rule)
-			elif not skip_static:
+			else:
 				yield f
 	
 	@property
@@ -58,11 +58,11 @@ class Job:
 	
 	@property
 	def missing_input(self):
-		return set(f for f in self.input if not f.exists())
+		return set(f for f in self.input if not f.exists)
 	
 	@property
 	def output_mintime(self):
-		existing = [f.mtime() for f in self.expanded_output if f.exists()]
+		existing = [f.mtime for f in self.expanded_output if f.exists]
 		if existing:
 			return min(existing)
 		return None
@@ -75,13 +75,13 @@ class Job:
 			if f in requested:
 				if f in self.dynamic_output and not self.expand_dynamic(f_):
 					files.add("{} (dynamic)".format(f_))
-				elif not f.exists():
+				elif not f.exists:
 					files.add(f)
 		return files
 	
 	def cleanup(self):
 		for f in self.output:
-			if f.exists():
+			if f.exists:
 				f.remove()
 	
 	def _format_wildcards(self, string):

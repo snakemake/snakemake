@@ -29,6 +29,7 @@ class DAG:
 		self.rules = workflow.rules
 		self.targetfiles = targetfiles
 		self.targetrules = targetrules
+		self.targetjobs = set()
 		self.forcerules = set()
 		self.forcefiles = set()
 		if forceall:
@@ -41,21 +42,23 @@ class DAG:
 		if ignore_ambiguity:
 			self.select_dependency = self.select_dependency_ign_amb
 		
-		self.targetjobs = set(map(self.rule2job, self.targetrules))
+		potential_targetjobs = set(map(self.rule2job, self.targetrules))
 		exceptions = defaultdict(list)		
 		for file in self.targetfiles:
 			try:
 				for job in self.file2jobs(file):
-					self.targetjobs.add(job)
+					potential_targetjobs.add(job)
 			except MissingRuleException as ex:
 				exceptions[file].append(ex)
-		has_producer = set()
 		
-		for job in self.targetjobs:
+		
+		has_producer = set()
+		for job in potential_targetjobs:
 			try:
 				self.update(job)
+				self.targetjobs.add(job)
 				has_producer.add(job.targetfile)
-			except MissingInputException as ex:
+			except RuleException as ex:
 				exceptions[job.targetfile].append(ex)
 		for file in has_producer:
 			if file in exceptions:
@@ -100,25 +103,27 @@ class DAG:
 	
 	def missing_temp(self, job):
 		for job_, files in self.depending[job].items():
-			if self.needrun(job_) and any(not f.exists() for f in files):
+			if self.needrun(job_) and any(not f.exists for f in files):
 				return True
 		return False
 		
 	def check_output(self, job):
 		for f in job.expanded_output:
-			if not f.exists():
+			if not f.exists:
 				raise MissingOutputException("Output file {} not produced by rule {}.".format(f, job.rule.name), lineno = job.rule.lineno, snakefile = job.rule.snakefile)
 	
 	def handle_protected(self, job):
 		for f in job.expanded_output:
 			if f in job.protected_output:
+				logger.warning("Write protecting output file {}".format(f))
 				f.protect()
 	
 	def handle_temp(self, job):
-		needed = lambda job, f: any(f in files for job_, files in self.depending[job].items() if not self.finished(job_))
+		needed = lambda job_, f: any(f in files for j, files in self.depending[job_].items() if not self.finished(j) and j != job)
 		for job_ , files in self.dependencies[job].items():
-			for f in files:
+			for f in job_.temp_output & files:
 				if not needed(job_, f):
+					logger.warning("Removing temporary output file {}".format(f))
 					f.remove()
 		
 	def update(self, job, visited = None, skip_until_dynamic = False):
@@ -132,7 +137,7 @@ class DAG:
 		skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 		
 		missing_input = job.missing_input
-		exceptions = list()
+		exceptions = defaultdict(list)
 		for file, jobs in potential_dependencies:
 			try:
 				job_ = self.select_dependency(file, jobs, visited)
@@ -147,10 +152,19 @@ class DAG:
 					raise RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), lineno = job.rule.lineno, snakefile = job.rule.snakefile)
 				if isinstance(ex, CyclicGraphException) and ex.file == file:
 					raise ex
-				exceptions.append(ex)
+				exceptions[file].append(ex)
 
 		if missing_input:
-			raise MissingInputException(job.rule, missing_input)
+			include = list()
+			noproducer = list()
+			for f in list(missing_input):
+				if f in exceptions:
+					include.extend(exceptions[f])
+				else:
+					noproducer.append(f)
+			if noproducer:
+				include.append(MissingInputException(job.rule, missing_input))
+			raise RuleException(include=include)
 		
 		if skip_until_dynamic:
 			self._dynamic.add(job)
@@ -167,7 +181,7 @@ class DAG:
 				reason.forced = True
 			elif job in self.targetjobs:
 				if not job.output:
-					reason.updated_input.update([f for f in job.input if not f.exists()])
+					reason.updated_input.update([f for f in job.input if not f.exists])
 				else:
 					if job.rule in self.targetrules:
 						missing_output = job.missing_output()
@@ -177,7 +191,7 @@ class DAG:
 			else:
 				output_mintime_ = output_mintime(job)
 				if output_mintime_:
-					updated_input = [f for f in job.input if not f.exists() or f.is_newer(output_mintime_)]
+					updated_input = [f for f in job.input if not f.exists or f.is_newer(output_mintime_)]
 					reason.updated_input.update(updated_input)
 			return job
 		queue = list(filter(self.reason, map(needrun, self.jobs)))

@@ -52,7 +52,7 @@ class RuleException(Exception):
 	"""
 	Base class for exception occuring withing the execution or definition of rules.
 	"""
-	def __init__(self, message = None, include = None, lineno = None, snakefile = None):
+	def __init__(self, message = None, include = None, lineno = None, snakefile = None, rule = None):
 		"""
 		Creates a new instance of RuleException.
 
@@ -69,6 +69,11 @@ class RuleException(Exception):
 				self._include.add(ex)
 				self._include.update(ex._include)
 		self._include = list(self._include)
+		if not rule is None:
+			if lineno is None:
+				lineno = rule.lineno
+			if snakefile is None:
+				snakefile = rule.snakefile
 		self.lineno = lineno
 		self.filename = snakefile
 		self.omit = not message

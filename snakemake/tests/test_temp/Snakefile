@@ -2,26 +2,28 @@ SAMPLES = "H112000120 H113700068 H114840491 H121220211 H121880064 H122060074 H12
 ROOT_FOLDER = "."
 REF = ROOT_FOLDER + "/MRSA252.fasta"
 
+shell.prefix("set -o pipefail; ")
+
 rule all:
   input: expand("{sample}.sorted.bam.bai", sample=SAMPLES)
 
 rule map_reads :
   input: ref = REF #, reads = "{sample}.{group}.trimmed.cor.fastq"
   output: temp("{sample}.{group}.sai")
-  shell: "touch {output}"
+  shell: "cp {input} {output}"
 
 rule sai_to_bam:
   """Creates bam files"""
   input: REF, "{sample}.1.sai", "{sample}.2.sai"#, "{sample}.1.trimmed.cor.fastq", "{sample}.2.trimmed.cor.fastq"
   output: temp("{sample,[^\.]+}.bam")
-  shell: "touch {output}"
+  shell: "cp {input[1]} {output}"
 
 rule sort_bam:
   input: "{sample}.bam"
   output: protected("{sample}.sorted.bam")
-  shell: "touch {output}"
+  shell: "echo test && cp {input} {output} && echo ok"
 
 rule index_bam:
   input: "{sample}.sorted.bam"
   output: protected("{sample}.sorted.bam.bai")
-  shell: "touch {output}"
+  shell: "cp {input} {output}"

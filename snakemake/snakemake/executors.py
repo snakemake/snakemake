@@ -2,11 +2,12 @@
 import os, time, textwrap, stat, shutil, random, string, threading
 import concurrent.futures
 from functools import partial
+from itertools import chain
 
 from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.utils import format
-from snakemake.exceptions import print_exception, get_exception_origin, format_error, RuleException, ClusterJobException
+from snakemake.exceptions import print_exception, get_exception_origin, format_error, RuleException, ClusterJobException, ProtectedOutputException
 	
 class DryrunExecutor:
 
@@ -82,11 +83,13 @@ class CPUExecutor(DryrunExecutor):
 
 	def run(self, job, callback = None, error_callback = None):
 		super()._run(job)
-		try:
-			for f in job.expanded_output:
-				f.remove()
-		except OSError as ex:
-			print_exception("Could not remove output file {} of dynamic rule {}".format(f, job.rule), self.workflow.linemaps)
+		
+		protected = list(filter(lambda f: f.protected, job.expanded_output))
+		if protected:
+			raise ProtectedOutputException(job.rule, protected)
+		for f in chain(*map(job.expand_dynamic, job.dynamic_output)):
+			f.remove()
+		
 		future = self.pool.submit(run_wrapper, job.rule.run_func, job.input, job.output, job.wildcards, job.threads, job.log, self.workflow.linemaps)
 		future.add_done_callback(partial(self._callback, job, callback, error_callback))
 	
