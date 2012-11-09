@@ -71,10 +71,12 @@ class Job:
 		if requested is None:
 			requested = set(self.output)
 		files = set()
+		
 		for f, f_ in zip(self.output, self.rule.output):
 			if f in requested:
-				if f in self.dynamic_output and not self.expand_dynamic(f_):
-					files.add("{} (dynamic)".format(f_))
+				if f in self.dynamic_output:
+					if not self.expand_dynamic(f_):
+						files.add("{} (dynamic)".format(f_))
 				elif not f.exists:
 					files.add(f)
 		return files
