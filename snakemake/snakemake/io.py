@@ -7,7 +7,7 @@ from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
 
-def IOFile(file, rule):
+def IOFile(file, rule=None):
 	f = _IOFile(file)
 	f.rule = rule
 	return f

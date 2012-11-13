@@ -101,6 +101,12 @@ class Job:
 		if other is None:
 			return False
 		return self.rule == other.rule and self.output == other.output
+
+	def __lt__(self, other):
+		return self.rule.__lt__(other.rule)
+
+	def __gt__(self, other):
+		return self.rule.__gt__(other.rule)
 	
 	def __hash__(self):
 		if self._hash is None:
