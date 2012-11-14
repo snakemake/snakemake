@@ -131,6 +131,7 @@ class Job:
 class Reason:
 	def __init__(self):
 		self.updated_input = set()
+		self.updated_input_run = set()
 		self.missing_output = set()
 		self.forced = False
 
@@ -141,7 +142,9 @@ class Reason:
 			return "Missing output files: {}".format(", ".join(self.missing_output))
 		if self.updated_input:
 			return "Updated input files: {}".format(", ".join(self.updated_input))
+		if self.updated_input_run:
+			return "This run will update input files: {}".format(", ".join(self.updated_input_run))
 		return ""
 
 	def __bool__(self):
-		return bool(self.updated_input or self.missing_output or self.forced)
+		return bool(self.updated_input or self.missing_output or self.forced or self.updated_input_run)

@@ -216,7 +216,7 @@ class DAG:
 			else:
 				output_mintime_ = output_mintime(job)
 				if output_mintime_:
-					updated_input = [f for f in job.input if not f.exists or f.is_newer(output_mintime_)]
+					updated_input = [f for f in job.input if f.exists and f.is_newer(output_mintime_)]
 					reason.updated_input.update(updated_input)
 			return job
 		
@@ -234,7 +234,7 @@ class DAG:
 					queue.append(job_)
 
 			for job_, files in self.depending[job].items():
-				self.reason(job_).updated_input.update(files)
+				self.reason(job_).updated_input_run.update(files)
 				if not job_ in visited:
 					visited.add(job_)
 					queue.append(job_)
