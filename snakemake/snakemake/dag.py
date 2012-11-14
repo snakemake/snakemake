@@ -134,33 +134,51 @@ class DAG:
 		if job in self.dependencies:
 			return
 		if visited is None:
-			visited = set([job])
+			visited = set()
+		visited.add(job)
 		dependencies = self.dependencies[job]
 		potential_dependencies = self.collect_potential_dependencies(job).items()
 
 		skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 		
+		#if job.rule.name == "map_single" and "tmp/mapped/M45737N.bam" in job.output:
+		#	import pdb; pdb.set_trace()
 		missing_input = job.missing_input
+		producer = dict()
 		exceptions = defaultdict(list)
 		for file, jobs in potential_dependencies:
-			try:
-				job_ = self.select_dependency(file, jobs, visited)
-				self.update(job_, visited=set(visited), skip_until_dynamic=skip_until_dynamic or file in job.dynamic_input)
-				if file in missing_input:
-					missing_input.remove(file)
-				# TODO check for pumping up wildcards...
-				dependencies[job_].add(file)
-				self.depending[job_][job].add(file)
-			except (RuleException, RuntimeError) as ex:
-				if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
-					ex = RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), lineno = job.rule.lineno, snakefile = job.rule.snakefile)
-					self._job_exceptions[job] = ex
-					raise ex
-				if isinstance(ex, CyclicGraphException) and ex.file == file:
-					self._job_exceptions[job] = ex
-					raise ex
-				exceptions[file].append(ex)
-
+			# TODO check for pumping up wildcards...
+			jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
+			cycles = list()
+			for i, job_ in enumerate(jobs):
+				if job_ in visited:
+					cycles.append(job_)
+					continue
+				try:
+					self.update(job_, visited=set(visited), skip_until_dynamic=skip_until_dynamic or file in job.dynamic_input)
+					if i > 0:
+						if job_ < jobs[i-1] or self.ignore_ambiguity:
+							break
+						elif file in producer:
+							print(job, producer)
+							self.raise_exception(job, AmbiguousRuleException(file, job_.rule, jobs[i-1].rule))
+					producer[file] = job_
+				except (MissingInputException, CyclicGraphException) as ex:
+					exceptions[file].append(ex)
+				except RuntimeError as ex:
+					if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
+						ex = RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), rule = job.rule)
+						self.raise_exception(job, ex)
+					else:
+						raise ex
+			if cycles and file not in producer:
+				self.raise_exception(job, CyclicGraphException(file, cycles[0].rule))
+		
+		for file, job_ in producer.items():
+			dependencies[job_].add(file)
+			self.depending[job_][job].add(file)
+			
+		missing_input = job.missing_input - set(producer)
 		if missing_input:
 			include = list()
 			noproducer = list()
@@ -169,11 +187,7 @@ class DAG:
 					include.extend(exceptions[f])
 				else:
 					noproducer.append(f)
-			if noproducer:
-				ex = MissingInputException(job.rule, noproducer)
-				self._job_exceptions[job] = ex
-				include.append(ex)
-			raise RuleException(include=include)
+			self.raise_exception(job, MissingInputException(job.rule, noproducer, include=include), isorigin=noproducer)
 		
 		if skip_until_dynamic:
 			self._dynamic.add(job)
@@ -253,14 +267,14 @@ class DAG:
 						self.replace_job(job_, newjob_)
 		return newjob
 	
-	def delete_job(self, job):
+	def delete_job(self, job, recursive=True):
 		for job_ in self.depending[job]:
 			del self.dependencies[job_][job]
 		del self.depending[job]
 		for job_ in self.dependencies[job]:
 			depending = self.depending[job_]
 			del depending[job]
-			if not depending:
+			if not depending and recursive:
 				self.delete_job(job_)
 		del self.dependencies[job]
 		if job in self._needrun:
@@ -288,16 +302,6 @@ class DAG:
 			except MissingRuleException as ex:
 				pass
 		return dependencies
-
-	def select_dependency(self, file, jobs, visited):
-		jobs = sorted(jobs)
-		for i, job in reversed(list(enumerate(jobs))):
-			if job not in visited:
-				if self.ignore_ambiguity or i == 0 or job > jobs[i-1]:
-					return job
-				else:
-					raise AmbiguousRuleException(file, job.rule, jobs[i-1].rule)
-		raise CyclicGraphException(job.rule, file)
 	
 	def bfs(self, direction, *jobs, stop = lambda job: False):
 		queue = list(jobs)
@@ -331,6 +335,13 @@ class DAG:
 					yield j
 		if post:
 			yield job
+	
+	def raise_exception(self, job, exception, isorigin = True):
+		self.delete_job(job, recursive=False)
+		if isorigin:
+			self._job_exceptions[job] = exception
+		raise exception
+		
 
 	def new_wildcards(self, job):
 		new_wildcards = set(job.wildcards.items())
