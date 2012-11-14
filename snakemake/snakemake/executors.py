@@ -58,11 +58,7 @@ class CPUExecutor(AbstractExecutor):
 	def run(self, job, callback = None, error_callback = None):
 		super()._run(job)
 		
-		protected = list(filter(lambda f: f.protected, job.expanded_output))
-		if protected:
-			raise ProtectedOutputException(job.rule, protected)
-		for f in chain(*map(job.expand_dynamic, job.dynamic_output)):
-			f.remove()
+		job.prepare()
 		
 		future = self.pool.submit(run_wrapper, job.rule.run_func, job.input, job.output, job.wildcards, job.threads, job.log, self.workflow.linemaps)
 		future.add_done_callback(partial(self._callback, job, callback, error_callback))

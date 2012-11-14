@@ -203,6 +203,7 @@ class DAG:
 					updated_input = [f for f in job.input if not f.exists or f.is_newer(output_mintime_)]
 					reason.updated_input.update(updated_input)
 			return job
+		
 		queue = list(filter(self.reason, map(needrun, self.jobs)))
 		visited = set(queue)
 		while queue:
@@ -298,7 +299,7 @@ class DAG:
 					raise AmbiguousRuleException(file, job.rule, jobs[i-1].rule)
 		raise CyclicGraphException(job.rule, file)
 	
-	def bfs(self, direction, *jobs, stop=lambda job: False):
+	def bfs(self, direction, *jobs, stop = lambda job: False):
 		queue = list(jobs)
 		visited = set(queue)
 		while queue:
@@ -311,6 +312,25 @@ class DAG:
 				if not job_ in visited:
 					queue.append(job_)
 					visited.add(job_)
+	
+	def dfs(self, direction, *jobs, stop = lambda job: False, post = True):
+		visited = set()
+		for job in jobs:
+			for job_ in self._dfs(direction, job, visited, stop=stop, post=post):
+				yield job_
+	
+	def _dfs(self, direction, job, visited, stop, post):
+		if stop(job):
+			return
+		if not post:
+			yield job
+		for job_ in direction[job]:
+			if not job_ in visited:
+				visited.add(job_)
+				for j in self._dfs(direction, job_, visited, stop, post):
+					yield j
+		if post:
+			yield job
 
 	def new_wildcards(self, job):
 		new_wildcards = set(job.wildcards.items())
@@ -359,8 +379,8 @@ class DAG:
 				logger.warning("Subsequent jobs will be added dynamically depending on the output of this rule")
 		
 	def dryrun(self, quiet = False, printshellcmds = False, printreason = False):
-		for job in reversed(list(self.needrun_jobs)):
-			if not self.dynamic(job):
+		for job in self.dfs(self.dependencies, *self.targetjobs, post=True):
+			if not self.dynamic(job) and self.needrun(job):
 				self.printjob(job, quiet=quiet, printshellcmds=printshellcmds, printreason=printreason)
 	
 	def dot(self, errors = False):

@@ -17,12 +17,13 @@ class _IOFile(str):
 	A file that is either input or output of a rule.
 	"""
 	
-	def __init__(self, file):
-		super().__init__(file)
-		self._is_function = type(file).__name__ == "function"
-		self._file = file
-		self.rule = None
-		self._regex = None
+	def __new__(cls, file):
+		obj = str.__new__(cls, file)
+		obj._is_function = type(file).__name__ == "function"
+		obj._file = file
+		obj.rule = None
+		obj._regex = None
+		return obj
 				
 	@property
 	def file(self):

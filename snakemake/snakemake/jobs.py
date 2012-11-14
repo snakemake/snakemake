@@ -3,6 +3,7 @@
 import os
 
 from collections import defaultdict
+from itertools import chain
 from functools import lru_cache
 
 from snakemake.io import IOFile
@@ -80,6 +81,14 @@ class Job:
 				elif not f.exists:
 					files.add(f)
 		return files
+	
+	def prepare(self):
+		protected = list(filter(lambda f: f.protected, self.expanded_output))
+		if protected:
+			raise ProtectedOutputException(self.rule, protected)
+		if self.dynamic_output:
+			for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
+				os.remove(f)
 	
 	def cleanup(self):
 		for f in self.output:
