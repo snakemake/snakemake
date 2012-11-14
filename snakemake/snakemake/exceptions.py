@@ -88,7 +88,7 @@ class MissingOutputException(RuleException):
 class IOException(RuleException):
 	def __init__(self, prefix, rule, files, include = None, lineno = None, snakefile = None):
 		message = "{} for rule {}:\n{}".format(prefix, rule, "\n".join(files)) if files else ""
-		super().__init__(message = message, include = include, lineno = lineno, snakefile = snakefile)
+		super().__init__(message = message, include = include, lineno = lineno, snakefile = snakefile, rule = rule)
 
 class MissingInputException(IOException):
 	def __init__(self, rule, files, include = None, lineno = None, snakefile = None):
@@ -100,12 +100,12 @@ class ProtectedOutputException(IOException):
 
 class AmbiguousRuleException(RuleException):
 	def __init__(self, filename, rule1, rule2, lineno = None, snakefile = None):
-		super().__init__("Rules {} and {} are ambiguous for the file {}. Advice: Use --dag to see the two alternative DAGs.".format(rule1, rule2, filename), lineno = lineno, snakefile = snakefile)
+		super().__init__("Rules {} and {} are ambiguous for the file {}.".format(rule1, rule2, filename), lineno = lineno, snakefile = snakefile)
 		self.rule1, self.rule2 = rule1, rule2
 	
 class CyclicGraphException(RuleException):
-	def __init__(self, rule, file, lineno = None, snakefile = None):
-		super().__init__("Cyclic dependency on rule {}.".format(rule), lineno = lineno, snakefile = snakefile)
+	def __init__(self, repeatedrule, file, rule = None):
+		super().__init__("Cyclic dependency on rule {}.".format(repeatedrule), rule=rule)
 		self.file = file
 		
 class MissingRuleException(RuleException):

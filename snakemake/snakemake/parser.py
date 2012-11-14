@@ -9,7 +9,7 @@ __author__ = "Johannes Köster"
 class Tokens:
 	""" Recorder for emitted tokens. """
 	def __init__(self):
-		self._row, self._col = 1, 0
+		self.row, self.col = 1, 0
 		self._tokens = []
 		self.rowmap = dict()
 		self.last = None
@@ -22,13 +22,13 @@ class Tokens:
 			token = tokenize.TokenInfo(
 				type = type,
 				string = string,
-				start = (self._row, self._col),
-				end = (self._row, self._col + len(string)),
+				start = (self.row, self.col),
+				end = (self.row, self.col + len(string)),
 				line = '')
 		else:
 			# token is an original token that may have a wrong row
-			if token.start[0] != self._row:
-				token = Tokens._adjrow(token, self._row)
+			if token.start[0] != self.row:
+				token = Tokens._adjrow(token, self.row)
 		
 		self._tokens.append(token)
 
@@ -36,15 +36,15 @@ class Tokens:
 		if orig_token:
 			if orig_token.type != COMMENT:
 				self.last = orig_token
-			self.rowmap[self._row] = orig_token.start[0]
+			self.rowmap[self.row] = orig_token.start[0]
 
 		if token.type in (NEWLINE, NL):
-			self._row += 1
-			self._col = 0
+			self.row += 1
+			self.col = 0
 		else:
 			lines = token.string.split("\n")
-			self._row += len(lines) - 1
-			self._col += len(lines[-1]) + 1
+			self.row += len(lines) - 1
+			self.col += len(lines[-1]) + 1
 		
 		return self
 	
@@ -170,7 +170,7 @@ class States:
 		self.current_rule = name
 		self.empty_rule = True
 		self.tokens.add(AT, "@", token)
-		self._func("rule", (self._stringify(name), str(token.start[0]), self._stringify(self.filename)), token, obj = 'workflow')
+		self._func("rule", (self._stringify(name), str(self.tokens.row-1), self._stringify(self.filename)), token, obj = 'workflow')
 	
 	def rule_colon(self, token):
 		self._check_colon('rule', token)

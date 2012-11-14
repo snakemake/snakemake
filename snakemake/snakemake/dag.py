@@ -6,7 +6,7 @@ from operator import itemgetter
 
 from snakemake.io import IOFile
 from snakemake.jobs import Job, Reason
-from snakemake.exceptions import RuleException, MissingInputException, MissingRuleException, AmbiguousRuleException, CyclicGraphException
+from snakemake.exceptions import RuleException, MissingInputException, MissingRuleException, AmbiguousRuleException, CyclicGraphException, MissingOutputException
 from snakemake.logging import logger
 
 class DAG:
@@ -133,6 +133,8 @@ class DAG:
 	def update(self, job, visited = None, skip_until_dynamic = False):
 		if job in self.dependencies:
 			return
+		if job in self._job_exceptions:
+			raise self.exception(job)
 		if visited is None:
 			visited = set()
 		visited.add(job)
@@ -160,10 +162,10 @@ class DAG:
 						if job_ < jobs[i-1] or self.ignore_ambiguity:
 							break
 						elif file in producer:
-							print(job, producer)
 							self.raise_exception(job, AmbiguousRuleException(file, job_.rule, jobs[i-1].rule))
 					producer[file] = job_
 				except (MissingInputException, CyclicGraphException) as ex:
+					#import pdb;pdb.set_trace()
 					exceptions[file].append(ex)
 				except RuntimeError as ex:
 					if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
@@ -172,7 +174,7 @@ class DAG:
 					else:
 						raise ex
 			if cycles and file not in producer:
-				self.raise_exception(job, CyclicGraphException(file, cycles[0].rule))
+				self.raise_exception(job, CyclicGraphException(cycles[0].rule, file, rule=job.rule))
 		
 		for file, job_ in producer.items():
 			dependencies[job_].add(file)
@@ -182,7 +184,7 @@ class DAG:
 		if missing_input:
 			include = list()
 			noproducer = list()
-			for f in list(missing_input):
+			for f in missing_input:
 				if f in exceptions:
 					include.extend(exceptions[f])
 				else:

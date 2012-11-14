@@ -113,6 +113,10 @@ class Workflow:
 		dag = DAG(self, targetfiles=filetargets, targetrules=ruletargets, forceall=forceall, forcetargets=forcetargets, forcerules=forcerules_, ignore_ambiguity=ignore_ambiguity)
 		try:
 			dag.init()
+		except RuleException as ex:
+			# TODO think about printing a DAG on request here
+			print_exception(ex, self.linemaps)
+			return False
 		except (Exception, BaseException) as ex:
 			print_exception(ex, self.linemaps)
 			return False
