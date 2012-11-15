@@ -17,6 +17,7 @@ class DAG:
 	             forceall = False,
 	             forcetargets = False, 
 	             forcerules = None,
+	             priorityfiles = None,
 	             ignore_ambiguity = False):
 		self.dependencies = defaultdict(partial(defaultdict, set))
 		self.depending = defaultdict(partial(defaultdict, set))
@@ -41,6 +42,7 @@ class DAG:
 		if forcetargets:
 			self.forcerules.update(targetrules)
 			self.forcefiles.update(targetfiles)
+		self.priorityfiles = set() if priorityfiles is None else priorityfiles
 
 	def init(self):
 		potential_targetjobs = set(map(self.rule2job, self.targetrules))
@@ -70,7 +72,7 @@ class DAG:
 		
 		for job in filter(lambda job: job.dynamic_output and not self.needrun(job), self.jobs):
 			self.update_dynamic(job)
-		self.update_needrun()
+		self.postprocess()
 
 	@property
 	def jobs(self):
@@ -79,7 +81,7 @@ class DAG:
 	
 	@property
 	def needrun_jobs(self):
-		for job in filter(self.needrun, self.bfs(self.dependencies, *self.targetjobs, stop=self.finished)):
+		for job in filter(self.needrun, self.bfs(self.dependencies, *self.targetjobs, stop=self.noneedrun_finished)):
 			yield job
 			
 	@property
@@ -92,6 +94,9 @@ class DAG:
 	
 	def needrun(self, job):
 		return job in self._needrun
+	
+	def noneedrun_finished(self, job):
+		return not self.needrun(job) or self.finished(job)
 	
 	def reason(self, job):
 		return self._reason[job]
@@ -241,13 +246,22 @@ class DAG:
 
 		self._len = len(self._needrun)
 	
+	def update_priority(self):
+		prioritized = lambda job: not self.priorityfiles.isdisjoint(job.output)
+		for job in self.bfs(self.dependencies, *filter(prioritized, self.needrun_jobs), stop=self.noneedrun_finished):
+			job.priority = 99
+	
+	def postprocess(self, noforce = None):
+		self.update_needrun(noforce=noforce)
+		self.update_priority()
+	
 	def finish(self, job):
 		self._finished.add(job)
 		if job.dynamic_output:
 			logger.warning("Dynamically updating jobs")
 			newjob = self.update_dynamic(job)
 			if newjob:
-				self.update_needrun(noforce=newjob)
+				self.postprocess(noforce=newjob)
 				# add 1 since the finished dynamic job was replaced by a not needrun job
 				self._len += 1
 	

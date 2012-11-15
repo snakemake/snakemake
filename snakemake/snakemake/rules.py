@@ -27,6 +27,7 @@ class Rule:
 		self.temp_output = set()
 		self.protected_output = set()
 		self.threads = 1
+		self.priority = 1
 		self._log = None
 		self.wildcard_names = set()
 		self.lineno = lineno

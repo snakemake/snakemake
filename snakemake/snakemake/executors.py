@@ -94,7 +94,7 @@ class ClusterExecutor(AbstractExecutor):
 		self._tmpdir = None
 		self.cores = cores if cores else ""
 	
-	def __del__(self):
+	def shutdown(self):
 		shutil.rmtree(self.tmpdir)
 	
 	def run(self, job, callback = None, error_callback = None):

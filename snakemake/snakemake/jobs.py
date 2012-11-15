@@ -20,8 +20,10 @@ class Job:
 		
 		self.input, self.output, self.log, self.wildcards = rule.expand_wildcards(self.targetfile)
 		self.threads = rule.threads
+		self.priority = rule.priority
 		self.message = self._format_wildcards(rule.message) if rule.message else None
 		self.shellcmd = self._format_wildcards(rule.shellcmd) if rule.shellcmd else None
+		
 		
 		self.dynamic_output, self.dynamic_input, self.temp_output, self.protected_output = set(), set(), set(), set()
 		for f, f_ in zip(self.output, self.rule.output):
@@ -89,6 +91,9 @@ class Job:
 		if self.dynamic_output:
 			for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
 				os.remove(f)
+		for f in self.output:
+			if not f in self.dynamic_output:
+				f.prepare()
 	
 	def cleanup(self):
 		for f in self.output:

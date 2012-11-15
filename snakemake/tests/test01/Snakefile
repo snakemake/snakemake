@@ -4,10 +4,10 @@ rule rule1:
 	''' This rule creates an intermediate file. '''
 	input: 
 		'test.inter'
-	output: 'test.out'
-	threads: 5
+	output: 'dir/test.out'
+	threads: 3
 	shell: 
-		'echo {TEST}; cp {input[0]} {output[0]}'
+		'if [ {threads} -ne 3 ]; then exit 1; fi; echo {TEST}; cp {input[0]} {output[0]}'
 
 rule rule2:
 	input: 'test.in'
@@ -18,6 +18,6 @@ rule rule2:
 
 # this should be ignored since test.in is present
 rule rule3:
-	input: "{a}.out"
+	input: "dir/{a}.out"
 	output: "{a}.in"
 	shell: "cp {input} {output}"
