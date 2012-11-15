@@ -48,7 +48,8 @@ class _IOFile(str):
 		return self.mtime >= time
 	
 	def prepare(self):
-		dir = os.path.dirname(self.file)
+		path_until_wildcard = re.split(_wildcard_regex, self.file)[0]
+		dir = os.path.dirname(path_until_wildcard)
 		if len(dir) > 0 and not os.path.exists(dir):
 			try:
 				os.makedirs(dir)
@@ -116,7 +117,7 @@ class _IOFile(str):
 	def __hash__(self):
 		return self._file.__hash__()
 
-_wildcard_regex = "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}"
+_wildcard_regex = re.compile("\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
 
 def remove(file):
 	if os.path.exists(file):
@@ -153,6 +154,14 @@ class protected(str):
 
 class dynamic(str):
 	""" A flag for a file that shall be dynamic, i.e. the multiplicity (and wildcard values) will be expanded after a certain rule has been run """
+	def __new__(cls, file):
+		matches = list(re.finditer(_wildcard_regex, file))
+		if len(matches) != 1:
+			raise SyntaxError("Dynamic files need exactly one wildcard.")
+		if matches[0].group("constraint"):
+			raise SyntaxError("The wildcard in dynamic files cannot be constrained.")
+		obj = str.__new__(cls, file)
+		return obj
 	pass
 
 
