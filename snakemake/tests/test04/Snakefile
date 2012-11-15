@@ -2,7 +2,7 @@ rule rule1:
 	input: '{name}.bogus.in'
 	output: '{name}.out'
 	message: 'Writing junk to {output[0]}'
-	shell: 'echo "junk" > {output[0]}'
+	shell: 'echo "junk" > {output[0]}; cat {input}'
 
 rule rule2:
 	input: '{name}.in'
@@ -14,4 +14,4 @@ rule rule3:
 	input: '{name}.more.bogus.in'
 	output: '{name}.out'
 	message: 'Writing junk to {output[0]}'
-	shell: 'echo "junk" > {output[0]}'
+	shell: 'echo "junk" > {output[0]}; cat{input}'

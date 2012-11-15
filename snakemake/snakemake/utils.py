@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, re, fnmatch, mimetypes, base64
+import os, re, fnmatch, mimetypes, base64, inspect
 from itertools import chain
 from snakemake.io import regex, Namedlist
 
@@ -73,3 +73,34 @@ def report(outfile, abstract, files, captions):
 """.format(content="\n".join(content))
 	outfile.write(html)
 '''
+
+def format(string, *args, stepout = 1, **kwargs):
+	class SequenceFormatter:
+		def __init__(self, sequence):
+			self._sequence = sequence
+
+		def __getitem__(self, i):
+			return self._sequence[i]
+
+		def __str__(self):
+			return " ".join(self._sequence)
+		
+	frame = inspect.currentframe().f_back
+	while stepout > 1:
+		if not frame.f_back:
+			break
+		frame = frame.f_back
+		stepout -= 1
+	
+	variables = dict(frame.f_globals)
+	# add local variables from calling rule/function
+	variables.update(frame.f_locals)
+	variables.update(kwargs)
+	strmethods = list()
+	for key, value in list(variables.items()):
+		if type(value) in (list, tuple, set, frozenset):
+			variables[key] = SequenceFormatter(value)
+	try:
+		return string.format(*args, **variables)
+	except KeyError as ex:
+		raise NameError("The name {} is unknown in this context.".format(str(ex)))

@@ -7,89 +7,48 @@ from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
 
-class IOFile(str):
+def IOFile(file, rule=None):
+	f = _IOFile(file)
+	f.rule = rule
+	return f
+
+class _IOFile(str):
 	"""
 	A file that is either input or output of a rule.
 	"""
-	_register = dict()
-
-	@classmethod
-	def clear(cls):
-		cls._register.clear()
 	
-	@classmethod
-	def create(cls, file, temp = None, protected = None):	
-		if not isinstance(file, str) and not type(file).__name__ == "function":
-			raise ValueError("Input and output files have to be specified as strings or functions that return a string given the used wildcards as single argument.")
-		if file in cls._register:
-			obj = cls._register[file]
-		else:
-			obj = IOFile(file)
-			cls._register[file] = obj
-
-		for (oflags, flag) in ((obj._temp, temp), (obj._protected, protected)):
-			if not isinstance(flag, set):
-				if flag:
-					oflags.add(flag)
-			else:
-				oflags.update(flag)
+	def __new__(cls, file):
+		obj = str.__new__(cls, file)
+		obj._is_function = type(file).__name__ == "function"
+		obj._file = file
+		obj.rule = None
+		obj._regex = None
 		return obj
-
-	@staticmethod
-	def mintime(iofiles):
-		existing = [f.mtime() for f in iofiles if os.path.exists(f)]
-		if existing:
-			return min(existing)
-		return None
-
-	@classmethod
-	def cleanup(cls, jobs):
-		rules = set(j.rule for j in jobs)
-		for iofile in cls._register.values():
-			iofile._temp &= rules
-			iofile._protected &= rules
-	
-	def __init__(self, file):
-		super().__init__(file)
-		self._is_function = type(file).__name__ == "function"
-		self._file = file
-		self._regex = None
-		self._needed = 0
-		self._temp = set()
-		self._protected = set()
 				
-	def get_file(self):
+	@property
+	def file(self):
 		if not self._is_function:
 			return self._file
 		else:
 			raise ValueError("This IOFile is specified as a function and may not be used directly.")
 
-	def is_temp(self):
-		return self._temp
-
-	def is_protected(self):
-		return self._protected
-
-	def need(self):
-		self._needed += 1
-	
-	def used(self):
-		self._needed -= 1
-		if self._temp and self._needed == 0 and os.path.exists(self.get_file()):
-			logger.warning("Deleting temporary file {}".format(self))
-			os.remove(self.get_file())
-
+	@property
 	def exists(self):
-		return os.path.exists(self.get_file())
+		return os.path.exists(self.file)
+	
+	@property
+	def protected(self):
+		return self.exists and not os.access(self.file, os.W_OK)
 
+	@property
 	def mtime(self):
-		return os.stat(self.get_file()).st_mtime
+		return os.stat(self.file).st_mtime
 	
 	def is_newer(self, time):
-		return self.mtime() >= time
+		return self.mtime >= time
 	
 	def prepare(self):
-		dir = os.path.dirname(self.get_file())
+		dir = os.path.dirname(self.file)
 		if len(dir) > 0 and not os.path.exists(dir):
 			try:
 				os.makedirs(dir)
@@ -98,55 +57,50 @@ class IOFile(str):
 				if e.errno != 17:
 					raise e
 	
-	def created(self, rulename, lineno, snakefile):
-		if not os.path.exists(self.get_file()):
-			raise MissingOutputException("Output file {} not produced by rule {}.".format(self.get_file(), rulename), lineno = lineno, snakefile = snakefile)
-		if self._protected:
-			logger.warning("Write protecting output file {}".format(self))
-			mode = os.stat(self.get_file()).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
-			if os.path.isdir(self.get_file()):
-				for root, dirs, files in os.walk(self.get_file()):
-					for d in dirs:
-						os.chmod(os.path.join(self.get_file(), d), mode)
-					for f in files:
-						os.chmod(os.path.join(self.get_file(), f), mode)
-			else:
-				os.chmod(self.get_file(), mode)
+	def protect(self):
+		logger.warning("Write protecting output file {}".format(self))
+		mode = os.stat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+		if os.path.isdir(self.file):
+			for root, dirs, files in os.walk(self.file):
+				for d in dirs:
+					os.chmod(os.path.join(self.file, d), mode)
+				for f in files:
+					os.chmod(os.path.join(self.file, f), mode)
+		else:
+			os.chmod(self.file, mode)
 	
 	def remove(self):
-		remove(self.get_file())
+		remove(self.file)
 	
-	def touch(self, rulename, lineno, snakefile):
+	def touch(self):
 		try:
-			touch(self.get_file())
+			os.utime(self.file, None)
 		except OSError as e:
 			if e.errno == 2:
-				raise MissingOutputException("Output file {} of rule {} shall be touched but does not exist.".format(self.get_file(), rulename), lineno = lineno, snakefile = snakefile)
+				raise MissingOutputException("Output file {} of rule {} shall be touched but does not exist.".format(self.file, self.rule.name), lineno = self.rule.lineno, snakefile = self.rule.snakefile)
 			else:
 				raise e
 
 
-	def apply_wildcards(self, wildcards, lineno, snakefile):
+	def apply_wildcards(self, wildcards):
 		f = self._file
 		if self._is_function:
 			f = self._file(Namedlist(fromdict = wildcards))
-			if not isinstance(f, str):
-				raise IOFileException("Function as input must return a single string.", lineno=lineno, snakefile=snakefile)
-		return self.create(re.sub(_wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), protected = self._protected, temp = self._temp)
+		return IOFile(re.sub(_wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), rule=self.rule)
 
 	def fill_wildcards(self):
 		f = self._file
 		if self._is_function:
 			raise ValueError("Cannot fill wildcards of function.")
-		return self.create(re.sub(_wildcard_regex, lambda match: "0", f), protected = self._protected, temp = self._temp)
+		return IOFile(re.sub(_wildcard_regex, lambda match: "0", f), rule=self.rule)
 		
 	def get_wildcard_names(self):
-		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.get_file()))
+		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.file))
 
 	def regex(self):
 		if not self._regex:
 			# create a regular expression
-			self._regex = re.compile(regex(self._file))
+			self._regex = re.compile(regex(self.file))
 		return self._regex
 
 	def match(self, target):
@@ -154,6 +108,13 @@ class IOFile(str):
 		if match and len(match.group()) == len(target):
 			return match
 		return None
+	
+	def __eq__(self, other):
+		f = other._file if isinstance(other, _IOFile) else other
+		return self._file == f
+	
+	def __hash__(self):
+		return self._file.__hash__()
 
 _wildcard_regex = "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}"
 
@@ -167,9 +128,6 @@ def remove(file):
 				pass
 		else:
 			os.remove(file)
-
-def touch(file):
-	os.utime(self.get_file(), None)
 	
 def regex(filepattern):
 	f = ""

@@ -1,82 +1,75 @@
 # -*- coding: utf-8 -*-
 
-import os, re, sys
-import sre_constants
+import os, re, sys, sre_constants
 from collections import defaultdict
-from snakemake.logging import logger
-from snakemake.jobs import Job
-from snakemake.io import IOFile, protected, temp, dynamic, Namedlist
-from snakemake.utils import listfiles
-from snakemake.exceptions import MissingInputException, AmbiguousRuleException, CyclicGraphException, RuleException, ProtectedOutputException, IOFileException
+
+from snakemake.io import IOFile, protected, temp, dynamic, Namedlist, expand
+from snakemake.exceptions import RuleException
 
 __author__ = "Johannes Köster"
 
 class Rule:
-	def __init__(self, *args, lineno = None, snakefile = None):
+	def __init__(self, name, workflow, lineno = None, snakefile = None):
 		"""
 		Create a rule
 		
 		Arguments
 		name -- the name of the rule
 		"""
-		if len(args) == 2:
-			name, workflow = args
-			self.name = name
-			self.docstring = None
-			self.message = None
-			self.input = Namedlist()
-			self.output = Namedlist()
-			self.dynamic = dict()
-			self.threads = 1
-			self.log = None
-			self.wildcard_names = set()
-			self.workflow = workflow
-			self.lineno = lineno
-			self.snakefile = snakefile
-			self.run_func = None
-			self.shellcmd = None
-		elif len(args) == 1:
-			other = args[0]
-			self.name = other.name
-			self.docstring = other.docstring
-			self.message = other.message
-			self.input = other.input
-			self.output = other.output
-			self.dynamic = other.dynamic
-			self.threads = other.threads
-			self.log = other.log
-			self.wildcard_names = other.wildcard_names
-			self.workflow = other.workflow
-			self.lineno = other.lineno
-			self.snakefile = other.snakefile
-			self.run_func = other.run_func
-			self.shellcmd = other.shellcmd
-		else:
-			raise ValueError("Rule expects either 1 or 2 positional args.")
+		self.name = name
+		self.workflow = workflow
+		self.docstring = None
+		self.message = None
+		self._input = Namedlist()
+		self._output = Namedlist()
+		self.dynamic_output = set()
+		self.dynamic_input = set()
+		self.temp_output = set()
+		self.protected_output = set()
+		self.threads = 1
+		self._log = None
+		self.wildcard_names = set()
+		self.lineno = lineno
+		self.snakefile = snakefile
+		self.run_func = None
+		self.shellcmd = None
 
+	def update_dynamic(self, wildcards, input=True):
+		io, dynamic_io = (self.input, self.dynamic_input) if input else (self.output, self.dynamic_output)
+		expansion = defaultdict(list)
+		for i, f in enumerate(io):
+			if f in dynamic_io:
+				try:
+					for e in reversed(expand(f, zip, **wildcards)):
+						expansion[i].append(IOFile(e, rule=self))
+				except KeyError:
+					return False
+		# replace the dynamic input with the expanded files
+		for i, e in reversed(list(expansion.items())):
+			dynamic_io.remove(io[i])
+			io.insert_items(i, e)
+		if not input:
+			self.wildcard_names.clear()
+		return True
+		
 
 	def has_wildcards(self):
 		"""
 		Return True if rule contains wildcards.
 		"""
 		return bool(self.wildcard_names)
-
-	def is_dynamic(self, file):
-		return file in self.dynamic
-
-	def set_dynamic(self, file, dynamic):
-		if dynamic:
-			# create a bipartite graph that assigns a concrete to each dynamic file
-			concrete = file.fill_wildcards()
-			self.dynamic[file] = concrete
-			self.dynamic[concrete] = file
-		else:
-			concrete = self.dynamic[file]
-			del self.dynamic[file]
-			del self.dynamic[concrete]
 	
-	def get_non_dynamic_output(self, output):
-		return [f for i, f in enumerate(output) if not self.is_dynamic(self.output[i])]	
+	@property
+	def log(self):
+		return self._log
+	
+	@log.setter
+	def log(self, log):
+		self._log = IOFile(log, rule=self)
+
+	@property
+	def input(self):
+		return self._input
 
 	def set_input(self, *input, **kwinput):
 		"""
@@ -89,6 +82,10 @@ class Rule:
 			self._set_inoutput_item(item)
 		for name, item in kwinput.items():
 			self._set_inoutput_item(item, name = name)
+
+	@property
+	def output(self):
+		return self._output
 
 	def set_output(self, *output, **kwoutput):
 		"""
@@ -122,293 +119,60 @@ class Rule:
 		inoutput = self.output if output else self.input
 		if type(item).__name__ == "function" and output:
 			raise SyntaxError("Only input files can be specified as functions")
-		try:
-			_item = IOFile.create(item, 
-			                      temp = self if isinstance(item, temp) else None, 
-			                      protected = self if isinstance(item, protected) else None)
-			inoutput.append(_item)
-			if name:
-				inoutput.add_name(name)
+		if isinstance(item, str) or type(item).__name__ == "function":
+			_item = IOFile(item, rule=self)
+			if isinstance(item, temp):
+				if not output:
+					raise SyntaxError("Only output files may be temporary")
+				self.temp_output.add(_item)
+			if isinstance(item, protected):
+				if not output:
+					raise SyntaxError("Only output files may be protected")
+				self.protected_output.add(_item)
 			if isinstance(item, dynamic):
 				if len(_item.get_wildcard_names()) > 1:
 					raise SyntaxError("Dynamic files may not contain more than one wildcard.")
-				self.set_dynamic(_item, True)
-		except ValueError:
+				if output:
+					self.dynamic_output.add(_item)
+				else:
+					self.dynamic_input.add(_item)
+			inoutput.append(_item)
+			if name:
+				inoutput.add_name(name)
+		else:
 			try:
 				for i in item:
 					self._set_inoutput_item(i, output = output)
 			except TypeError:
 				raise SyntaxError("Input and output files must be specified as strings.")
-
-	def set_message(self, message):
-		"""
-		Set the message that is displayed when rule is executed.
-		"""
-		self.message = message
-	
-	def set_threads(self, threads):
-		self.threads = threads
-
-	def set_log(self, log):
-		self.log = IOFile.create(log)
 		
-	def _expand_wildcards(self, requested_output):
+	def expand_wildcards(self, requested_output):
 		""" Expand wildcards depending on the requested output. """
 		wildcards = dict()
 		if requested_output:
-			wildcards, matching_output = self.get_wildcards(requested_output)
+			wildcards = self.get_wildcards(requested_output)
 			missing_wildcards = set(wildcards.keys()) - self.wildcard_names 
 		else:
 			missing_wildcards = self.wildcard_names
-			matching_output = None
 		
 		if missing_wildcards:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno, snakefile = self.snakefile)
 
 		try:
 			input = Namedlist()
-			for i in self.input:
-				if self.is_dynamic(i):
-					input.append(self.dynamic[i])
+			for f in self.input:
+				if f in self.dynamic_input:
+					input.append(f.fill_wildcards())
 				else:
-					input.append(i.apply_wildcards(wildcards, self.lineno, self.snakefile))
-			output = Namedlist(o.apply_wildcards(wildcards, self.lineno, self.snakefile) for o in self.output)
+					input.append(f.apply_wildcards(wildcards))
+			output = Namedlist(o.apply_wildcards(wildcards) for o in self.output)
 			input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
-			log = self.log.apply_wildcards(wildcards, self.lineno, self.snakefile) if self.log else None
-			return input, output, log, wildcards, matching_output
+			log = self.log.apply_wildcards(wildcards) if self.log else None
+			return input, output, log, Namedlist(fromdict = wildcards)
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
 			raise RuleException("Wildcards in input or log file of rule {} do not appear in output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)
-
-	@staticmethod
-	def _get_missing_files(files):
-		""" Return the tuple of files that are missing form the given ones. """
-		return tuple(f for f in files if not os.path.exists(f))
-	
-	@staticmethod
-	def _has_missing_files(files, requested):
-		""" Return True if any of the given files does not exist. """
-		for f in files:
-			if (requested == None or f.get_file() in requested) and not os.path.exists(f) and not f.is_temp():
-				return True
-		return False
-	
-	def run(self, requested_output = None, forceall = False, forcerules = None, forcethis = False, 
-	        give_reason = False, jobs = None, dryrun = False, printshellcmds = False, touch = False, 
-	        quiet = False, visited = None, parentmintime = None, 
-	        ignore_ambiguity = False, skip_until_dynamic = False):
-		"""
-		Run the rule.
-		
-		Arguments
-		requested_output -- the optional requested output file
-		forceall         -- whether all required rules shall be executed, even if the files already exist
-		forcethis        -- whether this rule shall be executed, even if the files already exist
-		jobs             -- dictionary containing all jobs currently queued
-		dryrun           -- whether rule execution shall be only simulated
-		visited          -- set of already visited pairs of rules and requested output
-		"""
-		if jobs is None:
-			jobs = dict()
-		if visited is None:
-			visited = set()
-		if forcerules is None:
-			forcerules = set()
-
-		if (self, requested_output) in visited or (self, None) in visited:
-			raise CyclicGraphException(self, requested_output, lineno = self.lineno, snakefile = self.snakefile)
-		visited.add((self, requested_output))
-		
-		input, output, log, wildcards, matching_output = self._expand_wildcards(requested_output)
-		dynamic_output = self.is_dynamic(requested_output)
-		
-		skip_until_dynamic = skip_until_dynamic and not dynamic_output
-	
-		output_mintime = IOFile.mintime(output) or parentmintime
-		
-		exceptions = defaultdict(list)
-		todo = set()
-		produced = dict()
-
-		if (output, self) in jobs:
-			job = jobs[(output, self)]
-			if not job.dynamic_output:
-				job.dynamic_output = dynamic_output
-			if not job.needrun:
-				# update the job if it needs to run due to the new requested file
-				needrun, reason = self._need_run(False, todo, input, output, parentmintime, requested_output, skip_until_dynamic)
-				job.needrun = needrun
-			return job
-
-		for rule, file in self.workflow.get_producers(input, exclude=self):
-			try:
-				job = rule.run(
-					file, 
-					forceall = forceall, 
-					forcerules = forcerules,
-					jobs = jobs, 
-					dryrun = dryrun, 
-					give_reason = give_reason,
-					touch = touch, 
-					quiet = quiet, 
-					printshellcmds = printshellcmds,
-					visited = set(visited), 
-					parentmintime = output_mintime,
-					skip_until_dynamic = self.is_dynamic(file) or skip_until_dynamic)
-				
-				if file in produced:
-					if produced[file].rule > rule:
-						continue
-					elif produced[file].rule < rule:
-						# prefer this rule, hence go on below
-						pass
-					else:
-						if ignore_ambiguity:
-							# ignore this job but don't throw error
-							logger.warning("Rules {rule1} and {} are ambigous for file {}, using {rule1}.".format(rule, file, rule1=produced[file].rule))
-							continue
-						raise AmbiguousRuleException(file, produced[file], job, 
-						                             lineno = self.lineno, 
-						                             snakefile = self.snakefile)
-				produced[file] = job
-				
-			except (ProtectedOutputException, MissingInputException, CyclicGraphException, RuntimeError) as ex:
-				if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
-					raise RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), lineno = self.lineno, snakefile = self.snakefile)
-				if isinstance(ex, CyclicGraphException) and ex.file == file:
-					# raise the CyclicGraphException to the correct recursion level
-					raise ex
-				exceptions[file].append(ex)
-
-		# TODO in case of forceall it does not make sense to look only at missing files with exceptions...	
-		missing_input = self._get_missing_files(set(input) - produced.keys())
-		if missing_input:
-			_ex = list()
-			for file, exs in exceptions.items():
-				if file in missing_input:
-					_ex.extend(exs)
-			raise MissingInputException(
-				rule = self,
-				files = set(missing_input) - exceptions.keys(), 
-				include = _ex,
-				lineno = self.lineno, 
-				snakefile = self.snakefile
-			)
-
-		# collect the jobs that will actually run (including pseudo-jobs)
-		todo = {job for job in produced.values() if job.needrun or job.pseudo or job.dynamic_output}
-	
-		forced = forcethis or forceall or self.name in forcerules	
-		need_run, reason = self._need_run(forced, todo, input, output, parentmintime, requested_output, skip_until_dynamic)
-		
-		if need_run:
-			# enforce running jobs that created temporary files
-			for file, job in produced.items():
-				if not job.needrun and file.is_temp() and not file.exists():
-					job.needrun = True
-					job.reason = "Output file needed by rule {}: {}".format(self, file) if give_reason else None
-					todo.add(job)
-			# raise error if there are protected output files
-			protected_output = self._get_protected_output(output)
-			if protected_output:
-				raise ProtectedOutputException(self, protected_output, 
-				                               lineno = self.lineno, 
-				                               snakefile = self.snakefile)
-	
-		for f in input:
-			f.need()
-
-
-		job = Job(
-			self.workflow,
-			rule = self, 
-			message = self.message,
-			reason = reason if give_reason else None,
-			input = input,
-			output = output,
-			wildcards = Namedlist(fromdict = wildcards),
-			threads = self.threads,
-			log = log,
-			depends = todo,
-			dryrun = dryrun,
-			quiet = quiet,
-			touch = touch,
-			shellcmd = self.shellcmd if printshellcmds else None,
-			needrun = need_run,
-			forced = forced,
-			forcerules = forcerules,
-			forceall = forceall,
-			pseudo = skip_until_dynamic, 
-			visited = visited,
-			dynamic_output = dynamic_output
-		)
-
-		jobs[(output, self)] = job
-		return job
-
-	@staticmethod
-	def _get_protected_output(output):
-		return [o for o in output if os.path.exists(o) and not os.access(o, os.W_OK)]
-
-	def check(self):
-		"""
-		Check if rule is well defined.
-		"""
-		if self.output and not self.has_run():
-			raise RuleException("Rule {} defines output but does not have a \"run\" definition.".format(self.name), lineno = self.lineno, snakefile = self.snakefile)
-
-	def _need_run(self, force, todo, input, output, parentmintime, requested_output, pseudo):
-		""" Return True if rule needs to be run. """
-		if self.has_run():
-			if force:
-				return True, "Forced rule execution."
-			if not output:
-				return True, ""
-
-			# translate dynamic output to concrete output
-			concrete_output = []
-			if not pseudo:
-				for i, f in enumerate(output):
-					_f = self.output[i]
-					if self.is_dynamic(_f):
-						if f == requested_output:
-							# remove requested output as it is only a placeholder
-							requested_output = None
-						concrete_output.extend([IOFile.create(d, temp=f.is_temp(), protected=f.is_protected()) for d, _ in listfiles(_f)])
-					else:
-						concrete_output.append(f)
-			output = concrete_output
-			
-			output_mintime = IOFile.mintime(output) or parentmintime
-
-			if self._has_missing_files(output, requested_output):
-				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
-			if output_mintime == None: # TODO remove this since it cannot happen?
-				return True, "Missing output files: {}".format(", ".join(self._get_missing_files(output)))
-
-			if todo:
-				todo_output = set()
-				for job in todo:
-					if (not job.pseudo and not job.dynamic_output) or job.needrun:
-						todo_output.update(job.output)
-				if todo_output:
-					return True, "Updated input files: {}".format(", ".join(set(input) & set(todo_output)))
-
-			newer = [i for i in input if os.path.exists(i) and i.is_newer(output_mintime)]
-			if newer:
-				return True, "Input files newer than output files: {}".format(", ".join(newer))
-			
-			return False, ""
-		return False, ""
-
-	def get_run(self):
-		""" Return the run method. """
-		return self.run_func
-
-	def has_run(self):
-		""" Return True if rule has a run method. """
-		return self.run_func != None
 
 	def is_producer(self, requested_output):
 		"""
@@ -442,10 +206,7 @@ class Rule:
 					bestmatch = match.groupdict()
 					bestmatchlen = l
 					bestmatch_output = self.output[i]
-		return bestmatch, bestmatch_output
-
-	def clone(self):
-		return Rule(self)
+		return bestmatch
 	
 	@staticmethod
 	def get_wildcard_len(wildcards):
@@ -458,14 +219,14 @@ class Rule:
 		return sum(map(len, wildcards.values()))
 
 	def __lt__(self, rule):
-		comp = self.workflow.get_ruleorder().compare(self.name, rule.name)
+		comp = self.workflow.ruleorder.compare(self.name, rule.name)
 		return comp < 0
 
 	def __gt__(self, rule):
-		comp = self.workflow.get_ruleorder().compare(self.name, rule.name)
+		comp = self.workflow.ruleorder.compare(self.name, rule.name)
 		return comp > 0
 
-	def __repr__(self):
+	def __str__(self):
 		return self.name
 
 
