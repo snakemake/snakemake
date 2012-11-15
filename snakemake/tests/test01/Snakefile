@@ -5,7 +5,7 @@ rule rule1:
 	input: 
 		'test.inter'
 	output: 'test.out'
-	message: 'Copying {input[0]} to {output[0]}'
+	threads: 5
 	shell: 
 		'echo {TEST}; cp {input[0]} {output[0]}'
 

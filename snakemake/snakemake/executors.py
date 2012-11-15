@@ -11,12 +11,13 @@ from snakemake.exceptions import print_exception, get_exception_origin, format_e
 	
 class AbstractExecutor:
 
-	def __init__(self, workflow, dag, printreason=False, quiet=False, printshellcmds=False):
+	def __init__(self, workflow, dag, printreason = False, quiet = False, printshellcmds = False, printthreads = True):
 		self.workflow = workflow
 		self.dag = dag
 		self.quiet = quiet
 		self.printreason = printreason
 		self.printshellcmds = printshellcmds
+		self.printthreads = printthreads
 
 	def run(self, job, callback = None, error_callback = None):
 		self._run(job)
@@ -29,7 +30,11 @@ class AbstractExecutor:
 		if job.message:
 			logger.info(job.message)
 		else:
-			self.dag.printjob(job, quiet=self.quiet)
+			self.dag.printjob(job, 
+			                  quiet=self.quiet, 
+			                  printreason=self.printreason, 
+			                  printshellcmds=self.printshellcmds, 
+			                  printthreads=self.printthreads)
 	
 	def finish_job(self, job):
 		self.dag.check_output(job)

@@ -173,11 +173,11 @@ class Workflow:
 			if ruleinfo.output:
 				rule.set_output(*ruleinfo.output[0], **ruleinfo.output[1])
 			if ruleinfo.threads:
-				rule.set_threads = ruleinfo.threads
+				rule.threads = ruleinfo.threads
 			if ruleinfo.log:
-				rule.set_log = ruleinfo.log
+				rule.log = ruleinfo.log
 			if ruleinfo.message:
-				rule.set_message = ruleinfo.message
+				rule.message = ruleinfo.message
 			rule.docstring = ruleinfo.docstring
 			rule.run_func = ruleinfo.func
 			rule.shellcmd = ruleinfo.shellcmd

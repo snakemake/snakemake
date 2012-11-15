@@ -65,7 +65,7 @@ class Rule:
 	
 	@log.setter
 	def log(self, log):
-		self.log = IOFile(log, rule=self)
+		self._log = IOFile(log, rule=self)
 
 	@property
 	def input(self):

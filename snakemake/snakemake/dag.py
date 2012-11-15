@@ -366,7 +366,7 @@ class DAG:
 			raise MissingRuleException(targetfile)
 		return jobs
 		
-	def printjob(self, job, quiet = False, printshellcmds = False, printreason = False):
+	def printjob(self, job, quiet = False, printshellcmds = False, printreason = False, printthreads = False):
 		def format_files(job, io, ruleio, dynamicio):
 			for f, f_ in zip(io, ruleio):
 				if f in dynamicio:
@@ -386,6 +386,8 @@ class DAG:
 					desc.append(format_ruleitem(name, value))
 		if printshellcmds and job.shellcmd:
 			desc.append(job.shellcmd)
+		if printthreads and job.threads > 1:
+			desc.append(format_ruleitem("threads", job.threads))
 		if desc:
 			logger.info("\n".join(desc))
 			if job.dynamic_output:

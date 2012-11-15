@@ -58,9 +58,9 @@ class JobScheduler:
 				if job.threads > self.maxcores:
 					# reduce the number of threads so that it 
 					# fits to available cores.
-					logger.warn(
-							"Rule {} defines too many threads ({}), Scaling down to {}."
-							.format(job.rule, job.threads, self.maxcores))
+					#logger.warn(
+					#		"Rule {} defines too many threads ({}), Scaling down to {}."
+					#		.format(job.rule, job.threads, self.maxcores))
 					job.threads = self.maxcores
 				needrun.append(job)
 			assert needrun
