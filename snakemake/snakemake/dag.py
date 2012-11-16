@@ -142,6 +142,9 @@ class DAG:
 					logger.warning("Removing temporary output file {}".format(f))
 					f.remove()
 	
+	def update2(self, *jobs, parent = None, visited = None, skip_until_dynamic = False):
+		jobs_ = defaultdict(list)
+	
 	def update(self, job = None, visited = None, skip_until_dynamic = False):
 		if job in self.dependencies:
 			return
