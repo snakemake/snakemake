@@ -1,4 +1,4 @@
-import textwrap
+import textwrap, sys
 from collections import defaultdict
 from itertools import chain, combinations, filterfalse, product
 from functools import partial, lru_cache
@@ -18,6 +18,7 @@ class DAG:
 	             forcetargets = False, 
 	             forcerules = None,
 	             priorityfiles = None,
+	             priorityrules = None,
 	             ignore_ambiguity = False):
 		self.dependencies = defaultdict(partial(defaultdict, set))
 		self.depending = defaultdict(partial(defaultdict, set))
@@ -32,7 +33,11 @@ class DAG:
 		self.ignore_ambiguity = ignore_ambiguity
 		self.targetfiles = targetfiles
 		self.targetrules = targetrules
+		self.priorityfiles = priorityfiles
+		self.priorityrules = priorityrules
 		self.targetjobs = set()
+		self.prioritytargetjobs = set()
+				
 		self.forcerules = set()
 		self.forcefiles = set()
 		if forceall:
@@ -42,11 +47,10 @@ class DAG:
 		if forcetargets:
 			self.forcerules.update(targetrules)
 			self.forcefiles.update(targetfiles)
-		self.priorityfiles = set() if priorityfiles is None else priorityfiles
 
 	def init(self):
 		potential_targetjobs = set(map(self.rule2job, self.targetrules))
-		exceptions = defaultdict(list)		
+		exceptions = defaultdict(list)
 		for file in self.targetfiles:
 			try:
 				for job in self.file2jobs(file):
@@ -109,6 +113,9 @@ class DAG:
 	
 	def exception(self, job):
 		return self._job_exceptions.get(job, None)
+		
+	def requested_files(self, job):
+		return set(*self.depending[job].values())
 	
 	def missing_temp(self, job):
 		for job_, files in self.depending[job].items():
@@ -134,8 +141,8 @@ class DAG:
 				if not needed(job_, f):
 					logger.warning("Removing temporary output file {}".format(f))
 					f.remove()
-		
-	def update(self, job, visited = None, skip_until_dynamic = False):
+	
+	def update(self, job = None, visited = None, skip_until_dynamic = False):
 		if job in self.dependencies:
 			return
 		if job in self._job_exceptions:
@@ -148,9 +155,6 @@ class DAG:
 
 		skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 		
-		#if job.rule.name == "map_single" and "tmp/mapped/M45737N.bam" in job.output:
-		#	import pdb; pdb.set_trace()
-		missing_input = job.missing_input
 		producer = dict()
 		exceptions = defaultdict(list)
 		for file, jobs in potential_dependencies:
@@ -207,7 +211,7 @@ class DAG:
 					return t
 		def needrun(job):
 			reason = self.reason(job)
-			if job != noforce and job.rule in self.forcerules or job.targetfile in self.forcefiles:
+			if job != noforce and job.rule in self.forcerules or not self.forcefiles.isdisjoint(job.output):
 				reason.forced = True
 			elif job in self.targetjobs:
 				if not job.output:
@@ -247,17 +251,17 @@ class DAG:
 		self._len = len(self._needrun)
 	
 	def update_priority(self):
-		prioritized = lambda job: not self.priorityfiles.isdisjoint(job.output)
+		prioritized = lambda job: not job.rule in self.priorityrules and not self.priorityfiles.isdisjoint(job.output)
 		for job in self.bfs(self.dependencies, *filter(prioritized, self.needrun_jobs), stop=self.noneedrun_finished):
-			job.priority = 99
+			job.priority = sys.maxint
 	
 	def postprocess(self, noforce = None):
 		self.update_needrun(noforce=noforce)
 		self.update_priority()
 	
-	def finish(self, job):
+	def finish(self, job, update_dynamic = True):
 		self._finished.add(job)
-		if job.dynamic_output:
+		if update_dynamic and job.dynamic_output:
 			logger.warning("Dynamically updating jobs")
 			newjob = self.update_dynamic(job)
 			if newjob:
@@ -353,11 +357,12 @@ class DAG:
 			yield job
 	
 	def raise_exception(self, job, exception, isorigin = True):
+		if job in self.targetjobs:
+			self.targetjobs.remove(job)
 		self.delete_job(job, recursive=False)
 		if isorigin:
 			self._job_exceptions[job] = exception
 		raise exception
-		
 
 	def new_wildcards(self, job):
 		new_wildcards = set(job.wildcards.items())
@@ -379,38 +384,6 @@ class DAG:
 		if not jobs:
 			raise MissingRuleException(targetfile)
 		return jobs
-		
-	def printjob(self, job, quiet = False, printshellcmds = False, printreason = False, printthreads = False):
-		def format_files(job, io, ruleio, dynamicio):
-			for f, f_ in zip(io, ruleio):
-				if f in dynamicio:
-					yield "{} (dynamic)".format(f_)
-				else:
-					yield f
-		def format_ruleitem(name, value):
-			return "" if not value else "\t{}: {}".format(name, value)
-			
-		desc = list()
-		if not quiet:
-			desc.append("rule {}:".format(job.rule.name))
-			for name, value in (("input", ", ".join(format_files(job, job.input, job.rule.input, job.dynamic_input))), 
-			                    ("output", ", ".join(format_files(job, job.output, job.rule.output, job.dynamic_output))),
-			                    ("reason", self.reason(job) if printreason else None)):
-				if value:
-					desc.append(format_ruleitem(name, value))
-		if printshellcmds and job.shellcmd:
-			desc.append(job.shellcmd)
-		if printthreads and job.threads > 1:
-			desc.append(format_ruleitem("threads", job.threads))
-		if desc:
-			logger.info("\n".join(desc))
-			if job.dynamic_output:
-				logger.warning("Subsequent jobs will be added dynamically depending on the output of this rule")
-		
-	def dryrun(self, quiet = False, printshellcmds = False, printreason = False):
-		for job in self.dfs(self.dependencies, *self.targetjobs, post=True):
-			if not self.dynamic(job) and self.needrun(job):
-				self.printjob(job, quiet=quiet, printshellcmds=printshellcmds, printreason=printreason)
 	
 	def dot(self, errors = False):
 		jobid = dict((job, i) for i, job in enumerate(self.jobs))

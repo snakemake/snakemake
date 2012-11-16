@@ -45,7 +45,7 @@ def main():
 	                          "fool future invocations of snakemake. Fails if a file does "
 	                          "not yet exist."))
 	parser.add_argument("--force", "-f", action="store_true", 
-	                    help=("Force the execution of the selected (or the first) rule "
+	                    help=("Force the execution of the selected target or the first rule "
 	                          "regardless of already created output."))
 	parser.add_argument("--forceall", "-F", action="store_true", 
 	                    help=("Force the execution of the selected (or the first) rule and "
@@ -53,6 +53,8 @@ def main():
 	parser.add_argument("--forcerules", "-R", nargs="+", 
 	                    help=("Force the execution of the selected (or the first) rule and "
 	                          "all rules that are mentioned here regardless of already created output."))
+	parser.add_argument("--prioritize", "-P", nargs="+",
+	                    help="Tell the scheduler to assign creation of given targets (and all their dependencies) highest priority. (EXPERIMENTAL)")
 	parser.add_argument("--allow-ambiguity", "-a", action="store_true",
 	                    help=("Don't check for ambiguous rules and simply use the first if "
 	                          "several can produce the same file. This allows the user to "
@@ -90,6 +92,7 @@ def main():
 			forcetargets = args.force,
 			forceall = args.forceall,
 			forcerules = args.forcerules,
+			prioritytargets = args.prioritize,
 			stats = args.stats,
 			nocolor = args.nocolor,
 			quiet = args.quiet,

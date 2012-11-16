@@ -84,21 +84,30 @@ class Workflow:
 						log("\t" + line)
 
 	def execute(self, targets = None, dryrun = False,  touch = False, cores = 1,
-	              forcetargets = False, forceall = False, forcerules = None, quiet = False, 
-	              printshellcmds = False, printreason = False, printdag = False,
+	              forcetargets = False, forceall = False, forcerules = None, prioritytargets = None,
+	              quiet = False, printshellcmds = False, printreason = False, printdag = False,
 	              cluster = None,  ignore_ambiguity = False, workdir = None, stats = None):
 		if workdir is None:
 			workdir = os.getcwd() if self._workdir is None else self._workdir
 		os.chdir(workdir)
 		
-		ruletargets, filetargets = set(), set()
+		prioritytargets = set() if prioritytargets is None else set(prioritytargets)
 		if not targets:
 			targets = set([self.first_rule])
+		targets = set(chain(targets, prioritytargets))
+		
+		targetrules, targetfiles, priorityrules, priorityfiles = set(), set(), set(), set()
 		for target in targets:
 			if self.is_rule(target):
-				ruletargets.add(self._rules[target])
+				rule = self._rules[target]
+				targetrules.add(rule)
+				if target in prioritytargets:
+					priorityrules.add(rule)
 			else:
-				filetargets.add(os.path.relpath(target))
+				file = os.path.relpath(target)
+				targetfiles.add(file)
+				if target in prioritytargets:
+					priorityfiles.add(file)
 		
 		try:
 			forcerules_ = list()
@@ -110,7 +119,8 @@ class Workflow:
 			self.list_rules()
 			return False
 		
-		dag = DAG(self, targetfiles=filetargets, targetrules=ruletargets, forceall=forceall, forcetargets=forcetargets, forcerules=forcerules_, ignore_ambiguity=ignore_ambiguity)
+		dag = DAG(self, targetfiles=targetfiles, targetrules=targetrules, forceall=forceall, forcetargets=forcetargets, 
+		          forcerules=forcerules_, priorityfiles=priorityfiles, priorityrules=priorityrules, ignore_ambiguity=ignore_ambiguity)
 		try:
 			dag.init()
 		except RuleException as ex:
@@ -124,15 +134,13 @@ class Workflow:
 		if printdag:
 			print(dag)
 			return True
-		if dryrun:
-			dag.dryrun(quiet=quiet, printshellcmds=printshellcmds, printreason=printreason)
-			return True
 		
-		scheduler = JobScheduler(self, dag, cores, touch=touch, cluster=cluster, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds)
+		scheduler = JobScheduler(self, dag, cores, dryrun=dryrun, touch=touch, cluster=cluster, quiet=quiet, 
+		                         printreason=printreason, printshellcmds=printshellcmds)
 		success = scheduler.schedule()
 		
 		if success:
-			if stats:
+			if not dryrun and stats:
 				scheduler.stats.to_csv(stats)
 		else:
 			logger.critical("Exiting because a job execution failed. Look above for error message")

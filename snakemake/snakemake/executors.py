@@ -30,16 +30,42 @@ class AbstractExecutor:
 		if job.message:
 			logger.info(job.message)
 		else:
-			self.dag.printjob(job, 
-			                  quiet=self.quiet, 
-			                  printreason=self.printreason, 
-			                  printshellcmds=self.printshellcmds, 
-			                  printthreads=self.printthreads)
+			self.printjob(job)
+
+	def printjob(self, job):
+		def format_files(job, io, ruleio, dynamicio):
+			for f, f_ in zip(io, ruleio):
+				if f in dynamicio:
+					yield "{} (dynamic)".format(f_)
+				else:
+					yield f
+		def format_ruleitem(name, value):
+			return "" if not value else "\t{}: {}".format(name, value)
+			
+		desc = list()
+		if not self.quiet:
+			desc.append("rule {}:".format(job.rule.name))
+			for name, value in (("input", ", ".join(format_files(job, job.input, job.rule.input, job.dynamic_input))), 
+			                    ("output", ", ".join(format_files(job, job.output, job.rule.output, job.dynamic_output))),
+			                    ("reason", self.dag.reason(job) if self.printreason else None)):
+				if value:
+					desc.append(format_ruleitem(name, value))
+		if self.printshellcmds and job.shellcmd:
+			desc.append(job.shellcmd)
+		if self.printthreads and job.threads > 1:
+			desc.append(format_ruleitem("threads", job.threads))
+		if desc:
+			logger.info("\n".join(desc))
+			if job.dynamic_output:
+				logger.warning("Subsequent jobs will be added dynamically depending on the output of this rule")
 	
 	def finish_job(self, job):
 		self.dag.check_output(job)
 		self.dag.handle_protected(job)
 		self.dag.handle_temp(job)
+
+class DryrunExecutor(AbstractExecutor):
+	pass
 
 class TouchExecutor(AbstractExecutor):
 
