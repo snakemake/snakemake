@@ -109,9 +109,12 @@ class Workflow:
 			if self.is_rule(target):
 				rule = self._rules[target]
 				priorityrules.add(rule)
+				if not rule.has_wildcards():
+					targetrules.add(rule)
 			else:
 				file = os.path.relpath(target)
 				priorityfiles.add(file)
+				targetfiles.add(file)
 		
 		try:
 			forcerules_ = list()
