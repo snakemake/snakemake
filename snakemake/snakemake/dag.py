@@ -26,7 +26,6 @@ class DAG:
 		self._reason = defaultdict(Reason)
 		self._finished = set()
 		self._dynamic = set()
-		self._job_exceptions = dict()
 		self._len = 0
 		self.workflow = workflow
 		self.rules = workflow.rules
@@ -49,27 +48,20 @@ class DAG:
 			self.forcefiles.update(targetfiles)
 
 	def init(self):
-		potential_targetjobs = set(map(self.rule2job, self.targetrules))
+		
+		#import pdb; pdb.set_trace()
+		for job in map(self.rule2job, self.targetrules):
+			job = self.update([job])
+			self.targetjobs.add(job)
+		
 		exceptions = defaultdict(list)
 		for file in self.targetfiles:
 			try:
-				for job in self.file2jobs(file):
-					potential_targetjobs.add(job)
+				job = self.update(self.file2jobs(file), file=file)
+				self.targetjobs.add(job)
 			except MissingRuleException as ex:
 				exceptions[file].append(ex)
 		
-		
-		has_producer = set()
-		for job in potential_targetjobs:
-			try:
-				self.update(job)
-				self.targetjobs.add(job)
-				has_producer.add(job.targetfile)
-			except RuleException as ex:
-				exceptions[job.targetfile].append(ex)
-		for file in has_producer:
-			if file in exceptions:
-				del exceptions[file]
 		if exceptions:
 			raise RuleException(include=chain(*exceptions.values()))
 		self.update_needrun()
@@ -110,9 +102,6 @@ class DAG:
 	
 	def dynamic(self, job):
 		return job in self._dynamic
-	
-	def exception(self, job):
-		return self._job_exceptions.get(job, None)
 		
 	def requested_files(self, job):
 		return set(*self.depending[job].values())
@@ -142,14 +131,41 @@ class DAG:
 					logger.warning("Removing temporary output file {}".format(f))
 					f.remove()
 	
-	def update2(self, *jobs, parent = None, visited = None, skip_until_dynamic = False):
-		jobs_ = defaultdict(list)
+	def update(self, jobs, file=None, visited = None, skip_until_dynamic = False):
+		if visited is None:
+			visited = set()
+		producer = None
+		exceptions = list()
+		jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
+		cycles = list()
+		for i, job in enumerate(jobs):
+			if job in visited:
+				cycles.append(job)
+				continue
+			try:
+				self.update_(job, visited=set(visited), skip_until_dynamic=skip_until_dynamic)
+				if i > 0:
+					if job < jobs[i-1] or self.ignore_ambiguity:
+						break
+					elif producer is not None:
+						raise AmbiguousRuleException(file, job.rule, jobs[i-1].rule)
+				producer = job
+			except (MissingInputException, CyclicGraphException) as ex:
+				exceptions.append(ex)
+			except RuntimeError as ex:
+				if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
+					ex = RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), rule = job.rule)
+				raise ex
+		if producer is None:
+			if cycles:
+				raise CyclicGraphException(cycles[0].rule, file, rule=job.rule)
+			if exceptions:
+				raise exceptions[0]
+		return producer
 	
-	def update(self, job = None, visited = None, skip_until_dynamic = False):
+	def update_(self, job, visited = None, skip_until_dynamic = False):
 		if job in self.dependencies:
 			return
-		if job in self._job_exceptions:
-			raise self.exception(job)
 		if visited is None:
 			visited = set()
 		visited.add(job)
@@ -159,34 +175,14 @@ class DAG:
 		skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 		
 		producer = dict()
-		exceptions = defaultdict(list)
+		exceptions = dict()
 		for file, jobs in potential_dependencies:
 			# TODO check for pumping up wildcards...
-			jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
-			cycles = list()
-			for i, job_ in enumerate(jobs):
-				if job_ in visited:
-					cycles.append(job_)
-					continue
-				try:
-					self.update(job_, visited=set(visited), skip_until_dynamic=skip_until_dynamic or file in job.dynamic_input)
-					if i > 0:
-						if job_ < jobs[i-1] or self.ignore_ambiguity:
-							break
-						elif file in producer:
-							self.raise_exception(job, AmbiguousRuleException(file, job_.rule, jobs[i-1].rule))
-					producer[file] = job_
-				except (MissingInputException, CyclicGraphException) as ex:
-					#import pdb;pdb.set_trace()
-					exceptions[file].append(ex)
-				except RuntimeError as ex:
-					if isinstance(ex, RuntimeError) and str(ex).startswith("maximum recursion depth exceeded"):
-						ex = RuleException("Maximum recursion depth exceeded. Maybe you have a cyclic dependency due to infinitely filled wildcards?\nProblematic input file:\n{}".format(file), rule = job.rule)
-						self.raise_exception(job, ex)
-					else:
-						raise ex
-			if cycles and file not in producer:
-				self.raise_exception(job, CyclicGraphException(cycles[0].rule, file, rule=job.rule))
+			try:
+				producer[file] = self.update(jobs, file=file, visited=visited,
+				                             skip_until_dynamic=skip_until_dynamic or file in job.dynamic_input)
+			except (MissingInputException, CyclicGraphException) as ex:
+				exceptions[file] = ex
 		
 		for file, job_ in producer.items():
 			dependencies[job_].add(file)
@@ -198,10 +194,10 @@ class DAG:
 			noproducer = list()
 			for f in missing_input:
 				if f in exceptions:
-					include.extend(exceptions[f])
+					include.append(exceptions[f])
 				else:
 					noproducer.append(f)
-			self.raise_exception(job, MissingInputException(job.rule, noproducer, include=include), isorigin=noproducer)
+			raise MissingInputException(job.rule, noproducer, include=include)
 		
 		if skip_until_dynamic:
 			self._dynamic.add(job)
@@ -311,7 +307,7 @@ class DAG:
 	
 	def replace_job(self, job, newjob):
 		self.delete_job(job)
-		self.update(newjob)
+		self.update([newjob])
 		if job in self.targetjobs:
 			self.targetjobs.remove(job)
 			self.targetjobs.add(newjob)
@@ -358,14 +354,6 @@ class DAG:
 					yield j
 		if post:
 			yield job
-	
-	def raise_exception(self, job, exception, isorigin = True):
-		if job in self.targetjobs:
-			self.targetjobs.remove(job)
-		self.delete_job(job, recursive=False)
-		if isorigin:
-			self._job_exceptions[job] = exception
-		raise exception
 
 	def new_wildcards(self, job):
 		new_wildcards = set(job.wildcards.items())
@@ -401,10 +389,6 @@ class DAG:
 				t = 1
 			if self.dynamic(job) or job.dynamic_input:
 				t = 2
-			exception = self.exception(job)
-			if not exception is None:
-				t = 3
-				label += "\\n{}".format("\\n".join(exception.messages).replace("\n", " "))
 			used_types.add(t)
 			nodes.append('\t{}[label = "{}", {}];'.format(jobid[job], label, styles[t]))
 			for job_ in self.dependencies[job]:
