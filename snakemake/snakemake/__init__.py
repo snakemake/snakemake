@@ -70,7 +70,14 @@ def snakemake(snakefile,
 			workflow.list_rules()
 			return True
 		
-		success = workflow.execute(targets=targets, dryrun=dryrun, touch=touch, cores=cores, forcetargets=forcetargets, forceall=forceall, forcerules=forcerules, quiet=quiet, printshellcmds=printshellcmds, printreason=printreason, printdag=printdag, cluster=cluster, ignore_ambiguity=ignore_ambiguity, workdir=workdir, stats=stats)
+		success = workflow.execute(targets=targets, dryrun=dryrun, touch=touch, 
+		                           cores=cores, forcetargets=forcetargets, 
+		                           forceall=forceall, forcerules=forcerules, 
+		                           prioritytargets=prioritytargets, quiet=quiet, 
+		                           printshellcmds=printshellcmds, printreason=printreason, 
+		                           printdag=printdag, cluster=cluster, 
+		                           ignore_ambiguity=ignore_ambiguity, 
+		                           workdir=workdir, stats=stats)
 		
 	except (Exception, BaseException) as ex:
 		print_exception(ex, workflow.linemaps)

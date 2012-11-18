@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os
+import os, sys
 
 from collections import defaultdict
 from itertools import chain
@@ -13,6 +13,8 @@ from snakemake.exceptions import MissingOutputException
 __author__ = "Johannes Köster"
 
 class Job:
+	HIGHEST_PRIORITY = sys.maxsize
+
 	def __init__(self, rule, targetfile = None):
 		self.rule = rule
 		self.targetfile = targetfile

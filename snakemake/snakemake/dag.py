@@ -1,4 +1,4 @@
-import textwrap, sys
+import textwrap
 from collections import defaultdict
 from itertools import chain, combinations, filterfalse, product
 from functools import partial, lru_cache
@@ -250,9 +250,9 @@ class DAG:
 		self._len = len(self._needrun)
 	
 	def update_priority(self):
-		prioritized = lambda job: not job.rule in self.priorityrules and not self.priorityfiles.isdisjoint(job.output)
+		prioritized = lambda job: job.rule in self.priorityrules or not self.priorityfiles.isdisjoint(job.output)
 		for job in self.bfs(self.dependencies, *filter(prioritized, self.needrun_jobs), stop=self.noneedrun_finished):
-			job.priority = sys.maxint
+			job.priority = Job.HIGHEST_PRIORITY
 	
 	def postprocess(self, noforce = None):
 		self.update_needrun(noforce=noforce)

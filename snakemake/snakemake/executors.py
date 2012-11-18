@@ -4,6 +4,7 @@ import concurrent.futures
 from functools import partial
 from itertools import chain
 
+from snakemake.jobs import Job
 from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.utils import format
@@ -54,6 +55,8 @@ class AbstractExecutor:
 			desc.append(job.shellcmd)
 		if self.printthreads and job.threads > 1:
 			desc.append(format_ruleitem("threads", job.threads))
+		if job.priority > 1:
+			desc.append(format_ruleitem("priority", "highest" if job.priority == Job.HIGHEST_PRIORITY else job.priority))
 		if desc:
 			logger.info("\n".join(desc))
 			if job.dynamic_output:

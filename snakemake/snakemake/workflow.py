@@ -90,24 +90,28 @@ class Workflow:
 		if workdir is None:
 			workdir = os.getcwd() if self._workdir is None else self._workdir
 		os.chdir(workdir)
-		
-		prioritytargets = set() if prioritytargets is None else set(prioritytargets)
+
 		if not targets:
-			targets = set([self.first_rule])
-		targets = set(chain(targets, prioritytargets))
+			targets = [self.first_rule]
+		if not prioritytargets:
+			prioritytargets = list()
 		
 		targetrules, targetfiles, priorityrules, priorityfiles = set(), set(), set(), set()
 		for target in targets:
 			if self.is_rule(target):
 				rule = self._rules[target]
 				targetrules.add(rule)
-				if target in prioritytargets:
-					priorityrules.add(rule)
 			else:
 				file = os.path.relpath(target)
 				targetfiles.add(file)
-				if target in prioritytargets:
-					priorityfiles.add(file)
+				
+		for target in prioritytargets:
+			if self.is_rule(target):
+				rule = self._rules[target]
+				priorityrules.add(rule)
+			else:
+				file = os.path.relpath(target)
+				priorityfiles.add(file)
 		
 		try:
 			forcerules_ = list()
@@ -182,6 +186,8 @@ class Workflow:
 				rule.set_output(*ruleinfo.output[0], **ruleinfo.output[1])
 			if ruleinfo.threads:
 				rule.threads = ruleinfo.threads
+			if ruleinfo.priority:
+				rule.priority = ruleinfo.priority
 			if ruleinfo.log:
 				rule.log = ruleinfo.log
 			if ruleinfo.message:
@@ -222,6 +228,12 @@ class Workflow:
 			return ruleinfo
 		return decorate
 
+	def priority(self, priority):
+		def decorate(ruleinfo):
+			ruleinfo.priority = priority
+			return ruleinfo
+		return decorate
+
 	def log(self, log):
 		def decorate(ruleinfo):
 			ruleinfo.log = log
@@ -251,5 +263,6 @@ class RuleInfo:
 		self.output = None
 		self.message = None
 		self.threads = None
+		self.priority = None
 		self.log = None
 		self.docstring = None

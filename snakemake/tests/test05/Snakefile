@@ -1,18 +1,19 @@
 chromosomes = [1,2,3]
 
+shell('rm test.*.inter 2> /dev/null | true')
+
 rule all:
 	input: 'test.predictions'
 
 rule compute1:
 	input: '{name}.in'
 	output: ['{name}.%s.inter'%c for c in chromosomes]
-	message: 'Computing results for {input[0]}'
 	run:
 		for out in output:
 			shell('(cat {input[0]} && echo "Part {out}") > {out}')
 
 rule compute2:
-	input: '{name}.{chromosome}.inter'
+	input: '{name}.{chromosome}.inter', 'other.txt'
 	output: '{name}.{chromosome}.inter2'
 	message: 'Converting {input[0]} --> {output[0]}'
 	shell: 'cp {input[0]} {output[0]}'
@@ -23,3 +24,8 @@ rule gather:
 	message: 'Gathering results'
 	run:
 		shell('cat {} > {}'.format(' '.join(input), output[0]))
+
+rule other:
+	output: 'other.txt'
+	priority: 50
+	shell: 'if [ -f test.1.inter ]; then exit 1; fi; touch other.txt'
