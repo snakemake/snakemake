@@ -98,6 +98,8 @@ class Job:
 				f_.prepare()
 			else:
 				f.prepare()
+		if self.log:
+			self.log.prepare()
 	
 	def cleanup(self):
 		for f in self.output:
