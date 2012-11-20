@@ -197,6 +197,7 @@ class DAG:
 					include.append(exceptions[f])
 				else:
 					noproducer.append(f)
+			self.delete_job(job, recursive=False) # delete job from tree
 			raise MissingInputException(job.rule, noproducer, include=include)
 		
 		if skip_until_dynamic:
