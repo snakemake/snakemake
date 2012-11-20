@@ -48,6 +48,7 @@ class AbstractExecutor:
 			desc.append("rule {}:".format(job.rule.name))
 			for name, value in (("input", ", ".join(format_files(job, job.input, job.rule.input, job.dynamic_input))), 
 			                    ("output", ", ".join(format_files(job, job.output, job.rule.output, job.dynamic_output))),
+			                    ("log", job.log),
 			                    ("reason", self.dag.reason(job) if self.printreason else None)):
 				if value:
 					desc.append(format_ruleitem(name, value))
