@@ -160,12 +160,7 @@ class Rule:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno, snakefile = self.snakefile)
 
 		try:
-			input = Namedlist()
-			for f in self.input:
-				if f in self.dynamic_input:
-					input.append(f.fill_wildcards())
-				else:
-					input.append(f.apply_wildcards(wildcards))
+			input = Namedlist(f.apply_wildcards(wildcards, fill_missing=f in self.dynamic_input) for f in self.input)
 			output = Namedlist(o.apply_wildcards(wildcards) for o in self.output)
 			input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
