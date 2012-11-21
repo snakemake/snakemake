@@ -35,11 +35,14 @@ class JobScheduler:
 		self._open_jobs.set()
 	
 	def candidate(self, job):
-		return job not in self.running and not self.dag.dynamic(job) and not job.dynamic_input and self.dag.ready(job, ignore_dynamic=self.dryrun)
+		return job not in self.running and not self.dag.dynamic(job) and not job.dynamic_input
+		
+	def ready(self, job):
+		return self.dag.ready(job, ignore_dynamic=self.dryrun)
 	
 	@property
 	def open_jobs(self):
-		return filter(self.candidate, self.dag.needrun_jobs)
+		return filter(self.ready, filter(self.candidate, self.dag.needrun_jobs))
 	
 	@property
 	def finished(self):
