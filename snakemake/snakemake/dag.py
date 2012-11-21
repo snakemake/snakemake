@@ -77,16 +77,11 @@ class DAG:
 	
 	@property
 	def needrun_jobs(self):
-		for job in filter(self.needrun, self.bfs(self.dependencies, *self.targetjobs, stop=self.noneedrun_finished)):
+		for job in filter(self.needrun, self.bfs(self.dependencies, *self.targetjobs, stop=self.finished)):
 			yield job
 			
-	@property
-	def ready_jobs(self):
-		for job in filter(self.ready, self.needrun_jobs):
-			yield job
-			
-	def ready(self, job):
-		return all(map(lambda job: self.finished(job) or not self.needrun(job), self.dependencies[job]))
+	def ready(self, job, ignore_dynamic = False):
+		return all(map(lambda job: self.finished(job) or not self.needrun(job) or (ignore_dynamic and self.dynamic(job)), self.dependencies[job]))
 	
 	def needrun(self, job):
 		return job in self._needrun
@@ -280,6 +275,7 @@ class DAG:
 		job.rule.update_dynamic(dynamic_wildcards, input=False)
 		newjob = Job(job.rule)
 		self.replace_job(job, newjob)
+		#import pdb; pdb.set_trace()
 		for job_ in depending:
 			if job_.dynamic_input:
 				if job_.rule.update_dynamic(dynamic_wildcards):
@@ -309,8 +305,15 @@ class DAG:
 			self._dynamic.remove(job)
 	
 	def replace_job(self, job, newjob):
+		#if newjob.rule.name == "cluster_table":
+		#	import pdb; pdb.set_trace()
+		depending = list(self.depending[job].items())
 		self.delete_job(job)
 		self.update([newjob])
+		for job_, files in depending:
+			if not job_.dynamic_input:
+				self.dependencies[job_][newjob].update(files)
+				self.depending[newjob][job_].update(files)
 		if job in self.targetjobs:
 			self.targetjobs.remove(job)
 			self.targetjobs.add(newjob)
