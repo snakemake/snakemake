@@ -80,6 +80,8 @@ class JobScheduler:
 		self.running.remove(job)
 		self.dag.finish(job, update_dynamic = not self.dryrun)
 		self._cores += job.threads
+		#if job.rule.name == "overlap":
+		#	import pdb; pdb.set_trace()
 		if not self.quiet and not self.dryrun:
 			self.progress()
 		if any(self.open_jobs) or self.finished:

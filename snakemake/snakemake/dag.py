@@ -179,6 +179,8 @@ class DAG:
 		for file, jobs in potential_dependencies:
 			# TODO check for pumping up wildcards...
 			try:
+				#if file in job.dynamic_input:
+				#	print(job, file)
 				producer[file] = self.update(jobs, file=file, visited=visited,
 				                             skip_until_dynamic=skip_until_dynamic or file in job.dynamic_input)
 			except (MissingInputException, CyclicGraphException) as ex:

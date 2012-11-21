@@ -81,21 +81,18 @@ class _IOFile(str):
 				raise MissingOutputException("Output file {} of rule {} shall be touched but does not exist.".format(self.file, self.rule.name), lineno = self.rule.lineno, snakefile = self.rule.snakefile)
 			else:
 				raise e
-
-
-	def apply_wildcards(self, wildcards, fill_missing = False):
+	
+	def apply_wildcards(self, wildcards):
 		f = self._file
 		if self._is_function:
 			f = self._file(Namedlist(fromdict = wildcards))
-		def apply_wildcard(match):
-			name = match.group('name')
-			if name in wildcards:
-				return '{}'.format(wildcards[name])
-			elif fill_missing:
-				return "0"
-			else:
-				raise KeyError(name)
-		return IOFile(re.sub(_wildcard_regex, apply_wildcard, f), rule=self.rule)
+		return IOFile(re.sub(_wildcard_regex, lambda match: '{}'.format(wildcards[match.group('name')]), f), rule=self.rule)
+	
+	def fill_wildcards(self):
+		f = self._file
+		if self._is_function:
+			raise ValueError("Cannot fill wildcards of function.")
+		return IOFile(re.sub(_wildcard_regex, lambda match: "0", f), rule=self.rule)
 		
 	def get_wildcard_names(self):
 		return set(match.group('name') for match in re.finditer(_wildcard_regex, self.file))
