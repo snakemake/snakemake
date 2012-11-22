@@ -8,7 +8,7 @@ from functools import lru_cache
 
 from snakemake.io import IOFile
 from snakemake.utils import format, listfiles
-from snakemake.exceptions import MissingOutputException
+from snakemake.exceptions import MissingOutputException, RuleException
 
 __author__ = "Johannes Köster"
 
@@ -23,8 +23,13 @@ class Job:
 		self.input, self.output, self.log, self.wildcards = rule.expand_wildcards(self.targetfile)
 		self.threads = rule.threads
 		self.priority = rule.priority
-		self.message = self._format_wildcards(rule.message) if rule.message else None
-		self.shellcmd = self._format_wildcards(rule.shellcmd) if rule.shellcmd else None
+		try:
+			self.message = self._format_wildcards(rule.message) if rule.message else None
+			self.shellcmd = self._format_wildcards(rule.shellcmd) if rule.shellcmd else None
+		except AttributeError as ex:
+			raise RuleException(str(ex), rule=self.rule)
+		except KeyError as ex:
+			raise RuleException("Unknown variable in message of shell command: {}".format(str(ex)), rule=self.rule)
 		
 		
 		self.dynamic_output, self.dynamic_input, self.temp_output, self.protected_output = set(), set(), set(), set()
