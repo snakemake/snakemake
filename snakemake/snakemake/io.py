@@ -45,7 +45,7 @@ class _IOFile(str):
 		return os.stat(self.file).st_mtime
 	
 	def is_newer(self, time):
-		return self.mtime >= time
+		return self.mtime > time
 	
 	def prepare(self):
 		path_until_wildcard = re.split(_wildcard_regex, self.file)[0]
