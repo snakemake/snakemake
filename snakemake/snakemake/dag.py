@@ -134,6 +134,7 @@ class DAG:
 		for i, job in enumerate(jobs):
 			if file in job.input:
 				cycles.append(job)
+				continue
 			if job in visited:
 				cycles.append(job)
 				continue
