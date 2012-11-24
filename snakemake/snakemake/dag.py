@@ -48,8 +48,6 @@ class DAG:
 			self.forcefiles.update(targetfiles)
 
 	def init(self):
-		
-		#import pdb; pdb.set_trace()
 		for job in map(self.rule2job, self.targetrules):
 			job = self.update([job])
 			self.targetjobs.add(job)
@@ -134,6 +132,8 @@ class DAG:
 		jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
 		cycles = list()
 		for i, job in enumerate(jobs):
+			if file in job.input:
+				cycles.append(job)
 			if job in visited:
 				cycles.append(job)
 				continue
@@ -153,7 +153,8 @@ class DAG:
 				raise ex
 		if producer is None:
 			if cycles:
-				raise CyclicGraphException(cycles[0].rule, file, rule=job.rule)
+				job = cycles[0]
+				raise CyclicGraphException(job.rule, file, rule=job.rule)
 			if exceptions:
 				raise exceptions[0]
 		return producer

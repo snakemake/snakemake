@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, re, sys, sre_constants
+import os, re, sys, inspect, sre_constants
 from collections import defaultdict
 
 from snakemake.io import IOFile, protected, temp, dynamic, Namedlist, expand
@@ -118,7 +118,7 @@ class Rule:
 		name     -- an optional name for the item
 		"""
 		inoutput = self.output if output else self.input
-		if type(item).__name__ == "function" and output:
+		if inspect.isfunction(item) and output:
 			raise SyntaxError("Only input files can be specified as functions")
 		if isinstance(item, str) or type(item).__name__ == "function":
 			_item = IOFile(item, rule=self)
