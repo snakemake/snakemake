@@ -36,6 +36,7 @@ class DAG:
 		self.priorityrules = priorityrules
 		self.targetjobs = set()
 		self.prioritytargetjobs = set()
+		self._ready = set()
 				
 		self.forcerules = set()
 		self.forcefiles = set()
@@ -79,7 +80,12 @@ class DAG:
 			yield job
 			
 	def ready(self, job, ignore_dynamic = False):
-		return all(map(lambda job: self.finished(job) or not self.needrun(job) or (ignore_dynamic and self.dynamic(job)), self.dependencies[job]))
+		if job in self._ready:
+			return True
+		if all(map(lambda job: self.finished(job) or not self.needrun(job) or (ignore_dynamic and self.dynamic(job)), self.dependencies[job])):
+			self._ready.add(job)
+			return True
+		return False
 	
 	def needrun(self, job):
 		return job in self._needrun

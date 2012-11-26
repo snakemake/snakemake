@@ -20,7 +20,7 @@ class Job:
 		self.targetfile = targetfile
 		self._hash = None
 		
-		self.input, self.output, self.log, self.wildcards = rule.expand_wildcards(self.targetfile)
+		self.input, self.output, self.log, self.wildcards, self.wildcards_dict = rule.expand_wildcards(self.targetfile)
 		self.threads = rule.threads
 		self.priority = rule.priority
 		try:
@@ -125,7 +125,8 @@ class Job:
 	def __eq__(self, other):
 		if other is None:
 			return False
-		return self.rule == other.rule and self.output == other.output
+		#return self.rule == other.rule and self.output == other.output
+		return self.rule == other.rule and self.wildcards_dict == other.wildcards_dict
 
 	def __lt__(self, other):
 		return self.rule.__lt__(other.rule)

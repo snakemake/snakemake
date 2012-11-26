@@ -1,5 +1,6 @@
 
 import os, threading
+from itertools import filterfalse
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, ClusterExecutor, CPUExecutor
 from snakemake.stats import Stats
@@ -20,6 +21,7 @@ class JobScheduler:
 		self._open_jobs = multiprocessing.Event() if not use_threads else threading.Event()
 		self._errors = False
 		self._finished = False
+		self._job_queue = None
 		
 		if dryrun:
 			self._executor = DryrunExecutor(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
@@ -49,6 +51,13 @@ class JobScheduler:
 		if not self._finished:
 			self._finished = all(map(self.dag.finished, filter(self.candidate, self.dag.needrun_jobs)))
 		return self._finished
+		
+	@property
+	def job_queue(self):
+		if self._job_queue is None:
+			self._job_queue = list(filter(self.ready, filter(self.candidate, self.dag.needrun_jobs)))
+		self._job_queue.extend(self.dag.bfs(self.dag.depending, *self._job_queue, stop=lambda job: not self.ready(job)))
+		return filterfalse(self.dag.finished, self._job_queue)
 	
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
@@ -74,7 +83,7 @@ class JobScheduler:
 			self.running.update(run)
 			self._cores -= sum(job.threads for job in run)
 			for job in run:
-				self.stats.report_job_start(job)	
+				self.stats.report_job_start(job)
 				self._executor.run(job, callback=self._finish_job, error_callback=self._error)
 		
 	def _finish_job(self, job):

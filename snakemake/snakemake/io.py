@@ -2,6 +2,7 @@
 
 import os, sys, re, stat, shutil, random
 from itertools import product
+from functools import lru_cache
 from snakemake.exceptions import MissingOutputException, IOException
 from snakemake.logging import logger
 
