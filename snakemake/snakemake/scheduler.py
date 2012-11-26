@@ -38,26 +38,16 @@ class JobScheduler:
 	
 	def candidate(self, job):
 		return job not in self.running and not self.dag.dynamic(job) and not job.dynamic_input
-		
-	def ready(self, job):
-		return self.dag.ready(job, ignore_dynamic=self.dryrun)
 	
 	@property
 	def open_jobs(self):
-		return filter(self.ready, filter(self.candidate, self.dag.needrun_jobs))
+		return filter(self.candidate, self.dag.ready_jobs)
 	
 	@property
 	def finished(self):
 		if not self._finished:
 			self._finished = all(map(self.dag.finished, filter(self.candidate, self.dag.needrun_jobs)))
 		return self._finished
-		
-	@property
-	def job_queue(self):
-		if self._job_queue is None:
-			self._job_queue = list(filter(self.ready, filter(self.candidate, self.dag.needrun_jobs)))
-		self._job_queue.extend(self.dag.bfs(self.dag.depending, *self._job_queue, stop=lambda job: not self.ready(job)))
-		return filterfalse(self.dag.finished, self._job_queue)
 	
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """

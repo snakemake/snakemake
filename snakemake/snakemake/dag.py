@@ -36,7 +36,7 @@ class DAG:
 		self.priorityrules = priorityrules
 		self.targetjobs = set()
 		self.prioritytargetjobs = set()
-		self._ready = set()
+		self._ready_jobs = set()
 				
 		self.forcerules = set()
 		self.forcefiles = set()
@@ -78,14 +78,13 @@ class DAG:
 	def needrun_jobs(self):
 		for job in filter(self.needrun, self.bfs(self.dependencies, *self.targetjobs, stop=self.finished)):
 			yield job
+	
+	@property
+	def ready_jobs(self):
+		return self._ready_jobs
 			
-	def ready(self, job, ignore_dynamic = False):
-		if job in self._ready:
-			return True
-		if all(map(lambda job: self.finished(job) or not self.needrun(job) or (ignore_dynamic and self.dynamic(job)), self.dependencies[job])):
-			self._ready.add(job)
-			return True
-		return False
+	def ready(self, job):
+		return job in self._ready_jobs
 	
 	def needrun(self, job):
 		return job in self._needrun
@@ -260,12 +259,27 @@ class DAG:
 		for job in self.bfs(self.dependencies, *filter(prioritized, self.needrun_jobs), stop=self.noneedrun_finished):
 			job.priority = Job.HIGHEST_PRIORITY
 	
+	def update_ready(self):
+		for job in filter(self.needrun, self.jobs):
+			if self._ready(job):
+				self._ready_jobs.add(job)
+	
 	def postprocess(self, noforce = None):
 		self.update_needrun(noforce=noforce)
 		self.update_priority()
+		self.update_ready()
+
+	def _ready(self, job):
+		return self._finished.issuperset(filter(self.needrun, self.dependencies[job]))
 	
 	def finish(self, job, update_dynamic = True):
 		self._finished.add(job)
+		self._ready_jobs.remove(job)
+		# mark depending jobs as ready
+		for job_ in self.depending[job]:
+			if self._ready(job_):
+				self._ready_jobs.add(job_)
+				
 		if update_dynamic and job.dynamic_output:
 			logger.warning("Dynamically updating jobs")
 			newjob = self.update_dynamic(job)
@@ -311,6 +325,8 @@ class DAG:
 			self._finished.remove(job)
 		if job in self._dynamic:
 			self._dynamic.remove(job)
+		if job in self._ready_jobs:
+			self._ready_jobs.remove(job)
 	
 	def replace_job(self, job, newjob):
 		#if newjob.rule.name == "cluster_table":

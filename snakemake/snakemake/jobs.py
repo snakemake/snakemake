@@ -125,7 +125,6 @@ class Job:
 	def __eq__(self, other):
 		if other is None:
 			return False
-		#return self.rule == other.rule and self.output == other.output
 		return self.rule == other.rule and self.wildcards_dict == other.wildcards_dict
 
 	def __lt__(self, other):
