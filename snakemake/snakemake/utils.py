@@ -51,7 +51,7 @@ def makedirs(dirnames):
 		if not os.path.exists(dirname):
 			os.makedirs(dirname)
 
-def report(text, path, template = None, stylesheet = None, **files):
+def report(text, path, stylesheet = None, defaultenc="utf8", template=None, **files):
 	outmime, _ = mimetypes.guess_type(path)
 	if outmime != "text/html":
 		raise ValueError("Path to report output has to be an HTML file.")
@@ -62,10 +62,11 @@ def report(text, path, template = None, stylesheet = None, **files):
 		mime, encoding = mimetypes.guess_type(file)
 		if mime is None:
 			mime = ""
-		encoding = "" if encoding is None else ';charset="{}"'.format(encoding)
+		if encoding is None:
+			encoding = defaultenc
 		with open(file, "rb") as f:
 			data = base64.b64encode(f.read())
-		attachments.append(".. _{}: data:{}{};base64,{}".format(name, mime, encoding, data.decode()))
+		attachments.append('.. _{}: data:{};charset={};base64,{}'.format(name, mime, encoding, data.decode()))
 	text += "\n\n" + "\n\n".join(attachments)
 	overrides = dict()
 	if template is not None:
@@ -74,6 +75,10 @@ def report(text, path, template = None, stylesheet = None, **files):
 		overrides["stylesheet_path"] = stylesheet
 	html = open(path, "w")
 	publish_file(source=io.StringIO(text), destination=html, writer_name="html", settings_overrides=overrides)
+
+def R(code):
+	import rpy2.robjects as robjects
+	robjects.r(format(textwrap.dedent(code), stepout=2))
 
 def format(string, *args, stepout = 1, **kwargs):
 	class SequenceFormatter:
