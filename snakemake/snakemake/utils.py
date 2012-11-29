@@ -73,7 +73,7 @@ def report(text, path, **files):
 	text = format(textwrap.dedent(text), stepout=2)
 	attachments = []
 	for name, file in files.items():
-		mime, encoding = mimetypes.guess_type(path)
+		mime, encoding = mimetypes.guess_type(file)
 		if mime is None:
 			mime = ""
 		encoding = "" if encoding is None else ';charset="{}"'.format(encoding)
