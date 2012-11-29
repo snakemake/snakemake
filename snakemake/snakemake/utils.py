@@ -51,24 +51,10 @@ def makedirs(dirnames):
 		if not os.path.exists(dirname):
 			os.makedirs(dirname)
 
-def latexreport(text, path, template=None):
-	from docutils.core import publish_file	
-	if not path.endswith(".pdf"):
-		raise ValueError("Reports are only possible with latex and pdf output for now")
-	text = format(textwrap.dedent(text), stepout=2)
-	tmp = tempfile.mkdtemp(suffix="snakemake_report")
-	texpath = os.path.join(tmp, "report.tex")
-	tex = open(texpath, "w")
-	overrides = dict()
-	if template is not None:
-		overrides["template"] = template
-	publish_file(source=io.StringIO(text), destination=tex, writer_name="latex", settings_overrides=overrides)
-	outdir = os.path.dirname(path)
-	for _ in range(2):
-		subprocess.check_call("pdflatex -output-directory={} -halt-on-error {}".format(tmp, texpath), shell=True)
-	shutil.copy(os.path.join(tmp, "report.pdf"), path)
-
 def report(text, path, template = None, stylesheet = None, **files):
+	outmime, _ = mimetypes.guess_type(path)
+	if outmime != "text/html":
+		raise ValueError("Path to report output has to be an HTML file.")
 	from docutils.core import publish_file
 	text = format(textwrap.dedent(text), stepout=2)
 	attachments = []
@@ -85,7 +71,7 @@ def report(text, path, template = None, stylesheet = None, **files):
 	if template is not None:
 		overrides["template"] = template
 	if stylesheet is not None:
-		overrides["stylesheet-path"] = stylesheet
+		overrides["stylesheet_path"] = stylesheet
 	html = open(path, "w")
 	publish_file(source=io.StringIO(text), destination=html, writer_name="html", settings_overrides=overrides)
 
