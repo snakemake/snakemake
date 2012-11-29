@@ -68,7 +68,7 @@ def latexreport(text, path, template=None):
 		subprocess.check_call("pdflatex -output-directory={} -halt-on-error {}".format(tmp, texpath), shell=True)
 	shutil.copy(os.path.join(tmp, "report.pdf"), path)
 
-def report(text, path, **files):
+def report(text, path, template = None, stylesheet = None, **files):
 	from docutils.core import publish_file
 	text = format(textwrap.dedent(text), stepout=2)
 	attachments = []
@@ -82,6 +82,10 @@ def report(text, path, **files):
 		attachments.append(".. _{}: data:{}{};base64,{}".format(name, mime, encoding, data.decode()))
 	text += "\n\n" + "\n\n".join(attachments)
 	overrides = dict()
+	if template is not None:
+		overrides["template"] = template
+	if stylesheet is not None:
+		overrides["stylesheet-path"] = stylesheet
 	html = open(path, "w")
 	publish_file(source=io.StringIO(text), destination=html, writer_name="html", settings_overrides=overrides)
 
