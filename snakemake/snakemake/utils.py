@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, re, fnmatch, mimetypes, base64, inspect
+import os, io, re, fnmatch, mimetypes, base64, inspect, textwrap, tempfile, subprocess, shutil, mimetypes
 from itertools import chain
 from snakemake.io import regex, Namedlist
 
@@ -51,28 +51,39 @@ def makedirs(dirnames):
 		if not os.path.exists(dirname):
 			os.makedirs(dirname)
 
-'''
-def report(outfile, abstract, files, captions):
-	content = list()
-	for caption, file in zip(captions, files):
-		mime, encoding = mimetypes.guess_type(file)
+def latexreport(text, path, template=None):
+	from docutils.core import publish_file	
+	if not path.endswith(".pdf"):
+		raise ValueError("Reports are only possible with latex and pdf output for now")
+	text = format(textwrap.dedent(text), stepout=2)
+	tmp = tempfile.mkdtemp(suffix="snakemake_report")
+	texpath = os.path.join(tmp, "report.tex")
+	tex = open(texpath, "w")
+	overrides = dict()
+	if template is not None:
+		overrides["template"] = template
+	publish_file(source=io.StringIO(text), destination=tex, writer_name="latex", settings_overrides=overrides)
+	outdir = os.path.dirname(path)
+	for _ in range(2):
+		subprocess.check_call("pdflatex -output-directory={} -halt-on-error {}".format(tmp, texpath), shell=True)
+	shutil.copy(os.path.join(tmp, "report.pdf"), path)
+
+def report(text, path, **files):
+	from docutils.core import publish_file
+	text = format(textwrap.dedent(text), stepout=2)
+	attachments = []
+	for name, file in files.items():
+		mime, encoding = mimetypes.guess_type(path)
+		if mime is None:
+			mime = ""
+		encoding = "" if encoding is None else ';charset="{}"'.format(encoding)
 		with open(file, "rb") as f:
-			b64 = base64.b64encode(f.read())
-		file = '<a class="btn" href="data:{};base64,{}">Open</a>'.format(mime, b64.decode())
-		content.append("<p>{}<br/>{}</p><hr/>".format(caption, file))
-	html = """
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<link href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.1.0/css/bootstrap-combined.min.css" rel="stylesheet">
-</head>
-<body>
-{content}
-</body>
-</html>
-""".format(content="\n".join(content))
-	outfile.write(html)
-'''
+			data = base64.b64encode(f.read())
+		attachments.append(".. _{}: data:{}{};base64,{}".format(name, mime, encoding, data.decode()))
+	text += "\n\n" + "\n\n".join(attachments)
+	overrides = dict()
+	html = open(path, "w")
+	publish_file(source=io.StringIO(text), destination=html, writer_name="html", settings_overrides=overrides)
 
 def format(string, *args, stepout = 1, **kwargs):
 	class SequenceFormatter:
