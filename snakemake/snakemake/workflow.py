@@ -27,7 +27,7 @@ class Workflow:
 		self._rules = OrderedDict()
 		self.first_rule = None
 		self._workdir = None
-		self.ruleorder = Ruleorder()
+		self._ruleorder = Ruleorder()
 		self.linemaps = dict()
 		self.rule_count = 0
 		self.snakemakepath = snakemakepath

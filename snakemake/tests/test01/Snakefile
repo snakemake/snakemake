@@ -1,6 +1,6 @@
 TEST = "abc"
 
-
+ruleorder: rule1 > rule2
 
 rule rule1:
 	''' This rule creates an intermediate file. '''

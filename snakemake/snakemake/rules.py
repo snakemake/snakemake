@@ -220,11 +220,11 @@ class Rule:
 		return sum(map(len, wildcards.values()))
 
 	def __lt__(self, rule):
-		comp = self.workflow.ruleorder.compare(self.name, rule.name)
+		comp = self.workflow._ruleorder.compare(self.name, rule.name)
 		return comp < 0
 
 	def __gt__(self, rule):
-		comp = self.workflow.ruleorder.compare(self.name, rule.name)
+		comp = self.workflow._ruleorder.compare(self.name, rule.name)
 		return comp > 0
 
 	def __str__(self):
