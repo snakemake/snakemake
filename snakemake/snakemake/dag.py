@@ -219,14 +219,14 @@ class DAG:
 				reason.forced = True
 			elif job in self.targetjobs:
 				if not job.output:
-					reason.updated_input.update([f for f in job.input if not f.exists])
+					reason.updated_input_run.update([f for f in job.input if not f.exists])
 				else:
 					if job.rule in self.targetrules:
 						missing_output = job.missing_output()
 					else:
 						missing_output = job.missing_output(requested=set(chain(*self.depending[job].values())) | self.targetfiles)
 					reason.missing_output.update(missing_output)
-			else:
+			if not reason:
 				output_mintime_ = output_mintime(job)
 				if output_mintime_:
 					updated_input = [f for f in job.input if f.exists and f.is_newer(output_mintime_)]
