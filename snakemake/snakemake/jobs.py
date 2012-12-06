@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import os, sys
+import os, sys, operator
 
 from collections import defaultdict
-from itertools import chain
+from itertools import chain, filterfalse
 from functools import lru_cache
 
 from snakemake.io import IOFile
@@ -125,7 +125,7 @@ class Job:
 	def __eq__(self, other):
 		if other is None:
 			return False
-		return self.rule == other.rule and self.wildcards_dict == other.wildcards_dict
+		return self.rule == other.rule and (self.dynamic_output or self.wildcards_dict == other.wildcards_dict)
 
 	def __lt__(self, other):
 		return self.rule.__lt__(other.rule)
@@ -136,8 +136,9 @@ class Job:
 	def __hash__(self):
 		if self._hash is None:
 			self._hash = self.rule.__hash__()
-			for o in self.output:
-				self._hash ^= o.__hash__()
+			if not self.dynamic_output:
+				for o in self.output:
+						self._hash ^= o.__hash__()
 		return self._hash
 	
 	@staticmethod
