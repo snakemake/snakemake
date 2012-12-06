@@ -127,10 +127,12 @@ class Rule:
 			self._set_inoutput_item(item, output = True, name = name)
 		
 		for item in self.output:
+			if self.dynamic_output and item not in self.dynamic_output:
+				raise SyntaxError("A rule with dynamic output may not define any non-dynamic output files.")
 			wildcards = item.get_wildcard_names()
 			if self.wildcard_names:
 				if self.wildcard_names != wildcards:
-					raise SyntaxError("Not all output files of rule {} contain the same wildcards. ".format(self.name))
+					raise SyntaxError("Not all output files of rule {} contain the same wildcards.".format(self.name))
 			else:
 				self.wildcard_names = wildcards
 	

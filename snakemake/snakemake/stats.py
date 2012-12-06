@@ -28,7 +28,10 @@ class Stats:
 	
 	@property
 	def overall_runtime(self):
-		return max(self.endtime.values()) - min(self.starttime.values())
+		if self.starttime and self.endtime:
+			return max(self.endtime.values()) - min(self.starttime.values())
+		else:
+			return 0
 
 	def to_csv(self, path):
 		with open(path, "w") as f:
