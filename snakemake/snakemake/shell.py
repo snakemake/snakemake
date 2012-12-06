@@ -98,8 +98,9 @@ class shell(sp.Popen):
 
 	@staticmethod
 	def terminate_all(*args):
-		for p in shell._processes:
-			p._prog_term = True
+		if shell._processes:
+			for p in shell._processes:
+				p._prog_term = True
 		
 	def _stdoutlines(self):
 		while True:

@@ -58,12 +58,12 @@ class Job:
 	
 	@property
 	def dynamic_wildcards(self):
-		wildcards = defaultdict(set)
+		wildcards = defaultdict(list)
 		for f, f_ in zip(self.output, self.rule.output):
 			if f in self.dynamic_output:
 				for f, w in self.expand_dynamic(f_):
 					for name, value in w.items():
-						wildcards[name].add(value)
+						wildcards[name].append(value)
 		return wildcards
 	
 	@property

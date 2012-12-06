@@ -156,13 +156,13 @@ class dynamic(str):
 	""" A flag for a file that shall be dynamic, i.e. the multiplicity (and wildcard values) will be expanded after a certain rule has been run """
 	def __new__(cls, file):
 		matches = list(re.finditer(_wildcard_regex, file))
-		if len(matches) != 1:
-			raise SyntaxError("Dynamic files need exactly one wildcard.")
-		if matches[0].group("constraint"):
-			raise SyntaxError("The wildcard in dynamic files cannot be constrained.")
+		#if len(matches) != 1:
+		#	raise SyntaxError("Dynamic files need exactly one wildcard.")
+		for match in matches:
+			if match.group("constraint"):
+				raise SyntaxError("The wildcards in dynamic files cannot be constrained.")
 		obj = str.__new__(cls, file)
-		return obj
-	pass
+		return obj	
 
 
 def expand(*args, **wildcards):

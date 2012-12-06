@@ -28,7 +28,7 @@ class DAG:
 		self._dynamic = set()
 		self._len = 0
 		self.workflow = workflow
-		self.rules = workflow.rules
+		self.rules = set(workflow.rules)
 		self.ignore_ambiguity = ignore_ambiguity
 		self.targetfiles = targetfiles
 		self.targetrules = targetrules
@@ -293,17 +293,20 @@ class DAG:
 		if not dynamic_wildcards:
 			# this happens e.g. in dryrun if output is not yet present
 			return
+		#import pdb; pdb.set_trace()
 		depending = list(filter(lambda job_: not self.finished(job_), self.bfs(self.depending, job)))
-		job.rule.update_dynamic(dynamic_wildcards, input=False)
-		newjob = Job(job.rule)
+		newrule = job.rule.dynamic_branch(dynamic_wildcards, input=False)
+		self.replace_rule(job.rule, newrule)
+		newjob = Job(newrule)
 		self.replace_job(job, newjob)
 		#import pdb; pdb.set_trace()
 		for job_ in depending:
 			if job_.dynamic_input:
-				if job_.rule.update_dynamic(dynamic_wildcards):
+				newrule_ = job_.rule.dynamic_branch(dynamic_wildcards)
+				self.replace_rule(job_.rule, newrule_)
+				if newrule_ is not None:
 					if not self.dynamic(job_):
-						#print(job_, job_.targetfile, job_.dynamic_output)
-						newjob_ = Job(job_.rule, targetfile=job_.targetfile)
+						newjob_ = Job(newrule_, targetfile=job_.targetfile)
 						self.replace_job(job_, newjob_)
 		return newjob
 	
@@ -341,6 +344,13 @@ class DAG:
 		if job in self.targetjobs:
 			self.targetjobs.remove(job)
 			self.targetjobs.add(newjob)
+	
+	def replace_rule(self, rule, newrule):
+		try:
+			self.rules.remove(rule)
+		except KeyError:
+			pass # ignore if rule was already removed
+		self.rules.add(rule)
 	
 	def collect_potential_dependencies(self, job):
 		dependencies = defaultdict(list)

@@ -1,7 +1,7 @@
 # snakemake
 
 rule all:
-	input: dynamic("test.{n}.out"), dynamic("test.{n}.csv")
+	input: dynamic("test.{n}.{bla}.out"), dynamic("test.{n}.{bla}.csv")
 	run:
 		pass
 
@@ -12,11 +12,11 @@ rule inter:
 
 rule dynoutput:
 	input: "test.in"
-	output: dynamic("test.{n}.inter")
-	shell: "for i in {{0..2}}; do touch test.0$i.inter; done"
+	output: dynamic("test.{n}.{bla}.inter")
+	shell: "for i in {{0..2}}; do touch test.0$i.xy.inter; done"
 
 rule:
-	input: dynamic("test.{n}.inter")
+	input: dynamic("test.{n}.{bla}.inter")
 	output: "test.{n}.txt"
 	shell: "touch {output}"
 

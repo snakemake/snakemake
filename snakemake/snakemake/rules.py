@@ -9,34 +9,58 @@ from snakemake.exceptions import RuleException
 __author__ = "Johannes Köster"
 
 class Rule:
-	def __init__(self, name, workflow, lineno = None, snakefile = None):
+	def __init__(self, *args, lineno = None, snakefile = None):
 		"""
 		Create a rule
 		
 		Arguments
 		name -- the name of the rule
 		"""
-		self.name = name
-		self.workflow = workflow
-		self.docstring = None
-		self.message = None
-		self._input = Namedlist()
-		self._output = Namedlist()
-		self.dynamic_output = set()
-		self.dynamic_input = set()
-		self.temp_output = set()
-		self.protected_output = set()
-		self.threads = 1
-		self.priority = 1
-		self._log = None
-		self.wildcard_names = set()
-		self.lineno = lineno
-		self.snakefile = snakefile
-		self.run_func = None
-		self.shellcmd = None
-
-	def update_dynamic(self, wildcards, input=True):
-		io, dynamic_io = (self.input, self.dynamic_input) if input else (self.output, self.dynamic_output)
+		if len(args) == 2:
+			name, workflow = args
+			self.name = name
+			self.workflow = workflow
+			self.docstring = None
+			self.message = None
+			self._input = Namedlist()
+			self._output = Namedlist()
+			self.dynamic_output = set()
+			self.dynamic_input = set()
+			self.temp_output = set()
+			self.protected_output = set()
+			self.threads = 1
+			self.priority = 1
+			self._log = None
+			self.wildcard_names = set()
+			self.lineno = lineno
+			self.snakefile = snakefile
+			self.run_func = None
+			self.shellcmd = None
+		elif len(args) == 1:
+			other = args[0]
+			self.name = other.name
+			self.workflow = other.workflow
+			self.docstring = other.docstring
+			self.message = other.message
+			self._input = other._input
+			self._output = other._output
+			self.dynamic_output = other.dynamic_output
+			self.dynamic_input = other.dynamic_input
+			self.temp_output = other.temp_output
+			self.protected_output = other.protected_output
+			self.threads = other.threads
+			self.priority = other.priority
+			self._log = other._log
+			self.wildcard_names = other.wildcard_names
+			self.lineno = other.lineno
+			self.snakefile = other.snakefile
+			self.run_func = other.run_func
+			self.shellcmd = other.shellcmd
+	
+	def dynamic_branch(self, wildcards, input=True):
+		def get_io(rule):
+			return (self.input, self.dynamic_input) if input else (self.output, self.dynamic_output)
+		io, dynamic_io = get_io(self)
 		expansion = defaultdict(list)
 		for i, f in enumerate(io):
 			if f in dynamic_io:
@@ -44,15 +68,17 @@ class Rule:
 					for e in reversed(expand(f, zip, **wildcards)):
 						expansion[i].append(IOFile(e, rule=self))
 				except KeyError:
-					return False
+					return None
+		branch = Rule(self)
+		io_, dynamic_io_ = get_io(branch)
+		
 		# replace the dynamic input with the expanded files
 		for i, e in reversed(list(expansion.items())):
-			dynamic_io.remove(io[i])
-			io.insert_items(i, e)
+			dynamic_io_.remove(io[i])
+			io_.insert_items(i, e)
 		if not input:
-			self.wildcard_names.clear()
-		return True
-		
+			branch.wildcard_names.clear()
+		return branch
 
 	def has_wildcards(self):
 		"""
@@ -131,8 +157,6 @@ class Rule:
 					raise SyntaxError("Only output files may be protected")
 				self.protected_output.add(_item)
 			if isinstance(item, dynamic):
-				if len(_item.get_wildcard_names()) > 1:
-					raise SyntaxError("Dynamic files may not contain more than one wildcard.")
 				if output:
 					self.dynamic_output.add(_item)
 				else:
