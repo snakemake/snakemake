@@ -17,19 +17,20 @@ class Tokens:
 	def add(self, token, string = None, orig_token = None):
 		""" Add a new token. Maybe a full TokenInfo object (first arg)
 		or a pair of token type (e.g. NEWLINE) and string. """
+		lines = string.split("\n") if string else token.string.split("\n")
 		if string:
 			type = token
 			token = tokenize.TokenInfo(
 				type = type,
 				string = string,
 				start = (self.row, self.col),
-				end = (self.row, self.col + len(string)),
+				end = (self.row + len(lines), self.col + len(lines[-1])),
 				line = '')
 		else:
 			# token is an original token that may have a wrong row
 			if token.start[0] != self.row:
 				token = Tokens._adjrow(token, self.row)
-		
+
 		self._tokens.append(token)
 
 				
@@ -42,7 +43,6 @@ class Tokens:
 			self.row += 1
 			self.col = 0
 		else:
-			lines = token.string.split("\n")
 			self.row += len(lines) - 1
 			self.col += len(lines[-1]) + 1
 		
