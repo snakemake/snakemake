@@ -7,8 +7,10 @@ rule all:
 
 rule compute1:
 	input: '{name}.in'
-	output: ['{name}.%s.inter'%c for c in chromosomes]
+	output: inter=['{name}.%s.inter'%c for c in chromosomes]
 	run:
+		assert len(output.inter) > 0
+		print(output.inter)
 		for out in output:
 			shell('(cat {input[0]} && echo "Part {out}") > {out}')
 

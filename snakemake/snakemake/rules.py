@@ -168,8 +168,12 @@ class Rule:
 				inoutput.add_name(name)
 		else:
 			try:
+				start = len(inoutput)
 				for i in item:
 					self._set_inoutput_item(i, output = output)
+				if name:
+					# if the list was named, make it accessible via the Namedlist
+					inoutput.set_name(name, start, end=len(inoutput))
 			except TypeError:
 				raise SyntaxError("Input and output files must be specified as strings.")
 		

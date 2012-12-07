@@ -230,7 +230,7 @@ class Namedlist(list):
 		"""
 		self.set_name(name, len(self) - 1)
 	
-	def set_name(self, name, index):
+	def set_name(self, name, index, end = None):
 		"""
 		Set the name of an item.
 		
@@ -238,8 +238,13 @@ class Namedlist(list):
 		name  -- a name
 		index -- the item index
 		"""
-		self._names[name] = index
-		setattr(self, name, self[index])
+		if end is None:
+			end = index
+		self._names[name] = (index, end)
+		if index == end:
+			setattr(self, name, self[index])
+		else:
+			setattr(self, name, self[index:end])
 			
 	def get_names(self):
 		"""
@@ -255,18 +260,19 @@ class Namedlist(list):
 		Arguments
 		names -- the given names as (name, index) pairs
 		"""
-		for name, index in names:
-			self.set_name(name, index)
-
+		for name, (i, j) in names:
+			self.set_name(name, i, end=j)
+	
 	def items(self):
-		for name, index in self._names.items():
-			yield name, self[index]
+		for name in self._names:
+			yield name, getattr(self, name)
 
 	def insert_items(self, index, items):
 		self[index:index+1] = items
-		for name, i in self._names.items():
+		add = len(items) - 1
+		for name, (i, j) in self._names.items():
 			if i > index:
-				self._names[name] += len(items) - 1
+				self._names[name] = (i + add, j + add)
 	
 	def __hash__(self):
 		return hash(tuple(self))
