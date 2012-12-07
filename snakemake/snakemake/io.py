@@ -85,11 +85,14 @@ class _IOFile(str):
 			else:
 				raise e
 	
-	def apply_wildcards(self, wildcards, fill_missing = False):
+	def apply_wildcards(self, wildcards, fill_missing = False, fail_dynamic = False):
 		def format_match(match):
 			name = match.group("name")
 			try:
-				return wildcards[name]
+				value = wildcards[name]
+				if fail_dynamic and value == self.dynamic_fill:
+					raise KeyError(name)
+				return value
 			except KeyError as ex:
 				if fill_missing:
 					return self.dynamic_fill
