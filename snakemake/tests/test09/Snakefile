@@ -1,3 +1,10 @@
+
+def fail(input, output):
+	shell("false && cp {input} {output}")
+
+def x(input, output):
+	fail(input, output)
+
 rule rule2:
 	input: 'test.inter'
 	output: 'test.out'
@@ -6,6 +13,6 @@ rule rule2:
 rule rule1:
 	input: 'test.in'
 	output: 'test.inter'
-	shell: 'cp {input} {output} && false'
-
+	run:
+		x(input, output)
 

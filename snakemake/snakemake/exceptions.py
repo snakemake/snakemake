@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import sys, traceback
+import os, sys, traceback
 from collections import defaultdict
 from snakemake.logging import logger
 from tokenize import TokenError
@@ -8,22 +8,40 @@ from tokenize import TokenError
 __author__ = "Johannes Köster"
 
 
-def format_error(ex, lineno, linemaps = None, snakefile = None):
+def format_error(ex, lineno, linemaps = None, snakefile = None, show_traceback = False):
 	msg = str(ex)
 	if linemaps and snakefile:
 		lineno = linemaps[snakefile][lineno]
 		if isinstance(ex, SyntaxError):
 			msg = ex.msg
 	location = " in line {} of {}".format(lineno, snakefile) if lineno and snakefile else ""
-	return '{}{}{}'.format(ex.__class__.__name__, location, ":\n" + msg if msg else ".")
+	tb = ""
+	if show_traceback:
+		tb = "\n".join(format_traceback(cut_traceback(ex), linemaps=linemaps))
+	return '{}{}{}{}'.format(ex.__class__.__name__, location, ":\n" + msg if msg else ".", "\n{}".format(tb) if show_traceback else "")
 
 def get_exception_origin(ex, linemaps):
 	for file, lineno, _, _ in reversed(traceback.extract_tb(ex.__traceback__)):
-		#traceback.print_tb(ex.__traceback__)
 		if file in linemaps:
 			return lineno, file
 
-def print_exception(ex, linemaps):
+def cut_traceback(ex):
+	snakemake_path = os.path.dirname(__file__)
+	for line in traceback.extract_tb(ex.__traceback__):
+		dir = os.path.dirname(line[0])
+		if not dir:
+			dir = "."
+		if not os.path.samefile(snakemake_path, dir):
+			yield line
+
+def format_traceback(tb, linemaps):
+	for file, lineno, function, code in tb:
+		if file in linemaps:
+			lineno = linemaps[file][lineno]
+		code = "" if code is None else "\n    {}".format(code)
+		yield '  File "{}", line {}, in {}{}'.format(file, lineno, function, code)
+
+def print_exception(ex, linemaps, print_traceback = False):
 	"""
 	Print an error message for a given exception.
 
@@ -35,14 +53,14 @@ def print_exception(ex, linemaps):
 	origin = get_exception_origin(ex, linemaps)
 	if origin is not None:
 		lineno, file = origin
-		logger.critical(format_error(ex, lineno, linemaps = linemaps, snakefile = file))
+		logger.critical(format_error(ex, lineno, linemaps = linemaps, snakefile = file, show_traceback=print_traceback))
 		return
 	if isinstance(ex, SyntaxError):
-		logger.critical(format_error(ex, ex.lineno, linemaps = linemaps, snakefile = ex.filename))
+		logger.critical(format_error(ex, ex.lineno, linemaps = linemaps, snakefile = ex.filename, show_traceback=print_traceback))
 	elif isinstance(ex, RuleException):
 		for e in ex._include + [ex]:
 			if not e.omit:
-				logger.critical(format_error(e, e.lineno, linemaps = linemaps, snakefile = e.filename))
+				logger.critical(format_error(e, e.lineno, linemaps = linemaps, snakefile = e.filename, show_traceback=print_traceback))
 	elif isinstance(ex, KeyboardInterrupt):
 		logger.warning("Cancelling snakemake on user request.")
 	else:

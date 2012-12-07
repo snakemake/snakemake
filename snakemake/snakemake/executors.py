@@ -198,4 +198,4 @@ def run_wrapper(run, input, output, wildcards, threads, log, linemaps):
 	except (Exception, BaseException) as ex:
 		# this ensures that exception can be re-raised in the parent thread
 		lineno, file = get_exception_origin(ex, linemaps)
-		raise RuleException(format_error(ex, lineno, linemaps=linemaps, snakefile=file))
+		raise RuleException(format_error(ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True))
