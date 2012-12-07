@@ -3,7 +3,7 @@
 import os, re, sys, inspect, sre_constants
 from collections import defaultdict
 
-from snakemake.io import IOFile, protected, temp, dynamic, Namedlist, expand
+from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, expand
 from snakemake.exceptions import RuleException
 
 __author__ = "Johannes Köster"
@@ -78,6 +78,10 @@ class Rule:
 			io_.insert_items(i, e)
 		if not input:
 			branch.wildcard_names.clear()
+			non_dynamic_wildcards = dict((name, values[0]) for name, values in wildcards.items() if len(values) == 1)
+			branch._input = Namedlist(f.apply_wildcards(non_dynamic_wildcards) for f in self.input)
+			if branch._log is not None:
+				branch._log.apply_wildcards(non_dynamic_wildcards)
 		return branch
 
 	def has_wildcards(self):
@@ -182,7 +186,7 @@ class Rule:
 		wildcards = dict()
 		if requested_output:
 			wildcards = self.get_wildcards(requested_output)
-			missing_wildcards = set(wildcards.keys()) - self.wildcard_names 
+			missing_wildcards = self.wildcard_names - set(wildcards.keys()) # TODO validate
 		else:
 			missing_wildcards = self.wildcard_names
 		

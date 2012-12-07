@@ -18,6 +18,8 @@ class _IOFile(str):
 	A file that is either input or output of a rule.
 	"""
 	
+	dynamic_fill = "__snakemake_dynamic__"
+	
 	def __new__(cls, file):
 		obj = str.__new__(cls, file)
 		obj._is_function = type(file).__name__ == "function"
@@ -90,7 +92,7 @@ class _IOFile(str):
 				return wildcards[name]
 			except KeyError as ex:
 				if fill_missing:
-					return "0"
+					return self.dynamic_fill
 				else:
 					raise ex
 	
