@@ -10,7 +10,8 @@ rule rule1:
 	log:    'log/logfile.log'
 	threads: 3
 	shell:
-		'if [ {threads} -ne 3 ]; then exit 1; fi; echo {TEST}; cp {input[0]} {output[0]}'
+		'if [ {threads} -ne 3 ]; then exit 1; fi; ' \
+		'echo {TEST}; cp {input[0]} {output[0]}'
 
 rule rule2:
 	input: 'test.in'

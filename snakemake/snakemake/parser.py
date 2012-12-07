@@ -81,6 +81,7 @@ class States:
 			shell = self.shell)
 		self.rule_params = set(["input", "output", "message", "threads", "priority", "log", "run", "shell"])
 		self.current_rule = None
+		self.current_shellcmd = None
 		self.rule_docstring = None
 		self.empty_rule = True
 		self.tokens = Tokens()
@@ -319,24 +320,27 @@ class States:
 	def shell_body(self, token):
 		""" State that collects the body of a rule's shell function. """
 		if token.type == STRING:
-			self.tokens.add(NEWLINE, "\n", token)\
-			           .add(AT, "@", token)
-			self._func_open('shellcmd', token, obj='workflow')
-			self.tokens.add(token, orig_token = token)
-			self._func_close(token)
-			self._newline(token)
-			self._run_def(token)
-			self._newline(token)
-			self._indent(token)
-			self._func_open('shell', token)
-			self.tokens.add(token, orig_token = token)
-			self._func_close(token)
-			self.state = self.python
+			self.current_shellcmd = token.string
+			self.state = self.shell_body_extend
 		elif token.type in (COMMENT, NEWLINE, NL, INDENT, DEDENT):
 			pass
 			#self.tokens.add(token, orig_token = token)
 		else:
 			raise self._syntax_error('Expected shell command in a string after shell keyword.', token)
+	
+	def shell_body_extend(self, token):
+		if token.type == STRING:
+			self.current_shellcmd += token.string
+		else:
+			self.tokens.add(NEWLINE, "\n", token)\
+			           .add(AT, "@", token)
+			self._func('shellcmd', [self.current_shellcmd], token, obj='workflow')
+			self._newline(token)
+			self._run_def(token)
+			self._newline(token)
+			self._indent(token)
+			self._func('shell', [self.current_shellcmd], token)
+			self.state = self.python
 	
 	def close_param(self, token):
 		""" State that closes a function invocation based definition of a rule parameter. """
@@ -438,5 +442,4 @@ def compile_to_python(filepath, rule_count = 0):
 				rule_count = rule_count
 		)
 		compilation = tokenize.untokenize(python_tokens)
-		#print(compilation)
 		return compilation, rowmap, rule_count
