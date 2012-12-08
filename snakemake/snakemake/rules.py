@@ -202,7 +202,7 @@ class Rule:
 			return input, output, log, Namedlist(fromdict = wildcards), wildcards
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
-			raise RuleException("Wildcards in input or log file of rule {} do not appear in output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)
+			raise RuleException("Wildcards in input or log file of rule {} cannot be determined from output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)
 
 	def is_producer(self, requested_output):
 		"""
