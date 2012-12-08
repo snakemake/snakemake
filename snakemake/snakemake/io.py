@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, re, stat, shutil, random
+from collections import UserDict
 from itertools import product
 from functools import lru_cache
 from snakemake.exceptions import MissingOutputException, IOException
@@ -200,7 +201,7 @@ def expand(*args, **wildcards):
 		for filepattern in filepatterns:
 			expanded.append(filepattern.format(**comb))
 	return expanded
-	
+
 class Namedlist(list):
 	"""
 	A list that additionally provides functions to name items. Further,
@@ -214,7 +215,7 @@ class Namedlist(list):
 		toclone  -- another Namedlist that shall be cloned
 		fromdict -- a dict that shall be converted to a Namedlist (keys become names) 
 		"""
-		super(Namedlist, self).__init__()
+		list.__init__(self)
 		self._names = dict()
 		
 		if toclone:
@@ -279,10 +280,27 @@ class Namedlist(list):
 			if i > index:
 				self._names[name] = (i + add, j + add)
 	
+	def keys(self):
+		return self._names
+
+	def __getitem__(self, key):
+		try:
+			return super().__getitem__(key)
+		except TypeError:
+			pass
+		return getattr(self, key)
+	
 	def __hash__(self):
 		return hash(tuple(self))
 
 	def __str__(self):
 		return " ".join(self)
 
+class InputFiles(Namedlist):
+	pass
 
+class OutputFiles(Namedlist):
+	pass
+
+class Wildcards(Namedlist):
+	pass

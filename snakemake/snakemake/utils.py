@@ -51,7 +51,7 @@ def makedirs(dirnames):
 		if not os.path.exists(dirname):
 			os.makedirs(dirname)
 
-def report(text, path, stylesheet = None, defaultenc="utf8", template=None, **files):
+def report(text, path, stylesheet = os.path.join(os.path.dirname(__file__), "report.css"), defaultenc="utf8", template=None, **files):
 	outmime, _ = mimetypes.guess_type(path)
 	if outmime != "text/html":
 		raise ValueError("Path to report output has to be an HTML file.")

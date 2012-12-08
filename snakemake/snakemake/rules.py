@@ -3,7 +3,7 @@
 import os, re, sys, inspect, sre_constants
 from collections import defaultdict
 
-from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, expand
+from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, expand, InputFiles, OutputFiles, Wildcards
 from snakemake.exceptions import RuleException
 
 __author__ = "Johannes Köster"
@@ -22,8 +22,8 @@ class Rule:
 			self.workflow = workflow
 			self.docstring = None
 			self.message = None
-			self._input = Namedlist()
-			self._output = Namedlist()
+			self._input = InputFiles()
+			self._output = OutputFiles()
 			self.dynamic_output = set()
 			self.dynamic_input = set()
 			self.temp_output = set()
@@ -72,14 +72,15 @@ class Rule:
 		branch = Rule(self)
 		io_, dynamic_io_ = get_io(branch)
 		
-		# replace the dynamic input with the expanded files
+		# replace the dynamic files with the expanded files
 		for i, e in reversed(list(expansion.items())):
 			dynamic_io_.remove(io[i])
 			io_.insert_items(i, e)
 		if not input:
 			branch.wildcard_names.clear()
 			non_dynamic_wildcards = dict((name, values[0]) for name, values in wildcards.items() if len(values) == 1)
-			branch._input = Namedlist(f.apply_wildcards(non_dynamic_wildcards) for f in self.input)
+			branch._input = InputFiles(f.apply_wildcards(non_dynamic_wildcards) for f in self.input)
+			branch._input.take_names(self.input.get_names())
 			if branch._log is not None:
 				branch._log.apply_wildcards(non_dynamic_wildcards)
 		return branch
@@ -194,12 +195,12 @@ class Rule:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno, snakefile = self.snakefile)
 
 		try:
-			input = Namedlist(f.apply_wildcards(wildcards, fill_missing=f in self.dynamic_input, fail_dynamic=self.dynamic_output) for f in self.input)
-			output = Namedlist(o.apply_wildcards(wildcards) for o in self.output)
+			input = InputFiles(f.apply_wildcards(wildcards, fill_missing=f in self.dynamic_input, fail_dynamic=self.dynamic_output) for f in self.input)
+			output = OutputFiles(o.apply_wildcards(wildcards) for o in self.output)
 			input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
 			log = self.log.apply_wildcards(wildcards) if self.log else None
-			return input, output, log, Namedlist(fromdict = wildcards), wildcards
+			return input, output, log, Wildcards(fromdict = wildcards), wildcards
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
 			raise RuleException("Wildcards in input or log file of rule {} cannot be determined from output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)

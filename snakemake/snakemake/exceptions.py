@@ -18,7 +18,7 @@ def format_error(ex, lineno, linemaps = None, snakefile = None, show_traceback =
 	tb = ""
 	if show_traceback:
 		tb = "\n".join(format_traceback(cut_traceback(ex), linemaps=linemaps))
-	return '{}{}{}{}'.format(ex.__class__.__name__, location, ":\n" + msg if msg else ".", "\n{}".format(tb) if show_traceback else "")
+	return '{}{}{}{}'.format(ex.__class__.__name__, location, ":\n" + msg if msg else ".", "\n{}".format(tb) if show_traceback and tb else "")
 
 def get_exception_origin(ex, linemaps):
 	for file, lineno, _, _ in reversed(traceback.extract_tb(ex.__traceback__)):
@@ -38,8 +38,8 @@ def format_traceback(tb, linemaps):
 	for file, lineno, function, code in tb:
 		if file in linemaps:
 			lineno = linemaps[file][lineno]
-		code = "" if code is None else "\n    {}".format(code)
-		yield '  File "{}", line {}, in {}{}'.format(file, lineno, function, code)
+		if code is not None:
+			yield '  File "{}", line {}, in {}{}'.format(file, lineno, function, code)
 
 def print_exception(ex, linemaps, print_traceback = False):
 	"""
