@@ -28,12 +28,10 @@ class AbstractExecutor:
 		pass
 	
 	def _run(self, job):
-		if job.message:
-			logger.info(job.message)
-		else:
-			self.printjob(job)
+		self.printjob(job)
 
 	def printjob(self, job):
+	
 		def format_files(job, io, ruleio, dynamicio):
 			for f, f_ in zip(io, ruleio):
 				if f in dynamicio:
@@ -45,19 +43,22 @@ class AbstractExecutor:
 			
 		desc = list()
 		if not self.quiet:
-			desc.append("rule {}:".format(job.rule.name))
-			for name, value in (("input", ", ".join(format_files(job, job.input, job.rule.input, job.dynamic_input))), 
-			                    ("output", ", ".join(format_files(job, job.output, job.rule.output, job.dynamic_output))),
-			                    ("log", job.log),
-			                    ("reason", self.dag.reason(job) if self.printreason else None)):
-				if value:
-					desc.append(format_ruleitem(name, value))
+			if job.message:
+				desc.append(job.message)
+			else:
+				desc.append("rule {}:".format(job.rule.name))
+				for name, value in (("input", ", ".join(format_files(job, job.input, job.rule.input, job.dynamic_input))), 
+					                ("output", ", ".join(format_files(job, job.output, job.rule.output, job.dynamic_output))),
+					                ("log", job.log),
+					                ("reason", self.dag.reason(job) if self.printreason else None)):
+					if value:
+						desc.append(format_ruleitem(name, value))
+				if job.priority > 1:
+					desc.append(format_ruleitem("priority", "highest" if job.priority == Job.HIGHEST_PRIORITY else job.priority))
+				if self.printthreads and job.threads > 1:
+					desc.append(format_ruleitem("threads", job.threads))
 		if self.printshellcmds and job.shellcmd:
 			desc.append(job.shellcmd)
-		if self.printthreads and job.threads > 1:
-			desc.append(format_ruleitem("threads", job.threads))
-		if job.priority > 1:
-			desc.append(format_ruleitem("priority", "highest" if job.priority == Job.HIGHEST_PRIORITY else job.priority))
 		if desc:
 			logger.info("\n".join(desc))
 			if job.dynamic_output:
