@@ -6,7 +6,7 @@ from collections import defaultdict
 from itertools import chain, filterfalse
 from functools import lru_cache
 
-from snakemake.io import IOFile
+from snakemake.io import IOFile, Wildcards
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import MissingOutputException, RuleException
 
@@ -15,22 +15,19 @@ __author__ = "Johannes Köster"
 class Job:
 	HIGHEST_PRIORITY = sys.maxsize
 
-	def __init__(self, rule, targetfile = None):
+	def __init__(self, rule, targetfile = None, format_wildcards = None):
 		self.rule = rule
 		self.targetfile = targetfile
 		self._hash = None
+		self.wildcards_dict = self.rule.get_wildcards(targetfile)
+		self.wildcards = Wildcards(fromdict=self.wildcards_dict)
+		self.format_wildcards = self.wildcards
+		if format_wildcards is not None:
+			self.format_wildcards = Wildcards(fromdict=format_wildcards)
 		
-		self.input, self.output, self.log, self.wildcards, self.wildcards_dict = rule.expand_wildcards(self.targetfile)
+		self.input, self.output, self.log = rule.expand_wildcards(self.wildcards_dict)
 		self.threads = rule.threads
 		self.priority = rule.priority
-		try:
-			self.message = self._format_wildcards(rule.message) if rule.message else None
-			self.shellcmd = self._format_wildcards(rule.shellcmd) if rule.shellcmd else None
-		except AttributeError as ex:
-			raise RuleException(str(ex), rule=self.rule)
-		except KeyError as ex:
-			raise RuleException("Unknown variable in message of shell command: {}".format(str(ex)), rule=self.rule)
-		
 		
 		self.dynamic_output, self.dynamic_input, self.temp_output, self.protected_output = set(), set(), set(), set()
 		for f, f_ in zip(self.output, self.rule.output):
@@ -43,6 +40,24 @@ class Job:
 		for f, f_ in zip(self.input, self.rule.input):
 			if f_ in self.rule.dynamic_input:
 				self.dynamic_input.add(f)
+	
+	@property
+	def message(self):
+		try:
+			return self._format_wildcards(self.rule.message) if self.rule.message else None
+		except AttributeError as ex:
+			raise RuleException(str(ex), rule=self.rule)
+		except KeyError as ex:
+			raise RuleException("Unknown variable in message of shell command: {}".format(str(ex)), rule=self.rule)
+	
+	@property
+	def shellcmd(self):
+		try:
+			return self._format_wildcards(self.rule.shellcmd) if self.rule.shellcmd else None
+		except AttributeError as ex:
+			raise RuleException(str(ex), rule=self.rule)
+		except KeyError as ex:
+			raise RuleException("Unknown variable in message of shell command: {}".format(str(ex)), rule=self.rule)
 	
 	@property
 	def expanded_output(self):
@@ -115,7 +130,7 @@ class Job:
 		return format(string, 
 		              input=self.input, 
 		              output=self.output, 
-		              wildcards=self.wildcards, 
+		              wildcards=self.format_wildcards, 
 		              threads=self.threads, 
 		              log=self.log, **self.rule.workflow.globals)
 
@@ -135,7 +150,7 @@ class Job:
 	
 	def __hash__(self):
 		if self._hash is None:
-			self._hash = self.rule.__hash__()
+			self._hash = self.rule.__hash__() 
 			if not self.dynamic_output:
 				for o in self.output:
 						self._hash ^= o.__hash__()

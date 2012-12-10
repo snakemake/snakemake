@@ -78,11 +78,9 @@ class Rule:
 			io_.insert_items(i, e)
 		if not input:
 			branch.wildcard_names.clear()
-			non_dynamic_wildcards = dict((name, values[0]) for name, values in wildcards.items() if len(values) == 1)
-			branch._input = InputFiles(f.apply_wildcards(non_dynamic_wildcards) for f in self.input)
-			branch._input.take_names(self.input.get_names())
-			if branch._log is not None:
-				branch._log.apply_wildcards(non_dynamic_wildcards)
+			non_dynamic_wildcards = dict((name, values[0]) for name, values in wildcards.items() if len(set(values)) == 1)
+			branch._input, branch._output, branch._log = branch.expand_wildcards(wildcards=non_dynamic_wildcards)
+			return branch, non_dynamic_wildcards
 		return branch
 
 	def has_wildcards(self):
@@ -182,14 +180,12 @@ class Rule:
 			except TypeError:
 				raise SyntaxError("Input and output files must be specified as strings.")
 		
-	def expand_wildcards(self, requested_output):
-		""" Expand wildcards depending on the requested output. """
-		wildcards = dict()
-		if requested_output:
-			wildcards = self.get_wildcards(requested_output)
-			missing_wildcards = self.wildcard_names - set(wildcards.keys()) # TODO validate
-		else:
-			missing_wildcards = self.wildcard_names
+	def expand_wildcards(self, wildcards = None):
+		""" Expand wildcards depending on the requested output or given wildcards dict. """
+		if wildcards is None:
+			wildcards = dict()
+				
+		missing_wildcards = self.wildcard_names - set(wildcards.keys()) # TODO validate
 		
 		if missing_wildcards:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno, snakefile = self.snakefile)
@@ -200,7 +196,7 @@ class Rule:
 			input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
 			log = self.log.apply_wildcards(wildcards) if self.log else None
-			return input, output, log, Wildcards(fromdict = wildcards), wildcards
+			return input, output, log
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
 			raise RuleException("Wildcards in input or log file of rule {} cannot be determined from output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)
@@ -226,6 +222,8 @@ class Rule:
 		wildcards -- a dictionary of wildcards
 		requested_output -- a concrete filepath
 		"""
+		if requested_output is None:
+			return dict()
 		bestmatchlen = 0
 		bestmatch = None
 		bestmatch_output = None
@@ -259,7 +257,6 @@ class Rule:
 
 	def __str__(self):
 		return self.name
-
 
 class Ruleorder:
 	def __init__(self):

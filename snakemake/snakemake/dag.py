@@ -293,13 +293,12 @@ class DAG:
 		if not dynamic_wildcards:
 			# this happens e.g. in dryrun if output is not yet present
 			return
-		#import pdb; pdb.set_trace()
 		depending = list(filter(lambda job_: not self.finished(job_), self.bfs(self.depending, job)))
-		newrule = job.rule.dynamic_branch(dynamic_wildcards, input=False)
+		newrule, non_dynamic_wildcards = job.rule.dynamic_branch(dynamic_wildcards, input=False)
 		self.replace_rule(job.rule, newrule)
-		newjob = Job(newrule)
+		
+		newjob = Job(newrule, format_wildcards = non_dynamic_wildcards) # no targetfile needed
 		self.replace_job(job, newjob)
-		#import pdb; pdb.set_trace()
 		for job_ in depending:
 			if job_.dynamic_input:
 				newrule_ = job_.rule.dynamic_branch(dynamic_wildcards)
@@ -335,6 +334,8 @@ class DAG:
 		#if newjob.rule.name == "cluster_table":
 		#	import pdb; pdb.set_trace()
 		depending = list(self.depending[job].items())
+		if self.finished(job):
+			self._finished.add(newjob)
 		self.delete_job(job)
 		self.update([newjob])
 		for job_, files in depending:
@@ -350,7 +351,7 @@ class DAG:
 			self.rules.remove(rule)
 		except KeyError:
 			pass # ignore if rule was already removed
-		self.rules.add(rule)
+		self.rules.add(newrule)
 	
 	def collect_potential_dependencies(self, job):
 		dependencies = defaultdict(list)

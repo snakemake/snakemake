@@ -37,17 +37,11 @@ class JobScheduler:
 		self._open_jobs.set()
 	
 	def candidate(self, job):
-		return job not in self.running and not self.dag.dynamic(job) and not job.dynamic_input
+		return job not in self.running and not self.dag.dynamic(job) and (self.dryrun or not job.dynamic_input)
 	
 	@property
 	def open_jobs(self):
 		return filter(self.candidate, self.dag.ready_jobs)
-	
-	@property
-	def finished(self):
-		if not self._finished:
-			self._finished = all(map(self.dag.finished, filter(self.candidate, self.dag.needrun_jobs)))
-		return self._finished
 	
 	def schedule(self):
 		""" Schedule jobs that are ready, maximizing cpu usage. """
@@ -58,7 +52,7 @@ class JobScheduler:
 				logger.warning("Will exit after finishing currently running jobs.")
 				self._executor.shutdown()
 				return False
-			if self.finished:
+			if not any(self.open_jobs):
 				self._executor.shutdown()
 				return True
 
@@ -80,13 +74,13 @@ class JobScheduler:
 		self.stats.report_job_end(job)
 		self.finished_jobs += 1
 		self.running.remove(job)
-		self.dag.finish(job, update_dynamic = not self.dryrun)
+		self.dag.finish(job, update_dynamic=not self.dryrun)
 		self._cores += job.threads
-		#if job.rule.name == "overlap":
-		#	import pdb; pdb.set_trace()
+		#import pdb; pdb.set_trace()
 		if not self.quiet and not self.dryrun:
 			self.progress()
-		if any(self.open_jobs) or self.finished:
+		if any(self.open_jobs) or not self.running:
+			# go on scheduling if open jobs are ready or no job is running any more
 			self._open_jobs.set()
 	
 	def _error(self):
