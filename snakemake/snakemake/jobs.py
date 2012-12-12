@@ -73,12 +73,19 @@ class Job:
 	
 	@property
 	def dynamic_wildcards(self):
-		wildcards = defaultdict(list)
+		# TODO this generates wrong duplicates!
+		
+		combinations = set()
 		for f, f_ in zip(self.output, self.rule.output):
 			if f in self.dynamic_output:
 				for f, w in self.expand_dynamic(f_):
-					for name, value in w.items():
-						wildcards[name].append(value)
+					combinations.add(tuple(w.items()))
+#					for name, value in w.items():
+#						wildcards[name].append(value)
+		wildcards = defaultdict(list)
+		for combination in combinations:
+			for name, value in combination:
+				wildcards[name].append(value)
 		return wildcards
 	
 	@property

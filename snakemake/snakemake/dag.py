@@ -181,8 +181,6 @@ class DAG:
 		for file, jobs in potential_dependencies:
 			# TODO check for pumping up wildcards...
 			try:
-				#if file in job.dynamic_input:
-				#	print(job, file)
 				producer[file] = self.update(jobs, file=file, visited=visited,
 				                             skip_until_dynamic=skip_until_dynamic or file in job.dynamic_input)
 			except (MissingInputException, CyclicGraphException) as ex:
@@ -331,8 +329,6 @@ class DAG:
 			self._ready_jobs.remove(job)
 	
 	def replace_job(self, job, newjob):
-		#if newjob.rule.name == "cluster_table":
-		#	import pdb; pdb.set_trace()
 		depending = list(self.depending[job].items())
 		if self.finished(job):
 			self._finished.add(newjob)
