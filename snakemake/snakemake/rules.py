@@ -4,7 +4,7 @@ import os, re, sys, inspect, sre_constants
 from collections import defaultdict
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, expand, InputFiles, OutputFiles, Wildcards
-from snakemake.exceptions import RuleException
+from snakemake.exceptions import RuleException, IOFileException
 
 __author__ = "Johannes Köster"
 
@@ -213,6 +213,8 @@ class Rule:
 			return False
 		except sre_constants.error as ex:
 			raise IOFileException("{} in wildcard statement".format(ex), snakefile=self.snakefile, lineno=self.lineno)
+		except ValueError as ex:
+			raise IOFileException("{}".format(ex), snakefile=self.snakefile, lineno=self.lineno)
 
 	def get_wildcards(self, requested_output):
 		"""

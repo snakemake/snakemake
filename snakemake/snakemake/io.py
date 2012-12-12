@@ -143,9 +143,14 @@ def remove(file):
 def regex(filepattern):
 	f = ""
 	last = 0
+	wildcards = set()
 	for match in re.finditer(_wildcard_regex, filepattern):
 		f += re.escape(filepattern[last:match.start()])
-		f += "(?P<{}>{})".format(match.group("name"), match.group("constraint") if match.group("constraint") else ".+")
+		wildcard = match.group("name")
+		if wildcard in wildcards:
+			raise ValueError("Multiple wildcards with the same name in output file are not allowed. Consider renaming one.")
+		wildcards.add(wildcard)
+		f += "(?P<{}>{})".format(wildcard, match.group("constraint") if match.group("constraint") else ".+")
 		last = match.end()
 	f += re.escape(filepattern[last:])
 	return f
