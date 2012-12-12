@@ -7,11 +7,12 @@ from snakemake.stats import Stats
 from snakemake.logging import logger
 
 class JobScheduler:
-	def __init__(self, workflow, dag, cores, dryrun = False, touch = False, cluster = None, quiet = False, printreason = False, printshellcmds = False):
+	def __init__(self, workflow, dag, cores, dryrun = False, touch = False, cluster = None, quiet = False, printreason = False, printshellcmds = False, keepgoing = False):
 		""" Create a new instance of KnapsackJobScheduler. """
 		self.dag = dag
 		self.dryrun = dryrun
 		self.quiet = quiet
+		self.keepgoing = keepgoing
 		self.maxcores = cores
 		self.running = set()
 		self.finished_jobs = 0
@@ -48,13 +49,13 @@ class JobScheduler:
 		while True:
 			self._open_jobs.wait()
 			self._open_jobs.clear()
-			if self._errors:
+			if not self.keepgoing and self._errors:
 				logger.warning("Will exit after finishing currently running jobs.")
 				self._executor.shutdown()
 				return False
 			if not any(self.open_jobs):
 				self._executor.shutdown()
-				return True
+				return not self._errors
 
 			needrun = list()
 			for job in self.open_jobs:
@@ -86,8 +87,10 @@ class JobScheduler:
 	def _error(self):
 		# clear jobs and stop the workflow
 		self._errors = True
-		self._jobs = set()
-		self._open_jobs.set()
+		if self.keepgoing:
+			logger.warning("Job failed, going on with independent jobs.")
+		else:
+			self._open_jobs.set()
 	
 	def job_selector(self, jobs):
 		""" Solve 0-1 knapsack to maximize cpu utilization. """

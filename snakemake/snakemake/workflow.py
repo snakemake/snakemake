@@ -85,7 +85,7 @@ class Workflow:
 
 	def execute(self, targets = None, dryrun = False,  touch = False, cores = 1,
 	              forcetargets = False, forceall = False, forcerules = None, prioritytargets = None,
-	              quiet = False, printshellcmds = False, printreason = False, printdag = False,
+	              quiet = False, keepgoing = False, printshellcmds = False, printreason = False, printdag = False,
 	              cluster = None,  ignore_ambiguity = False, workdir = None, stats = None):
 		if workdir is None:
 			workdir = os.getcwd() if self._workdir is None else self._workdir
@@ -142,7 +142,8 @@ class Workflow:
 			print(dag)
 			return True
 		
-		scheduler = JobScheduler(self, dag, cores, dryrun=dryrun, touch=touch, cluster=cluster, quiet=quiet, 
+		scheduler = JobScheduler(self, dag, cores, dryrun=dryrun, touch=touch, cluster=cluster,
+		                         quiet=quiet, keepgoing=keepgoing,
 		                         printreason=printreason, printshellcmds=printshellcmds)
 		success = scheduler.schedule()
 		

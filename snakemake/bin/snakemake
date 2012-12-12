@@ -44,6 +44,8 @@ def main():
 	                          "used to pretend that the rules were executed, in order to "
 	                          "fool future invocations of snakemake. Fails if a file does "
 	                          "not yet exist."))
+	parser.add_argument("--keep-going", "-k", action="store_true",
+	                    help="Go on with independent jobs if a job fails.")
 	parser.add_argument("--force", "-f", action="store_true", 
 	                    help=("Force the execution of the selected target or the first rule "
 	                          "regardless of already created output."))
@@ -96,6 +98,7 @@ def main():
 			stats = args.stats,
 			nocolor = args.nocolor,
 			quiet = args.quiet,
+			keepgoing = args.keep_going,
 			cluster = args.cluster,
 			standalone = True,
 			ignore_ambiguity = args.allow_ambiguity,
