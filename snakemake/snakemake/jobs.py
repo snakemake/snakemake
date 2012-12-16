@@ -121,10 +121,7 @@ class Job:
 			for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
 				os.remove(f)
 		for f, f_ in zip(self.output, self.rule.output):
-			if f in self.dynamic_output:
-				f_.prepare()
-			else:
-				f.prepare()
+			f.prepare()
 		if self.log:
 			self.log.prepare()
 	

@@ -52,7 +52,7 @@ class _IOFile(str):
 		return self.mtime > time
 	
 	def prepare(self):
-		path_until_wildcard = re.split(_wildcard_regex, self.file)[0]
+		path_until_wildcard = re.split(self.dynamic_fill, self.file)[0]
 		dir = os.path.dirname(path_until_wildcard)
 		if len(dir) > 0 and not os.path.exists(dir):
 			try:

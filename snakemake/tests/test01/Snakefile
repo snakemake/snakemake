@@ -2,6 +2,9 @@ TEST = "abc"
 
 ruleorder: rule1 > rule2
 
+def testin(wildcards):
+	return "test.in"
+
 rule rule1:
 	''' This rule creates an intermediate file. '''
 	input: 
@@ -14,7 +17,7 @@ rule rule1:
 		'echo {TEST}; cp {input[0]} {output[0]}'
 
 rule rule2:
-	input: 'test.in'
+	input: testin
 	output: 'test.inter'
 	message: 'Copying {input[0]} to {output[0]}'
 	shell: 

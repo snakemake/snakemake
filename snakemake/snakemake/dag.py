@@ -4,7 +4,7 @@ from itertools import chain, combinations, filterfalse, product
 from functools import partial, lru_cache
 from operator import itemgetter
 
-from snakemake.io import IOFile
+from snakemake.io import IOFile, _IOFile
 from snakemake.jobs import Job, Reason
 from snakemake.exceptions import RuleException, MissingInputException, MissingRuleException, AmbiguousRuleException, CyclicGraphException, MissingOutputException
 from snakemake.logging import logger
@@ -300,8 +300,8 @@ class DAG:
 		for job_ in depending:
 			if job_.dynamic_input:
 				newrule_ = job_.rule.dynamic_branch(dynamic_wildcards)
-				self.replace_rule(job_.rule, newrule_)
 				if newrule_ is not None:
+					self.replace_rule(job_.rule, newrule_)
 					if not self.dynamic(job_):
 						newjob_ = Job(newrule_, targetfile=job_.targetfile)
 						self.replace_job(job_, newjob_)
@@ -343,6 +343,7 @@ class DAG:
 			self.targetjobs.add(newjob)
 	
 	def replace_rule(self, rule, newrule):
+		assert newrule is not None
 		try:
 			self.rules.remove(rule)
 		except KeyError:
@@ -419,8 +420,15 @@ class DAG:
 		types = ["running job", "not running job", "dynamic job", "error"]
 		styles = ['style="rounded"', 'style="rounded,dashed"', 'style="rounded,dotted"', 'style="rounded,filled", fillcolor="red"']
 		used_types = set()
+		
+		def format_wildcard(wildcard):
+			name, value = wildcard
+			if _IOFile.dynamic_fill in value:
+				value = "..."
+			return "{}: {}".format(name, value)
+		
 		for job in self.jobs:
-			label = "\\n".join([job.rule.name] + list(map(": ".join, self.new_wildcards(job))))
+			label = "\\n".join([job.rule.name] + list(map(format_wildcard, self.new_wildcards(job))))
 			t = 0
 			if not self.needrun(job):
 				t = 1
