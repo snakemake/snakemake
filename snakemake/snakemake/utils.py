@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, io, re, fnmatch, mimetypes, base64, inspect, textwrap, tempfile, subprocess, shutil, mimetypes
+import os, io, re, fnmatch, mimetypes, base64, inspect, textwrap, tempfile, subprocess, shutil, mimetypes, datetime
 from itertools import chain
 from snakemake.io import regex, Namedlist
 
@@ -56,7 +56,14 @@ def report(text, path, stylesheet = os.path.join(os.path.dirname(__file__), "rep
 	if outmime != "text/html":
 		raise ValueError("Path to report output has to be an HTML file.")
 	from docutils.core import publish_file
-	text = format(textwrap.dedent(text), stepout=2)
+	metadata = textwrap.dedent("""
+
+	.. raw:: html
+
+	   <div id="metadata">{}</div>
+	
+	""").format(datetime.date.today().isoformat())
+	text = format(textwrap.dedent(text), stepout=2) + metadata
 	attachments = []
 	for name, file in files.items():
 		mime, encoding = mimetypes.guess_type(file)

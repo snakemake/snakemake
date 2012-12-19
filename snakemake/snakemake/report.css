@@ -14,11 +14,16 @@ div.document {
 }
 
 div.document:before {
-	content: "snakemake report"
+	content: "snakemake report";
 	text-align: right;
 	display: block;
 }
 
 div.document p {
 	font-family: serif;
+}
+
+div#metadata {
+	text-align: right;
+	font-family: sans-serif;
 }

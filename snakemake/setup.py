@@ -18,6 +18,7 @@ setup(
     url = 'http://snakemake.googlecode.com',
     packages = ['snakemake'],
     scripts = ['bin/snakemake'],
+    package_data = {'': ['*.css']},
     classifiers = [
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
