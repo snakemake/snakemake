@@ -17,6 +17,7 @@ div.document:before {
 	content: "snakemake report";
 	text-align: right;
 	display: block;
+	font-weight: bold;
 }
 
 div.document p {
@@ -25,5 +26,4 @@ div.document p {
 
 div#metadata {
 	text-align: right;
-	font-family: sans-serif;
 }
