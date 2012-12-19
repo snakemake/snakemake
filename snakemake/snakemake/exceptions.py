@@ -39,7 +39,7 @@ def format_traceback(tb, linemaps):
 		if file in linemaps:
 			lineno = linemaps[file][lineno]
 		if code is not None:
-			yield '  File "{}", line {}, in {}{}'.format(file, lineno, function, code)
+			yield '  File "{}", line {}, in {}:\n    {}'.format(file, lineno, function, code)
 
 def print_exception(ex, linemaps, print_traceback = False):
 	"""
