@@ -349,6 +349,8 @@ class DAG:
 		except KeyError:
 			pass # ignore if rule was already removed
 		self.rules.add(newrule)
+		if rule in self.forcerules:
+			self.forcerules.add(newrule)
 	
 	def collect_potential_dependencies(self, job):
 		dependencies = defaultdict(list)
