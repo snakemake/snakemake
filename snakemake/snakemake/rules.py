@@ -149,9 +149,7 @@ class Rule:
 		name     -- an optional name for the item
 		"""
 		inoutput = self.output if output else self.input
-		if inspect.isfunction(item) and output:
-			raise SyntaxError("Only input files can be specified as functions")
-		if isinstance(item, str) or type(item).__name__ == "function":
+		if isinstance(item, str):
 			_item = IOFile(item, rule=self)
 			if isinstance(item, temp):
 				if not output:
@@ -167,6 +165,12 @@ class Rule:
 				else:
 					self.dynamic_input.add(_item)
 			inoutput.append(_item)
+			if name:
+				inoutput.add_name(name)
+		elif inspect.isfunction(item):
+			if output:
+				raise SyntaxError("Only input files can be specified as functions")
+			inoutput.append(item)
 			if name:
 				inoutput.add_name(name)
 		else:
@@ -191,9 +195,27 @@ class Rule:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno, snakefile = self.snakefile)
 
 		try:
-			input = InputFiles(f.apply_wildcards(wildcards, fill_missing=f in self.dynamic_input, fail_dynamic=self.dynamic_output) for f in self.input)
+			input = InputFiles()
+			wildcards_obj = Wildcards(fromdict=wildcards)
+			for name, f in self.input.allitems():
+				start = len(input)
+				if inspect.isfunction(f):
+					files = f(wildcards_obj)
+					if isinstance(files, str):
+						files = [files]
+					for f_ in files:
+						input.append(IOFile(f_, rule=self))
+				else:
+					if isinstance(f, str):
+						f = [f]
+					for f_ in f:
+						input.append(f_.apply_wildcards(wildcards, fill_missing=f_ in self.dynamic_input, fail_dynamic=self.dynamic_output))
+				if name:
+					input.set_name(name, start, end=len(input))
+					
+			#input = InputFiles(f.apply_wildcards(wildcards, fill_missing=f in self.dynamic_input, fail_dynamic=self.dynamic_output) for f in self.input)
 			output = OutputFiles(o.apply_wildcards(wildcards) for o in self.output)
-			input.take_names(self.input.get_names())
+			#input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
 			log = self.log.apply_wildcards(wildcards) if self.log else None
 			return input, output, log

@@ -207,6 +207,7 @@ def expand(*args, **wildcards):
 			expanded.append(filepattern.format(**comb))
 	return expanded
 
+# TODO rewrite Namedlist!
 class Namedlist(list):
 	"""
 	A list that additionally provides functions to name items. Further,
@@ -250,9 +251,9 @@ class Namedlist(list):
 		index -- the item index
 		"""
 		if end is None:
-			end = index
+			end = index+1
 		self._names[name] = (index, end)
-		if index == end:
+		if index == end-1:
 			setattr(self, name, self[index])
 		else:
 			setattr(self, name, self[index:end])
@@ -277,6 +278,18 @@ class Namedlist(list):
 	def items(self):
 		for name in self._names:
 			yield name, getattr(self, name)
+	
+	def allitems(self):
+		next = 0
+		for name, index in self._names.items():
+			start, end = index
+			if start > next:
+				for item in self[next:start]:
+					yield None, item
+			yield name, getattr(self, name)
+			next = end
+		for item in self[next:]:
+			yield None, item
 
 	def insert_items(self, index, items):
 		self[index:index+1] = items
