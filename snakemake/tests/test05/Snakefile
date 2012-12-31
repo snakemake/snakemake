@@ -1,0 +1,33 @@
+chromosomes = [1,2,3]
+
+shell('rm test.*.inter 2> /dev/null | true')
+
+rule all:
+	input: 'test.predictions'
+
+rule compute1:
+	input: '{name}.in'
+	output: inter=['{name}.%s.inter'%c for c in chromosomes]
+	run:
+		assert len(output.inter) > 0
+		print(output.inter)
+		for out in output:
+			shell('(cat {input[0]} && echo "Part {out}") > {out}')
+
+rule compute2:
+	input: '{name}.{chromosome}.inter', 'other.txt'
+	output: '{name}.{chromosome}.inter2'
+	message: 'Converting {input[0]} --> {output[0]}'
+	shell: 'cp {input[0]} {output[0]}'
+
+rule gather:
+	input: ['{name}.%s.inter2'%c for c in chromosomes]
+	output: '{name}.predictions'
+	message: 'Gathering results'
+	run:
+		shell('cat {} > {}'.format(' '.join(input), output[0]))
+
+rule other:
+	output: 'other.txt'
+	priority: 50
+	shell: 'touch other.txt'

@@ -1,0 +1,25 @@
+# kate: syntax python;
+
+DATASETS = '1 2 3'.split()
+
+rule mapmature_all:
+	input: '{ds}.bam'.format(ds=ds) for ds in DATASETS
+
+rule gzip:
+	output: '{file}.gz'
+	input: '{file}'
+	shell: 'gzip < {input} > {output}'
+
+rule cutadapt:
+	output: fastq=temp('{ds}.fastq')
+	input: '{ds}.txt'
+	shell:
+		'echo hello > {output.fastq}'
+
+rule bwa_mature:
+	output: bam='{ds}.bam'
+	input: reads='{ds}.fastq.gz'
+	threads: 4
+	shell:
+		'echo starting with {threads} threads; sleep 10; touch {output.bam}'
+

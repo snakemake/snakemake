@@ -1,0 +1,8 @@
+rule all:
+	input: 'test.bla.out'
+
+rule wildcards:
+	input: 'test.in'
+	output: 'test.{xyz}.out'
+	message: 'Creating file {output[0]}, xyz={wildcards.xyz}'
+	shell: 'echo {wildcards.xyz} > {output[0]}'

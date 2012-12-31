@@ -1,0 +1,6 @@
+rule rule1:
+	input: '{name}.in'
+	output: '{name}.out'
+	message: 'Copying {input[0]} to {output[0]}'
+	shell:
+		'cp {input[0]} {output[0]}'

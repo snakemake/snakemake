@@ -1,0 +1,17 @@
+rule rule1:
+	input: '{name}.bogus.in'
+	output: '{name}.out'
+	message: 'Writing junk to {output[0]}'
+	shell: 'echo "junk" > {output[0]}; cat {input}'
+
+rule rule2:
+	input: '{name}.in'
+	output: '{name}.out'
+	message: 'Copying {input[0]} to {output[0]}'
+	shell: 'cp {input[0]} {output[0]}'
+
+rule rule3:
+	input: '{name}.more.bogus.in'
+	output: '{name}.out'
+	message: 'Writing junk to {output[0]}'
+	shell: 'echo "junk" > {output[0]}; cat{input}'

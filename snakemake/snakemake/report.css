@@ -1,0 +1,29 @@
+
+body {
+	background: gray;
+	font-family: sans-serif;
+	padding-top: 10px;
+}
+
+div.document {
+	background: white;
+	max-width: 800px;
+	margin: auto;
+	box-shadow: 8px 8px 8px #666;
+	padding: 10px;
+}
+
+div.document:before {
+	content: "snakemake report";
+	text-align: right;
+	display: block;
+	font-weight: bold;
+}
+
+div.document p {
+	font-family: serif;
+}
+
+div#metadata {
+	text-align: right;
+}

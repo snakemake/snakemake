@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os, sys, multiprocessing
+import argparse
+import logging
+
+__author__ = "Johannes Köster"
+
+# If running from within source directory,
+# add '../snakemake' to sys.path.
+_libdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../')
+if os.path.isfile(os.path.join(_libdir, 'snakemake', '__init__.py')):
+	sys.path.insert(0, _libdir)
+
+import snakemake
+
+def main():
+	parser = argparse.ArgumentParser(description="Snakemake is a Python based language and execution environment for make-like workflows.")
+	parser.add_argument("target", nargs="*", default=None, 
+	                    help="Targets to build. May be rules or files.")
+	parser.add_argument("--snakefile", "-s", metavar="FILE", 
+	                    default="Snakefile", help="The workflow definition in a snakefile.")
+	parser.add_argument("--cores", "--jobs", "-j", action="store", default=1, 
+	                    const=multiprocessing.cpu_count(), nargs="?", metavar="N", type=int, 
+	                    help=("Use at most N cores in parallel (default: 1). "
+	                          "If N is omitted, the limit is set to the number of available cores."))
+	parser.add_argument("--list", "-l", action="store_true", 
+	                    help="Show availiable rules in given snakefile.")
+	parser.add_argument("--directory", "-d", metavar="DIR", action="store", 
+	                    help=("Specify working directory (relative paths in "
+	                          "the snakefile will use this as their origin)."))
+	parser.add_argument("--dryrun", "-n", action="store_true", 
+	                    help="Do not execute anything.")
+	parser.add_argument("--printshellcmds", "-p", action="store_true", 
+	                    help="Print out the shell commands that will be executed.")
+	parser.add_argument("--dag", action="store_true", 
+	                    help=("Do not execute anything and print the directed "
+	                          "acyclic graph of jobs in the dot language."
+	                          "Recommended use on Unix systems: snakemake --dag | dot | display"))
+	parser.add_argument("--touch", "-t", action="store_true", 
+	                    help=("Touch output files (mark them up to date without really "
+	                          "changing them) instead of running their commands. This is "
+	                          "used to pretend that the rules were executed, in order to "
+	                          "fool future invocations of snakemake. Fails if a file does "
+	                          "not yet exist."))
+	parser.add_argument("--keep-going", "-k", action="store_true",
+	                    help="Go on with independent jobs if a job fails.")
+	parser.add_argument("--force", "-f", action="store_true", 
+	                    help=("Force the execution of the selected target or the first rule "
+	                          "regardless of already created output."))
+	parser.add_argument("--forceall", "-F", action="store_true", 
+	                    help=("Force the execution of the selected (or the first) rule and "
+	                          "all rules it is dependent on regardless of already created output."))
+	parser.add_argument("--forcerules", "-R", nargs="+", 
+	                    help=("Force the execution of the selected (or the first) rule and "
+	                          "all rules that are mentioned here regardless of already created output."))
+	parser.add_argument("--prioritize", "-P", nargs="+",
+	                    help="Tell the scheduler to assign creation of given targets (and all their dependencies) highest priority. (EXPERIMENTAL)")
+	parser.add_argument("--allow-ambiguity", "-a", action="store_true",
+	                    help=("Don't check for ambiguous rules and simply use the first if "
+	                          "several can produce the same file. This allows the user to "
+	                          "prioritize rules by their order in the snakefile."))
+	parser.add_argument("--cluster", "-c", metavar="CMD", 
+	                    help=("Execute snakemake rules with the given submit command, e.g. qsub. "
+	                          "Snakemake compiles jobs into scripts that are submitted to the "
+	                          "cluster with the given command, once all input files for a "
+	                          "particular job are present."))
+	parser.add_argument("--reason", "-r", action = "store_true", 
+	                    help="Print the reason for each executed rule.")
+	parser.add_argument("--stats", metavar="FILE", 
+	                    help="Write stats about Snakefile execution to the given file.")
+	parser.add_argument("--nocolor", action = "store_true", 
+	                    help="Do not use a colored output.")
+	parser.add_argument("--quiet", "-q", action = "store_true", 
+	                    help="Do not output any progress or rule information.")
+	parser.add_argument("--version", "-v", action="version", version=snakemake.__version__)
+    
+	args = parser.parse_args()
+
+	snakemakepath = os.path.realpath(__file__)
+	
+	success = snakemake.snakemake(
+			args.snakefile, 
+			listrules = args.list,
+			cores = args.cores, 
+			workdir = args.directory, 
+			targets = args.target, 
+			dryrun = args.dryrun, 
+			printshellcmds = args.printshellcmds, 
+			printreason = args.reason,
+			printdag = args.dag,
+			touch = args.touch, 
+			forcetargets = args.force,
+			forceall = args.forceall,
+			forcerules = args.forcerules,
+			prioritytargets = args.prioritize,
+			stats = args.stats,
+			nocolor = args.nocolor,
+			quiet = args.quiet,
+			keepgoing = args.keep_going,
+			cluster = args.cluster,
+			standalone = True,
+			ignore_ambiguity = args.allow_ambiguity,
+			snakemakepath = snakemakepath)
+	exit(0 if success else 1)
+
+if __name__ == "__main__":
+	#import cProfile
+	#cProfile.run('main()', "snakemake.profile")
+	main()

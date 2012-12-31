@@ -1,0 +1,12 @@
+rule all:
+	input: 'test.algo1-p7-improved.out'
+
+rule run_algo1:
+	input: '{dataset}.in'
+	output: '{dataset}.algo1-p{param,[0-9]+}.out'
+	shell: 'echo "algo1 / {wildcards.param}" > {output}'
+
+rule postprocess:
+	input: '{dataset}.{algorithm}.out'
+	output: '{dataset}.{algorithm}-improved.out'
+	shell: 'cp {input} {output} && (echo "IMPROVED" >> {output})'

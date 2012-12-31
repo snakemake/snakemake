@@ -1,0 +1,64 @@
+python3-snakemake (1.2.3) precise; urgency=high
+
+  * New upstream release.
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Mon, 24 Sep 2012 10:34:46 +0100
+
+
+python3-snakemake (1.2.2) precise; urgency=high
+
+  * New upstream release.
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Mon, 13 Aug 2012 15:19:46 +0100
+
+
+python3-snakemake (1.2.1) precise; urgency=high
+
+  * New upstream release.
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Wed, 25 Jul 2012 12:19:46 +0100
+
+
+python3-snakemake (1.2) precise; urgency=high
+
+  * New upstream release.
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Wed, 27 Jun 2012 15:33:46 +0100
+
+
+python3-snakemake (1.1.4) precise; urgency=high
+
+  * New upstream release.
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Mon, 11 Jun 2012 14:15:46 +0100
+
+python3-snakemake (1.1.3) precise; urgency=high
+
+  * New upstream release.
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Wed, 06 Jun 2012 15:59:46 +0100
+
+python3-snakemake (1.1.2) precise; urgency=high
+
+  * New upstream release.
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Tue, 15 May 2012 08:54:46 +0100
+
+
+python3-snakemake (1.0.2) precise; urgency=high
+
+  * New upstream release
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Sun, 15 Apr 2012 15:44:46 +0200
+
+python3-snakemake (1.0.1) precise; urgency=high
+
+  * First maintenance release
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Mon, 09 Apr 2012 17:42:12 +0200
+
+python3-snakemake (1.0) oneiric; urgency=high
+
+  * Initial release.
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Sun, 08 Apr 2012 15:27:40 +0200

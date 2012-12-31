@@ -1,0 +1,26 @@
+# snakemake
+
+rule all:
+	input: dynamic("test.{n}.{bla}.out"), dynamic("test.{n}.{bla}.csv")
+	run:
+		pass
+
+rule inter:
+	input: "test.{n}.inter"
+	output: "test.{n}.out"
+	shell: "cp {input} {output}"
+
+rule dynoutput:
+	input: "test.xy.in"
+	output: dynamic("test.{n}.{bla}.inter")
+	shell: "for i in {{0..2}}; do touch test.0$i.xy.inter; done"
+
+rule:
+	input: dynamic("test.{n}.{bla}.inter")
+	output: "test.{n}.txt"
+	shell: "touch {output}"
+
+rule:
+	input: "test.{n}.txt"
+	output: "test.{n}.csv"
+	shell: "cp {input} {output}"

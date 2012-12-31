@@ -1,0 +1,31 @@
+TEST = "abc"
+
+ruleorder: rule1 > rule2
+
+def testin(wildcards):
+	return "test.in"
+
+rule rule1:
+	''' This rule creates an intermediate file. '''
+	input: 
+		'test.inter'
+	output: 'dir/test.out'
+	log:    'log/logfile.log'
+	threads: 3
+	shell:
+		'if [ {threads} -ne 3 ]; then exit 1; fi; ' \
+		'echo {TEST}; cp {input[0]} {output[0]}'
+
+rule rule2:
+	input: testin
+	output: 'test.inter'
+	message: 'Copying {input[0]} to {output[0]}'
+	shell: 
+		'''cp {input[0]} {output[0]}
+		'''
+
+# this should be ignored since test.in is present
+rule rule3:
+	input: "dir/{a}.out"
+	output: "{a}.in"
+	shell: "cp {input} {output}"

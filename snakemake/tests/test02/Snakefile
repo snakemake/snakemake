@@ -1,0 +1,18 @@
+rule all:
+	input: 'test.out'
+
+rule rule1:
+	input: '{name}.in'
+	output: '{name}.inter'
+	#message: 'Copying {input[0]} to {output[0]}'
+	log: "logs/{name}.log"
+	shell:
+		'echo test > {log}; cp {input[0]} {output[0]}'
+
+rule rule2:
+	input: '{name}.inter'
+	output: '{name}.out'
+	#message: 'Copying {input[0]} to {output[0]}'
+	shell: 
+		'cp {input[0]} {output[0]}'
+

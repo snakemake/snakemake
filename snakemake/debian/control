@@ -1,0 +1,12 @@
+Source: python3-snakemake
+Section: science
+Priority: extra
+Maintainer: Johannes Koester <johannes.koester@tu-dortmund.de>
+Standards-Version: 3.9.2
+XS-Python-Version: >= 3.2
+Build-Depends: debhelper (>=8.9)
+
+Package: python3-snakemake
+Architecture: all
+Depends: python3 (>= 3.2)
+Description: A Python based language and execution environment for make-like workflows.
