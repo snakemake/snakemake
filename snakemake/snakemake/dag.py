@@ -354,7 +354,8 @@ class DAG:
 	
 	def collect_potential_dependencies(self, job):
 		dependencies = defaultdict(list)
-		for file in job.input:
+		# use a set to circumvent multiple jobs for the same file if user specified it twice
+		for file in set(job.input):
 			try:
 				for job_ in self.file2jobs(file):
 					dependencies[file].append(job_)
@@ -409,8 +410,10 @@ class DAG:
 	
 	def file2jobs(self, targetfile):
 		jobs = list()
+#		print("---")
 		for rule in self.rules:
 			if rule.is_producer(targetfile):
+#				print(rule)
 				jobs.append(Job(rule, targetfile=targetfile))
 		if not jobs:
 			raise MissingRuleException(targetfile)

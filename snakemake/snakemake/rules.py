@@ -188,7 +188,9 @@ class Rule:
 		""" Expand wildcards depending on the requested output or given wildcards dict. """
 		if wildcards is None:
 			wildcards = dict()
-				
+		
+#		if self.name == "uniprot2hgnc":
+#			import pdb; pdb.set_trace()
 		missing_wildcards = self.wildcard_names - set(wildcards.keys()) # TODO validate
 		
 		if missing_wildcards:
