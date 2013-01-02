@@ -126,7 +126,7 @@ class Job:
 			self.log.prepare()
 	
 	def cleanup(self):
-		for f in self.output:
+		for f in self.expanded_output:
 			if f.exists:
 				f.remove()
 	
