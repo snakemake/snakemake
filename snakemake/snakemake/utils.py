@@ -52,6 +52,36 @@ def makedirs(dirnames):
 			os.makedirs(dirname)
 
 def report(text, path, stylesheet = os.path.join(os.path.dirname(__file__), "report.css"), defaultenc="utf8", template=None, **files):
+	"""
+	Create an HTML report using python docutils.
+	Attention: This function needs Python docutils to be installed for the python installation you use with Snakemake.
+
+	Arguments
+	text -- The "restructured text" as it is expected by python docutils.
+	path -- The path to the desired output file
+	stylesheet -- An optional path to a css file that defines the style of the document. This defaults to <your snakemake install>/report.css. Use the default to get a hint how to create your own.
+	defaultenc -- The encoding that is reported to the browser for embedded text files, defaults to utf8.
+	template -- An optional path to a docutils HTML template.
+	
+	All other keyword args are intepreted as paths to files that shall be embedded into the document. They keywords will be available as link targets in the text. E.g. append a file as keyword arg via F1=input[0] and put a download link in the text like this:
+	
+	report('''
+	==============
+	Report for ...
+	==============
+
+	Some text. A link to an embedded file: F1_.
+
+	Further text.
+	''', F1=input[0])
+
+	Instead of specifying each file as a keyword arg, you can also expand the input of your rule if it is completely named, e.g.:
+
+	report('''
+	Some text...
+	''', **input)
+
+	"""
 	outmime, _ = mimetypes.guess_type(path)
 	if outmime != "text/html":
 		raise ValueError("Path to report output has to be an HTML file.")
