@@ -1,6 +1,6 @@
 TEST = "abc"
 
-ruleorder: rule1 > rule2
+ruleorder: rule2 > rule4
 
 def testin(wildcards):
 	return "test.in"
@@ -23,6 +23,11 @@ rule rule2:
 	shell: 
 		'''cp {input[0]} {output[0]}
 		'''
+
+rule rule4:
+	input: "test.in"
+	output: "test.inter"
+	shell: "cp {input} {output}"
 
 # this should be ignored since test.in is present
 rule rule3:
