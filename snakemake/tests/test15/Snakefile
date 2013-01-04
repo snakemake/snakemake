@@ -1,5 +1,0 @@
-
-rule a:
-	input: test = lambda wildcards: "test2.in" if os.path.exists("test2.in") else "test.in"
-	output: "test.out"
-	shell: "cp {input.test} {output}"
