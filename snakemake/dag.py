@@ -260,7 +260,7 @@ class DAG:
 	
 	def update_ready(self):
 		for job in filter(self.needrun, self.jobs):
-			if self._ready(job):
+			if not self.finished(job) and self._ready(job):
 				self._ready_jobs.add(job)
 	
 	def postprocess(self):
@@ -284,9 +284,12 @@ class DAG:
 			newjob = self.update_dynamic(job)
 			if newjob:
 				self.omitforce.add(newjob)
+				# simulate that this job ran and was finished before
+				self._needrun.add(newjob)
+				self._finished.add(newjob)
 				self.postprocess()
-				# add 1 since the finished dynamic job was replaced by a not needrun job
-				self._len += 1
+				## add 1 since the finished dynamic job was replaced by a not needrun job
+				#self._len += 1
 	
 	def update_dynamic(self, job):
 		dynamic_wildcards = job.dynamic_wildcards
