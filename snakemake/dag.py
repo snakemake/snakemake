@@ -283,13 +283,12 @@ class DAG:
 			logger.warning("Dynamically updating jobs")
 			newjob = self.update_dynamic(job)
 			if newjob:
-				self.omitforce.add(newjob)
 				# simulate that this job ran and was finished before
+				self.omitforce.add(newjob)
 				self._needrun.add(newjob)
 				self._finished.add(newjob)
+				
 				self.postprocess()
-				## add 1 since the finished dynamic job was replaced by a not needrun job
-				#self._len += 1
 	
 	def update_dynamic(self, job):
 		dynamic_wildcards = job.dynamic_wildcards
