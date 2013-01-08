@@ -47,6 +47,7 @@ class DAG:
 		if forcetargets:
 			self.forcerules.update(targetrules)
 			self.forcefiles.update(targetfiles)
+		self.omitforce = set()
 
 	def init(self):
 		for job in map(self.rule2job, self.targetrules):
@@ -205,7 +206,7 @@ class DAG:
 		if skip_until_dynamic:
 			self._dynamic.add(job)
 
-	def update_needrun(self, noforce = None):
+	def update_needrun(self):
 		def output_mintime(job):
 			for job_ in self.bfs(self.depending, job):
 				t = job.output_mintime 
@@ -213,7 +214,7 @@ class DAG:
 					return t
 		def needrun(job):
 			reason = self.reason(job)
-			if job != noforce and job.rule in self.forcerules or not self.forcefiles.isdisjoint(job.output):
+			if job not in self.omitforce and job.rule in self.forcerules or not self.forcefiles.isdisjoint(job.output):
 				reason.forced = True
 			elif job in self.targetjobs:
 				if not job.output:
@@ -262,8 +263,8 @@ class DAG:
 			if self._ready(job):
 				self._ready_jobs.add(job)
 	
-	def postprocess(self, noforce = None):
-		self.update_needrun(noforce=noforce)
+	def postprocess(self):
+		self.update_needrun()
 		self.update_priority()
 		self.update_ready()
 
@@ -282,7 +283,8 @@ class DAG:
 			logger.warning("Dynamically updating jobs")
 			newjob = self.update_dynamic(job)
 			if newjob:
-				self.postprocess(noforce=newjob)
+				self.omitforce.add(newjob)
+				self.postprocess()
 				# add 1 since the finished dynamic job was replaced by a not needrun job
 				self._len += 1
 	
