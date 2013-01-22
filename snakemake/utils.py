@@ -16,7 +16,7 @@ def linecount(filename):
 	with open(filename) as f:
 		return sum(1 for l in f)
 
-def listfiles(pattern):
+def listfiles(pattern, restriction=None, omit_value=None):
 	"""
 	Yield a tuple of existing filepaths for the given pattern.
 	If pattern is specified, wildcard values are yielded as the third tuple item.
@@ -39,7 +39,14 @@ def listfiles(pattern):
 			match = re.match(pattern, f)
 			if match and len(match.group()) == len(f):
 				wildcards = Namedlist(fromdict = match.groupdict())
-				yield f, wildcards
+				if restriction is not None:
+					invalid = any(
+						omit_value not in v and v != wildcards[k] 
+						for k, v in restriction.items())
+					if not invalid:
+						yield f, wildcards
+				else:
+					yield f, wildcards
 
 def makedirs(dirnames):
 	"""

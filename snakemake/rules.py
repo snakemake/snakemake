@@ -189,7 +189,7 @@ class Rule:
 		if wildcards is None:
 			wildcards = dict()
 		
-#		if self.name == "uniprot2hgnc":
+#		if self.name == "merge_qgrams":
 #			import pdb; pdb.set_trace()
 		missing_wildcards = self.wildcard_names - set(wildcards.keys()) # TODO validate
 		
