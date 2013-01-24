@@ -231,7 +231,7 @@ class DAG:
 					updated_input = [f for f in job.input if f.exists and f.is_newer(output_mintime_)]
 					reason.updated_input.update(updated_input)
 			return job
-		
+		#import pdb; pdb.set_trace()
 		queue = list(filter(self.reason, map(needrun, self.jobs)))
 		visited = set(queue)
 		while queue:
@@ -239,6 +239,8 @@ class DAG:
 			self._needrun.add(job)
 
 			for job_, files in self.dependencies[job].items():
+#				if job_.rule.name == "dynoutput":
+#					import pdb; pdb.set_trace()
 				missing_output = job_.missing_output(requested=files)
 				self.reason(job_).missing_output.update(missing_output)
 				if missing_output and not job_ in visited:
@@ -295,6 +297,7 @@ class DAG:
 		if not dynamic_wildcards:
 			# this happens e.g. in dryrun if output is not yet present
 			return
+
 		depending = list(filter(lambda job_: not self.finished(job_), self.bfs(self.depending, job)))
 		newrule, non_dynamic_wildcards = job.rule.dynamic_branch(dynamic_wildcards, input=False)
 		self.replace_rule(job.rule, newrule)

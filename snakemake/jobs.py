@@ -4,9 +4,9 @@ import os, sys, operator
 
 from collections import defaultdict
 from itertools import chain, filterfalse
-from functools import lru_cache
+from functools import lru_cache, partial
 
-from snakemake.io import IOFile, Wildcards
+from snakemake.io import IOFile, Wildcards, _IOFile
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import MissingOutputException, RuleException
 
@@ -63,7 +63,10 @@ class Job:
 	def expanded_output(self):
 		for f, f_ in zip(self.output, self.rule.output):
 			if f in self.dynamic_output:
-				expansion = self.expand_dynamic(f_)
+				expansion = self.expand_dynamic(
+					f_,
+					restriction=self.wildcards,
+					omit_value=_IOFile.dynamic_fill)
 				if not expansion:
 					yield f_
 				for f, _ in expansion:
@@ -73,15 +76,15 @@ class Job:
 	
 	@property
 	def dynamic_wildcards(self):
-		# TODO this generates wrong duplicates!
-		
+		# TODO this generates wrong duplicates?
 		combinations = set()
 		for f, f_ in zip(self.output, self.rule.output):
 			if f in self.dynamic_output:
-				for f, w in self.expand_dynamic(f_):
+				for f, w in self.expand_dynamic(
+					f_,
+					restriction=self.wildcards,
+					omit_value=_IOFile.dynamic_fill):
 					combinations.add(tuple(w.items()))
-#					for name, value in w.items():
-#						wildcards[name].append(value)
 		wildcards = defaultdict(list)
 		for combination in combinations:
 			for name, value in combination:
@@ -107,7 +110,10 @@ class Job:
 		for f, f_ in zip(self.output, self.rule.output):
 			if f in requested:
 				if f in self.dynamic_output:
-					if not self.expand_dynamic(f_):
+					if not self.expand_dynamic(
+					f_,
+					restriction=self.wildcards,
+					omit_value=_IOFile.dynamic_fill):
 						files.add("{} (dynamic)".format(f_))
 				elif not f.exists:
 					files.add(f)
@@ -118,7 +124,12 @@ class Job:
 		if protected:
 			raise ProtectedOutputException(self.rule, protected)
 		if self.dynamic_output:
-			for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
+			for f, _ in chain(*map(
+				partial(
+					self.expand_dynamic,
+					restriction=self.wildcards,
+					omit_value=_IOFile.dynamic_fill), 
+				self.rule.dynamic_output)):
 				os.remove(f)
 		for f, f_ in zip(self.output, self.rule.output):
 			f.prepare()
@@ -161,8 +172,9 @@ class Job:
 		return self._hash
 	
 	@staticmethod
-	def expand_dynamic(pattern):
-		return list(listfiles(pattern))
+	def expand_dynamic(pattern, restriction=None, omit_value=None):
+		return list(listfiles(
+			pattern, restriction=restriction, omit_value=omit_value))
 
 class Reason:
 	def __init__(self):
