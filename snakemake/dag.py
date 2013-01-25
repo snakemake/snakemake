@@ -218,7 +218,10 @@ class DAG:
 				reason.forced = True
 			elif job in self.targetjobs:
 				if not job.output:
-					reason.updated_input_run.update([f for f in job.input if not f.exists])
+					if job.input:
+						reason.updated_input_run.update([f for f in job.input if not f.exists])
+					else:
+						reason.noio = True
 				else:
 					if job.rule in self.targetrules:
 						missing_output = job.missing_output()
@@ -231,7 +234,7 @@ class DAG:
 					updated_input = [f for f in job.input if f.exists and f.is_newer(output_mintime_)]
 					reason.updated_input.update(updated_input)
 			return job
-		#import pdb; pdb.set_trace()
+
 		queue = list(filter(self.reason, map(needrun, self.jobs)))
 		visited = set(queue)
 		while queue:

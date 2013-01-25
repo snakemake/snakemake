@@ -182,6 +182,7 @@ class Reason:
 		self.updated_input_run = set()
 		self.missing_output = set()
 		self.forced = False
+		self.noio = False
 
 	def __str__(self):
 		if self.forced:
@@ -192,7 +193,9 @@ class Reason:
 			return "Updated input files: {}".format(", ".join(self.updated_input))
 		if self.updated_input_run:
 			return "This run will update input files: {}".format(", ".join(self.updated_input_run))
+		if self.noio:
+			return "Rules with neither input nor output files are always executed"
 		return ""
 
 	def __bool__(self):
-		return bool(self.updated_input or self.missing_output or self.forced or self.updated_input_run)
+		return bool(self.updated_input or self.missing_output or self.forced or self.updated_input_run or self.noio)
