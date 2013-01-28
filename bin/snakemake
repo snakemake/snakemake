@@ -74,6 +74,10 @@ def main():
 	                    help="Do not use a colored output.")
 	parser.add_argument("--quiet", "-q", action = "store_true", 
 	                    help="Do not output any progress or rule information.")
+	parser.add_argument("--nolock", action="store_true",
+	                    help="Do not lock the working directory")
+	parser.add_argument("--cleanup", action="store_true",
+	                    help="Clean up locks on the working directory.")
 	parser.add_argument("--version", "-v", action="version", version=snakemake.__version__)
     
 	args = parser.parse_args()
@@ -102,7 +106,9 @@ def main():
 			cluster = args.cluster,
 			standalone = True,
 			ignore_ambiguity = args.allow_ambiguity,
-			snakemakepath = snakemakepath)
+			snakemakepath = snakemakepath,
+			lock=not args.nolock,
+			cleanup=args.cleanup)
 	exit(0 if success else 1)
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import os
 import threading
 import multiprocessing
@@ -5,7 +7,6 @@ import operator
 
 from snakemake.executors import DryrunExecutor, TouchExecutor
 from snakemake.executors import ClusterExecutor, CPUExecutor
-from snakemake.stats import Stats
 from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
@@ -26,13 +27,13 @@ class JobScheduler:
         keepgoing=False):
         """ Create a new instance of KnapsackJobScheduler. """
         self.dag = dag
+        self.workflow = workflow
         self.dryrun = dryrun
         self.quiet = quiet
         self.keepgoing = keepgoing
         self.maxcores = cores
         self.running = set()
         self.finished_jobs = 0
-        self.stats = Stats()
         self._cores = self.maxcores
         use_threads = os.name == "posix"
         self._open_jobs = (multiprocessing.Event() if not use_threads
@@ -63,6 +64,13 @@ class JobScheduler:
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads)
         self._open_jobs.set()
+
+    @property
+    def stats(self):
+        try:
+            return self._executor.stats
+        except AttributeError:
+            raise TypeError("Executor does not support stats")
 
     def candidate(self, job):
         """ Return whether a job is a candidate to be executed. """
@@ -99,14 +107,12 @@ class JobScheduler:
             self.running.update(run)
             self._cores -= sum(job.threads for job in run)
             for job in run:
-                self.stats.report_job_start(job)
                 self._executor.run(
                     job, callback=self._finish_job,
                     error_callback=self._error)
 
     def _finish_job(self, job):
         """ Do stuff after job is finished. """
-        self.stats.report_job_end(job)
         self.finished_jobs += 1
         self.running.remove(job)
         self.dag.finish(job, update_dynamic=not self.dryrun)

@@ -7,6 +7,7 @@ from itertools import chain
 from snakemake.jobs import Job
 from snakemake.shell import shell
 from snakemake.logging import logger
+from snakemake.stats import Stats
 from snakemake.utils import format
 from snakemake.exceptions import print_exception, get_exception_origin, format_error, RuleException, ClusterJobException, ProtectedOutputException
 	
@@ -69,10 +70,29 @@ class AbstractExecutor:
 		self.dag.handle_protected(job)
 		self.dag.handle_temp(job)
 
+
 class DryrunExecutor(AbstractExecutor):
 	pass
 
-class TouchExecutor(AbstractExecutor):
+
+class RealExecutor(AbstractExecutor):
+
+    def __init__(self, workflow, dag, printreason=False, quiet=False, printshellcmds=False):
+        super().__init__(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
+        self.stats = Stats()
+
+    def run(self, job, callback = None, error_callback = None):
+        super()._run(job)
+        self.stats.report_job_start(job)
+        self.workflow.persistence.started(job)
+
+    def finish_job(self, job):
+        super().finish_job(job)
+        self.stats.report_job_end(job)
+        self.workflow.persistence.finished(job)
+
+
+class TouchExecutor(RealExecutor):
 
 	def run(self, job, callback = None, error_callback = None):
 		super()._run(job)
@@ -85,7 +105,9 @@ class TouchExecutor(AbstractExecutor):
 			print_exception(ex, self.workflow.linemaps)
 			error_callback()
 
-class CPUExecutor(AbstractExecutor):
+
+
+class CPUExecutor(RealExecutor):
 
 	def __init__(self, workflow, dag, cores, printreason=False, quiet=False, printshellcmds=False, threads=False):
 		super().__init__(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
@@ -114,7 +136,7 @@ class CPUExecutor(AbstractExecutor):
 			job.cleanup()
 			error_callback()
 			
-class ClusterExecutor(AbstractExecutor):
+class ClusterExecutor(RealExecutor):
 
 	def __init__(self, workflow, dag, cores, submitcmd="qsub", printreason=False, quiet=False, printshellcmds=False):
 		super().__init__(workflow, dag, printreason=printreason, quiet=quiet, printshellcmds=printshellcmds)
@@ -142,7 +164,7 @@ class ClusterExecutor(AbstractExecutor):
 			                                       #rule: {job}
 			                                       #input: {job.input}
 			                                       #output: {job.output}
-			                                       {self.workflow.snakemakepath} --force -j{self.cores} --directory {workdir} --nocolor --quiet {job.output} && touch "{jobfinished}" || touch "{jobfailed}"
+			                                       {self.workflow.snakemakepath} --force -j{self.cores} --directory {workdir} --nocolor --quiet --nolock {job.output} && touch "{jobfinished}" || touch "{jobfailed}"
 			                                       exit 0
 			                                       """)), file=f)
 		os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)

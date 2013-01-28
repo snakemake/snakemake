@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import textwrap
 from collections import defaultdict
 from itertools import chain, combinations, filterfalse, product
@@ -10,6 +12,8 @@ from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.logging import logger
+
+__author__ = "Johannes Köster"
 
 
 class DAG:
@@ -298,8 +302,12 @@ class DAG:
 
             for job_, files in self.dependencies[job].items():
                 missing_output = job_.missing_output(requested=files)
+                incomplete_output = (job_.output 
+                    if self.workflow.persistence.incomplete(job_) else set())
                 self.reason(job_).missing_output.update(missing_output)
-                if missing_output and not job_ in visited:
+                self.reason(job_).incomplete_output.update(incomplete_output)
+                if (missing_output
+                    or incomplete_output) and not job_ in visited:
                     visited.add(job_)
                     queue.append(job_)
 

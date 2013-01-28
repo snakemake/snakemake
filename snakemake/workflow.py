@@ -2,7 +2,6 @@
 
 import re, os
 from collections import OrderedDict
-from itertools import chain
 
 from snakemake.logging import logger
 from snakemake.rules import Rule, Ruleorder
@@ -20,7 +19,7 @@ from snakemake.io import protected, temp, temporary, expand, dynamic, IOFile
 __author__ = "Johannes Köster"
 
 class Workflow:
-	def __init__(self, snakemakepath = None):
+	def __init__(self, snakemakepath=None, persistence=None):
 		"""
 		Create the controller.
 		"""
@@ -31,12 +30,13 @@ class Workflow:
 		self.linemaps = dict()
 		self.rule_count = 0
 		self.snakemakepath = snakemakepath
+		self.persistence = persistence
 		self.globals = globals()
-	
+
 	@property
 	def rules(self):
 		return self._rules.values()
-	
+
 	def add_rule(self, name = None, lineno = None, snakefile = None):
 		"""
 		Add a rule.
@@ -51,7 +51,7 @@ class Workflow:
 		if not self.first_rule:
 			self.first_rule = rule.name
 		return name
-			
+
 	def is_rule(self, name):
 		"""
 		Return True if name is the name of a rule.
@@ -74,9 +74,9 @@ class Workflow:
 			raise UnknownRuleException(name)
 		return self._rules[name]
 	
-	def list_rules(details = True, log = logger.info):
+	def list_rules(self, details = True, log = logger.info):
 		log("Available rules:")
-		for rule in workflow.rules: 
+		for rule in self.rules: 
 			log(rule.name)
 			if details:
 				if rule.docstring:

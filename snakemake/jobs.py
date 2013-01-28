@@ -2,6 +2,7 @@
 
 import os
 import sys
+import base64
 
 from collections import defaultdict
 from itertools import chain
@@ -45,6 +46,11 @@ class Job:
         for f, f_ in zip(self.input, self.rule.input):
             if f_ in self.rule.dynamic_input:
                 self.dynamic_input.add(f)
+
+    @property
+    def b64id(self):
+        return base64.b64encode((self.rule.name +
+            "".join(self.output)).encode("utf-8")).decode("utf-8")
 
     @property
     def inputsize(self):
@@ -216,6 +222,7 @@ class Reason:
         self.updated_input = set()
         self.updated_input_run = set()
         self.missing_output = set()
+        self.incomplete_output = set()
         self.forced = False
         self.noio = False
 
@@ -225,6 +232,9 @@ class Reason:
         if self.missing_output:
             return "Missing output files: {}".format(
                 ", ".join(self.missing_output))
+        if self.incomplete_output:
+            return "Incomplete output files: {}".format(
+                ", ".join(self.incomplete_output))
         if self.updated_input:
             return "Updated input files: {}".format(
                 ", ".join(self.updated_input))
