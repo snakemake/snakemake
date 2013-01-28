@@ -71,10 +71,10 @@ def snakemake(snakefile,
             pass
 
     success = False
+    persistence = Persistence(nolock=not lock or dryrun)
     try:
         workflow.include(snakefile, workdir=workdir, overwrite_first_rule=True)
 
-        persistence = Persistence(nolock=not lock or dryrun)
         if cleanup:
             try:
                 persistence.unlock()
@@ -114,5 +114,6 @@ def snakemake(snakefile,
         print_exception(ex, workflow.linemaps)
     if workdir:
         os.chdir(olddir)
-    persistence.unlock()
+    if workflow.persistence:
+        persistence.unlock()
     return success

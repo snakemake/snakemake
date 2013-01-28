@@ -19,7 +19,7 @@ def linecount(filename):
 def listfiles(pattern, restriction=None, omit_value=None):
 	"""
 	Yield a tuple of existing filepaths for the given pattern.
-	If pattern is specified, wildcard values are yielded as the third tuple item.
+	Wildcard values are yielded as the second tuple item.
 
 	Arguments
 	pattern -- a filepattern. Wildcards are specified in snakemake syntax, e.g. "{id}.txt"
