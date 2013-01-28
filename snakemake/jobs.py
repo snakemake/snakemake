@@ -239,7 +239,7 @@ class Reason:
             return "Updated input files: {}".format(
                 ", ".join(self.updated_input))
         if self.updated_input_run:
-            return "This run will update input files: {}".format(
+            return "This run updates input files: {}".format(
                 ", ".join(self.updated_input_run))
         if self.noio:
             return ("Rules with neither input nor "
