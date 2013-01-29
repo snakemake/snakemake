@@ -302,7 +302,7 @@ class DAG:
 
             for job_, files in self.dependencies[job].items():
                 missing_output = job_.missing_output(requested=files)
-                incomplete_output = (job_.output 
+                incomplete_output = (job_.output
                     if self.workflow.persistence.incomplete(job_) else set())
                 self.reason(job_).missing_output.update(missing_output)
                 self.reason(job_).incomplete_output.update(incomplete_output)
@@ -552,8 +552,138 @@ class DAG:
                                         edges="\n".join(edges),
                                         legend="\n".join(legend))
 
+    def d3(self, circular=False):
+        """
+        A first try to use d3 for visualization. 
+        At the moment there is no support for DAGs though
+        because d3 is missing layout support for them.
+        """
+        def json(job):
+            return textwrap.dedent("""
+            {{
+                "name": "{name}",
+                "children": [
+                    {children}
+                ]
+            }}
+            """).format(
+                name=job.rule.name,
+                children=",\n".join(map(json, self.dependencies[job])))
+
+        html = textwrap.dedent("""
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <style>
+
+        .node circle {{
+            fill: #fff;
+            stroke: steelblue;
+            stroke-width: 1.5px;
+        }}
+
+        .node {{
+            font: 10px sans-serif;
+        }}
+
+        .link {{
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 1.5px;
+        }}
+
+        </style>
+        </head>
+        <body>
+        <script src="http://d3js.org/d3.v3.min.js"></script>
+        <script>
+        var dag = {dag};
+        """).format(
+            dag=json(list(self.targetjobs)[0]))
+        if circular:
+            html += textwrap.dedent("""
+            var diameter = 960;
+            var layout = d3.layout.tree().size([360, diameter / 2 - 120])
+                .separation(function(a, b) {{
+                    return (a.parent == b.parent ? 1 : 2) / a.depth; 
+                }});
+            var diagonal = d3.svg.diagonal.radial()
+                .projection(function(d) {{
+                    return [d.y, d.x / 180 * Math.PI];
+                }});
+            var svg = d3.select("body").append("svg")
+                    .attr("width", diameter)
+                    .attr("height", diameter - 150)
+                .append("g").attr(
+                    "transform", 
+                    "translate(" + diameter / 2 + "," + diameter / 2 + ")");
+            var nodes = layout.nodes(dag),
+                links = layout.links(nodes);
+            var link = svg.selectAll(".link")
+                    .data(links)
+                .enter().append("path")
+                    .attr("class", "link")
+                    .attr("d", diagonal);
+            var node = svg.selectAll(".node")
+                    .data(nodes)
+                .enter().append("g")
+                    .attr("class", "node")
+                    .attr("transform", function(d) {{
+                        return "rotate(" + (d.x - 90) + ")translate(" + d.y + ")"; 
+                    }});
+            node.append("circle")
+                .attr("r", 4.5);
+            node.append("text")
+                .attr("dy", ".31em")
+                .style("text-anchor", function(d) {{
+                    return d.x < 180 ? "start" : "end";
+                }})
+                .attr("transform", function(d) {{ return d.x < 180 ? "translate(8)" : "rotate(180)translate(-8)"; }})
+                .text(function(d) {{ return d.name; }});
+            </script>
+            </body>
+            </html>
+            """)
+        else:
+            html += textwrap.dedent("""
+            var width = 800,
+                height = 500;
+            var layout = d3.layout.tree().size([height, width-160]);
+            var diagonal = d3.svg.diagonal()
+                .projection(function(d) {{ return [d.y, d.x]; }});
+            var svg = d3.select("body").append("svg")
+                    .attr("width", width)
+                    .attr("height", height)
+                .append("g").attr("transform", "translate(40,0)");
+            var nodes = layout.nodes(dag),
+                links = layout.links(nodes);
+            console.log(links);
+            var link = svg.selectAll(".link")
+                    .data(links)
+                .enter().append("path")
+                    .attr("class", "link")
+                    .attr("d", diagonal);
+            var node = svg.selectAll(".node")
+                    .data(nodes)
+                .enter().append("g")
+                    .attr("class", "node")
+                    .attr("transform", function(d) {{ return "translate(" + d.y + "," + d.x + ")"; }});
+            node.append("circle")
+                .attr("r", 4.5);
+            node.append("text")
+                .attr("dx", 8)
+                .attr("dy", 3)
+                .style("text-anchor", "start")
+                .text(function(d) {{ return d.name; }});
+            </script>
+            </body>
+            </html>
+            """)
+        return html
+
     def __str__(self):
         return self.dot()
+        #return self.d3()
 
     def __len__(self):
         return self._len
