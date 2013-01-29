@@ -552,25 +552,38 @@ class DAG:
                                         edges="\n".join(edges),
                                         legend="\n".join(legend))
 
-    def d3(self, circular=False):
+    def d3sankey(self):
         """
-        A first try to use d3 for visualization. 
-        At the moment there is no support for DAGs though
-        because d3 is missing layout support for them.
+        Experiment: plot the DAG as sankey diagram.
         """
-        def json(job):
+
+        def node(job):
             return textwrap.dedent("""
             {{
-                "name": "{name}",
-                "children": [
-                    {children}
-                ]
+                "name": "{name}"
             }}
-            """).format(
-                name=job.rule.name,
-                children=",\n".join(map(json, self.dependencies[job])))
+            """).format(name=job.rule.name)
 
-        html = textwrap.dedent("""
+        def edge(indices):
+            return textwrap.dedent("""
+            {{
+                "source": {},
+                "target": {},
+                "value": 1
+            }}
+            """).format(*indices)
+        jobs = list(self.jobs)
+        jobindex = dict((job, k) for k, job in enumerate(jobs))
+
+        def edges():
+            for job in jobs:
+                for p in self.dependencies[job]:
+                    yield edge((jobindex[p], jobindex[job]))
+
+        nodes = "[{}]".format(",".join(map(node, jobs)))
+        edges = "[{}]".format(",".join(edges()))
+
+        html = textwrap.dedent(r"""
         <html>
         <head>
         <meta charset="utf-8">
@@ -596,94 +609,83 @@ class DAG:
         </head>
         <body>
         <script src="http://d3js.org/d3.v3.min.js"></script>
+        <script src="https://raw.github.com/d3/d3-plugins/master/sankey/sankey.js"></script>
         <script>
-        var dag = {dag};
-        """).format(
-            dag=json(list(self.targetjobs)[0]))
-        if circular:
-            html += textwrap.dedent("""
-            var diameter = 960;
-            var layout = d3.layout.tree().size([360, diameter / 2 - 120])
-                .separation(function(a, b) {{
-                    return (a.parent == b.parent ? 1 : 2) / a.depth; 
-                }});
-            var diagonal = d3.svg.diagonal.radial()
-                .projection(function(d) {{
-                    return [d.y, d.x / 180 * Math.PI];
-                }});
-            var svg = d3.select("body").append("svg")
-                    .attr("width", diameter)
-                    .attr("height", diameter - 150)
-                .append("g").attr(
-                    "transform", 
-                    "translate(" + diameter / 2 + "," + diameter / 2 + ")");
-            var nodes = layout.nodes(dag),
-                links = layout.links(nodes);
-            var link = svg.selectAll(".link")
-                    .data(links)
-                .enter().append("path")
-                    .attr("class", "link")
-                    .attr("d", diagonal);
-            var node = svg.selectAll(".node")
-                    .data(nodes)
-                .enter().append("g")
-                    .attr("class", "node")
-                    .attr("transform", function(d) {{
-                        return "rotate(" + (d.x - 90) + ")translate(" + d.y + ")"; 
-                    }});
-            node.append("circle")
-                .attr("r", 4.5);
-            node.append("text")
-                .attr("dy", ".31em")
-                .style("text-anchor", function(d) {{
-                    return d.x < 180 ? "start" : "end";
-                }})
-                .attr("transform", function(d) {{ return d.x < 180 ? "translate(8)" : "rotate(180)translate(-8)"; }})
-                .text(function(d) {{ return d.name; }});
-            </script>
-            </body>
-            </html>
-            """)
-        else:
-            html += textwrap.dedent("""
-            var width = 800,
-                height = 500;
-            var layout = d3.layout.tree().size([height, width-160]);
-            var diagonal = d3.svg.diagonal()
-                .projection(function(d) {{ return [d.y, d.x]; }});
-            var svg = d3.select("body").append("svg")
-                    .attr("width", width)
-                    .attr("height", height)
-                .append("g").attr("transform", "translate(40,0)");
-            var nodes = layout.nodes(dag),
-                links = layout.links(nodes);
-            console.log(links);
-            var link = svg.selectAll(".link")
-                    .data(links)
-                .enter().append("path")
-                    .attr("class", "link")
-                    .attr("d", diagonal);
-            var node = svg.selectAll(".node")
-                    .data(nodes)
-                .enter().append("g")
-                    .attr("class", "node")
-                    .attr("transform", function(d) {{ return "translate(" + d.y + "," + d.x + ")"; }});
-            node.append("circle")
-                .attr("r", 4.5);
-            node.append("text")
-                .attr("dx", 8)
-                .attr("dy", 3)
-                .style("text-anchor", "start")
-                .text(function(d) {{ return d.name; }});
-            </script>
-            </body>
-            </html>
-            """)
+        var nodes = {nodes};
+        var links = {links};
+
+        var width = 800,
+            height = 500;
+        var color = d3.scale.category20();
+
+        var svg = d3.select("body").append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .append("g").attr("transform", "translate(40,0)");
+
+        var layout = d3.sankey()
+            .size([width, height])
+            .nodeWidth(15)
+            .nodePadding(10)
+            .nodes(nodes)
+            .links(links)
+            .layout(32);
+        var path = layout.link();
+
+        var link = svg.append("g").selectAll(".link")
+                .data(links)
+            .enter().append("path")
+                .attr("class", "link")
+                .attr("d", path)
+                .style("stroke-width", function(d) {{ return Math.max(1, d.dy); }})
+                .sort(function(a, b) {{ return b.dy - a.dy; }});
+
+        link.append("title")
+            .text(function(d) {{ return d.source.name + " → " + d.target.name + "\n" + d.value; }});
+
+        var node = svg.append("g").selectAll(".node")
+                .data(nodes)
+            .enter().append("g")
+                .attr("class", "node")
+                .attr("transform", function(d) {{ return "translate(" + d.x + "," + d.y + ")"; }})
+            .call(d3.behavior.drag()
+                .origin(function(d) {{ return d; }})
+                .on("dragstart", function() {{ this.parentNode.appendChild(this); }})
+                .on("drag", dragmove));
+
+        node.append("rect")
+                .attr("height", function(d) {{ return d.dy; }})
+                .attr("width", layout.nodeWidth())
+                .style("fill", function(d) {{ return d.color = color(d.name.replace(/ .*/, "")); }})
+                .style("stroke", function(d) {{ return d3.rgb(d.color).darker(2); }})
+            .append("title")
+                .text(function(d) {{ return d.name + "\n" + d.value; }});
+
+        node.append("text")
+                .attr("x", -6)
+                .attr("y", function(d) {{ return d.dy / 2; }})
+                .attr("dy", ".35em")
+                .attr("text-anchor", "end")
+                .attr("transform", null)
+                .text(function(d) {{ return d.name; }})
+            .filter(function(d) {{ return d.x < width / 2; }})
+                .attr("x", 6 + layout.nodeWidth())
+                .attr("text-anchor", "start");
+
+        function dragmove(d) {{
+            d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
+            layout.relayout();
+            link.attr("d", path);
+        }}
+        </script>
+        </body>
+        </html>
+        """).format(nodes=nodes, links=edges)
         return html
 
     def __str__(self):
+        #return self.d3sankey()
         return self.dot()
-        #return self.d3()
 
     def __len__(self):
         return self._len

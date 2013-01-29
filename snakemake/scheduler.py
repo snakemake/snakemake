@@ -139,7 +139,7 @@ class JobScheduler:
             for j in range(1, dimj):
                 job = jobs[i - 1]
                 w = self.job_weight(job)
-                v = job.priority, job.inputsize
+                v = job.priority, job.inputsize if not self.dryrun else 0
                 if w > j:
                     K[i][j] = K[i - 1][j]
                 else:
