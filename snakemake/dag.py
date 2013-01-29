@@ -554,7 +554,8 @@ class DAG:
 
     def d3sankey(self):
         """
-        Experiment: plot the DAG as sankey diagram.
+        Experiment: plot the DAG as sankey diagram
+        (does not yet work for large DAGs.
         """
 
         def node(job):
@@ -564,7 +565,7 @@ class DAG:
             }}
             """).format(name=job.rule.name)
 
-        def edge(indices):
+        def edge(indices, value):
             return textwrap.dedent("""
             {{
                 "source": {},
@@ -577,34 +578,44 @@ class DAG:
 
         def edges():
             for job in jobs:
-                for p in self.dependencies[job]:
-                    yield edge((jobindex[p], jobindex[job]))
+                for p, files in self.dependencies[job].items():
+                    yield edge((jobindex[p], jobindex[job]), len(files))
 
         nodes = "[{}]".format(",".join(map(node, jobs)))
         edges = "[{}]".format(",".join(edges()))
+        height = max(300, len(jobs) * 10)
+        width = max(800, len(jobs) * 20)
 
         html = textwrap.dedent(r"""
         <html>
         <head>
         <meta charset="utf-8">
         <style>
-
-        .node circle {{
-            fill: #fff;
-            stroke: steelblue;
-            stroke-width: 1.5px;
+        body {{
+          font-family: sans-serif;
+          font-size: small;
         }}
 
-        .node {{
-            font: 10px sans-serif;
+        .node rect {{
+          cursor: move;
+          fill-opacity: .9;
+          shape-rendering: crispEdges;
+        }}
+
+        .node text {{
+          pointer-events: none;
+          text-shadow: 0 1px 0 #fff;
         }}
 
         .link {{
-            fill: none;
-            stroke: #ccc;
-            stroke-width: 1.5px;
+          fill: none;
+          stroke: #000;
+          stroke-opacity: .2;
         }}
 
+        .link:hover {{
+          stroke-opacity: .5;
+        }}
         </style>
         </head>
         <body>
@@ -614,14 +625,14 @@ class DAG:
         var nodes = {nodes};
         var links = {links};
 
-        var width = 800,
-            height = 500;
+        var width = {width},
+            height = {height};
         var color = d3.scale.category20();
 
         var svg = d3.select("body").append("svg")
             .attr("width", width)
-            .attr("height", height)
-            .append("g").attr("transform", "translate(40,0)");
+            .attr("height", height);
+            //.append("g").attr("transform", "translate(40,0)");
 
         var layout = d3.sankey()
             .size([width, height])
@@ -680,7 +691,7 @@ class DAG:
         </script>
         </body>
         </html>
-        """).format(nodes=nodes, links=edges)
+        """).format(nodes=nodes, links=edges, height=height, width=width)
         return html
 
     def __str__(self):
