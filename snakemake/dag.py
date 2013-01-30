@@ -504,13 +504,18 @@ class DAG:
         return jobs
 
     def dot(self, errors=False):
+        huefactor = 2 / (3 * (len(self.rules)-1))
+        rulecolor = dict(
+            (rule, "{} 0.6 0.85".format(i * huefactor))
+            for i, rule in enumerate(self.rules))
+
         jobid = dict((job, i) for i, job in enumerate(self.jobs))
+
         nodes, edges = list(), list()
-        types = ["running job", "not running job", "dynamic job", "error"]
+        types = ["running job", "not running job", "dynamic job"]
         styles = [
             'style="rounded"', 'style="rounded,dashed"',
-            'style="rounded,dotted"',
-            'style="rounded,filled", fillcolor="red"']
+            'style="rounded,dotted"']
         used_types = set()
 
         def format_wildcard(wildcard):
@@ -528,22 +533,26 @@ class DAG:
             if self.dynamic(job) or job.dynamic_input:
                 t = 2
             used_types.add(t)
-            nodes.append('\t{}[label = "{}", {}];'.format(
-                jobid[job], label, styles[t]))
+
+            nodes.append('\t{}[label = "{}", color="{}", {}];'.format(
+                jobid[job], label, rulecolor[job.rule], styles[t]))
+
             for job_ in self.dependencies[job]:
                 edges.append("\t{} -> {};".format(jobid[job_], jobid[job]))
         legend = list()
-        for t in used_types:
-            legend.append('\tlegend{}[label="{}", {}];'.format(
-                t, types[t], styles[t]))
-            for target in map(jobid.__getitem__, self.targetjobs):
-                legend.append(
-                    "\t{} -> legend{}[style=invis];".format(target, t))
+        if len(used_types) > 1:
+            for t in used_types:
+                legend.append('\tlegend{}[label="{}", {}];'.format(
+                    t, types[t], styles[t]))
+                for target in map(jobid.__getitem__, self.targetjobs):
+                    legend.append(
+                        "\t{} -> legend{}[style=invis];".format(target, t))
 
         return textwrap.dedent("""\
                             digraph snakemake_dag {{
                                 graph[bgcolor=white];
-                                node[shape=box,style=rounded];
+                                node[shape=box,style=rounded, fontname=sans, fontsize=10, penwidth=2];
+                                edge[penwidth=2, color=grey];
                             {nodes}
                             {edges}
                             {legend}
