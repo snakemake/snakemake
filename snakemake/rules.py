@@ -79,7 +79,7 @@ class Rule:
 		if not input:
 			branch.wildcard_names.clear()
 			non_dynamic_wildcards = dict((name, values[0]) for name, values in wildcards.items() if len(set(values)) == 1)
-			branch._input, branch._output, branch._log = branch.expand_wildcards(wildcards=non_dynamic_wildcards)
+			branch._input, branch._output, branch._log, _ = branch.expand_wildcards(wildcards=non_dynamic_wildcards)
 			return branch, non_dynamic_wildcards
 		return branch
 
@@ -197,6 +197,7 @@ class Rule:
 			raise RuleException("Could not resolve wildcards in rule {}:\n{}".format(self.name, "\n".join(self.wildcard_names)), lineno = self.lineno, snakefile = self.snakefile)
 
 		try:
+			ruleio = dict()
 			input = InputFiles()
 			wildcards_obj = Wildcards(fromdict=wildcards)
 			for name, f in self.input.allitems():
@@ -206,21 +207,23 @@ class Rule:
 					if isinstance(files, str):
 						files = [files]
 					for f_ in files:
-						input.append(IOFile(f_, rule=self))
+						concrete = IOFile(f_, rule=self)
+						input.append(concrete)
+						ruleio[concrete] = f_
 				else:
 					if isinstance(f, str):
 						f = [f]
 					for f_ in f:
-						input.append(f_.apply_wildcards(wildcards, fill_missing=f_ in self.dynamic_input, fail_dynamic=self.dynamic_output))
+						concrete = f_.apply_wildcards(wildcards, fill_missing=f_ in self.dynamic_input, fail_dynamic=self.dynamic_output)
+						input.append(concrete)
+						ruleio[concrete] = f_
 				if name:
 					input.set_name(name, start, end=len(input))
-					
-			#input = InputFiles(f.apply_wildcards(wildcards, fill_missing=f in self.dynamic_input, fail_dynamic=self.dynamic_output) for f in self.input)
 			output = OutputFiles(o.apply_wildcards(wildcards) for o in self.output)
-			#input.take_names(self.input.get_names())
 			output.take_names(self.output.get_names())
+			ruleio.update(dict((f, f_) for f, f_ in zip(output, self.output)))
 			log = self.log.apply_wildcards(wildcards) if self.log else None
-			return input, output, log
+			return input, output, log, ruleio
 		except KeyError as ex:
 			# this can only happen if an input file contains an unresolved wildcard.
 			raise RuleException("Wildcards in input or log file of rule {} cannot be determined from output files:\n{}".format(self, str(ex)), lineno = self.lineno, snakefile = self.snakefile)

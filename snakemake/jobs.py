@@ -28,7 +28,7 @@ class Job:
         if format_wildcards is not None:
             self.format_wildcards = Wildcards(fromdict=format_wildcards)
 
-        self.input, self.output, self.log = rule.expand_wildcards(
+        self.input, self.output, self.log, self.ruleio = rule.expand_wildcards(
             self.wildcards_dict)
         self.threads = rule.threads
         self.priority = rule.priority
@@ -36,15 +36,16 @@ class Job:
 
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
-        for f, f_ in zip(self.output, self.rule.output):
+        for f in self.output:
+            f_ = self.ruleio[f]
             if f_ in self.rule.dynamic_output:
                 self.dynamic_output.add(f)
             if f_ in self.rule.temp_output:
                 self.temp_output.add(f)
             if f_ in self.rule.protected_output:
                 self.protected_output.add(f)
-        for f, f_ in zip(self.input, self.rule.input):
-            if f_ in self.rule.dynamic_input:
+        for f in self.input:
+            if self.ruleio[f] in self.rule.dynamic_input:
                 self.dynamic_input.add(f)
 
     @property
