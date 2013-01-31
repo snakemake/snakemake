@@ -504,7 +504,7 @@ class DAG:
         return jobs
 
     def dot(self, errors=False):
-        huefactor = 2 / (3 * (len(self.rules)-1))
+        huefactor = 2 / (3 * (len(self.rules) - 1))
         rulecolor = dict(
             (rule, "{} 0.6 0.85".format(i * huefactor))
             for i, rule in enumerate(self.rules))
@@ -548,18 +548,19 @@ class DAG:
                     legend.append(
                         "\t{} -> legend{}[style=invis];".format(target, t))
 
-        return textwrap.dedent("""\
-                            digraph snakemake_dag {{
-                                graph[bgcolor=white];
-                                node[shape=box,style=rounded, fontname=sans, fontsize=10, penwidth=2];
-                                edge[penwidth=2, color=grey];
-                            {nodes}
-                            {edges}
-                            {legend}
-                            }}\
-                            """).format(nodes="\n".join(nodes),
-                                        edges="\n".join(edges),
-                                        legend="\n".join(legend))
+        return textwrap.dedent(
+            """\
+            digraph snakemake_dag {{
+                graph[bgcolor=white];
+                node[shape=box,style=rounded, fontname=sans, fontsize=10, penwidth=2];
+                edge[penwidth=2, color=grey];
+            {nodes}
+            {edges}
+            {legend}
+            }}\
+            """).format(nodes="\n".join(nodes),
+                        edges="\n".join(edges),
+                        legend="\n".join(legend))
 
     def d3sankey(self):
         """
