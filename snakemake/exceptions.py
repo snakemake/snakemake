@@ -87,13 +87,13 @@ class RuleException(Exception):
 				self._include.add(ex)
 				self._include.update(ex._include)
 		self._include = list(self._include)
-		if not rule is None:
+		self.lineno = lineno
+		self.filename = snakefile
+		if rule is not None:
 			if lineno is None:
 				lineno = rule.lineno
 			if snakefile is None:
 				snakefile = rule.snakefile
-		self.lineno = lineno
-		self.filename = snakefile
 		self.omit = not message
 	
 	@property

@@ -84,12 +84,26 @@ class RealExecutor(AbstractExecutor):
     def run(self, job, callback = None, error_callback = None):
         super()._run(job)
         self.stats.report_job_start(job)
-        self.workflow.persistence.started(job)
+        try:
+            self.workflow.persistence.started(job)
+        except IOError as e:
+            logger.warning("Failed to set marker file for job started ({}). "
+                "Snakemake will work, but cannot ensure that output files "
+                "are complete in case of a kill signal or power loss. "
+                "Please ensure write permissions for the "
+                "directory {}".format(
+                    e, self.workflow.persistence.path))
 
     def finish_job(self, job):
         super().finish_job(job)
         self.stats.report_job_end(job)
-        self.workflow.persistence.finished(job)
+        try:
+            self.workflow.persistence.finished(job)
+        except IOError as e:
+            logger.warning("Failed to remove marker file for job started ({}). "
+                "Please ensure write permissions for the "
+                "directory {}".format(
+                    e, self.workflow.persistence.path))
 
 
 class TouchExecutor(RealExecutor):

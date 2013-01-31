@@ -58,7 +58,7 @@ def makedirs(dirnames):
 		if not os.path.exists(dirname):
 			os.makedirs(dirname)
 
-def report(text, path, stylesheet = os.path.join(os.path.dirname(__file__), "report.css"), defaultenc="utf8", template=None, **files):
+def report(text, path, stylesheet=os.path.join(os.path.dirname(__file__), "report.css"), defaultenc="utf8", template=None, **files):
 	"""
 	Create an HTML report using python docutils.
 	Attention: This function needs Python docutils to be installed for the python installation you use with Snakemake.
@@ -80,13 +80,13 @@ def report(text, path, stylesheet = os.path.join(os.path.dirname(__file__), "rep
 	Some text. A link to an embedded file: F1_.
 
 	Further text.
-	''', F1=input[0])
+	''', outputpath, F1=input[0])
 
 	Instead of specifying each file as a keyword arg, you can also expand the input of your rule if it is completely named, e.g.:
 
 	report('''
 	Some text...
-	''', **input)
+	''', outputpath, **input)
 
 	"""
 	outmime, _ = mimetypes.guess_type(path)
