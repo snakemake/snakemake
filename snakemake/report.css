@@ -2,7 +2,37 @@
 body {
 	background: gray;
 	font-family: sans-serif;
+	font-size: 10pt;
 	padding-top: 10px;
+}
+
+h1 {
+	font-size: 150%;
+}
+
+h2 {
+	font-size: 140%;
+}
+
+h3 {
+	font-size: 130%;
+}
+
+h4 {
+	font-size: 120%;
+}
+
+h5 {
+	font-size: 110%;
+}
+
+h6 {
+	font-size: 100%;
+}
+
+h1.title {
+	text-align: center;
+	font-size: 180%;
 }
 
 div.document {
@@ -22,6 +52,7 @@ div.document:before {
 
 div.document p {
 	font-family: serif;
+	text-align: justify;
 }
 
 div#metadata {
@@ -58,4 +89,9 @@ table.docutils th:first-child, td:first-child {
 
 table.docutils th:only-child, td:only-child {
 	text-align: center;
+}
+
+table.docutils.footnote {
+	border: none;
+	text-align: left;
 }

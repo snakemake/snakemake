@@ -100,7 +100,7 @@ def report(text, path, stylesheet=os.path.join(os.path.dirname(__file__), "repor
 	   <div id="metadata">{}</div>
 	
 	""").format(datetime.date.today().isoformat())
-	text = format(textwrap.dedent(text), stepout=2) + metadata
+	text = format(textwrap.dedent(text), stepout=2)
 	attachments = []
 	for name, file in files.items():
 		mime, encoding = mimetypes.guess_type(file)
@@ -112,6 +112,7 @@ def report(text, path, stylesheet=os.path.join(os.path.dirname(__file__), "repor
 			data = base64.b64encode(f.read())
 		attachments.append('.. _{}: data:{};charset={};base64,{}'.format(name, mime, encoding, data.decode()))
 	text += "\n\n" + "\n\n".join(attachments)
+	text += metadata
 	overrides = dict()
 	if template is not None:
 		overrides["template"] = template
