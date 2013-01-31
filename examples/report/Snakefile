@@ -14,7 +14,7 @@ rule report:
 		:math:`\sum_{{j \in E}} t_j \leq I`
 		and embedding a table F1_ and a figure F2_.
 
-		Additionally you can or course include inline tables:
+		Additionally you can of course include inline tables:
 
 		========= ====== =====
 		Merged header
