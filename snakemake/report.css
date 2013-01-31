@@ -27,3 +27,35 @@ div.document p {
 div#metadata {
 	text-align: right;
 }
+
+table.docutils {
+	border: none;
+	border-collapse: collapse;
+	border-top: 2px solid gray;
+	border-bottom: 2px solid gray;
+	text-align: center;
+}
+
+table.docutils th {
+	border: none;
+	border-top: 2px solid gray;
+	border-bottom: 2px solid gray;
+	padding: 5px;
+}
+
+table.docutils td {
+	border: none;
+	padding: 5px;
+}
+
+table.docutils th:last-child, td:last-child {
+	text-align: left;
+}
+
+table.docutils th:first-child, td:first-child {
+	text-align: right;
+}
+
+table.docutils th:only-child, td:only-child {
+	text-align: center;
+}
