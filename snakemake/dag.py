@@ -262,7 +262,7 @@ class DAG:
         """ Update the information whether a job needs to be executed. """
         def output_mintime(job):
             for job_ in self.bfs(self.depending, job):
-                t = job.output_mintime
+                t = job_.output_mintime
                 if t:
                     return t
 
@@ -293,7 +293,7 @@ class DAG:
                         if f.exists and f.is_newer(output_mintime_)]
                     reason.updated_input.update(updated_input)
             return job
-
+        
         queue = list(filter(self.reason, map(needrun, self.jobs)))
         visited = set(queue)
         while queue:
