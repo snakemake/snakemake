@@ -293,7 +293,7 @@ class DAG:
                         if f.exists and f.is_newer(output_mintime_)]
                     reason.updated_input.update(updated_input)
             return job
-        
+
         queue = list(filter(self.reason, map(needrun, self.jobs)))
         visited = set(queue)
         while queue:

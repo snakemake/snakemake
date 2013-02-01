@@ -40,7 +40,7 @@ div.document {
 	max-width: 800px;
 	margin: auto;
 	box-shadow: 8px 8px 8px #666;
-	padding: 10px;
+	padding: 20px;
 }
 
 div.document:before {
