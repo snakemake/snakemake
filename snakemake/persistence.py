@@ -13,9 +13,11 @@ class Persistence:
         if not os.path.exists(self.path):
             os.mkdir(self.path)
         self._lock = os.path.join(self.path, "lock")
+
         self._started = os.path.join(self.path, "started_jobs")
         if not os.path.exists(self._started):
             os.mkdir(self._started)
+
         if nolock:
             self.lock = self.noop
             self.unlock = self.noop
@@ -53,6 +55,6 @@ class Persistence:
 
     def noop(self):
         pass
-    
+
     def jobmarker(self, job):
         return os.path.join(self._started, job.b64id)
