@@ -148,40 +148,53 @@ class ProtectedOutputException(IOException):
 
 
 class AmbiguousRuleException(RuleException):
-    def __init__(self, filename, rule1, rule2, lineno = None, snakefile = None):
-        super().__init__("Rules {} and {} are ambiguous for the file {}.".format(rule1, rule2, filename), lineno = lineno, snakefile = snakefile)
+    def __init__(self, filename, rule1, rule2, lineno=None, snakefile=None):
+        super().__init__(
+            "Rules {} and {} are ambiguous for the file {}.".format(
+                rule1, rule2, filename),
+            lineno=lineno, snakefile=snakefile)
         self.rule1, self.rule2 = rule1, rule2
 
 
 class CyclicGraphException(RuleException):
-    def __init__(self, repeatedrule, file, rule = None):
-        super().__init__("Cyclic dependency on rule {}.".format(repeatedrule), rule=rule)
+    def __init__(self, repeatedrule, file, rule=None):
+        super().__init__(
+            "Cyclic dependency on rule {}.".format(repeatedrule), rule=rule)
         self.file = file
 
 
 class MissingRuleException(RuleException):
-    def __init__(self, file, lineno = None, snakefile = None):
-        super().__init__("No rule to produce {}.".format(file), lineno = lineno, snakefile = snakefile)
+    def __init__(self, file, lineno=None, snakefile=None):
+        super().__init__(
+            "No rule to produce {}.".format(file),
+            lineno=lineno, snakefile=snakefile)
 
 
 class UnknownRuleException(RuleException):
-    def __init__(self, name, lineno = None, snakefile = None):
-        super().__init__("There is no rule named {}.".format(name), lineno = lineno, snakefile = snakefile)
+    def __init__(self, name, lineno=None, snakefile=None):
+        super().__init__(
+            "There is no rule named {}.".format(name),
+            lineno=lineno, snakefile=snakefile)
 
 
 class NoRulesException(RuleException):
-    def __init__(self, lineno = None, snakefile = None):
-        super().__init__("There has to be at least one rule.", lineno = lineno, snakefile = snakefile)
+    def __init__(self, lineno=None, snakefile=None):
+        super().__init__(
+            "There has to be at least one rule.",
+            lineno=lineno, snakefile=snakefile)
 
 
 class IOFileException(RuleException):
-    def __init__(self, msg, lineno = None, snakefile = None):
-        super().__init__(msg, lineno = lineno, snakefile = snakefile)
+    def __init__(self, msg, lineno=None, snakefile=None):
+        super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
 
 class ClusterJobException(RuleException):
     def __init__(self, job):
-        super().__init__("Error executing rule {} on cluster. For detailed error see the cluster log.".format(job.rule.name), lineno = job.rule.lineno, snakefile = job.rule.snakefile)
+        super().__init__(
+            "Error executing rule {} on cluster. "
+            "For detailed error see the cluster log.".format(job.rule.name),
+            lineno=job.rule.lineno, snakefile=job.rule.snakefile)
 
 
 class CreateRuleException(RuleException):
