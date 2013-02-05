@@ -135,6 +135,8 @@ def report(
         mime, encoding = mimetypes.guess_type(file)
         if mime is None:
             mime = ""
+            logger.warning("Could not detect mimetype for {}. User "
+            "likely won't be able to download it.")
         if encoding is None:
             encoding = defaultenc
         with open(file, "rb") as f:
