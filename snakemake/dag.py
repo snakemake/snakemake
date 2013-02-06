@@ -302,12 +302,8 @@ class DAG:
 
             for job_, files in self.dependencies[job].items():
                 missing_output = job_.missing_output(requested=files)
-                incomplete_output = (job_.output
-                    if self.workflow.persistence.incomplete(job_) else set())
                 self.reason(job_).missing_output.update(missing_output)
-                self.reason(job_).incomplete_output.update(incomplete_output)
-                if (missing_output
-                    or incomplete_output) and not job_ in visited:
+                if missing_output and not job_ in visited:
                     visited.add(job_)
                     queue.append(job_)
 
@@ -334,10 +330,18 @@ class DAG:
             if not self.finished(job) and self._ready(job):
                 self._ready_jobs.add(job)
 
+    def check_incomplete(self):
+        incomplete = [job.output for job in filter(
+            self.workflow.persistence.incomplete,
+            filterfalse(self.needrun, self.jobs)))]
+        if incomplete:
+            raise IncompleteFilesException(chain(*incomplete))
+
     def postprocess(self):
         self.update_needrun()
         self.update_priority()
         self.update_ready()
+        #self.check_incomplete()
 
     def _ready(self, job):
         return self._finished.issuperset(

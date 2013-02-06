@@ -2,6 +2,7 @@
 
 import os
 import traceback
+
 from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
@@ -182,6 +183,18 @@ class NoRulesException(RuleException):
         super().__init__(
             "There has to be at least one rule.",
             lineno=lineno, snakefile=snakefile)
+
+
+class IncompleteFilesException(RuleException):
+    def __init__(self, files):
+        super().__init__(
+            "The files below seem to be incomplete. "
+            "If you are sure that certain files are not incomplete, "
+            "mark them as complete with\n\n"
+            "    snakemake --complete <filenames>\n\n"
+            "To re-generate the files rerun your command with the "
+            "--force-incomplete flag.\n{}".format(
+                "\n".join(files)))
 
 
 class IOFileException(RuleException):
