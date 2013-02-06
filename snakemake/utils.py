@@ -16,7 +16,9 @@ import shutil
 import mimetypes
 import datetime
 from itertools import chain
+
 from snakemake.io import regex, Namedlist
+from snakemake.logging import logger
 
 
 def linecount(filename):
@@ -122,30 +124,53 @@ def report(
     if outmime != "text/html":
         raise ValueError("Path to report output has to be an HTML file.")
     from docutils.core import publish_file
+    definitions = textwrap.dedent("""
+    .. role:: raw-html(raw)
+       :format: html
+
+    """)
+
     metadata = textwrap.dedent("""
 
-    .. raw:: html
+    .. container::
+       :name: metadata
 
-       <div id="metadata">{}</div>
+       {metadata}
 
-    """).format(datetime.date.today().isoformat())
+    """).format(metadata=datetime.date.today().isoformat())
+
     text = format(textwrap.dedent(text), stepout=2)
-    attachments = []
-    for name, file in files.items():
+
+    attachments = [textwrap.dedent("""
+        .. container::
+           :name: attachments
+           
+        """)]
+    for name, file in sorted(files.items()):
         mime, encoding = mimetypes.guess_type(file)
         if mime is None:
-            mime = ""
-            logger.warning("Could not detect mimetype for {}. User "
-            "likely won't be able to download it.")
+            mime = "text/plain"
+            logger.warning("Could not detect mimetype for {}, assuming "
+            "text/plain.".format(file))
         if encoding is None:
             encoding = defaultenc
         with open(file, "rb") as f:
             data = base64.b64encode(f.read())
         attachments.append(
-            '.. _{}: data:{};charset={};base64,{}'.format(
-                name, mime, encoding, data.decode()))
-    text += "\n\n" + "\n\n".join(attachments)
-    text += metadata
+            '''
+   .. container::
+      :name: {name}
+
+      [{name}] :raw-html:`<a href="data:{mime};charset={charset};filename={filename};base64,{data}" download="{filename}">{filename}</a>`
+            '''.format(
+                name=name,
+                filename=os.path.basename(file),
+                mime=mime,
+                charset=encoding,
+                data=data.decode()))
+
+    text = definitions + text + "\n\n" + "\n\n".join(attachments) + metadata
+
     overrides = dict()
     if template is not None:
         overrides["template"] = template
