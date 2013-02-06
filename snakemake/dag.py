@@ -11,6 +11,7 @@ from snakemake.jobs import Job, Reason
 from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
+from snakemake.exceptions import IncompleteFilesException
 from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
