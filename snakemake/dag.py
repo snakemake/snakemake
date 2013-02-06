@@ -334,7 +334,7 @@ class DAG:
     def check_incomplete(self):
         incomplete = [job.output for job in filter(
             self.workflow.persistence.incomplete,
-            filterfalse(self.needrun, self.jobs)))]
+            filterfalse(self.needrun, self.jobs))]
         if incomplete:
             raise IncompleteFilesException(chain(*incomplete))
 
