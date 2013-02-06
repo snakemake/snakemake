@@ -31,10 +31,9 @@ h6 {
 }
 
 div#attachments {
-    border-top: 2px solid gray;
     color: gray;
     padding: 0px;
-    padding-top: 10px;
+    padding-top: 20px;
 }
 
 div#attachments :target a {

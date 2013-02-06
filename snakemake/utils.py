@@ -161,7 +161,7 @@ def report(
    .. container::
       :name: {name}
 
-      [{name}] :raw-html:`<a href="data:{mime};charset={charset};filename={filename};base64,{data}" download="{filename}">{filename}</a>`
+      [{name}] :raw-html:`<a href="data:{mime};charset={charset};filename={filename};base64,{data}" download="{filename}" draggable="true">{filename}</a>`
             '''.format(
                 name=name,
                 filename=os.path.basename(file),
