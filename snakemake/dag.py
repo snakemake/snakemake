@@ -30,7 +30,8 @@ class DAG:
         priorityfiles=None,
         priorityrules=None,
         ignore_ambiguity=False,
-        force_incomplete=False):
+        force_incomplete=False,
+        ignore_incomplete=False):
 
         self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
@@ -61,7 +62,9 @@ class DAG:
             self.forcerules.update(targetrules)
             self.forcefiles.update(targetfiles)
         self.omitforce = set()
+
         self.force_incomplete = force_incomplete
+        self.ignore_incomplete = ignore_incomplete
 
     def init(self):
         """ Initialise the DAG. """
@@ -81,13 +84,14 @@ class DAG:
             raise RuleException(include=chain(*exceptions.values()))
         self.update_needrun()
 
-        incomplete = self.incomplete_files
-        if incomplete and not self.dryrun:
-            if self.force_incomplete:
-                self.forcerules.update(incomplete)
-                self.update_needrun()
-            else:
-                raise IncompleteFilesException(chain(*incomplete))
+        if not self.ignore_incomplete:
+            incomplete = self.incomplete_files
+            if incomplete:
+                if self.force_incomplete:
+                    self.forcerules.update(incomplete)
+                    self.update_needrun()
+                else:
+                    raise IncompleteFilesException(chain(*incomplete))
 
         for job in filter(
             lambda job: (job.dynamic_output

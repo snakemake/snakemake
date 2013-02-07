@@ -124,6 +124,9 @@ def main():
         "--rerun-incomplete", action="store_true", help="Re-run all jobs "
         "the output of which is recognized as incomplete.")
     parser.add_argument(
+        "--ignore-incomplete", action="store_true", help="Ignore "
+        "any incomplete jobs.")
+    parser.add_argument(
         "--version", "-v", action="version", version=snakemake.__version__)
 
     args = parser.parse_args()
@@ -156,7 +159,8 @@ def main():
             lock=not args.nolock,
             unlock=args.unlock,
             mark_complete=args.complete,
-            force_incomplete=args.rerun_incomplete
+            force_incomplete=args.rerun_incomplete,
+            ignore_incomplete=args.ignore_incomplete
             )
     exit(0 if success else 1)
 

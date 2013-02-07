@@ -36,7 +36,8 @@ def snakemake(snakefile,
     lock=True,
     unlock=False,
     mark_complete=None,
-    force_incomplete=False):
+    force_incomplete=False,
+    ignore_incomplete=False):
     """
     Run snakemake on a given snakefile.
     Note: at the moment, this function is not thread-safe!
@@ -47,7 +48,8 @@ def snakemake(snakefile,
     jobs              -- maximum number of parallel jobs (default: 1).
     directory         -- working directory (default: current directory).
     rule              -- execute this rule (default: first rule in snakefile).
-    dryrun            -- print the rules that would be executed, but do not execute them.
+    dryrun            -- print the rules that would be executed,
+        but do not execute them.
     forcethis         -- force the selected rule to be executed
     forceall          -- force all rules to be executed
     time_measurements -- measure the running times of all rules
@@ -73,7 +75,7 @@ def snakemake(snakefile,
             pass
 
     success = False
-    persistence = Persistence(nolock=not lock or dryrun)
+    persistence = Persistence(nolock=not lock)
     try:
         workflow.include(snakefile, workdir=workdir, overwrite_first_rule=True)
 
@@ -116,7 +118,9 @@ def snakemake(snakefile,
                 printdag=printdag, cluster=cluster,
                 ignore_ambiguity=ignore_ambiguity,
                 workdir=workdir, stats=stats,
-                force_incomplete=force_incomplete)
+                force_incomplete=force_incomplete,
+                ignore_incomplete=ignore_incomplete
+                )
 
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)

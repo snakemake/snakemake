@@ -27,8 +27,12 @@ class Persistence:
         for s in (signal.SIGTERM, signal.SIGABRT, signal.SIGINT):
             signal.signal(s, self.unlock)
 
+    @property
+    def locked(self):
+        return os.path.exists(self._lock)
+
     def lock(self):
-        if os.path.exists(self._lock):
+        if self.locked:
             raise IOError("Another snakemake process "
                 "has locked this directory.")
         with open(self._lock, "w") as lock:

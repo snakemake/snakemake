@@ -92,7 +92,7 @@ class Workflow:
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
         cluster=None,  ignore_ambiguity=False, workdir=None,
-        stats=None, force_incomplete=False):
+        stats=None, force_incomplete=False, ignore_incomplete=False):
 
         if workdir is None:
             workdir = os.getcwd() if self._workdir is None else self._workdir
@@ -140,7 +140,8 @@ class Workflow:
             forceall=forceall, forcetargets=forcetargets,
             forcerules=forcerules_, priorityfiles=priorityfiles,
             priorityrules=priorityrules, ignore_ambiguity=ignore_ambiguity,
-            force_incomplete=force_incomplete)
+            force_incomplete=force_incomplete,
+            ignore_incomplete=ignore_incomplete)
         try:
             dag.init()
         except RuleException as ex:
