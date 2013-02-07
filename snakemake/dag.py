@@ -21,6 +21,7 @@ class DAG:
     def __init__(
         self,
         workflow,
+        dryrun=False,
         targetfiles=None,
         targetrules=None,
         forceall=False,
@@ -28,8 +29,10 @@ class DAG:
         forcerules=None,
         priorityfiles=None,
         priorityrules=None,
-        ignore_ambiguity=False):
+        ignore_ambiguity=False,
+        force_incomplete=False):
 
+        self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
@@ -58,6 +61,7 @@ class DAG:
             self.forcerules.update(targetrules)
             self.forcefiles.update(targetfiles)
         self.omitforce = set()
+        self.force_incomplete = force_incomplete
 
     def init(self):
         """ Initialise the DAG. """
@@ -76,6 +80,14 @@ class DAG:
         if exceptions:
             raise RuleException(include=chain(*exceptions.values()))
         self.update_needrun()
+
+        incomplete = self.incomplete_files
+        if incomplete and not self.dryrun:
+            if self.force_incomplete:
+                self.forcerules.update(incomplete)
+                self.update_needrun()
+            else:
+                raise IncompleteFilesException(chain(*incomplete))
 
         for job in filter(
             lambda job: (job.dynamic_output
@@ -135,6 +147,12 @@ class DAG:
     def requested_files(self, job):
         """ Return the files a job requests. """
         return set(*self.depending[job].values())
+
+    @property
+    def incomplete_files(self):
+        return [job.output for job in filter(
+            self.workflow.persistence.incomplete,
+            filterfalse(self.needrun, self.jobs))]
 
     def missing_temp(self, job):
         """
@@ -330,13 +348,6 @@ class DAG:
         for job in filter(self.needrun, self.jobs):
             if not self.finished(job) and self._ready(job):
                 self._ready_jobs.add(job)
-
-    def check_incomplete(self):
-        incomplete = [job.output for job in filter(
-            self.workflow.persistence.incomplete,
-            filterfalse(self.needrun, self.jobs))]
-        if incomplete:
-            raise IncompleteFilesException(chain(*incomplete))
 
     def postprocess(self):
         self.update_needrun()

@@ -107,7 +107,7 @@ class RealExecutor(AbstractExecutor):
             quiet=quiet, printshellcmds=printshellcmds)
         self.stats = Stats()
 
-    def run(self, job, callback=None, error_callback=None):
+    def _run(self, job, callback=None, error_callback=None):
         super()._run(job)
         self.stats.report_job_start(job)
         try:

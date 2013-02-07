@@ -34,7 +34,9 @@ def snakemake(snakefile,
     ignore_ambiguity=False,
     snakemakepath=None,
     lock=True,
-    cleanup=False):
+    unlock=False,
+    mark_complete=None,
+    force_incomplete=False):
     """
     Run snakemake on a given snakefile.
     Note: at the moment, this function is not thread-safe!
@@ -75,9 +77,11 @@ def snakemake(snakefile,
     try:
         workflow.include(snakefile, workdir=workdir, overwrite_first_rule=True)
 
-        if cleanup:
+        if unlock:
             try:
                 persistence.unlock()
+                logger.warning("Unlocking working directory.")
+                return True
             except IOError:
                 logger.error("Error: Unlocking the directory {} failed. Maybe "
                 "you don't have the permissions?")
@@ -87,28 +91,32 @@ def snakemake(snakefile,
         except IOError:
             logger.error("Error: Directory cannot be locked. Please make "
                 "sure that no other Snakemake process is running on the "
-                "following directory:\n{}"
+                "following directory:\n{}\n"
                 "If you are sure that no other "
                 "instances of snakemake are running on this directory, "
                 "the remaining lock was likely caused by a kill signal or "
                 "a power loss. It can be removed with "
-                "the --cleanup argument.".format(os.getcwd()))
+                "the --unlock argument.".format(os.getcwd()))
                 # TODO provide cleanup
             return False
         workflow.persistence = persistence
 
         if listrules:
             workflow.list_rules()
-            return True
-
-        success = workflow.execute(targets=targets, dryrun=dryrun, touch=touch,
-           cores=cores, forcetargets=forcetargets,
-           forceall=forceall, forcerules=forcerules,
-           prioritytargets=prioritytargets, quiet=quiet, keepgoing=keepgoing,
-           printshellcmds=printshellcmds, printreason=printreason,
-           printdag=printdag, cluster=cluster,
-           ignore_ambiguity=ignore_ambiguity,
-           workdir=workdir, stats=stats)
+        elif mark_complete:
+            workflow.mark_complete(mark_complete)
+        else:
+            success = workflow.execute(
+                targets=targets, dryrun=dryrun, touch=touch,
+                cores=cores, forcetargets=forcetargets,
+                forceall=forceall, forcerules=forcerules,
+                prioritytargets=prioritytargets, quiet=quiet,
+                keepgoing=keepgoing, printshellcmds=printshellcmds,
+                printreason=printreason,
+                printdag=printdag, cluster=cluster,
+                ignore_ambiguity=ignore_ambiguity,
+                workdir=workdir, stats=stats,
+                force_incomplete=force_incomplete)
 
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)

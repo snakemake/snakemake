@@ -4,6 +4,8 @@ __author__ = "Johannes Köster"
 
 import os
 import signal
+from base64 import urlsafe_b64encode
+from functools import lru_cache
 
 
 class Persistence:
@@ -14,9 +16,9 @@ class Persistence:
             os.mkdir(self.path)
         self._lock = os.path.join(self.path, "lock")
 
-        self._started = os.path.join(self.path, "started_jobs")
-        if not os.path.exists(self._started):
-            os.mkdir(self._started)
+        self._incomplete = os.path.join(self.path, "incomplete_files")
+        if not os.path.exists(self._incomplete):
+            os.mkdir(self._incomplete)
 
         if nolock:
             self.lock = self.noop
@@ -40,21 +42,38 @@ class Persistence:
                 raise e
 
     def started(self, job):
-        with open(self.jobmarker(job), "w") as f:
-            f.write("")
+        for m in self.marker(job):
+            self._mark_incomplete(m)
 
     def finished(self, job):
-        try:
-            os.remove(self.jobmarker(job))
-        except OSError as e:
-            if e.errno != 2:  # missing file
-                raise e
+        for m in self.marker(job):
+            self._mark_complete(m)
 
     def incomplete(self, job):
-        return os.access(self.jobmarker(job), os.W_OK)
+        return any(os.access(m, os.W_OK) for m in self.marker(job))
+
+    def mark_complete(self, path):
+        self._mark_complete(self.b64id(path))
 
     def noop(self):
         pass
 
-    def jobmarker(self, job):
-        return os.path.join(self._started, job.b64id)
+    def marker(self, job):
+        return map(self.b64id, job.output)
+
+    @lru_cache()
+    def b64id(self, path):
+        return os.path.join(
+            self._incomplete,
+            urlsafe_b64encode(str(path).encode()).decode())
+
+    def _mark_complete(self, marker):
+        try:
+            os.remove(marker)
+        except OSError as e:
+            if e.errno != 2:  # missing file
+                raise e
+
+    def _mark_incomplete(self, marker):
+        with open(marker, "w") as m:
+            m.write("")

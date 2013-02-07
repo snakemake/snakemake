@@ -115,8 +115,14 @@ def main():
         "--nolock", action="store_true",
         help="Do not lock the working directory")
     parser.add_argument(
-        "--cleanup", action="store_true",
-        help="Clean up locks on the working directory.")
+        "--unlock", action="store_true",
+        help="Remove a lock on the working directory.")
+    parser.add_argument(
+        "--complete", nargs="*", help="Mark given files as complete."
+        "If no files are given, mark all files as complete.")
+    parser.add_argument(
+        "--rerun-incomplete", action="store_true", help="Re-run all jobs "
+        "the output of which is recognized as incomplete.")
     parser.add_argument(
         "--version", "-v", action="version", version=snakemake.__version__)
 
@@ -148,7 +154,10 @@ def main():
             ignore_ambiguity=args.allow_ambiguity,
             snakemakepath=snakemakepath,
             lock=not args.nolock,
-            cleanup=args.cleanup)
+            unlock=args.unlock,
+            mark_complete=args.complete,
+            force_incomplete=args.rerun_incomplete
+            )
     exit(0 if success else 1)
 
 if __name__ == "__main__":
