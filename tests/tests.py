@@ -20,14 +20,14 @@ def md5sum(filename):
 	return hashlib.md5(data).hexdigest()
 
 
-def run(path, shouldfail=False, **params):
+def run(path, shouldfail=False, snakefile="Snakefile", **params):
 	"""
 	Test the Snakefile in path.
 	There must be a Snakefile in the path and a subdirectory named
 	expected-results.
 	"""
 	results_dir = join(path, 'expected-results')
-	snakefile = join(path, 'Snakefile')
+	snakefile = join(path, snakefile)
 	assert os.path.exists(snakefile)
 	assert os.path.exists(results_dir) and os.path.isdir(results_dir), \
 		'{} does not exist'.format(results_dir)
@@ -90,7 +90,7 @@ def test13():
 	run(dpath("test13"))
 
 def test14():
-	run(dpath("test14"), cluster = "./qsub")
+	run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
 
 def test15():
 	run(dpath("test15"))
