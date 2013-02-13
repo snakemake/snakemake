@@ -38,6 +38,7 @@ class Rule:
             self.protected_output = set()
             self.threads = 1
             self.priority = 1
+            self.version = None
             self._log = None
             self.wildcard_names = set()
             self.lineno = lineno
@@ -59,6 +60,7 @@ class Rule:
             self.protected_output = other.protected_output
             self.threads = other.threads
             self.priority = other.priority
+            self.version = other.version
             self._log = other._log
             self.wildcard_names = other.wildcard_names
             self.lineno = other.lineno

@@ -122,7 +122,7 @@ class DAG:
         return job in self._ready_jobs
 
     def needrun(self, job):
-        """ Return whether a given job is needs to be executed. """
+        """ Return whether a given job needs to be executed. """
         return job in self._needrun
 
     def noneedrun_finished(self, job):
@@ -582,150 +582,8 @@ class DAG:
                         edges="\n".join(edges),
                         legend="\n".join(legend))
 
-    def d3sankey(self):
-        """
-        Experiment: plot the DAG as sankey diagram
-        (does not yet work for large DAGs.
-        """
-
-        def node(job):
-            return textwrap.dedent("""
-            {{
-                "name": "{name}"
-            }}
-            """).format(name=job.rule.name)
-
-        def edge(indices, value):
-            return textwrap.dedent("""
-            {{
-                "source": {},
-                "target": {},
-                "value": 1
-            }}
-            """).format(*indices)
-        jobs = list(self.jobs)
-        jobindex = dict((job, k) for k, job in enumerate(jobs))
-
-        def edges():
-            for job in jobs:
-                for p, files in self.dependencies[job].items():
-                    yield edge((jobindex[p], jobindex[job]), len(files))
-
-        nodes = "[{}]".format(",".join(map(node, jobs)))
-        edges = "[{}]".format(",".join(edges()))
-        height = max(300, len(jobs) * 10)
-        width = max(800, len(jobs) * 20)
-
-        html = textwrap.dedent(r"""
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <style>
-        body {{
-          font-family: sans-serif;
-          font-size: small;
-        }}
-
-        .node rect {{
-          cursor: move;
-          fill-opacity: .9;
-          shape-rendering: crispEdges;
-        }}
-
-        .node text {{
-          pointer-events: none;
-          text-shadow: 0 1px 0 #fff;
-        }}
-
-        .link {{
-          fill: none;
-          stroke: #000;
-          stroke-opacity: .2;
-        }}
-
-        .link:hover {{
-          stroke-opacity: .5;
-        }}
-        </style>
-        </head>
-        <body>
-        <script src="http://d3js.org/d3.v3.min.js"></script>
-        <script src="https://raw.github.com/d3/d3-plugins/master/sankey/sankey.js"></script>
-        <script>
-        var nodes = {nodes};
-        var links = {links};
-
-        var width = {width},
-            height = {height};
-        var color = d3.scale.category20();
-
-        var svg = d3.select("body").append("svg")
-            .attr("width", width)
-            .attr("height", height);
-            //.append("g").attr("transform", "translate(40,0)");
-
-        var layout = d3.sankey()
-            .size([width, height])
-            .nodeWidth(15)
-            .nodePadding(10)
-            .nodes(nodes)
-            .links(links)
-            .layout(32);
-        var path = layout.link();
-
-        var link = svg.append("g").selectAll(".link")
-                .data(links)
-            .enter().append("path")
-                .attr("class", "link")
-                .attr("d", path)
-                .style("stroke-width", function(d) {{ return Math.max(1, d.dy); }})
-                .sort(function(a, b) {{ return b.dy - a.dy; }});
-
-        link.append("title")
-            .text(function(d) {{ return d.source.name + " → " + d.target.name + "\n" + d.value; }});
-
-        var node = svg.append("g").selectAll(".node")
-                .data(nodes)
-            .enter().append("g")
-                .attr("class", "node")
-                .attr("transform", function(d) {{ return "translate(" + d.x + "," + d.y + ")"; }})
-            .call(d3.behavior.drag()
-                .origin(function(d) {{ return d; }})
-                .on("dragstart", function() {{ this.parentNode.appendChild(this); }})
-                .on("drag", dragmove));
-
-        node.append("rect")
-                .attr("height", function(d) {{ return d.dy; }})
-                .attr("width", layout.nodeWidth())
-                .style("fill", function(d) {{ return d.color = color(d.name.replace(/ .*/, "")); }})
-                .style("stroke", function(d) {{ return d3.rgb(d.color).darker(2); }})
-            .append("title")
-                .text(function(d) {{ return d.name + "\n" + d.value; }});
-
-        node.append("text")
-                .attr("x", -6)
-                .attr("y", function(d) {{ return d.dy / 2; }})
-                .attr("dy", ".35em")
-                .attr("text-anchor", "end")
-                .attr("transform", null)
-                .text(function(d) {{ return d.name; }})
-            .filter(function(d) {{ return d.x < width / 2; }})
-                .attr("x", 6 + layout.nodeWidth())
-                .attr("text-anchor", "start");
-
-        function dragmove(d) {{
-            d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
-            layout.relayout();
-            link.attr("d", path);
-        }}
-        </script>
-        </body>
-        </html>
-        """).format(nodes=nodes, links=edges, height=height, width=width)
-        return html
 
     def __str__(self):
-        #return self.d3sankey()
         return self.dot()
 
     def __len__(self):

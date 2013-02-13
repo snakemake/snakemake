@@ -4,8 +4,11 @@ __author__ = "Johannes Köster"
 
 import os
 import signal
+import pickle
 from base64 import urlsafe_b64encode
 from functools import lru_cache
+
+from snakemake.logging import logger
 
 
 class Persistence:
@@ -19,6 +22,8 @@ class Persistence:
         self._incomplete = os.path.join(self.path, "incomplete_files")
         if not os.path.exists(self._incomplete):
             os.mkdir(self._incomplete)
+
+        self._metadata = os.path.join(self.path, "metadata")
 
         if nolock:
             self.lock = self.noop
@@ -52,24 +57,50 @@ class Persistence:
     def finished(self, job):
         for m in self.marker(job):
             self._mark_complete(m)
+        self.record_version(job)
 
     def incomplete(self, job):
         return any(os.access(m, os.W_OK) for m in self.marker(job))
 
+    def newer_version(self, job):
+        path = self.version_file(job)
+        if os.path.exists(path):
+            with open(path) as f:
+                try:
+                    return job.rule.version > pickle.load(f)
+                except TypeError:
+                    logger.warning(
+                        "Current and previous version of "
+                        "rule {} are not comparable.".format(job.rule))
+                    return False
+                except:
+                    return False
+        return False
+
+    def record_version(self, job):
+        if job.rule.version is not None:
+            pickle.dump(job.rule.version, self.version_file(job))
+
     def mark_complete(self, path):
-        self._mark_complete(self.b64id(path))
+        self._mark_complete(self.incomplete_marker(path))
 
     def noop(self):
         pass
 
     def marker(self, job):
-        return map(self.b64id, job.output)
+        return map(self.incomplete_marker, job.output)
 
     @lru_cache()
-    def b64id(self, path):
-        return os.path.join(
-            self._incomplete,
-            urlsafe_b64encode(str(path).encode()).decode())
+    def version_file(self, job):
+        return os.path.join(self._version,
+            self.b64id("{}_{}".format(job, job.output)))
+
+    @lru_cache()
+    def incomplete_marker(self, path):
+        return os.path.join(self._incomplete, self.b64id(path))
+
+    def b64id(self, s):
+        return urlsafe_b64encode(str(s).encode()).decode()
 
     def _mark_complete(self, marker):
         try:
