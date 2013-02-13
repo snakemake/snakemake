@@ -64,7 +64,7 @@ def snakemake(snakefile,
 
     if workdir:
         olddir = os.getcwd()
-    workflow = Workflow(snakemakepath=snakemakepath)
+    workflow = Workflow(snakefile=snakefile, snakemakepath=snakemakepath)
 
     if standalone:
         try:

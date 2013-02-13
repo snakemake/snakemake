@@ -18,7 +18,7 @@ from snakemake.io import protected, temp, temporary, expand, dynamic
 
 
 class Workflow:
-    def __init__(self, snakemakepath=None, persistence=None):
+    def __init__(self, snakefile=None, snakemakepath=None, persistence=None):
         """
         Create the controller.
         """
@@ -28,6 +28,7 @@ class Workflow:
         self._ruleorder = Ruleorder()
         self.linemaps = dict()
         self.rule_count = 0
+        self.snakefile = snakefile
         self.snakemakepath = snakemakepath
         self.persistence = persistence
         self.globals = globals()

@@ -192,7 +192,8 @@ class ClusterExecutor(RealExecutor):
         #rule: {job}
         #input: {job.input}
         #output: {job.output}
-        {self.workflow.snakemakepath} --force -j{self.cores} \
+        {self.workflow.snakemakepath} --snakefile {self.workflow.snakefile} \
+        --force -j{self.cores} \
         --directory {workdir} --nocolor --quiet --nolock {job.output} \
         && touch "{jobfinished}" || touch "{jobfailed}"
         exit 0
