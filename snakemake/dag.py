@@ -88,7 +88,7 @@ class DAG:
             incomplete = self.incomplete_files
             if incomplete:
                 if self.force_incomplete:
-                    self.forcerules.update(incomplete)
+                    self.forcefiles.update(incomplete)
                     self.update_needrun()
                 else:
                     raise IncompleteFilesException(chain(*incomplete))
@@ -157,6 +157,12 @@ class DAG:
         return [job.output for job in filter(
             self.workflow.persistence.incomplete,
             filterfalse(self.needrun, self.jobs))]
+
+    @property
+    def newversion_files(self):
+        return [job.output for job in filter(
+            self.workflow.persistence.newversion,
+            self.jobs)]
 
     def missing_temp(self, job):
         """

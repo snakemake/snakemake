@@ -20,10 +20,12 @@ class Persistence:
         self._lock = os.path.join(self.path, "lock")
 
         self._incomplete = os.path.join(self.path, "incomplete_files")
-        if not os.path.exists(self._incomplete):
-            os.mkdir(self._incomplete)
+        self._version = os.path.join(self.path, "version_tracking")
+        self._code = os.path.join(self.path, "code_tracking")
 
-        self._metadata = os.path.join(self.path, "metadata")
+        for d in (self._incomplete, self._version, self._code):
+            if not os.path.exists(d):
+                os.mkdir(d)
 
         if nolock:
             self.lock = self.noop
@@ -62,7 +64,7 @@ class Persistence:
     def incomplete(self, job):
         return any(os.access(m, os.W_OK) for m in self.marker(job))
 
-    def newer_version(self, job):
+    def newversion(self, job):
         path = self.version_file(job)
         if os.path.exists(path):
             with open(path) as f:
