@@ -97,3 +97,6 @@ def test15():
 	
 def test_dynamic():
 	run(dpath("test_dynamic"))
+
+def test_params():
+	run(dpath("test_params"))

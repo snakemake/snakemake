@@ -8,7 +8,8 @@ import sre_constants
 from collections import defaultdict
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist
-from snakemake.io import expand, InputFiles, OutputFiles, Wildcards
+from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params
+from snakemake.io import apply_wildcards
 from snakemake.exceptions import RuleException, IOFileException
 
 __author__ = "Johannes Köster"
@@ -30,6 +31,7 @@ class Rule:
             self.message = None
             self._input = InputFiles()
             self._output = OutputFiles()
+            self._params = Params()
             self.dynamic_output = set()
             self.dynamic_input = set()
             self.temp_output = set()
@@ -50,6 +52,7 @@ class Rule:
             self.message = other.message
             self._input = other._input
             self._output = other._output
+            self._params = other._params
             self.dynamic_output = other.dynamic_output
             self.dynamic_input = other.dynamic_input
             self.temp_output = other.temp_output
@@ -91,6 +94,7 @@ class Rule:
             (
             branch._input,
             branch._output,
+            branch._params,
             branch._log,
             _) = branch.expand_wildcards(wildcards=non_dynamic_wildcards)
             return branch, non_dynamic_wildcards
@@ -201,13 +205,76 @@ class Rule:
                     inoutput.set_name(name, start, end=len(inoutput))
             except TypeError:
                 raise SyntaxError(
-                    "Input and output files must be specified as strings.")
+                    "Input and output files have to be specified as strings.")
+
+    @property
+    def params(self):
+        return self._params
+
+    def set_params(self, *params, **kwparams):
+        for item in params:
+            self._set_params_item(item)
+        for name, item in kwparams.items():
+            self._set_params_item(item, name=name)
+
+    def _set_params_item(self, item, name=None):
+        if isinstance(item, str) or inspect.isfunction(item):
+            self.params.append(item)
+            if name:
+                self.params.add_name(name)
+        else:
+            try:
+                start = len(self.params)
+                for i in item:
+                    self._set_params_item(i)
+                if name:
+                    self.params.set_name(name, start, end=len(self.params))
+            except TypeError:
+                raise SyntaxError("Params have to be specified as strings.")
 
     def expand_wildcards(self, wildcards=None):
         """
         Expand wildcards depending on the requested output
         or given wildcards dict.
         """
+        def concretize_iofile(f, wildcards):
+            if not isinstance(f, _IOFile):
+                return IOFile(f, rule=self)
+            else:
+                return f.apply_wildcards(
+                    wildcards,
+                    fill_missing=f in self.dynamic_input,
+                    fail_dynamic=self.dynamic_output)
+
+        def _apply_wildcards(
+            newitems,
+            olditems,
+            wildcards,
+            wildcards_obj,
+            concretize = apply_wildcards,
+            ruleio = None):
+            for name, item in olditems.allitems():
+                start = len(newitems)
+                if inspect.isfunction(item):
+                    items = item(wildcards_obj)
+                    if isinstance(items, str):
+                        items = [items]
+                    for item_ in items:
+                        concrete = concretize(item_, wildcards)
+                        newitems.append(concrete)
+                        if ruleio is not None:
+                            ruleio[concrete] = item_
+                else:
+                    if isinstance(item, str):
+                        item = [item]
+                    for item_ in item:
+                        concrete = concretize(item_, wildcards)
+                        newitems.append(concrete)
+                        if ruleio is not None:
+                            ruleio[concrete] = item_
+                if name:
+                    newitems.set_name(name, start, end=len(newitems))
+
         if wildcards is None:
             wildcards = dict()
         # TODO validate
@@ -219,38 +286,25 @@ class Rule:
                     self.name, "\n".join(self.wildcard_names)),
                 lineno=self.lineno, snakefile=self.snakefile)
 
+        ruleio = dict()
+
         try:
-            ruleio = dict()
             input = InputFiles()
             wildcards_obj = Wildcards(fromdict=wildcards)
-            for name, f in self.input.allitems():
-                start = len(input)
-                if inspect.isfunction(f):
-                    files = f(wildcards_obj)
-                    if isinstance(files, str):
-                        files = [files]
-                    for f_ in files:
-                        concrete = IOFile(f_, rule=self)
-                        input.append(concrete)
-                        ruleio[concrete] = f_
-                else:
-                    if isinstance(f, str):
-                        f = [f]
-                    for f_ in f:
-                        concrete = f_.apply_wildcards(
-                            wildcards,
-                            fill_missing=f_ in self.dynamic_input,
-                            fail_dynamic=self.dynamic_output)
-                        input.append(concrete)
-                        ruleio[concrete] = f_
-                if name:
-                    input.set_name(name, start, end=len(input))
+            _apply_wildcards(input, self.input, wildcards, wildcards_obj,
+                concretize=concretize_iofile, ruleio=ruleio)
+
+            params = Params()
+            _apply_wildcards(params, self.params, wildcards, wildcards_obj)
+
             output = OutputFiles(
                 o.apply_wildcards(wildcards) for o in self.output)
             output.take_names(self.output.get_names())
+
             ruleio.update(dict((f, f_) for f, f_ in zip(output, self.output)))
+
             log = self.log.apply_wildcards(wildcards) if self.log else None
-            return input, output, log, ruleio
+            return input, output, params, log, ruleio
         except KeyError as ex:
             # this can only happen if an input contains an unresolved wildcard.
             raise RuleException(

@@ -76,6 +76,7 @@ class States:
             rule=self.rule,
             input=self.input,
             output=self.output,
+            params=self.params,
             message=self.message,
             threads=self.threads,
             priority=self.priority,
@@ -83,7 +84,7 @@ class States:
             run=self.run,
             shell=self.shell)
         self.rule_params = set([
-            "input", "output", "message", "threads",
+            "input", "output", "params", "message", "threads",
             "priority", "log", "run", "shell"])
         self.current_rule = None
         self.current_shellcmd = None
@@ -209,13 +210,17 @@ class States:
 
     def input(self, token):
         """ State that handles input definition. """
-        self.inoutput(token, 'input')
+        self.stringlist(token, 'input')
 
     def output(self, token):
         """ State that handles output definition. """
-        self.inoutput(token, 'output')
+        self.stringlist(token, 'output')
 
-    def inoutput(self, token, type):
+    def params(self, token):
+        """ State that handles additional parameter definition. """
+        self.stringlist(token, 'params')
+
+    def stringlist(self, token, type):
         """
         State that handles in- and output definition (depending on type).
         """
@@ -224,9 +229,9 @@ class States:
                    .add(AT, "@", token)
         self._func_open(type, token, obj='workflow')
 
-        self.state = self.inoutput_paths
+        self.state = self.stringlist_items
 
-    def inoutput_paths(self, token):
+    def stringlist_items(self, token):
         """ State that collects the arguments for in- or output definition """
         last = self.tokens.last
         if (token.type in (NEWLINE, NL, ENDMARKER)
@@ -312,7 +317,7 @@ class States:
                    .add(NEWLINE, '\n', token)
         self._func_def(
             "__" + self.current_rule,
-            ['input', 'output', 'wildcards', 'threads', 'log'], token)
+            "input output params wildcards threads log".split(), token)
 
     def run(self, token):
         """ State that creates a run function for the current rule. """

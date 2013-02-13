@@ -28,7 +28,8 @@ class Job:
         if format_wildcards is not None:
             self.format_wildcards = Wildcards(fromdict=format_wildcards)
 
-        self.input, self.output, self.log, self.ruleio = rule.expand_wildcards(
+        (self.input, self.output, self.params,
+            self.log, self.ruleio) = rule.expand_wildcards(
             self.wildcards_dict)
         self.threads = rule.threads
         self.priority = rule.priority
@@ -184,6 +185,7 @@ class Job:
         return format(string,
                       input=self.input,
                       output=self.output,
+                      params=self.params,
                       wildcards=self.format_wildcards,
                       threads=self.threads,
                       log=self.log, **self.rule.workflow.globals)

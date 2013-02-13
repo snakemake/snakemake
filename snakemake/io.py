@@ -98,24 +98,16 @@ class _IOFile(str):
     def apply_wildcards(
         self, wildcards, fill_missing=False,
         fail_dynamic=False):
-
-        def format_match(match):
-            name = match.group("name")
-            try:
-                value = wildcards[name]
-                if fail_dynamic and value == self.dynamic_fill:
-                    raise KeyError(name)
-                return value
-            except KeyError as ex:
-                if fill_missing:
-                    return self.dynamic_fill
-                else:
-                    raise ex
-
         f = self._file
         if self._is_function:
             f = self._file(Namedlist(fromdict=wildcards))
-        return IOFile(re.sub(_wildcard_regex, format_match, f), rule=self.rule)
+
+        return IOFile(
+            apply_wildcards(
+                f, wildcards, fill_missing=fill_missing,
+                fail_dynamic=fail_dynamic,
+                dynamic_fill=self.dynamic_fill),
+            rule=self.rule)
 
     def get_wildcard_names(self):
         return set(match.group('name') for match in re.finditer(
@@ -176,6 +168,24 @@ def regex(filepattern):
     f += re.escape(filepattern[last:])
     return f
 
+
+def apply_wildcards(pattern, wildcards, fill_missing=False,
+        fail_dynamic=False, dynamic_fill=None):
+
+        def format_match(match):
+            name = match.group("name")
+            try:
+                value = wildcards[name]
+                if fail_dynamic and value == dynamic_fill:
+                    raise KeyError(name)
+                return value
+            except KeyError as ex:
+                if fill_missing:
+                    return dynamic_fill
+                else:
+                    raise ex
+
+        return re.sub(_wildcard_regex, format_match, pattern)
 
 class temp(str):
     """
@@ -364,3 +374,9 @@ class OutputFiles(Namedlist):
 
 class Wildcards(Namedlist):
     pass
+
+
+class Params(Namedlist):
+    pass
+
+

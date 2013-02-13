@@ -1,0 +1,12 @@
+
+"""
+This is a test for the params syntax.
+"""
+
+rule:
+	input: "test.out"
+
+rule:
+	params: "-f", paramtest=lambda wildcards: "paramtest"
+	output: "test.out", "paramtest"
+	shell: "touch {params[0]} {params.paramtest} {output[0]}"

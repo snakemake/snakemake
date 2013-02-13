@@ -164,7 +164,7 @@ class CPUExecutor(RealExecutor):
         job.prepare()
 
         future = self.pool.submit(
-            run_wrapper, job.rule.run_func, job.input, job.output,
+            run_wrapper, job.rule.run_func, job.input, job.output, job.params,
             job.wildcards, job.threads, job.log, self.workflow.linemaps)
         future.add_done_callback(partial(
             self._callback, job, callback, error_callback))
@@ -265,7 +265,7 @@ class ClusterExecutor(RealExecutor):
         return self._tmpdir
 
 
-def run_wrapper(run, input, output, wildcards, threads, log, linemaps):
+def run_wrapper(run, input, output, params, wildcards, threads, log, linemaps):
     """
     Wrapper around the run method that handles directory creation and
     output file deletion on error.
@@ -280,7 +280,7 @@ def run_wrapper(run, input, output, wildcards, threads, log, linemaps):
     """
     try:
         # execute the actual run method.
-        run(input, output, wildcards, threads, log)
+        run(input, output, params, wildcards, threads, log)
         # finish all spawned shells.
         shell.join_all()
     except (Exception, BaseException) as ex:

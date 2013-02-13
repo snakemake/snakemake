@@ -207,6 +207,8 @@ class Workflow:
                 rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
             if ruleinfo.output:
                 rule.set_output(*ruleinfo.output[0], **ruleinfo.output[1])
+            if ruleinfo.params:
+                rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             if ruleinfo.threads:
                 rule.threads = ruleinfo.threads
             if ruleinfo.priority:
@@ -236,6 +238,12 @@ class Workflow:
     def output(self, *paths, **kwpaths):
         def decorate(ruleinfo):
             ruleinfo.output = (paths, kwpaths)
+            return ruleinfo
+        return decorate
+
+    def params(self, *params, **kwparams):
+        def decorate(ruleinfo):
+            ruleinfo.params = (params, kwparams)
             return ruleinfo
         return decorate
 
@@ -283,6 +291,7 @@ class RuleInfo:
         self.shellcmd = None
         self.input = None
         self.output = None
+        self.params = None
         self.message = None
         self.threads = None
         self.priority = None
