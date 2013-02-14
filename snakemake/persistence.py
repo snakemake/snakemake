@@ -4,11 +4,8 @@ __author__ = "Johannes Köster"
 
 import os
 import signal
-import pickle
 from base64 import urlsafe_b64encode
 from functools import lru_cache
-
-from snakemake.logging import logger
 
 
 class Persistence:
@@ -52,50 +49,42 @@ class Persistence:
             if e.errno != 2:  # missing file
                 raise e
 
+    def update_metadata(self, path):
+        self._mark_complete(self.incomplete_marker(path))
+        self.record_version(self.version_file(path))
+
     def started(self, job):
         for m in self.marker(job):
             self._mark_incomplete(m)
 
     def finished(self, job):
-        for m in self.marker(job):
-            self._mark_complete(m)
-        self.record_version(job)
+        for f in job.output:
+            self.mark_complete(f)
+            self.record_version(job, f)
 
     def incomplete(self, job):
-        return any(os.access(m, os.W_OK) for m in self.marker(job))
+        return any(os.access(m, os.W_OK)
+            for m in map(self.incomplete_marker, job))
 
     def newversion(self, job):
         path = self.version_file(job)
         if os.path.exists(path):
             with open(path) as f:
-                try:
-                    return job.rule.version > pickle.load(f)
-                except TypeError:
-                    logger.warning(
-                        "Current and previous version of "
-                        "rule {} are not comparable.".format(job.rule))
-                    return False
-                except:
-                    return False
+                return job.rule.version != f.read()
         return False
 
-    def record_version(self, job):
+    def record_version(self, job, path):
         if job.rule.version is not None:
-            pickle.dump(job.rule.version, self.version_file(job))
-
-    def mark_complete(self, path):
-        self._mark_complete(self.incomplete_marker(path))
+            with open(self.version_file(path), "w") as f:
+                f.write(str(job.rule.version))
 
     def noop(self):
         pass
 
-    def marker(self, job):
-        return map(self.incomplete_marker, job.output)
-
     @lru_cache()
-    def version_file(self, job):
+    def version_file(self, path):
         return os.path.join(self._version,
-            self.b64id("{}_{}".format(job, job.output)))
+            self.b64id(path))
 
     @lru_cache()
     def incomplete_marker(self, path):
@@ -104,9 +93,9 @@ class Persistence:
     def b64id(self, s):
         return urlsafe_b64encode(str(s).encode()).decode()
 
-    def _mark_complete(self, marker):
+    def mark_complete(self, path):
         try:
-            os.remove(marker)
+            os.remove(self.incomplete_marker(path))
         except OSError as e:
             if e.errno != 2:  # missing file
                 raise e

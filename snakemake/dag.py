@@ -25,8 +25,8 @@ class DAG:
         targetfiles=None,
         targetrules=None,
         forceall=False,
-        forcetargets=False,
         forcerules=None,
+        forcefiles=None
         priorityfiles=None,
         priorityrules=None,
         ignore_ambiguity=False,
@@ -58,9 +58,8 @@ class DAG:
             self.forcerules.update(self.rules)
         elif forcerules:
             self.forcerules.update(forcerules)
-        if forcetargets:
-            self.forcerules.update(targetrules)
-            self.forcefiles.update(targetfiles)
+        if forcefiles:
+            self.forcefiles.update(forcefiles)
         self.omitforce = set()
 
         self.force_incomplete = force_incomplete

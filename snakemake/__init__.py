@@ -35,7 +35,7 @@ def snakemake(snakefile,
     snakemakepath=None,
     lock=True,
     unlock=False,
-    mark_complete=None,
+    update_metadata=None,
     force_incomplete=False,
     ignore_incomplete=False):
     """
@@ -105,8 +105,8 @@ def snakemake(snakefile,
 
         if listrules:
             workflow.list_rules()
-        elif mark_complete:
-            workflow.mark_complete(mark_complete)
+        elif update_metadata:
+            workflow.update_metadata(update_metadata)
         else:
             success = workflow.execute(
                 targets=targets, dryrun=dryrun, touch=touch,

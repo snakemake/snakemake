@@ -5,6 +5,7 @@ __author__ = "Johannes Köster"
 import re
 import os
 from collections import OrderedDict
+from itertools import filterfalse
 
 from snakemake.logging import logger
 from snakemake.rules import Rule, Ruleorder
@@ -83,17 +84,23 @@ class Workflow:
                     for line in rule.docstring.split("\n"):
                         log("\t" + line)
 
-    def mark_complete(self, files):
+    def update_metadata(self, files):
         for f in files:
-            self.persistence.mark_complete(f)
+            self.persistence.update_metadata(f)
 
     def execute(
         self, targets=None, dryrun=False,  touch=False, cores=1,
-        forcetargets=False, forceall=False, forcerules=None,
+        forcetargets=False, forceall=False, forcerun=None,
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
         cluster=None,  ignore_ambiguity=False, workdir=None,
         stats=None, force_incomplete=False, ignore_incomplete=False):
+
+        def rules(items):
+            return map(self.rules.__getitem__, filter(self.is_rule, items))
+
+        def files(items):
+            return map(os.path.relpath, filterfalse(self.is_rule, items))
 
         if workdir is None:
             workdir = os.getcwd() if self._workdir is None else self._workdir
@@ -104,42 +111,22 @@ class Workflow:
         if not prioritytargets:
             prioritytargets = list()
 
-        targetrules, targetfiles, priorityrules, priorityfiles = (
-            set(), set(), set(), set())
-        for target in targets:
-            if self.is_rule(target):
-                rule = self._rules[target]
-                targetrules.add(rule)
-            else:
-                file = os.path.relpath(target)
-                targetfiles.add(file)
-
-        for target in prioritytargets:
-            if self.is_rule(target):
-                rule = self._rules[target]
-                priorityrules.add(rule)
-                if not rule.has_wildcards():
-                    targetrules.add(rule)
-            else:
-                file = os.path.relpath(target)
-                priorityfiles.add(file)
-                targetfiles.add(file)
-
-        try:
-            forcerules_ = list()
-            if forcerules:
-                for r in forcerules:
-                    forcerules_.append(self._rules[r])
-        except KeyError as ex:
-            logger.critical("Rule {} is not available.".format(r))
-            self.list_rules()
-            return False
+        priorityrules = set(rules(prioritytargets))
+        priorityfiles = set(files(prioritytargets))
+        forcerules = set(rules(forcerun))
+        forcefiles = set(files(forcerun))
+        targetrules = set(chain(
+            rules(targets), filterfalse(Rule.has_wildcards, priorityrules),
+            filterfalse(Rule.has_wildcards, forcerules))
+        targetfiles = set(chain(files(targets), priorityfiles, forcefiles))
+        if forcetargets:
+            forcefiles.update(targetfiles)
 
         dag = DAG(
             self, dryrun=dryrun, targetfiles=targetfiles,
             targetrules=targetrules,
-            forceall=forceall, forcetargets=forcetargets,
-            forcerules=forcerules_, priorityfiles=priorityfiles,
+            forceall=forceall, forcefiles=forcefiles,
+            forcerules=forcerules, priorityfiles=priorityfiles,
             priorityrules=priorityrules, ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
             ignore_incomplete=ignore_incomplete)

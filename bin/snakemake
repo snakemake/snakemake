@@ -76,11 +76,11 @@ def main():
             "all rules it is dependent on regardless of already created "
             "output."))
     parser.add_argument(
-        "--forcerules", "-R", nargs="+",
+        "--forcerun", "-R", nargs="+",
         help=(
-            "Force the execution of the selected (or the first) rule and "
-            "all rules that are mentioned here regardless of already created "
-            "output."))
+            "Force the re-execution or creation of the given rules or files."
+            " Use this option if you changed a rule and want to have all its "
+            "output in your workflow updated."))
     parser.add_argument(
         "--prioritize", "-P", nargs="+",
         help=
@@ -118,8 +118,9 @@ def main():
         "--unlock", action="store_true",
         help="Remove a lock on the working directory.")
     parser.add_argument(
-        "--complete", nargs="*", help="Mark given files as complete."
-        "If no files are given, mark all files as complete.")
+        "--update-metadata", nargs="*", help="Update the metadata of given "
+        "files. That means that snakemake updates any tracked version info, "
+        "and removes any marks that files are incomplete.")
     parser.add_argument(
         "--rerun-incomplete", action="store_true", help="Re-run all jobs "
         "the output of which is recognized as incomplete.")
@@ -158,7 +159,7 @@ def main():
             snakemakepath=snakemakepath,
             lock=not args.nolock,
             unlock=args.unlock,
-            mark_complete=args.complete,
+            update_metadata=args.update_metadata,
             force_incomplete=args.rerun_incomplete,
             ignore_incomplete=args.ignore_incomplete
             )
