@@ -208,6 +208,7 @@ class DAG:
         exceptions = list()
         jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
         cycles = list()
+
         for i, job in enumerate(jobs):
             if file in job.input:
                 cycles.append(job)
@@ -219,6 +220,8 @@ class DAG:
                 self.update_(
                     job, visited=set(visited),
                     skip_until_dynamic=skip_until_dynamic)
+                # TODO this might fail if a rule discarded here is needed
+                # elsewhere
                 if i > 0:
                     if job < jobs[i - 1] or self.ignore_ambiguity:
                         break
@@ -323,7 +326,9 @@ class DAG:
                     reason.updated_input.update(updated_input)
             return job
 
-        queue = list(filter(self.reason, map(needrun, self.jobs)))
+        candidates = set(self.jobs)
+
+        queue = list(filter(self.reason, map(needrun, candidates)))
         visited = set(queue)
         while queue:
             job = queue.pop(0)
@@ -337,10 +342,11 @@ class DAG:
                     queue.append(job_)
 
             for job_, files in self.depending[job].items():
-                self.reason(job_).updated_input_run.update(files)
-                if not job_ in visited:
-                    visited.add(job_)
-                    queue.append(job_)
+                if job_ in candidates:
+                    self.reason(job_).updated_input_run.update(files)
+                    if not job_ in visited:
+                        visited.add(job_)
+                        queue.append(job_)
 
         self._len = len(self._needrun)
 
@@ -363,7 +369,6 @@ class DAG:
         self.update_needrun()
         self.update_priority()
         self.update_ready()
-        #self.check_incomplete()
 
     def _ready(self, job):
         return self._finished.issuperset(
@@ -374,7 +379,7 @@ class DAG:
         self._ready_jobs.remove(job)
         # mark depending jobs as ready
         for job_ in self.depending[job]:
-            if self._ready(job_):
+            if self.needrun(job_) and self._ready(job_):
                 self._ready_jobs.add(job_)
 
         if update_dynamic and job.dynamic_output:
@@ -587,7 +592,6 @@ class DAG:
             """).format(nodes="\n".join(nodes),
                         edges="\n".join(edges),
                         legend="\n".join(legend))
-
 
     def __str__(self):
         return self.dot()
