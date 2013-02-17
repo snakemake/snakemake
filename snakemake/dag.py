@@ -184,10 +184,13 @@ class DAG:
                 logger.warning("Output file {} not present. Waiting {} "
                 "seconds to ensure that this is not because of filesystem "
                 "latency.".format(f, wait))
-                time.sleep(wait)
-                raise MissingOutputException("Output file {} not "
-                    "produced by rule {}.".format(f, job.rule.name),
-                    lineno=job.rule.lineno, snakefile=job.rule.snakefile)
+                while not f.exists and wait > 0:
+                    wait -= 1
+                    time.sleep(1)
+                if not f.exists:
+                    raise MissingOutputException("Output file {} not "
+                        "produced by rule {}.".format(f, job.rule.name),
+                        lineno=job.rule.lineno, snakefile=job.rule.snakefile)
 
     def handle_protected(self, job):
         """ Write-protect output files that are marked with protected(). """
