@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import textwrap
+import time
 from collections import defaultdict
 from itertools import chain, combinations, filterfalse, product
 from functools import partial, lru_cache
@@ -26,7 +27,7 @@ class DAG:
         targetrules=None,
         forceall=False,
         forcerules=None,
-        forcefiles=None
+        forcefiles=None,
         priorityfiles=None,
         priorityrules=None,
         ignore_ambiguity=False,
@@ -97,6 +98,10 @@ class DAG:
                 and not self.needrun(job)), self.jobs):
             self.update_dynamic(job)
         self.postprocess()
+
+    @property
+    def output_files(self):
+        return chain(*map(attrgetter("output"), self.jobs))
 
     @property
     def jobs(self):
@@ -172,10 +177,14 @@ class DAG:
                 return True
         return False
 
-    def check_output(self, job):
+    def check_output(self, job, wait=3):
         """ Raise exception if output files of job are missing. """
         for f in job.expanded_output:
             if not f.exists:
+                logger.warning("Output file {} not present. Waiting {} "
+                "seconds to ensure that this is not because of filesystem "
+                "latency.".format(f, wait))
+                time.sleep(wait)
                 raise MissingOutputException("Output file {} not "
                     "produced by rule {}.".format(f, job.rule.name),
                     lineno=job.rule.lineno, snakefile=job.rule.snakefile)

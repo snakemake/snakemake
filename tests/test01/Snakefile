@@ -11,6 +11,7 @@ rule rule1:
 		'test.inter'
 	output: 'dir/test.out'
 	log:    'log/logfile.log'
+	version: "3.3"
 	threads: 3
 	shell: 
 		'if [ {threads} -ne 3 ]; then echo "This test has to be run with -j3 in order to succeed!"; exit 1; fi; ' \

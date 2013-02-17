@@ -25,13 +25,14 @@ class AbstractExecutor:
 
     def __init__(self, workflow, dag,
         printreason=False, quiet=False,
-        printshellcmds=False, printthreads=True):
+        printshellcmds=False, printthreads=True, output_wait=3):
         self.workflow = workflow
         self.dag = dag
         self.quiet = quiet
         self.printreason = printreason
         self.printshellcmds = printshellcmds
         self.printthreads = printthreads
+        self.output_wait = output_wait
 
     def run(self, job, callback=None, error_callback=None):
         self._run(job)
@@ -88,7 +89,7 @@ class AbstractExecutor:
                     "depending on the output of this rule")
 
     def finish_job(self, job):
-        self.dag.check_output(job)
+        self.dag.check_output(job, wait=self.output_wait)
         self.dag.handle_protected(job)
         self.dag.handle_temp(job)
 
@@ -101,10 +102,10 @@ class RealExecutor(AbstractExecutor):
 
     def __init__(
         self, workflow, dag,
-        printreason=False, quiet=False, printshellcmds=False):
+        printreason=False, quiet=False, printshellcmds=False, output_wait=3):
         super().__init__(
             workflow, dag, printreason=printreason,
-            quiet=quiet, printshellcmds=printshellcmds)
+            quiet=quiet, printshellcmds=printshellcmds, output_wait=output_wait)
         self.stats = Stats()
 
     def _run(self, job, callback=None, error_callback=None):
@@ -150,10 +151,10 @@ class CPUExecutor(RealExecutor):
 
     def __init__(
         self, workflow, dag, cores, printreason=False, quiet=False,
-        printshellcmds=False, threads=False):
+        printshellcmds=False, threads=False, output_wait=3):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
-            printshellcmds=printshellcmds)
+            printshellcmds=printshellcmds, output_wait=output_wait)
         self.pool = (concurrent.futures.ThreadPoolExecutor(max_workers=cores)
             if threads
             else concurrent.futures.ProcessPoolExecutor(max_workers=cores))
@@ -201,10 +202,10 @@ class ClusterExecutor(RealExecutor):
 
     def __init__(
         self, workflow, dag, cores, submitcmd="qsub",
-        printreason=False, quiet=False, printshellcmds=False):
+        printreason=False, quiet=False, printshellcmds=False, output_wait=3):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
-            printshellcmds=printshellcmds)
+            printshellcmds=printshellcmds, output_wait=output_wait)
         if workflow.snakemakepath is None:
             raise ValueError(
             "Cluster executor needs to know the path "
@@ -228,7 +229,10 @@ class ClusterExecutor(RealExecutor):
         with open(jobscript, "w") as f:
             print(format(self.jobscript), file=f)
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
-        shell('{self.submitcmd} "{jobscript}"')
+
+        submitcmd = job.format_wildcards(self.submitcmd)
+        shell('{submitcmd} "{jobscript}"')
+
         self.startedjobs += 1
         threading.Thread(
             target=self._wait_for_job,

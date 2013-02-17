@@ -20,7 +20,7 @@ def snakemake(snakefile,
     touch=False,
     forcetargets=False,
     forceall=False,
-    forcerules=None,
+    forcerun=None,
     prioritytargets=None,
     stats=None,
     printreason=False,
@@ -35,9 +35,12 @@ def snakemake(snakefile,
     snakemakepath=None,
     lock=True,
     unlock=False,
-    update_metadata=None,
+    cleanup_metadata=None,
     force_incomplete=False,
-    ignore_incomplete=False):
+    ignore_incomplete=False,
+    list_version_changes=False,
+    list_code_changes=False,
+    output_wait=3):
     """
     Run snakemake on a given snakefile.
     Note: at the moment, this function is not thread-safe!
@@ -105,13 +108,13 @@ def snakemake(snakefile,
 
         if listrules:
             workflow.list_rules()
-        elif update_metadata:
-            workflow.update_metadata(update_metadata)
+        elif cleanup_metadata:
+            workflow.cleanup_metadata(update_metadata)
         else:
             success = workflow.execute(
                 targets=targets, dryrun=dryrun, touch=touch,
                 cores=cores, forcetargets=forcetargets,
-                forceall=forceall, forcerules=forcerules,
+                forceall=forceall, forcerun=forcerun,
                 prioritytargets=prioritytargets, quiet=quiet,
                 keepgoing=keepgoing, printshellcmds=printshellcmds,
                 printreason=printreason,
@@ -119,7 +122,10 @@ def snakemake(snakefile,
                 ignore_ambiguity=ignore_ambiguity,
                 workdir=workdir, stats=stats,
                 force_incomplete=force_incomplete,
-                ignore_incomplete=ignore_incomplete
+                ignore_incomplete=ignore_incomplete,
+                list_version_changes=list_version_changes,
+                list_code_changes=list_code_changes,
+                output_wait=output_wait
                 )
 
     except (Exception, BaseException) as ex:

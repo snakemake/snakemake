@@ -24,9 +24,9 @@ class Job:
         self._hash = None
         self.wildcards_dict = self.rule.get_wildcards(targetfile)
         self.wildcards = Wildcards(fromdict=self.wildcards_dict)
-        self.format_wildcards = self.wildcards
-        if format_wildcards is not None:
-            self.format_wildcards = Wildcards(fromdict=format_wildcards)
+        self._format_wildcards = (self.wildcards
+            if format_wildcards is None
+            else Wildcards(fromdict=format_wildcards))
 
         (self.input, self.output, self.params,
             self.log, self.ruleio) = rule.expand_wildcards(
@@ -68,7 +68,7 @@ class Job:
     def message(self):
         """ Return the message for this job. """
         try:
-            return (self._format_wildcards(self.rule.message)
+            return (self.format_wildcards(self.rule.message)
                 if self.rule.message else None)
         except AttributeError as ex:
             raise RuleException(str(ex), rule=self.rule)
@@ -80,7 +80,7 @@ class Job:
     def shellcmd(self):
         """ Return the shell command. """
         try:
-            return (self._format_wildcards(self.rule.shellcmd)
+            return (self.format_wildcards(self.rule.shellcmd)
                 if self.rule.shellcmd else None)
         except AttributeError as ex:
             raise RuleException(str(ex), rule=self.rule)
@@ -180,13 +180,13 @@ class Job:
             if f.exists:
                 f.remove()
 
-    def _format_wildcards(self, string):
+    def format_wildcards(self, string):
         """ Format a string with variables from the job. """
         return format(string,
                       input=self.input,
                       output=self.output,
                       params=self.params,
-                      wildcards=self.format_wildcards,
+                      wildcards=self._format_wildcards,
                       threads=self.threads,
                       log=self.log, **self.rule.workflow.globals)
 

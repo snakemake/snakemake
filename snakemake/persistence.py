@@ -4,8 +4,10 @@ __author__ = "Johannes Köster"
 
 import os
 import signal
+import marshal
 from base64 import urlsafe_b64encode
-from functools import lru_cache
+from functools import lru_cache, partial
+from itertools import filterfalse
 
 
 class Persistence:
@@ -49,57 +51,73 @@ class Persistence:
             if e.errno != 2:  # missing file
                 raise e
 
-    def update_metadata(self, path):
-        self._mark_complete(self.incomplete_marker(path))
-        self.record_version(self.version_file(path))
+    def cleanup_metadata(self, path):
+        self._delete_record(self._incomplete, path)
+        self._delete_record(self._version, path)
+        self._delete_record(self._code, path)
 
     def started(self, job):
-        for m in self.marker(job):
-            self._mark_incomplete(m)
+        for f in job.output:
+            self._record(self._incomplete, "", f)
 
     def finished(self, job):
+        version = job.rule.version
+        code = self.code(job.rule)
         for f in job.output:
-            self.mark_complete(f)
-            self.record_version(job, f)
+            self._delete_record(self._incomplete, f)
+            self._record(self._version, version, f)
+            self._record(self._code, code, f, bin=True)
 
     def incomplete(self, job):
-        return any(os.access(m, os.W_OK)
-            for m in map(self.incomplete_marker, job))
+        return any(
+            map(partial(self._exists_record, self._incomplete), job.output))
 
-    def newversion(self, job):
-        path = self.version_file(job)
-        if os.path.exists(path):
-            with open(path) as f:
-                return job.rule.version != f.read()
-        return False
+    def version_change(self, job):
+        return filterfalse(
+            partial(self._equals_record, self._version, job.rule.version),
+            job.output)
 
-    def record_version(self, job, path):
-        if job.rule.version is not None:
-            with open(self.version_file(path), "w") as f:
-                f.write(str(job.rule.version))
+    def code_change(self, job):
+        return filterfalse(
+            partial(
+                self._equals_record, self._code,
+                self.code(job.rule), bin=True),
+            job.output)
 
     def noop(self):
         pass
 
-    @lru_cache()
-    def version_file(self, path):
-        return os.path.join(self._version,
-            self.b64id(path))
-
-    @lru_cache()
-    def incomplete_marker(self, path):
-        return os.path.join(self._incomplete, self.b64id(path))
-
     def b64id(self, s):
         return urlsafe_b64encode(str(s).encode()).decode()
 
-    def mark_complete(self, path):
+    @lru_cache()
+    def code(self, rule):
+        return marshal.dumps(rule.run_func.__code__)
+
+    def _record(self, subject, value, id, bin=False):
+        if value is not None:
+            with open(
+                os.path.join(subject, self.b64id(id)),
+                "wb" if bin else "w") as f:
+                f.write(value)
+
+    def _delete_record(self, subject, id):
         try:
-            os.remove(self.incomplete_marker(path))
+            os.remove(os.path.join(subject, self.b64id(id)))
         except OSError as e:
-            if e.errno != 2:  # missing file
+            if e.errno != 2: # not missing
                 raise e
 
-    def _mark_incomplete(self, marker):
-        with open(marker, "w") as m:
-            m.write("")
+    def _read_record(self, subject, id, bin=False):
+        if not self._exists_record(subject, id):
+            return None
+        with open(
+            os.path.join(subject, self.b64id(id)),
+            "rb" if bin else "r") as f:
+            return f.read()
+
+    def _equals_record(self, subject, value, id, bin=False):
+        return self._read_record(subject, id, bin=bin) == value
+
+    def _exists_record(self, subject, id):
+        return os.path.exists(os.path.join(subject, self.b64id(id)))

@@ -18,7 +18,7 @@ import snakemake
 def main():
     parser = argparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
-            "environment for make-like workflows.")
+            "environment for GNU Make-like workflows.")
 
     parser.add_argument(
         "target", nargs="*", default=None,
@@ -118,15 +118,28 @@ def main():
         "--unlock", action="store_true",
         help="Remove a lock on the working directory.")
     parser.add_argument(
-        "--update-metadata", nargs="*", help="Update the metadata of given "
-        "files. That means that snakemake updates any tracked version info, "
-        "and removes any marks that files are incomplete.")
+        "--cleanup-metadata", "--cm", nargs="*", help="Cleanup the metadata "
+        "of given files. That means that snakemake removes any tracked "
+        "version info, and any marks that files are incomplete.")
     parser.add_argument(
-        "--rerun-incomplete", action="store_true", help="Re-run all jobs "
-        "the output of which is recognized as incomplete.")
+        "--rerun-incomplete", "--ri", action="store_true", help="Re-run all "
+        "jobs the output of which is recognized as incomplete.")
     parser.add_argument(
-        "--ignore-incomplete", action="store_true", help="Ignore "
+        "--ignore-incomplete", "--ii", action="store_true", help="Ignore "
         "any incomplete jobs.")
+    parser.add_argument(
+        "--list-version-changes", "--lv", action="store_true",
+        help="List all files that have been created with "
+        "a different version (as determined by the version keyword).")
+    parser.add_argument(
+        "--list-code-changes", "--lc", action="store_true",
+        help="List all files for which the rule body (run or shell) changed "
+        "in the Snakefile.")
+    parser.add_argument(
+        "--output-wait", "-w", type=int, default=3,
+        help="Wait T seconds if an output file of a job is not present after "
+        "the job finished. This helps if your filesystem "
+        "suffers from latency.")
     parser.add_argument(
         "--version", "-v", action="version", version=snakemake.__version__)
 
@@ -147,7 +160,7 @@ def main():
             touch=args.touch,
             forcetargets=args.force,
             forceall=args.forceall,
-            forcerules=args.forcerules,
+            forcerun=args.forcerun,
             prioritytargets=args.prioritize,
             stats=args.stats,
             nocolor=args.nocolor,
@@ -159,9 +172,11 @@ def main():
             snakemakepath=snakemakepath,
             lock=not args.nolock,
             unlock=args.unlock,
-            update_metadata=args.update_metadata,
+            cleanup_metadata=args.cleanup_metadata,
             force_incomplete=args.rerun_incomplete,
-            ignore_incomplete=args.ignore_incomplete
+            ignore_incomplete=args.ignore_incomplete,
+            list_version_changes=args.list_version_changes,
+            list_code_changes=args.list_code_changes
             )
     exit(0 if success else 1)
 

@@ -24,7 +24,8 @@ class JobScheduler:
         quiet=False,
         printreason=False,
         printshellcmds=False,
-        keepgoing=False):
+        keepgoing=False,
+        output_wait=3):
         """ Create a new instance of KnapsackJobScheduler. """
         self.dag = dag
         self.workflow = workflow
@@ -45,24 +46,27 @@ class JobScheduler:
         if dryrun:
             self._executor = DryrunExecutor(
                 workflow, dag, printreason=printreason,
-                quiet=quiet, printshellcmds=printshellcmds)
+                quiet=quiet, printshellcmds=printshellcmds,
+                output_wait=output_wait)
         elif touch:
             self._executor = TouchExecutor(
                 workflow, dag, printreason=printreason,
-                quiet=quiet, printshellcmds=printshellcmds)
+                quiet=quiet, printshellcmds=printshellcmds,
+                output_wait=output_wait)
         elif cluster:
             # TODO properly set cores
             self._executor = ClusterExecutor(
                 workflow, dag, None, submitcmd=cluster,
                 printreason=printreason, quiet=quiet,
-                printshellcmds=printshellcmds)
+                printshellcmds=printshellcmds, output_wait=output_wait)
             self._open_jobs = threading.Event()
             self._job_weight = self.simple_job_weight
         else:
             self._executor = CPUExecutor(
                 workflow, dag, cores, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
-                threads=use_threads)
+                threads=use_threads,
+                output_wait=output_wait)
         self._open_jobs.set()
 
     @property

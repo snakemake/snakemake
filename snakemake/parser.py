@@ -80,12 +80,13 @@ class States:
             message=self.message,
             threads=self.threads,
             priority=self.priority,
+            version=self.version,
             log=self.log,
             run=self.run,
             shell=self.shell)
         self.rule_params = set([
             "input", "output", "params", "message", "threads",
-            "priority", "log", "run", "shell"])
+            "priority", "version", "log", "run", "shell"])
         self.current_rule = None
         self.current_shellcmd = None
         self.rule_docstring = None
@@ -292,6 +293,22 @@ class States:
         elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
             raise self._syntax_error(
                 'Expected numeric value after priority keyword.', token)
+
+    def version(self, token):
+        """ State that handles definition of threads. """
+        self._check_colon('version', token)
+        self.tokens.add(NEWLINE, "\n", token)\
+                   .add(AT, "@", token)
+        self._func_open('version', token, obj='workflow')
+        self.state = self.version_value
+
+    def version_value(self, token):
+        if token.type == STRING:
+            self.tokens.add(token, orig_token=token)
+            self.state = self.close_param
+        elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
+            raise self._syntax_error(
+                'Expected string value after version keyword.', token)
 
     def log(self, token):
         self._check_colon('log', token)

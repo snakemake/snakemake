@@ -5,7 +5,8 @@ __author__ = "Johannes Köster"
 import re
 import os
 from collections import OrderedDict
-from itertools import filterfalse
+from itertools import filterfalse, chain
+from operator import attrgetter
 
 from snakemake.logging import logger
 from snakemake.rules import Rule, Ruleorder
@@ -94,10 +95,12 @@ class Workflow:
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
         cluster=None,  ignore_ambiguity=False, workdir=None,
-        stats=None, force_incomplete=False, ignore_incomplete=False):
+        stats=None, force_incomplete=False, ignore_incomplete=False,
+        list_version_changes=False, list_code_changes=False,
+        output_wait=3):
 
         def rules(items):
-            return map(self.rules.__getitem__, filter(self.is_rule, items))
+            return map(self._rules.__getitem__, filter(self.is_rule, items))
 
         def files(items):
             return map(os.path.relpath, filterfalse(self.is_rule, items))
@@ -108,8 +111,10 @@ class Workflow:
 
         if not targets:
             targets = [self.first_rule]
-        if not prioritytargets:
+        if prioritytargets is None:
             prioritytargets = list()
+        if forcerun is None:
+            forcerun = list()
 
         priorityrules = set(rules(prioritytargets))
         priorityfiles = set(files(prioritytargets))
@@ -117,7 +122,7 @@ class Workflow:
         forcefiles = set(files(forcerun))
         targetrules = set(chain(
             rules(targets), filterfalse(Rule.has_wildcards, priorityrules),
-            filterfalse(Rule.has_wildcards, forcerules))
+            filterfalse(Rule.has_wildcards, forcerules)))
         targetfiles = set(chain(files(targets), priorityfiles, forcefiles))
         if forcetargets:
             forcefiles.update(targetfiles)
@@ -143,11 +148,24 @@ class Workflow:
         if printdag:
             print(dag)
             return True
+        elif list_version_changes:
+            items = list(chain(
+                *map(self.persistence.version_change, dag.jobs)))
+            if items:
+                print(*items, sep="\n")
+            return True
+        elif list_code_changes:
+            items = list(chain(
+                *map(self.persistence.code_change, dag.jobs)))
+            if items:
+                print(*items, sep="\n")
+            return True
 
         scheduler = JobScheduler(
             self, dag, cores, dryrun=dryrun, touch=touch, cluster=cluster,
             quiet=quiet, keepgoing=keepgoing,
-            printreason=printreason, printshellcmds=printshellcmds)
+            printreason=printreason, printshellcmds=printshellcmds,
+            output_wait=output_wait)
         success = scheduler.schedule()
 
         if success:
@@ -201,6 +219,8 @@ class Workflow:
                 rule.threads = ruleinfo.threads
             if ruleinfo.priority:
                 rule.priority = ruleinfo.priority
+            if ruleinfo.version:
+                rule.version = ruleinfo.version
             if ruleinfo.log:
                 rule.log = ruleinfo.log
             if ruleinfo.message:
@@ -253,6 +273,12 @@ class Workflow:
             return ruleinfo
         return decorate
 
+    def version(self, version):
+        def decorate(ruleinfo):
+            ruleinfo.version = version
+            return ruleinfo
+        return decorate
+
     def log(self, log):
         def decorate(ruleinfo):
             ruleinfo.log = log
@@ -283,5 +309,6 @@ class RuleInfo:
         self.message = None
         self.threads = None
         self.priority = None
+        self.version = None
         self.log = None
         self.docstring = None
