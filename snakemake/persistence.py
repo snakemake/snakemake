@@ -5,6 +5,7 @@ __author__ = "Johannes Köster"
 import os
 import signal
 import marshal
+import time
 from base64 import urlsafe_b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse
@@ -72,12 +73,20 @@ class Persistence:
         return any(
             map(partial(self._exists_record, self._incomplete), job.output))
 
-    def version_change(self, job):
+    def version(self, path):
+        return self._read_record(self._version, path)
+
+    def version_change(self, job, file=None):
+        if file is not None:
+            return self._equals_record(self._version, job.rule.version, file)
         return filterfalse(
             partial(self._equals_record, self._version, job.rule.version),
             job.output)
 
-    def code_change(self, job):
+    def code_change(self, job, file=None):
+        if file is not None:
+            return self._equals_record(
+                self._code, self.code(job.rule), file, bin=True)
         return filterfalse(
             partial(
                 self._equals_record, self._code,

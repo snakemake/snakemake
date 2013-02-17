@@ -49,10 +49,20 @@ def main():
         help="Print out the shell commands that will be executed.")
     parser.add_argument(
         "--dag", action="store_true",
-        help=(
-            "Do not execute anything and print the directed "
+        help="Do not execute anything and print the directed "
             "acyclic graph of jobs in the dot language. Recommended "
-            "use on Unix systems: snakemake --dag | dot | display"))
+            "use on Unix systems: snakemake --dag | dot | display")
+    parser.add_argument(
+        "--summary", "-S", action="store_true",
+        help="Print a summary of all files created by the workflow. The "
+        "has the following columns: filename, modification time, "
+        "rule version, status, plan.\n"
+        "Thereby rule version contains the version"
+        "the file was created with (see the version keyword of rules), and "
+        "status denotes whether the file is missing, its input files are "
+        "newer or if version or implementation of the rule changed since "
+        "file creation. Finally the last column denotes whether the file "
+        "will be updated or created during the next workflow execution.")
     parser.add_argument(
         "--touch", "-t", action="store_true",
         help=(
@@ -176,7 +186,8 @@ def main():
             force_incomplete=args.rerun_incomplete,
             ignore_incomplete=args.ignore_incomplete,
             list_version_changes=args.list_version_changes,
-            list_code_changes=args.list_code_changes
+            list_code_changes=args.list_code_changes,
+            summary=args.summary
             )
     exit(0 if success else 1)
 

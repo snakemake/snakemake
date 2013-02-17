@@ -97,7 +97,7 @@ class Workflow:
         cluster=None,  ignore_ambiguity=False, workdir=None,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
-        output_wait=3):
+        summary=False, output_wait=3):
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
@@ -148,17 +148,20 @@ class Workflow:
         if printdag:
             print(dag)
             return True
+        elif summary:
+            print("\n".join(dag.summary()))
+            return True
         elif list_version_changes:
             items = list(chain(
                 *map(self.persistence.version_change, dag.jobs)))
             if items:
-                print(*items, sep="\n")
+                print(items, sep="\n")
             return True
         elif list_code_changes:
             items = list(chain(
                 *map(self.persistence.code_change, dag.jobs)))
             if items:
-                print(*items, sep="\n")
+                print(items, sep="\n")
             return True
 
         scheduler = JobScheduler(

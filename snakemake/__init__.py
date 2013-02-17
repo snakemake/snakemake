@@ -40,6 +40,7 @@ def snakemake(snakefile,
     ignore_incomplete=False,
     list_version_changes=False,
     list_code_changes=False,
+    summary=False,
     output_wait=3):
     """
     Run snakemake on a given snakefile.
@@ -125,6 +126,7 @@ def snakemake(snakefile,
                 ignore_incomplete=ignore_incomplete,
                 list_version_changes=list_version_changes,
                 list_code_changes=list_code_changes,
+                summary=summary,
                 output_wait=output_wait
                 )
 
