@@ -223,7 +223,7 @@ class States:
 
     def stringlist(self, token, type):
         """
-        State that handles in- and output definition (depending on type).
+        State that handles definition of string lists (depending on type).
         """
         self._check_colon(type, token)
         self.tokens.add(NEWLINE, "\n", token)\
@@ -233,7 +233,7 @@ class States:
         self.state = self.stringlist_items
 
     def stringlist_items(self, token):
-        """ State that collects the arguments for in- or output definition """
+        """ State that collects the arguments of a string list """
         last = self.tokens.last
         if (token.type in (NEWLINE, NL, ENDMARKER)
             and not ((last.type == OP and last.string == ",")
@@ -279,7 +279,7 @@ class States:
                 'Expected integer after threads keyword.', token)
 
     def priority(self, token):
-        """ State that handles definition of threads. """
+        """ State that handles definition of priority. """
         self._check_colon('priority', token)
         self.tokens.add(NEWLINE, "\n", token)\
                    .add(AT, "@", token)
@@ -295,7 +295,7 @@ class States:
                 'Expected numeric value after priority keyword.', token)
 
     def version(self, token):
-        """ State that handles definition of threads. """
+        """ State that handles definition of version. """
         self._check_colon('version', token)
         self.tokens.add(NEWLINE, "\n", token)\
                    .add(AT, "@", token)
