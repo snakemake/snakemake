@@ -315,6 +315,7 @@ class DAG:
                 or not self.forcefiles.isdisjoint(job.output)):
                 reason.forced = True
             elif job in self.targetjobs:
+                # TODO find a way to handle added/removed input files here?
                 if not job.output:
                     if job.input:
                         reason.updated_input_run.update(
@@ -594,7 +595,7 @@ class DAG:
             """\
             digraph snakemake_dag {{
                 graph[bgcolor=white];
-                node[shape=box,style=rounded, fontname=sans, fontsize=10, penwidth=2];
+                node[shape=box, style=rounded, fontname=sans, fontsize=10, penwidth=2];
                 edge[penwidth=2, color=grey];
             {nodes}
             {edges}
