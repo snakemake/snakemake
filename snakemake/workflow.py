@@ -153,13 +153,13 @@ class Workflow:
             return True
         elif list_version_changes:
             items = list(chain(
-                *map(self.persistence.version_change, dag.jobs)))
+                *map(self.persistence.version_changed, dag.jobs)))
             if items:
                 print(items, sep="\n")
             return True
         elif list_code_changes:
             items = list(chain(
-                *map(self.persistence.code_change, dag.jobs)))
+                *map(self.persistence.code_changed, dag.jobs)))
             if items:
                 print(items, sep="\n")
             return True

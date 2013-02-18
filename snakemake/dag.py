@@ -612,6 +612,7 @@ class DAG:
                 version = "-" if version is None else str(version)
                 date = time.ctime(f.mtime) if f.exists else "-"
                 pending = "update pending" if self.reason(job) else "no update"
+                status = "ok"
                 if not f.exists:
                     status = "missing"
                 elif self.reason(job).updated_input:
