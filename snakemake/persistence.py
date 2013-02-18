@@ -78,15 +78,18 @@ class Persistence:
 
     def version_changed(self, job, file=None):
         if file is not None:
-            return not self._equals_record(self._version, job.rule.version, file)
+            return (self._exists_record(self._version, file)
+                and not self._equals_record(
+                    self._version, job.rule.version, file))
         return filterfalse(
             partial(self._equals_record, self._version, job.rule.version),
             job.output)
 
     def code_changed(self, job, file=None):
         if file is not None:
-            return self._exists_record(self._code, file) and not self._equals_record(
-                self._code, self.code(job.rule), file, bin=True)
+            return (self._exists_record(self._code, file)
+                and not self._equals_record(
+                    self._code, self.code(job.rule), file, bin=True))
         return filterfalse(
             partial(
                 self._equals_record, self._code,
