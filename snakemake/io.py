@@ -157,9 +157,6 @@ def regex(filepattern):
         f += re.escape(filepattern[last:match.start()])
         wildcard = match.group("name")
         if wildcard in wildcards:
-            #raise ValueError(
-            #    "Multiple wildcards with the same name in output file are "
-            #    "not allowed. Consider renaming one.")
             if match.group("constraint"):
                 raise ValueError("If multiple wildcards of the same name "
                 "appear in a string, eventual constraints have to be defined "
@@ -169,7 +166,8 @@ def regex(filepattern):
             wildcards.add(wildcard)
             f += "(?P<{}>{})".format(
                 wildcard,
-                match.group("constraint") if match.group("constraint") else ".+")
+                match.group("constraint")
+                    if match.group("constraint") else ".+")
         last = match.end()
     f += re.escape(filepattern[last:])
     return f
@@ -192,6 +190,7 @@ def apply_wildcards(pattern, wildcards, fill_missing=False,
                     raise ex
 
         return re.sub(_wildcard_regex, format_match, pattern)
+
 
 class temp(str):
     """
@@ -384,5 +383,3 @@ class Wildcards(Namedlist):
 
 class Params(Namedlist):
     pass
-
-
