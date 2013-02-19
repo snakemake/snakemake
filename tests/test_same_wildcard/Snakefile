@@ -1,0 +1,7 @@
+
+rule:
+	input:  "test_test.out"
+
+rule:
+	output: "{name}_{name}.out"
+	shell: "echo {wildcards.name} > {output}"

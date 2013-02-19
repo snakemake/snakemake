@@ -100,3 +100,6 @@ def test_dynamic():
 
 def test_params():
 	run(dpath("test_params"))
+
+def test_same_wildcard():
+	run(dpath("test_same_wildcard"))
