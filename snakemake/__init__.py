@@ -8,7 +8,7 @@ from snakemake.logging import logger, init_logger
 from snakemake.persistence import Persistence
 
 __author__ = "Johannes Köster"
-__version__ = "2.2.1"
+__version__ = "2.2.2"
 
 
 def snakemake(snakefile,
