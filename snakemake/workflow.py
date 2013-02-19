@@ -85,9 +85,9 @@ class Workflow:
                     for line in rule.docstring.split("\n"):
                         log("\t" + line)
 
-    def update_metadata(self, files):
+    def cleanup_metadata(self, files):
         for f in files:
-            self.persistence.update_metadata(f)
+            self.persistence.cleanup_metadata(f)
 
     def execute(
         self, targets=None, dryrun=False,  touch=False, cores=1,

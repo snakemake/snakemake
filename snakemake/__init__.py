@@ -110,7 +110,7 @@ def snakemake(snakefile,
         if listrules:
             workflow.list_rules()
         elif cleanup_metadata:
-            workflow.cleanup_metadata(update_metadata)
+            workflow.cleanup_metadata(cleanup_metadata)
         else:
             success = workflow.execute(
                 targets=targets, dryrun=dryrun, touch=touch,

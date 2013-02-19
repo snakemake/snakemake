@@ -105,7 +105,8 @@ class RealExecutor(AbstractExecutor):
         printreason=False, quiet=False, printshellcmds=False, output_wait=3):
         super().__init__(
             workflow, dag, printreason=printreason,
-            quiet=quiet, printshellcmds=printshellcmds, output_wait=output_wait)
+            quiet=quiet, printshellcmds=printshellcmds,
+            output_wait=output_wait)
         self.stats = Stats()
 
     def _run(self, job, callback=None, error_callback=None):
@@ -141,6 +142,7 @@ class TouchExecutor(RealExecutor):
             for f in job.expanded_output:
                 f.touch()
             time.sleep(0.1)
+            self.finish_job(job)
             callback(job)
         except OSError as ex:
             print_exception(ex, self.workflow.linemaps)

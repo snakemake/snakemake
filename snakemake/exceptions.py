@@ -191,7 +191,7 @@ class IncompleteFilesException(RuleException):
             "The files below seem to be incomplete. "
             "If you are sure that certain files are not incomplete, "
             "mark them as complete with\n\n"
-            "    snakemake --complete <filenames>\n\n"
+            "    snakemake --cleanup-metadata <filenames>\n\n"
             "To re-generate the files rerun your command with the "
             "--force-incomplete flag.\nIncomplete files:\n{}".format(
                 "\n".join(files)))
