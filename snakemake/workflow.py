@@ -126,6 +126,7 @@ class Workflow:
         targetfiles = set(chain(files(targets), priorityfiles, forcefiles))
         if forcetargets:
             forcefiles.update(targetfiles)
+            forcerules.update(targetrules)
 
         dag = DAG(
             self, dryrun=dryrun, targetfiles=targetfiles,
