@@ -117,8 +117,7 @@ class States:
         """ State that handles include definitions. """
         self._check_colon('include', token)
         self.state = self.include_path
-        if self.empty_rule and self.current_rule:
-            self.close_empty_rule(token)
+        self.close_empty_rule(token)
 
     def include_path(self, token):
         """ State that translates the include path into a function call. """
@@ -133,8 +132,7 @@ class States:
         """ State that handles workdir definition. """
         self._check_colon('workdir', token)
         self.state = self.workdir_path
-        if self.empty_rule and self.current_rule:
-            self.close_empty_rule(token)
+        self.close_empty_rule(token)
 
     def workdir_path(self, token):
         """ State that translates the workdir path into a function call. """
@@ -148,8 +146,7 @@ class States:
     def ruleorder(self, token):
         """ State that handles ruleorder definitions. """
         self._check_colon('ruleorder', token)
-        if self.empty_rule and self.current_rule:
-            self.close_empty_rule(token)
+        self.close_empty_rule(token)
         self._func_open('ruleorder', token, obj='workflow')
         self.state = self.ruleorder_order
 
@@ -171,8 +168,7 @@ class States:
 
     def rule(self, token):
         """ State that handles rule definition. """
-        if self.empty_rule and self.current_rule:
-            self.close_empty_rule(token)
+        self.close_empty_rule(token)
 
         self._rule_count += 1
         if self._is_colon(token):
@@ -408,13 +404,14 @@ class States:
         elif token.type == ENDMARKER:
             self._func_close(token)
 
-    def close_empty_rule(self, token):
-        # close previous rule if empty
-        self._run_def(token)
-        self.tokens.add(NEWLINE, '\n', token)\
-                   .add(INDENT, '\t', token)\
-                   .add(NAME, 'pass', token)\
-                   .add(NEWLINE, '\n', token)
+    def close_empty_rule(self, token=None):
+        if self.empty_rule and self.current_rule:
+            # close previous rule if empty
+            self._run_def(token)
+            self.tokens.add(NEWLINE, '\n', token)\
+                       .add(INDENT, '\t', token)\
+                       .add(NAME, 'pass', token)\
+                       .add(NEWLINE, '\n', token)
 
     def _is_colon(self, token):
         return token.type == tokenize.OP and token.string == ':'
@@ -484,6 +481,7 @@ def snakemake_to_python(tokens, filepath, rowmap=None, rule_count=0):
     try:
         for snakemake_token in tokens:
             states.state(snakemake_token)
+        states.close_empty_rule()
     except TokenError as ex:
         raise SyntaxError(str(ex))
     python_tokens = (python_token
