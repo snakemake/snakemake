@@ -272,7 +272,7 @@ class States:
             self.state = self.close_param
         elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
             raise self._syntax_error(
-                'Expected integer after threads keyword.', token)
+                'Expected integer or variable name after threads keyword.', token)
 
     def priority(self, token):
         """ State that handles definition of priority. """
@@ -288,7 +288,7 @@ class States:
             self.state = self.close_param
         elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
             raise self._syntax_error(
-                'Expected numeric value after priority keyword.', token)
+                'Expected numeric value or variable name after priority keyword.', token)
 
     def version(self, token):
         """ State that handles definition of version. """
@@ -304,7 +304,7 @@ class States:
             self.state = self.close_param
         elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
             raise self._syntax_error(
-                'Expected string value after version keyword.', token)
+                'Expected string value or variable name after version keyword.', token)
 
     def log(self, token):
         self._check_colon('log', token)
