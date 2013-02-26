@@ -267,7 +267,7 @@ class States:
         self.state = self.threads_value
 
     def threads_value(self, token):
-        if token.type == NUMBER:
+        if token.type == NUMBER or token.type == NAME:
             self.tokens.add(token, orig_token=token)
             self.state = self.close_param
         elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
@@ -283,7 +283,7 @@ class States:
         self.state = self.priority_value
 
     def priority_value(self, token):
-        if token.type == NUMBER:
+        if token.type == NUMBER or token.type == NAME:
             self.tokens.add(token, orig_token=token)
             self.state = self.close_param
         elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
@@ -299,7 +299,7 @@ class States:
         self.state = self.version_value
 
     def version_value(self, token):
-        if token.type == STRING:
+        if token.type == STRING or token.type == NAME:
             self.tokens.add(token, orig_token=token)
             self.state = self.close_param
         elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
@@ -412,6 +412,11 @@ class States:
                        .add(INDENT, '\t', token)\
                        .add(NAME, 'pass', token)\
                        .add(NEWLINE, '\n', token)
+
+    def _is_keyword_end(self, token):
+        return (token.type in (NEWLINE, NL, ENDMARKER)
+            and not ((last.type == OP and last.string == ",")
+            or (last.type == COMMENT) or self._is_colon(last)))
 
     def _is_colon(self, token):
         return token.type == tokenize.OP and token.string == ':'

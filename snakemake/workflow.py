@@ -220,8 +220,15 @@ class Workflow:
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             if ruleinfo.threads:
+                if not isinstance(ruleinfo.threads, int):
+                    raise RuleException("Threads value has to be an integer.",
+                        rule=rule)
                 rule.threads = ruleinfo.threads
             if ruleinfo.priority:
+                if (not isinstance(ruleinfo.priority, int) 
+                    and not isinstance(ruleinfo.priority, float)):
+                    raise RuleException("Priority values have to be numeric.",
+                        rule=rule)
                 rule.priority = ruleinfo.priority
             if ruleinfo.version:
                 rule.version = ruleinfo.version
