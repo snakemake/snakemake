@@ -47,7 +47,8 @@ class AbstractExecutor:
     def printjob(self, job):
 
         def format_files(job, io, ruleio, dynamicio):
-            for f, f_ in zip(io, ruleio):
+            for f in io:
+                f_ = ruleio[f]
                 if f in dynamicio:
                     yield "{} (dynamic)".format(f_)
                 else:
@@ -64,9 +65,9 @@ class AbstractExecutor:
                 desc.append("rule {}:".format(job.rule.name))
                 for name, value in (
                     ("input", ", ".join(format_files(
-                        job, job.input, job.rule.input, job.dynamic_input))),
+                        job, job.input, job.ruleio, job.dynamic_input))),
                     ("output", ", ".join(format_files(
-                        job, job.output, job.rule.output,
+                        job, job.output, job.ruleio,
                         job.dynamic_output))),
                     ("log", job.log),
                     ("reason",
