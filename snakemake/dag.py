@@ -336,7 +336,6 @@ class DAG:
                             requested=set(chain(*self.depending[job].values()))
                                 | self.targetfiles)
                     reason.missing_output.update(missing_output)
-
             if not reason:
                 output_mintime_ = output_mintime(job)
                 if output_mintime_:
