@@ -311,6 +311,7 @@ class DAG:
 
         def needrun(job):
             reason = self.reason(job)
+            noinitreason = not reason
             if (job not in self.omitforce and job.rule in self.forcerules
                 or not self.forcefiles.isdisjoint(job.output)):
                 reason.forced = True
@@ -330,12 +331,15 @@ class DAG:
                             requested=set(chain(*self.depending[job].values()))
                                 | self.targetfiles)
                     reason.missing_output.update(missing_output)
+                    
             if not reason:
                 output_mintime_ = output_mintime(job)
                 if output_mintime_:
                     updated_input = [f for f in job.input
                         if f.exists and f.is_newer(output_mintime_)]
                     reason.updated_input.update(updated_input)
+            if noinitreason and reason:
+                reason.derived = False
             return job
 
         candidates = set(self.jobs)

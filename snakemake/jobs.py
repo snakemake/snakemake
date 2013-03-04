@@ -228,26 +228,34 @@ class Reason:
         self.incomplete_output = set()
         self.forced = False
         self.noio = False
+        self.derived = True
 
     def __str__(self):
+        s = list()
         if self.forced:
-            return "Forced execution"
-        if self.missing_output:
-            return "Missing output files: {}".format(
-                ", ".join(self.missing_output))
-        if self.incomplete_output:
-            return "Incomplete output files: {}".format(
-                ", ".join(self.incomplete_output))
-        if self.updated_input:
-            return "Updated input files: {}".format(
-                ", ".join(self.updated_input))
-        if self.updated_input_run:
-            return "This run updates input files: {}".format(
-                ", ".join(self.updated_input_run))
-        if self.noio:
-            return ("Rules with neither input nor "
-                "output files are always executed")
-        return ""
+            s.append("Forced execution")
+        else:
+            if self.noio:
+                s.append("Rules with neither input nor "
+                    "output files are always executed")
+            else:
+                if self.missing_output:
+                    s.append("Missing output files: {}".format(
+                        ", ".join(self.missing_output)))
+                if self.incomplete_output:
+                    s.append("Incomplete output files: {}".format(
+                        ", ".join(self.incomplete_output)))
+                updated_input = self.updated_input - self.updated_input_run
+                if updated_input:
+                    s.append("Updated input files: {}".format(
+                        ", ".join(updated_input)))
+                if self.updated_input_run:
+                    s.append("This run updates input files: {}".format(
+                        ", ".join(self.updated_input_run)))
+        s = "; ".join(s)
+        if not self.derived:
+            s += " (root)"
+        return s
 
     def __bool__(self):
         return bool(self.updated_input or self.missing_output or self.forced

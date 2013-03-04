@@ -15,7 +15,8 @@ from snakemake.exceptions import RuleException, CreateRuleException, \
 from snakemake.shell import shell
 from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
-from snakemake.parser import compile_to_python
+#from snakemake.parser import compile_to_python
+from snakemake.parser2 import parse
 from snakemake.io import protected, temp, temporary, expand, dynamic
 
 
@@ -50,6 +51,7 @@ class Workflow:
                 "The name {} is already used by another rule".format(name))
         rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
         self._rules[rule.name] = rule
+        self.rule_count += 1
         if not self.first_rule:
             self.first_rule = rule.name
         return name
@@ -191,9 +193,10 @@ class Workflow:
         first_rule = self.first_rule
         if workdir:
             os.chdir(workdir)
-        code, linemap, rule_count = compile_to_python(
-            snakefile, rule_count=self.rule_count)
-        self.rule_count += rule_count
+        #code, linemap, rule_count = compile_to_python(
+        #    snakefile, rule_count=self.rule_count)
+        #self.rule_count += rule_count
+        code, linemap = parse(snakefile)
         self.linemaps[snakefile] = linemap
         exec(compile(code, snakefile, "exec"), self.globals)
         if not overwrite_first_rule:
@@ -225,7 +228,7 @@ class Workflow:
                         rule=rule)
                 rule.threads = ruleinfo.threads
             if ruleinfo.priority:
-                if (not isinstance(ruleinfo.priority, int) 
+                if (not isinstance(ruleinfo.priority, int)
                     and not isinstance(ruleinfo.priority, float)):
                     raise RuleException("Priority values have to be numeric.",
                         rule=rule)
