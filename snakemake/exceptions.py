@@ -193,7 +193,7 @@ class IncompleteFilesException(RuleException):
             "mark them as complete with\n\n"
             "    snakemake --cleanup-metadata <filenames>\n\n"
             "To re-generate the files rerun your command with the "
-            "--force-incomplete flag.\nIncomplete files:\n{}".format(
+            "--rerun-incomplete flag.\nIncomplete files:\n{}".format(
                 "\n".join(files)))
 
 
