@@ -186,6 +186,7 @@ class CPUExecutor(RealExecutor):
         except (Exception, BaseException) as ex:
             print_exception(ex, self.workflow.linemaps)
             job.cleanup()
+            self.workflow.persistence.cleanup(job)
             error_callback()
 
 
