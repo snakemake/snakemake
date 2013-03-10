@@ -5,7 +5,6 @@ __author__ = "Johannes Köster"
 import os
 import signal
 import marshal
-import time
 from base64 import urlsafe_b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse
@@ -69,6 +68,12 @@ class Persistence:
             self._record(self._version, version, f)
             self._record(self._code, code, f, bin=True)
 
+    def cleanup(self, job):
+        for f in job.output:
+            self._delete_record(self._incomplete, f)
+            self._delete_record(self._version, f)
+            self._delete_record(self._code, f)
+
     def incomplete(self, job):
         return any(
             map(partial(self._exists_record, self._incomplete), job.output))
@@ -117,7 +122,7 @@ class Persistence:
         try:
             os.remove(os.path.join(subject, self.b64id(id)))
         except OSError as e:
-            if e.errno != 2: # not missing
+            if e.errno != 2:  # not missing
                 raise e
 
     def _read_record(self, subject, id, bin=False):
