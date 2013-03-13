@@ -222,7 +222,6 @@ class ClusterExecutor(RealExecutor):
     def shutdown(self):
         for thread in self.threads:
             thread.join()
-
         shutil.rmtree(self.tmpdir)
 
     def run(self, job, callback=None, error_callback=None):
@@ -250,11 +249,13 @@ class ClusterExecutor(RealExecutor):
     def _wait_for_job(
         self, job, callback, error_callback,
         jobscript, jobfinished, jobfailed):
+        self.runningjobs += 1
         while True:
             if os.path.exists(jobfinished):
                 os.remove(jobfinished)
                 os.remove(jobscript)
                 self.finish_job(job)
+                self.runningjobs -= 1
                 callback(job)
                 return
             if os.path.exists(jobfailed):
@@ -262,6 +263,7 @@ class ClusterExecutor(RealExecutor):
                 os.remove(jobscript)
                 print_exception(
                     ClusterJobException(job), self.workflow.linemaps)
+                self.runningjobs -= 1
                 error_callback()
                 return
             time.sleep(1)
