@@ -215,20 +215,20 @@ class ClusterExecutor(RealExecutor):
             "Cluster executor needs to know the path "
             "to the snakemake binary.")
         self.submitcmd = submitcmd
-        self.startedjobs = 0
-        self.runningjobs = 0
+        self.threads = []
         self._tmpdir = None
         self.cores = cores if cores else ""
 
     def shutdown(self):
-        while self.runningjobs > 0:
-            time.sleep(1)
+        for thread in self.threads:
+            thread.join()
+
         shutil.rmtree(self.tmpdir)
 
     def run(self, job, callback=None, error_callback=None):
         super()._run(job)
         workdir = os.getcwd()
-        jobid = self.startedjobs
+        jobid = len(self.threads)
 
         jobscript = os.path.join(self.tmpdir, "{}.sh".format(jobid))
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
@@ -240,22 +240,21 @@ class ClusterExecutor(RealExecutor):
         submitcmd = job.format_wildcards(self.submitcmd)
         shell('{submitcmd} "{jobscript}"')
 
-        self.startedjobs += 1
-        threading.Thread(
+        thread = threading.Thread(
             target=self._wait_for_job,
             args=(job, callback, error_callback,
-                jobscript, jobfinished, jobfailed)).start()
+                jobscript, jobfinished, jobfailed))
+        thread.start()
+        self.threads.append(thread)
 
     def _wait_for_job(
         self, job, callback, error_callback,
         jobscript, jobfinished, jobfailed):
-        self.runningjobs += 1
         while True:
             if os.path.exists(jobfinished):
                 os.remove(jobfinished)
                 os.remove(jobscript)
                 self.finish_job(job)
-                self.runningjobs -= 1
                 callback(job)
                 return
             if os.path.exists(jobfailed):
@@ -263,7 +262,6 @@ class ClusterExecutor(RealExecutor):
                 os.remove(jobscript)
                 print_exception(
                     ClusterJobException(job), self.workflow.linemaps)
-                self.runningjobs -= 1
                 error_callback()
                 return
             time.sleep(1)
