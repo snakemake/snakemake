@@ -192,7 +192,7 @@ class CPUExecutor(RealExecutor):
 
 class ClusterExecutor(RealExecutor):
 
-    jobscript = textwrap.dedent("""
+    jobscript = textwrap.dedent("""\
         #!/bin/sh
         #rule: {job}
         #input: {job.input}
@@ -216,10 +216,13 @@ class ClusterExecutor(RealExecutor):
             "to the snakemake binary.")
         self.submitcmd = submitcmd
         self.startedjobs = 0
+        self.runningjobs = 0
         self._tmpdir = None
         self.cores = cores if cores else ""
 
     def shutdown(self):
+        while self.runningjobs > 0:
+            time.sleep(1)
         shutil.rmtree(self.tmpdir)
 
     def run(self, job, callback=None, error_callback=None):
@@ -246,11 +249,13 @@ class ClusterExecutor(RealExecutor):
     def _wait_for_job(
         self, job, callback, error_callback,
         jobscript, jobfinished, jobfailed):
+        self.runningjobs += 1
         while True:
             if os.path.exists(jobfinished):
                 os.remove(jobfinished)
                 os.remove(jobscript)
                 self.finish_job(job)
+                self.runningjobs -= 1
                 callback(job)
                 return
             if os.path.exists(jobfailed):
@@ -258,6 +263,7 @@ class ClusterExecutor(RealExecutor):
                 os.remove(jobscript)
                 print_exception(
                     ClusterJobException(job), self.workflow.linemaps)
+                self.runningjobs -= 1
                 error_callback()
                 return
             time.sleep(1)
