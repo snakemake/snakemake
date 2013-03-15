@@ -191,6 +191,11 @@ class DAG:
                     raise MissingOutputException("Output file {} not "
                         "produced by rule {}.".format(f, job.rule.name),
                         lineno=job.rule.lineno, snakefile=job.rule.snakefile)
+        input_maxtime = job.input_maxtime
+        if input_maxtime is not None:
+            output_mintime = job.output_mintime
+            if output_mintime is not None and output_mintime < input_maxtime:
+                raise RuleException("Output files {} are older than input files. Did you extract an archive? Make sure that output files have a more recent modification date than the archive, e.g. by using 'touch'.".format(", ".join(job.expanded_output)), rule=job.rule)
 
     def handle_protected(self, job):
         """ Write-protect output files that are marked with protected(). """
