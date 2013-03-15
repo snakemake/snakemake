@@ -3,8 +3,10 @@
 __author__ = "Johannes Köster"
 
 import os
+import glob
 import signal
 import marshal
+import hashlib
 from base64 import urlsafe_b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse
@@ -12,11 +14,16 @@ from itertools import filterfalse
 
 class Persistence:
 
-    def __init__(self, nolock=False):
+    def __init__(self, nolock=False, dag=None):
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
             os.mkdir(self.path)
-        self._lock = os.path.join(self.path, "lock")
+
+        self.files = "\n".join(dag.output_files)
+        self.filehash = hashlib.md5()
+        self.filehash.update(self.files)
+        self.filehash = self.filehash.digest()
+        self._lock = os.path.join(self.path, "{}.lock")
 
         self._incomplete = os.path.join(self.path, "incomplete_files")
         self._version = os.path.join(self.path, "version_tracking")
@@ -35,14 +42,25 @@ class Persistence:
 
     @property
     def locked(self):
-        return os.path.exists(self._lock)
+        for lock in glob.glob(os.path.join(self.path, "*.lock")):
+            with open(lock) as _lock:
+                # compare the filehash
+                if self.filehash == lock.read(32):
+                    # compare the files
+                    return self.files == lock.read()
 
     def lock(self):
         if self.locked:
             raise IOError("Another snakemake process "
                 "has locked this directory.")
-        with open(self._lock, "w") as lock:
-            lock.write("")
+        for i in count(0):
+            _lock = os.path.join(self.path, i + ".lock")
+            if not os.path.exists(_lock):
+                self._lock = _lock
+                with open(_lock, "w") as _lock:
+                    print(self.filehash, file=_lock)
+                    print(self.files, file=_lock)
+                    return
 
     def unlock(self):
         try:
