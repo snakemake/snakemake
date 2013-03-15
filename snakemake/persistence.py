@@ -19,11 +19,10 @@ class Persistence:
         if not os.path.exists(self.path):
             os.mkdir(self.path)
 
-        self.files = "\n".join(dag.output_files)
+        self.files = set(dag.output_files)
         self.filehash = hashlib.md5()
         self.filehash.update(self.files)
         self.filehash = self.filehash.digest()
-        self._lock = os.path.join(self.path, "{}.lock")
 
         self._incomplete = os.path.join(self.path, "incomplete_files")
         self._version = os.path.join(self.path, "version_tracking")
@@ -47,7 +46,7 @@ class Persistence:
                 # compare the filehash
                 if self.filehash == lock.read(32):
                     # compare the files
-                    return self.files == lock.read()
+                    return not self.files.isdisjoint(lock.readlines())
 
     def lock(self):
         if self.locked:
@@ -59,7 +58,7 @@ class Persistence:
                 self._lock = _lock
                 with open(_lock, "w") as _lock:
                     print(self.filehash, file=_lock)
-                    print(self.files, file=_lock)
+                    print(*self.files, sep="\n", file=_lock)
                     return
 
     def unlock(self):
