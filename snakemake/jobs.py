@@ -240,15 +240,15 @@ class Reason:
     def __str__(self):
         if self.forced:
             return "Forced execution"
+        if self.updated_input:
+            return "Updated input files: {}".format(
+                ", ".join(self.updated_input))
         if self.missing_output:
             return "Missing output files: {}".format(
                 ", ".join(self.missing_output))
         if self.incomplete_output:
             return "Incomplete output files: {}".format(
                 ", ".join(self.incomplete_output))
-        if self.updated_input:
-            return "Updated input files: {}".format(
-                ", ".join(self.updated_input))
         if self.updated_input_run:
             return "This run updates input files: {}".format(
                 ", ".join(self.updated_input_run))
