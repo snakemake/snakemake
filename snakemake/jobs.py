@@ -134,6 +134,14 @@ class Job:
             return min(existing)
         return None
 
+    @property
+    def input_maxtime(self):
+        """ Return newest input file. """
+        existing = [f.mtime for f in self.input if f.exists]
+        if existing:
+            return max(existing)
+        return None
+
     def missing_output(self, requested=None):
         """ Return missing output files. """
         if requested is None:
