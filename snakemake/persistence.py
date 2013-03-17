@@ -43,6 +43,12 @@ class Persistence:
             signal.signal(s, self.unlock)
 
     @property
+    def files(self):
+        if self._files is None:
+            self._files = set(self.dag.output_files)
+        return self._files
+
+    @property
     def locked(self):
         strip = lambda lines: map(str.strip, lines)
         inputfiles = set(self.inputfiles())
@@ -191,3 +197,4 @@ class Persistence:
     def inputfiles(self):
         # we consider all input files, also of not running jobs
         return Job.files(self.dag.jobs, "input")
+
