@@ -6,11 +6,9 @@ import os
 import glob
 import signal
 import marshal
-import hashlib
 from base64 import urlsafe_b64encode
 from functools import lru_cache, partial
-from itertools import filterfalse
-
+from itertools import filterfalse, count
 
 class Persistence:
 
@@ -18,11 +16,13 @@ class Persistence:
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
             os.mkdir(self.path)
+        self._lockdir = os.path.join(self.path, "locks")
+        if not os.path.exists(self._lockdir):
+            os.mkdir(self._lockdir)
 
-        self.files = set(dag.output_files)
-        self.filehash = hashlib.md5()
-        self.filehash.update(self.files)
-        self.filehash = self.filehash.digest()
+        self.dag = dag
+        self._files = None
+        self._lockfile = None
 
         self._incomplete = os.path.join(self.path, "incomplete_files")
         self._version = os.path.join(self.path, "version_tracking")
@@ -40,33 +40,40 @@ class Persistence:
             signal.signal(s, self.unlock)
 
     @property
+    def files(self):
+        if self._files is None:
+            self._files = set(self.dag.output_files)
+        return self._files
+
+    @property
     def locked(self):
-        for lock in glob.glob(os.path.join(self.path, "*.lock")):
-            with open(lock) as _lock:
-                # compare the filehash
-                if self.filehash == lock.read(32):
-                    # compare the files
-                    return not self.files.isdisjoint(lock.readlines())
+        if os.path.exists(self._lockdir):
+            for lockfile in self._locks():
+                if not os.path.isdir(lockfile):
+                    with open(lockfile) as lock:
+                        if not self.files.isdisjoint(lock.readlines()):
+                            return True
+        return False
 
     def lock(self):
         if self.locked:
             raise IOError("Another snakemake process "
                 "has locked this directory.")
         for i in count(0):
-            _lock = os.path.join(self.path, i + ".lock")
-            if not os.path.exists(_lock):
-                self._lock = _lock
-                with open(_lock, "w") as _lock:
-                    print(self.filehash, file=_lock)
-                    print(*self.files, sep="\n", file=_lock)
+            lockfile = os.path.join(self._lockdir, "{}.lock".format(i))
+            if not os.path.exists(lockfile):
+                self._lockfile = lockfile
+                with open(lockfile, "w") as lock:
+                    print(*self.files, sep="\n", file=lock)
                     return
 
     def unlock(self):
-        try:
-            os.remove(self._lock)
-        except OSError as e:
-            if e.errno != 2:  # missing file
-                raise e
+        if self._lockfile is not None:
+            try:
+                os.remove(self._lockfile)
+            except OSError as e:
+                if e.errno != 2:  # missing file
+                    raise e
 
     def cleanup_metadata(self, path):
         self._delete_record(self._incomplete, path)
@@ -155,3 +162,6 @@ class Persistence:
 
     def _exists_record(self, subject, id):
         return os.path.exists(os.path.join(subject, self.b64id(id)))
+
+    def _locks(self):
+        return glob.iglob(os.path.join(self._lockdir, "[0-9]+.lock"))

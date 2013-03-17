@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 from itertools import chain, combinations, filterfalse, product
 from functools import partial, lru_cache
-from operator import itemgetter
+from operator import itemgetter, attrgetter
 
 from snakemake.io import IOFile, _IOFile
 from snakemake.jobs import Job, Reason

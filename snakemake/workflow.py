@@ -17,10 +17,11 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import compile_to_python
 from snakemake.io import protected, temp, temporary, expand, dynamic
+from snakemake.persistence import Persistence
 
 
 class Workflow:
-    def __init__(self, snakefile=None, snakemakepath=None, persistence=None):
+    def __init__(self, snakefile=None, snakemakepath=None):
         """
         Create the controller.
         """
@@ -32,7 +33,7 @@ class Workflow:
         self.rule_count = 0
         self.snakefile = snakefile
         self.snakemakepath = snakemakepath
-        self.persistence = persistence
+        self.persistence = None
         self.globals = globals()
 
     @property
@@ -97,7 +98,7 @@ class Workflow:
         cluster=None,  ignore_ambiguity=False, workdir=None,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
-        summary=False, output_wait=3):
+        summary=False, output_wait=3, nolock=False, unlock=False):
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
@@ -136,6 +137,9 @@ class Workflow:
             priorityrules=priorityrules, ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
             ignore_incomplete=ignore_incomplete)
+
+        self.persistence = Persistence(nolock=nolock, dag=dag)
+
         try:
             dag.init()
         except RuleException as ex:
@@ -144,6 +148,28 @@ class Workflow:
             return False
         except (Exception, BaseException) as ex:
             print_exception(ex, self.linemaps)
+            return False
+
+        if unlock:
+            try:
+                self.persistence.unlock()
+                logger.warning("Unlocking working directory.")
+                return True
+            except IOError:
+                logger.error("Error: Unlocking the directory {} failed. Maybe "
+                "you don't have the permissions?")
+                return False
+        try:
+            self.persistence.lock()
+        except IOError:
+            logger.critical("Error: Directory cannot be locked. Please make "
+                "sure that no other Snakemake process is trying to create "
+                "the same files in the following directory:\n{}\n"
+                "If you are sure that no other "
+                "instances of snakemake are running on this directory, "
+                "the remaining lock was likely caused by a kill signal or "
+                "a power loss. It can be removed with "
+                "the --unlock argument.".format(os.getcwd()))
             return False
 
         if printdag:

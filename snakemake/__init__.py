@@ -5,7 +5,6 @@ import os
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import logger, init_logger
-from snakemake.persistence import Persistence
 
 __author__ = "Johannes Köster"
 __version__ = "2.2.2"
@@ -79,33 +78,8 @@ def snakemake(snakefile,
             pass
 
     success = False
-    persistence = Persistence(nolock=not lock)
     try:
         workflow.include(snakefile, workdir=workdir, overwrite_first_rule=True)
-
-        if unlock:
-            try:
-                persistence.unlock()
-                logger.warning("Unlocking working directory.")
-                return True
-            except IOError:
-                logger.error("Error: Unlocking the directory {} failed. Maybe "
-                "you don't have the permissions?")
-                return False
-        try:
-            persistence.lock()
-        except IOError:
-            logger.error("Error: Directory cannot be locked. Please make "
-                "sure that no other Snakemake process is running on the "
-                "following directory:\n{}\n"
-                "If you are sure that no other "
-                "instances of snakemake are running on this directory, "
-                "the remaining lock was likely caused by a kill signal or "
-                "a power loss. It can be removed with "
-                "the --unlock argument.".format(os.getcwd()))
-                # TODO provide cleanup
-            return False
-        workflow.persistence = persistence
 
         if listrules:
             workflow.list_rules()
@@ -127,7 +101,9 @@ def snakemake(snakefile,
                 list_version_changes=list_version_changes,
                 list_code_changes=list_code_changes,
                 summary=summary,
-                output_wait=output_wait
+                output_wait=output_wait,
+                nolock=not lock,
+                unlock=unlock
                 )
 
     except (Exception, BaseException) as ex:
@@ -135,5 +111,5 @@ def snakemake(snakefile,
     if workdir:
         os.chdir(olddir)
     if workflow.persistence:
-        persistence.unlock()
+        workflow.persistence.unlock()
     return success
