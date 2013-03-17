@@ -7,6 +7,7 @@ import base64
 from collections import defaultdict
 from itertools import chain
 from functools import partial
+from operator import attrgetter
 
 from snakemake.io import IOFile, Wildcards, _IOFile
 from snakemake.utils import format, listfiles
@@ -17,6 +18,10 @@ __author__ = "Johannes Köster"
 
 class Job:
     HIGHEST_PRIORITY = sys.maxsize
+
+    @staticmethod
+    def files(jobs, type):
+        return chain(*map(attrgetter(type), jobs))
 
     def __init__(self, rule, targetfile=None, format_wildcards=None):
         self.rule = rule

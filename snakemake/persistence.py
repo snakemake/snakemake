@@ -10,6 +10,8 @@ from base64 import urlsafe_b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse, count
 
+from snakemake.jobs import Job
+
 class Persistence:
 
     def __init__(self, nolock=False, dag=None):
@@ -21,8 +23,7 @@ class Persistence:
             os.mkdir(self._lockdir)
 
         self.dag = dag
-        self._files = None
-        self._lockfile = None
+        self._lockfile = dict()
 
         self._incomplete = os.path.join(self.path, "incomplete_files")
         self._version = os.path.join(self.path, "version_tracking")
@@ -40,37 +41,34 @@ class Persistence:
             signal.signal(s, self.unlock)
 
     @property
-    def files(self):
-        if self._files is None:
-            self._files = set(self.dag.output_files)
-        return self._files
-
-    @property
     def locked(self):
+        inputfiles = set(self.inputfiles())
+        outputfiles = set(self.outputfiles())
         if os.path.exists(self._lockdir):
-            for lockfile in self._locks():
-                if not os.path.isdir(lockfile):
-                    with open(lockfile) as lock:
-                        if not self.files.isdisjoint(lock.readlines()):
-                            return True
+            for lockfile in self._locks("input"):
+                with open(lockfile) as lock:
+                    if not outputfiles.isdisjoint(lock.readlines()):
+                        return True
+            for lockfile in self._locks("output"):
+                with open(lockfile) as lock:
+                    files = lock.readlines()
+                    if not outputfiles.isdisjoint(files):
+                        return True
+                    if not inputfiles.isdisjoint(files):
+                        return True
         return False
 
     def lock(self):
         if self.locked:
             raise IOError("Another snakemake process "
                 "has locked this directory.")
-        for i in count(0):
-            lockfile = os.path.join(self._lockdir, "{}.lock".format(i))
-            if not os.path.exists(lockfile):
-                self._lockfile = lockfile
-                with open(lockfile, "w") as lock:
-                    print(*self.files, sep="\n", file=lock)
-                    return
+        self._lock(self.inputfiles(), "input")
+        self._lock(self.outputfiles(), "output")
 
     def unlock(self):
-        if self._lockfile is not None:
+        for lockfile in self._lockfile.values():
             try:
-                os.remove(self._lockfile)
+                os.remove(lockfile)
             except OSError as e:
                 if e.errno != 2:  # missing file
                     raise e
@@ -163,5 +161,24 @@ class Persistence:
     def _exists_record(self, subject, id):
         return os.path.exists(os.path.join(subject, self.b64id(id)))
 
-    def _locks(self):
-        return glob.iglob(os.path.join(self._lockdir, "[0-9]+.lock"))
+    def _locks(self, type):
+        return filterfalse(os.path.isdir, glob.iglob(
+            os.path.join(self._lockdir, "[0-9]+.{}.lock".format(type))))
+
+    def _lock(self, files, type):
+        for i in count(0):
+            lockfile = os.path.join(
+                self._lockdir, "{}.{}.lock".format(i, type))
+            if not os.path.exists(lockfile):
+                self._lockfile[type] = lockfile
+                with open(lockfile, "w") as lock:
+                    print(*files, sep="\n", file=lock)
+                    return
+
+    def outputfiles(self):
+        # we only look at output files that will be updated
+        return Job.files(self.dag.needrun_jobs, "output")
+
+    def inputfiles(self):
+        # we consider all input files, also of not running jobs
+        return Job.files(self.dag.jobs, "input")
