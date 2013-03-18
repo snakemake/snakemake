@@ -11,6 +11,8 @@ from functools import lru_cache, partial
 from itertools import filterfalse, count
 
 from snakemake.jobs import Job
+from snakemake.utils import listfiles
+
 
 class Persistence:
 
@@ -42,16 +44,17 @@ class Persistence:
 
     @property
     def locked(self):
+        strip = lambda lines: map(str.strip, lines)
         inputfiles = set(self.inputfiles())
         outputfiles = set(self.outputfiles())
         if os.path.exists(self._lockdir):
             for lockfile in self._locks("input"):
                 with open(lockfile) as lock:
-                    if not outputfiles.isdisjoint(lock.readlines()):
+                    if not outputfiles.isdisjoint(strip(lock.readlines())):
                         return True
             for lockfile in self._locks("output"):
                 with open(lockfile) as lock:
-                    files = lock.readlines()
+                    files = strip(lock.readlines())
                     if not outputfiles.isdisjoint(files):
                         return True
                     if not inputfiles.isdisjoint(files):
@@ -162,8 +165,11 @@ class Persistence:
         return os.path.exists(os.path.join(subject, self.b64id(id)))
 
     def _locks(self, type):
-        return filterfalse(os.path.isdir, glob.iglob(
-            os.path.join(self._lockdir, "[0-9]+.{}.lock".format(type))))
+        return (f for f, _ in listfiles(
+            os.path.join(
+                self._lockdir,
+                "{{n,[0-9]+}}.{}.lock".format(type))) 
+            if not os.path.isdir(f))
 
     def _lock(self, files, type):
         for i in count(0):
