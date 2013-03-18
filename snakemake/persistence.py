@@ -3,7 +3,7 @@
 __author__ = "Johannes Köster"
 
 import os
-import glob
+import shutil
 import signal
 import marshal
 from base64 import urlsafe_b64encode
@@ -75,6 +75,9 @@ class Persistence:
             except OSError as e:
                 if e.errno != 2:  # missing file
                     raise e
+
+    def cleanup_locks(self):
+        shutil.rmtree(self._lockdir)
 
     def cleanup_metadata(self, path):
         self._delete_record(self._incomplete, path)
@@ -168,7 +171,7 @@ class Persistence:
         return (f for f, _ in listfiles(
             os.path.join(
                 self._lockdir,
-                "{{n,[0-9]+}}.{}.lock".format(type))) 
+                "{{n,[0-9]+}}.{}.lock".format(type)))
             if not os.path.isdir(f))
 
     def _lock(self, files, type):

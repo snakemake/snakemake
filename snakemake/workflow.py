@@ -152,7 +152,7 @@ class Workflow:
 
         if unlock:
             try:
-                self.persistence.unlock()
+                self.persistence.cleanup_locks()
                 logger.warning("Unlocking working directory.")
                 return True
             except IOError:
