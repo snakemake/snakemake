@@ -251,7 +251,7 @@ class Workflow:
                         rule=rule)
                 rule.threads = ruleinfo.threads
             if ruleinfo.priority:
-                if (not isinstance(ruleinfo.priority, int) 
+                if (not isinstance(ruleinfo.priority, int)
                     and not isinstance(ruleinfo.priority, float)):
                     raise RuleException("Priority values have to be numeric.",
                         rule=rule)
