@@ -69,12 +69,13 @@ class TokenAutomaton:
             self.indent = token.end[1] - self.base_indent
 
     def consume(self):
+        
         for token in self.tokenizer:
             self.indentation(token)
             for t, orig in self.state(token):
-                yield t, orig
                 if self.lasttoken == "\n" and not t.isspace():
                     yield " " * (self.base_indent + self.indent), orig
+                yield t, orig
                 self.lasttoken = t
 
     def error(self, msg, token):
