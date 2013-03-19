@@ -11,35 +11,35 @@ __author__ = "Johannes Köster"
 dd = textwrap.dedent
 
 
-def newline(token, newline_tokens=set((tokenize.NEWLINE, tokenize.NL))):
+def is_newline(token, newline_tokens=set((tokenize.NEWLINE, tokenize.NL))):
     return token.type in newline_tokens
 
 
-def indent(token):
+def is_indent(token):
     return token.type == tokenize.INDENT
 
 
-def dedent(token):
+def is_dedent(token):
     return token.type == tokenize.DEDENT
 
 
-def greater(token):
+def is_greater(token):
     return token.type == tokenize.OP and token.string == ">"
 
 
-def name(token):
+def is_name(token):
     return token.type == tokenize.NAME
 
 
-def colon(token):
+def is_colon(token):
     return token.string == ":"
 
 
-def comment(token):
+def is_comment(token):
     return token.type == tokenize.COMMENT
 
 
-def string(token):
+def is_string(token):
     return token.type == tokenize.STRING
 
 
@@ -55,25 +55,39 @@ class StopAutomaton(Exception):
 
 class TokenAutomaton:
 
-    def __init__(self, tokenizer):
+    subautomata = dict()
+
+    def __init__(self, tokenizer, base_indent=0):
         self.tokenizer = tokenizer
         self.state = None
+        self.base_indent = base_indent
+        self.indent = 0
 
     def consume(self):
         for token in self.tokenizer:
-            for t in self.state(token):
-                yield t
+            for t, orig in self.state(token):
+                if t == "\n":
+                    yield " " * self.base_indent, orig
+                if is_indent(orig) or is_dedent(orig):
+                    self.indent = orig.end[1] - self.base_indent
+                yield t, orig
 
     def error(self, msg, token):
         raise SyntaxError(msg,
             (self.tokenizer.path, lineno(token), None, None))
 
+    def subautomaton(self, automaton, *args, **kwargs):
+        return self.subautomata[automaton](
+            self.tokenizer,
+            *args,
+            base_indent= self.base_indent + self.indent,
+            **kwargs)
+
 
 class KeywordState(TokenAutomaton):
 
-    def __init__(self, tokenizer):
-        super().__init__(tokenizer)
-        self.indent = 0
+    def __init__(self, tokenizer, base_indent=0):
+        super().__init__(tokenizer, base_indent=base_indent)
         self.line = 0
         self.state = self.colon
 
@@ -85,7 +99,7 @@ class KeywordState(TokenAutomaton):
         yield ")"
 
     def colon(self, token):
-        if colon(token):
+        if is_colon(token):
             self.state = self.block
             for t in self.start():
                 yield t, token
@@ -95,19 +109,19 @@ class KeywordState(TokenAutomaton):
                 token)
 
     def block(self, token):
-        if newline(token):
+        print(self.indent, self.__class__.__name__)
+        if is_newline(token):
             self.line += 1
             yield token.string, token
-        elif indent(token):
-            self.indent += 1
+        elif is_indent(token):
             yield token.string, token
-        elif dedent(token):
-            self.indent -= 1
+        elif is_dedent(token):
             yield token.string, token
-        elif self.indent == 0 and self.line != 0:
-                for t in self.end():
-                    yield t, token
-                raise StopAutomaton(token)
+        elif self.line and self.indent <= 0:
+            for t in self.end():
+                yield t, token
+            yield "\n", token
+            raise StopAutomaton(token)
         else:
             for t in self.block_content(token):
                 yield t
@@ -124,11 +138,12 @@ class GlobalKeywordState(KeywordState):
 
 class RuleKeywordState(KeywordState):
 
-    def __init__(self, tokenizer, rulename=None):
-        super().__init__(tokenizer)
+    def __init__(self, tokenizer, base_indent=0, rulename=None):
+        super().__init__(tokenizer, base_indent=base_indent)
         self.rulename = rulename
 
     def start(self):
+        yield "\n"
         yield "@workflow.{keyword}(".format(keyword=self.keyword)
 
 
@@ -146,10 +161,10 @@ class Workdir(GlobalKeywordState):
 class Ruleorder(GlobalKeywordState):
 
     def block_content(self, token):
-        if greater(token):
+        if is_greater(token):
             yield ",", token
-        elif name(token):
-            yield token.string, token
+        elif is_name(token):
+            yield '"{}"'.format(token.string), token
         else:
             self.error('Expected a descending order of rule names, '
                 'e.g. rule1 > rule2 > rule3 ...', token)
@@ -191,32 +206,42 @@ class Message(RuleKeywordState):
 
 
 class Run(RuleKeywordState):
-    def __init__(self, tokenizer, rulename):
-        super().__init__(tokenizer)
+
+    def __init__(self, tokenizer, rulename, base_indent=0):
+        super().__init__(tokenizer, base_indent=base_indent)
         self.rulename = rulename
 
     def start(self):
-        yield textwrap.dedent("""
-        @workflow.run
-        __{rulename}(
-        """).format(rulename=self.rulename)
+        yield "@workflow.run"
+        yield "\n"
+        yield ("def __{rulename}(input, output, params, wildcards, threads, "
+            "log):".format(rulename=self.rulename))
+
+    def end(self):
+        yield ""
 
 
 class Shell(Run):
 
-    def __init__(self, tokenizer, rulename):
-        super().__init__(tokenizer, rulename)
+    def __init__(self, tokenizer, rulename, base_indent=0):
+        super().__init__(tokenizer, rulename, base_indent=base_indent)
         self.shellcmd = list()
 
     def start(self):
         yield "@workflow.shellcmd("
 
     def end(self):
-        yield ")\n"
-        for t in chain(
-            super().start(),
-            self.shellcmd,
-            super().end()):
+        yield ")"
+        yield "\n"
+        for t in super().start():
+            yield t
+        yield "\n"
+        yield "\t"
+        yield "shell("
+        for t in self.shellcmd:
+            yield t
+        yield ")"
+        for t in super().end():
             yield t
 
     def block_content(self, token):
@@ -225,7 +250,7 @@ class Shell(Run):
 
 
 class Rule(GlobalKeywordState):
-    keywords = dict(
+    subautomata = dict(
         input=Input,
         output=Output,
         params=Params,
@@ -237,24 +262,32 @@ class Rule(GlobalKeywordState):
         run=Run,
         shell=Shell)
 
-    def __init__(self, tokenizer):
-        super().__init__(tokenizer)
+    def __init__(self, tokenizer, base_indent=0):
+        super().__init__(tokenizer, base_indent=base_indent)
         self.state = self.name
+        self.rulename = None
+        self.lineno = None
+        self.run = False
 
     def start(self):
-        yield ("@workflow.rule(name={rulename}, lineno={lineno}, "
-            "snakefile={snakefile})".format(
+        yield ("@workflow.rule(name='{rulename}', lineno={lineno}, "
+            "snakefile='{snakefile}')".format(
                 rulename=self.rulename,
                 lineno=self.lineno,
                 snakefile=self.tokenizer.path))
 
     def end(self):
-        yield ""
+        if not self.run:
+            for t in self.subautomaton("run", rulename=self.rulename).start():
+                yield t
+            yield "\n"
+            yield "\t"
+            yield "pass"
 
     def name(self, token):
-        if name(token):
+        if is_name(token):
             self.rulename = token.string
-        elif colon(token):
+        elif is_colon(token):
             self.lineno = lineno(token)
             self.state = self.block
             for t in self.start():
@@ -263,23 +296,24 @@ class Rule(GlobalKeywordState):
             self.error("Expected name or colon after rule keyword.", token)
 
     def block_content(self, token):
-        #import pdb; pdb.set_trace()
-        if name(token):
+        if is_name(token):
             try:
-                subautomaton = self.keywords[token.string](
-                    self.tokenizer, rulename=self.rulename)
-                for t in subautomaton.consume():
+                if token.string == "run" or token.string == "shell":
+                    self.run = True
+                for t in self.subautomaton(
+                    token.string,
+                    rulename=self.rulename).consume():
                     yield t
             except KeyError:
                 self.error("Unexpected keyword {} in "
                     "rule definition".format(token.string), token)
             except StopAutomaton as e:
-                # finished with keyword, go on in this state
                 for t in self.block(e.token):
                     yield t
-        elif comment(token):
+        elif is_comment(token):
             yield token.string, token
-        elif string(token):
+        elif is_string(token):
+            yield "\n", token
             yield "@workflow.docstring({})".format(token.string), token
         else:
             self.error("Expecting rule keyword, comment or docstrings "
@@ -288,20 +322,19 @@ class Rule(GlobalKeywordState):
 
 class Python(TokenAutomaton):
 
-    keywords = dict(
+    subautomata = dict(
         include=Include,
         workdir=Workdir,
         ruleorder=Ruleorder,
         rule=Rule)
 
-    def __init__(self, tokenizer):
-        super().__init__(tokenizer)
+    def __init__(self, tokenizer, base_indent=0):
+        super().__init__(tokenizer, base_indent=base_indent)
         self.state = self.python
 
     def python(self, token):
         try:
-            subautomaton = self.keywords[token.string](self.tokenizer)
-            for t in subautomaton.consume():
+            for t in self.subautomaton(token.string).consume():
                 yield t
         except KeyError:
             yield token.string, token
@@ -327,6 +360,14 @@ class Tokenizer:
         self.file.close()
 
 
+def format_tokens(tokens):
+    t_ = None
+    for t in tokens:
+        if t_ and not t.isspace() and not t_.isspace():
+            yield " "
+        yield t
+        t_ = t
+
 def parse(path):
     tokenizer = Tokenizer(path)
     automaton = Python(tokenizer)
@@ -339,5 +380,6 @@ def parse(path):
             dict((i, l) for i in range(lines, lines + t.count("\n"))))
         lines += t.count("\n")
         compilation.append(t)
-    print("".join(compilation))  # TODO implement correct spacing of tokens!
-    return "".join(compilation), linemap
+    compilation = "".join(format_tokens(compilation))
+    #print(compilation)
+    return compilation, linemap
