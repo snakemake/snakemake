@@ -62,15 +62,20 @@ class TokenAutomaton:
         self.state = None
         self.base_indent = base_indent
         self.indent = 0
+        self.lasttoken = None
+
+    def indentation(self, token):
+        if is_indent(token) or is_dedent(token):
+            self.indent = token.end[1] - self.base_indent
 
     def consume(self):
         for token in self.tokenizer:
+            self.indentation(token)
             for t, orig in self.state(token):
-                if t == "\n":
-                    yield " " * self.base_indent, orig
-                if is_indent(orig) or is_dedent(orig):
-                    self.indent = orig.end[1] - self.base_indent
                 yield t, orig
+                if self.lasttoken == "\n" and not t.isspace():
+                    yield " " * (self.base_indent + self.indent), orig
+                self.lasttoken = t
 
     def error(self, msg, token):
         raise SyntaxError(msg,
@@ -109,22 +114,23 @@ class KeywordState(TokenAutomaton):
                 token)
 
     def block(self, token):
-        print(self.indent, self.__class__.__name__)
-        if is_newline(token):
-            self.line += 1
-            yield token.string, token
-        elif is_indent(token):
-            yield token.string, token
-        elif is_dedent(token):
-            yield token.string, token
-        elif self.line and self.indent <= 0:
+        if self.line and self.indent <= 0:
             for t in self.end():
                 yield t, token
             yield "\n", token
             raise StopAutomaton(token)
+
+        if is_newline(token):
+            self.line += 1
+            yield token.string, token
+        elif is_indent(token) or is_dedent(token):
+            yield self.yield_indent(token)
         else:
             for t in self.block_content(token):
                 yield t
+
+    def yield_indent(self, token):
+        return token.string, token
 
     def block_content(self, token):
         yield token.string, token
@@ -308,6 +314,7 @@ class Rule(GlobalKeywordState):
                 self.error("Unexpected keyword {} in "
                     "rule definition".format(token.string), token)
             except StopAutomaton as e:
+                self.indentation(e.token)
                 for t in self.block(e.token):
                     yield t
         elif is_comment(token):
@@ -318,7 +325,6 @@ class Rule(GlobalKeywordState):
         else:
             self.error("Expecting rule keyword, comment or docstrings "
                 "inside a rule definition.", token)
-
 
 class Python(TokenAutomaton):
 
@@ -339,6 +345,7 @@ class Python(TokenAutomaton):
         except KeyError:
             yield token.string, token
         except StopAutomaton as e:
+            self.indentation(e.token)
             for t in self.python(e.token):
                 yield t
 
@@ -380,6 +387,7 @@ def parse(path):
             dict((i, l) for i in range(lines, lines + t.count("\n"))))
         lines += t.count("\n")
         compilation.append(t)
+    print(compilation)
     compilation = "".join(format_tokens(compilation))
-    #print(compilation)
+    print(compilation)
     return compilation, linemap
