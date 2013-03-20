@@ -61,6 +61,7 @@ class TokenAutomaton:
         self.tokenizer = tokenizer
         self.state = None
         self.base_indent = base_indent
+        self.line = 0
         self.indent = 0
         self.lasttoken = None
         self._dedent = dedent
@@ -72,8 +73,6 @@ class TokenAutomaton:
     def indentation(self, token):
         if is_indent(token) or is_dedent(token):
             self.indent = token.end[1] - self.base_indent
-            return True
-        return False
 
     def consume(self):
         for token in self.tokenizer:
@@ -131,10 +130,7 @@ class KeywordState(TokenAutomaton):
         if is_newline(token):
             self.line += 1
             yield token.string, token
-        elif is_indent(token) or is_dedent(token):
-            #yield self.yield_indent(token)
-            pass
-        else:
+        elif not (is_indent(token) or is_dedent(token)):
             for t in self.block_content(token):
                 yield t
 
