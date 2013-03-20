@@ -45,7 +45,7 @@ class Workflow:
         """
         Add a rule.
         """
-        if name == None:
+        if name is None:
             name = str(len(self._rules))
         if self.is_rule(name):
             raise CreateRuleException(

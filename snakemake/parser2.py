@@ -57,24 +57,30 @@ class TokenAutomaton:
 
     subautomata = dict()
 
-    def __init__(self, tokenizer, base_indent=0):
+    def __init__(self, tokenizer, base_indent=0, dedent=0):
         self.tokenizer = tokenizer
         self.state = None
         self.base_indent = base_indent
         self.indent = 0
         self.lasttoken = None
+        self._dedent = dedent
+
+    @property
+    def dedent(self):
+        return self._dedent
 
     def indentation(self, token):
         if is_indent(token) or is_dedent(token):
             self.indent = token.end[1] - self.base_indent
+            return True
+        return False
 
     def consume(self):
-        
         for token in self.tokenizer:
             self.indentation(token)
             for t, orig in self.state(token):
                 if self.lasttoken == "\n" and not t.isspace():
-                    yield " " * (self.base_indent + self.indent), orig
+                    yield " " * (self.base_indent + self.indent - self.dedent), orig
                 yield t, orig
                 self.lasttoken = t
 
@@ -86,14 +92,15 @@ class TokenAutomaton:
         return self.subautomata[automaton](
             self.tokenizer,
             *args,
-            base_indent= self.base_indent + self.indent,
+            base_indent=self.base_indent + self.indent,
+            dedent=self.dedent,
             **kwargs)
 
 
 class KeywordState(TokenAutomaton):
 
-    def __init__(self, tokenizer, base_indent=0):
-        super().__init__(tokenizer, base_indent=base_indent)
+    def __init__(self, tokenizer, base_indent=0, dedent=0):
+        super().__init__(tokenizer, base_indent=base_indent, dedent=dedent)
         self.line = 0
         self.state = self.colon
 
@@ -125,7 +132,8 @@ class KeywordState(TokenAutomaton):
             self.line += 1
             yield token.string, token
         elif is_indent(token) or is_dedent(token):
-            yield self.yield_indent(token)
+            #yield self.yield_indent(token)
+            pass
         else:
             for t in self.block_content(token):
                 yield t
@@ -145,8 +153,8 @@ class GlobalKeywordState(KeywordState):
 
 class RuleKeywordState(KeywordState):
 
-    def __init__(self, tokenizer, base_indent=0, rulename=None):
-        super().__init__(tokenizer, base_indent=base_indent)
+    def __init__(self, tokenizer, base_indent=0, dedent=0, rulename=None):
+        super().__init__(tokenizer, base_indent=base_indent, dedent=dedent)
         self.rulename = rulename
 
     def start(self):
@@ -214,8 +222,8 @@ class Message(RuleKeywordState):
 
 class Run(RuleKeywordState):
 
-    def __init__(self, tokenizer, rulename, base_indent=0):
-        super().__init__(tokenizer, base_indent=base_indent)
+    def __init__(self, tokenizer, rulename, base_indent=0, dedent=0):
+        super().__init__(tokenizer, base_indent=base_indent, dedent=dedent)
         self.rulename = rulename
 
     def start(self):
@@ -230,8 +238,8 @@ class Run(RuleKeywordState):
 
 class Shell(Run):
 
-    def __init__(self, tokenizer, rulename, base_indent=0):
-        super().__init__(tokenizer, rulename, base_indent=base_indent)
+    def __init__(self, tokenizer, rulename, base_indent=0, dedent=0):
+        super().__init__(tokenizer, rulename, base_indent=base_indent, dedent=dedent)
         self.shellcmd = list()
 
     def start(self):
@@ -269,17 +277,18 @@ class Rule(GlobalKeywordState):
         run=Run,
         shell=Shell)
 
-    def __init__(self, tokenizer, base_indent=0):
-        super().__init__(tokenizer, base_indent=base_indent)
+    def __init__(self, tokenizer, base_indent=0, dedent=0):
+        super().__init__(tokenizer, base_indent=base_indent, dedent=dedent)
         self.state = self.name
         self.rulename = None
         self.lineno = None
         self.run = False
 
     def start(self):
-        yield ("@workflow.rule(name='{rulename}', lineno={lineno}, "
+        yield ("@workflow.rule(name={rulename}, lineno={lineno}, "
             "snakefile='{snakefile}')".format(
-                rulename=self.rulename,
+                rulename=("'{}'".format(self.rulename) 
+                    if self.rulename is not None else None),
                 lineno=self.lineno,
                 snakefile=self.tokenizer.path))
 
@@ -327,6 +336,10 @@ class Rule(GlobalKeywordState):
             self.error("Expecting rule keyword, comment or docstrings "
                 "inside a rule definition.", token)
 
+    @property
+    def dedent(self):
+        return self.indent
+
 class Python(TokenAutomaton):
 
     subautomata = dict(
@@ -335,8 +348,8 @@ class Python(TokenAutomaton):
         ruleorder=Ruleorder,
         rule=Rule)
 
-    def __init__(self, tokenizer, base_indent=0):
-        super().__init__(tokenizer, base_indent=base_indent)
+    def __init__(self, tokenizer, base_indent=0, dedent=0):
+        super().__init__(tokenizer, base_indent=base_indent, dedent=dedent)
         self.state = self.python
 
     def python(self, token):
@@ -388,7 +401,6 @@ def parse(path):
             dict((i, l) for i in range(lines, lines + t.count("\n"))))
         lines += t.count("\n")
         compilation.append(t)
-    print(compilation)
     compilation = "".join(format_tokens(compilation))
-    print(compilation)
+    #print(compilation)
     return compilation, linemap
