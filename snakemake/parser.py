@@ -1,511 +1,416 @@
 # -*- coding: utf-8 -*-
 
-from tokenize import TokenError
-from tokenize import *
 import tokenize
+import textwrap
+from itertools import chain
+
 
 __author__ = "Johannes Köster"
 
 
-class Tokens:
-    """ Recorder for emitted tokens. """
-    def __init__(self):
-        self.row, self.col = 1, 0
-        self._tokens = []
-        self.rowmap = dict()
-        self.last = None
+dd = textwrap.dedent
 
-    def add(self, token, string=None, orig_token=None):
-        """ Add a new token. Maybe a full TokenInfo object (first arg)
-        or a pair of token type (e.g. NEWLINE) and string. """
-        lines = string.split("\n") if string else token.string.split("\n")
-        if string:
-            type = token
-            token = tokenize.TokenInfo(
-                type=type,
-                string=string,
-                start=(self.row, self.col),
-                end=(self.row + len(lines), self.col + len(lines[-1])),
-                line='')
+
+INDENT = "\t"
+
+
+def is_newline(token, newline_tokens=set((tokenize.NEWLINE, tokenize.NL))):
+    return token.type in newline_tokens
+
+
+def is_indent(token):
+    return token.type == tokenize.INDENT
+
+
+def is_dedent(token):
+    return token.type == tokenize.DEDENT
+
+
+def is_greater(token):
+    return token.type == tokenize.OP and token.string == ">"
+
+
+def is_name(token):
+    return token.type == tokenize.NAME
+
+
+def is_colon(token):
+    return token.string == ":"
+
+
+def is_comment(token):
+    return token.type == tokenize.COMMENT
+
+
+def is_string(token):
+    return token.type == tokenize.STRING
+
+
+def lineno(token):
+    return token.start[0]
+
+
+class StopAutomaton(Exception):
+
+    def __init__(self, token):
+        self.token = token
+
+
+class TokenAutomaton:
+
+    subautomata = dict()
+
+    def __init__(self, snakefile, base_indent=0, dedent=0):
+        self.snakefile = snakefile
+        self.state = None
+        self.base_indent = base_indent
+        self.line = 0
+        self.indent = 0
+        self.lasttoken = None
+        self._dedent = dedent
+
+    @property
+    def dedent(self):
+        return self._dedent
+
+    @property
+    def effective_indent(self):
+        return self.base_indent + self.indent - self.dedent
+
+    def indentation(self, token):
+        if is_indent(token) or is_dedent(token):
+            self.indent = token.end[1] - self.base_indent
+
+    def consume(self):
+        for token in self.snakefile:
+            self.indentation(token)
+            for t, orig in self.state(token):
+                if self.lasttoken == "\n" and not t.isspace():
+                    yield INDENT * self.effective_indent, orig
+                yield t, orig
+                self.lasttoken = t
+
+    def error(self, msg, token):
+        raise SyntaxError(msg,
+            (self.snakefile.path, lineno(token), None, None))
+
+    def subautomaton(self, automaton, *args, **kwargs):
+        return self.subautomata[automaton](
+            self.snakefile,
+            *args,
+            base_indent=self.base_indent + self.indent,
+            dedent=self.dedent,
+            **kwargs)
+
+
+class KeywordState(TokenAutomaton):
+
+    def __init__(self, snakefile, base_indent=0, dedent=0):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
+        self.line = 0
+        self.state = self.colon
+
+    @property
+    def keyword(self):
+        return self.__class__.__name__.lower()
+
+    def end(self):
+        yield ")"
+
+    def colon(self, token):
+        if is_colon(token):
+            self.state = self.block
+            for t in self.start():
+                yield t, token
         else:
-            # token is an original token that may have a wrong row
-            if token.start[0] != self.row:
-                token = Tokens._adjrow(token, self.row)
-
-        self._tokens.append(token)
-
-        if orig_token:
-            if orig_token.type != COMMENT:
-                self.last = orig_token
-            self.rowmap[self.row] = orig_token.start[0]
-
-        if token.type in (NEWLINE, NL):
-            self.row += 1
-            self.col = 0
-        else:
-            self.row += len(lines) - 1
-            self.col += len(lines[-1]) + 1
-
-        return self
-
-    @staticmethod
-    def _adjrow(token, row):
-        """ Force the row of a token to be of the given value. """
-        add = row - token.start[0]
-        return token._replace(start=(token.start[0] + add, token.start[1]),
-            end=(token.end[0] + add, token.end[1]))
-
-    def __iter__(self):
-        return self._tokens.__iter__()
-
-    def __str__(self):
-        return " ".join(map(str, self))
-
-
-class States:
-    """
-    A finite automaton that translates snakemake tokens into python tokens.
-    """
-    def __init__(self, filename, rule_count=0):
-        self.state = self.python
-        self.filename = filename
-        self.main_states = dict(
-            include=self.include,
-            workdir=self.workdir,
-            ruleorder=self.ruleorder,
-            rule=self.rule,
-            input=self.input,
-            output=self.output,
-            params=self.params,
-            message=self.message,
-            threads=self.threads,
-            priority=self.priority,
-            version=self.version,
-            log=self.log,
-            run=self.run,
-            shell=self.shell)
-        self.rule_params = set([
-            "input", "output", "params", "message", "threads",
-            "priority", "version", "log", "run", "shell"])
-        self.current_rule = None
-        self.current_shellcmd = None
-        self.rule_docstring = None
-        self.empty_rule = True
-        self.tokens = Tokens()
-        self._rule_count = rule_count
-
-    def get_rule_count(self):
-        return self._rule_count
-
-    def __iter__(self):
-        return self.tokens.__iter__()
-
-    def _syntax_error(self, msg, token):
-        """ Provide a convenient SyntaxError """
-        return SyntaxError(msg, (self.filename, token.start[0], None, None))
-
-    def python(self, token):
-        """ The automaton state that handles ordinary python code. """
-        if token.type == NAME and token.string in (
-            'include', 'workdir', 'ruleorder', 'rule'):
-            self.tokens.add(NEWLINE, '\n', orig_token=token)
-            self.state = self.main_states[token.string]
-        else:
-            self.tokens.add(token, orig_token=token)
-
-    def include(self, token):
-        """ State that handles include definitions. """
-        self._check_colon('include', token)
-        self.state = self.include_path
-        self.close_empty_rule(token)
-
-    def include_path(self, token):
-        """ State that translates the include path into a function call. """
-        if token.type == STRING:
-            self._func('include', (token.string,), token, obj='workflow')
-            self.state = self.python
-        else:
-            raise self._syntax_error(
-                'Expected string after include keyword', token)
-
-    def workdir(self, token):
-        """ State that handles workdir definition. """
-        self._check_colon('workdir', token)
-        self.state = self.workdir_path
-        self.close_empty_rule(token)
-
-    def workdir_path(self, token):
-        """ State that translates the workdir path into a function call. """
-        if token.type == STRING:
-            self._func('workdir', (token.string,), token, obj='workflow')
-            self.state = self.python
-        else:
-            raise self._syntax_error(
-                'Expected string after workdir keyword', token)
-
-    def ruleorder(self, token):
-        """ State that handles ruleorder definitions. """
-        self._check_colon('ruleorder', token)
-        self.close_empty_rule(token)
-        self._func_open('ruleorder', token, obj='workflow')
-        self.state = self.ruleorder_order
-
-    def ruleorder_order(self, token):
-        if token.type == OP and token.string == '>':
-            self.tokens.add(COMMA, ",", orig_token=token)
-        elif token.type == NAME:
-            self.tokens.add(
-                STRING, self._stringify(token.string), orig_token=token)
-        elif (token.type == NEWLINE
-            or token.type == NL or token.type == ENDMARKER):
-            self._func_close(token)
-            self.tokens.add(NEWLINE, '\n', orig_token=token)
-            self.state = self.python
-        elif not token.type in (INDENT, DEDENT, COMMENT):
-            self._syntax_error(
-                'Expected a descending order of rule names, '
-                'e.g. rule1 > rule2 > rule3 ...', token)
-
-    def rule(self, token):
-        """ State that handles rule definition. """
-        self.close_empty_rule(token)
-
-        self._rule_count += 1
-        if self._is_colon(token):
-            name = str(self._rule_count)
-            self.state = self.rule_body
-        elif token.type == NAME:
-            name = token.string
-            self.state = self.rule_colon
-        else:
-            raise self._syntax_error(
-                'Expected name or colon after rule keyword.', token)
-        self.current_rule = name
-        self.empty_rule = True
-        self.tokens.add(AT, "@", token)
-        self._func(
-            "rule",
-            (
-                self._stringify(name), str(self.tokens.row - 1),
-                self._stringify(self.filename)),
-            token, obj='workflow')
-
-    def rule_colon(self, token):
-        self._check_colon('rule', token)
-        self.state = self.rule_body
-
-    def rule_body(self, token):
-        """ State that handles the rule body. """
-        if token.type == NEWLINE:
-            pass
-        elif token.type == STRING:
-            self.tokens.add(NEWLINE, "\n", token)\
-                       .add(AT, "@", token)
-            self._func("docstring", [token.string], token, obj='workflow')
-        elif token.type == NAME and token.string in self.main_states:
-            self.state = self.main_states[token.string]
-
-    def input(self, token):
-        """ State that handles input definition. """
-        self.stringlist(token, 'input')
-
-    def output(self, token):
-        """ State that handles output definition. """
-        self.stringlist(token, 'output')
-
-    def params(self, token):
-        """ State that handles additional parameter definition. """
-        self.stringlist(token, 'params')
-
-    def stringlist(self, token, type):
-        """
-        State that handles definition of string lists (depending on type).
-        """
-        self._check_colon(type, token)
-        self.tokens.add(NEWLINE, "\n", token)\
-                   .add(AT, "@", token)
-        self._func_open(type, token, obj='workflow')
-
-        self.state = self.stringlist_items
-
-    def stringlist_items(self, token):
-        """ State that collects the arguments of a string list """
-        last = self.tokens.last
-        if (token.type in (NEWLINE, NL, ENDMARKER)
-            and not ((last.type == OP and last.string == ",")
-            or (last.type == COMMENT) or self._is_colon(last))):
-            self.tokens.add(token)
-            self._func_close(token)
-            self.state = self.rule_body
-        elif token.type == ENDMARKER:
-            self._func_close(token)
-        else:
-            self.tokens.add(token, orig_token=token)
-
-    def message(self, token):
-        """ State that handles message definition. """
-        self._check_colon('message', token)
-        self.tokens.add(NEWLINE, "\n", token)\
-                   .add(AT, "@", token)
-        self._func_open('message', token, obj='workflow')
-        self.state = self.message_text
-
-    def message_text(self, token):
-        if token.type == STRING:
-            self.tokens.add(token, orig_token=token)
-            self.state = self.close_param
-        elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
-            raise self._syntax_error(
-                'Expected string after message keyword.', token)
-
-    def threads(self, token):
-        """ State that handles definition of threads. """
-        self._check_colon('threads', token)
-        self.tokens.add(NEWLINE, "\n", token)\
-                   .add(AT, "@", token)
-        self._func_open('threads', token, obj='workflow')
-        self.state = self.threads_value
-
-    def threads_value(self, token):
-        if token.type == NUMBER or token.type == NAME:
-            self.tokens.add(token, orig_token=token)
-            self.state = self.close_param
-        elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
-            raise self._syntax_error(
-                'Expected integer or variable name after threads keyword.', token)
-
-    def priority(self, token):
-        """ State that handles definition of priority. """
-        self._check_colon('priority', token)
-        self.tokens.add(NEWLINE, "\n", token)\
-                   .add(AT, "@", token)
-        self._func_open('priority', token, obj='workflow')
-        self.state = self.priority_value
-
-    def priority_value(self, token):
-        if token.type == NUMBER or token.type == NAME:
-            self.tokens.add(token, orig_token=token)
-            self.state = self.close_param
-        elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
-            raise self._syntax_error(
-                'Expected numeric value or variable name after priority keyword.', token)
-
-    def version(self, token):
-        """ State that handles definition of version. """
-        self._check_colon('version', token)
-        self.tokens.add(NEWLINE, "\n", token)\
-                   .add(AT, "@", token)
-        self._func_open('version', token, obj='workflow')
-        self.state = self.version_value
-
-    def version_value(self, token):
-        if token.type == STRING or token.type == NAME:
-            self.tokens.add(token, orig_token=token)
-            self.state = self.close_param
-        elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
-            raise self._syntax_error(
-                'Expected string value or variable name after version keyword.', token)
-
-    def log(self, token):
-        self._check_colon('log', token)
-        self.tokens.add(NEWLINE, "\n", token)\
-                   .add(AT, "@", token)
-        self._func_open('log', token, obj='workflow')
-        self.state = self.log_value
-
-    def log_value(self, token):
-        if token.type == STRING:
-            self.tokens.add(token, orig_token=token)
-            self.state = self.close_param
-        elif not token.type in (INDENT, DEDENT, NEWLINE, NL):
-            raise self._syntax_error(
-                'Expected string after log keyword.', token)
-
-    def _run_def(self, token):
-        self.tokens.add(NEWLINE, "\n", token)\
-                   .add(AT, "@", token)\
-                   .add(NAME, 'workflow', token)\
-                   .add(DOT, '.', token)\
-                   .add(NAME, 'run', token)\
-                   .add(NEWLINE, '\n', token)
-        self._func_def(
-            "__" + self.current_rule,
-            "input output params wildcards threads log".split(), token)
-
-    def run(self, token):
-        """ State that creates a run function for the current rule. """
-        self.empty_rule = False
-        self._check_colon('run', token)
-        self._run_def(token)
-        self.state = self.run_newline
-
-    def run_newline(self, token):
-        if token.type == NEWLINE:
-            self.tokens.add(token, orig_token=token)
-        else:
-            self.tokens.add(NEWLINE, '\n', orig_token=token)\
-                       .add(INDENT, '\t', orig_token=token)\
-                       .add(token, orig_token=token)
-        self.state = self.python
-
-    def run_body(self, token):
-        """ State that collects the body of a rule's run function. """
-        if token.type == NAME and token.string == 'rule':
-            self.tokens.add(NEWLINE, '\n', orig_token=token)
-            self.state = self.rule
-        else:
-            self.tokens.add(token, orig_token=token)
-
-    def shell(self, token):
-        """
-        State that creates a run function for the current rule,
-        interpreting shell commands directly.
-        """
-        self.empty_rule = False
-        self._check_colon('shell', token)
-        self.state = self.shell_body
-
-    def shell_body(self, token):
-        """ State that collects the body of a rule's shell function. """
-        if token.type == STRING:
-            self.current_shellcmd = token.string
-            self.state = self.shell_body_extend
-        elif token.type in (COMMENT, NEWLINE, NL, INDENT, DEDENT):
-            pass
-            #self.tokens.add(token, orig_token=token)
-        else:
-            raise self._syntax_error(
-                'Expected shell command in a string after shell keyword.',
+            self.error(
+                "Colon expected after keyword {}.".format(self.keyword),
                 token)
 
-    def shell_body_extend(self, token):
-        if token.type == STRING:
-            self.current_shellcmd += token.string
+    def block(self, token):
+        if self.line and self.indent <= 0:
+            for t in self.end():
+                yield t, token
+            yield "\n", token
+            raise StopAutomaton(token)
+
+        if is_newline(token):
+            self.line += 1
+            yield token.string, token
+        elif not (is_indent(token) or is_dedent(token)):
+            for t in self.block_content(token):
+                yield t
+
+    def yield_indent(self, token):
+        return token.string, token
+
+    def block_content(self, token):
+        yield token.string, token
+
+
+class GlobalKeywordState(KeywordState):
+
+    def start(self):
+        yield "workflow.{keyword}(".format(keyword=self.keyword)
+
+
+class RuleKeywordState(KeywordState):
+
+    def __init__(self, snakefile, base_indent=0, dedent=0, rulename=None):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
+        self.rulename = rulename
+
+    def start(self):
+        yield "\n"
+        yield "@workflow.{keyword}(".format(keyword=self.keyword)
+
+
+# Global keyword states
+
+
+class Include(GlobalKeywordState):
+    pass
+
+
+class Workdir(GlobalKeywordState):
+    pass
+
+
+class Ruleorder(GlobalKeywordState):
+
+    def block_content(self, token):
+        if is_greater(token):
+            yield ",", token
+        elif is_name(token):
+            yield '"{}"'.format(token.string), token
         else:
-            self.tokens.add(NEWLINE, "\n", token)\
-                       .add(AT, "@", token)
-            self._func(
-                'shellcmd', [self.current_shellcmd], token, obj='workflow')
-            self._newline(token)
-            self._run_def(token)
-            self._newline(token)
-            self._indent(token)
-            self._func('shell', [self.current_shellcmd], token)
-            self.state = self.python
-
-    def close_param(self, token):
-        """
-        State that closes a function invocation based definition
-        of a rule parameter.
-        """
-        if token.type == NAME and token.string in self.main_states:
-            self.state = self.main_states[token.string]
-            self._func_close(token)
-        elif token.type == ENDMARKER:
-            self._func_close(token)
-
-    def close_empty_rule(self, token=None):
-        if self.empty_rule and self.current_rule:
-            # close previous rule if empty
-            self._run_def(token)
-            self.tokens.add(NEWLINE, '\n', token)\
-                       .add(INDENT, '\t', token)\
-                       .add(NAME, 'pass', token)\
-                       .add(NEWLINE, '\n', token)
-
-    def _is_keyword_end(self, token):
-        return (token.type in (NEWLINE, NL, ENDMARKER)
-            and not ((last.type == OP and last.string == ",")
-            or (last.type == COMMENT) or self._is_colon(last)))
-
-    def _is_colon(self, token):
-        return token.type == tokenize.OP and token.string == ':'
-
-    def _check_colon(self, keyword, token):
-        """ Check wether the token is a colon, else raise a syntax error
-        for the given keyword. """
-        if not self._is_colon(token):
-            raise self._syntax_error(
-                'Expected ":" after {} keyword'.format(keyword), token)
-
-    def _func_def(self, name, args, orig_token):
-        """ Generate tokens for a function definition with given name
-        and args. """
-        self.tokens.add(NAME, 'def', orig_token=orig_token) \
-                   .add(NAME, name, orig_token=orig_token) \
-                   .add(LPAR, '(', orig_token=orig_token)
-        for i in range(len(args)):
-            self.tokens.add(NAME, args[i])
-            if i < len(args) - 1:
-                self.tokens.add(COMMA, ',', orig_token=orig_token)
-        self.tokens.add(RPAR, ')', orig_token=orig_token) \
-                   .add(COLON, ':', orig_token=orig_token)
-
-    def _func(self, name, args, orig_token, obj=None):
-        """ Generate tokens for a function invocation with given name
-        and args. """
-        if not isinstance(args, tuple):
-            args = tuple(args)
-        self._func_open(name, orig_token, obj=obj)
-        for arg in args:
-            self.tokens.add(STRING, arg, orig_token=orig_token) \
-                       .add(COMMA, ',', orig_token=orig_token)
-        self._func_close(orig_token)
-
-    def _func_open(self, name, orig_token, obj=None):
-        """ Generate tokens for opening a function invocation with
-        given name. """
-        if obj != None:
-            if obj:
-                self.tokens.add(NAME, obj, orig_token=orig_token)
-            self.tokens.add(DOT, '.', orig_token=orig_token)
-        self.tokens.add(NAME, name, orig_token=orig_token) \
-                   .add(LPAR, '(', orig_token=orig_token)
-
-    def _func_close(self, orig_token):
-        """ Generate tokens for closing a function invocation with
-        given name. """
-        self.tokens.add(RPAR, ')', orig_token=orig_token)
-
-    def _newline(self, orig_token):
-        self.tokens.add(NEWLINE, '\n', orig_token=orig_token)
-
-    def _indent(self, orig_token):
-        self.tokens.add(INDENT, '\t', orig_token=orig_token)
-
-    @staticmethod
-    def _stringify(tokenstring):
-        """ Encapsulate a string into additional quotes. """
-        return '"{}"'.format(tokenstring)
+            self.error('Expected a descending order of rule names, '
+                'e.g. rule1 > rule2 > rule3 ...', token)
 
 
-def snakemake_to_python(tokens, filepath, rowmap=None, rule_count=0):
-    """ Translate snakemake tokens into python tokens using
-    a finite automaton. """
-    states = States(filepath, rule_count=rule_count)
-    try:
-        for snakemake_token in tokens:
-            states.state(snakemake_token)
-        states.close_empty_rule()
-    except TokenError as ex:
-        raise SyntaxError(str(ex))
-    python_tokens = (python_token
-        for python_token in states
-        if not python_token.type in (INDENT, DEDENT))
-    if rowmap != None:
-        rowmap.update(states.tokens.rowmap)
-    return python_tokens, states.get_rule_count()
+# Rule keyword states
 
 
-def compile_to_python(filepath, rule_count=0):
-    """ Compile a given Snakefile into python code. """
-    with open(filepath) as snakefile:
-        rowmap = dict()
-        python_tokens, rule_count = snakemake_to_python(
-                tokenize.generate_tokens(snakefile.readline),
-                filepath,
-                rowmap=rowmap,
-                rule_count=rule_count
-        )
-        compilation = tokenize.untokenize(python_tokens)
-        return compilation, rowmap, rule_count
+class Input(RuleKeywordState):
+    pass
+
+
+class Output(RuleKeywordState):
+    pass
+
+
+class Params(RuleKeywordState):
+    pass
+
+
+class Threads(RuleKeywordState):
+    pass
+
+
+class Priority(RuleKeywordState):
+    pass
+
+
+class Version(RuleKeywordState):
+    pass
+
+
+class Log(RuleKeywordState):
+    pass
+
+
+class Message(RuleKeywordState):
+    pass
+
+
+class Run(RuleKeywordState):
+
+    def __init__(self, snakefile, rulename, base_indent=0, dedent=0):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
+        self.rulename = rulename
+
+    def start(self):
+        yield "@workflow.run"
+        yield "\n"
+        yield ("def __{rulename}(input, output, params, wildcards, threads, "
+            "log):".format(rulename=self.rulename))
+
+    def end(self):
+        yield ""
+
+
+class Shell(Run):
+
+    def __init__(self, snakefile, rulename, base_indent=0, dedent=0):
+        super().__init__(snakefile, rulename, base_indent=base_indent, dedent=dedent)
+        self.shellcmd = list()
+
+    def start(self):
+        yield "@workflow.shellcmd("
+
+    def end(self):
+        # the end is detected. So we can savely reset the indent to zero here
+        self.indent = 0
+        yield ")"
+        yield "\n"
+        for t in super().start():
+            yield t
+        yield "\n"
+        yield INDENT * (self.effective_indent + 1)
+        yield "shell("
+        for t in self.shellcmd:
+            yield t
+        yield ")"
+        for t in super().end():
+            yield t
+
+    def block_content(self, token):
+        self.shellcmd.append(token.string)
+        yield token.string, token
+
+
+class Rule(GlobalKeywordState):
+    subautomata = dict(
+        input=Input,
+        output=Output,
+        params=Params,
+        threads=Threads,
+        priority=Priority,
+        version=Version,
+        log=Log,
+        message=Message,
+        run=Run,
+        shell=Shell)
+
+    def __init__(self, snakefile, base_indent=0, dedent=0):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
+        self.state = self.name
+        self.rulename = None
+        self.lineno = None
+        self.run = False
+        self.snakefile.rulecount += 1
+
+    def start(self):
+        yield ("@workflow.rule(name={rulename}, lineno={lineno}, "
+            "snakefile='{snakefile}')".format(
+                rulename=("'{}'".format(self.rulename)
+                    if self.rulename is not None else None),
+                lineno=self.lineno,
+                snakefile=self.snakefile.path))
+
+    def end(self):
+        if not self.run:
+            for t in self.subautomaton("run", rulename=self.rulename).start():
+                yield t
+            # the end is detected. So we can savely reset the indent to zero here
+            self.indent = 0
+            yield "\n"
+            yield INDENT * (self.effective_indent + 1)
+            yield "pass"
+
+    def name(self, token):
+        if is_name(token):
+            self.rulename = token.string
+        elif is_colon(token):
+            self.lineno = lineno(token)
+            self.state = self.block
+            for t in self.start():
+                yield t, token
+        else:
+            self.error("Expected name or colon after rule keyword.", token)
+
+    def block_content(self, token):
+        if is_name(token):
+            try:
+                if token.string == "run" or token.string == "shell":
+                    self.run = True
+                for t in self.subautomaton(
+                    token.string,
+                    rulename=self.rulename).consume():
+                    yield t
+            except KeyError:
+                self.error("Unexpected keyword {} in "
+                    "rule definition".format(token.string), token)
+            except StopAutomaton as e:
+                self.indentation(e.token)
+                for t in self.block(e.token):
+                    yield t
+        elif is_comment(token):
+            yield token.string, token
+        elif is_string(token):
+            yield "\n", token
+            yield "@workflow.docstring({})".format(token.string), token
+        else:
+            self.error("Expecting rule keyword, comment or docstrings "
+                "inside a rule definition.", token)
+
+    @property
+    def dedent(self):
+        return self.indent
+
+class Python(TokenAutomaton):
+
+    subautomata = dict(
+        include=Include,
+        workdir=Workdir,
+        ruleorder=Ruleorder,
+        rule=Rule)
+
+    def __init__(self, snakefile, base_indent=0, dedent=0):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
+        self.state = self.python
+
+    def python(self, token):
+        if not (is_indent(token) or is_dedent(token)):
+            try:
+                for t in self.subautomaton(token.string).consume():
+                    yield t
+            except KeyError:
+                yield token.string, token
+            except StopAutomaton as e:
+                self.indentation(e.token)
+                for t in self.python(e.token):
+                    yield t
+
+
+class Snakefile:
+
+    def __init__(self, path):
+        self.path = path
+        self.file = open(self.path)
+        self.tokens = tokenize.generate_tokens(self.file.readline)
+        self.rulecount = 0
+
+    def __next__(self):
+        return next(self.tokens)
+
+    def __iter__(self):
+        return self
+
+    def __exit__(self):
+        self.file.close()
+
+
+def format_tokens(tokens):
+    t_ = None
+    for t in tokens:
+        if t_ and not t.isspace() and not t_.isspace():
+            yield " "
+        yield t
+        t_ = t
+
+def parse(path):
+    snakefile = Snakefile(path)
+    automaton = Python(snakefile)
+    linemap = dict()
+    compilation = list()
+    lines = 1
+    for t, orig_token in automaton.consume():
+        l = lineno(orig_token)
+        linemap.update(
+            dict((i, l) for i in range(lines, lines + t.count("\n"))))
+        lines += t.count("\n")
+        compilation.append(t)
+    compilation = "".join(format_tokens(compilation))
+    #print(compilation)
+    return compilation, linemap
