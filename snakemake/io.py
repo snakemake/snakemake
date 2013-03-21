@@ -67,7 +67,6 @@ class _IOFile(str):
                     raise e
 
     def protect(self):
-        logger.warning("Write protecting output file {}".format(self))
         mode = (os.stat(self.file).st_mode & ~stat.S_IWUSR &
             ~stat.S_IWGRP & ~stat.S_IWOTH)
         if os.path.isdir(self.file):
