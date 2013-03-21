@@ -102,6 +102,7 @@ def main():
             "Don't check for ambiguous rules and simply use the first if "
             "several can produce the same file. This allows the user to "
             "prioritize rules by their order in the snakefile."))
+    # TODO extend below description to explain the wildcards that can be used
     parser.add_argument(
         "--cluster", "-c", metavar="CMD",
         help=(
