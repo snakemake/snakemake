@@ -46,7 +46,7 @@ class Workflow:
         Add a rule.
         """
         if name is None:
-            name = str(len(self._rules))
+            name = str(len(self._rules) + 1)
         if self.is_rule(name):
             raise CreateRuleException(
                 "The name {} is already used by another rule".format(name))
@@ -268,6 +268,8 @@ class Workflow:
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
+            ruleinfo.func.__name__ = "__{}".format(name)
+            self.globals[ruleinfo.func.__name__] = ruleinfo.func
             return ruleinfo.func
         return decorate
 

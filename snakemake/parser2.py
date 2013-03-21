@@ -11,6 +11,9 @@ __author__ = "Johannes Köster"
 dd = textwrap.dedent
 
 
+INDENT = "\t"
+
+
 def is_newline(token, newline_tokens=set((tokenize.NEWLINE, tokenize.NL))):
     return token.type in newline_tokens
 
@@ -57,8 +60,8 @@ class TokenAutomaton:
 
     subautomata = dict()
 
-    def __init__(self, tokenizer, base_indent=0, dedent=0):
-        self.tokenizer = tokenizer
+    def __init__(self, snakefile, base_indent=0, dedent=0):
+        self.snakefile = snakefile
         self.state = None
         self.base_indent = base_indent
         self.line = 0
@@ -70,26 +73,30 @@ class TokenAutomaton:
     def dedent(self):
         return self._dedent
 
+    @property
+    def effective_indent(self):
+        return self.base_indent + self.indent - self.dedent
+
     def indentation(self, token):
         if is_indent(token) or is_dedent(token):
             self.indent = token.end[1] - self.base_indent
 
     def consume(self):
-        for token in self.tokenizer:
+        for token in self.snakefile:
             self.indentation(token)
             for t, orig in self.state(token):
                 if self.lasttoken == "\n" and not t.isspace():
-                    yield " " * (self.base_indent + self.indent - self.dedent), orig
+                    yield INDENT * self.effective_indent, orig
                 yield t, orig
                 self.lasttoken = t
 
     def error(self, msg, token):
         raise SyntaxError(msg,
-            (self.tokenizer.path, lineno(token), None, None))
+            (self.snakefile.path, lineno(token), None, None))
 
     def subautomaton(self, automaton, *args, **kwargs):
         return self.subautomata[automaton](
-            self.tokenizer,
+            self.snakefile,
             *args,
             base_indent=self.base_indent + self.indent,
             dedent=self.dedent,
@@ -98,8 +105,8 @@ class TokenAutomaton:
 
 class KeywordState(TokenAutomaton):
 
-    def __init__(self, tokenizer, base_indent=0, dedent=0):
-        super().__init__(tokenizer, base_indent=base_indent, dedent=dedent)
+    def __init__(self, snakefile, base_indent=0, dedent=0):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
         self.line = 0
         self.state = self.colon
 
@@ -149,8 +156,8 @@ class GlobalKeywordState(KeywordState):
 
 class RuleKeywordState(KeywordState):
 
-    def __init__(self, tokenizer, base_indent=0, dedent=0, rulename=None):
-        super().__init__(tokenizer, base_indent=base_indent, dedent=dedent)
+    def __init__(self, snakefile, base_indent=0, dedent=0, rulename=None):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
         self.rulename = rulename
 
     def start(self):
@@ -218,8 +225,8 @@ class Message(RuleKeywordState):
 
 class Run(RuleKeywordState):
 
-    def __init__(self, tokenizer, rulename, base_indent=0, dedent=0):
-        super().__init__(tokenizer, base_indent=base_indent, dedent=dedent)
+    def __init__(self, snakefile, rulename, base_indent=0, dedent=0):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
         self.rulename = rulename
 
     def start(self):
@@ -234,20 +241,22 @@ class Run(RuleKeywordState):
 
 class Shell(Run):
 
-    def __init__(self, tokenizer, rulename, base_indent=0, dedent=0):
-        super().__init__(tokenizer, rulename, base_indent=base_indent, dedent=dedent)
+    def __init__(self, snakefile, rulename, base_indent=0, dedent=0):
+        super().__init__(snakefile, rulename, base_indent=base_indent, dedent=dedent)
         self.shellcmd = list()
 
     def start(self):
         yield "@workflow.shellcmd("
 
     def end(self):
+        # the end is detected. So we can savely reset the indent to zero here
+        self.indent = 0
         yield ")"
         yield "\n"
         for t in super().start():
             yield t
         yield "\n"
-        yield "\t"
+        yield INDENT * (self.effective_indent + 1)
         yield "shell("
         for t in self.shellcmd:
             yield t
@@ -273,27 +282,30 @@ class Rule(GlobalKeywordState):
         run=Run,
         shell=Shell)
 
-    def __init__(self, tokenizer, base_indent=0, dedent=0):
-        super().__init__(tokenizer, base_indent=base_indent, dedent=dedent)
+    def __init__(self, snakefile, base_indent=0, dedent=0):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
         self.state = self.name
         self.rulename = None
         self.lineno = None
         self.run = False
+        self.snakefile.rulecount += 1
 
     def start(self):
         yield ("@workflow.rule(name={rulename}, lineno={lineno}, "
             "snakefile='{snakefile}')".format(
-                rulename=("'{}'".format(self.rulename) 
+                rulename=("'{}'".format(self.rulename)
                     if self.rulename is not None else None),
                 lineno=self.lineno,
-                snakefile=self.tokenizer.path))
+                snakefile=self.snakefile.path))
 
     def end(self):
         if not self.run:
             for t in self.subautomaton("run", rulename=self.rulename).start():
                 yield t
+            # the end is detected. So we can savely reset the indent to zero here
+            self.indent = 0
             yield "\n"
-            yield "\t"
+            yield INDENT * (self.effective_indent + 1)
             yield "pass"
 
     def name(self, token):
@@ -344,8 +356,8 @@ class Python(TokenAutomaton):
         ruleorder=Ruleorder,
         rule=Rule)
 
-    def __init__(self, tokenizer, base_indent=0, dedent=0):
-        super().__init__(tokenizer, base_indent=base_indent, dedent=dedent)
+    def __init__(self, snakefile, base_indent=0, dedent=0):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
         self.state = self.python
 
     def python(self, token):
@@ -361,12 +373,13 @@ class Python(TokenAutomaton):
                     yield t
 
 
-class Tokenizer:
+class Snakefile:
 
     def __init__(self, path):
         self.path = path
         self.file = open(self.path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
+        self.rulecount = 0
 
     def __next__(self):
         return next(self.tokens)
@@ -387,8 +400,8 @@ def format_tokens(tokens):
         t_ = t
 
 def parse(path):
-    tokenizer = Tokenizer(path)
-    automaton = Python(tokenizer)
+    snakefile = Snakefile(path)
+    automaton = Python(snakefile)
     linemap = dict()
     compilation = list()
     lines = 1
