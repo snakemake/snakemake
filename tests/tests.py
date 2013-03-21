@@ -103,3 +103,6 @@ def test_params():
 
 def test_same_wildcard():
 	run(dpath("test_same_wildcard"))
+
+def test_conditional():
+	run(dpath("test_conditional"), targets="test.out test.0.out test.1.out test.2.out".split())
