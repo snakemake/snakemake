@@ -15,8 +15,7 @@ from snakemake.exceptions import RuleException, CreateRuleException, \
 from snakemake.shell import shell
 from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
-#from snakemake.parser import compile_to_python
-from snakemake.parser2 import parse
+from snakemake.parser import parse
 from snakemake.io import protected, temp, temporary, expand, dynamic
 
 
