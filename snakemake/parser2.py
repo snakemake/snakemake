@@ -349,15 +349,16 @@ class Python(TokenAutomaton):
         self.state = self.python
 
     def python(self, token):
-        try:
-            for t in self.subautomaton(token.string).consume():
-                yield t
-        except KeyError:
-            yield token.string, token
-        except StopAutomaton as e:
-            self.indentation(e.token)
-            for t in self.python(e.token):
-                yield t
+        if not (is_indent(token) or is_dedent(token)):
+            try:
+                for t in self.subautomaton(token.string).consume():
+                    yield t
+            except KeyError:
+                yield token.string, token
+            except StopAutomaton as e:
+                self.indentation(e.token)
+                for t in self.python(e.token):
+                    yield t
 
 
 class Tokenizer:
