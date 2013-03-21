@@ -201,7 +201,7 @@ class DAG:
         """ Write-protect output files that are marked with protected(). """
         for f in job.expanded_output:
             if f in job.protected_output:
-                logger.warning("Write protecting output file {}".format(f))
+                logger.warning("Write-protecting output file {}".format(f))
                 f.protect()
 
     def handle_temp(self, job):
