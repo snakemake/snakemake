@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 from itertools import chain, combinations, filterfalse, product
 from functools import partial, lru_cache
-from operator import itemgetter
+from operator import itemgetter, attrgetter
 
 from snakemake.io import IOFile, _IOFile
 from snakemake.jobs import Job, Reason
@@ -100,10 +100,6 @@ class DAG:
         self.postprocess()
 
     @property
-    def output_files(self):
-        return chain(*map(attrgetter("output"), self.jobs))
-
-    @property
     def jobs(self):
         """ All jobs in the DAG. """
         for job in self.bfs(self.dependencies, *self.targetjobs):
@@ -195,7 +191,11 @@ class DAG:
         if input_maxtime is not None:
             output_mintime = job.output_mintime
             if output_mintime is not None and output_mintime < input_maxtime:
-                raise RuleException("Output files {} are older than input files. Did you extract an archive? Make sure that output files have a more recent modification date than the archive, e.g. by using 'touch'.".format(", ".join(job.expanded_output)), rule=job.rule)
+                raise RuleException("Output files {} are older than input "
+                    "files. Did you extract an archive? Make sure that output "
+                    "files have a more recent modification date than the "
+                    "archive, e.g. by using 'touch'.".format(
+                        ", ".join(job.expanded_output)), rule=job.rule)
 
     def handle_protected(self, job):
         """ Write-protect output files that are marked with protected(). """
@@ -336,7 +336,6 @@ class DAG:
                             requested=set(chain(*self.depending[job].values()))
                                 | self.targetfiles)
                     reason.missing_output.update(missing_output)
-                    
             if not reason:
                 output_mintime_ = output_mintime(job)
                 if output_mintime_:
@@ -604,7 +603,8 @@ class DAG:
             """\
             digraph snakemake_dag {{
                 graph[bgcolor=white];
-                node[shape=box, style=rounded, fontname=sans, fontsize=10, penwidth=2];
+                node[shape=box, style=rounded, fontname=sans, \
+                fontsize=10, penwidth=2];
                 edge[penwidth=2, color=grey];
             {nodes}
             {edges}

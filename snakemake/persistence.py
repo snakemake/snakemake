@@ -3,20 +3,29 @@
 __author__ = "Johannes Köster"
 
 import os
+import shutil
 import signal
 import marshal
 from base64 import urlsafe_b64encode
 from functools import lru_cache, partial
-from itertools import filterfalse
+from itertools import filterfalse, count
+
+from snakemake.jobs import Job
+from snakemake.utils import listfiles
 
 
 class Persistence:
 
-    def __init__(self, nolock=False):
+    def __init__(self, nolock=False, dag=None):
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
             os.mkdir(self.path)
-        self._lock = os.path.join(self.path, "lock")
+        self._lockdir = os.path.join(self.path, "locks")
+        if not os.path.exists(self._lockdir):
+            os.mkdir(self._lockdir)
+
+        self.dag = dag
+        self._lockfile = dict()
 
         self._incomplete = os.path.join(self.path, "incomplete_files")
         self._version = os.path.join(self.path, "version_tracking")
@@ -34,22 +43,47 @@ class Persistence:
             signal.signal(s, self.unlock)
 
     @property
+    def files(self):
+        if self._files is None:
+            self._files = set(self.dag.output_files)
+        return self._files
+
+    @property
     def locked(self):
-        return os.path.exists(self._lock)
+        strip = lambda lines: map(str.strip, lines)
+        inputfiles = set(self.inputfiles())
+        outputfiles = set(self.outputfiles())
+        if os.path.exists(self._lockdir):
+            for lockfile in self._locks("input"):
+                with open(lockfile) as lock:
+                    if not outputfiles.isdisjoint(strip(lock.readlines())):
+                        return True
+            for lockfile in self._locks("output"):
+                with open(lockfile) as lock:
+                    files = strip(lock.readlines())
+                    if not outputfiles.isdisjoint(files):
+                        return True
+                    if not inputfiles.isdisjoint(files):
+                        return True
+        return False
 
     def lock(self):
         if self.locked:
             raise IOError("Another snakemake process "
                 "has locked this directory.")
-        with open(self._lock, "w") as lock:
-            lock.write("")
+        self._lock(self.inputfiles(), "input")
+        self._lock(self.outputfiles(), "output")
 
     def unlock(self):
-        try:
-            os.remove(self._lock)
-        except OSError as e:
-            if e.errno != 2:  # missing file
-                raise e
+        for lockfile in self._lockfile.values():
+            try:
+                os.remove(lockfile)
+            except OSError as e:
+                if e.errno != 2:  # missing file
+                    raise e
+
+    def cleanup_locks(self):
+        shutil.rmtree(self._lockdir)
 
     def cleanup_metadata(self, path):
         self._delete_record(self._incomplete, path)
@@ -138,3 +172,29 @@ class Persistence:
 
     def _exists_record(self, subject, id):
         return os.path.exists(os.path.join(subject, self.b64id(id)))
+
+    def _locks(self, type):
+        return (f for f, _ in listfiles(
+            os.path.join(
+                self._lockdir,
+                "{{n,[0-9]+}}.{}.lock".format(type)))
+            if not os.path.isdir(f))
+
+    def _lock(self, files, type):
+        for i in count(0):
+            lockfile = os.path.join(
+                self._lockdir, "{}.{}.lock".format(i, type))
+            if not os.path.exists(lockfile):
+                self._lockfile[type] = lockfile
+                with open(lockfile, "w") as lock:
+                    print(*files, sep="\n", file=lock)
+                    return
+
+    def outputfiles(self):
+        # we only look at output files that will be updated
+        return Job.files(self.dag.needrun_jobs, "output")
+
+    def inputfiles(self):
+        # we consider all input files, also of not running jobs
+        return Job.files(self.dag.jobs, "input")
+

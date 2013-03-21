@@ -222,7 +222,6 @@ class ClusterExecutor(RealExecutor):
     def shutdown(self):
         for thread in self.threads:
             thread.join()
-
         shutil.rmtree(self.tmpdir)
 
     def run(self, job, callback=None, error_callback=None):
