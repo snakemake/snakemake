@@ -84,7 +84,7 @@ class JobScheduler:
     @property
     def open_jobs(self):
         """ Return open jobs. """
-        return list(filter(self.candidate, self.dag.ready_jobs))
+        return filter(self.candidate, list(self.dag.ready_jobs))
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
