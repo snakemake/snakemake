@@ -220,3 +220,12 @@ def format(string, *args, stepout=1, **kwargs):
             "The name {} is unknown in this context. Please"
             "make sure that braces not used for variable access"
             "are escaped by repeating them. I.e. {{print $1}}".format(str(ex)))
+
+
+class Unformattable:
+
+    def __init__(self, errormsg="This cannot be used for formatting"):
+        self.errormsg = errormsg
+
+    def __str__(self):
+        raise ValueError(self.errormsg)

@@ -15,7 +15,7 @@ from snakemake.jobs import Job
 from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.stats import Stats
-from snakemake.utils import format
+from snakemake.utils import format, Unformattable
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException
 from snakemake.exceptions import ClusterJobException, ProtectedOutputException
@@ -290,6 +290,8 @@ def run_wrapper(run, input, output, params, wildcards, threads, log, linemaps):
     threads   -- usable threads
     log       -- path to log file
     """
+    if log is None:
+        log = Unformattable(errormsg="log used but undefined")
     try:
         # execute the actual run method.
         run(input, output, params, wildcards, threads, log)
