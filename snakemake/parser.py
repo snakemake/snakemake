@@ -2,7 +2,6 @@
 
 import tokenize
 import textwrap
-from itertools import chain
 
 
 __author__ = "Johannes Köster"
@@ -80,6 +79,8 @@ class TokenAutomaton:
     def indentation(self, token):
         if is_indent(token) or is_dedent(token):
             self.indent = token.end[1] - self.base_indent
+        elif self.lasttoken == "\n" and is_comment(token):
+            self.indent = token.start[1] - self.base_indent
 
     def consume(self):
         for token in self.snakefile:
@@ -242,7 +243,8 @@ class Run(RuleKeywordState):
 class Shell(Run):
 
     def __init__(self, snakefile, rulename, base_indent=0, dedent=0):
-        super().__init__(snakefile, rulename, base_indent=base_indent, dedent=dedent)
+        super().__init__(snakefile, rulename,
+            base_indent=base_indent, dedent=dedent)
         self.shellcmd = list()
 
     def start(self):
@@ -260,6 +262,7 @@ class Shell(Run):
         yield "shell("
         for t in self.shellcmd:
             yield t
+        yield "\n"
         yield ")"
         for t in super().end():
             yield t
@@ -302,7 +305,8 @@ class Rule(GlobalKeywordState):
         if not self.run:
             for t in self.subautomaton("run", rulename=self.rulename).start():
                 yield t
-            # the end is detected. So we can savely reset the indent to zero here
+            # the end is detected.
+            # So we can savely reset the indent to zero here
             self.indent = 0
             yield "\n"
             yield INDENT * (self.effective_indent + 1)
@@ -336,6 +340,7 @@ class Rule(GlobalKeywordState):
                 for t in self.block(e.token):
                     yield t
         elif is_comment(token):
+            yield "\n", token
             yield token.string, token
         elif is_string(token):
             yield "\n", token
@@ -347,6 +352,7 @@ class Rule(GlobalKeywordState):
     @property
     def dedent(self):
         return self.indent
+
 
 class Python(TokenAutomaton):
 
@@ -398,6 +404,7 @@ def format_tokens(tokens):
             yield " "
         yield t
         t_ = t
+
 
 def parse(path):
     snakefile = Snakefile(path)
