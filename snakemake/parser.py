@@ -79,8 +79,6 @@ class TokenAutomaton:
     def indentation(self, token):
         if is_indent(token) or is_dedent(token):
             self.indent = token.end[1] - self.base_indent
-        elif self.lasttoken == "\n" and is_comment(token):
-            self.indent = token.start[1] - self.base_indent
 
     def consume(self):
         for token in self.snakefile:
@@ -129,6 +127,9 @@ class KeywordState(TokenAutomaton):
                 token)
 
     def block(self, token):
+        if self.lasttoken == "\n" and is_comment(token):
+            # ignore lines containing only comments
+            self.line -= 1
         if self.line and self.indent <= 0:
             for t in self.end():
                 yield t, token
