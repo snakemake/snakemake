@@ -116,6 +116,10 @@ class KeywordState(TokenAutomaton):
     def end(self):
         yield ")"
 
+    def decorate_end(self, token):
+        for t in self.end():
+            yield t, token
+
     def colon(self, token):
         if is_colon(token):
             self.state = self.block
@@ -131,8 +135,8 @@ class KeywordState(TokenAutomaton):
             # ignore lines containing only comments
             self.line -= 1
         if self.line and self.indent <= 0:
-            for t in self.end():
-                yield t, token
+            for t, token_ in self.decorate_end(token):
+                yield t, token_
             yield "\n", token
             raise StopAutomaton(token)
 
@@ -247,6 +251,7 @@ class Shell(Run):
         super().__init__(snakefile, rulename,
             base_indent=base_indent, dedent=dedent)
         self.shellcmd = list()
+        self.token = None
 
     def start(self):
         yield "@workflow.shellcmd("
@@ -268,7 +273,12 @@ class Shell(Run):
         for t in super().end():
             yield t
 
+    def decorate_end(self, token):
+        for t in self.end():
+            yield t, self.token
+
     def block_content(self, token):
+        self.token = token
         self.shellcmd.append(token.string)
         yield token.string, token
 
