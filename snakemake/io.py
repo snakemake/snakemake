@@ -109,17 +109,17 @@ class _IOFile(str):
             rule=self.rule)
 
     def get_wildcard_names(self):
-        return set(match.group('name') for match in re.finditer(
-            _wildcard_regex, self.file))
+        return set(match.group('name') for match in
+            _wildcard_regex.finditer(self.file))
 
     def regex(self):
         if not self._regex:
-            # create a regular expression
+            # compile a regular expression
             self._regex = re.compile(regex(self.file))
         return self._regex
 
     def match(self, target):
-        match = re.match(self.regex(), target)
+        match = self.regex().match(target)
         if match and len(match.group()) == len(target):
             return match
         return None
@@ -152,7 +152,7 @@ def regex(filepattern):
     f = ""
     last = 0
     wildcards = set()
-    for match in re.finditer(_wildcard_regex, filepattern):
+    for match in _wildcard_regex.finditer(filepattern):
         f += re.escape(filepattern[last:match.start()])
         wildcard = match.group("name")
         if wildcard in wildcards:
@@ -214,7 +214,7 @@ class dynamic(str):
     (and wildcard values) will be expanded after a certain
     rule has been run """
     def __new__(cls, file):
-        matches = list(re.finditer(_wildcard_regex, file))
+        matches = list(_wildcard_regex.finditer(file))
         #if len(matches) != 1:
         #    raise SyntaxError("Dynamic files need exactly one wildcard.")
         for match in matches:
