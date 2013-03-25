@@ -109,8 +109,9 @@ class Persistence:
             self._delete_record(self._code, f)
 
     def incomplete(self, job):
+        marked_incomplete = partial(self._exists_record, self._incomplete)
         return any(
-            map(partial(self._exists_record, self._incomplete), job.output))
+            map(lambda f: f.exists and marked_incomplete(f), job.output))
 
     def version(self, path):
         return self._read_record(self._version, path)
