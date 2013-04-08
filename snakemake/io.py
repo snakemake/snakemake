@@ -4,6 +4,7 @@ import os
 import re
 import stat
 from itertools import product
+from collections import Iterable
 from snakemake.exceptions import MissingOutputException
 from snakemake.logging import logger
 
@@ -246,7 +247,7 @@ def expand(*args, **wildcards):
 
     def flatten(wildcards):
         for wildcard, values in wildcards.items():
-            if isinstance(values, str):
+            if isinstance(values, str) or not isinstance(values, Iterable):
                 values = [values]
             yield [(wildcard, value) for value in values]
 
