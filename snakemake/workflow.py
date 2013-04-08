@@ -200,7 +200,9 @@ class Workflow:
         success = scheduler.schedule()
 
         if success:
-            if not dryrun and stats:
+            if dryrun:
+                logger.warning("Number of jobs: {}".format(len(dag)))
+            elif stats:
                 scheduler.stats.to_csv(stats)
         else:
             logger.critical(
