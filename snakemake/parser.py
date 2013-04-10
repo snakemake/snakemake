@@ -91,7 +91,7 @@ class TokenAutomaton:
                     yield t, orig
                     self.lasttoken = t
             except tokenize.TokenError as e:
-                self.error(str(e).split(",")[0].strip("()''"), token)
+                self.error(str(e).split(",")[0].strip("()''"), token)  # TODO the inferred line number seems to be wrong sometimes
 
     def error(self, msg, token):
         raise SyntaxError(msg,
