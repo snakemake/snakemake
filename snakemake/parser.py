@@ -59,7 +59,8 @@ class TokenAutomaton:
 
     subautomata = dict()
 
-    def __init__(self, snakefile, base_indent=0, dedent=0):
+    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
+        self.root = root
         self.snakefile = snakefile
         self.state = None
         self.base_indent = base_indent
@@ -83,11 +84,14 @@ class TokenAutomaton:
     def consume(self):
         for token in self.snakefile:
             self.indentation(token)
-            for t, orig in self.state(token):
-                if self.lasttoken == "\n" and not t.isspace():
-                    yield INDENT * self.effective_indent, orig
-                yield t, orig
-                self.lasttoken = t
+            try:
+                for t, orig in self.state(token):
+                    if self.lasttoken == "\n" and not t.isspace():
+                        yield INDENT * self.effective_indent, orig
+                    yield t, orig
+                    self.lasttoken = t
+            except tokenize.TokenError as e:
+                self.error(str(e).split(",")[0].strip("()''"), token)
 
     def error(self, msg, token):
         raise SyntaxError(msg,
@@ -99,13 +103,14 @@ class TokenAutomaton:
             *args,
             base_indent=self.base_indent + self.indent,
             dedent=self.dedent,
+            root=False,
             **kwargs)
 
 
 class KeywordState(TokenAutomaton):
 
-    def __init__(self, snakefile, base_indent=0, dedent=0):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
+    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.line = 0
         self.state = self.colon
 
@@ -162,8 +167,8 @@ class GlobalKeywordState(KeywordState):
 
 class RuleKeywordState(KeywordState):
 
-    def __init__(self, snakefile, base_indent=0, dedent=0, rulename=None):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
+    def __init__(self, snakefile, base_indent=0, dedent=0, root=True, rulename=None):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.rulename = rulename
 
     def start(self):
@@ -231,8 +236,8 @@ class Message(RuleKeywordState):
 
 class Run(RuleKeywordState):
 
-    def __init__(self, snakefile, rulename, base_indent=0, dedent=0):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
+    def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.rulename = rulename
 
     def start(self):
@@ -247,9 +252,9 @@ class Run(RuleKeywordState):
 
 class Shell(Run):
 
-    def __init__(self, snakefile, rulename, base_indent=0, dedent=0):
+    def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, rulename,
-            base_indent=base_indent, dedent=dedent)
+            base_indent=base_indent, dedent=dedent, root=root)
         self.shellcmd = list()
         self.token = None
 
@@ -296,8 +301,8 @@ class Rule(GlobalKeywordState):
         run=Run,
         shell=Shell)
 
-    def __init__(self, snakefile, base_indent=0, dedent=0):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
+    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.state = self.name
         self.rulename = None
         self.lineno = None
@@ -373,8 +378,8 @@ class Python(TokenAutomaton):
         ruleorder=Ruleorder,
         rule=Rule)
 
-    def __init__(self, snakefile, base_indent=0, dedent=0):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent)
+    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.state = self.python
 
     def python(self, token):
