@@ -2,7 +2,7 @@
 
 import textwrap
 import time
-from collections import defaultdict
+from collections import defaultdict, Counter
 from itertools import chain, combinations, filterfalse, product
 from functools import partial, lru_cache
 from operator import itemgetter, attrgetter
@@ -110,6 +110,13 @@ class DAG:
         """ Jobs that need to be executed. """
         for job in filter(self.needrun, self.bfs(
             self.dependencies, *self.targetjobs, stop=self.finished)):
+            yield job
+
+    @property
+    def finished_jobs(self):
+        """ Jobs that have been executed. """
+        for job in filter(self.finished, self.bfs(
+            self.dependencies, *self.targetjobs)):
             yield job
 
     @property
@@ -632,6 +639,17 @@ class DAG:
                 elif self.workflow.persistence.code_changed(job, file=f):
                     status = "rule implementation changed"
                 yield "\t".join((f, date, version, status, pending))
+
+    def stats(self):
+        #yield "Number of jobs: {}".format(len(self))
+        rules = Counter()
+        rules.update(job.rule for job in self.needrun_jobs)
+        rules.update(job.rule for job in self.finished_jobs)
+        yield "Job counts:"
+        yield "\tcount\tjobs"
+        for rule, count in rules.most_common():
+            yield "\t{}\t{}".format(count, rule)
+        yield "\t{}".format(len(self))
 
     def __str__(self):
         return self.dot()

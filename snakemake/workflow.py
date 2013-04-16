@@ -202,7 +202,7 @@ class Workflow:
         if success:
             if dryrun:
                 if not quiet:
-                    logger.warning("Number of jobs: {}".format(len(dag)))
+                    logger.warning("\n".join(dag.stats()))
             elif stats:
                 scheduler.stats.to_csv(stats)
         else:
