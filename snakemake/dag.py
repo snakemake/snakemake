@@ -641,15 +641,17 @@ class DAG:
                 yield "\t".join((f, date, version, status, pending))
 
     def stats(self):
-        #yield "Number of jobs: {}".format(len(self))
-        rules = Counter()
-        rules.update(job.rule for job in self.needrun_jobs)
-        rules.update(job.rule for job in self.finished_jobs)
-        yield "Job counts:"
-        yield "\tcount\tjobs"
-        for rule, count in rules.most_common():
-            yield "\t{}\t{}".format(count, rule)
-        yield "\t{}".format(len(self))
+        if len(self):
+            rules = Counter()
+            rules.update(job.rule for job in self.needrun_jobs)
+            rules.update(job.rule for job in self.finished_jobs)
+            yield "Job counts:"
+            yield "\tcount\tjobs"
+            for rule, count in rules.most_common():
+                yield "\t{}\t{}".format(count, rule)
+            yield "\t{}".format(len(self))
+        else:
+            yield "Nothing to be done."
 
     def __str__(self):
         return self.dot()
