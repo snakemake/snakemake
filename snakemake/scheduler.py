@@ -78,8 +78,8 @@ class JobScheduler:
 
     def candidate(self, job):
         """ Return whether a job is a candidate to be executed. """
-        return (job not in self.running and not self.dag.dynamic(job)
-            and (self.dryrun or not job.dynamic_input))
+        return (job not in self.running and (self.dryrun or 
+            (not job.dynamic_input and not self.dag.dynamic(job))))
 
     @property
     def open_jobs(self):

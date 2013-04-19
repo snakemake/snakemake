@@ -45,6 +45,9 @@ class AbstractExecutor:
         self.printjob(job)
 
     def printjob(self, job):
+        # skip dynamic jobs that will be "executed" only in dryrun mode
+        if self.dag.dynamic(job):
+            return
 
         def format_files(job, io, ruleio, dynamicio):
             for f in io:
