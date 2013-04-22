@@ -40,7 +40,8 @@ def snakemake(snakefile,
     list_version_changes=False,
     list_code_changes=False,
     summary=False,
-    output_wait=3):
+    output_wait=3,
+    print_compilation=False):
     """
     Run snakemake on a given snakefile.
     Note: at the moment, this function is not thread-safe!
@@ -79,32 +80,34 @@ def snakemake(snakefile,
 
     success = False
     try:
-        workflow.include(snakefile, workdir=workdir, overwrite_first_rule=True)
+        workflow.include(snakefile, workdir=workdir,
+            overwrite_first_rule=True, print_compilation=print_compilation)
 
-        if listrules:
-            workflow.list_rules()
-        elif cleanup_metadata:
-            workflow.cleanup_metadata(cleanup_metadata)
-        else:
-            success = workflow.execute(
-                targets=targets, dryrun=dryrun, touch=touch,
-                cores=cores, forcetargets=forcetargets,
-                forceall=forceall, forcerun=forcerun,
-                prioritytargets=prioritytargets, quiet=quiet,
-                keepgoing=keepgoing, printshellcmds=printshellcmds,
-                printreason=printreason,
-                printdag=printdag, cluster=cluster,
-                ignore_ambiguity=ignore_ambiguity,
-                workdir=workdir, stats=stats,
-                force_incomplete=force_incomplete,
-                ignore_incomplete=ignore_incomplete,
-                list_version_changes=list_version_changes,
-                list_code_changes=list_code_changes,
-                summary=summary,
-                output_wait=output_wait,
-                nolock=not lock,
-                unlock=unlock
-                )
+        if not print_compilation:
+            if listrules:
+                workflow.list_rules()
+            elif cleanup_metadata:
+                workflow.cleanup_metadata(cleanup_metadata)
+            else:
+                success = workflow.execute(
+                    targets=targets, dryrun=dryrun, touch=touch,
+                    cores=cores, forcetargets=forcetargets,
+                    forceall=forceall, forcerun=forcerun,
+                    prioritytargets=prioritytargets, quiet=quiet,
+                    keepgoing=keepgoing, printshellcmds=printshellcmds,
+                    printreason=printreason,
+                    printdag=printdag, cluster=cluster,
+                    ignore_ambiguity=ignore_ambiguity,
+                    workdir=workdir, stats=stats,
+                    force_incomplete=force_incomplete,
+                    ignore_incomplete=ignore_incomplete,
+                    list_version_changes=list_version_changes,
+                    list_code_changes=list_code_changes,
+                    summary=summary,
+                    output_wait=output_wait,
+                    nolock=not lock,
+                    unlock=unlock
+                    )
 
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)

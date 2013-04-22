@@ -212,7 +212,8 @@ class Workflow:
             return False
         return True
 
-    def include(self, snakefile, workdir=None, overwrite_first_rule=False):
+    def include(self, snakefile, workdir=None, overwrite_first_rule=False,
+        print_compilation=False):
         """
         Include a snakefile.
         """
@@ -221,10 +222,11 @@ class Workflow:
         first_rule = self.first_rule
         if workdir:
             os.chdir(workdir)
-        #code, linemap, rule_count = compile_to_python(
-        #    snakefile, rule_count=self.rule_count)
-        #self.rule_count += rule_count
         code, linemap = parse(snakefile)
+
+        if print_compilation:
+            print(code)
+
         self.linemaps[snakefile] = linemap
         exec(compile(code, snakefile, "exec"), self.globals)
         if not overwrite_first_rule:

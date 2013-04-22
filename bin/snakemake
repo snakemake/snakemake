@@ -152,6 +152,9 @@ def main():
         "the job finished. This helps if your filesystem "
         "suffers from latency.")
     parser.add_argument(
+        "--print-compilation", action="store_true",
+        help="Print the python representation of the workflow.")
+    parser.add_argument(
         "--version", "-v", action="version", version=snakemake.__version__)
 
     args = parser.parse_args()
@@ -188,7 +191,8 @@ def main():
             ignore_incomplete=args.ignore_incomplete,
             list_version_changes=args.list_version_changes,
             list_code_changes=args.list_code_changes,
-            summary=args.summary
+            summary=args.summary,
+            print_compilation=args.print_compilation
             )
     exit(0 if success else 1)
 
