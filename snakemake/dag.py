@@ -443,7 +443,7 @@ class DAG:
                 if newrule_ is not None:
                     self.replace_rule(job_.rule, newrule_)
                     if not self.dynamic(job_):
-                        logging.debug("Updating job {}.".format(job_))
+                        logger.debug("Updating job {}.".format(job_))
                         newjob_ = Job(newrule_, targetfile=job_.targetfile)
                         self.replace_job(job_, newjob_)
         return newjob
