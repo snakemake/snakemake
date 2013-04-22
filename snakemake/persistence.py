@@ -74,7 +74,7 @@ class Persistence:
         self._lock(self.inputfiles(), "input")
         self._lock(self.outputfiles(), "output")
 
-    def unlock(self):
+    def unlock(self, *args):
         for lockfile in self._lockfile.values():
             try:
                 os.remove(lockfile)
@@ -136,7 +136,7 @@ class Persistence:
                 self.code(job.rule), bin=True),
             job.output)
 
-    def noop(self):
+    def noop(self, *args):
         pass
 
     def b64id(self, s):
