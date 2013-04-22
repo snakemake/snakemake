@@ -623,9 +623,12 @@ class DAG:
                         legend="\n".join(legend))
 
     def summary(self):
-        yield "file\tdate\tversion\tstatus\tplan"
+        yield "file\tdate\trule\tversion\tstatus\tplan"
         for job in self.jobs:
-            for f in job.output:
+            output = job.rule.output if self.dynamic(job) else job.expanded_output
+            for f in output:
+                rule = self.workflow.persistence.rule(f)
+                rule = "-" if rule is None else rule
                 version = self.workflow.persistence.version(f)
                 version = "-" if version is None else str(version)
                 date = time.ctime(f.mtime) if f.exists else "-"
@@ -639,7 +642,7 @@ class DAG:
                     status = "version changed to {}".format(job.rule.version)
                 elif self.workflow.persistence.code_changed(job, file=f):
                     status = "rule implementation changed"
-                yield "\t".join((f, date, version, status, pending))
+                yield "\t".join((f, date, rule, version, status, pending))
 
     def stats(self):
         if len(self):

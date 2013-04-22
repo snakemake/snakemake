@@ -30,8 +30,9 @@ class Persistence:
         self._incomplete = os.path.join(self.path, "incomplete_files")
         self._version = os.path.join(self.path, "version_tracking")
         self._code = os.path.join(self.path, "code_tracking")
+        self._rule = os.path.join(self.path, "rule_tracking")
 
-        for d in (self._incomplete, self._version, self._code):
+        for d in (self._incomplete, self._version, self._code, self._rule):
             if not os.path.exists(d):
                 os.mkdir(d)
 
@@ -89,6 +90,7 @@ class Persistence:
         self._delete_record(self._incomplete, path)
         self._delete_record(self._version, path)
         self._delete_record(self._code, path)
+        self._delete_record(self._rule, path)
 
     def started(self, job):
         for f in job.output:
@@ -97,16 +99,18 @@ class Persistence:
     def finished(self, job):
         version = job.rule.version
         code = self.code(job.rule)
-        for f in job.output:
+        for f in job.expanded_output:
             self._delete_record(self._incomplete, f)
             self._record(self._version, version, f)
             self._record(self._code, code, f, bin=True)
+            self._record(self._rule, job.rule.name, f)
 
     def cleanup(self, job):
-        for f in job.output:
+        for f in job.expanded_output:
             self._delete_record(self._incomplete, f)
             self._delete_record(self._version, f)
             self._delete_record(self._code, f)
+            self._delete_record(self._rule, f)
 
     def incomplete(self, job):
         marked_incomplete = partial(self._exists_record, self._incomplete)
@@ -115,6 +119,9 @@ class Persistence:
 
     def version(self, path):
         return self._read_record(self._version, path)
+
+    def rule(self, path):
+        return self._read_record(self._rule, path)
 
     def version_changed(self, job, file=None):
         if file is not None:
