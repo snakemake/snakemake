@@ -12,6 +12,7 @@ from operator import attrgetter
 from snakemake.io import IOFile, Wildcards, _IOFile
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException
+from snakemake.exceptions import UnexpectedOutputException
 
 __author__ = "Johannes Köster"
 
@@ -23,8 +24,9 @@ class Job:
     def files(jobs, type):
         return chain(*map(attrgetter(type), jobs))
 
-    def __init__(self, rule, targetfile=None, format_wildcards=None):
+    def __init__(self, rule, dag, targetfile=None, format_wildcards=None):
         self.rule = rule
+        self.dag = dag
         self.targetfile = targetfile
         self._hash = None
         self.wildcards_dict = self.rule.get_wildcards(targetfile)
@@ -165,6 +167,10 @@ class Job:
                     files.add(f)
         return files
 
+    @property
+    def existing_output(self):
+        return filter(lambda f: f.exists, self.expanded_output)
+
     def prepare(self):
         """
         Prepare execution of job.
@@ -174,6 +180,12 @@ class Job:
         protected = list(filter(lambda f: f.protected, self.expanded_output))
         if protected:
             raise ProtectedOutputException(self.rule, protected)
+
+        unexpected_output = self.dag.reason(self).missing_output.intersection(
+            self.existing_output)
+        if unexpected_output:
+            raise UnexpectedOutputException(self.rule, unexpected_output)
+
         if self.dynamic_output:
             for f, _ in chain(*map(
                 partial(

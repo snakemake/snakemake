@@ -148,6 +148,13 @@ class ProtectedOutputException(IOException):
             lineno=lineno, snakefile=snakefile)
 
 
+class UnexpectedOutputException(IOException):
+    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
+        super().__init__("Unexpectedly present output files "
+        "(accidentally created by other rule?)", rule, files, include,
+        lineno=lineno, snakefile=snakefile)
+
+
 class AmbiguousRuleException(RuleException):
     def __init__(self, filename, rule1, rule2, lineno=None, snakefile=None):
         super().__init__(

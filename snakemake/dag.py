@@ -13,6 +13,7 @@ from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException
+from snakemake.exceptions import UnexpectedOutputException
 from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
@@ -435,7 +436,7 @@ class DAG:
 
         # no targetfile needed for job
         newjob = Job(
-            newrule, format_wildcards=non_dynamic_wildcards)
+            newrule, self, format_wildcards=non_dynamic_wildcards)
         self.replace_job(job, newjob)
         for job_ in depending:
             if job_.dynamic_input:
@@ -444,7 +445,16 @@ class DAG:
                     self.replace_rule(job_.rule, newrule_)
                     if not self.dynamic(job_):
                         logger.debug("Updating job {}.".format(job_))
-                        newjob_ = Job(newrule_, targetfile=job_.targetfile)
+                        newjob_ = Job(newrule_, self,
+                            targetfile=job_.targetfile)
+
+                        unexpected_output = self.reason(
+                            job_).missing_output.intersection(
+                                newjob.existing_output)
+                        if unexpected_output:
+                            raise UnexpectedOutputException(newjob_.rule,
+                                unexpected_output)
+
                         self.replace_job(job_, newjob_)
         return newjob
 
@@ -473,8 +483,10 @@ class DAG:
         depending = list(self.depending[job].items())
         if self.finished(job):
             self._finished.add(newjob)
+
         self.delete_job(job)
         self.update([newjob])
+
         for job_, files in depending:
             if not job_.dynamic_input:
                 self.dependencies[job_][newjob].update(files)
@@ -549,15 +561,13 @@ class DAG:
         return new_wildcards
 
     def rule2job(self, targetrule):
-        return Job(rule=targetrule)
+        return Job(targetrule, self)
 
     def file2jobs(self, targetfile):
         jobs = list()
-#        print("---")
         for rule in self.rules:
             if rule.is_producer(targetfile):
-#                print(rule)
-                jobs.append(Job(rule, targetfile=targetfile))
+                jobs.append(Job(rule, self, targetfile=targetfile))
         if not jobs:
             raise MissingRuleException(targetfile)
         return jobs
