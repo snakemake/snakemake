@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 handler = None
 
 
-def init_logger(nocolor=False, stdout=False):
+def init_logger(nocolor=False, stdout=False, debug=False):
     global logger
     global handler
     if handler:
@@ -73,4 +73,4 @@ def init_logger(nocolor=False, stdout=False):
     handler = ColorizingStreamHandler(
         nocolor=nocolor, stream=sys.stdout if stdout else sys.stderr)
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG if debug else logging.INFO)

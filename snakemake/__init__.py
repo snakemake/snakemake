@@ -41,7 +41,8 @@ def snakemake(snakefile,
     list_code_changes=False,
     summary=False,
     output_wait=3,
-    print_compilation=False):
+    print_compilation=False,
+    debug=False):
     """
     Run snakemake on a given snakefile.
     Note: at the moment, this function is not thread-safe!
@@ -60,7 +61,7 @@ def snakemake(snakefile,
     lock              -- lock the working directory
     """
 
-    init_logger(nocolor=nocolor, stdout=dryrun)
+    init_logger(nocolor=nocolor, stdout=dryrun, debug=debug)
 
     if not os.path.exists(snakefile):
         logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))

@@ -107,7 +107,10 @@ class JobScheduler:
                 needrun.append(job)
             assert needrun
 
+            logger.debug("Ready jobs:\n\t" + "\n\t".join(map(str, needrun)))
+
             run = self.job_selector(needrun)
+            logger.debug("Selected jobs:\n\t" + "\n\t".join(map(str, run)))
             self.running.update(run)
             self._cores -= sum(job.threads for job in run)
             for job in run:
