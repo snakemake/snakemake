@@ -249,7 +249,8 @@ class ClusterExecutor(RealExecutor):
             (self.jobid[f] if f in self.jobid else "") for f in job.input)
         submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps)
         jobid = list(shell('{submitcmd} "{jobscript}"', iterable=True))
-        self.jobid.update((f, jobid[0]) for f in job.output)
+        if jobid and jobid[0]:
+            self.jobid.update((f, jobid[0]) for f in job.output)
 
         thread = threading.Thread(
             target=self._wait_for_job,
