@@ -258,6 +258,7 @@ class ClusterExecutor(RealExecutor):
             target=self._wait_for_job,
             args=(job, callback, error_callback,
                 jobscript, jobfinished, jobfailed))
+        thread.daemon = True
         thread.start()
         self.threads.append(thread)
 
