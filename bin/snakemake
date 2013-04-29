@@ -109,7 +109,17 @@ def main():
             "Execute snakemake rules with the given submit command, "
             "e.g. qsub. Snakemake compiles jobs into scripts that are "
             "submitted to the cluster with the given command, once all input "
-            "files for a particular job are present."))
+            "files for a particular job are present (also see the argument below).\n"
+            "The submit command can be decorated to make it aware of certain job properties (input, output, params, wildcards, log, threads and dependencies (see the argument below)), e.g.:\n"
+            "$ snakemake --cluster 'qsub -pe threaded {threads}'."))
+    parser.add_argument(
+        "--immediate-submit", "--is", action="store_true",
+        help=(
+            "Immediately submit all jobs to the cluster instead of waiting "
+            "for present input files. This will fail, unless you make "
+            "the cluster aware of job dependencies, e.g. via:\n"
+            "$ snakemake --cluster 'sbatch --dependency {dependencies}.\n"
+            "Assuming that your submit script (here sbatch) outputs the generated job id to the first stdout line, {dependencies} will be filled with space separated job ids this job depends on."))
     parser.add_argument(
         "--reason", "-r", action = "store_true",
         help="Print the reason for each executed rule.")
@@ -183,6 +193,7 @@ def main():
             quiet=args.quiet,
             keepgoing=args.keep_going,
             cluster=args.cluster,
+            immediate_submit=args.immediate_submit,
             standalone=True,
             ignore_ambiguity=args.allow_ambiguity,
             snakemakepath=snakemakepath,

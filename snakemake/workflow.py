@@ -96,7 +96,8 @@ class Workflow:
         forcetargets=False, forceall=False, forcerun=None,
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
-        cluster=None,  ignore_ambiguity=False, workdir=None,
+        cluster=None, immediate_submit=False, ignore_ambiguity=False,
+        workdir=None,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         summary=False, output_wait=3, nolock=False, unlock=False):
@@ -194,6 +195,7 @@ class Workflow:
 
         scheduler = JobScheduler(
             self, dag, cores, dryrun=dryrun, touch=touch, cluster=cluster,
+            immediate_submit=immediate_submit,
             quiet=quiet, keepgoing=keepgoing,
             printreason=printreason, printshellcmds=printshellcmds,
             output_wait=output_wait)

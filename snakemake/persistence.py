@@ -10,6 +10,7 @@ from base64 import urlsafe_b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse, count
 
+from snakemake.logging import logger
 from snakemake.jobs import Job
 from snakemake.utils import listfiles
 
@@ -40,7 +41,7 @@ class Persistence:
             self.lock = self.noop
             self.unlock = self.noop
 
-        for s in (signal.SIGTERM, signal.SIGABRT, signal.SIGINT):
+        for s in (signal.SIGTERM,):
             signal.signal(s, self.unlock)
 
     @property
@@ -76,12 +77,15 @@ class Persistence:
         self._lock(self.outputfiles(), "output")
 
     def unlock(self, *args):
+        logger.debug("unlocking")
         for lockfile in self._lockfile.values():
             try:
+                logger.debug("removing lock")
                 os.remove(lockfile)
             except OSError as e:
                 if e.errno != 2:  # missing file
                     raise e
+        logger.debug("removed all locks")
 
     def cleanup_locks(self):
         shutil.rmtree(self._lockdir)
@@ -196,7 +200,7 @@ class Persistence:
                 self._lockfile[type] = lockfile
                 with open(lockfile, "w") as lock:
                     print(*files, sep="\n", file=lock)
-                    return
+                return
 
     def outputfiles(self):
         # we only look at output files that will be updated

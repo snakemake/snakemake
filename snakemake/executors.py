@@ -8,6 +8,7 @@ import random
 import string
 import threading
 import concurrent.futures
+import subprocess
 from functools import partial
 from itertools import chain
 
@@ -34,7 +35,8 @@ class AbstractExecutor:
         self.printthreads = printthreads
         self.output_wait = output_wait
 
-    def run(self, job, callback=None, error_callback=None):
+    def run(
+        self, job, callback=None, submit_callback=None, error_callback=None):
         self._run(job)
         callback(job)
 
@@ -140,7 +142,8 @@ class RealExecutor(AbstractExecutor):
 
 class TouchExecutor(RealExecutor):
 
-    def run(self, job, callback=None, error_callback=None):
+    def run(
+        self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
         try:
             for f in job.expanded_output:
@@ -165,7 +168,8 @@ class CPUExecutor(RealExecutor):
             if threads
             else concurrent.futures.ProcessPoolExecutor(max_workers=cores))
 
-    def run(self, job, callback=None, error_callback=None):
+    def run(
+        self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
 
         job.prepare()
@@ -203,7 +207,7 @@ class ClusterExecutor(RealExecutor):
         {self.workflow.snakemakepath} --snakefile {self.workflow.snakefile} \
         --force -j{self.cores} \
         --directory {workdir} --nocolor --quiet --nolock {job.output} \
-        && touch "{jobfinished}" || touch "{jobfailed}"
+        > /dev/null && touch "{jobfinished}" || touch "{jobfailed}"
         exit 0
         """)
 
@@ -221,13 +225,15 @@ class ClusterExecutor(RealExecutor):
         self.threads = []
         self._tmpdir = None
         self.cores = cores if cores else ""
+        self.jobid = dict()
 
     def shutdown(self):
         for thread in self.threads:
             thread.join()
         shutil.rmtree(self.tmpdir)
 
-    def run(self, job, callback=None, error_callback=None):
+    def run(
+        self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
         workdir = os.getcwd()
         jobid = len(self.threads)
@@ -239,8 +245,11 @@ class ClusterExecutor(RealExecutor):
             print(format(self.jobscript), file=f)
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
 
-        submitcmd = job.format_wildcards(self.submitcmd)
-        shell('{submitcmd} "{jobscript}"')
+        deps = " ".join(
+            (self.jobid[f] if f in self.jobid else "") for f in job.input)
+        submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps)
+        jobid = list(shell('{submitcmd} "{jobscript}"', iterable=True))
+        self.jobid.update((f, jobid[0]) for f in job.output)
 
         thread = threading.Thread(
             target=self._wait_for_job,
@@ -248,6 +257,8 @@ class ClusterExecutor(RealExecutor):
                 jobscript, jobfinished, jobfailed))
         thread.start()
         self.threads.append(thread)
+        
+        submit_callback(job)
 
     def _wait_for_job(
         self, job, callback, error_callback,

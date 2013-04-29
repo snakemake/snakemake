@@ -205,15 +205,18 @@ class Job:
             if f.exists:
                 f.remove()
 
-    def format_wildcards(self, string):
+    def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """
+        _variables = dict()
+        _variables.update(self.rule.workflow.globals)
+        _variables.update(variables)
         return format(string,
                       input=self.input,
                       output=self.output,
                       params=self.params,
                       wildcards=self._format_wildcards,
                       threads=self.threads,
-                      log=self.log, **self.rule.workflow.globals)
+                      log=self.log, **variables)
 
     def __repr__(self):
         return self.rule.name

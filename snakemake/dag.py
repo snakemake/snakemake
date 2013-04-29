@@ -404,7 +404,10 @@ class DAG:
 
     def finish(self, job, update_dynamic=True):
         self._finished.add(job)
-        self._ready_jobs.remove(job)
+        try:
+            self._ready_jobs.remove(job)
+        except KeyError:
+            pass
         # mark depending jobs as ready
         for job_ in self.depending[job]:
             if self.needrun(job_) and self._ready(job_):

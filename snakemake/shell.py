@@ -9,9 +9,11 @@ import time
 import shlex
 import subprocess as sp
 from threading import Thread
+import atexit
+
 from snakemake.exceptions import TerminatedException
 from snakemake.utils import format
-import atexit
+from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
 
@@ -111,6 +113,7 @@ class shell(sp.Popen):
 
     @staticmethod
     def terminate_all(*args):
+        logger.debug("Killing all remaining shell processes.")
         if shell._processes:
             for p in shell._processes:
                 p._prog_term = True

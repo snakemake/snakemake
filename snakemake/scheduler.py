@@ -4,6 +4,7 @@ import os
 import threading
 import multiprocessing
 import operator
+from functools import partial
 
 from snakemake.executors import DryrunExecutor, TouchExecutor
 from snakemake.executors import ClusterExecutor, CPUExecutor
@@ -21,6 +22,7 @@ class JobScheduler:
         dryrun=False,
         touch=False,
         cluster=None,
+        immediate_submit=False,
         quiet=False,
         printreason=False,
         printshellcmds=False,
@@ -42,6 +44,11 @@ class JobScheduler:
         self._errors = False
         self._finished = False
         self._job_queue = None
+        self._submit_callback = self._noop
+        self._finish_callback = partial(
+            self._proceed,
+            update_dynamic=not self.dryrun,
+            print_progress=not self.quiet and not self.dryrun)
 
         if dryrun:
             self._executor = DryrunExecutor(
@@ -61,6 +68,12 @@ class JobScheduler:
                 printshellcmds=printshellcmds, output_wait=output_wait)
             self._open_jobs = threading.Event()
             self._job_weight = self.simple_job_weight
+            if immediate_submit:
+                self._submit_callback = partial(
+                    self._proceed,
+                    update_dynamic=False,
+                    print_progress=False,
+                    update_resources=False)
         else:
             self._executor = CPUExecutor(
                 workflow, dag, cores, printreason=printreason,
@@ -115,17 +128,27 @@ class JobScheduler:
             self._cores -= sum(job.threads for job in run)
             for job in run:
                 self._executor.run(
-                    job, callback=self._finish_job,
+                    job, callback=self._finish_callback,
+                    submit_callback=self._submit_callback,
                     error_callback=self._error)
 
-    def _finish_job(self, job):
+    def _noop(self, job):
+        pass
+
+    def _proceed(
+        self, job, update_dynamic=True, print_progress=False,
+        update_resources=True):
         """ Do stuff after job is finished. """
-        self.finished_jobs += 1
-        self.running.remove(job)
-        self.dag.finish(job, update_dynamic=not self.dryrun)
-        self._cores += job.threads
-        if not self.quiet and not self.dryrun:
+        if update_resources:
+            self.finished_jobs += 1
+            self.running.remove(job)
+            self._cores += job.threads
+
+        self.dag.finish(job, update_dynamic=update_dynamic)
+
+        if print_progress:
             self.progress()
+
         if any(self.open_jobs) or not self.running:
             # go on scheduling if open jobs are ready or no job is running any
             self._open_jobs.set()
