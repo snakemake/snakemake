@@ -258,7 +258,7 @@ class ClusterExecutor(RealExecutor):
                 jobscript, jobfinished, jobfailed))
         thread.start()
         self.threads.append(thread)
-        
+
         submit_callback(job)
 
     def _wait_for_job(
