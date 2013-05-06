@@ -6,7 +6,6 @@ import stat
 from itertools import product
 from collections import Iterable
 from snakemake.exceptions import MissingOutputException
-from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
 

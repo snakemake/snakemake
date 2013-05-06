@@ -32,7 +32,7 @@ class Workflow:
         self.linemaps = dict()
         self.rule_count = 0
         self.snakefile = snakefile
-        self.snakemakepath = snakemakepath
+        self.snakemakepath = os.path.abspath(snakemakepath)
         self.persistence = None
         self.globals = globals()
 
