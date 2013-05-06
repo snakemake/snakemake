@@ -92,8 +92,8 @@ class Job:
         except AttributeError as ex:
             raise RuleException(str(ex), rule=self.rule)
         except KeyError as ex:
-            raise RuleException("Unknown variable in message "
-                "of shell command: {}".format(str(ex)), rule=self.rule)
+            raise RuleException("Unknown variable when printing "
+                "shell command: {}".format(str(ex)), rule=self.rule)
 
     @property
     def expanded_output(self):
@@ -216,7 +216,7 @@ class Job:
                       params=self.params,
                       wildcards=self._format_wildcards,
                       threads=self.threads,
-                      log=self.log, **variables)
+                      log=self.log, **_variables)
 
     def __repr__(self):
         return self.rule.name

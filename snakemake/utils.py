@@ -218,8 +218,10 @@ def format(string, *args, stepout=1, **kwargs):
     except KeyError as ex:
         raise NameError(
             "The name {} is unknown in this context. Please"
-            "make sure that braces not used for variable access"
-            "are escaped by repeating them. I.e. {{print $1}}".format(str(ex)))
+            "make sure that you defined that variable. "
+            "Also not that braces not used for variable access "
+            "have to be escaped by repeating them, "
+            "i.e. {{print $1}}".format(str(ex)))
 
 
 class Unformattable:
