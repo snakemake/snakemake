@@ -292,7 +292,7 @@ class ClusterExecutor(RealExecutor):
                 if not os.path.exists(self._tmpdir):
                     os.mkdir(self._tmpdir)
                     break
-        return self._tmpdir
+        return os.path.abspath(self._tmpdir)
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, log, linemaps):
