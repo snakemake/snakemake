@@ -80,6 +80,12 @@ def snakemake(snakefile,
             # ignore: if it does not work we can still work without it
             pass
 
+    if not (dryrun or touch or quiet):
+        if cluster:
+            logger.warning("Provided cluster nodes: {}".format(cores))
+        else:
+            logger.warning("Provided cores: {}".format(cores))
+
     success = False
     try:
         workflow.include(snakefile, workdir=workdir,

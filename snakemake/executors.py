@@ -248,7 +248,11 @@ class ClusterExecutor(RealExecutor):
         deps = " ".join(
             (self.jobid[f] if f in self.jobid else "") for f in job.input)
         submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps)
-        jobid = list(shell('{submitcmd} "{jobscript}"', iterable=True))
+        jobid = subprocess.check_output(
+            '{submitcmd} "{jobscript}"'.format(
+                submitcmd=submitcmd,
+                jobscript=jobscript),
+            shell=True).decode().split("\n")
         if jobid and jobid[0]:
             jobid = jobid[0]
             self.jobid.update((f, jobid) for f in job.output)
