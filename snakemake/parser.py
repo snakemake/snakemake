@@ -409,7 +409,10 @@ class Snakefile:
     def __iter__(self):
         return self
 
-    def __exit__(self):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
         self.file.close()
 
 
@@ -423,17 +426,17 @@ def format_tokens(tokens):
 
 
 def parse(path):
-    snakefile = Snakefile(path)
-    automaton = Python(snakefile)
-    linemap = dict()
-    compilation = list()
-    lines = 1
-    for t, orig_token in automaton.consume():
-        l = lineno(orig_token)
-        linemap.update(
-            dict((i, l) for i in range(lines, lines + t.count("\n"))))
-        lines += t.count("\n")
-        compilation.append(t)
-    compilation = "".join(format_tokens(compilation))
-    #print(compilation)
-    return compilation, linemap
+    with Snakefile(path) as snakefile:
+        automaton = Python(snakefile)
+        linemap = dict()
+        compilation = list()
+        lines = 1
+        for t, orig_token in automaton.consume():
+            l = lineno(orig_token)
+            linemap.update(
+                dict((i, l) for i in range(lines, lines + t.count("\n"))))
+            lines += t.count("\n")
+            compilation.append(t)
+        compilation = "".join(format_tokens(compilation))
+        #print(compilation)
+        return compilation, linemap
