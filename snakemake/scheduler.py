@@ -38,7 +38,7 @@ class JobScheduler:
         self.running = set()
         self.finished_jobs = 0
         self._cores = self.maxcores
-        use_threads = os.name == "posix"
+        use_threads = os.name != "posix"
         self._open_jobs = (multiprocessing.Event() if not use_threads
             else threading.Event())
         self._errors = False

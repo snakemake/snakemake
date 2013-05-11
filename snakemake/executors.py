@@ -173,10 +173,9 @@ class CPUExecutor(RealExecutor):
         super()._run(job)
 
         job.prepare()
-
         future = self.pool.submit(
-            run_wrapper, job.rule.run_func, job.input, job.output, job.params,
-            job.wildcards, job.threads, job.log, self.workflow.linemaps)
+            run_wrapper, job.rule.run_func, job.input.plainstrings(), job.output.plainstrings(), job.params,
+            job.wildcards, job.threads, str(job.log), self.workflow.linemaps)
         future.add_done_callback(partial(
             self._callback, job, callback, error_callback))
 

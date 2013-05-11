@@ -264,7 +264,7 @@ class Namedlist(list):
     A list that additionally provides functions to name items. Further,
     it is hashable, however the hash does not consider the item names.
     """
-    def __init__(self, toclone=None, fromdict=None):
+    def __init__(self, toclone=None, fromdict=None, plainstr=False):
         """
         Create the object.
 
@@ -277,7 +277,7 @@ class Namedlist(list):
         self._names = dict()
 
         if toclone:
-            self.extend(toclone)
+            self.extend(map(str, toclone) if plainstr else toclone)
             if isinstance(toclone, Namedlist):
                 self.take_names(toclone.get_names())
         if fromdict:
@@ -353,6 +353,9 @@ class Namedlist(list):
 
     def keys(self):
         return self._names
+
+    def plainstrings(self):
+        return self.__class__.__call__(toclone=self, plainstr=True)
 
     def __getitem__(self, key):
         try:
