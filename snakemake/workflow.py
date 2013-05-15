@@ -40,6 +40,13 @@ class Workflow:
     def rules(self):
         return self._rules.values()
 
+    def check(self):
+        for clause in self._ruleorder:
+            for rulename in clause:
+                if not self.is_rule(rulename):
+                    raise UnknownRuleException(
+                        rulename, prefix = "Error in ruleorder definition.")
+
     def add_rule(self, name=None, lineno=None, snakefile=None):
         """
         Add a rule.

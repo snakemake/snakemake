@@ -390,7 +390,7 @@ class Ruleorder:
 
     def compare(self, rule1name, rule2name):
         """
-        Return whether rule2 has a higher priority that rule1.
+        Return whether rule2 has a higher priority than rule1.
         """
         # try the last clause first,
         # i.e. clauses added later overwrite those before.
@@ -408,3 +408,6 @@ class Ruleorder:
             except ValueError:
                 pass
         return 0
+
+    def __iter__(self):
+        return self.order.__iter__()

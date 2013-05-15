@@ -80,7 +80,7 @@ def snakemake(snakefile,
             # ignore: if it does not work we can still work without it
             pass
 
-    if not (dryrun or touch or quiet):
+    if not (dryrun or touch or quiet or unlock or listrules):
         if cluster:
             logger.warning("Provided cluster nodes: {}".format(cores))
         else:
@@ -90,6 +90,7 @@ def snakemake(snakefile,
     try:
         workflow.include(snakefile, workdir=workdir,
             overwrite_first_rule=True, print_compilation=print_compilation)
+        workflow.check()
 
         if not print_compilation:
             if listrules:

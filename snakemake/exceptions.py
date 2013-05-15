@@ -179,9 +179,12 @@ class MissingRuleException(RuleException):
 
 
 class UnknownRuleException(RuleException):
-    def __init__(self, name, lineno=None, snakefile=None):
+    def __init__(self, name, prefix="", lineno=None, snakefile=None):
+        msg = "There is no rule named {}.".format(name)
+        if prefix:
+            msg = "{} {}".format(prefix, msg)
         super().__init__(
-            "There is no rule named {}.".format(name),
+            msg,
             lineno=lineno, snakefile=snakefile)
 
 
