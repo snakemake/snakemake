@@ -4,6 +4,8 @@ __author__ = "Johannes Köster"
 
 import re
 import os
+import sys
+import signal
 from collections import OrderedDict
 from itertools import filterfalse, chain
 from operator import attrgetter
@@ -148,6 +150,12 @@ class Workflow:
             ignore_incomplete=ignore_incomplete)
 
         self.persistence = Persistence(nolock=nolock, dag=dag)
+
+        def graceful_exit(*args):
+            self.persistence.unlock()
+            sys.exit(1)
+        for s in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(s, graceful_exit)
 
         try:
             dag.init()

@@ -9,6 +9,7 @@ import string
 import threading
 import concurrent.futures
 import subprocess
+import signal
 from functools import partial
 from itertools import chain
 
@@ -311,6 +312,7 @@ def run_wrapper(run, input, output, params, wildcards, threads, log, linemaps):
     threads   -- usable threads
     log       -- path to log file
     """
+
     if log is None:
         log = Unformattable(errormsg="log used but undefined")
     try:

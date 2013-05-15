@@ -41,9 +41,6 @@ class Persistence:
             self.lock = self.noop
             self.unlock = self.noop
 
-        for s in (signal.SIGTERM,):
-            signal.signal(s, self.unlock)
-
     @property
     def files(self):
         if self._files is None:

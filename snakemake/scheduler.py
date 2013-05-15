@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 import threading
 import multiprocessing
 import operator
+import signal
 from functools import partial
 
 from snakemake.executors import DryrunExecutor, TouchExecutor
@@ -102,7 +104,11 @@ class JobScheduler:
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
         while True:
-            self._open_jobs.wait()
+            try:
+                self._open_jobs.wait()
+            except:
+                # this will be caused becaus of SIGTERM or SIGINT, so exit with error
+                self._errors = True
             self._open_jobs.clear()
             if not self.keepgoing and self._errors:
                 logger.warning("Will exit after finishing "
