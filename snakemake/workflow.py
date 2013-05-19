@@ -151,12 +151,6 @@ class Workflow:
 
         self.persistence = Persistence(nolock=nolock, dag=dag)
 
-        def graceful_exit(*args):
-            self.persistence.unlock()
-            sys.exit(1)
-        for s in (signal.SIGINT, signal.SIGTERM):
-            signal.signal(s, graceful_exit)
-
         try:
             dag.init()
         except RuleException as ex:
