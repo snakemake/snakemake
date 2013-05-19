@@ -5,7 +5,7 @@ import re
 import stat
 from itertools import product
 from collections import Iterable
-from snakemake.exceptions import MissingOutputException
+from snakemake.exceptions import MissingOutputException, WildcardError
 
 __author__ = "Johannes Köster"
 
@@ -180,13 +180,13 @@ def apply_wildcards(pattern, wildcards, fill_missing=False,
             try:
                 value = wildcards[name]
                 if fail_dynamic and value == dynamic_fill:
-                    raise KeyError(name)
+                    raise WildcardError(name)
                 return value
             except KeyError as ex:
                 if fill_missing:
                     return dynamic_fill
                 else:
-                    raise ex
+                    raise WildcardError(str(ex))
 
         return re.sub(_wildcard_regex, format_match, pattern)
 

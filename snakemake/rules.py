@@ -10,7 +10,7 @@ from collections import defaultdict
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params
 from snakemake.io import apply_wildcards
-from snakemake.exceptions import RuleException, IOFileException
+from snakemake.exceptions import RuleException, IOFileException, WildcardError
 
 __author__ = "Johannes Köster"
 
@@ -190,7 +190,7 @@ class Rule:
             inoutput.append(_item)
             if name:
                 inoutput.add_name(name)
-        elif inspect.isfunction(item):
+        elif callable(item):
             if output:
                 raise SyntaxError(
                     "Only input files can be specified as functions")
@@ -220,7 +220,7 @@ class Rule:
             self._set_params_item(item, name=name)
 
     def _set_params_item(self, item, name=None):
-        if isinstance(item, str) or inspect.isfunction(item):
+        if isinstance(item, str) or callable(item):
             self.params.append(item)
             if name:
                 self.params.add_name(name)
@@ -257,7 +257,7 @@ class Rule:
             ruleio = None):
             for name, item in olditems.allitems():
                 start = len(newitems)
-                if inspect.isfunction(item):
+                if callable(item):
                     items = item(wildcards_obj)
                     if isinstance(items, str):
                         items = [items]
@@ -307,7 +307,7 @@ class Rule:
 
             log = self.log.apply_wildcards(wildcards) if self.log else None
             return input, output, params, log, ruleio
-        except KeyError as ex:
+        except WildcardError as ex:
             # this can only happen if an input contains an unresolved wildcard.
             raise RuleException(
                 "Wildcards in input or log file of rule {} cannot be "

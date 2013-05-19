@@ -84,6 +84,10 @@ def print_exception(ex, linemaps, print_traceback=False):
         traceback.print_exception(type(ex), ex, ex.__traceback__)
 
 
+class WildcardError(Exception):
+    pass
+
+
 class RuleException(Exception):
     """
     Base class for exception occuring withing the
