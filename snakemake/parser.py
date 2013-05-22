@@ -384,15 +384,18 @@ class Python(TokenAutomaton):
 
     def python(self, token):
         if not (is_indent(token) or is_dedent(token)):
-            try:
-                for t in self.subautomaton(token.string).consume():
-                    yield t
-            except KeyError:
+            if self.lasttoken is None or self.lasttoken.isspace():
+                try:
+                    for t in self.subautomaton(token.string).consume():
+                        yield t
+                except KeyError:
+                    yield token.string, token
+                except StopAutomaton as e:
+                    self.indentation(e.token)
+                    for t in self.python(e.token):
+                        yield t
+            else:
                 yield token.string, token
-            except StopAutomaton as e:
-                self.indentation(e.token)
-                for t in self.python(e.token):
-                    yield t
 
 
 class Snakefile:
