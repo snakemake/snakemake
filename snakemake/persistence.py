@@ -32,8 +32,9 @@ class Persistence:
         self._version = os.path.join(self.path, "version_tracking")
         self._code = os.path.join(self.path, "code_tracking")
         self._rule = os.path.join(self.path, "rule_tracking")
+        self._input = os.path.join(self.path, "input_tracking")
 
-        for d in (self._incomplete, self._version, self._code, self._rule):
+        for d in (self._incomplete, self._version, self._code, self._rule, self._input):
             if not os.path.exists(d):
                 os.mkdir(d)
 
@@ -92,6 +93,7 @@ class Persistence:
         self._delete_record(self._version, path)
         self._delete_record(self._code, path)
         self._delete_record(self._rule, path)
+        self._delete_record(self._input, path)
 
     def started(self, job):
         for f in job.output:
@@ -100,11 +102,13 @@ class Persistence:
     def finished(self, job):
         version = job.rule.version
         code = self.code(job.rule)
+        input = self.input(job)
         for f in job.expanded_output:
             self._delete_record(self._incomplete, f)
             self._record(self._version, version, f)
             self._record(self._code, code, f, bin=True)
             self._record(self._rule, job.rule.name, f)
+            self._record(self._input, input, f)
 
     def cleanup(self, job):
         for f in job.expanded_output:
@@ -112,6 +116,7 @@ class Persistence:
             self._delete_record(self._version, f)
             self._delete_record(self._code, f)
             self._delete_record(self._rule, f)
+            self._delete_record(self._input, f)
 
     def incomplete(self, job):
         marked_incomplete = partial(self._exists_record, self._incomplete)
@@ -125,24 +130,25 @@ class Persistence:
         return self._read_record(self._rule, path)
 
     def version_changed(self, job, file=None):
-        if file is not None:
-            return (self._exists_record(self._version, file)
-                and not self._equals_record(
-                    self._version, job.rule.version, file))
-        return filterfalse(
-            partial(self._equals_record, self._version, job.rule.version),
-            job.output)
+        cr = partial(self._changed_records, self._version, job.rule.version)
+        if file is None:
+            return cr(*job.output)
+        else:
+            return next(cr(file))
 
     def code_changed(self, job, file=None):
-        if file is not None:
-            return (self._exists_record(self._code, file)
-                and not self._equals_record(
-                    self._code, self.code(job.rule), file, bin=True))
-        return filterfalse(
-            partial(
-                self._equals_record, self._code,
-                self.code(job.rule), bin=True),
-            job.output)
+        cr = partial(self._changed_records, self._code, self.code(job.rule), bin=True)
+        if file is None:
+            return cr(*job.output)
+        else:
+            return next(cr(file))
+
+    def input_changed(self, job, file=None):
+        cr = partial(self._changed_records, self._input, self.input(job))
+        if file is None:
+            return cr(*job.output)
+        else:
+            return next(cr(file))
 
     def noop(self, *args):
         pass
@@ -153,6 +159,14 @@ class Persistence:
     @lru_cache()
     def code(self, rule):
         return marshal.dumps(rule.run_func.__code__)
+
+    @lru_cache()
+    def input(self, job):
+        return "\n".join(sorted(job.input))
+
+    @lru_cache()
+    def output(self, job):
+        return sorted(job.output)
 
     def _record(self, subject, value, id, bin=False):
         if value is not None:
@@ -175,6 +189,12 @@ class Persistence:
             os.path.join(subject, self.b64id(id)),
             "rb" if bin else "r") as f:
             return f.read()
+
+    def _changed_records(self, subject, value, *ids, bin=False):
+        equals = partial(self._equals_record, subject, value, bin=bin)
+        return filter(
+            lambda id: self._exists_record(subject, id) and not equals(id),
+            ids)
 
     def _equals_record(self, subject, value, id, bin=False):
         return self._read_record(subject, id, bin=bin) == value

@@ -657,6 +657,8 @@ class DAG:
                     status = "version changed to {}".format(job.rule.version)
                 elif self.workflow.persistence.code_changed(job, file=f):
                     status = "rule implementation changed"
+                elif self.workflow.persistence.input_changed(job, file=f):
+                    status = "set of input files changed"
                 yield "\t".join((f, date, rule, version, status, pending))
 
     def stats(self):

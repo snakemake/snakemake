@@ -109,6 +109,7 @@ class Workflow:
         workdir=None,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
+        list_input_changes=False,
         summary=False, output_wait=3, nolock=False, unlock=False):
 
         def rules(items):
@@ -193,13 +194,19 @@ class Workflow:
             items = list(chain(
                 *map(self.persistence.version_changed, dag.jobs)))
             if items:
-                print(items, sep="\n")
+                print(*items, sep="\n")
             return True
         elif list_code_changes:
             items = list(chain(
                 *map(self.persistence.code_changed, dag.jobs)))
             if items:
-                print(items, sep="\n")
+                print(*items, sep="\n")
+            return True
+        elif list_input_changes:
+            items = list(chain(
+                *map(self.persistence.input_changed, dag.jobs)))
+            if items:
+                print(*items, sep="\n")
             return True
 
         scheduler = JobScheduler(
