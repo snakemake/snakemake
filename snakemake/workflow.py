@@ -109,7 +109,7 @@ class Workflow:
         workdir=None,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
-        list_input_changes=False,
+        list_input_changes=False, list_params_changes=False,
         summary=False, output_wait=3, nolock=False, unlock=False):
 
         def rules(items):
@@ -208,6 +208,12 @@ class Workflow:
             if items:
                 print(*items, sep="\n")
             return True
+        elif list_params_changes:
+            items = list(chain(
+                *map(self.persistence.params_changed, dag.jobs)))
+            if items:
+                print(*items, sep="\n")
+            return True
 
         scheduler = JobScheduler(
             self, dag, cores, dryrun=dryrun, touch=touch, cluster=cluster,
@@ -215,6 +221,13 @@ class Workflow:
             quiet=quiet, keepgoing=keepgoing,
             printreason=printreason, printshellcmds=printshellcmds,
             output_wait=output_wait)
+
+        if not dryrun and not quiet:
+            if cluster:
+                logger.warning("Provided cluster nodes: {}".format(cores))
+            else:
+                logger.warning("Provided cores: {}".format(cores))
+
         success = scheduler.schedule()
 
         if success:

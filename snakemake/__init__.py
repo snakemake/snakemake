@@ -41,6 +41,7 @@ def snakemake(snakefile,
     list_version_changes=False,
     list_code_changes=False,
     list_input_changes=False,
+    list_params_changes=False,
     summary=False,
     output_wait=3,
     print_compilation=False,
@@ -81,12 +82,6 @@ def snakemake(snakefile,
             # ignore: if it does not work we can still work without it
             pass
 
-    if not (dryrun or touch or quiet or unlock or listrules):
-        if cluster:
-            logger.warning("Provided cluster nodes: {}".format(cores))
-        else:
-            logger.warning("Provided cores: {}".format(cores))
-
     success = False
     try:
         workflow.include(snakefile, workdir=workdir,
@@ -115,6 +110,7 @@ def snakemake(snakefile,
                     list_version_changes=list_version_changes,
                     list_code_changes=list_code_changes,
                     list_input_changes=list_input_changes,
+                    list_params_changes=list_params_changes,
                     summary=summary,
                     output_wait=output_wait,
                     nolock=not lock,

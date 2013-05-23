@@ -33,8 +33,9 @@ class Persistence:
         self._code = os.path.join(self.path, "code_tracking")
         self._rule = os.path.join(self.path, "rule_tracking")
         self._input = os.path.join(self.path, "input_tracking")
+        self._params = os.path.join(self.path, "params_tracking")
 
-        for d in (self._incomplete, self._version, self._code, self._rule, self._input):
+        for d in (self._incomplete, self._version, self._code, self._rule, self._input, self._params):
             if not os.path.exists(d):
                 os.mkdir(d)
 
@@ -94,6 +95,7 @@ class Persistence:
         self._delete_record(self._code, path)
         self._delete_record(self._rule, path)
         self._delete_record(self._input, path)
+        self._delete_record(self._params, path)
 
     def started(self, job):
         for f in job.output:
@@ -103,12 +105,14 @@ class Persistence:
         version = job.rule.version
         code = self.code(job.rule)
         input = self.input(job)
+        params = self.params(job)
         for f in job.expanded_output:
             self._delete_record(self._incomplete, f)
             self._record(self._version, version, f)
             self._record(self._code, code, f, bin=True)
             self._record(self._rule, job.rule.name, f)
             self._record(self._input, input, f)
+            self._record(self._params, params, f)
 
     def cleanup(self, job):
         for f in job.expanded_output:
@@ -117,6 +121,7 @@ class Persistence:
             self._delete_record(self._code, f)
             self._delete_record(self._rule, f)
             self._delete_record(self._input, f)
+            self._delete_record(self._params, f)
 
     def incomplete(self, job):
         marked_incomplete = partial(self._exists_record, self._incomplete)
@@ -124,9 +129,13 @@ class Persistence:
             map(lambda f: f.exists and marked_incomplete(f), job.output))
 
     def version(self, path):
+        if not os.path.exists(path):
+            return None
         return self._read_record(self._version, path)
 
     def rule(self, path):
+        if not os.path.exists(path):
+            return None
         return self._read_record(self._rule, path)
 
     def version_changed(self, job, file=None):
@@ -134,21 +143,28 @@ class Persistence:
         if file is None:
             return cr(*job.output)
         else:
-            return next(cr(file))
+            return bool(list(cr(file)))
 
     def code_changed(self, job, file=None):
         cr = partial(self._changed_records, self._code, self.code(job.rule), bin=True)
         if file is None:
             return cr(*job.output)
         else:
-            return next(cr(file))
+            return bool(list(cr(file)))
 
     def input_changed(self, job, file=None):
         cr = partial(self._changed_records, self._input, self.input(job))
         if file is None:
             return cr(*job.output)
         else:
-            return next(cr(file))
+            return bool(list(cr(file)))
+
+    def params_changed(self, job, file=None):
+        cr = partial(self._changed_records, self._params, self.params(job))
+        if file is None:
+            return cr(*job.output)
+        else:
+            return bool(list(cr(file)))
 
     def noop(self, *args):
         pass
@@ -163,6 +179,10 @@ class Persistence:
     @lru_cache()
     def input(self, job):
         return "\n".join(sorted(job.input))
+
+    @lru_cache()
+    def params(self, job):
+        return "\n".join(sorted(job.params))
 
     @lru_cache()
     def output(self, job):
