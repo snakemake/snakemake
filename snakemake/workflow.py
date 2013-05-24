@@ -36,6 +36,7 @@ class Workflow:
         self.snakefile = snakefile
         self.snakemakepath = os.path.abspath(snakemakepath)
         self.persistence = None
+        self.resources = None
         self.globals = globals()
 
     @property
@@ -110,7 +111,10 @@ class Workflow:
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
-        summary=False, output_wait=3, nolock=False, unlock=False):
+        summary=False, output_wait=3, nolock=False, unlock=False,
+        resources=None):
+
+        self.resources = resources
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
@@ -288,6 +292,13 @@ class Workflow:
                     raise RuleException("Threads value has to be an integer.",
                         rule=rule)
                 rule.threads = ruleinfo.threads
+            if ruleinfo.resources:
+                args, resources = resources
+                if args:
+                    raise RuleException("Resources have to be named.")
+                if all(map(lambda r: isinstance(r, int), ruleinfo.resources.values())):
+                    raise RuleException("Resources values have to be integers.", rule=rule)
+                rule.resources = resources
             if ruleinfo.priority:
                 if (not isinstance(ruleinfo.priority, int)
                     and not isinstance(ruleinfo.priority, float)):
@@ -344,6 +355,12 @@ class Workflow:
             return ruleinfo
         return decorate
 
+    def resources(self, *args, **resources):
+        def decorate(ruleinfo):
+            ruleinfo.resources = (args, resources)
+            return ruleinfo
+        return decorate
+
     def priority(self, priority):
         def decorate(ruleinfo):
             ruleinfo.priority = priority
@@ -385,6 +402,7 @@ class RuleInfo:
         self.params = None
         self.message = None
         self.threads = None
+        self.resources = None
         self.priority = None
         self.version = None
         self.log = None

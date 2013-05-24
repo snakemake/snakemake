@@ -169,6 +169,8 @@ class JobScheduler:
 
     def job_selector(self, jobs):
         """ Solve 0-1 knapsack to maximize cpu utilization. """
+        resources = self.workflow.resources
+
         dimi, dimj = len(jobs) + 1, self._cores + 1
         K = [[(0, 0) for c in range(dimj)] for i in range(dimi)]
         for i in range(1, dimi):

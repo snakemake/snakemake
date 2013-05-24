@@ -13,6 +13,7 @@ __version__ = "2.3"
 def snakemake(snakefile,
     listrules=False,
     cores=1,
+    resources=None,
     workdir=None,
     targets=None,
     dryrun=False,
@@ -114,7 +115,8 @@ def snakemake(snakefile,
                     summary=summary,
                     output_wait=output_wait,
                     nolock=not lock,
-                    unlock=unlock
+                    unlock=unlock,
+                    resources=resources
                     )
 
     except (Exception, BaseException) as ex:

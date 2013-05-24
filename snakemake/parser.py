@@ -217,6 +217,8 @@ class Params(RuleKeywordState):
 class Threads(RuleKeywordState):
     pass
 
+class Resources(RuleKeywordState):
+    pass
 
 class Priority(RuleKeywordState):
     pass
@@ -294,6 +296,7 @@ class Rule(GlobalKeywordState):
         output=Output,
         params=Params,
         threads=Threads,
+        resources=Resources,
         priority=Priority,
         version=Version,
         log=Log,
