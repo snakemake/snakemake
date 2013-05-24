@@ -219,12 +219,19 @@ class DAG:
         needed = lambda job_, f: any(f in files
             for j, files in self.depending[job_].items()
             if not self.finished(j) and j != job)
-        for job_, files in self.dependencies[job].items():
-            for f in job_.temp_output & files:
-                if not needed(job_, f):
-                    logger.warning("Removing temporary "
-                        "output file {}".format(f))
-                    f.remove()
+
+        def unneeded_files():
+            for job_, files in self.dependencies[job].items():
+                for f in job_.temp_output & files:
+                    if not needed(job_, f):
+                        yield f
+            for f in filterfalse(partial(needed, job), job.temp_output):
+                if not f in self.targetfiles:
+                    yield f
+
+        for f in unneeded_files():
+            logger.warning("Removing temporary output file {}".format(f))
+            f.remove()
 
     def update(self, jobs, file=None, visited=None, skip_until_dynamic=False):
         """ Update the DAG by adding given jobs and their dependencies. """
