@@ -195,6 +195,53 @@ class JobScheduler:
             i -= 1
         return solution
 
+    def job_selector_greedy(self, jobs):
+        """
+        Using the greedy heuristic from 
+        "A Greedy Algorithm for the General Multidimensional Knapsack
+Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
+        """
+        # solve over the rules instead of jobs (much less)
+        _jobs = defaultdict(list)
+        _jobs.update((job.rule, job) for job in jobs)
+        jobs = _jobs
+        rules = list(jobs)
+
+        # Step 1: initialization
+        x = [0] * len(rules)
+        E = set(range(len(rules)))
+        u = [len(jobs[rule]) for rule in rules]
+        b = [self._cores] + [val for val in self.workflow.resources.values()]
+        a = list(map(self.rule_weight, rules))
+
+        while True:
+            # Step 2: compute effective capacities
+            y = [
+                min(b_i // a_j_i for b_i, a_j_i in zip(b, a[j]) if a_j_i)
+                for j in E]
+            if not any(y):
+                break
+
+            # Step 3: compute rewards
+            reward = [c_j * y_j for c_j, y_j in zip(c, y)]
+            j_ = max(E, key=reward.__getitem__) # argmax
+
+            # Step 4: batch increment
+            y_ = min(u[j_], max(1, alpha * y[j_]))
+            
+            # Step 5: update information
+            x[j_] += y_
+            b = [b_i - (a_j_i * y_) for b_i, a_j_i in zip(b, a[j_])]
+            u[j_] -= y_
+            if not u[j_] or alpha == 1:
+                E.remove(j_)
+            if not E:
+                break
+                
+        # Solution is the list of jobs that was selected from the selected rules
+        solution = list(chain(*[jobs[rules[j]][:x_] for j, x_ in x]))
+        return solution
+
     def job_weight(self, job):
         """ Job weight that uses threads. """
         return job.threads
