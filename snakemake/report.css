@@ -37,11 +37,15 @@ h6 {
 div#attachments {
     color: gray;
     padding: 0px;
+    border: 1px solid white;
+    border-radius: 4px 4px 4px 4px;
     padding-top: 20px;
 }
 
 div#attachments :target a {
-    color: rgb(221, 17, 68);
+    color: rgb(70, 136, 71);
+    border: 1px solid rgb(221, 221, 221);
+    border-radius: 4px 4px 4px 4px;
 }
 
 h1.title {
@@ -124,7 +128,7 @@ a {
 }
 
 a:hover {
-    color: rgb(70, 136, 71);
+    color: rgb(0, 85, 128);
     text-decoration: underline;
 }
 
