@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os, sys, multiprocessing
+import os
+import sys
+import multiprocessing
+import re
 import argparse
+from argparse import ArgumentError
 import logging
 
 __author__ = "Johannes Köster"
@@ -33,6 +37,15 @@ def main():
             "Use at most N cores in parallel (default: 1). "
             "If N is omitted, the limit is set to the number of "
             "available cores."))
+    parser.add_argument(
+        "--resources", "--res", nargs="*", metavar="NAME INT",
+        help=(
+            "Define additional resources that shall constrain the scheduling "
+            "analogously to threads (see above). A resource is defined as "
+            "a name and an integer value. E.g. --resources gpu 1. Rules can "
+            "use resources by defining the resource keyword, e.g. "
+            "resources: gpu=1. If now two rules require 1 of the resource "
+            "'gpu' they won't be run in parallel by the scheduler."))
     parser.add_argument(
         "--list", "-l", action="store_true",
         help="Show availiable rules in given snakefile.")
@@ -181,10 +194,16 @@ def main():
 
     snakemakepath = os.path.realpath(__file__)
 
+    try:
+        resources = parse_resources(args)
+    except ArgumentError:
+        parser.print_help()
+
     success = snakemake.snakemake(
             args.snakefile,
             listrules=args.list,
             cores=args.cores,
+            resources=resources,
             workdir=args.directory,
             targets=args.target,
             dryrun=args.dryrun,
@@ -219,6 +238,23 @@ def main():
             debug=args.debug
             )
     exit(0 if success else 1)
+
+def parse_resources(args):
+    resources = dict()
+    if args.resources is not None:
+        valid = re.compile("[a-zA-Z_]\w$")
+        if len(args.resources) % 2:
+            raise ArgumentError("Resource definition has to be succeeded by at least one identifier and a number")
+        for i in range(0, len(args.resources), 2):
+            res, val = args.resources[i], args.resources[i + 1]
+            if not valid.match(res):
+                raise ArgumentError("Resource definition must start with a valid identifier")
+            try:
+                val = int(val)
+            except ValueError:
+                raise ArgumentError("Resource definiton must contain an integer after the identifier")
+            resources[res] = val
+    return resources
 
 if __name__ == "__main__":
     #import cProfile

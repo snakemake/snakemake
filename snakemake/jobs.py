@@ -39,6 +39,7 @@ class Job:
             self.log, self.ruleio) = rule.expand_wildcards(
             self.wildcards_dict)
         self.threads = rule.threads
+        self.resources = rule.resources
         self.priority = rule.priority
         self._inputsize = None
 

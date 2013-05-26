@@ -37,6 +37,7 @@ class Rule:
             self.temp_output = set()
             self.protected_output = set()
             self.threads = 1
+            self.resources = dict()
             self.priority = 1
             self.version = None
             self._log = None
@@ -59,6 +60,7 @@ class Rule:
             self.temp_output = other.temp_output
             self.protected_output = other.protected_output
             self.threads = other.threads
+            self.resources = other.resources
             self.priority = other.priority
             self.version = other.version
             self._log = other._log
