@@ -156,15 +156,7 @@ class Workflow:
 
         self.persistence = Persistence(nolock=nolock, dag=dag)
 
-        try:
-            dag.init()
-        except RuleException as ex:
-            # TODO think about printing a DAG on request here
-            print_exception(ex, self.linemaps)
-            return False
-        except (Exception, BaseException) as ex:
-            print_exception(ex, self.linemaps)
-            return False
+        dag.init()
 
         if unlock:
             try:
@@ -187,6 +179,8 @@ class Workflow:
                 "a power loss. It can be removed with "
                 "the --unlock argument.".format(os.getcwd()))
             return False
+
+        dag.check_incomplete()
 
         if printdag:
             print(dag)
