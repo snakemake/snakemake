@@ -213,6 +213,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         u = [len(jobs[rule]) for rule in rules]
         b = [self._cores] + [val for val in self.workflow.resources.values()]
         a = list(map(self.rule_weight, rules))
+        c = list(map(self.rule_reward, rules))
 
         while True:
             # Step 2: compute effective capacities
@@ -239,7 +240,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 break
                 
         # Solution is the list of jobs that was selected from the selected rules
-        solution = list(chain(*[jobs[rules[j]][:x_] for j, x_ in x]))
+        solution = list(chain(*[jobs[rules[j]][:x_] for j, x_ in enumerate(x)]))
         return solution
 
     def job_weight(self, job):
