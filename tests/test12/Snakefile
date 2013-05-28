@@ -1,3 +1,4 @@
+
 rule rule1:
 	input: 'test.inter'
 	output: 'test.out'

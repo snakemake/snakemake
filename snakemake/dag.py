@@ -221,7 +221,7 @@ class DAG:
         """ Remove temp files if they are no longer needed. """
         needed = lambda job_, f: any(f in files
             for j, files in self.depending[job_].items()
-            if not self.finished(j) and j != job)
+            if not self.finished(j) and self.needrun(j) and j != job)
 
         def unneeded_files():
             for job_, files in self.dependencies[job].items():
