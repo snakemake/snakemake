@@ -112,7 +112,7 @@ class Workflow:
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
         summary=False, output_wait=3, nolock=False, unlock=False,
-        resources=None):
+        resources=None, notemp=False):
 
         self.resources = resources
 
@@ -152,7 +152,7 @@ class Workflow:
             forcerules=forcerules, priorityfiles=priorityfiles,
             priorityrules=priorityrules, ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
-            ignore_incomplete=ignore_incomplete)
+            ignore_incomplete=ignore_incomplete, notemp=notemp)
 
         self.persistence = Persistence(nolock=nolock, dag=dag)
 

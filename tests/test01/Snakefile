@@ -34,8 +34,10 @@ rule rule4:
 	output: "test.inter"
 	shell: "cp {input} {output}"
 
+
 # this should be ignored since test.in is present
 rule rule3:
 	input: "dir/{a}.out"
 	output: "{a}.in"
 	shell: "cp {input} {output}"
+

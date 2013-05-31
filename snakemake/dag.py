@@ -33,7 +33,8 @@ class DAG:
         priorityrules=None,
         ignore_ambiguity=False,
         force_incomplete=False,
-        ignore_incomplete=False):
+        ignore_incomplete=False,
+        notemp=False):
 
         self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
@@ -53,6 +54,7 @@ class DAG:
         self.targetjobs = set()
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
+        self.notemp = notemp
 
         self.forcerules = set()
         self.forcefiles = set()
@@ -84,8 +86,6 @@ class DAG:
         if exceptions:
             raise RuleException(include=chain(*exceptions.values()))
         self.update_needrun()
-
-
 
         for job in filter(
             lambda job: (job.dynamic_output
@@ -219,6 +219,9 @@ class DAG:
 
     def handle_temp(self, job):
         """ Remove temp files if they are no longer needed. """
+        if self.notemp:
+            return
+
         needed = lambda job_, f: any(f in files
             for j, files in self.depending[job_].items()
             if not self.finished(j) and self.needrun(j) and j != job)

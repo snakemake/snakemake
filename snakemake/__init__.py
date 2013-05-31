@@ -46,7 +46,8 @@ def snakemake(snakefile,
     summary=False,
     output_wait=3,
     print_compilation=False,
-    debug=False):
+    debug=False,
+    notemp=False):
     """
     Run snakemake on a given snakefile.
     Note: at the moment, this function is not thread-safe!
@@ -116,7 +117,8 @@ def snakemake(snakefile,
                     output_wait=output_wait,
                     nolock=not lock,
                     unlock=unlock,
-                    resources=resources
+                    resources=resources,
+                    notemp=notemp
                     )
 
     except (Exception, BaseException) as ex:
