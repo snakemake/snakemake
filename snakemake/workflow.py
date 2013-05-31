@@ -157,6 +157,7 @@ class Workflow:
         self.persistence = Persistence(nolock=nolock, dag=dag)
 
         dag.init()
+        dag.check_dynamic()
 
         if unlock:
             try:
@@ -181,6 +182,7 @@ class Workflow:
             return False
 
         dag.check_incomplete()
+        dag.postprocess()
 
         if printdag:
             print(dag)

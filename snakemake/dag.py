@@ -87,12 +87,6 @@ class DAG:
             raise RuleException(include=chain(*exceptions.values()))
         self.update_needrun()
 
-        for job in filter(
-            lambda job: (job.dynamic_output
-                and not self.needrun(job)), self.jobs):
-            self.update_dynamic(job)
-        self.postprocess()
-
     def check_incomplete(self):
         if not self.ignore_incomplete:
             incomplete = self.incomplete_files
@@ -101,9 +95,14 @@ class DAG:
                     logger.debug("Forcing incomplete files:")
                     logger.debug("\t" + "\n\t".join(incomplete))
                     self.forcefiles.update(incomplete)
-                    self.update_needrun()
                 else:
                     raise IncompleteFilesException(incomplete)
+
+    def check_dynamic(self):
+        for job in filter(
+            lambda job: (job.dynamic_output
+                and not self.needrun(job)), self.jobs):
+            self.update_dynamic(job)
 
     @property
     def jobs(self):
