@@ -3,7 +3,7 @@
 import textwrap
 import time
 from collections import defaultdict, Counter
-from itertools import chain, combinations, filterfalse, product
+from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
 from operator import itemgetter, attrgetter
 
@@ -534,7 +534,7 @@ class DAG:
                 pass
         return dependencies
 
-    def bfs(self, direction, *jobs, stop=lambda job: False):
+    def bfs(self, direction, *jobs, stop=lambda job: False, yield_level=False):
         queue = list(jobs)
         visited = set(queue)
         while queue:
@@ -546,6 +546,21 @@ class DAG:
             for job_, _ in direction[job].items():
                 if not job_ in visited:
                     queue.append(job_)
+                    visited.add(job_)
+
+    def level_bfs(self, direction, *jobs, stop=lambda job: False):
+        queue = [(job, 0) for job in jobs]
+        visited = set(jobs)
+        while queue:
+            job, level = queue.pop(0)
+            if stop(job):
+                # stop criterion reached for this node
+                continue
+            yield level, job
+            level += 1
+            for job_, _ in direction[job].items():
+                if not job_ in visited:
+                    queue.append((job_, level))
                     visited.add(job_)
 
     def dfs(self, direction, *jobs, stop=lambda job: False, post=True):
@@ -589,13 +604,30 @@ class DAG:
             raise MissingRuleException(targetfile)
         return jobs
 
-    def dot(self, errors=False):
+    def dot(self):
+        return self._dot(self.jobs)
+
+    def rule_dot(self):
+        def key(item):
+            level, job = item
+            return level, job.rule.name
+        groups = [(level, list(map(itemgetter(1), group))) for (level, _), group in groupby(
+            sorted(
+                self.level_bfs(self.dependencies, *self.targetjobs),
+                key=key),
+            key=key)]
+        jobs = [group[0] for key, group in groups]
+        return self._dot(jobs, print_wildcards=False, print_types=False)
+
+    def _dot(self, jobs, errors=False, print_wildcards=True, print_types=True):
+        jobs = set(jobs)
+        
         huefactor = 2 / (3 * (len(self.rules) - 1))
         rulecolor = dict(
             (rule, "{} 0.6 0.85".format(i * huefactor))
             for i, rule in enumerate(self.rules))
 
-        jobid = dict((job, i) for i, job in enumerate(self.jobs))
+        jobid = dict((job, i) for i, job in enumerate(jobs))
 
         nodes, edges = list(), list()
         types = ["running job", "not running job", "dynamic job"]
@@ -604,15 +636,24 @@ class DAG:
             'style="rounded,dotted"']
         used_types = set()
 
-        def format_wildcard(wildcard):
-            name, value = wildcard
-            if _IOFile.dynamic_fill in value:
-                value = "..."
-            return "{}: {}".format(name, value)
 
-        for job in self.jobs:
-            label = "\\n".join([job.rule.name] + list(
-                map(format_wildcard, self.new_wildcards(job))))
+        if print_wildcards:
+            def format_wildcard(wildcard):
+                name, value = wildcard
+                if _IOFile.dynamic_fill in value:
+                    value = "..."
+                return "{}: {}".format(name, value)
+
+            format_label = lambda job: "\\n".join([job.rule.name] + list(
+                    map(format_wildcard, self.new_wildcards(job))))
+        else:
+            format_label = lambda job: job.rule.name
+        if print_types:
+            format_node = lambda t: styles[t]
+        else:
+            format_node = lambda _: styles[0]
+
+        for job in jobs:
             t = 0
             if not self.needrun(job):
                 t = 1
@@ -621,10 +662,11 @@ class DAG:
             used_types.add(t)
 
             nodes.append('\t{}[label = "{}", color="{}", {}];'.format(
-                jobid[job], label, rulecolor[job.rule], styles[t]))
+                jobid[job], format_label(job), rulecolor[job.rule], format_node(t)))
 
-            for job_ in self.dependencies[job]:
+            for job_ in filter(jobs.__contains__, self.dependencies[job]):
                 edges.append("\t{} -> {};".format(jobid[job_], jobid[job]))
+
         legend = list()
         if len(used_types) > 1:
             for t in used_types:
