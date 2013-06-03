@@ -611,23 +611,31 @@ class DAG:
         def key(item):
             level, job = item
             return level, job.rule.name
-        groups = [(level, list(map(itemgetter(1), group))) for (level, _), group in groupby(
+        groups = [list(map(itemgetter(1), group)) for (level, _), group in groupby(
             sorted(
                 self.level_bfs(self.dependencies, *self.targetjobs),
                 key=key),
             key=key)]
-        jobs = [group[0] for key, group in groups]
-        return self._dot(jobs, print_wildcards=False, print_types=False)
+        jobs = [group[0] for group in groups]
+        jobid = dict()
+        for i, group in enumerate(groups):
+            jobid.update((job, i) for job in group)
+        return self._dot(
+            jobs, print_wildcards=False, print_types=False, jobid=jobid)
 
-    def _dot(self, jobs, errors=False, print_wildcards=True, print_types=True):
+    def _dot(
+        self, jobs, errors=False, print_wildcards=True,
+        print_types=True, jobid=None):
+
         jobs = set(jobs)
-        
+
         huefactor = 2 / (3 * (len(self.rules) - 1))
         rulecolor = dict(
             (rule, "{} 0.6 0.85".format(i * huefactor))
             for i, rule in enumerate(self.rules))
 
-        jobid = dict((job, i) for i, job in enumerate(jobs))
+        if jobid is None:
+            jobid = dict((job, i) for i, job in enumerate(jobs))
 
         nodes, edges = list(), list()
         types = ["running job", "not running job", "dynamic job"]
@@ -664,17 +672,22 @@ class DAG:
             nodes.append('\t{}[label = "{}", color="{}", {}];'.format(
                 jobid[job], format_label(job), rulecolor[job.rule], format_node(t)))
 
-            for job_ in filter(jobs.__contains__, self.dependencies[job]):
-                edges.append("\t{} -> {};".format(jobid[job_], jobid[job]))
+            #if job.rule.name == "mapped_kvs":
+            #    import pdb; pdb.set_trace()
+            deps = set(map(jobid.__getitem__, self.dependencies[job]))
+            job = jobid[job]
+            for dep in deps:
+                edges.append("\t{} -> {};".format(dep, job))
 
         legend = list()
-        if len(used_types) > 1:
-            for t in used_types:
-                legend.append('\tlegend{}[label="{}", {}];'.format(
-                    t, types[t], styles[t]))
-                for target in map(jobid.__getitem__, self.targetjobs):
-                    legend.append(
-                        "\t{} -> legend{}[style=invis];".format(target, t))
+        if print_types:
+            if len(used_types) > 1:
+                for t in used_types:
+                    legend.append('\tlegend{}[label="{}", {}];'.format(
+                        t, types[t], styles[t]))
+                    for target in map(jobid.__getitem__, self.targetjobs):
+                        legend.append(
+                            "\t{} -> legend{}[style=invis];".format(target, t))
 
         return textwrap.dedent(
             """\
