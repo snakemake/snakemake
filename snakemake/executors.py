@@ -318,8 +318,6 @@ def run_wrapper(run, input, output, params, wildcards, threads, log, linemaps):
     try:
         # execute the actual run method.
         run(input, output, params, wildcards, threads, log)
-        # finish all spawned shells.
-        shell.join_all()
     except (Exception, BaseException) as ex:
         # this ensures that exception can be re-raised in the parent thread
         lineno, file = get_exception_origin(ex, linemaps)
