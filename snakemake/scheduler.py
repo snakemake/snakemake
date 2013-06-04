@@ -156,7 +156,7 @@ class JobScheduler:
             self.progress()
 
         if any(self.open_jobs) or not self.running:
-            # go on scheduling if open jobs are ready or no job is running any
+            # go on scheduling if open jobs are ready or no job is running any more
             self._open_jobs.set()
 
     def _error(self):

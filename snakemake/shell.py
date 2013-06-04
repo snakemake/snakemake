@@ -28,12 +28,12 @@ class PipeWriter:
 
 class ListWriter(PipeWriter):
     def write(self, line):
-        self._towrite.append(line[:-1].decode("utf-8"))
+        self._towrite.append(line[:-1].decode())
 
 
 class TextIOWriter(PipeWriter):
     def write(self, line):
-        self._towrite.write(line.decode("utf-8"))
+        self._towrite.write(line.decode())
 
 
 class shell(sp.Popen):
@@ -169,10 +169,7 @@ class shell(sp.Popen):
             return other[0]
 
     def __iter__(self):
-        buf = list()
-        self | buf
-        shell.join_all()
-        return buf.__iter__()
+        return map(bytes.decode, map(bytes.rstrip, self.stdout.__iter__()))
 
 
 atexit.register(shell.terminate_all)
