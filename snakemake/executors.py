@@ -199,18 +199,6 @@ class CPUExecutor(RealExecutor):
 
 class ClusterExecutor(RealExecutor):
 
-    jobscript = textwrap.dedent("""\
-        #!/bin/sh
-        #rule: {job}
-        #input: {job.input}
-        #output: {job.output}
-        {self.workflow.snakemakepath} --snakefile {self.workflow.snakefile} \
-        --force -j{self.cores} \
-        --directory {workdir} --nocolor --notemp --quiet --nolock {job.output} \
-        > /dev/null && touch "{jobfinished}" || touch "{jobfailed}"
-        exit 0
-        """)
-
     def __init__(
         self, workflow, dag, cores, submitcmd="qsub",
         printreason=False, quiet=False, printshellcmds=False, output_wait=3):
@@ -221,6 +209,18 @@ class ClusterExecutor(RealExecutor):
             raise ValueError(
             "Cluster executor needs to know the path "
             "to the snakemake binary.")
+
+        jobscript = workflow.jobscript
+        if jobscript is None:
+            jobscript = os.path.join(
+                os.path.dirname(__file__),
+                'jobscript.sh')
+        try:
+            with open(jobscript) as f:
+                self.jobscript = f.read()
+        except IOError as e:
+            raise WorkflowError(e)
+
         self.submitcmd = submitcmd
         self.threads = []
         self._tmpdir = None

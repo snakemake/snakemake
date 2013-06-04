@@ -18,7 +18,7 @@ if not isinstance(sys.stdout, _io.TextIOWrapper):
     STDOUT = None
 
 
-class shell(sp.Popen):
+class shell:
     _process_args = {}
     _process_prefix = ""
 
@@ -33,7 +33,7 @@ class shell(sp.Popen):
     def __new__(
         cls, cmd, *args, async=False, iterable=False, read=False, **kwargs):
         cmd = format(cmd, *args, stepout=2, **kwargs)
-        stdout = sp.PIPE if iterable or async else STDOUT
+        stdout = sp.PIPE if iterable or async or read else STDOUT
         proc = sp.Popen(cls._process_prefix + cmd, shell=True, stdout=stdout,
             close_fds=True, **cls._process_args)
 

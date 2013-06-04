@@ -78,13 +78,29 @@ def print_exception(ex, linemaps, print_traceback=False):
                 logger.critical(format_error(
                     e, e.lineno, linemaps=linemaps, snakefile=e.filename,
                     show_traceback=print_traceback))
+    elif isinstance(ex, WorkflowError):
+        logger.critical(
+            format_error(
+                ex, ex.lineno, linemaps=linemaps, snakefile=e.filename,
+                show_traceback=print_traceback))
     elif isinstance(ex, KeyboardInterrupt):
         logger.warning("Cancelling snakemake on user request.")
     else:
         traceback.print_exception(type(ex), ex, ex.__traceback__)
 
 
-class WildcardError(Exception):
+class WorkflowError(Exception):
+
+    def __init__(self, *args, lineno=None, snakefile=None, rule=None):
+        super().__init__("\n".join(map(str, args)))
+        if rule is not None:
+            self.lineno = rule.lineno
+            self.snakefile = rule.snakefile
+        self.lineno = lineno
+        self.snakefile = snakefile
+
+
+class WildcardError(WorkflowError):
     pass
 
 

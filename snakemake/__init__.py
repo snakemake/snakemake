@@ -48,7 +48,8 @@ def snakemake(snakefile,
     output_wait=3,
     print_compilation=False,
     debug=False,
-    notemp=False):
+    notemp=False,
+    jobscript=None):
     """
     Run snakemake on a given snakefile.
     Note: at the moment, this function is not thread-safe!
@@ -75,7 +76,9 @@ def snakemake(snakefile,
 
     if workdir:
         olddir = os.getcwd()
-    workflow = Workflow(snakefile=snakefile, snakemakepath=snakemakepath)
+    workflow = Workflow(
+        snakefile=snakefile, snakemakepath=snakemakepath,
+        jobscript=jobscript)
 
     if standalone:
         try:

@@ -23,7 +23,7 @@ from snakemake.persistence import Persistence
 
 
 class Workflow:
-    def __init__(self, snakefile=None, snakemakepath=None):
+    def __init__(self, snakefile=None, snakemakepath=None, jobscript=None):
         """
         Create the controller.
         """
@@ -35,6 +35,7 @@ class Workflow:
         self.rule_count = 0
         self.snakefile = snakefile
         self.snakemakepath = os.path.abspath(snakemakepath)
+        self.jobscript = jobscript
         self.persistence = None
         self.resources = None
         self.globals = globals()

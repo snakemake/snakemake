@@ -141,6 +141,11 @@ def main():
             "$ snakemake --cluster 'sbatch --dependency {dependencies}.\n"
             "Assuming that your submit script (here sbatch) outputs the generated job id to the first stdout line, {dependencies} will be filled with space separated job ids this job depends on."))
     parser.add_argument(
+        "--jobscript", "--js",
+        help="Provide a custom job script for submission to the cluster. "
+            "The default script resides as 'jobscript.sh' in the "
+            "installation directory.")
+    parser.add_argument(
         "--reason", "-r", action = "store_true",
         help="Print the reason for each executed rule.")
     parser.add_argument(
@@ -249,7 +254,8 @@ def main():
             list_params_changes=args.list_params_changes,
             summary=args.summary,
             print_compilation=args.print_compilation,
-            debug=args.debug
+            debug=args.debug,
+            jobscript=args.jobscript
             )
     exit(0 if success else 1)
 
