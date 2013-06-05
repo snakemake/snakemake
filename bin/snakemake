@@ -42,7 +42,7 @@ def main():
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to threads (see above). A resource is defined as "
-            "a name and an integer value. E.g. --resources gpu 1. Rules can "
+            "a name and an integer value. E.g. --resources gpu=1. Rules can "
             "use resources by defining the resource keyword, e.g. "
             "resources: gpu=1. If now two rules require 1 of the resource "
             "'gpu' they won't be run in parallel by the scheduler."))
@@ -214,8 +214,10 @@ def main():
 
     try:
         resources = parse_resources(args)
-    except ArgumentError:
+    except ValueError as e:
+        print(e, file=sys.stderr)
         parser.print_help()
+        return False
 
     success = snakemake.snakemake(
             args.snakefile,
@@ -262,17 +264,20 @@ def main():
 def parse_resources(args):
     resources = dict()
     if args.resources is not None:
-        valid = re.compile("[a-zA-Z_]\w$")
-        if len(args.resources) % 2:
-            raise ArgumentError("Resource definition has to be succeeded by at least one identifier and a number")
-        for i in range(0, len(args.resources), 2):
-            res, val = args.resources[i], args.resources[i + 1]
+        valid = re.compile("[a-zA-Z_]\w*$")
+        for res in args.resources:
+            try:
+                res, val = res.split("=")
+            except ValueError:
+                raise ValueError("Resources have to be defined as name=value pairs.")
             if not valid.match(res):
-                raise ArgumentError("Resource definition must start with a valid identifier")
+                raise ValueError("Resource definition must start with a valid identifier.")
             try:
                 val = int(val)
             except ValueError:
-                raise ArgumentError("Resource definiton must contain an integer after the identifier")
+                raise ValueError("Resource definiton must contain an integer after the identifier.")
+            if res == "_cores":
+                raise ValueError("Resource _cores is already defined internally. Use a different name.")
             resources[res] = val
     return resources
 

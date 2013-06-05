@@ -176,7 +176,7 @@ class CPUExecutor(RealExecutor):
         job.prepare()
         future = self.pool.submit(
             run_wrapper, job.rule.run_func, job.input.plainstrings(), job.output.plainstrings(), job.params,
-            job.wildcards, job.threads, str(job.log), self.workflow.linemaps)
+            job.wildcards, job.threads, job.resources, str(job.log), self.workflow.linemaps)
         future.add_done_callback(partial(
             self._callback, job, callback, error_callback))
 
@@ -299,7 +299,7 @@ class ClusterExecutor(RealExecutor):
         return os.path.abspath(self._tmpdir)
 
 
-def run_wrapper(run, input, output, params, wildcards, threads, log, linemaps):
+def run_wrapper(run, input, output, params, wildcards, threads, resources, log, linemaps):
     """
     Wrapper around the run method that handles directory creation and
     output file deletion on error.
@@ -317,7 +317,7 @@ def run_wrapper(run, input, output, params, wildcards, threads, log, linemaps):
         log = Unformattable(errormsg="log used but undefined")
     try:
         # execute the actual run method.
-        run(input, output, params, wildcards, threads, log)
+        run(input, output, params, wildcards, threads, resources, log)
     except (Exception, BaseException) as ex:
         # this ensures that exception can be re-raised in the parent thread
         lineno, file = get_exception_origin(ex, linemaps)

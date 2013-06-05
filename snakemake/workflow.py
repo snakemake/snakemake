@@ -37,7 +37,7 @@ class Workflow:
         self.snakemakepath = os.path.abspath(snakemakepath)
         self.jobscript = jobscript
         self.persistence = None
-        self.resources = None
+        self.global_resources = None
         self.globals = globals()
 
     @property
@@ -115,7 +115,8 @@ class Workflow:
         summary=False, output_wait=3, nolock=False, unlock=False,
         resources=None, notemp=False):
 
-        self.resources = resources
+        self.global_resources = dict() if cluster or resources is None else resources
+        self.global_resources["_cores"] = cores
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
@@ -291,14 +292,14 @@ class Workflow:
                 if not isinstance(ruleinfo.threads, int):
                     raise RuleException("Threads value has to be an integer.",
                         rule=rule)
-                rule.threads = ruleinfo.threads
+                rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.resources:
-                args, resources = resources
+                args, resources = ruleinfo.resources
                 if args:
                     raise RuleException("Resources have to be named.")
-                if all(map(lambda r: isinstance(r, int), ruleinfo.resources.values())):
+                if not all(map(lambda r: isinstance(r, int), resources.values())):
                     raise RuleException("Resources values have to be integers.", rule=rule)
-                rule.resources = resources
+                rule.resources.update(resources)
             if ruleinfo.priority:
                 if (not isinstance(ruleinfo.priority, int)
                     and not isinstance(ruleinfo.priority, float)):

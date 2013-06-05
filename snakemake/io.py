@@ -385,3 +385,6 @@ class Wildcards(Namedlist):
 
 class Params(Namedlist):
     pass
+
+class Resources(Namedlist):
+    pass

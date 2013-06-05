@@ -9,7 +9,7 @@ from itertools import chain
 from functools import partial
 from operator import attrgetter
 
-from snakemake.io import IOFile, Wildcards, _IOFile
+from snakemake.io import IOFile, Wildcards, Resources, _IOFile
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException
 from snakemake.exceptions import UnexpectedOutputException
@@ -38,8 +38,13 @@ class Job:
         (self.input, self.output, self.params,
             self.log, self.ruleio) = rule.expand_wildcards(
             self.wildcards_dict)
-        self.threads = rule.threads
-        self.resources = rule.resources
+
+        self.resources = dict()
+        for name, res in rule.resources.items():
+            self.resources[name] = min(self.rule.workflow.global_resources.get(name, 0), res)
+        self.threads = self.resources["_cores"]
+        self.resources = Resources(fromdict=self.resources)
+
         self.priority = rule.priority
         self._inputsize = None
 
@@ -217,6 +222,7 @@ class Job:
                       params=self.params,
                       wildcards=self._format_wildcards,
                       threads=self.threads,
+                      resources=self.resources,
                       log=self.log, **_variables)
 
     def __repr__(self):

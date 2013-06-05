@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 import threading
 import multiprocessing
 import operator
-import signal
 from functools import partial
+from collections import defaultdict
+from itertools import chain
 
 from snakemake.executors import DryrunExecutor, TouchExecutor
 from snakemake.executors import ClusterExecutor, CPUExecutor
@@ -36,13 +36,18 @@ class JobScheduler:
         self.dryrun = dryrun
         self.quiet = quiet
         self.keepgoing = keepgoing
-        self.maxcores = cores
         self.running = set()
         self.finished_jobs = 0
-        self._cores = self.maxcores
-        use_threads = os.name != "posix"
-        self._open_jobs = (multiprocessing.Event() if not use_threads
-            else threading.Event())
+
+        self.resources = dict(self.workflow.global_resources)
+
+        use_threads = os.name != "posix" or cluster
+        if not use_threads:
+            self._open_jobs = multiprocessing.Event()
+            self._lock = multiprocessing.Lock()
+        else:
+            self._open_jobs = threading.Event()
+            self._lock = threading.Lock()
         self._errors = False
         self._finished = False
         self._job_queue = None
@@ -57,6 +62,7 @@ class JobScheduler:
                 workflow, dag, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 output_wait=output_wait)
+            self.rule_reward = self.dryrun_rule_reward
         elif touch:
             self._executor = TouchExecutor(
                 workflow, dag, printreason=printreason,
@@ -68,8 +74,9 @@ class JobScheduler:
                 workflow, dag, None, submitcmd=cluster,
                 printreason=printreason, quiet=quiet,
                 printshellcmds=printshellcmds, output_wait=output_wait)
-            self._open_jobs = threading.Event()
-            self._job_weight = self.simple_job_weight
+            self.rule_weight = partial(
+                self.rule_weight,
+                maxcores=1)
             if immediate_submit:
                 self._submit_callback = partial(
                     self._proceed,
@@ -93,7 +100,7 @@ class JobScheduler:
 
     def candidate(self, job):
         """ Return whether a job is a candidate to be executed. """
-        return (job not in self.running and (self.dryrun or 
+        return (job not in self.running and (self.dryrun or
             (not job.dynamic_input and not self.dag.dynamic(job))))
 
     @property
@@ -107,7 +114,7 @@ class JobScheduler:
             try:
                 self._open_jobs.wait()
             except:
-                # this will be caused becaus of SIGTERM or SIGINT, so exit with error
+                # this will be caused because of SIGTERM or SIGINT
                 self._errors = True
             self._open_jobs.clear()
             if not self.keepgoing and self._errors:
@@ -119,11 +126,7 @@ class JobScheduler:
                 self._executor.shutdown()
                 return not self._errors
 
-            needrun = list()
-            for job in self.open_jobs:
-                if job.threads > self.maxcores:
-                    job.threads = self.maxcores
-                needrun.append(job)
+            needrun = list(self.open_jobs)
             assert needrun
 
             logger.debug("Ready jobs:\n\t" + "\n\t".join(map(str, needrun)))
@@ -131,7 +134,6 @@ class JobScheduler:
             run = self.job_selector(needrun)
             logger.debug("Selected jobs:\n\t" + "\n\t".join(map(str, run)))
             self.running.update(run)
-            self._cores -= sum(job.threads for job in run)
             for job in run:
                 self._executor.run(
                     job, callback=self._finish_callback,
@@ -145,31 +147,34 @@ class JobScheduler:
         self, job, update_dynamic=True, print_progress=False,
         update_resources=True):
         """ Do stuff after job is finished. """
-        if update_resources:
-            self.finished_jobs += 1
-            self.running.remove(job)
-            self._cores += job.threads
+        with self._lock:
+            if update_resources:
+                self.finished_jobs += 1
+                self.running.remove(job)
+                for name, value in job.rule.resources.items():
+                    if name in self.resources:
+                        self.resources[name] += value
 
-        self.dag.finish(job, update_dynamic=update_dynamic)
+            self.dag.finish(job, update_dynamic=update_dynamic)
 
-        if print_progress:
-            self.progress()
+            if print_progress:
+                self.progress()
 
-        if any(self.open_jobs) or not self.running:
-            # go on scheduling if open jobs are ready or no job is running any more
-            self._open_jobs.set()
+            if any(self.open_jobs) or not self.running:
+                # go on scheduling if open jobs are ready or no job is running
+                self._open_jobs.set()
 
     def _error(self):
         """ Clear jobs and stop the workflow. """
-        self._errors = True
-        if self.keepgoing:
-            logger.warning("Job failed, going on with independent jobs.")
-        else:
-            self._open_jobs.set()
+        with self._lock:
+            self._errors = True
+            if self.keepgoing:
+                logger.warning("Job failed, going on with independent jobs.")
+            else:
+                self._open_jobs.set()
 
-    def job_selector(self, jobs):
+    def _job_selector(self, jobs):
         """ Solve 0-1 knapsack to maximize cpu utilization. """
-        resources = self.workflow.resources
 
         dimi, dimj = len(jobs) + 1, self._cores + 1
         K = [[(0, 0) for c in range(dimj)] for i in range(dimi)]
@@ -195,41 +200,52 @@ class JobScheduler:
             i -= 1
         return solution
 
-    def job_selector_greedy(self, jobs):
+    def job_selector(self, jobs):
         """
-        Using the greedy heuristic from 
+        Using the greedy heuristic from
         "A Greedy Algorithm for the General Multidimensional Knapsack
 Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         """
         # solve over the rules instead of jobs (much less)
         _jobs = defaultdict(list)
-        _jobs.update((job.rule, job) for job in jobs)
+        for job in jobs:
+            _jobs[job.rule].append(job)
         jobs = _jobs
         rules = list(jobs)
 
+        # greedyness (1 means take all possible jobs for a selected rule
+        alpha = 1
+
         # Step 1: initialization
-        x = [0] * len(rules)
-        E = set(range(len(rules)))
+        n = len(rules)
+        x = [0] * n
+        E = set(range(n))
         u = [len(jobs[rule]) for rule in rules]
-        b = [self._cores] + [val for val in self.workflow.resources.values()]
+        b = list(self.resources.values())
         a = list(map(self.rule_weight, rules))
-        c = list(map(self.rule_reward, rules))
+        c = list(map(partial(self.rule_reward, jobs=jobs), rules))
 
         while True:
             # Step 2: compute effective capacities
             y = [
-                min(b_i // a_j_i for b_i, a_j_i in zip(b, a[j]) if a_j_i)
-                for j in E]
+                (
+                    min(
+                        (b_i // a_j_i if a_j_i > 0 else u[j])
+                        for b_i, a_j_i in zip(b, a[j]) if a_j_i)
+                    if j in E else 0)
+                for j in range(n)]
             if not any(y):
                 break
 
             # Step 3: compute rewards
-            reward = [c_j * y_j for c_j, y_j in zip(c, y)]
-            j_ = max(E, key=reward.__getitem__) # argmax
+            reward = [
+                (tuple(map(lambda r: r * y[j], c[j])) if j in E else (0,0))
+                for j in range(n)]
+            j_ = max(E, key=reward.__getitem__)  # argmax
 
             # Step 4: batch increment
             y_ = min(u[j_], max(1, alpha * y[j_]))
-            
+
             # Step 5: update information
             x[j_] += y_
             b = [b_i - (a_j_i * y_) for b_i, a_j_i in zip(b, a[j_])]
@@ -238,10 +254,33 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 E.remove(j_)
             if not E:
                 break
-                
+
         # Solution is the list of jobs that was selected from the selected rules
         solution = list(chain(*[jobs[rules[j]][:x_] for j, x_ in enumerate(x)]))
+        # update resources
+        for name, b_i in zip(self.resources, b):
+            self.resources[name] = b_i
         return solution
+
+    def rule_weight(self, rule, maxcores=None):
+        res = rule.resources
+        if maxcores is None:
+            maxcores = self.workflow.global_resources["_cores"]
+
+        def calc_res(item):
+            name, value = item
+            if name == "_cores":
+                return min(maxcores, res["_cores"])
+            return min(res.get(name, 0), value)
+
+        return list(map(calc_res, self.workflow.global_resources.items()))
+
+    def rule_reward(self, rule, jobs=None):
+        return (rule.priority,
+            sum(job.inputsize for job in jobs[rule]) / len(jobs[rule]))
+
+    def dryrun_rule_reward(self, rule, jobs=None):
+        return (rule.priority, 0)
 
     def job_weight(self, job):
         """ Job weight that uses threads. """

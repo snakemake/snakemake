@@ -36,8 +36,7 @@ class Rule:
             self.dynamic_input = set()
             self.temp_output = set()
             self.protected_output = set()
-            self.threads = 1
-            self.resources = dict()
+            self.resources = dict(_cores=1)
             self.priority = 1
             self.version = None
             self._log = None
@@ -59,7 +58,6 @@ class Rule:
             self.dynamic_input = other.dynamic_input
             self.temp_output = other.temp_output
             self.protected_output = other.protected_output
-            self.threads = other.threads
             self.resources = other.resources
             self.priority = other.priority
             self.version = other.version
