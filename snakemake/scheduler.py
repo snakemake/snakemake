@@ -237,10 +237,12 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             if not any(y):
                 break
 
-            # Step 3: compute rewards
-            reward = [
-                (tuple(map(lambda r: r * y[j], c[j])) if j in E else (0,0))
-                for j in range(n)]
+            # Step 3: compute rewards (and ignore multiplicity of jobs here!)
+            # honoring multiplicity would prefer jobs with fewer threads since their multiplicity is higher
+            #reward = [
+            #    (tuple(map(lambda r: r * y[j], c[j])) if j in E else (0,0))
+            #    for j in range(n)]
+            reward = [(c[j] if j in E else (0, 0)) for j in range(n)]
             j_ = max(E, key=reward.__getitem__)  # argmax
 
             # Step 4: batch increment
