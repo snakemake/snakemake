@@ -109,3 +109,6 @@ def test_conditional():
 
 def test_shell():
 	run(dpath("test_shell"))
+
+def test_temp():
+	run(dpath("test_temp"), cluster="./qsub", targets="test.realigned.bam".split())
