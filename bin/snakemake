@@ -257,7 +257,8 @@ def main():
             summary=args.summary,
             print_compilation=args.print_compilation,
             debug=args.debug,
-            jobscript=args.jobscript
+            jobscript=args.jobscript,
+            notemp=args.notemp
             )
     exit(0 if success else 1)
 
