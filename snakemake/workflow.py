@@ -227,7 +227,7 @@ class Workflow:
             printreason=printreason, printshellcmds=printshellcmds,
             output_wait=output_wait)
 
-        if not dryrun and not quiet:
+        if not dryrun and not quiet and len(dag):
             if cluster:
                 logger.warning("Provided cluster nodes: {}".format(cores))
             else:
@@ -236,10 +236,9 @@ class Workflow:
         success = scheduler.schedule()
 
         if success:
-            if dryrun:
-                if not quiet:
-                    logger.warning("\n".join(dag.stats()))
-            elif stats:
+            if not quiet:
+                logger.warning("\n".join(dag.stats()))
+            if not dryrun and stats:
                 scheduler.stats.to_csv(stats)
         else:
             logger.critical(
