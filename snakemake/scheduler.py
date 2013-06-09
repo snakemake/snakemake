@@ -211,6 +211,9 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         for job in jobs:
             _jobs[job.rule].append(job)
         jobs = _jobs
+        # sort the jobs by priority
+        for _jobs in jobs.values():
+            _jobs.sort(key=operator.attrgetter("priority"), reverse=True)
         rules = list(jobs)
 
         # greedyness (1 means take all possible jobs for a selected rule
@@ -218,42 +221,43 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
         # Step 1: initialization
         n = len(rules)
-        x = [0] * n
-        E = set(range(n))
-        u = [len(jobs[rule]) for rule in rules]
-        b = list(self.resources.values())
-        a = list(map(self.rule_weight, rules))
-        c = list(map(partial(self.rule_reward, jobs=jobs), rules))
+        x = [0] * n  # selected jobs of each rule
+        E = set(range(n))  # rules free to select
+        u = [len(jobs[rule]) for rule in rules]  # number of jobs left
+        b = list(self.resources.values())  # resource capacities
+        a = list(map(self.rule_weight, rules))  # resource usage of rules
+        c = list(map(partial(self.rule_reward, jobs=jobs), rules))  # matrix of cumulative rewards over jobs
 
         while True:
             # Step 2: compute effective capacities
             y = [
                 (
                     min(
-                        (b_i // a_j_i if a_j_i > 0 else u[j])
+                        (min(u[j], b_i // a_j_i) if a_j_i > 0 else u[j])
                         for b_i, a_j_i in zip(b, a[j]) if a_j_i)
                     if j in E else 0)
                 for j in range(n)]
             if not any(y):
                 break
 
-            # Step 3: compute rewards (and ignore multiplicity of jobs here!)
-            # honoring multiplicity would prefer jobs with fewer threads since their multiplicity is higher
-            #reward = [
-            #    (tuple(map(lambda r: r * y[j], c[j])) if j in E else (0,0))
-            #    for j in range(n)]
-            reward = [(c[j] if j in E else (0, 0)) for j in range(n)]
-            j_ = max(E, key=reward.__getitem__)  # argmax
+            # Step 3: compute rewards on cumulative sums and normalize by y
+            # in order to not prefer rules with small weights
+            print(c, y, x)
+            reward = [(
+                [(crit[x_j + y_j] - crit[x_j]) / y_j for crit in c_j]
+                if j in E else [0] * len(c_j))
+                for j, (c_j, y_j, x_j) in enumerate(zip(c, y, x))]
+            j_sel = max(E, key=reward.__getitem__)  # argmax
 
             # Step 4: batch increment
-            y_ = min(u[j_], max(1, alpha * y[j_]))
+            y_sel = min(u[j_sel], max(1, alpha * y[j_sel]))
 
             # Step 5: update information
-            x[j_] += y_
-            b = [b_i - (a_j_i * y_) for b_i, a_j_i in zip(b, a[j_])]
-            u[j_] -= y_
-            if not u[j_] or alpha == 1:
-                E.remove(j_)
+            x[j_sel] += y_sel
+            b = [b_i - (a_j_i * y_sel) for b_i, a_j_i in zip(b, a[j_sel])]
+            u[j_sel] -= y_sel
+            if not u[j_sel] or alpha == 1:
+                E.remove(j_sel)
             if not E:
                 break
 
@@ -278,11 +282,12 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         return list(map(calc_res, self.workflow.global_resources.items()))
 
     def rule_reward(self, rule, jobs=None):
-        return (rule.priority,
-            sum(job.inputsize for job in jobs[rule]) / len(jobs[rule]))
+        jobs = jobs[rule]
+        return cumsum(map(operator.attrgetter("priority"), jobs)), cumsum(map(operator.attrgetter("inputsize"), jobs))
 
     def dryrun_rule_reward(self, rule, jobs=None):
-        return (rule.priority, 0)
+        jobs = jobs[rule]
+        return cumsum(map(operator.attrgetter("priority"), jobs)), [0] * len(jobs)
 
     def job_weight(self, job):
         """ Job weight that uses threads. """
@@ -296,3 +301,10 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         """ Display the progress. """
         logger.info("{} of {} steps ({:.0%}) done".format(self.finished_jobs,
             len(self.dag), self.finished_jobs / len(self.dag)))
+
+
+def cumsum(iterable):
+    l = [0]
+    for i in iterable:
+        l.append(i + l[-1])
+    return l
