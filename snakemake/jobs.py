@@ -44,8 +44,6 @@ class Job:
             self.resources[name] = min(self.rule.workflow.global_resources.get(name, 0), res)
         self.threads = self.resources["_cores"]
         self.resources = Resources(fromdict=self.resources)
-
-        self.priority = rule.priority
         self._inputsize = None
 
         self.dynamic_output, self.dynamic_input = set(), set()

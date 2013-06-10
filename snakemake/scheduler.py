@@ -151,7 +151,7 @@ class JobScheduler:
             if update_resources:
                 self.finished_jobs += 1
                 self.running.remove(job)
-                for name, value in job.rule.resources.items():
+                for name, value in job.resources.items():
                     if name in self.resources:
                         self.resources[name] += value
 
@@ -213,7 +213,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         jobs = _jobs
         # sort the jobs by priority
         for _jobs in jobs.values():
-            _jobs.sort(key=operator.attrgetter("priority"), reverse=True)
+            _jobs.sort(key=self.dag.priority, reverse=True)
         rules = list(jobs)
 
         # greedyness (1 means take all possible jobs for a selected rule
@@ -242,7 +242,6 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
             # Step 3: compute rewards on cumulative sums and normalize by y
             # in order to not prefer rules with small weights
-            print(c, y, x)
             reward = [(
                 [(crit[x_j + y_j] - crit[x_j]) / y_j for crit in c_j]
                 if j in E else [0] * len(c_j))
@@ -262,7 +261,8 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 break
 
         # Solution is the list of jobs that was selected from the selected rules
-        solution = list(chain(*[jobs[rules[j]][:x_] for j, x_ in enumerate(x)]))
+        solution = list(chain(
+            *[jobs[rules[j]][:x_] for j, x_ in enumerate(x)]))
         # update resources
         for name, b_i in zip(self.resources, b):
             self.resources[name] = b_i
@@ -283,11 +283,13 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
     def rule_reward(self, rule, jobs=None):
         jobs = jobs[rule]
-        return cumsum(map(operator.attrgetter("priority"), jobs)), cumsum(map(operator.attrgetter("inputsize"), jobs))
+        return (cumsum(
+            map(self.dag.priority, jobs)),
+            cumsum(map(operator.attrgetter("inputsize"), jobs)))
 
     def dryrun_rule_reward(self, rule, jobs=None):
         jobs = jobs[rule]
-        return cumsum(map(operator.attrgetter("priority"), jobs)), [0] * len(jobs)
+        return cumsum(map(self.dag.priority, jobs)), [0] * (len(jobs) + 1)
 
     def job_weight(self, job):
         """ Job weight that uses threads. """

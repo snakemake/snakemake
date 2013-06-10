@@ -80,11 +80,12 @@ class AbstractExecutor:
                         self.dag.reason(job) if self.printreason else None)):
                     if value:
                         desc.append(format_ruleitem(name, value))
-                if job.priority > 1:
+                priority = self.dag.priority(job)
+                if priority > 1:
                     desc.append(format_ruleitem(
                         "priority", "highest"
-                        if job.priority == Job.HIGHEST_PRIORITY
-                        else job.priority))
+                        if priority == Job.HIGHEST_PRIORITY
+                        else priority))
                 if self.printthreads and job.threads > 1:
                     desc.append(format_ruleitem("threads", job.threads))
         if self.printshellcmds and job.shellcmd:

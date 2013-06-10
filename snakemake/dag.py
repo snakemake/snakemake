@@ -40,6 +40,7 @@ class DAG:
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
+        self._priority = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
         self._dynamic = set()
@@ -136,6 +137,9 @@ class DAG:
     def needrun(self, job):
         """ Return whether a given job needs to be executed. """
         return job in self._needrun
+
+    def priority(self, job):
+        return self._priority[job]
 
     def noneedrun_finished(self, job):
         """
@@ -396,10 +400,12 @@ class DAG:
         """ Update job priorities. """
         prioritized = (lambda job: job.rule in self.priorityrules
             or not self.priorityfiles.isdisjoint(job.output))
+        for job in self.needrun_jobs:
+            self._priority[job] = job.rule.priority
         for job in self.bfs(
             self.dependencies, *filter(prioritized, self.needrun_jobs),
             stop=self.noneedrun_finished):
-            job.priority = Job.HIGHEST_PRIORITY
+            self._priority[job] = Job.HIGHEST_PRIORITY
 
     def update_ready(self):
         """ Update information whether a job is ready to execute. """
