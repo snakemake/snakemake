@@ -284,13 +284,23 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
     def rule_reward(self, rule, jobs=None):
         jobs = jobs[rule]
-        return (cumsum(
-            map(self.dag.priority, jobs)),
+        return (
+            self.priority_reward(jobs),
+            self.downstream_reward(jobs),
             cumsum(map(operator.attrgetter("inputsize"), jobs)))
 
     def dryrun_rule_reward(self, rule, jobs=None):
         jobs = jobs[rule]
-        return cumsum(map(self.dag.priority, jobs)), [0] * (len(jobs) + 1)
+        return (
+            self.priority_reward(jobs),
+            self.downstream_reward(jobs),
+            [0] * (len(jobs) + 1))
+
+    def priority_reward(self, jobs):
+        return cumsum(map(self.dag.priority, jobs))
+
+    def downstream_reward(self, jobs):
+        return cumsum(map(self.dag.downstream_size, jobs))
 
     def job_weight(self, job):
         """ Job weight that uses threads. """

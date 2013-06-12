@@ -41,6 +41,7 @@ class DAG:
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
         self._priority = dict()
+        self._downstream_size = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
         self._dynamic = set()
@@ -115,7 +116,7 @@ class DAG:
     def needrun_jobs(self):
         """ Jobs that need to be executed. """
         for job in filter(self.needrun, self.bfs(
-            self.dependencies, *self.targetjobs, stop=self.finished)):
+            self.dependencies, *self.targetjobs, stop=self.noneedrun_finished)):
             yield job
 
     @property
@@ -140,6 +141,9 @@ class DAG:
 
     def priority(self, job):
         return self._priority[job]
+
+    def downstream_size(self, job):
+        return self._downstream_size[job]
 
     def noneedrun_finished(self, job):
         """
@@ -413,10 +417,16 @@ class DAG:
             if not self.finished(job) and self._ready(job):
                 self._ready_jobs.add(job)
 
+    def update_downstream_size(self):
+        for job in self.needrun_jobs:
+            self._downstream_size[job] = sum(1 for _ in self.bfs(
+                self.depending, job, stop=self.noneedrun_finished)) - 1
+
     def postprocess(self):
         self.update_needrun()
         self.update_priority()
         self.update_ready()
+        self.update_downstream_size()
 
     def _ready(self, job):
         return self._finished.issuperset(
