@@ -243,7 +243,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             # Step 3: compute rewards on cumulative sums and normalize by y
             # in order to not prefer rules with small weights
             reward = [(
-                [(crit[x_j + y_j] - crit[x_j]) / y_j for crit in c_j]
+                [((crit[x_j + y_j] - crit[x_j]) / y_j if y_j else 0) for crit in c_j]
                 if j in E else [0] * len(c_j))
                 for j, (c_j, y_j, x_j) in enumerate(zip(c, y, x))]
             j_sel = max(E, key=reward.__getitem__)  # argmax
