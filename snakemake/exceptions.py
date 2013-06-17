@@ -86,7 +86,7 @@ def print_exception(ex, linemaps, print_traceback=False):
     elif isinstance(ex, WorkflowError):
         logger.critical(
             format_error(
-                ex, ex.lineno, linemaps=linemaps, snakefile=ex.filename,
+                ex, ex.lineno, linemaps=linemaps, snakefile=ex.snakefile,
                 show_traceback=print_traceback))
     elif isinstance(ex, KeyboardInterrupt):
         logger.warning("Cancelling snakemake on user request.")
@@ -96,8 +96,16 @@ def print_exception(ex, linemaps, print_traceback=False):
 
 class WorkflowError(Exception):
 
+    @staticmethod
+    def format_args(args):
+        for arg in args:
+            if isinstance(arg, str):
+                yield arg
+            else:
+                yield "{}: {}".format(arg.__class__.__name__, str(arg))
+
     def __init__(self, *args, lineno=None, snakefile=None, rule=None):
-        super().__init__("\n".join(map(str, args)))
+        super().__init__("\n".join(self.format_args(args)))
         if rule is not None:
             self.lineno = rule.lineno
             self.snakefile = rule.snakefile

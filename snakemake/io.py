@@ -5,7 +5,7 @@ import re
 import stat
 from itertools import product
 from collections import Iterable
-from snakemake.exceptions import MissingOutputException, WorkflowError
+from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError
 
 __author__ = "Johannes Köster"
 
@@ -186,7 +186,7 @@ def apply_wildcards(pattern, wildcards, fill_missing=False,
                 if fill_missing:
                     return dynamic_fill
                 else:
-                    raise WorkflowError(ex)
+                    raise WildcardError(str(ex))
 
         return re.sub(_wildcard_regex, format_match, pattern)
 

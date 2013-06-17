@@ -7,7 +7,7 @@ from snakemake.exceptions import print_exception
 from snakemake.logging import logger, init_logger
 
 __author__ = "Johannes Köster"
-__version__ = "2.4.1"
+__version__ = "2.4.3"
 
 
 def snakemake(snakefile,
