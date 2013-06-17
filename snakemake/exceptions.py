@@ -86,7 +86,7 @@ def print_exception(ex, linemaps, print_traceback=False):
     elif isinstance(ex, WorkflowError):
         logger.critical(
             format_error(
-                ex, ex.lineno, linemaps=linemaps, snakefile=e.filename,
+                ex, ex.lineno, linemaps=linemaps, snakefile=ex.filename,
                 show_traceback=print_traceback))
     elif isinstance(ex, KeyboardInterrupt):
         logger.warning("Cancelling snakemake on user request.")
