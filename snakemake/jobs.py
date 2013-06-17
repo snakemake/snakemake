@@ -214,7 +214,8 @@ class Job:
         _variables = dict()
         _variables.update(self.rule.workflow.globals)
         _variables.update(variables)
-        return format(string,
+        try:
+            return format(string,
                       input=self.input,
                       output=self.output,
                       params=self.params,
@@ -222,6 +223,8 @@ class Job:
                       threads=self.threads,
                       resources=self.resources,
                       log=self.log, **_variables)
+        except NameError as ex:
+            raise RuleException("NameError: " + str(ex), rule=self.rule)
 
     def __repr__(self):
         return self.rule.name
