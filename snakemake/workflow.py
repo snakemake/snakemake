@@ -232,13 +232,15 @@ class Workflow:
                 logger.warning("Provided cluster nodes: {}".format(cores))
             else:
                 logger.warning("Provided cores: {}".format(cores))
+            logger.warning("\n".join(dag.stats()))
 
         success = scheduler.schedule()
 
         if success:
-            if not quiet:
-                logger.warning("\n".join(dag.stats()))
-            if not dryrun and stats:
+            if dryrun:
+                if not quiet:
+                    logger.warning("\n".join(dag.stats()))
+            elif stats:
                 scheduler.stats.to_csv(stats)
         else:
             logger.critical(
