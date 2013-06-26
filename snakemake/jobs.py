@@ -175,15 +175,18 @@ class Job:
     def existing_output(self):
         return filter(lambda f: f.exists, self.expanded_output)
 
+    def check_protected_output(self):
+        protected = list(filter(lambda f: f.protected, self.expanded_output))
+        if protected:
+            raise ProtectedOutputException(self.rule, protected)
+
     def prepare(self):
         """
         Prepare execution of job.
         This includes creation of directories and deletion of previously
         created dynamic files.
         """
-        protected = list(filter(lambda f: f.protected, self.expanded_output))
-        if protected:
-            raise ProtectedOutputException(self.rule, protected)
+        self.check_protected_output()
 
         unexpected_output = self.dag.reason(self).missing_output.intersection(
             self.existing_output)

@@ -98,10 +98,6 @@ class Workflow:
                     for line in rule.docstring.split("\n"):
                         log("\t" + line)
 
-    def cleanup_metadata(self, files):
-        for f in files:
-            self.persistence.cleanup_metadata(f)
-
     def execute(
         self, targets=None, dryrun=False,  touch=False, cores=1,
         forcetargets=False, forceall=False, forcerun=None,
@@ -113,7 +109,8 @@ class Workflow:
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
         summary=False, output_wait=3, nolock=False, unlock=False,
-        resources=None, notemp=False):
+        resources=None, notemp=False,
+        cleanup_metadata=None):
 
         self.global_resources = dict() if cluster or resources is None else resources
         self.global_resources["_cores"] = cores
@@ -157,6 +154,11 @@ class Workflow:
             ignore_incomplete=ignore_incomplete, notemp=notemp)
 
         self.persistence = Persistence(nolock=nolock, dag=dag)
+
+        if cleanup_metadata:
+            for f in cleanup_metadata:
+                self.persistence.cleanup_metadata(f)
+            return True
 
         dag.init()
         dag.check_dynamic()

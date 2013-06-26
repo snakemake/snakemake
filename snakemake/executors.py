@@ -38,6 +38,7 @@ class AbstractExecutor:
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
+        job.check_protected_output()
         self._run(job)
         callback(job)
 
@@ -172,9 +173,9 @@ class CPUExecutor(RealExecutor):
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
+        job.prepare()
         super()._run(job)
 
-        job.prepare()
         future = self.pool.submit(
             run_wrapper, job.rule.run_func, job.input.plainstrings(), job.output.plainstrings(), job.params,
             job.wildcards, job.threads, job.resources, str(job.log), self.workflow.linemaps)

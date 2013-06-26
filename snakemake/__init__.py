@@ -97,8 +97,6 @@ def snakemake(snakefile,
         if not print_compilation:
             if listrules:
                 workflow.list_rules()
-            elif cleanup_metadata:
-                workflow.cleanup_metadata(cleanup_metadata)
             else:
                 success = workflow.execute(
                     targets=targets, dryrun=dryrun, touch=touch,
@@ -122,7 +120,8 @@ def snakemake(snakefile,
                     nolock=not lock,
                     unlock=unlock,
                     resources=resources,
-                    notemp=notemp
+                    notemp=notemp,
+                    cleanup_metadata=cleanup_metadata
                     )
 
     except (Exception, BaseException) as ex:
