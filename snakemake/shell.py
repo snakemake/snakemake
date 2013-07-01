@@ -39,7 +39,7 @@ class shell:
 
         ret = None
         if iterable:
-            return cls.stdout_iter(proc, cmd)
+            return cls.iter_stdout(proc, cmd)
         if read:
             ret = proc.stdout.read()
         elif async:
@@ -50,7 +50,7 @@ class shell:
         return ret
 
     @staticmethod
-    def stdout_iter(proc, cmd):
+    def iter_stdout(proc, cmd):
         for l in proc.stdout:
             yield l[:-1]
         retcode = proc.wait()
