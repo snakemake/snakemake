@@ -37,16 +37,25 @@ class shell:
         proc = sp.Popen(cls._process_prefix + cmd, shell=True, stdout=stdout,
             close_fds=True, **cls._process_args)
 
+        ret = None
         if iterable:
-            return proc.stdout
+            return cls.stdout_iter(proc, cmd)
         if read:
-            return proc.stdout.read()
-        if async:
+            ret = proc.stdout.read()
+        elif async:
             return proc
         retcode = proc.wait()
         if retcode:
-            raise CalledProcessError(retcode, cmd)
-        return None
+            raise sp.CalledProcessError(retcode, cmd)
+        return ret
+
+    @staticmethod
+    def stdout_iter(proc, cmd):
+        for l in proc.stdout:
+            yield l[:-1]
+        retcode = proc.wait()
+        if retcode:
+            raise sp.CalledProcessError(retcode, cmd)
 
 
 if "SHELL" in os.environ:
