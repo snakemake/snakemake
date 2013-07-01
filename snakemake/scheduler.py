@@ -115,7 +115,8 @@ class JobScheduler:
                 self._open_jobs.wait()
             except:
                 # this will be caused because of SIGTERM or SIGINT
-                self._errors = True
+                self._executor.shutdown()
+                return False
             self._open_jobs.clear()
             if not self.keepgoing and self._errors:
                 logger.warning("Will exit after finishing "

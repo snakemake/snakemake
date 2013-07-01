@@ -43,7 +43,9 @@ class shell:
             return proc.stdout.read()
         if async:
             return proc
-        proc.wait()
+        retcode = proc.wait()
+        if retcode:
+            raise CalledProcessError(retcode, cmd)
         return None
 
 

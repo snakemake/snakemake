@@ -292,8 +292,8 @@ class Reason:
                     s.append("This run updates input files: {}".format(
                         ", ".join(self.updated_input_run)))
         s = "; ".join(s)
-        if not self.derived:
-            s += " (root)"
+        #if not self.derived:
+        #    s += " (root)"
         return s
 
     def __bool__(self):
