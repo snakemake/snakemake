@@ -112,3 +112,6 @@ def test_shell():
 
 def test_temp():
 	run(dpath("test_temp"), cluster="./qsub", targets="test.realigned.bam".split())
+
+def test_keyword_list():
+	run(dpath("test_keyword_list"))

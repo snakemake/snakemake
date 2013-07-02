@@ -1,9 +1,15 @@
+python3-snakemake (2.4.4ubuntu1) precise; urgency=low
+
+  * Cleanup of debian package.
+
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Mon, 01 Jul 2013 09:58:04 +0200
+
 python3-snakemake (2.4.4) precise; urgency=high
 
   * New upstream release.
+  * Switch to dpkg-source 3.0 (quilt) format
 
- -- Johannes Koester <johannes.koester@tu-dortmund.de>  Mon, 1 Jul 2013 09:06:46 +0100
-
+ -- Johannes Koester <johannes.koester@tu-dortmund.de>  Mon, 01 Jul 2013 09:49:18 +0200
 
 python3-snakemake (2.4.3) precise; urgency=high
 

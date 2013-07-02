@@ -1,0 +1,6 @@
+rule:
+	input: bla="test.in1 test.in2".split()
+	output: "test.out"
+	run:
+		assert len(input.bla) == 2
+		shell("touch {output}")

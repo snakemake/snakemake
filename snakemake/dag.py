@@ -616,7 +616,7 @@ class DAG:
     def rule_dot(self):
         def key(item):
             level, job = item
-            return level, job.rule.name
+            return level, job.rule.name, frozenset(j.rule for j in self.dependencies[job])
         groups = [list(map(itemgetter(1), group)) for (level, _), group in groupby(
             sorted(
                 self.level_bfs(self.dependencies, *self.targetjobs),
