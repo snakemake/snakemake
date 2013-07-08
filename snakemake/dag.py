@@ -640,25 +640,32 @@ class DAG:
         return self._dot(self.jobs)
 
     def rule_dot(self):
+        # identify paths by rule names
         key = lambda path: tuple(job.rule.name for job in path)
+        # retrieve all longest paths
         paths = sorted(
             map(tuple, self.all_longest_paths(*self.targetjobs)),
             key=key)
 
+        # assign each job all paths it appears on
         pathids = defaultdict(list)
         for i, (_, _paths) in enumerate(groupby(paths, key=key)):
             for job in chain(*_paths):
                 pathids[job].append(i)
         pathids = dict((job, tuple(ids)) for job, ids in pathids.items())
 
+        # identify job by its rulename and its paths
         key = lambda job: (job.rule.name, pathids[job])
         groups = [list(group) for _, group in groupby(sorted(pathids, key=key), key=key)]
-        
+
+        # get a representative jobs for each group
         jobs = [group[0] for group in groups]
+        # assign jobids that project each job onto the representative of its group
         jobid = dict()
         for i, group in enumerate(groups):
             for job in group:
                 jobid[job] = i
+
         return self._dot(
             jobs, print_wildcards=False, print_types=False, jobid=jobid)
 
