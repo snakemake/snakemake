@@ -599,6 +599,22 @@ class DAG:
         if post:
             yield job
 
+    def all_longest_paths(self, *jobs):
+        paths = defaultdict(list)
+        def all_longest_paths(_jobs):
+            for job in _jobs:
+                if job in paths:
+                    continue
+                deps = self.dependencies[job]
+                if not deps:
+                    paths[job].append([job])
+                    continue
+                all_longest_paths(deps)
+                for _job in deps:
+                    paths[job].extend(path + [job] for path in paths[_job])
+        all_longest_paths(jobs)
+        return chain(*(paths[job] for job in jobs))
+
     def new_wildcards(self, job):
         new_wildcards = set(job.wildcards.items())
         for job_ in self.dependencies[job]:
@@ -624,18 +640,25 @@ class DAG:
         return self._dot(self.jobs)
 
     def rule_dot(self):
-        def key(item):
-            level, job = item
-            return level, job.rule.name, frozenset(j.rule for j in self.dependencies[job])
-        groups = [list(map(itemgetter(1), group)) for (level, _), group in groupby(
-            sorted(
-                self.level_bfs(self.dependencies, *self.targetjobs),
-                key=key),
-            key=key)]
+        key = lambda path: tuple(job.rule.name for job in path)
+        paths = sorted(
+            map(tuple, self.all_longest_paths(*self.targetjobs)),
+            key=key)
+
+        pathids = defaultdict(list)
+        for i, (_, _paths) in enumerate(groupby(paths, key=key)):
+            for job in chain(*_paths):
+                pathids[job].append(i)
+        pathids = dict((job, tuple(ids)) for job, ids in pathids.items())
+
+        key = lambda job: (job.rule.name, pathids[job])
+        groups = [list(group) for _, group in groupby(sorted(pathids, key=key), key=key)]
+        
         jobs = [group[0] for group in groups]
         jobid = dict()
         for i, group in enumerate(groups):
-            jobid.update((job, i) for job in group)
+            for job in group:
+                jobid[job] = i
         return self._dot(
             jobs, print_wildcards=False, print_types=False, jobid=jobid)
 
@@ -688,8 +711,6 @@ class DAG:
             nodes.append('\t{}[label = "{}", color="{}", {}];'.format(
                 jobid[job], format_label(job), rulecolor[job.rule], format_node(t)))
 
-            #if job.rule.name == "mapped_kvs":
-            #    import pdb; pdb.set_trace()
             deps = set(map(jobid.__getitem__, self.dependencies[job]))
             job = jobid[job]
             for dep in deps:
