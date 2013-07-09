@@ -672,7 +672,6 @@ class DAG:
                 dag[job] = list()
                 deps = sorted(self.dependencies[job], key=rule)
                 if deps:
-                    #import pdb; pdb.set_trace()
                     noniso = defaultdict(list)
                     for dep1 in deps: 
                         if not any(map(
