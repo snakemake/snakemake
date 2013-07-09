@@ -665,7 +665,6 @@ class DAG:
         rule = lambda job: job.rule.name
         dag = dict()
         def build_ruledag(jobs):
-            
             for job in jobs:
                 if job in dag:
                     continue
