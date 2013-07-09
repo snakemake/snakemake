@@ -599,6 +599,28 @@ class DAG:
         if post:
             yield job
 
+    def is_isomorph(self, job1, job2):
+        if job1.rule != job2.rule:
+            return False
+        rule = lambda job: job.rule.name
+        queue1, queue2 = [job1], [job2]
+        visited1, visited2 = set(queue1), set(queue2)
+        while queue1 and queue2:
+            job1, job2 = queue1.pop(0), queue2.pop(0)
+            deps1 = sorted(self.dependencies[job1], key=rule)
+            deps2 = sorted(self.dependencies[job2], key=rule)
+            for job1_, job2_ in zip(deps1, deps2):
+                if job1_.rule != job2_.rule:
+                    return False
+                if not job1_ in visited1 and not job2_ in visited2:
+                    queue1.append(job1_)
+                    visited1.add(job1_)
+                    queue2.append(job2_)
+                    visited2.add(job2_)
+                elif job1_ in visited1 or job2_ in visited2:
+                    return False
+        return True
+
     def all_longest_paths(self, *jobs):
         paths = defaultdict(list)
         def all_longest_paths(_jobs):
@@ -640,48 +662,42 @@ class DAG:
         return self._dot(self.jobs)
 
     def rule_dot(self):
-        # identify paths by rule names
-        key = lambda path: tuple(job.rule.name for job in path)
-        # retrieve all longest paths
-        paths = sorted(
-            map(tuple, self.all_longest_paths(*self.targetjobs)),
-            key=key)
-
-        # assign each job all paths it appears on
-        pathids = defaultdict(list)
-        for i, (_, _paths) in enumerate(groupby(paths, key=key)):
-            for job in chain(*_paths):
-                pathids[job].append(i)
-        pathids = dict((job, tuple(ids)) for job, ids in pathids.items())
-
-        # identify job by its rulename and its paths
-        key = lambda job: (job.rule.name, pathids[job])
-        groups = [list(group) for _, group in groupby(sorted(pathids, key=key), key=key)]
-
-        # get a representative jobs for each group
-        jobs = [group[0] for group in groups]
-        # assign jobids that project each job onto the representative of its group
-        jobid = dict()
-        for i, group in enumerate(groups):
-            for job in group:
-                jobid[job] = i
-
+        rule = lambda job: job.rule.name
+        dag = dict()
+        def build_ruledag(jobs):
+            
+            for job in jobs:
+                if job in dag:
+                    continue
+                dag[job] = list()
+                deps = sorted(self.dependencies[job], key=rule)
+                if deps:
+                    #import pdb; pdb.set_trace()
+                    noniso = defaultdict(list)
+                    for dep1 in deps: 
+                        if not any(map(
+                            partial(self.is_isomorph, dep1), noniso[dep1.rule])):
+                            noniso[dep1.rule].append(dep1)
+                    noniso = list(chain(*noniso.values()))
+                    dag[job].extend(noniso)
+                    build_ruledag(noniso)
+        build_ruledag(self.targetjobs)
+        
         return self._dot(
-            jobs, print_wildcards=False, print_types=False, jobid=jobid)
+            dag.keys(), print_wildcards=False, print_types=False, dag=dag)
 
     def _dot(
         self, jobs, errors=False, print_wildcards=True,
-        print_types=True, jobid=None):
-
+        print_types=True, dag=None):
+        if dag is None:
+            dag = self.dependencies
         jobs = set(jobs)
+        jobid = dict((job, i) for i, job in enumerate(jobs))
 
         huefactor = 2 / (3 * (len(self.rules) - 1))
         rulecolor = dict(
             (rule, "{} 0.6 0.85".format(i * huefactor))
             for i, rule in enumerate(self.rules))
-
-        if jobid is None:
-            jobid = dict((job, i) for i, job in enumerate(jobs))
 
         nodes, edges = list(), list()
         types = ["running job", "not running job", "dynamic job"]
@@ -718,7 +734,7 @@ class DAG:
             nodes.append('\t{}[label = "{}", color="{}", {}];'.format(
                 jobid[job], format_label(job), rulecolor[job.rule], format_node(t)))
 
-            deps = set(map(jobid.__getitem__, self.dependencies[job]))
+            deps = set(map(jobid.__getitem__, dag[job]))
             job = jobid[job]
             for dep in deps:
                 edges.append("\t{} -> {};".format(dep, job))
