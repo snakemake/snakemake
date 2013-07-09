@@ -695,7 +695,7 @@ class DAG:
 
         huefactor = 2 / (3 * (len(self.rules) - 1))
         rulecolor = dict(
-            (rule, "{} 0.6 0.85".format(i * huefactor))
+            (rule, "{:.2f} 0.6 0.85".format(i * huefactor))
             for i, rule in enumerate(self.rules))
 
         nodes, edges = list(), list()
