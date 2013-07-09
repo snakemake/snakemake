@@ -673,10 +673,10 @@ class DAG:
                 deps = sorted(self.dependencies[job], key=rule)
                 if deps:
                     noniso = defaultdict(list)
-                    for dep1 in deps: 
+                    for dep in deps: 
                         if not any(map(
-                            partial(self.is_isomorph, dep1), noniso[dep1.rule])):
-                            noniso[dep1.rule].append(dep1)
+                            partial(self.is_isomorph, dep), noniso[dep.rule])):
+                            noniso[dep.rule].append(dep)
                     noniso = list(chain(*noniso.values()))
                     dag[job].extend(noniso)
                     build_ruledag(noniso)
