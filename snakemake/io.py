@@ -308,7 +308,7 @@ class Namedlist(list):
         if index == end - 1:
             setattr(self, name, self[index])
         else:
-            setattr(self, name, self[index:end])
+            setattr(self, name, Namedlist(toclone=self[index:end]))
 
     def get_names(self):
         """
