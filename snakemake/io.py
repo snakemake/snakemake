@@ -350,6 +350,8 @@ class Namedlist(list):
         for name, (i, j) in self._names.items():
             if i > index:
                 self._names[name] = (i + add, j + add)
+            elif i == index:
+                self.set_name(name, i, end=i+len(items))
 
     def keys(self):
         return self._names
