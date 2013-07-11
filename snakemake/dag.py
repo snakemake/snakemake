@@ -664,23 +664,22 @@ class DAG:
     def rule_dot(self):
         rule = lambda job: job.rule.name
         dag = dict()
-        def build_ruledag(jobs):
-            for job in jobs:
-                if job in dag:
-                    continue
-                dag[job] = list()
-                deps = sorted(self.dependencies[job], key=rule)
-                if deps:
-                    noniso = defaultdict(list)
-                    for dep in deps: 
-                        if not any(map(
-                            partial(self.is_isomorph, dep), noniso[dep.rule])):
-                            noniso[dep.rule].append(dep)
-                    noniso = list(chain(*noniso.values()))
-                    dag[job].extend(noniso)
-                    build_ruledag(noniso)
-        build_ruledag(self.targetjobs)
-        
+        noniso = defaultdict(set)
+        def build_ruledag(job):
+            if job in dag:
+                return
+            dag[job] = list()
+            deps = sorted(self.dependencies[job], key=rule)
+            if deps:
+                for dep in deps: 
+                    if not any(map(
+                        partial(self.is_isomorph, dep), noniso[dep.rule].intersection(deps))):
+                        noniso[dep.rule].add(dep)
+                        build_ruledag(dep)
+                dag[job].extend(dep for dep in deps if dep in noniso[dep.rule])
+        for job in self.targetjobs:
+            build_ruledag(job)
+
         return self._dot(
             dag.keys(), print_wildcards=False, print_types=False, dag=dag)
 

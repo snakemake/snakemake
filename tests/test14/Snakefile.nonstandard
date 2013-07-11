@@ -1,7 +1,7 @@
 chromosomes = [1,2,3]
 
 rule all:
-	input: 'test.predictions'
+	input: 'test.predictions', 'test.2.inter2'
 
 rule compute1:
 	input: '{name}.in'
