@@ -1,0 +1,18 @@
+
+rule all:
+	input: expand("{id}.d", id="1 2 3 4 5".split())
+
+rule rule1:
+	input: "{id}.c"
+	output: "{id}.d"
+	shell: "touch {output}"
+
+rule rule2:
+	input: lambda wildcards: (expand("{id}.b", id="1 2 3".split()) if wildcards.id == "1" else expand("{id}.b", id=wildcards.id))
+	output: "{id}.c"
+	shell: "touch {output}"
+
+rule rule3:
+	input: "{id}.a"
+	output: "{id}.b"
+	shell: "touch {output}"

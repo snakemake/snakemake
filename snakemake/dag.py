@@ -600,6 +600,7 @@ class DAG:
             yield job
 
     def is_isomorph(self, job1, job2):
+        #import pdb; pdb.set_trace()
         if job1.rule != job2.rule:
             return False
         rule = lambda job: job.rule.name
@@ -617,7 +618,7 @@ class DAG:
                     visited1.add(job1_)
                     queue2.append(job2_)
                     visited2.add(job2_)
-                elif job1_ in visited1 or job2_ in visited2:
+                elif not (job1_ in visited1 and job2_ in visited2):
                     return False
         return True
 
@@ -664,7 +665,7 @@ class DAG:
     def rule_dot(self):
         rule = lambda job: job.rule.name
         dag = dict()
-        def build_ruledag(jobs):
+        def build_ruledag(*jobs):
             for job in jobs:
                 if job in dag:
                     continue
@@ -674,12 +675,13 @@ class DAG:
                     noniso = defaultdict(list)
                     for dep in deps: 
                         if not any(map(
-                            partial(self.is_isomorph, dep), noniso[dep.rule])):
+                            partial(self.is_isomorph, dep), list(noniso[dep.rule]))):
                             noniso[dep.rule].append(dep)
+                            build_ruledag(dep)
                     noniso = list(chain(*noniso.values()))
                     dag[job].extend(noniso)
-                    build_ruledag(noniso)
-        build_ruledag(self.targetjobs)
+                    build_ruledag(*noniso)
+        build_ruledag(*self.targetjobs)
         
         return self._dot(
             dag.keys(), print_wildcards=False, print_types=False, dag=dag)
