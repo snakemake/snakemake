@@ -308,7 +308,7 @@ class Namedlist(list):
         if index == end - 1:
             setattr(self, name, self[index])
         else:
-            setattr(self, name, self[index:end])
+            setattr(self, name, Namedlist(toclone=self[index:end]))
 
     def get_names(self):
         """
@@ -350,6 +350,8 @@ class Namedlist(list):
         for name, (i, j) in self._names.items():
             if i > index:
                 self._names[name] = (i + add, j + add)
+            elif i == index:
+                self.set_name(name, i, end=i+len(items))
 
     def keys(self):
         return self._names
