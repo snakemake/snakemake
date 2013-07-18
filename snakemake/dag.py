@@ -376,29 +376,34 @@ class DAG:
                 reason.derived = False
             return job
 
+        reason = self.reason
+        _needrun = self._needrun
+        dependencies = self.dependencies
+        depending = self.depending
+
         candidates = set(self.jobs)
 
-        queue = list(filter(self.reason, map(needrun, candidates)))
+        queue = list(filter(reason, map(needrun, candidates)))
         visited = set(queue)
         while queue:
             job = queue.pop(0)
-            self._needrun.add(job)
+            _needrun.add(job)
 
-            for job_, files in self.dependencies[job].items():
+            for job_, files in dependencies[job].items():
                 missing_output = job_.missing_output(requested=files)
-                self.reason(job_).missing_output.update(missing_output)
+                reason(job_).missing_output.update(missing_output)
                 if missing_output and not job_ in visited:
                     visited.add(job_)
                     queue.append(job_)
 
-            for job_, files in self.depending[job].items():
+            for job_, files in depending[job].items():
                 if job_ in candidates:
-                    self.reason(job_).updated_input_run.update(files)
+                    reason(job_).updated_input_run.update(files)
                     if not job_ in visited:
                         visited.add(job_)
                         queue.append(job_)
 
-        self._len = len(self._needrun)
+        self._len = len(_needrun)
 
     def update_priority(self):
         """ Update job priorities. """
@@ -542,10 +547,11 @@ class DAG:
         dependencies = defaultdict(list)
         # use a set to circumvent multiple jobs for the same file
         # if user specified it twice
+        file2jobs = self.file2jobs
         for file in set(job.input):
             try:
-                for job_ in self.file2jobs(file):
-                    dependencies[file].append(job_)
+                jobs = self.file2jobs(file)
+                dependencies[file].extend(jobs)
             except MissingRuleException as ex:
                 pass
         return dependencies
@@ -650,10 +656,7 @@ class DAG:
         return Job(targetrule, self)
 
     def file2jobs(self, targetfile):
-        jobs = list()
-        for rule in self.rules:
-            if rule.is_producer(targetfile):
-                jobs.append(Job(rule, self, targetfile=targetfile))
+        jobs = [Job(rule, self, targetfile=targetfile) for rule in self.rules if rule.is_producer(targetfile)]
         if not jobs:
             raise MissingRuleException(targetfile)
         return jobs

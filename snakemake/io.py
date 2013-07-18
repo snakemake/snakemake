@@ -120,9 +120,7 @@ class _IOFile(str):
 
     def match(self, target):
         match = self.regex().match(target)
-        if match and len(match.group()) == len(target):
-            return match
-        return None
+        return match if match else None
 
     def __eq__(self, other):
         f = other._file if isinstance(other, _IOFile) else other
@@ -149,27 +147,28 @@ def remove(file):
 
 
 def regex(filepattern):
-    f = ""
+    f = []
     last = 0
     wildcards = set()
     for match in _wildcard_regex.finditer(filepattern):
-        f += re.escape(filepattern[last:match.start()])
+        f.append(re.escape(filepattern[last:match.start()]))
         wildcard = match.group("name")
         if wildcard in wildcards:
             if match.group("constraint"):
                 raise ValueError("If multiple wildcards of the same name "
                 "appear in a string, eventual constraints have to be defined "
                 "at the first occurence and will be inherited by the others.")
-            f += "(?P={})".format(wildcard)
+            f.append("(?P={})".format(wildcard))
         else:
             wildcards.add(wildcard)
-            f += "(?P<{}>{})".format(
+            f.append("(?P<{}>{})".format(
                 wildcard,
                 match.group("constraint")
-                    if match.group("constraint") else ".+")
+                    if match.group("constraint") else ".+"))
         last = match.end()
-    f += re.escape(filepattern[last:])
-    return f
+    f.append(re.escape(filepattern[last:]))
+    f.append("$") # ensure that the match spans the whole file
+    return "".join(f)
 
 
 def apply_wildcards(pattern, wildcards, fill_missing=False,

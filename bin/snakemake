@@ -283,6 +283,6 @@ def parse_resources(args):
     return resources
 
 if __name__ == "__main__":
-    #import cProfile
-    #cProfile.run('main()', "snakemake.profile")
-    main()
+    import cProfile
+    cProfile.run('main()', "snakemake.profile")
+    #main()

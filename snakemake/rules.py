@@ -320,8 +320,7 @@ class Rule:
         """
         try:
             for o in self.output:
-                match = o.match(requested_output)
-                if match and len(match.group()) == len(requested_output):
+                if o.match(requested_output):
                     return True
             return False
         except sre_constants.error as ex:
