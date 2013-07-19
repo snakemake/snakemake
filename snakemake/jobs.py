@@ -28,7 +28,6 @@ class Job:
         self.rule = rule
         self.dag = dag
         self.targetfile = targetfile
-        self._hash = None
         self.wildcards_dict = self.rule.get_wildcards(targetfile)
         self.wildcards = Wildcards(fromdict=self.wildcards_dict)
         self._format_wildcards = (self.wildcards
@@ -59,6 +58,10 @@ class Job:
         for f in self.input:
             if self.ruleio[f] in self.rule.dynamic_input:
                 self.dynamic_input.add(f)
+        self._hash = self.rule.__hash__()
+        if not self.dynamic_output:
+            for o in self.output:
+                self._hash ^= o.__hash__()
 
     @property
     def b64id(self):
@@ -244,12 +247,8 @@ class Job:
     def __gt__(self, other):
         return self.rule.__gt__(other.rule)
 
+
     def __hash__(self):
-        if self._hash is None:
-            self._hash = self.rule.__hash__()
-            if not self.dynamic_output:
-                for o in self.output:
-                        self._hash ^= o.__hash__()
         return self._hash
 
     @staticmethod

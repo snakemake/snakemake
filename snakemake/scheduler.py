@@ -6,7 +6,7 @@ import multiprocessing
 import operator
 from functools import partial
 from collections import defaultdict
-from itertools import chain
+from itertools import chain, accumulate
 
 from snakemake.executors import DryrunExecutor, TouchExecutor
 from snakemake.executors import ClusterExecutor, CPUExecutor
@@ -316,8 +316,5 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             len(self.dag), self.finished_jobs / len(self.dag)))
 
 
-def cumsum(iterable):
-    l = [0]
-    for i in iterable:
-        l.append(i + l[-1])
-    return l
+def cumsum(iterable, zero=[0]):
+    return list(chain(zero, accumulate(iterable)))
