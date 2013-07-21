@@ -346,6 +346,8 @@ class Rule(GlobalKeywordState):
         if is_name(token):
             try:
                 if token.string == "run" or token.string == "shell":
+                    if self.run:
+                        raise self.error("Multiple run or shell keywords in rule {}.".format(self.rulename), token)
                     self.run = True
                 for t in self.subautomaton(
                     token.string,

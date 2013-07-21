@@ -73,7 +73,7 @@ def print_exception(ex, linemaps, print_traceback=False):
         logger.critical(format_error(
             ex, ex.lineno, linemaps=linemaps, snakefile=ex.filename,
             show_traceback=print_traceback))
-    if isinstance(ex, TokenError):
+    elif isinstance(ex, TokenError):
         logger.critical(format_error(
             ex, None,
             show_traceback=print_traceback))
