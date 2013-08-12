@@ -52,7 +52,7 @@ def format_traceback(tb, linemaps):
             yield '  File "{}", line {}, in {}'.format(file, lineno, function)
 
 
-def print_exception(ex, linemaps, print_traceback=False):
+def print_exception(ex, linemaps, print_traceback=True):
     """
     Print an error message for a given exception.
 
