@@ -1,5 +1,5 @@
 # coding: utf-8
-from distutils.core import setup, Extension
+from setuptools import setup
 import sys
 
 if sys.version_info < (3,2):
@@ -17,7 +17,9 @@ setup(
     license = 'MIT',
     url = 'http://snakemake.googlecode.com',
     packages = ['snakemake'],
-    scripts = ['bin/snakemake'],
+    entry_points = {
+        "console_scripts": ["snakemake = snakemake:main"]
+    },
     package_data = {'': ['*.css']},
     classifiers = [
         "Development Status :: 5 - Production/Stable",
