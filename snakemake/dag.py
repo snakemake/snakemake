@@ -707,7 +707,6 @@ class DAG:
             'style="rounded,dotted"']
         used_types = set()
 
-
         if print_wildcards:
             def format_wildcard(wildcard):
                 name, value = wildcard

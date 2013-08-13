@@ -178,7 +178,7 @@ def main():
             "If N is omitted, the limit is set to the number of "
             "available cores."))
     parser.add_argument(
-        "--resources", "--res", nargs="*", metavar="NAME INT",
+        "--resources", "--res", nargs="*", metavar="NAME=INT",
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to threads (see above). A resource is defined as "
@@ -246,13 +246,13 @@ def main():
             "all rules it is dependent on regardless of already created "
             "output."))
     parser.add_argument(
-        "--forcerun", "-R", nargs="+",
+        "--forcerun", "-R", nargs="+", metavar="TARGET",
         help=(
             "Force the re-execution or creation of the given rules or files."
             " Use this option if you changed a rule and want to have all its "
             "output in your workflow updated."))
     parser.add_argument(
-        "--prioritize", "-P", nargs="+",
+        "--prioritize", "-P", nargs="+", metavar="TARGET",
         help=
             ("Tell the scheduler to assign creation of given targets "
             "(and all their dependencies) highest priority. (EXPERIMENTAL)"))
@@ -281,7 +281,7 @@ def main():
             "$ snakemake --cluster 'sbatch --dependency {dependencies}.\n"
             "Assuming that your submit script (here sbatch) outputs the generated job id to the first stdout line, {dependencies} will be filled with space separated job ids this job depends on."))
     parser.add_argument(
-        "--jobscript", "--js",
+        "--jobscript", "--js", metavar="SCRIPT",
         help="Provide a custom job script for submission to the cluster. "
             "The default script resides as 'jobscript.sh' in the "
             "installation directory.")
@@ -304,7 +304,8 @@ def main():
         "--unlock", action="store_true",
         help="Remove a lock on the working directory.")
     parser.add_argument(
-        "--cleanup-metadata", "--cm", nargs="*", help="Cleanup the metadata "
+        "--cleanup-metadata", "--cm", nargs="*", metavar="FILE",
+        help="Cleanup the metadata "
         "of given files. That means that snakemake removes any tracked "
         "version info, and any marks that files are incomplete.")
     parser.add_argument(
@@ -330,15 +331,15 @@ def main():
         help="List all files for which the defined params have changed "
         "in the Snakefile.")
     parser.add_argument(
-        "--output-wait", "-w", type=int, default=3,
-        help="Wait T seconds if an output file of a job is not present after "
+        "--output-wait", "-w", type=int, default=3, metavar="SECONDS",
+        help="Wait given seconds if an output file of a job is not present after "
         "the job finished. This helps if your filesystem "
         "suffers from latency.")
     parser.add_argument(
         "--notemp", "--nt", action="store_true",
         help="Ignore temp() declarations. This is useful when running only "
         "a part of the workflow, since temp() would lead to deletion of "
-        "probably needed files by other pars of the workflow."
+        "probably needed files by other parts of the workflow."
         )
     parser.add_argument(
         "--print-compilation", action="store_true",
