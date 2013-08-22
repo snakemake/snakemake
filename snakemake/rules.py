@@ -78,6 +78,7 @@ class Rule:
             if f in dynamic_io:
                 try:
                     for e in reversed(expand(f, zip, **wildcards)):
+                        # TODO this also expands into files that are not yet created (also check already filled wildcard values)
                         expansion[i].append(IOFile(e, rule=self))
                 except KeyError:
                     return None

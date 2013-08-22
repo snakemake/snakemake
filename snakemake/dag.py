@@ -460,6 +460,7 @@ class DAG:
                 self.postprocess()
 
     def update_dynamic(self, job):
+        import pdb; pdb.set_trace()
         dynamic_wildcards = job.dynamic_wildcards
         if not dynamic_wildcards:
             # this happens e.g. in dryrun if output is not yet present
@@ -470,6 +471,7 @@ class DAG:
                 self.bfs(self.depending, job)))
         newrule, non_dynamic_wildcards = job.rule.dynamic_branch(
             dynamic_wildcards, input=False)
+        # TODO do not replace but add rule since we can have multiple job instances of a dynamic rule
         self.replace_rule(job.rule, newrule)
 
         # no targetfile needed for job
@@ -477,6 +479,7 @@ class DAG:
             newrule, self, format_wildcards=non_dynamic_wildcards)
         self.replace_job(job, newjob)
         for job_ in depending:
+            # TODO discover that the job dependency is not completely satisfied
             if job_.dynamic_input:
                 newrule_ = job_.rule.dynamic_branch(dynamic_wildcards)
                 if newrule_ is not None:

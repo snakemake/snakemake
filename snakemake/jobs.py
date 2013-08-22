@@ -59,9 +59,9 @@ class Job:
             if self.ruleio[f] in self.rule.dynamic_input:
                 self.dynamic_input.add(f)
         self._hash = self.rule.__hash__()
-        if not self.dynamic_output:
-            for o in self.output:
-                self._hash ^= o.__hash__()
+        #if not self.dynamic_output:
+        for o in self.output:
+            self._hash ^= o.__hash__()
 
     @property
     def b64id(self):
