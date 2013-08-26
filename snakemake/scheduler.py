@@ -165,10 +165,11 @@ class JobScheduler:
                 # go on scheduling if open jobs are ready or no job is running
                 self._open_jobs.set()
 
-    def _error(self):
+    def _error(self, job):
         """ Clear jobs and stop the workflow. """
         with self._lock:
             self._errors = True
+            self.running.remove(job)
             if self.keepgoing:
                 logger.warning("Job failed, going on with independent jobs.")
             else:

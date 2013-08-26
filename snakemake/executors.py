@@ -156,7 +156,7 @@ class TouchExecutor(RealExecutor):
             callback(job)
         except OSError as ex:
             print_exception(ex, self.workflow.linemaps)
-            error_callback()
+            error_callback(job)
 
 
 class CPUExecutor(RealExecutor):
@@ -196,7 +196,7 @@ class CPUExecutor(RealExecutor):
             print_exception(ex, self.workflow.linemaps)
             job.cleanup()
             self.workflow.persistence.cleanup(job)
-            error_callback()
+            error_callback(job)
 
 
 class ClusterExecutor(RealExecutor):
@@ -285,7 +285,7 @@ class ClusterExecutor(RealExecutor):
                 os.remove(jobscript)
                 print_exception(
                     ClusterJobException(job), self.workflow.linemaps)
-                error_callback()
+                error_callback(job)
                 return
             time.sleep(1)
 
