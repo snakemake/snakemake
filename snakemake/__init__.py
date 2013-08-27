@@ -6,6 +6,7 @@ from argparse import ArgumentError
 import logging
 import multiprocessing
 import re
+import sys
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -357,6 +358,7 @@ def main():
         resources = parse_resources(args)
     except ValueError as e:
         print(e, file=sys.stderr)
+        print("", file=sys.stderr)
         parser.print_help()
         return False
 
