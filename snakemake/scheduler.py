@@ -37,6 +37,7 @@ class JobScheduler:
         self.quiet = quiet
         self.keepgoing = keepgoing
         self.running = set()
+        self.failed = set()
         self.finished_jobs = 0
 
         self.resources = dict(self.workflow.global_resources)
@@ -100,7 +101,7 @@ class JobScheduler:
 
     def candidate(self, job):
         """ Return whether a job is a candidate to be executed. """
-        return (job not in self.running and (self.dryrun or
+        return (job not in self.running and job not in self.failed and (self.dryrun or
             (not job.dynamic_input and not self.dag.dynamic(job))))
 
     @property
@@ -170,6 +171,7 @@ class JobScheduler:
         with self._lock:
             self._errors = True
             self.running.remove(job)
+            self.failed.add(job)
             if self.keepgoing:
                 logger.warning("Job failed, going on with independent jobs.")
             else:
