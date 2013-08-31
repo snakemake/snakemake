@@ -240,7 +240,7 @@ class ClusterExecutor(RealExecutor):
         workdir = os.getcwd()
         jobid = len(self.threads)
 
-        jobscript = os.path.join(self.tmpdir, "{}.sh".format(jobid))
+        jobscript = os.path.join(self.tmpdir, "jobscript.{}.sh".format(jobid))
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
         jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
         with open(jobscript, "w") as f:

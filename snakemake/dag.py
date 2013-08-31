@@ -556,7 +556,7 @@ class DAG:
                 pass
         return dependencies
 
-    def bfs(self, direction, *jobs, stop=lambda job: False, yield_level=False):
+    def bfs(self, direction, *jobs, stop=lambda job: False):
         queue = list(jobs)
         visited = set(queue)
         while queue:
@@ -661,6 +661,18 @@ class DAG:
         if not jobs:
             raise MissingRuleException(targetfile)
         return jobs
+
+    def rule_dot2(self):
+        dag = dict()
+        job2node = dict()
+        for job, level in self.level_bfs(self.dependencies, *self.targetjobs):
+            node = (job.rule, level)
+            job2node[job] = node
+            for dep in self.dependencies[job]:
+                dag[job2node[job]].extend(
+                    job2node[dep] for dep in self.dependencies[job])
+        labels = dict((node, node[0]) for node in dag)
+        
 
     def dot(self):
         return self._dot(self.jobs)
