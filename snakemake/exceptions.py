@@ -247,10 +247,10 @@ class IOFileException(RuleException):
 
 
 class ClusterJobException(RuleException):
-    def __init__(self, job):
+    def __init__(self, job, jobid, jobscript):
         super().__init__(
-            "Error executing rule {} on cluster. "
-            "For detailed error see the cluster log.".format(job.rule.name),
+            "Error executing rule {} on cluster (jobid: {}, jobscript: {}). "
+            "For detailed error see the cluster log.".format(job.rule.name, jobid, jobscript),
             lineno=job.rule.lineno, snakefile=job.rule.snakefile)
 
 

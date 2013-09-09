@@ -160,7 +160,7 @@ def parse_resources(args):
     return resources
 
 
-def main():
+def main(snakemakepath=None):
     parser = argparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
             "environment for GNU Make-like workflows.")
@@ -352,7 +352,6 @@ def main():
 
     args = parser.parse_args()
 
-    snakemakepath = os.path.realpath(__file__)
 
     try:
         resources = parse_resources(args)

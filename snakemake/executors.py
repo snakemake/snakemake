@@ -20,7 +20,7 @@ from snakemake.stats import Stats
 from snakemake.utils import format, Unformattable
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException
-from snakemake.exceptions import ClusterJobException, ProtectedOutputException
+from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError
 
 
 class AbstractExecutor:
@@ -227,7 +227,7 @@ class ClusterExecutor(RealExecutor):
         self.threads = []
         self._tmpdir = None
         self.cores = cores if cores else ""
-        self.jobid = dict()
+        self.external_jobid = dict()
 
     def shutdown(self):
         for thread in self.threads:
@@ -238,27 +238,26 @@ class ClusterExecutor(RealExecutor):
         self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
         workdir = os.getcwd()
-        jobid = len(self.threads)
+        jobid = self.dag.jobid(job)
 
-        jobscript = os.path.join(self.tmpdir, "snakemake-job.{}.sh".format(jobid))
+        jobscript = self.get_jobscript(job)
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
         jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
         with open(jobscript, "w") as f:
-            print(format(self.jobscript), file=f)
+            print(format(self.jobscript, workflow=self.workflow, cores=self.cores), file=f)
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
 
-        deps = " ".join(
-            (self.jobid[f] if f in self.jobid else "") for f in job.input)
+        deps = " ".join(self.external_jobid[f] for f in job.input if f in self.external_jobid)
         submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps)
-        jobid = subprocess.check_output(
+        ext_jobid = subprocess.check_output(
             '{submitcmd} "{jobscript}"'.format(
                 submitcmd=submitcmd,
                 jobscript=jobscript),
             shell=True).decode().split("\n")
-        if jobid and jobid[0]:
-            jobid = jobid[0]
-            self.jobid.update((f, jobid) for f in job.output)
-            logger.debug("Submitted job with jobid {}.".format(jobid))
+        if ext_jobid and ext_jobid[0]:
+            ext_jobid = ext_jobid[0]
+            self.external_jobid.update((f, ext_jobid) for f in job.output)
+            logger.debug("Submitted job {} with external jobid {}.".format(jobid, ext_jobid))
 
         thread = threading.Thread(
             target=self._wait_for_job,
@@ -284,7 +283,7 @@ class ClusterExecutor(RealExecutor):
                 os.remove(jobfailed)
                 os.remove(jobscript)
                 print_exception(
-                    ClusterJobException(job), self.workflow.linemaps)
+                    ClusterJobException(job, self.dag.jobid(job), self.get_jobscript(job)), self.workflow.linemaps)
                 error_callback(job)
                 return
             time.sleep(1)
@@ -299,6 +298,10 @@ class ClusterExecutor(RealExecutor):
                     os.mkdir(self._tmpdir)
                     break
         return os.path.abspath(self._tmpdir)
+
+    def get_jobscript(self, job):
+        return os.path.join(self.tmpdir, "{}.snakemake-job.sh".format(self.dag.jobid(job)))
+
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log, linemaps):

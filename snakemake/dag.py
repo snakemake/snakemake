@@ -57,6 +57,7 @@ class DAG:
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
         self.notemp = notemp
+        self._jobid = dict()
 
         self.forcerules = set()
         self.forcefiles = set()
@@ -245,6 +246,11 @@ class DAG:
         for f in unneeded_files():
             logger.warning("Removing temporary output file {}".format(f))
             f.remove()
+
+    def jobid(self, job):
+        if job not in self._jobid:
+            self._jobid[job] = len(self._jobid)
+        return self._jobid[job]
 
     def update(self, jobs, file=None, visited=None, skip_until_dynamic=False):
         """ Update the DAG by adding given jobs and their dependencies. """
@@ -705,7 +711,6 @@ class DAG:
         if dag is None:
             dag = self.dependencies
         jobs = set(jobs)
-        jobid = dict((job, i) for i, job in enumerate(jobs))
 
         huefactor = 2 / (3 * (len(self.rules) - 1))
         rulecolor = dict(
@@ -744,10 +749,10 @@ class DAG:
             used_types.add(t)
 
             nodes.append('\t{}[label = "{}", color="{}", {}];'.format(
-                jobid[job], format_label(job), rulecolor[job.rule], format_node(t)))
+                self.jobid(job), format_label(job), rulecolor[job.rule], format_node(t)))
 
-            deps = set(map(jobid.__getitem__, dag[job]))
-            job = jobid[job]
+            deps = set(map(self.jobid, dag[job]))
+            job = self.jobid(job)
             for dep in deps:
                 edges.append("\t{} -> {};".format(dep, job))
 
@@ -757,7 +762,7 @@ class DAG:
                 for t in used_types:
                     legend.append('\tlegend{}[label="{}", {}];'.format(
                         t, types[t], styles[t]))
-                    for target in map(jobid.__getitem__, self.targetjobs):
+                    for target in map(self.jobid, self.targetjobs):
                         legend.append(
                             "\t{} -> legend{}[style=invis];".format(target, t))
 
