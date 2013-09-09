@@ -17,5 +17,4 @@ from snakemake import main
 if __name__ == "__main__":
     #import cProfile
     #cProfile.run('main()', "snakemake.profile")
-    snakemakepath = os.path.realpath(__file__)
-    sys.exit(main(snakemakepath=snakemakepath))
+    main()
