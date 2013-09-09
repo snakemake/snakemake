@@ -7,6 +7,7 @@ import logging
 import multiprocessing
 import re
 import sys
+import inspect
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -352,7 +353,7 @@ def main():
 
     args = parser.parse_args()
 
-    snakemakepath = os.path.realpath(__file__)
+    snakemakepath = os.path.realpath(inspect.getmodule(inspect.stack()[1][0]).__file__)
 
     try:
         resources = parse_resources(args)
