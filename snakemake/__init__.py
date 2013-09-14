@@ -404,7 +404,5 @@ def main():
             print_compilation=args.print_compilation,
             debug=args.debug,
             jobscript=args.jobscript,
-            notemp=args.notemp,
-            nodeps=args.nodeps
-            )
+            notemp=args.notemp)
     sys.exit(0 if success else 1)
