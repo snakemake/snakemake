@@ -56,6 +56,7 @@ def snakemake(snakefile,
     print_compilation=False,
     debug=False,
     notemp=False,
+    nodeps=False,
     jobscript=None):
     """
     Run snakemake on a given snakefile.
@@ -128,6 +129,7 @@ def snakemake(snakefile,
                     unlock=unlock,
                     resources=resources,
                     notemp=notemp,
+                    nodeps=nodeps,
                     cleanup_metadata=cleanup_metadata
                     )
 
@@ -402,6 +404,7 @@ def main():
             print_compilation=args.print_compilation,
             debug=args.debug,
             jobscript=args.jobscript,
-            notemp=args.notemp
+            notemp=args.notemp,
+            nodeps=args.nodeps
             )
     sys.exit(0 if success else 1)
