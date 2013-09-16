@@ -249,11 +249,14 @@ class ClusterExecutor(RealExecutor):
 
         deps = " ".join(self.external_jobid[f] for f in job.input if f in self.external_jobid)
         submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps)
-        ext_jobid = subprocess.check_output(
-            '{submitcmd} "{jobscript}"'.format(
-                submitcmd=submitcmd,
-                jobscript=jobscript),
-            shell=True).decode().split("\n")
+        try:
+            ext_jobid = subprocess.check_output(
+                '{submitcmd} "{jobscript}"'.format(
+                    submitcmd=submitcmd,
+                    jobscript=jobscript),
+                shell=True).decode().split("\n")
+        except subprocess.CalledProcessError as ex:
+            raise WorkflowError("Error executing jobscript (exit code {}):\n{}".format(ex.returncode, ex.output.decode()), rule=job.rule)
         if ext_jobid and ext_jobid[0]:
             ext_jobid = ext_jobid[0]
             self.external_jobid.update((f, ext_jobid) for f in job.output)
