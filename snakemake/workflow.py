@@ -109,7 +109,7 @@ class Workflow:
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
         summary=False, output_wait=3, nolock=False, unlock=False,
-        resources=None, notemp=False,
+        resources=None, notemp=False, nodeps=False,
         cleanup_metadata=None):
 
         self.global_resources = dict() if cluster or resources is None else resources
@@ -187,6 +187,17 @@ class Workflow:
 
         dag.check_incomplete()
         dag.postprocess()
+
+        if nodeps:
+            missing_input = [f for job in dag.targetjobs for f in job.input if dag.needrun(job) and not os.path.exists(f)]
+            logger.critical("Dependency resolution disabled (--nodeps) "
+                "but missing input " 
+                "files detected. If this happens on a cluster, please make sure "
+                "that you handle the dependencies yourself or turn of "
+                "--immediate-submit. Missing input files:\n{}".format(
+                    "\n".join(missing_input)))
+            
+            return False
 
         if printdag:
             print(dag)

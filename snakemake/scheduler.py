@@ -79,6 +79,7 @@ class JobScheduler:
                 self.rule_weight,
                 maxcores=1)
             if immediate_submit:
+                self.rule_reward = self.dryrun_rule_reward
                 self._submit_callback = partial(
                     self._proceed,
                     update_dynamic=False,
