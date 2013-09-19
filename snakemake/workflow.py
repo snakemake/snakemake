@@ -104,7 +104,7 @@ class Workflow:
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
         cluster=None, immediate_submit=False, ignore_ambiguity=False,
-        workdir=None, printruledag=False,
+        workdir=None, printrulegraph=False,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
@@ -202,7 +202,7 @@ class Workflow:
         if printdag:
             print(dag)
             return True
-        elif printruledag:
+        elif printrulegraph:
             print(dag.rule_dot())
             return True
         elif summary:

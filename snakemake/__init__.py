@@ -33,7 +33,7 @@ def snakemake(snakefile,
     printreason=False,
     printshellcmds=False,
     printdag=False,
-    printruledag=False,
+    printrulegraph=False,
     nocolor=False,
     quiet=False,
     keepgoing=False,
@@ -112,7 +112,7 @@ def snakemake(snakefile,
                     forceall=forceall, forcerun=forcerun,
                     prioritytargets=prioritytargets, quiet=quiet,
                     keepgoing=keepgoing, printshellcmds=printshellcmds,
-                    printreason=printreason, printruledag=printruledag,
+                    printreason=printreason, printrulegraph=printrulegraph,
                     printdag=printdag, cluster=cluster,
                     immediate_submit=immediate_submit,
                     ignore_ambiguity=ignore_ambiguity,
@@ -210,10 +210,12 @@ def main():
             "acyclic graph of jobs in the dot language. Recommended "
             "use on Unix systems: snakemake --dag | dot | display")
     parser.add_argument(
-        "--ruledag", action="store_true",
-        help="Do not execute anything and print the directed "
-            "acyclic graph of rules in the dot language. This will be less "
+        "--rulegraph", action="store_true",
+        help="Do not execute anything and print the dependency graph "
+            "of rules in the dot language. This will be less "
             "crowded than above DAG of jobs, but also show less information. "
+            "Note that each rule is displayed once, hence the displayed graph will be "
+            "cyclic if a rule appears in several steps of the workflow. "
             "Use this if above option leads to a DAG that is too large. "
             "Recommended use on Unix systems: snakemake --ruledag | dot | display")
     parser.add_argument(
@@ -376,7 +378,7 @@ def main():
             printshellcmds=args.printshellcmds,
             printreason=args.reason,
             printdag=args.dag,
-            printruledag=args.ruledag,
+            printrulegraph=args.rulegraph,
             touch=args.touch,
             forcetargets=args.force,
             forceall=args.forceall,
