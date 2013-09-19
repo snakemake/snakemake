@@ -464,6 +464,7 @@ class DAG:
                 self._finished.add(newjob)
 
                 self.postprocess()
+                self.handle_protected(newjob)
 
     def update_dynamic(self, job):
         dynamic_wildcards = job.dynamic_wildcards
