@@ -322,19 +322,19 @@ def main():
         "any incomplete jobs.")
     parser.add_argument(
         "--list-version-changes", "--lv", action="store_true",
-        help="List all files that have been created with "
+        help="List all output files that have been created with "
         "a different version (as determined by the version keyword).")
     parser.add_argument(
         "--list-code-changes", "--lc", action="store_true",
-        help="List all files for which the rule body (run or shell) have changed "
+        help="List all output files for which the rule body (run or shell) have changed "
         "in the Snakefile.")
     parser.add_argument(
         "--list-input-changes", "--li", action="store_true",
-        help="List all files for which the defined input files have changed "
-        "in the Snakefile.")
+        help="List all output files for which the defined input files have changed "
+        "in the Snakefile (e.g. new input files were added in the rule definition or files were renamed). For listing input file modification in the filesystem, use --summary.")
     parser.add_argument(
         "--list-params-changes", "--lp", action="store_true",
-        help="List all files for which the defined params have changed "
+        help="List all output files for which the defined params have changed "
         "in the Snakefile.")
     parser.add_argument(
         "--output-wait", "-w", type=int, default=3, metavar="SECONDS",
