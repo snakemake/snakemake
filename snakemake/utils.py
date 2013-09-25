@@ -81,7 +81,7 @@ def makedirs(dirnames):
 def report(
     text, path,
     stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
-    defaultenc="utf8", template=None, **files):
+    defaultenc="utf8", template=None, metadata=None, **files):
     """
     Create an HTML report using python docutils.
     Attention: This function needs Python docutils to be installed for the
@@ -96,6 +96,7 @@ def report(
     defaultenc -- The encoding that is reported to the browser for embedded
         text files, defaults to utf8.
     template -- An optional path to a docutils HTML template.
+    metadata -- E.g. an optional author name or email address.
 
     All other keyword args are intepreted as paths to files that shall be
     embedded into the document. They keywords will be available as link
@@ -135,9 +136,9 @@ def report(
     .. container::
        :name: metadata
 
-       {metadata}
+       {metadata} {date}
 
-    """).format(metadata=datetime.date.today().isoformat())
+    """).format(metadata=metadata, date=datetime.date.today().isoformat())
 
     text = format(textwrap.dedent(text), stepout=2)
 
