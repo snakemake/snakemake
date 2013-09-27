@@ -307,7 +307,6 @@ class ClusterExecutor(RealExecutor):
         return os.path.join(self.tmpdir, "{}.snakemake-job.sh".format(self.dag.jobid(job)))
 
 
-
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log, linemaps):
     """
     Wrapper around the run method that handles directory creation and

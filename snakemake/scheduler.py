@@ -31,6 +31,7 @@ class JobScheduler:
         keepgoing=False,
         output_wait=3):
         """ Create a new instance of KnapsackJobScheduler. """
+        self.cluster = cluster
         self.dag = dag
         self.workflow = workflow
         self.dryrun = dryrun
@@ -91,7 +92,8 @@ class JobScheduler:
                     update_dynamic=False,
                     print_progress=False,
                     update_resources=False)
-                self._local_executor = self._executor
+            else:
+                self.run = self.run_cluster_or_local
         else:
             self._executor = CPUExecutor(
                 workflow, dag, cores, printreason=printreason,
@@ -145,14 +147,20 @@ class JobScheduler:
             logger.debug("Selected jobs:\n\t" + "\n\t".join(map(str, run)))
             self.running.update(run)
             for job in run:
-                if cluster and job.rule.name in self.workflow.is_local(job):
-                    executor = self._local_executor
-                else:
-                    executor = self._executor
-                executor.run(
-                    job, callback=self._finish_callback,
-                    submit_callback=self._submit_callback,
-                    error_callback=self._error)
+                self.run(job)
+
+    def run(self, job):
+        self._executor.run(
+            job, callback=self._finish_callback,
+            submit_callback=self._submit_callback,
+            error_callback=self._error)
+
+    def run_cluster_or_local(self, job):
+        executor = self._local_executor if self.workflow.is_local(job) else self._executor
+        executor.run(
+            job, callback=self._finish_callback,
+            submit_callback=self._submit_callback,
+            error_callback=self._error)
 
     def _noop(self, job):
         pass

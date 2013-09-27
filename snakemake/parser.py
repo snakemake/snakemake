@@ -397,6 +397,7 @@ class Python(TokenAutomaton):
         include=Include,
         workdir=Workdir,
         ruleorder=Ruleorder,
+        localrules=Localrules,
         rule=Rule)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
