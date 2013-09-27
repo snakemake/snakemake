@@ -35,6 +35,7 @@ class AbstractExecutor:
         self.printshellcmds = printshellcmds
         self.printthreads = printthreads
         self.output_wait = output_wait
+        self.rule_prefix = ""
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
@@ -69,7 +70,7 @@ class AbstractExecutor:
             if job.message:
                 desc.append(job.message)
             else:
-                desc.append("rule {}:".format(job.rule.name))
+                desc.append("{}rule {}:".format(self.rule_prefix, job.rule.name))
                 for name, value in (
                     ("input", ", ".join(format_files(
                         job, job.input, job.ruleio, job.dynamic_input))),

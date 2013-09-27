@@ -29,6 +29,10 @@ def is_greater(token):
     return token.type == tokenize.OP and token.string == ">"
 
 
+def is_comma(token):
+    return token.type == tokenize.COMMA
+
+
 def is_name(token):
     return token.type == tokenize.NAME
 
@@ -197,6 +201,18 @@ class Ruleorder(GlobalKeywordState):
         else:
             self.error('Expected a descending order of rule names, '
                 'e.g. rule1 > rule2 > rule3 ...', token)
+
+
+class Localrules(GlobalKeywordState):
+
+    def block_content(self, token):
+        if is_comma(token):
+            yield ",", token
+        elif is_name(token):
+            yield '"{}"'.format(token.string), token
+        else:
+            self.error('Expected a comma separated list of rules that shall '
+            'not be executed by the cluster command.', token)
 
 
 # Rule keyword states

@@ -71,6 +71,12 @@ class JobScheduler:
                 output_wait=output_wait)
         elif cluster:
             # TODO properly set cores
+            self._local_executor = CPUExecutor(
+                workflow, dag, cores, printreason=printreason,
+                quiet=quiet, printshellcmds=printshellcmds,
+                threads=use_threads,
+                output_wait=output_wait)
+            self._local_executor.rule_prefix = "local "
             self._executor = ClusterExecutor(
                 workflow, dag, None, submitcmd=cluster,
                 printreason=printreason, quiet=quiet,
@@ -85,6 +91,7 @@ class JobScheduler:
                     update_dynamic=False,
                     print_progress=False,
                     update_resources=False)
+                self._local_executor = self._executor
         else:
             self._executor = CPUExecutor(
                 workflow, dag, cores, printreason=printreason,
@@ -138,7 +145,11 @@ class JobScheduler:
             logger.debug("Selected jobs:\n\t" + "\n\t".join(map(str, run)))
             self.running.update(run)
             for job in run:
-                self._executor.run(
+                if cluster and job.rule.name in self.workflow.is_local(job):
+                    executor = self._local_executor
+                else:
+                    executor = self._executor
+                executor.run(
                     job, callback=self._finish_callback,
                     submit_callback=self._submit_callback,
                     error_callback=self._error)
