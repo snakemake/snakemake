@@ -34,7 +34,7 @@ class Workflow:
         self._localrules = set()
         self.linemaps = dict()
         self.rule_count = 0
-        self.snakefile = snakefile
+        self.snakefile = os.path.abspath(snakefile)
         self.snakemakepath = os.path.abspath(snakemakepath)
         self.jobscript = jobscript
         self.persistence = None
