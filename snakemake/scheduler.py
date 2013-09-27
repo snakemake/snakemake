@@ -77,7 +77,6 @@ class JobScheduler:
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
                 output_wait=output_wait)
-            self._local_executor.rule_prefix = "local "
             self._executor = ClusterExecutor(
                 workflow, dag, None, submitcmd=cluster,
                 printreason=printreason, quiet=quiet,
