@@ -8,6 +8,8 @@ import multiprocessing
 import re
 import sys
 import inspect
+from functools import partial
+
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -96,7 +98,7 @@ def snakemake(snakefile,
             # ignore: if it does not work we can still work without it
             pass
 
-    success = False
+    success = True
     try:
         workflow.include(snakefile, workdir=workdir,
             overwrite_first_rule=True, print_compilation=print_compilation)
@@ -168,6 +170,7 @@ def snakemake(snakefile,
 
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)
+        success = False
     if workdir:
         os.chdir(olddir)
     if workflow.persistence:
