@@ -35,6 +35,7 @@ class Workflow:
         self.linemaps = dict()
         self.rule_count = 0
         self.snakefile = snakefile
+        self.basedir = os.path.dirname(snakefile)
         self.snakemakepath = os.path.abspath(snakemakepath)
         self.jobscript = jobscript
         self.persistence = None
@@ -132,7 +133,7 @@ class Workflow:
         os.chdir(workdir)
 
         if not targets:
-            targets = [self.first_rule]
+            targets = [self.first_rule] if self.first_rule is not None else list()
         if prioritytargets is None:
             prioritytargets = list()
         if forcerun is None:
@@ -298,7 +299,7 @@ class Workflow:
         self._ruleorder.add(*rulenames)
 
     def subworkflow(self, name, snakefile=None, workdir=None):
-        sw = Subworkflow(name, snakefile, workdir)
+        sw = Subworkflow(self, name, snakefile, workdir)
         self._subworkflows[name] = sw
         self.globals[name] = sw.target
 
@@ -437,11 +438,23 @@ class RuleInfo:
 
 class Subworkflow:
 
-    def __init__(self, name, snakefile, workdir):
+    def __init__(self, workflow, name, snakefile, workdir):
+        self.workflow = workflow
         self.name = name
-        self.snakefile = snakefile
-        self.workdir = workdir
+        self._snakefile = snakefile
+        self._workdir = workdir
         self.targets = set()
+
+    @property
+    def snakefile(self):
+        if self._snakefile is None:
+            return os.path.join(self.workdir, "Snakefile")
+        return os.path.join(self.workflow.basedir, self._snakefile)
+
+    @property
+    def workdir(self):
+        workdir = "." if self._workdir is None else self._workdir
+        return os.path.join(self.workflow.basedir, workdir)
 
     def target(self, path):
         self.targets.add(path)

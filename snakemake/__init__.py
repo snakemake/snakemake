@@ -140,6 +140,8 @@ def snakemake(snakefile,
                         logger.warning("Executing subworkflow {}.".format(subworkflow.name))
                         if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow.targets):
                             success = False
+                    if workflow.subworkflows:
+                        logger.warning("Executing main workflow.")
                 if success:
                     success = workflow.execute(
                         targets=targets, dryrun=dryrun, touch=touch,

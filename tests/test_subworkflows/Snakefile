@@ -1,0 +1,9 @@
+
+subworkflow test02:
+    workdir: "../test02"
+
+
+rule:
+    input: test02("test.out")
+    output: "test.out"
+    shell: "cp {input} {output}"

@@ -115,3 +115,6 @@ def test_temp():
 
 def test_keyword_list():
 	run(dpath("test_keyword_list"))
+
+def test_subworkflows():
+    run(dpath("test_subworkflows"))

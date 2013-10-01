@@ -109,6 +109,8 @@ class TokenAutomaton:
 
 class KeywordState(TokenAutomaton):
 
+    prefix = ""
+
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.line = 0
@@ -116,7 +118,7 @@ class KeywordState(TokenAutomaton):
 
     @property
     def keyword(self):
-        return self.__class__.__name__.lower()
+        return self.__class__.__name__.lower()[len(self.prefix):]
 
     def end(self):
         yield ")"
@@ -177,9 +179,14 @@ class RuleKeywordState(KeywordState):
 
 
 class SubworkflowKeywordState(KeywordState):
+    prefix = "Subworkflow"
 
     def start(self):
-        yield "{keyword}=".format(keyword=self.keyword)
+        yield ", {keyword}=".format(keyword=self.keyword)
+
+    def end(self):
+        # no end needed
+        return list()
 
 
 # Global keyword states
@@ -225,34 +232,33 @@ class Subworkflow(GlobalKeywordState):
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.state = self.name
-        self.snakefile = False
-        self.workdir = False
+        self.has_snakefile = False
+        self.has_workdir = False
+        self.has_name = False
+        self.primary_token = None
 
     def end(self):
-        if not (self.snakefile or self.workdir):
-            self.error("A subworkflow needs either a path to a Snakefile or to a workdir.")
+        if not (self.has_snakefile or self.has_workdir):
+            self.error("A subworkflow needs either a path to a Snakefile or to a workdir.", self.primary_token)
         yield ")"
 
     def name(self, token):
         if is_name(token):
-            yield "workflow.subworkflow('{name}'".format(name=token.string)
-            self.state = self.colon
-        else:
-            self.error("Expected name after subworkflow keyword.", token)
-
-    def colon(self, token):
-        if is_colon(token):
+            yield "workflow.subworkflow('{name}'".format(name=token.string), token
+            self.has_name = True
+        elif is_colon(token) and self.has_name:
+            self.primary_token = token
             self.state = self.block
         else:
-            self.error("Expected colon after subworkflow name.", token)
+            self.error("Expected name after subworkflow keyword.", token)
 
     def block_content(self, token):
         if is_name(token):
             try:
                 if token.string == "snakefile":
-                    self.snakefile = True
+                    self.has_snakefile = True
                 if token.string == "workdir":
-                    self.workdir == True
+                    self.has_workdir = True
                 for t in self.subautomaton(
                     token.string).consume():
                     yield t
@@ -267,8 +273,8 @@ class Subworkflow(GlobalKeywordState):
             yield "\n", token
             yield token.string, token
         elif is_string(token):
-            yield "\n", token
-            yield "@workflow.docstring({})".format(token.string), token
+            # ignore docstring
+            pass
         else:
             self.error("Expecting subworkflow keyword, comment or docstrings "
                 "inside a subworkflow definition.", token)
@@ -456,7 +462,8 @@ class Python(TokenAutomaton):
         include=Include,
         workdir=Workdir,
         ruleorder=Ruleorder,
-        rule=Rule)
+        rule=Rule,
+        subworkflow=Subworkflow)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
