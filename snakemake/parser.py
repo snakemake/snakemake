@@ -176,6 +176,12 @@ class RuleKeywordState(KeywordState):
         yield "@workflow.{keyword}(".format(keyword=self.keyword)
 
 
+class SubworkflowKeywordState(KeywordState):
+
+    def start(self):
+        yield "{keyword}=".format(keyword=self.keyword)
+
+
 # Global keyword states
 
 
@@ -197,6 +203,75 @@ class Ruleorder(GlobalKeywordState):
         else:
             self.error('Expected a descending order of rule names, '
                 'e.g. rule1 > rule2 > rule3 ...', token)
+
+
+# subworkflows
+
+
+class SubworkflowSnakefile(SubworkflowKeywordState):
+    pass
+
+
+class SubworkflowWorkdir(SubworkflowKeywordState):
+    pass
+
+
+class Subworkflow(GlobalKeywordState):
+
+    subautomata = dict(
+        snakefile=SubworkflowSnakefile,
+        workdir=SubworkflowWorkdir)
+
+    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
+        self.state = self.name
+        self.snakefile = False
+        self.workdir = False
+
+    def end(self):
+        if not (self.snakefile or self.workdir):
+            self.error("A subworkflow needs either a path to a Snakefile or to a workdir.")
+        yield ")"
+
+    def name(self, token):
+        if is_name(token):
+            yield "workflow.subworkflow('{name}'".format(name=token.string)
+            self.state = self.colon
+        else:
+            self.error("Expected name after subworkflow keyword.", token)
+
+    def colon(self, token):
+        if is_colon(token):
+            self.state = self.block
+        else:
+            self.error("Expected colon after subworkflow name.", token)
+
+    def block_content(self, token):
+        if is_name(token):
+            try:
+                if token.string == "snakefile":
+                    self.snakefile = True
+                if token.string == "workdir":
+                    self.workdir == True
+                for t in self.subautomaton(
+                    token.string).consume():
+                    yield t
+            except KeyError:
+                self.error("Unexpected keyword {} in "
+                    "subworkflow definition".format(token.string), token)
+            except StopAutomaton as e:
+                self.indentation(e.token)
+                for t in self.block(e.token):
+                    yield t
+        elif is_comment(token):
+            yield "\n", token
+            yield token.string, token
+        elif is_string(token):
+            yield "\n", token
+            yield "@workflow.docstring({})".format(token.string), token
+        else:
+            self.error("Expecting subworkflow keyword, comment or docstrings "
+                "inside a subworkflow definition.", token)
 
 
 # Rule keyword states
