@@ -8,6 +8,7 @@ import sys
 import signal
 from collections import OrderedDict
 from itertools import filterfalse, chain
+from functools import partial
 from operator import attrgetter
 
 from snakemake.logging import logger
@@ -39,6 +40,11 @@ class Workflow:
         self.persistence = None
         self.global_resources = None
         self.globals = globals()
+        self._subworkflows = dict()
+
+    @property
+    def subworkflows(self):
+        return self._subworkflows.values()
 
     @property
     def rules(self):
@@ -291,6 +297,11 @@ class Workflow:
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
 
+    def subworkflow(self, name, snakefile=None, workdir=None):
+        sw = Subworkflow(name, snakefile, workdir)
+        self._subworkflows[name] = sw
+        self.globals[name] = sw.target
+
     def rule(self, name=None, lineno=None, snakefile=None):
         name = self.add_rule(name, lineno, snakefile)
         rule = self.get_rule(name)
@@ -409,6 +420,7 @@ class Workflow:
 
 
 class RuleInfo:
+
     def __init__(self, func):
         self.func = func
         self.shellcmd = None
@@ -422,3 +434,15 @@ class RuleInfo:
         self.version = None
         self.log = None
         self.docstring = None
+
+class Subworkflow:
+
+    def __init__(self, name, snakefile, workdir):
+        self.name = name
+        self.snakefile = snakefile
+        self.workdir = workdir
+        self.targets = set()
+
+    def target(self, path):
+        self.targets.add(path)
+        return os.path.join(self.workdir, path)

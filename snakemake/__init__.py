@@ -106,32 +106,65 @@ def snakemake(snakefile,
             if listrules:
                 workflow.list_rules()
             else:
-                success = workflow.execute(
-                    targets=targets, dryrun=dryrun, touch=touch,
-                    cores=cores, forcetargets=forcetargets,
-                    forceall=forceall, forcerun=forcerun,
-                    prioritytargets=prioritytargets, quiet=quiet,
-                    keepgoing=keepgoing, printshellcmds=printshellcmds,
-                    printreason=printreason, printrulegraph=printrulegraph,
-                    printdag=printdag, cluster=cluster,
-                    immediate_submit=immediate_submit,
-                    ignore_ambiguity=ignore_ambiguity,
-                    workdir=workdir, stats=stats,
-                    force_incomplete=force_incomplete,
-                    ignore_incomplete=ignore_incomplete,
-                    list_version_changes=list_version_changes,
-                    list_code_changes=list_code_changes,
-                    list_input_changes=list_input_changes,
-                    list_params_changes=list_params_changes,
-                    summary=summary,
-                    output_wait=output_wait,
-                    nolock=not lock,
-                    unlock=unlock,
-                    resources=resources,
-                    notemp=notemp,
-                    nodeps=nodeps,
-                    cleanup_metadata=cleanup_metadata
-                    )
+                if not printdag and not printrulegraph:
+                    # handle subworkflows
+                    subsnakemake = partial(
+                        snakemake,
+                        cores=cores,
+                        resources=resources,
+                        dryrun=dryrun,
+                        touch=touch,
+                        printreason=printreason,
+                        printshellcmds=printshellcmds,
+                        nocolor=nocolor,
+                        quiet=quiet,
+                        keepgoing=keepgoing,
+                        cluster=cluster,
+                        immediate_submit=immediate_submit,
+                        standalone=standalone,
+                        ignore_ambiguity=ignore_ambiguity,
+                        snakemakepath=snakemakepath,
+                        lock=lock,
+                        unlock=unlock,
+                        cleanup_metadata=cleanup_metadata,
+                        force_incomplete=force_incomplete,
+                        ignore_incomplete=ignore_incomplete,
+                        output_wait=output_wait,
+                        debug=debug,
+                        notemp=notemp,
+                        nodeps=nodeps,
+                        jobscript=jobscript)
+                    for subworkflow in workflow.subworkflows:
+                        logger.warning("Executing subworkflow {}.".format(subworkflow.name))
+                        if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow.targets):
+                            success = False
+                if success:
+                    success = workflow.execute(
+                        targets=targets, dryrun=dryrun, touch=touch,
+                        cores=cores, forcetargets=forcetargets,
+                        forceall=forceall, forcerun=forcerun,
+                        prioritytargets=prioritytargets, quiet=quiet,
+                        keepgoing=keepgoing, printshellcmds=printshellcmds,
+                        printreason=printreason, printrulegraph=printrulegraph,
+                        printdag=printdag, cluster=cluster,
+                        immediate_submit=immediate_submit,
+                        ignore_ambiguity=ignore_ambiguity,
+                        workdir=workdir, stats=stats,
+                        force_incomplete=force_incomplete,
+                        ignore_incomplete=ignore_incomplete,
+                        list_version_changes=list_version_changes,
+                        list_code_changes=list_code_changes,
+                        list_input_changes=list_input_changes,
+                        list_params_changes=list_params_changes,
+                        summary=summary,
+                        output_wait=output_wait,
+                        nolock=not lock,
+                        unlock=unlock,
+                        resources=resources,
+                        notemp=notemp,
+                        nodeps=nodeps,
+                        cleanup_metadata=cleanup_metadata
+                        )
 
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)
