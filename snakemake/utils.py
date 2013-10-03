@@ -3,6 +3,7 @@
 __author__ = "Johannes Köster"
 
 import os
+import json
 import io
 import re
 import fnmatch
@@ -234,8 +235,8 @@ class Unformattable:
         raise ValueError(self.errormsg)
 
 
-def read_job_properties(jobscript, prefix="# properties ="):
+def read_job_properties(jobscript, prefix="# properties"):
     with open(jobscript) as jobscript:
         for l in jobscript:
             if l.startswith(prefix):
-                return json.loads(l[len(prefix):])
+                return json.loads(l.split("=")[1])
