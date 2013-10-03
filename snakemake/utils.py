@@ -232,3 +232,10 @@ class Unformattable:
 
     def __str__(self):
         raise ValueError(self.errormsg)
+
+
+def read_job_properties(jobscript, prefix="# properties ="):
+    with open(jobscript) as jobscript:
+        for l in jobscript:
+            if l.startswith(prefix):
+                return json.loads([len(prefix):])

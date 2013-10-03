@@ -155,7 +155,7 @@ class JobScheduler:
             error_callback=self._error)
 
     def run_cluster_or_local(self, job):
-        executor = self._local_executor if self.workflow.is_local(job) else self._executor
+        executor = self._local_executor if self.workflow.is_local(job.rule) else self._executor
         executor.run(
             job, callback=self._finish_callback,
             submit_callback=self._submit_callback,
