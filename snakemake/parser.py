@@ -30,7 +30,7 @@ def is_greater(token):
 
 
 def is_comma(token):
-    return token.type == tokenize.COMMA
+    return token.string == ","
 
 
 def is_name(token):
