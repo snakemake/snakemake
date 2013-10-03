@@ -49,7 +49,7 @@ class AbstractExecutor:
         self.printjob(job)
 
     def rule_prefix(self, job):
-        return "local " if self.workflow.is_local(job) else ""
+        return "local " if self.workflow.is_local(job.rule) else ""
 
     def printjob(self, job):
         # skip dynamic jobs that will be "executed" only in dryrun mode
@@ -242,6 +242,7 @@ class ClusterExecutor(RealExecutor):
         super()._run(job)
         workdir = os.getcwd()
         jobid = self.dag.jobid(job)
+        properties = job.json()
 
         jobscript = self.get_jobscript(job)
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))

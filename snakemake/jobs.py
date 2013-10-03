@@ -3,6 +3,7 @@
 import os
 import sys
 import base64
+import json
 
 from collections import defaultdict
 from itertools import chain
@@ -38,9 +39,9 @@ class Job:
             self.log, self.ruleio) = rule.expand_wildcards(
             self.wildcards_dict)
 
-        self.resources = dict()
-        for name, res in rule.resources.items():
-            self.resources[name] = min(self.rule.workflow.global_resources.get(name, 0), res)
+        self.resources = {
+            name: min(self.rule.workflow.global_resources.get(name, 0), res)
+            for name, res in rule.resources.items()}
         self.threads = self.resources["_cores"]
         self.resources = Resources(fromdict=self.resources)
         self._inputsize = None
@@ -231,6 +232,18 @@ class Job:
                       log=self.log, **_variables)
         except NameError as ex:
             raise RuleException("NameError: " + str(ex), rule=self.rule)
+
+    def json(self):
+        resources = {name: res for name, res in self.resources.items() if name != "_cores"}
+        properties = {
+            "rule": self.rule.name,
+            "local": self.dag.workflow.is_local(self.rule),
+            "input": self.input,    
+            "output": self.output,
+            "threads": self.threads,
+            "resources": resources
+        }
+        return json.dumps(properties)
 
     def __repr__(self):
         return self.rule.name

@@ -99,8 +99,8 @@ class Workflow:
                     for line in rule.docstring.split("\n"):
                         log("\t" + line)
 
-    def is_local(self, job):
-        return job.rule.name in self._localrules
+    def is_local(self, rule):
+        return rule.name in self._localrules
 
     def execute(
         self, targets=None, dryrun=False,  touch=False, cores=1,
