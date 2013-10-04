@@ -180,7 +180,7 @@ def apply_wildcards(pattern, wildcards, fill_missing=False,
                 value = wildcards[name]
                 if fail_dynamic and value == dynamic_fill:
                     raise WildcardError(name)
-                return value
+                return str(value)  # convert anything into a str
             except KeyError as ex:
                 if fill_missing:
                     return dynamic_fill

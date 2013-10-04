@@ -9,7 +9,7 @@ from collections import defaultdict
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params
-from snakemake.io import apply_wildcards, is_flagged
+from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError
 
 __author__ = "Johannes Köster"
@@ -269,7 +269,7 @@ class Rule:
                 start = len(newitems)
                 if callable(item):
                     items = item(wildcards_obj)
-                    if isinstance(items, str):
+                    if not_iterable(item):
                         items = [items]
                     for item_ in items:
                         concrete = concretize(item_, wildcards)
@@ -277,7 +277,7 @@ class Rule:
                         if ruleio is not None:
                             ruleio[concrete] = item_
                 else:
-                    if isinstance(item, str):
+                    if not_iterable(item):
                         item = [item]
                     for item_ in item:
                         concrete = concretize(item_, wildcards)
