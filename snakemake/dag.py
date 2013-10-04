@@ -360,6 +360,7 @@ class DAG:
                 # TODO find a way to handle added/removed input files here?
                 if not job.output:
                     if job.input:
+                        # TODO if target was dependent on now updated files, this is not detected here since they exist now!
                         reason.updated_input_run.update(
                             [f for f in job.input if not f.exists])
                     else:
@@ -444,6 +445,8 @@ class DAG:
             filter(self.needrun, self.dependencies[job]))
 
     def finish(self, job, update_dynamic=True):
+        #if job.rule.name == "comparison":
+        #    import pdb; pdb.set_trace()
         self._finished.add(job)
         try:
             self._ready_jobs.remove(job)
@@ -472,9 +475,13 @@ class DAG:
             # this happens e.g. in dryrun if output is not yet present
             return
 
+        # get depending jobs but stop where job has dynamic output
         depending = list(
             filter(lambda job_: not self.finished(job_),
-                self.bfs(self.depending, job)))
+                self.bfs(
+                    self.depending, job, 
+                    stop=lambda job_: job_ is not job and job_.dynamic_output,
+                    yieldstop=True)))
         newrule, non_dynamic_wildcards = job.rule.dynamic_branch(
             dynamic_wildcards, input=False)
         self.replace_rule(job.rule, newrule)
@@ -533,9 +540,9 @@ class DAG:
         self.update([newjob])
 
         for job_, files in depending:
-            if not job_.dynamic_input:
-                self.dependencies[job_][newjob].update(files)
-                self.depending[newjob][job_].update(files)
+            #if not job_.dynamic_input or newjob.dynamic_output:
+            self.dependencies[job_][newjob].update(files)
+            self.depending[newjob][job_].update(files)
         if job in self.targetjobs:
             self.targetjobs.remove(job)
             self.targetjobs.add(newjob)
@@ -563,13 +570,15 @@ class DAG:
                 pass
         return dependencies
 
-    def bfs(self, direction, *jobs, stop=lambda job: False):
+    def bfs(self, direction, *jobs, stop=lambda job: False, yieldstop=False):
         queue = list(jobs)
         visited = set(queue)
         while queue:
             job = queue.pop(0)
             if stop(job):
                 # stop criterion reached for this node
+                if yieldstop:
+                    yield job
                 continue
             yield job
             for job_, _ in direction[job].items():

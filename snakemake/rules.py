@@ -255,8 +255,8 @@ class Rule:
             else:
                 return f.apply_wildcards(
                     wildcards,
-                    fill_missing=f in self.dynamic_input,
-                    fail_dynamic=self.dynamic_output)
+                    fill_missing=f in self.dynamic_input,)
+                    #fail_dynamic=self.dynamic_output)
 
         def _apply_wildcards(
             newitems,
