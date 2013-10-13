@@ -1,8 +1,5 @@
 #!/bin/sh
-#rule: {job}
-#input: {job.input}
-#output: {job.output}
-#jobid: {jobid}
+# properties = {properties}
 {workflow.snakemakepath} --snakefile {workflow.snakefile} \
 --force -j{cores} \
 --directory {workdir} --nocolor --notemp --quiet --nolock {job.output} \

@@ -29,6 +29,10 @@ def is_greater(token):
     return token.type == tokenize.OP and token.string == ">"
 
 
+def is_comma(token):
+    return token.type == tokenize.COMMA
+
+
 def is_name(token):
     return token.type == tokenize.NAME
 
@@ -280,6 +284,18 @@ class Subworkflow(GlobalKeywordState):
                 "inside a subworkflow definition.", token)
 
 
+class Localrules(GlobalKeywordState):
+
+    def block_content(self, token):
+        if is_comma(token):
+            yield ",", token
+        elif is_name(token):
+            yield '"{}"'.format(token.string), token
+        else:
+            self.error('Expected a comma separated list of rules that shall '
+            'not be executed by the cluster command.', token)
+
+
 # Rule keyword states
 
 
@@ -463,7 +479,8 @@ class Python(TokenAutomaton):
         workdir=Workdir,
         ruleorder=Ruleorder,
         rule=Rule,
-        subworkflow=Subworkflow)
+        subworkflow=Subworkflow,
+        localrules=Localrules)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)

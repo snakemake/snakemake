@@ -32,10 +32,11 @@ class Workflow:
         self.first_rule = None
         self._workdir = None
         self._ruleorder = Ruleorder()
+        self._localrules = set()
         self.linemaps = dict()
         self.rule_count = 0
-        self.snakefile = snakefile
         self.basedir = os.path.dirname(snakefile)
+        self.snakefile = os.path.abspath(snakefile)
         self.snakemakepath = os.path.abspath(snakemakepath)
         self.jobscript = jobscript
         self.persistence = None
@@ -104,6 +105,9 @@ class Workflow:
                 if rule.docstring:
                     for line in rule.docstring.split("\n"):
                         log("\t" + line)
+
+    def is_local(self, rule):
+        return rule.name in self._localrules
 
     def execute(
         self, targets=None, dryrun=False,  touch=False, cores=1,
@@ -298,10 +302,14 @@ class Workflow:
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
 
+
     def subworkflow(self, name, snakefile=None, workdir=None):
         sw = Subworkflow(self, name, snakefile, workdir)
         self._subworkflows[name] = sw
         self.globals[name] = sw.target
+
+    def localrules(self, *rulenames):
+        self._localrules.update(rulenames)
 
     def rule(self, name=None, lineno=None, snakefile=None):
         name = self.add_rule(name, lineno, snakefile)
