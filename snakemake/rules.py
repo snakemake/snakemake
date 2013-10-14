@@ -268,10 +268,10 @@ class Rule:
             for name, item in olditems.allitems():
                 start = len(newitems)
                 if callable(item):
-                    items = item(wildcards_obj)
+                    item = item(wildcards_obj)
                     if not_iterable(item):
-                        items = [items]
-                    for item_ in items:
+                        item = [item]
+                    for item_ in item:
                         concrete = concretize(item_, wildcards)
                         newitems.append(concrete)
                         if ruleio is not None:
