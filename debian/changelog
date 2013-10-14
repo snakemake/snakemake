@@ -1,4 +1,4 @@
-python3-snakemake (2.4.7) precise; urgency=low
+python3-snakemake (2.4.7.1) precise; urgency=low
 
   * New upstream release.
 
