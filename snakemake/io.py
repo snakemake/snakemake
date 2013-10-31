@@ -3,8 +3,8 @@
 import os
 import re
 import stat
-from itertools import product
-from collections import Iterable
+from itertools import product, chain
+from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError
 
 __author__ = "Johannes Köster"
@@ -280,12 +280,37 @@ def expand(*args, **wildcards):
                 values = [values]
             yield [(wildcard, value) for value in values]
 
-    expanded = list()
-    for comb in combinator(*flatten(wildcards)):
-        comb = dict(comb)
-        for filepattern in filepatterns:
-            expanded.append(filepattern.format(**comb))
-    return expanded
+    try:
+        return [filepattern.format(**comb) for comb in map(dict, combinator(*flatten(wildcards))) for filepattern in filepatterns]
+    except KeyError as e:
+        raise WildcardError("No values given for wildcard {}.".format(e))
+
+
+def glob_wildcards(pattern):
+    """
+    Glob the values of the wildcards by matching the given pattern to the filesystem.
+    Returns a named tuple with a list of values for each wildcard.
+    """
+    first_wildcard = re.search("{[^{]", pattern)
+    dirname = os.path.dirname(pattern[:first_wildcard.start()]) if first_wildcard else os.path.dirname(pattern)
+    if not dirname:
+        dirname = "."
+    
+    names = [match.group('name')
+        for match in _wildcard_regex.finditer(pattern)]
+    Wildcards = namedtuple("Wildcards", names)
+    wildcards = Wildcards(*[list() for name in names])
+
+    pattern = re.compile(regex(pattern))
+    for dirpath, dirnames, filenames in os.walk(dirname):
+        for f in chain(filenames, dirnames):
+            if dirpath != ".":
+                f = os.path.join(dirpath, f)
+            match = re.match(pattern, f)
+            if match:
+                for name, value in match.groupdict().items():
+                    getattr(wildcards, name).append(value)
+    return wildcards
 
 
 # TODO rewrite Namedlist!

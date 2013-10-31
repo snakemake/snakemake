@@ -1,0 +1,11 @@
+
+IDS, = glob_wildcards("test.{id}.txt")
+
+
+rule all:
+	input: expand("test.{id}.out", id=IDS)
+
+rule:
+	input: "test.{id}.txt"
+	output: "test.{id}.out"
+	shell: "touch {output}"
