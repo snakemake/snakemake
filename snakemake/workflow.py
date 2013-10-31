@@ -8,6 +8,7 @@ import sys
 import signal
 from collections import OrderedDict
 from itertools import filterfalse, chain
+from functools import partial
 from operator import attrgetter
 
 from snakemake.logging import logger
@@ -18,7 +19,7 @@ from snakemake.shell import shell
 from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
-from snakemake.io import protected, temp, temporary, expand, dynamic
+from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards
 from snakemake.persistence import Persistence
 
 
@@ -31,14 +32,21 @@ class Workflow:
         self.first_rule = None
         self._workdir = None
         self._ruleorder = Ruleorder()
+        self._localrules = set()
         self.linemaps = dict()
         self.rule_count = 0
-        self.snakefile = snakefile
+        self.basedir = os.path.dirname(snakefile)
+        self.snakefile = os.path.abspath(snakefile)
         self.snakemakepath = os.path.abspath(snakemakepath)
         self.jobscript = jobscript
         self.persistence = None
         self.global_resources = None
         self.globals = globals()
+        self._subworkflows = dict()
+
+    @property
+    def subworkflows(self):
+        return self._subworkflows.values()
 
     @property
     def rules(self):
@@ -98,18 +106,21 @@ class Workflow:
                     for line in rule.docstring.split("\n"):
                         log("\t" + line)
 
+    def is_local(self, rule):
+        return rule.name in self._localrules
+
     def execute(
         self, targets=None, dryrun=False,  touch=False, cores=1,
         forcetargets=False, forceall=False, forcerun=None,
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
         cluster=None, immediate_submit=False, ignore_ambiguity=False,
-        workdir=None, printruledag=False,
+        workdir=None, printrulegraph=False,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
         summary=False, output_wait=3, nolock=False, unlock=False,
-        resources=None, notemp=False,
+        resources=None, notemp=False, nodeps=False,
         cleanup_metadata=None):
 
         self.global_resources = dict() if cluster or resources is None else resources
@@ -126,7 +137,7 @@ class Workflow:
         os.chdir(workdir)
 
         if not targets:
-            targets = [self.first_rule]
+            targets = [self.first_rule] if self.first_rule is not None else list()
         if prioritytargets is None:
             prioritytargets = list()
         if forcerun is None:
@@ -188,10 +199,21 @@ class Workflow:
         dag.check_incomplete()
         dag.postprocess()
 
+        if nodeps:
+            missing_input = [f for job in dag.targetjobs for f in job.input if dag.needrun(job) and not os.path.exists(f)]
+            logger.critical("Dependency resolution disabled (--nodeps) "
+                "but missing input " 
+                "files detected. If this happens on a cluster, please make sure "
+                "that you handle the dependencies yourself or turn of "
+                "--immediate-submit. Missing input files:\n{}".format(
+                    "\n".join(missing_input)))
+            
+            return False
+
         if printdag:
             print(dag)
             return True
-        elif printruledag:
+        elif printrulegraph:
             print(dag.rule_dot())
             return True
         elif summary:
@@ -279,6 +301,15 @@ class Workflow:
 
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
+
+
+    def subworkflow(self, name, snakefile=None, workdir=None):
+        sw = Subworkflow(self, name, snakefile, workdir)
+        self._subworkflows[name] = sw
+        self.globals[name] = sw.target
+
+    def localrules(self, *rulenames):
+        self._localrules.update(rulenames)
 
     def rule(self, name=None, lineno=None, snakefile=None):
         name = self.add_rule(name, lineno, snakefile)
@@ -398,6 +429,7 @@ class Workflow:
 
 
 class RuleInfo:
+
     def __init__(self, func):
         self.func = func
         self.shellcmd = None
@@ -411,3 +443,27 @@ class RuleInfo:
         self.version = None
         self.log = None
         self.docstring = None
+
+class Subworkflow:
+
+    def __init__(self, workflow, name, snakefile, workdir):
+        self.workflow = workflow
+        self.name = name
+        self._snakefile = snakefile
+        self._workdir = workdir
+        self.targets = set()
+
+    @property
+    def snakefile(self):
+        if self._snakefile is None:
+            return os.path.join(self.workdir, "Snakefile")
+        return os.path.join(self.workflow.basedir, self._snakefile)
+
+    @property
+    def workdir(self):
+        workdir = "." if self._workdir is None else self._workdir
+        return os.path.join(self.workflow.basedir, workdir)
+
+    def target(self, path):
+        self.targets.add(path)
+        return os.path.join(self.workdir, path)

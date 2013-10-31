@@ -48,6 +48,9 @@ class AbstractExecutor:
     def _run(self, job):
         self.printjob(job)
 
+    def rule_prefix(self, job):
+        return "local " if self.workflow.is_local(job.rule) else ""
+
     def printjob(self, job):
         # skip dynamic jobs that will be "executed" only in dryrun mode
         if self.dag.dynamic(job):
@@ -69,7 +72,7 @@ class AbstractExecutor:
             if job.message:
                 desc.append(job.message)
             else:
-                desc.append("rule {}:".format(job.rule.name))
+                desc.append("{}rule {}:".format(self.rule_prefix(job), job.rule.name))
                 for name, value in (
                     ("input", ", ".join(format_files(
                         job, job.input, job.ruleio, job.dynamic_input))),
@@ -239,6 +242,7 @@ class ClusterExecutor(RealExecutor):
         super()._run(job)
         workdir = os.getcwd()
         jobid = self.dag.jobid(job)
+        properties = job.json()
 
         jobscript = self.get_jobscript(job)
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
@@ -249,11 +253,14 @@ class ClusterExecutor(RealExecutor):
 
         deps = " ".join(self.external_jobid[f] for f in job.input if f in self.external_jobid)
         submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps)
-        ext_jobid = subprocess.check_output(
-            '{submitcmd} "{jobscript}"'.format(
-                submitcmd=submitcmd,
-                jobscript=jobscript),
-            shell=True).decode().split("\n")
+        try:
+            ext_jobid = subprocess.check_output(
+                '{submitcmd} "{jobscript}"'.format(
+                    submitcmd=submitcmd,
+                    jobscript=jobscript),
+                shell=True).decode().split("\n")
+        except subprocess.CalledProcessError as ex:
+            raise WorkflowError("Error executing jobscript (exit code {}):\n{}".format(ex.returncode, ex.output.decode()), rule=job.rule)
         if ext_jobid and ext_jobid[0]:
             ext_jobid = ext_jobid[0]
             self.external_jobid.update((f, ext_jobid) for f in job.output)
@@ -301,7 +308,6 @@ class ClusterExecutor(RealExecutor):
 
     def get_jobscript(self, job):
         return os.path.join(self.tmpdir, "{}.snakemake-job.sh".format(self.dag.jobid(job)))
-
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log, linemaps):

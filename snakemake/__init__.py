@@ -8,13 +8,15 @@ import multiprocessing
 import re
 import sys
 import inspect
+from functools import partial
+
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import logger, init_logger
 
 __author__ = "Johannes Köster"
-__version__ = "2.4.5"
+__version__ = "2.4.7.1"
 
 
 def snakemake(snakefile,
@@ -33,7 +35,7 @@ def snakemake(snakefile,
     printreason=False,
     printshellcmds=False,
     printdag=False,
-    printruledag=False,
+    printrulegraph=False,
     nocolor=False,
     quiet=False,
     keepgoing=False,
@@ -56,6 +58,7 @@ def snakemake(snakefile,
     print_compilation=False,
     debug=False,
     notemp=False,
+    nodeps=False,
     jobscript=None):
     """
     Run snakemake on a given snakefile.
@@ -95,7 +98,7 @@ def snakemake(snakefile,
             # ignore: if it does not work we can still work without it
             pass
 
-    success = False
+    success = True
     try:
         workflow.include(snakefile, workdir=workdir,
             overwrite_first_rule=True, print_compilation=print_compilation)
@@ -105,34 +108,71 @@ def snakemake(snakefile,
             if listrules:
                 workflow.list_rules()
             else:
-                success = workflow.execute(
-                    targets=targets, dryrun=dryrun, touch=touch,
-                    cores=cores, forcetargets=forcetargets,
-                    forceall=forceall, forcerun=forcerun,
-                    prioritytargets=prioritytargets, quiet=quiet,
-                    keepgoing=keepgoing, printshellcmds=printshellcmds,
-                    printreason=printreason, printruledag=printruledag,
-                    printdag=printdag, cluster=cluster,
-                    immediate_submit=immediate_submit,
-                    ignore_ambiguity=ignore_ambiguity,
-                    workdir=workdir, stats=stats,
-                    force_incomplete=force_incomplete,
-                    ignore_incomplete=ignore_incomplete,
-                    list_version_changes=list_version_changes,
-                    list_code_changes=list_code_changes,
-                    list_input_changes=list_input_changes,
-                    list_params_changes=list_params_changes,
-                    summary=summary,
-                    output_wait=output_wait,
-                    nolock=not lock,
-                    unlock=unlock,
-                    resources=resources,
-                    notemp=notemp,
-                    cleanup_metadata=cleanup_metadata
-                    )
+                if not printdag and not printrulegraph:
+                    # handle subworkflows
+                    subsnakemake = partial(
+                        snakemake,
+                        cores=cores,
+                        resources=resources,
+                        dryrun=dryrun,
+                        touch=touch,
+                        printreason=printreason,
+                        printshellcmds=printshellcmds,
+                        nocolor=nocolor,
+                        quiet=quiet,
+                        keepgoing=keepgoing,
+                        cluster=cluster,
+                        immediate_submit=immediate_submit,
+                        standalone=standalone,
+                        ignore_ambiguity=ignore_ambiguity,
+                        snakemakepath=snakemakepath,
+                        lock=lock,
+                        unlock=unlock,
+                        cleanup_metadata=cleanup_metadata,
+                        force_incomplete=force_incomplete,
+                        ignore_incomplete=ignore_incomplete,
+                        output_wait=output_wait,
+                        debug=debug,
+                        notemp=notemp,
+                        nodeps=nodeps,
+                        jobscript=jobscript)
+                    for subworkflow in workflow.subworkflows:
+                        logger.warning("Executing subworkflow {}.".format(subworkflow.name))
+                        if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow.targets):
+                            success = False
+                    if workflow.subworkflows:
+                        logger.warning("Executing main workflow.")
+                if success:
+                    success = workflow.execute(
+                        targets=targets, dryrun=dryrun, touch=touch,
+                        cores=cores, forcetargets=forcetargets,
+                        forceall=forceall, forcerun=forcerun,
+                        prioritytargets=prioritytargets, quiet=quiet,
+                        keepgoing=keepgoing, printshellcmds=printshellcmds,
+                        printreason=printreason, printrulegraph=printrulegraph,
+                        printdag=printdag, cluster=cluster,
+                        immediate_submit=immediate_submit,
+                        ignore_ambiguity=ignore_ambiguity,
+                        workdir=workdir, stats=stats,
+                        force_incomplete=force_incomplete,
+                        ignore_incomplete=ignore_incomplete,
+                        list_version_changes=list_version_changes,
+                        list_code_changes=list_code_changes,
+                        list_input_changes=list_input_changes,
+                        list_params_changes=list_params_changes,
+                        summary=summary,
+                        output_wait=output_wait,
+                        nolock=not lock,
+                        unlock=unlock,
+                        resources=resources,
+                        notemp=notemp,
+                        nodeps=nodeps,
+                        cleanup_metadata=cleanup_metadata
+                        )
 
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)
+        success = False
     if workdir:
         os.chdir(olddir)
     if workflow.persistence:
@@ -208,10 +248,12 @@ def main():
             "acyclic graph of jobs in the dot language. Recommended "
             "use on Unix systems: snakemake --dag | dot | display")
     parser.add_argument(
-        "--ruledag", action="store_true",
-        help="Do not execute anything and print the directed "
-            "acyclic graph of rules in the dot language. This will be less "
+        "--rulegraph", action="store_true",
+        help="Do not execute anything and print the dependency graph "
+            "of rules in the dot language. This will be less "
             "crowded than above DAG of jobs, but also show less information. "
+            "Note that each rule is displayed once, hence the displayed graph will be "
+            "cyclic if a rule appears in several steps of the workflow. "
             "Use this if above option leads to a DAG that is too large. "
             "Recommended use on Unix systems: snakemake --ruledag | dot | display")
     parser.add_argument(
@@ -318,19 +360,19 @@ def main():
         "any incomplete jobs.")
     parser.add_argument(
         "--list-version-changes", "--lv", action="store_true",
-        help="List all files that have been created with "
+        help="List all output files that have been created with "
         "a different version (as determined by the version keyword).")
     parser.add_argument(
         "--list-code-changes", "--lc", action="store_true",
-        help="List all files for which the rule body (run or shell) have changed "
+        help="List all output files for which the rule body (run or shell) have changed "
         "in the Snakefile.")
     parser.add_argument(
         "--list-input-changes", "--li", action="store_true",
-        help="List all files for which the defined input files have changed "
-        "in the Snakefile.")
+        help="List all output files for which the defined input files have changed "
+        "in the Snakefile (e.g. new input files were added in the rule definition or files were renamed). For listing input file modification in the filesystem, use --summary.")
     parser.add_argument(
         "--list-params-changes", "--lp", action="store_true",
-        help="List all files for which the defined params have changed "
+        help="List all output files for which the defined params have changed "
         "in the Snakefile.")
     parser.add_argument(
         "--output-wait", "-w", type=int, default=3, metavar="SECONDS",
@@ -374,7 +416,7 @@ def main():
             printshellcmds=args.printshellcmds,
             printreason=args.reason,
             printdag=args.dag,
-            printruledag=args.ruledag,
+            printrulegraph=args.rulegraph,
             touch=args.touch,
             forcetargets=args.force,
             forceall=args.forceall,
@@ -402,6 +444,5 @@ def main():
             print_compilation=args.print_compilation,
             debug=args.debug,
             jobscript=args.jobscript,
-            notemp=args.notemp
-            )
+            notemp=args.notemp)
     sys.exit(0 if success else 1)

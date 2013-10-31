@@ -3,8 +3,8 @@
 import os
 import re
 import stat
-from itertools import product
-from collections import Iterable
+from itertools import product, chain
+from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError
 
 __author__ = "Johannes Köster"
@@ -180,7 +180,7 @@ def apply_wildcards(pattern, wildcards, fill_missing=False,
                 value = wildcards[name]
                 if fail_dynamic and value == dynamic_fill:
                     raise WildcardError(name)
-                return value
+                return str(value)  # convert anything into a str
             except KeyError as ex:
                 if fill_missing:
                     return dynamic_fill
@@ -190,29 +190,61 @@ def apply_wildcards(pattern, wildcards, fill_missing=False,
         return re.sub(_wildcard_regex, format_match, pattern)
 
 
-class temp(str):
+def not_iterable(value):
+    return isinstance(value, str) or not isinstance(value, Iterable)
+
+
+class AnnotatedString(str):
+    def __init__(self, value):
+        self.flags = set()
+
+
+def flag(value, flag):
+    if isinstance(value, AnnotatedString):
+        value.flags.add(flag)
+        return value
+    if not_iterable(value):
+        value = AnnotatedString(value)
+        value.flags.add(flag)
+        return value
+    return [flag(v, flag) for v in value]
+
+
+def is_flagged(value, flag):
+    if isinstance(value, AnnotatedString):
+        return flag in value.flags
+    return False
+
+
+def temp(value):
     """
     A flag for an input or output file that shall be removed after usage.
     """
-    pass
+    if is_flagged(value, "protected"):
+        raise SyntaxError("Protected and temporary flags are mutually exclusive.")
+    return flag(value, "temp")
 
 
-class temporary(temp):
+def temporary(value):
     """ An alias for temp. """
-    pass
+    return temp(value)
 
 
-class protected(str):
+def protected(value):
     """ A flag for a file that shall be write protected after creation. """
-    pass
+    if is_flagged(value, "temp"):
+        raise SyntaxError("Protected and temporary flags are mutually exclusive.")
+    return flag(value, "protected")
 
 
-class dynamic(str):
+def dynamic(value):
     """
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
     rule has been run """
-    def __new__(cls, file):
+    annotated = flag(value, "dynamic")
+    tocheck = [annotated] if not_iterable(annotated) else annotated
+    for file in tocheck:
         matches = list(_wildcard_regex.finditer(file))
         #if len(matches) != 1:
         #    raise SyntaxError("Dynamic files need exactly one wildcard.")
@@ -220,8 +252,7 @@ class dynamic(str):
             if match.group("constraint"):
                 raise SyntaxError(
                     "The wildcards in dynamic files cannot be constrained.")
-        obj = str.__new__(cls, file)
-        return obj
+    return annotated
 
 
 def expand(*args, **wildcards):
@@ -249,12 +280,37 @@ def expand(*args, **wildcards):
                 values = [values]
             yield [(wildcard, value) for value in values]
 
-    expanded = list()
-    for comb in combinator(*flatten(wildcards)):
-        comb = dict(comb)
-        for filepattern in filepatterns:
-            expanded.append(filepattern.format(**comb))
-    return expanded
+    try:
+        return [filepattern.format(**comb) for comb in map(dict, combinator(*flatten(wildcards))) for filepattern in filepatterns]
+    except KeyError as e:
+        raise WildcardError("No values given for wildcard {}.".format(e))
+
+
+def glob_wildcards(pattern):
+    """
+    Glob the values of the wildcards by matching the given pattern to the filesystem.
+    Returns a named tuple with a list of values for each wildcard.
+    """
+    first_wildcard = re.search("{[^{]", pattern)
+    dirname = os.path.dirname(pattern[:first_wildcard.start()]) if first_wildcard else os.path.dirname(pattern)
+    if not dirname:
+        dirname = "."
+    
+    names = [match.group('name')
+        for match in _wildcard_regex.finditer(pattern)]
+    Wildcards = namedtuple("Wildcards", names)
+    wildcards = Wildcards(*[list() for name in names])
+
+    pattern = re.compile(regex(pattern))
+    for dirpath, dirnames, filenames in os.walk(dirname):
+        for f in chain(filenames, dirnames):
+            if dirpath != ".":
+                f = os.path.join(dirpath, f)
+            match = re.match(pattern, f)
+            if match:
+                for name, value in match.groupdict().items():
+                    getattr(wildcards, name).append(value)
+    return wildcards
 
 
 # TODO rewrite Namedlist!

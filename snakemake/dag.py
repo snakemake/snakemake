@@ -464,6 +464,7 @@ class DAG:
                 self._finished.add(newjob)
 
                 self.postprocess()
+                self.handle_protected(newjob)
 
     def update_dynamic(self, job):
         dynamic_wildcards = job.dynamic_wildcards
@@ -612,7 +613,6 @@ class DAG:
             yield job
 
     def is_isomorph(self, job1, job2):
-        #import pdb; pdb.set_trace()
         if job1.rule != job2.rule:
             return False
         rule = lambda job: job.rule.name
@@ -669,102 +669,85 @@ class DAG:
         return jobs
 
     def rule_dot2(self):
-        dag = dict()
-        job2node = dict()
-        for job, level in self.level_bfs(self.dependencies, *self.targetjobs):
-            node = (job.rule, level)
-            job2node[job] = node
-            for dep in self.dependencies[job]:
-                dag[job2node[job]].extend(
-                    job2node[dep] for dep in self.dependencies[job])
-        labels = dict((node, node[0]) for node in dag)
-        
+        dag = defaultdict(list)
+        visited = set()
+        preselect = set()
 
-    def dot(self):
-        return self._dot(self.jobs)
+        def preselect_parents(job):
+            for parent in self.depending[job]:
+                if parent in preselect:
+                    continue
+                preselect.add(parent)
+                preselect_parents(parent)
 
-    def rule_dot(self):
-        rule = lambda job: job.rule.name
-        dag = dict()
-        noniso = defaultdict(set)
-        def build_ruledag(job):
-            if job in dag:
+        def build_ruledag(job, key=lambda job: job.rule.name):
+            if job in visited:
                 return
-            dag[job] = list()
-            deps = sorted(self.dependencies[job], key=rule)
-            if deps:
-                for dep in deps: 
-                    if not any(map(
-                        partial(self.is_isomorph, dep), noniso[dep.rule].intersection(deps))):
-                        noniso[dep.rule].add(dep)
-                        build_ruledag(dep)
-                dag[job].extend(dep for dep in deps if dep in noniso[dep.rule])
+            visited.add(job)
+            deps = sorted(self.dependencies[job], key=key)
+            deps = [(
+                group[0] if preselect.isdisjoint(group) else preselect.intersection(group).pop()
+            ) for group in (list(g) for _, g in groupby(deps, key))]
+#            deps = [next(g) for _, g in groupby(deps, key)]
+            dag[job].extend(deps)
+            preselect_parents(job)
+            for dep in deps:
+                build_ruledag(dep)
+
         for job in self.targetjobs:
             build_ruledag(job)
 
-        return self._dot(
-            dag.keys(), print_wildcards=False, print_types=False, dag=dag)
+        return self._dot(dag.keys(), print_wildcards=False, print_types=False, dag=dag)
+
+    def rule_dot(self):
+        graph = defaultdict(set)
+        for job in self.jobs:
+            graph[job.rule].update(dep.rule for dep in self.dependencies[job])
+        return self._dot(graph)
+
+    def dot(self):
+        def node2style(job):
+            if not self.needrun(job):
+                return "rounded,dashed"
+            if self.dynamic(job) or job.dynamic_input:
+                return "rounded,dotted"
+            return "rounded"
+
+        def format_wildcard(wildcard):
+            name, value = wildcard
+            if _IOFile.dynamic_fill in value:
+                value = "..."
+            return "{}: {}".format(name, value)
+
+        node2rule = lambda job: job.rule
+        node2label = lambda job: "\\n".join(chain([job.rule.name], map(format_wildcard, self.new_wildcards(job))))
+
+        dag = {job: self.dependencies[job] for job in self.jobs}
+
+        return self._dot(dag, node2rule=node2rule, node2style=node2style, node2label=node2label)
 
     def _dot(
-        self, jobs, errors=False, print_wildcards=True,
-        print_types=True, dag=None):
-        if dag is None:
-            dag = self.dependencies
-        jobs = set(jobs)
+        self, graph,
+        node2rule=lambda node: node,
+        node2style=lambda node: "rounded",
+        node2label=lambda node: node):
 
+        # color rules
         huefactor = 2 / (3 * (len(self.rules) - 1))
-        rulecolor = dict(
-            (rule, "{:.2f} 0.6 0.85".format(i * huefactor))
-            for i, rule in enumerate(self.rules))
+        rulecolor = {rule: "{:.2f} 0.6 0.85".format(i * huefactor)
+            for i, rule in enumerate(self.rules)}
 
-        nodes, edges = list(), list()
-        types = ["running job", "not running job", "dynamic job"]
-        styles = [
-            'style="rounded"', 'style="rounded,dashed"',
-            'style="rounded,dotted"']
-        used_types = set()
+        # markup
+        node_markup = '\t{}[label = "{}", color = "{}", style="{}"];'.format
+        edge_markup = "\t{} -> {}".format
 
-        if print_wildcards:
-            def format_wildcard(wildcard):
-                name, value = wildcard
-                if _IOFile.dynamic_fill in value:
-                    value = "..."
-                return "{}: {}".format(name, value)
+        # node ids
+        ids = {node: i for i, node in enumerate(graph)}
 
-            format_label = lambda job: "\\n".join([job.rule.name] + list(
-                    map(format_wildcard, self.new_wildcards(job))))
-        else:
-            format_label = lambda job: job.rule.name
-        if print_types:
-            format_node = lambda t: styles[t]
-        else:
-            format_node = lambda _: styles[0]
-
-        for job in jobs:
-            t = 0
-            if not self.needrun(job):
-                t = 1
-            if self.dynamic(job) or job.dynamic_input:
-                t = 2
-            used_types.add(t)
-
-            nodes.append('\t{}[label = "{}", color="{}", {}];'.format(
-                self.jobid(job), format_label(job), rulecolor[job.rule], format_node(t)))
-
-            deps = set(map(self.jobid, dag[job]))
-            job = self.jobid(job)
-            for dep in deps:
-                edges.append("\t{} -> {};".format(dep, job))
-
-        legend = list()
-        if print_types:
-            if len(used_types) > 1:
-                for t in used_types:
-                    legend.append('\tlegend{}[label="{}", {}];'.format(
-                        t, types[t], styles[t]))
-                    for target in map(self.jobid, self.targetjobs):
-                        legend.append(
-                            "\t{} -> legend{}[style=invis];".format(target, t))
+        # calculate nodes
+        nodes = [node_markup(ids[node], node2label(node), rulecolor[node2rule(node)], node2style(node)) for node in graph]
+        # calculate edges
+        edges = [edge_markup(ids[dep], ids[node]) for node, deps in graph.items() for dep in deps]
 
         return textwrap.dedent(
             """\
@@ -773,13 +756,9 @@ class DAG:
                 node[shape=box, style=rounded, fontname=sans, \
                 fontsize=10, penwidth=2];
                 edge[penwidth=2, color=grey];
-            {nodes}
-            {edges}
-            {legend}
+            {items}
             }}\
-            """).format(nodes="\n".join(nodes),
-                        edges="\n".join(edges),
-                        legend="\n".join(legend))
+            """).format(items="\n".join(nodes + edges))
 
     def summary(self):
         yield "file\tdate\trule\tversion\tstatus\tplan"

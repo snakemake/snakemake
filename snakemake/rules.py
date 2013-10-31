@@ -9,7 +9,7 @@ from collections import defaultdict
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params
-from snakemake.io import apply_wildcards
+from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError
 
 __author__ = "Johannes Köster"
@@ -85,10 +85,20 @@ class Rule:
         io_, dynamic_io_ = get_io(branch)
 
         # replace the dynamic files with the expanded files
-        for i, e in reversed(list(expansion.items())):
-            dynamic_io_.remove(io[i])
-            io_.insert_items(i, e)
+        replacements = [(i, io[i], e) for i, e in reversed(list(expansion.items()))]
+        for i, old, exp in replacements:
+            dynamic_io_.remove(old)
+            io_.insert_items(i, exp)
+
         if not input:
+            for i, old, exp in replacements:
+                if old in branch.temp_output:
+                    branch.temp_output.discard(old)
+                    branch.temp_output.update(exp)
+                if old in branch.protected_output:
+                    branch.protected_output.discard(old)
+                    branch.protected_output.update(exp)
+
             branch.wildcard_names.clear()
             non_dynamic_wildcards = dict(
                 (name, values[0])
@@ -174,15 +184,15 @@ class Rule:
         inoutput = self.output if output else self.input
         if isinstance(item, str):
             _item = IOFile(item, rule=self)
-            if isinstance(item, temp):
+            if is_flagged(item, "temp"):
                 if not output:
                     raise SyntaxError("Only output files may be temporary")
                 self.temp_output.add(_item)
-            if isinstance(item, protected):
+            if is_flagged(item, "protected"):
                 if not output:
                     raise SyntaxError("Only output files may be protected")
                 self.protected_output.add(_item)
-            if isinstance(item, dynamic):
+            if is_flagged(item, "dynamic"):
                 if output:
                     self.dynamic_output.add(_item)
                 else:
@@ -258,16 +268,16 @@ class Rule:
             for name, item in olditems.allitems():
                 start = len(newitems)
                 if callable(item):
-                    items = item(wildcards_obj)
-                    if isinstance(items, str):
-                        items = [items]
-                    for item_ in items:
+                    item = item(wildcards_obj)
+                    if not_iterable(item):
+                        item = [item]
+                    for item_ in item:
                         concrete = concretize(item_, wildcards)
                         newitems.append(concrete)
                         if ruleio is not None:
                             ruleio[concrete] = item_
                 else:
-                    if isinstance(item, str):
+                    if not_iterable(item):
                         item = [item]
                     for item_ in item:
                         concrete = concretize(item_, wildcards)

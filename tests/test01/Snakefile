@@ -23,7 +23,7 @@ rule rule1:
 rule rule2:
 	input: testin
 	output: 'test.inter'
-	message: 'Copying {input[0]} to {output[0]}'
+#	message: 'Copying {input[0]} to {output[0]}'
 	shell: 
 		'''
 		cp {input[0]} {output[0]}

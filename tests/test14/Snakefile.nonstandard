@@ -1,5 +1,9 @@
 chromosomes = [1,2,3]
 
+
+localrules: all
+
+
 rule all:
 	input: 'test.predictions', 'test.2.inter2'
 
