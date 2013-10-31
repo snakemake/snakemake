@@ -2,10 +2,12 @@
 
 import logging
 import platform
+import time
 import sys
 from multiprocessing import Lock
 
 __author__ = "Johannes Köster"
+
 
 
 class ColorizingStreamHandler(logging.StreamHandler):
@@ -24,9 +26,10 @@ class ColorizingStreamHandler(logging.StreamHandler):
         'ERROR': RED
     }
 
-    def __init__(self, nocolor=False, stream=sys.stderr):
+    def __init__(self, nocolor=False, stream=sys.stderr, timestamp=False):
         super().__init__(stream=stream)
         self.nocolor = nocolor
+        self.timestamp = timestamp
 
     @property
     def is_tty(self):
@@ -54,23 +57,39 @@ class ColorizingStreamHandler(logging.StreamHandler):
         if (not self.nocolor
             and record.levelname in self.colors
             and platform.system() != 'Windows'):
-            return "{color}{message}{reset}".format(
+            fmt_dict = dict(
                 color=self.COLOR_SEQ % (30 + self.colors[record.levelname]),
                 message=record.message,
                 reset=self.RESET_SEQ
             )
-        return record.message
+            if self.timestamp:
+                return "{color}[{time}] {message}{reset}".format(
+                    time=time.asctime(),
+                    **fmt_dict)
+            else:
+                    return "{color}{message}{reset}".format(
+                        color=self.COLOR_SEQ % (30 + self.colors[record.levelname]),
+                        message=record.message,
+                        reset=self.RESET_SEQ
+                    )
+        if not self.timestamp:
+            return record.message
+        return "[{time}] {message}".format(
+            time=time.asctime(),
+            message=record.message)
 
 logger = logging.getLogger(__name__)
 handler = None
 
 
-def init_logger(nocolor=False, stdout=False, debug=False):
+def init_logger(nocolor=False, stdout=False, debug=False, timestamp=False):
     global logger
     global handler
     if handler:
         logger.removeHandler(handler)
     handler = ColorizingStreamHandler(
-        nocolor=nocolor, stream=sys.stdout if stdout else sys.stderr)
+        nocolor=nocolor, stream=sys.stdout if stdout else sys.stderr,
+        timestamp=timestamp
+    )
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
