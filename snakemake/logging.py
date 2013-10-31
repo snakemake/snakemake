@@ -9,7 +9,6 @@ from multiprocessing import Lock
 __author__ = "Johannes Köster"
 
 
-
 class ColorizingStreamHandler(logging.StreamHandler):
     _output_lock = Lock()
 
@@ -67,11 +66,7 @@ class ColorizingStreamHandler(logging.StreamHandler):
                     time=time.asctime(),
                     **fmt_dict)
             else:
-                    return "{color}{message}{reset}".format(
-                        color=self.COLOR_SEQ % (30 + self.colors[record.levelname]),
-                        message=record.message,
-                        reset=self.RESET_SEQ
-                    )
+                    return "{color}{message}{reset}".format(**fmt_dict)
         if not self.timestamp:
             return record.message
         return "[{time}] {message}".format(
