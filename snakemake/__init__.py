@@ -59,7 +59,8 @@ def snakemake(snakefile,
     debug=False,
     notemp=False,
     nodeps=False,
-    jobscript=None):
+    jobscript=None,
+    timestamp=False):
     """
     Run snakemake on a given snakefile.
     Note: at the moment, this function is not thread-safe!
@@ -78,7 +79,7 @@ def snakemake(snakefile,
     lock              -- lock the working directory
     """
 
-    init_logger(nocolor=nocolor, stdout=dryrun, debug=debug)
+    init_logger(nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
 
     if not os.path.exists(snakefile):
         logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))
@@ -135,7 +136,8 @@ def snakemake(snakefile,
                         debug=debug,
                         notemp=notemp,
                         nodeps=nodeps,
-                        jobscript=jobscript)
+                        jobscript=jobscript,
+                        timestamp=timestamp)
                     for subworkflow in workflow.subworkflows:
                         logger.warning("Executing subworkflow {}.".format(subworkflow.name))
                         if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow.targets):
@@ -392,6 +394,9 @@ def main():
         "--debug", action="store_true", help="Print debugging output.")
     parser.add_argument(
         "--version", "-v", action="version", version=__version__)
+    parser.add_argument(
+        '--timestamp', '-T', action='store_true',
+        help='Add a timestamp to all logging output')
 
     args = parser.parse_args()
 
@@ -444,5 +449,6 @@ def main():
             print_compilation=args.print_compilation,
             debug=args.debug,
             jobscript=args.jobscript,
-            notemp=args.notemp)
+            notemp=args.notemp,
+            timestamp=args.timestamp)
     sys.exit(0 if success else 1)
