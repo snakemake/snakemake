@@ -203,7 +203,7 @@ def parse_resources(args):
     return resources
 
 
-def main():
+def get_argument_parser():
     parser = argparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
             "environment for GNU Make-like workflows.")
@@ -388,16 +388,20 @@ def main():
         "probably needed files by other parts of the workflow."
         )
     parser.add_argument(
+        '--timestamp', '-T', action='store_true',
+        help='Add a timestamp to all logging output')
+    parser.add_argument(
         "--print-compilation", action="store_true",
         help="Print the python representation of the workflow.")
     parser.add_argument(
         "--debug", action="store_true", help="Print debugging output.")
     parser.add_argument(
         "--version", "-v", action="version", version=__version__)
-    parser.add_argument(
-        '--timestamp', '-T', action='store_true',
-        help='Add a timestamp to all logging output')
+    return parser
 
+
+def main():
+    parser = get_argument_parser()
     args = parser.parse_args()
 
     snakemakepath = os.path.realpath(inspect.getmodule(inspect.stack()[1][0]).__file__)
