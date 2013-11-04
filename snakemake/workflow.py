@@ -19,7 +19,7 @@ from snakemake.shell import shell
 from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
-from snakemake.io import protected, temp, temporary, expand, dynamic
+from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards
 from snakemake.persistence import Persistence
 
 

@@ -7,7 +7,7 @@ rule all:
 
 rule compute1:
 	input: '{name}.in'
-	output: inter=['{name}.%s.inter'%c for c in chromosomes]
+	output: inter=expand('{{name}}.{chr}.inter', chr=chromosomes)
 	resources: gpu=1
 	run:
 		assert len(output.inter) > 0

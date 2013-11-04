@@ -2,6 +2,7 @@
 
 import logging
 import platform
+import time
 import sys
 from multiprocessing import Lock
 
@@ -24,9 +25,10 @@ class ColorizingStreamHandler(logging.StreamHandler):
         'ERROR': RED
     }
 
-    def __init__(self, nocolor=False, stream=sys.stderr):
+    def __init__(self, nocolor=False, stream=sys.stderr, timestamp=False):
         super().__init__(stream=stream)
-        self.nocolor = nocolor
+        self.nocolor = nocolor or not self.is_tty or platform.system() == 'Windows'
+        self.timestamp = timestamp
 
     @property
     def is_tty(self):
@@ -34,43 +36,38 @@ class ColorizingStreamHandler(logging.StreamHandler):
         return isatty and isatty()
 
     def emit(self, record):
-        try:
-            self.format(record)  # add the message to the record
-            self._output_lock.acquire()
-            if self.is_tty:
-                self.stream.write(self.colorize(record))
-            else:
-                self.stream.write(record.message)
-            self.stream.write(getattr(self, 'terminator', '\n'))
-            self.flush()
-            self._output_lock.release()
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except:
-            self.handleError(record)
-            self._output_lock.release()
+        with self._output_lock:
+            try:
+                self.format(record)  # add the message to the record
+                self.stream.write(self.decorate(record))
+                self.stream.write(getattr(self, 'terminator', '\n'))
+                self.flush()
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except:
+                self.handleError(record)
 
-    def colorize(self, record):
-        if (not self.nocolor
-            and record.levelname in self.colors
-            and platform.system() != 'Windows'):
-            return "{color}{message}{reset}".format(
-                color=self.COLOR_SEQ % (30 + self.colors[record.levelname]),
-                message=record.message,
-                reset=self.RESET_SEQ
-            )
-        return record.message
+    def decorate(self, record):
+        message = [record.message]
+        if self.timestamp:
+            message.insert(0, "[{}] ".format(time.asctime()))
+        if not self.nocolor and record.levelname in self.colors:
+            message.insert(0, self.COLOR_SEQ % (30 + self.colors[record.levelname]))
+            message.append(self.RESET_SEQ)
+        return "".join(message)
 
 logger = logging.getLogger(__name__)
 handler = None
 
 
-def init_logger(nocolor=False, stdout=False, debug=False):
+def init_logger(nocolor=False, stdout=False, debug=False, timestamp=False):
     global logger
     global handler
     if handler:
         logger.removeHandler(handler)
     handler = ColorizingStreamHandler(
-        nocolor=nocolor, stream=sys.stdout if stdout else sys.stderr)
+        nocolor=nocolor, stream=sys.stdout if stdout else sys.stderr,
+        timestamp=timestamp
+    )
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG if debug else logging.INFO)

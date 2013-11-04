@@ -1,27 +1,48 @@
 # coding: utf-8
-from setuptools import setup
+from setuptools import setup, Command
 import sys
 
 if sys.version_info < (3,2):
     sys.stdout.write("At least Python 3.2 is required.\n")
     sys.exit(1)
 
-from snakemake import __version__
+from snakemake import __version__, get_argument_parser
+
+
+class Completion(Command):
+    description = "create a shell completion files using genzshcomp"
+    user_options = []
+    
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        from genzshcomp import CompletionGenerator
+        parser = get_argument_parser()
+        for fmt in "bash zsh".split():
+            generator = CompletionGenerator(parser=parser, output_format=fmt)
+            with open("snakemake/completion.{}.txt".format(fmt), "w") as out:
+                print(generator.get(), file=out)
+        
     
 setup(
-    name = 'snakemake',
-    version = __version__,
-    author = 'Johannes Köster',
-    author_email = 'johannes.koester@tu-dortmund.de',
-    description = 'Build systems like make are frequently used to create complicated workflows, e.g. in bioninformatics. This project aims to reduce the complexity of creating workflows by providing a clean and modern domain specific language (DSL) in python style, together with a fast and comfortable execution environment.',
-    license = 'MIT',
-    url = 'http://snakemake.googlecode.com',
-    packages = ['snakemake'],
-    entry_points = {
+    name='snakemake',
+    version=__version__,
+    author='Johannes Köster',
+    author_email='johannes.koester@tu-dortmund.de',
+    description='Build systems like make are frequently used to create complicated workflows, e.g. in bioninformatics. This project aims to reduce the complexity of creating workflows by providing a clean and modern domain specific language (DSL) in python style, together with a fast and comfortable execution environment.',
+    license='MIT',
+    url='http://snakemake.googlecode.com',
+    packages=['snakemake'],
+    entry_points={
         "console_scripts": ["snakemake = snakemake:main"]
     },
-    package_data = {'': ['*.css', '*.sh']},
-    classifiers = [
+    cmdclass={"completion": Completion},
+    package_data={'': ['*.css', '*.sh']},
+    classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
         "Intended Audience :: Science/Research",
