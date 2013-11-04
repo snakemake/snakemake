@@ -36,7 +36,7 @@ class shell:
         stdout = sp.PIPE if iterable or async or read else STDOUT
 
         close_fds = sys.platform != 'win32'
-        proc = sp.Popen(cls._process_prefix + cmd, shell=True, stdout=stdout,
+        proc = sp.Popen(cls._process_prefix + cmd, bufsize=-1, shell=True, stdout=stdout,
             close_fds=close_fds, **cls._process_args)
 
         ret = None
