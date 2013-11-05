@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import glob
 import argparse
 from argparse import ArgumentError
 import logging
@@ -396,15 +397,25 @@ def get_argument_parser():
     parser.add_argument(
         "--debug", action="store_true", help="Print debugging output.")
     parser.add_argument(
+        "--bash-completion", action="store_true", help="Register bash completion for snakemake.")
+    parser.add_argument(
         "--version", "-v", action="version", version=__version__)
     return parser
+
+
+def get_snakemake_path():
+    return os.path.realpath(inspect.getmodule(inspect.stack()[1][0]).__file__)
 
 
 def main():
     parser = get_argument_parser()
     args = parser.parse_args()
+    
+    if args.bash_completion:
+        os.system("complete -C snakemake-bash-completion snakemake")
+        sys.exit(0)
 
-    snakemakepath = os.path.realpath(inspect.getmodule(inspect.stack()[1][0]).__file__)
+    snakemakepath = get_snakemake_path()
 
     try:
         resources = parse_resources(args)
@@ -412,7 +423,7 @@ def main():
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
         parser.print_help()
-        return False
+        sys.exit(1)
 
     success = snakemake(
             args.snakefile,
@@ -456,3 +467,34 @@ def main():
             notemp=args.notemp,
             timestamp=args.timestamp)
     sys.exit(0 if success else 1)
+
+
+def bash_completion(snakefile="Snakefile"):
+    prefix = sys.argv[2]
+
+    if prefix.startswith("-"):
+        opts = [
+            action.option_strings[0] for action in get_argument_parser()._actions
+            if action.option_strings and action.option_strings[0].startswith(prefix)]
+        print(*opts, sep="\n")
+
+    else:
+        files = set(glob.glob("{}*".format(prefix)))
+        if files:
+            print(*sorted(files), sep="\n")
+        if os.path.exists(snakefile):
+            workflow = Workflow(snakefile=snakefile, snakemakepath=get_snakemake_path())
+            workflow.include(snakefile)
+
+            workflow_files = sorted(set(
+                file for file in workflow.concrete_files
+                if file.startswith(prefix) and file not in files))
+            if workflow_files:
+                print(*workflow_files, sep="\n")
+            
+            rules = [
+                rule.name for rule in workflow.rules
+                if rule.name.startswith(prefix)]
+            if rules:
+                print(*rules, sep="\n")
+    sys.exit(0)

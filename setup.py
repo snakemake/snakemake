@@ -1,5 +1,5 @@
 # coding: utf-8
-from setuptools import setup, Command
+from setuptools import setup
 import sys
 
 if sys.version_info < (3,2):
@@ -9,25 +9,6 @@ if sys.version_info < (3,2):
 from snakemake import __version__, get_argument_parser
 
 
-class Completion(Command):
-    description = "create a shell completion files using genzshcomp"
-    user_options = []
-    
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        from genzshcomp import CompletionGenerator
-        parser = get_argument_parser()
-        for fmt in "bash zsh".split():
-            generator = CompletionGenerator(parser=parser, output_format=fmt)
-            with open("snakemake/completion.{}.txt".format(fmt), "w") as out:
-                print(generator.get(), file=out)
-        
-    
 setup(
     name='snakemake',
     version=__version__,
@@ -38,9 +19,8 @@ setup(
     url='http://snakemake.googlecode.com',
     packages=['snakemake'],
     entry_points={
-        "console_scripts": ["snakemake = snakemake:main"]
+        "console_scripts": ["snakemake = snakemake:main", "snakemake-bash-completion = snakemake:bash_completion"]
     },
-    cmdclass={"completion": Completion},
     package_data={'': ['*.css', '*.sh']},
     classifiers=[
         "Development Status :: 5 - Production/Stable",

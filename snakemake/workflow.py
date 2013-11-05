@@ -52,6 +52,10 @@ class Workflow:
     def rules(self):
         return self._rules.values()
 
+    @property
+    def concrete_files(self):
+        return (file for rule in self.rules for file in chain(rule.input, rule.output) if not callable(file) and not file.contains_wildcard())
+
     def check(self):
         for clause in self._ruleorder:
             for rulename in clause:

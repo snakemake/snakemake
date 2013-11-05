@@ -112,6 +112,9 @@ class _IOFile(str):
         return set(match.group('name') for match in
             _wildcard_regex.finditer(self.file))
 
+    def contains_wildcard(self):
+        return _wildcard_regex.search(self.file) is not None
+
     def regex(self):
         if not self._regex:
             # compile a regular expression
