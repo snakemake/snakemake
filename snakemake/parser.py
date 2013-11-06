@@ -25,12 +25,16 @@ def is_dedent(token):
     return token.type == tokenize.DEDENT
 
 
+def is_op(token):
+    return token.type == tokenize.OP
+
+
 def is_greater(token):
-    return token.type == tokenize.OP and token.string == ">"
+    return is_op(token) and token.string == ">"
 
 
 def is_comma(token):
-    return token.type == tokenize.COMMA
+    return is_op(token) and token.string == ","
 
 
 def is_name(token):
@@ -38,7 +42,7 @@ def is_name(token):
 
 
 def is_colon(token):
-    return token.string == ":"
+    return is_op(token) and token.string == ":"
 
 
 def is_comment(token):
