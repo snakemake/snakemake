@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import subprocess
 import glob
 import argparse
 from argparse import ArgumentError
@@ -397,7 +398,7 @@ def get_argument_parser():
     parser.add_argument(
         "--debug", action="store_true", help="Print debugging output.")
     parser.add_argument(
-        "--bash-completion", action="store_true", help="Register bash completion for snakemake.")
+            "--bash-completion", action="store_true", help="Output code to register bash completion for snakemake. Put the following in your .bashrc (including the accents): `snakemake --bash-completion`")
     parser.add_argument(
         "--version", "-v", action="version", version=__version__)
     return parser
@@ -412,7 +413,7 @@ def main():
     args = parser.parse_args()
     
     if args.bash_completion:
-        os.system("complete -C snakemake-bash-completion snakemake")
+        print("complete -C snakemake-bash-completion snakemake")
         sys.exit(0)
 
     snakemakepath = get_snakemake_path()
