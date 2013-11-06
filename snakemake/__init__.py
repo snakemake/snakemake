@@ -471,6 +471,10 @@ def main():
 
 
 def bash_completion(snakefile="Snakefile"):
+    if not len(sys.argv) >= 2:
+        print("Calculate bash completion for snakemake. This tool shall not be invoked by hand.")
+        sys.exit(1)
+
     prefix = sys.argv[2]
 
     if prefix.startswith("-"):
@@ -480,16 +484,16 @@ def bash_completion(snakefile="Snakefile"):
         print(*opts, sep="\n")
 
     else:
-        files = set(glob.glob("{}*".format(prefix)))
+        files = glob.glob("{}*".format(prefix))
         if files:
-            print(*sorted(files), sep="\n")
-        if os.path.exists(snakefile):
+            print(*files, sep="\n")
+        elif os.path.exists(snakefile):
             workflow = Workflow(snakefile=snakefile, snakemakepath=get_snakemake_path())
             workflow.include(snakefile)
 
             workflow_files = sorted(set(
                 file for file in workflow.concrete_files
-                if file.startswith(prefix) and file not in files))
+                if file.startswith(prefix)))
             if workflow_files:
                 print(*workflow_files, sep="\n")
             
