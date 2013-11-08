@@ -272,6 +272,8 @@ class Rule:
                     if not_iterable(item):
                         item = [item]
                     for item_ in item:
+                        if not isinstance(item_, str):
+                            raise RuleException("Input function did not return str or list of str.", rule=self)
                         concrete = concretize(item_, wildcards)
                         newitems.append(concrete)
                         if ruleio is not None:
