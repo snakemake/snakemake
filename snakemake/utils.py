@@ -42,6 +42,7 @@ def listfiles(pattern, restriction=None, omit_value=None):
     pattern -- a filepattern.
         Wildcards are specified in snakemake syntax, e.g. "{id}.txt"
     """
+    pattern = os.path.normpath(pattern)
     first_wildcard = re.search("{[^{]", pattern)
     if first_wildcard:
         dirname = os.path.dirname(pattern[:first_wildcard.start()])
