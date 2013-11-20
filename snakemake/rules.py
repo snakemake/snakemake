@@ -105,6 +105,7 @@ class Rule:
             non_dynamic_wildcards = dict(
                 (name, values[0])
                 for name, values in wildcards.items() if len(set(values)) == 1)
+            # TODO have a look into how to concretize dependencies here
             (
             branch._input,
             branch._output,
