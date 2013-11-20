@@ -32,6 +32,7 @@ class Rule:
             self._input = InputFiles()
             self._output = OutputFiles()
             self._params = Params()
+            self.dependencies = dict()
             self.dynamic_output = set()
             self.dynamic_input = set()
             self.temp_output = set()
@@ -54,6 +55,7 @@ class Rule:
             self._input = other._input
             self._output = other._output
             self._params = other._params
+            self.dependencies = other.dependencies
             self.dynamic_output = other.dynamic_output
             self.dynamic_input = other.dynamic_input
             self.temp_output = other.temp_output
@@ -183,6 +185,9 @@ class Rule:
         """
         inoutput = self.output if output else self.input
         if isinstance(item, str):
+            # add the rule to the dependencies
+            if isinstance(item, _IOFile):
+                self.dependencies[item] = item.rule
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
                 if not output:
@@ -217,7 +222,7 @@ class Rule:
                     inoutput.set_name(name, start, end=len(inoutput))
             except TypeError:
                 raise SyntaxError(
-                    "Input and output files have to be specified as strings.")
+                    "Input and output files have to be specified as strings or lists of strings.")
 
     @property
     def params(self):
@@ -314,11 +319,13 @@ class Rule:
             output = OutputFiles(
                 o.apply_wildcards(wildcards) for o in self.output)
             output.take_names(self.output.get_names())
+            
+            dependencies = {None if f is None else f.apply_wildcards(wildcards): rule for f, rule in self.dependencies.items()}
 
             ruleio.update(dict((f, f_) for f, f_ in zip(output, self.output)))
 
             log = self.log.apply_wildcards(wildcards) if self.log else None
-            return input, output, params, log, ruleio
+            return input, output, params, log, ruleio, dependencies
         except WildcardError as ex:
             # this can only happen if an input contains an unresolved wildcard.
             raise RuleException(

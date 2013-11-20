@@ -36,7 +36,7 @@ class Job:
             else Wildcards(fromdict=format_wildcards))
 
         (self.input, self.output, self.params,
-            self.log, self.ruleio) = rule.expand_wildcards(
+            self.log, self.ruleio, self.dependencies) = rule.expand_wildcards(
             self.wildcards_dict)
 
         self.resources = {
