@@ -110,7 +110,7 @@ class Rule:
             branch._output,
             branch._params,
             branch._log,
-            _) = branch.expand_wildcards(wildcards=non_dynamic_wildcards)
+            _, branch.dependencies) = branch.expand_wildcards(wildcards=non_dynamic_wildcards)
             return branch, non_dynamic_wildcards
         return branch
 
