@@ -120,11 +120,13 @@ class JobScheduler:
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
+        
         while True:
             try:
                 self._open_jobs.wait()
             except:
                 # this will be caused because of SIGTERM or SIGINT
+                logger.warning("Terminating processes on user request.")
                 self._executor.shutdown()
                 return False
             self._open_jobs.clear()
