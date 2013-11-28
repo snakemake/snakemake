@@ -113,7 +113,7 @@ class _IOFile(str):
             _wildcard_regex.finditer(self.file))
 
     def contains_wildcard(self):
-        return _wildcard_regex.search(self.file) is not None
+        return contains_wildcard(self.file)
 
     def regex(self):
         if not self._regex:
@@ -135,6 +135,10 @@ class _IOFile(str):
 
 _wildcard_regex = re.compile(
     "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
+
+
+def contains_wildcard(path):
+    return _wildcard_regex.search(path) is not None
 
 
 def remove(file):

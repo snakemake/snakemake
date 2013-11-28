@@ -19,7 +19,7 @@ from snakemake.shell import shell
 from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
-from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards
+from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, contains_wildcard, not_iterable
 from snakemake.persistence import Persistence
 
 
@@ -468,6 +468,13 @@ class Subworkflow:
         workdir = "." if self._workdir is None else self._workdir
         return os.path.join(self.workflow.basedir, workdir)
 
-    def target(self, path):
-        self.targets.add(path)
-        return os.path.join(self.workdir, path)
+    def target(self, paths):
+        if not_iterable(paths):
+            paths = [paths]
+        for path in paths:
+            if contains_wildcard(path):
+                raise SyntaxError("No wildcards allowed in subworkflow target. Please refer only to concrete files from the subworkflow.")
+            self.targets.add(path)
+        if len(paths) == 1:
+            return os.path.join(self.workdir, path)
+        return [os.path.join(self.workdir, path) for path in paths]
