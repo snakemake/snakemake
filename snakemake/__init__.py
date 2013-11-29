@@ -140,13 +140,6 @@ def snakemake(snakefile,
                         nodeps=nodeps,
                         jobscript=jobscript,
                         timestamp=timestamp)
-                    for subworkflow in workflow.subworkflows:
-                        logger.warning("Executing subworkflow {}.".format(subworkflow.name))
-                        if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow.targets):
-                            success = False
-                    if workflow.subworkflows:
-                        logger.warning("Executing main workflow.")
-                if success:
                     success = workflow.execute(
                         targets=targets, dryrun=dryrun, touch=touch,
                         cores=cores, forcetargets=forcetargets,
@@ -171,7 +164,8 @@ def snakemake(snakefile,
                         resources=resources,
                         notemp=notemp,
                         nodeps=nodeps,
-                        cleanup_metadata=cleanup_metadata
+                        cleanup_metadata=cleanup_metadata,
+                        subsnakemake=subsnakemake
                         )
 
     except (Exception, BaseException) as ex:

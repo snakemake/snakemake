@@ -48,6 +48,7 @@ class Job:
 
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
+        self.subworkflow_input = dict()
         for f in self.output:
             f_ = self.ruleio[f]
             if f_ in self.rule.dynamic_output:
@@ -57,8 +58,11 @@ class Job:
             if f_ in self.rule.protected_output:
                 self.protected_output.add(f)
         for f in self.input:
-            if self.ruleio[f] in self.rule.dynamic_input:
+            f_ = self.ruleio[f]
+            if f_ in self.rule.dynamic_input:
                 self.dynamic_input.add(f)
+            if f_ in self.rule.subworkflow_input:
+                self.subworkflow_input[f] = self.rule.subworkflow_input[f_]
         self._hash = self.rule.__hash__()
         if not self.dynamic_output:
             for o in self.output:
@@ -139,7 +143,8 @@ class Job:
     @property
     def missing_input(self):
         """ Return missing input files. """
-        return set(f for f in self.input if not f.exists)
+        # omit file if it comes from a subworkflow
+        return set(f for f in self.input if not f.exists and not f in self.subworkflow_input)
 
     @property
     def output_mintime(self):

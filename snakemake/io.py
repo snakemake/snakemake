@@ -203,16 +203,16 @@ def not_iterable(value):
 
 class AnnotatedString(str):
     def __init__(self, value):
-        self.flags = set()
+        self.flags = dict()
 
 
-def flag(value, flag):
+def flag(value, flag, flag_value=True):
     if isinstance(value, AnnotatedString):
-        value.flags.add(flag)
+        value.flags[flag] = flag_value
         return value
     if not_iterable(value):
         value = AnnotatedString(value)
-        value.flags.add(flag)
+        value.flags[flag] = flag_value
         return value
     return [flag(v, flag) for v in value]
 

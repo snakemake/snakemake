@@ -36,6 +36,7 @@ class Rule:
             self.dynamic_input = set()
             self.temp_output = set()
             self.protected_output = set()
+            self.subworkflow_input = dict()
             self.resources = dict(_cores=1)
             self.priority = 1
             self.version = None
@@ -58,6 +59,7 @@ class Rule:
             self.dynamic_input = other.dynamic_input
             self.temp_output = other.temp_output
             self.protected_output = other.protected_output
+            self.subworkflow_input = other.subworkflow_input
             self.resources = other.resources
             self.priority = other.priority
             self.version = other.version
@@ -197,6 +199,12 @@ class Rule:
                     self.dynamic_output.add(_item)
                 else:
                     self.dynamic_input.add(_item)
+            if is_flagged(item, "subworkflow"):
+                if output:
+                    raise SyntaxError("Only input files may refer to a subworkflow")
+                else:
+                    # record the workflow this item comes from
+                    self.subworkflow_input[_item] = item.flags["subworkflow"]
             inoutput.append(_item)
             if name:
                 inoutput.add_name(name)

@@ -556,6 +556,9 @@ class DAG:
         # if user specified it twice
         file2jobs = self.file2jobs
         for file in set(job.input):
+            # omit the file if it comes from a subworkflow
+            if file in job.subworkflow_input:
+                continue
             try:
                 jobs = self.file2jobs(file)
                 dependencies[file].extend(jobs)

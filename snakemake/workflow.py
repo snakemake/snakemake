@@ -19,7 +19,7 @@ from snakemake.shell import shell
 from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
-from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, contains_wildcard, not_iterable
+from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable
 from snakemake.persistence import Persistence
 
 
@@ -125,7 +125,7 @@ class Workflow:
         list_input_changes=False, list_params_changes=False,
         summary=False, output_wait=3, nolock=False, unlock=False,
         resources=None, notemp=False, nodeps=False,
-        cleanup_metadata=None):
+        cleanup_metadata=None, subsnakemake=None):
 
         self.global_resources = dict() if cluster or resources is None else resources
         self.global_resources["_cores"] = cores
@@ -199,6 +199,14 @@ class Workflow:
                 "a power loss. It can be removed with "
                 "the --unlock argument.".format(os.getcwd()))
             return False
+
+        # execute subworkflows
+        for subworkflow in self.subworkflows:
+            logger.warning("Executing subworkflow {}.".format(subworkflow.name))
+            if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow.targets(dag)):
+                return False
+        if self.subworkflows:
+            logger.warning("Executing main workflow.")
 
         dag.check_incomplete()
         dag.postprocess()
@@ -455,7 +463,6 @@ class Subworkflow:
         self.name = name
         self._snakefile = snakefile
         self._workdir = workdir
-        self.targets = set()
 
     @property
     def snakefile(self):
@@ -470,11 +477,8 @@ class Subworkflow:
 
     def target(self, paths):
         if not_iterable(paths):
-            paths = [paths]
-        for path in paths:
-            if contains_wildcard(path):
-                raise SyntaxError("No wildcards allowed in subworkflow target. Please refer only to concrete files from the subworkflow.")
-            self.targets.add(path)
-        if len(paths) == 1:
-            return os.path.join(self.workdir, path)
-        return [os.path.join(self.workdir, path) for path in paths]
+            return flag(os.path.join(self.workdir, paths), "subworkflow", self)
+        return [self.target(path) for path in paths]
+
+    def targets(self, dag):
+        return [f for job in dag.jobs for f in job.subworkflow_input if job.subworkflow_input[f] is self]
