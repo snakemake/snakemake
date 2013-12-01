@@ -560,7 +560,10 @@ class DAG:
             if file in job.subworkflow_input:
                 continue
             try:
-                jobs = self.file2jobs(file)
+                if file in job.dependencies:
+                    jobs = [Job(job.dependencies[file], self, targetfile=file)]
+                else:
+                    jobs = self.file2jobs(file)
                 dependencies[file].extend(jobs)
             except MissingRuleException as ex:
                 pass

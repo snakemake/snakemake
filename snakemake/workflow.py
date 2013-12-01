@@ -291,7 +291,9 @@ class Workflow:
         Include a snakefile.
         """
         global workflow
+        global rules
         workflow = self
+        rules = Rules()
         first_rule = self.first_rule
         if workdir:
             os.chdir(workdir)
@@ -363,6 +365,7 @@ class Workflow:
             rule.shellcmd = ruleinfo.shellcmd
             ruleinfo.func.__name__ = "__{}".format(name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
+            setattr(rules, name, rule)
             return ruleinfo.func
         return decorate
 
@@ -456,6 +459,7 @@ class RuleInfo:
         self.log = None
         self.docstring = None
 
+
 class Subworkflow:
 
     def __init__(self, workflow, name, snakefile, workdir):
@@ -482,3 +486,8 @@ class Subworkflow:
 
     def targets(self, dag):
         return [f for job in dag.jobs for f in job.subworkflow_input if job.subworkflow_input[f] is self]
+
+
+class Rules:
+    """ A namespace for rules so that they can be accessed via dot notation. """
+    pass
