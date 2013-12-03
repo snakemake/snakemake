@@ -2,6 +2,7 @@
 
 import tokenize
 import textwrap
+import os
 
 
 __author__ = "Johannes Köster"
@@ -541,7 +542,10 @@ def parse(path):
         automaton = Python(snakefile)
         linemap = dict()
         compilation = list()
-        lines = 1
+        # add Snakefile directory to path
+        compilation.append("import sys; sys.path.insert(0, '{}')".format(os.path.dirname(os.path.abspath(path))))
+        compilation.append("\n")
+        lines = 2
         for t, orig_token in automaton.consume():
             l = lineno(orig_token)
             linemap.update(
