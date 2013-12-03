@@ -138,7 +138,7 @@ def report(
     .. container::
        :name: metadata
 
-       {metadata} {date}
+       {metadata} | {date}
 
     """).format(metadata=metadata, date=datetime.date.today().isoformat())
 
