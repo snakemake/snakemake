@@ -200,13 +200,18 @@ class Workflow:
                 "the --unlock argument.".format(os.getcwd()))
             return False
 
-        # execute subworkflows
-        for subworkflow in self.subworkflows:
-            logger.warning("Executing subworkflow {}.".format(subworkflow.name))
-            if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow.targets(dag)):
-                return False
         if self.subworkflows:
-            logger.warning("Executing main workflow.")
+            # backup globals
+            globals_backup = dict(self.globals)
+            # execute subworkflows
+            for subworkflow in self.subworkflows:
+                logger.warning("Executing subworkflow {}.".format(subworkflow.name))
+                if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow.targets(dag)):
+                    return False
+            if self.subworkflows:
+                logger.warning("Executing main workflow.")
+            # rescue globals
+            self.globals.update(globals_backup)
 
         dag.check_incomplete()
         dag.postprocess()
