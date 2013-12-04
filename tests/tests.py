@@ -121,3 +121,6 @@ def test_subworkflows():
 
 def test_globwildcards():
     run(dpath("test_globwildcards"))
+
+def test_local_import():
+    run(dpath("test_local_import"))
