@@ -1,0 +1,27 @@
+
+
+rule all:
+    input: "test.out"
+
+
+rule a:
+    output: "test.in"
+    shell:  "touch {output}"
+
+
+rule b:
+    input:  rules.a.output
+    output: "test.inter"
+    shell:  "touch {output}"
+
+
+rule c:
+    input:  rules.a.output
+    output: "test.inter"
+    shell:  "exit 1"
+
+
+rule d:
+    input:  rules.b.output
+    output: "test.out"
+    shell:  "touch {output}"

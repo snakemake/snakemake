@@ -124,3 +124,6 @@ def test_globwildcards():
 
 def test_local_import():
     run(dpath("test_local_import"))
+
+def test_ruledeps():
+    run(dpath("test_ruledeps"))
