@@ -71,3 +71,5 @@ def init_logger(nocolor=False, stdout=False, debug=False, timestamp=False):
     )
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
+
+init_logger()

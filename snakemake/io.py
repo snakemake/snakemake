@@ -357,7 +357,7 @@ class Namedlist(list):
         """
         self.set_name(name, len(self) - 1)
 
-    def set_name(self, name, index, end=None):
+    def set_name(self, name, index, end=None, aslist=False):
         """
         Set the name of an item.
 
@@ -365,10 +365,8 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
-        if end is None:
-            end = index + 1
         self._names[name] = (index, end)
-        if index == end - 1:
+        if end is None:
             setattr(self, name, self[index])
         else:
             setattr(self, name, Namedlist(toclone=self[index:end]))
@@ -403,7 +401,7 @@ class Namedlist(list):
                 for item in self[next:start]:
                     yield None, item
             yield name, getattr(self, name)
-            next = end
+            next = end if end is not None else start + 1
         for item in self[next:]:
             yield None, item
 
