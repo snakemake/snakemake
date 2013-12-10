@@ -37,7 +37,7 @@ class Workflow:
         self.rule_count = 0
         self.basedir = os.path.dirname(snakefile)
         self.snakefile = os.path.abspath(snakefile)
-        self.snakemakepath = os.path.abspath(snakemakepath)
+        self.snakemakepath = snakemakepath
         self.jobscript = jobscript
         self.persistence = None
         self.global_resources = None

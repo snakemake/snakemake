@@ -398,10 +398,6 @@ def get_argument_parser():
     return parser
 
 
-def get_snakemake_path():
-    return os.path.realpath(inspect.getmodule(inspect.stack()[1][0]).__file__)
-
-
 def main():
     parser = get_argument_parser()
     args = parser.parse_args()
@@ -410,7 +406,7 @@ def main():
         print("complete -C snakemake-bash-completion snakemake")
         sys.exit(0)
 
-    snakemakepath = get_snakemake_path()
+    snakemakepath = sys.argv[0]
 
     try:
         resources = parse_resources(args)
