@@ -357,7 +357,7 @@ class Namedlist(list):
         """
         self.set_name(name, len(self) - 1)
 
-    def set_name(self, name, index, end=None, aslist=False):
+    def set_name(self, name, index, end=None):
         """
         Set the name of an item.
 

@@ -281,10 +281,12 @@ class Rule:
             ruleio = None):
             for name, item in olditems.allitems():
                 start = len(newitems)
+                is_iterable = True
                 if callable(item):
                     item = item(wildcards_obj)
                     if not_iterable(item):
                         item = [item]
+                        is_iterable = False
                     for item_ in item:
                         if not isinstance(item_, str):
                             raise RuleException("Input function did not return str or list of str.", rule=self)
@@ -295,13 +297,14 @@ class Rule:
                 else:
                     if not_iterable(item):
                         item = [item]
+                        is_iterable = False
                     for item_ in item:
                         concrete = concretize(item_, wildcards)
                         newitems.append(concrete)
                         if ruleio is not None:
                             ruleio[concrete] = item_
                 if name:
-                    newitems.set_name(name, start, end=len(newitems))
+                    newitems.set_name(name, start, end=len(newitems) if is_iterable else None)
 
         if wildcards is None:
             wildcards = dict()
