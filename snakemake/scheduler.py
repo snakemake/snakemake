@@ -142,11 +142,13 @@ class JobScheduler:
             needrun = list(self.open_jobs)
             assert needrun
 
-            logger.debug("Ready jobs:\n\t" + "\n\t".join(map(str, needrun)))
+            logger.debug("Resources before job selection: {}".format(self.resources))
+            logger.debug("Ready jobs ({}):\n\t".format(len(needrun)) + "\n\t".join(map(str, needrun)))
 
             run = self.job_selector(needrun)
-            logger.debug("Selected jobs:\n\t" + "\n\t".join(map(str, run)))
+            logger.debug("Selected jobs ({}):\n\t".format(len(run)) + "\n\t".join(map(str, run)))
             self.running.update(run)
+            logger.debug("Resources after job selection: {}".format(self.resources))
             for job in run:
                 self.run(job)
 
