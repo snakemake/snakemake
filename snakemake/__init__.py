@@ -111,7 +111,7 @@ def snakemake(snakefile,
             if listrules:
                 workflow.list_rules()
             else:
-                if not printdag and not printrulegraph:
+                    #if not printdag and not printrulegraph:
                     # handle subworkflows
                     subsnakemake = partial(
                         snakemake,

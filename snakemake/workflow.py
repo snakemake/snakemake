@@ -218,14 +218,14 @@ class Workflow:
 
         if nodeps:
             missing_input = [f for job in dag.targetjobs for f in job.input if dag.needrun(job) and not os.path.exists(f)]
-            logger.critical("Dependency resolution disabled (--nodeps) "
-                "but missing input " 
-                "files detected. If this happens on a cluster, please make sure "
-                "that you handle the dependencies yourself or turn of "
-                "--immediate-submit. Missing input files:\n{}".format(
-                    "\n".join(missing_input)))
-            
-            return False
+            if missing_input:
+                logger.critical("Dependency resolution disabled (--nodeps) "
+                    "but missing input " 
+                    "files detected. If this happens on a cluster, please make sure "
+                    "that you handle the dependencies yourself or turn of "
+                    "--immediate-submit. Missing input files:\n{}".format(
+                        "\n".join(missing_input)))
+                return False
 
         if printdag:
             print(dag)

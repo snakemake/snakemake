@@ -739,7 +739,7 @@ class DAG:
         node2label=lambda node: node):
 
         # color rules
-        huefactor = 2 / (3 * (len(self.rules) - 1))
+        huefactor = 2 / (3 * len(self.rules))
         rulecolor = {rule: "{:.2f} 0.6 0.85".format(i * huefactor)
             for i, rule in enumerate(self.rules)}
 
