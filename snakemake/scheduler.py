@@ -179,6 +179,7 @@ class JobScheduler:
                 for name, value in job.resources.items():
                     if name in self.resources:
                         self.resources[name] += value
+                        logger.debug("Releasing {} {} (now {}).".format(value, name, self.resources[name]))
 
             self.dag.finish(job, update_dynamic=update_dynamic)
 
@@ -233,67 +234,68 @@ class JobScheduler:
         "A Greedy Algorithm for the General Multidimensional Knapsack
 Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         """
-        # solve over the rules instead of jobs (much less)
-        _jobs = defaultdict(list)
-        for job in jobs:
-            _jobs[job.rule].append(job)
-        jobs = _jobs
-        # sort the jobs by priority
-        for _jobs in jobs.values():
-            _jobs.sort(key=self.dag.priority, reverse=True)
-        rules = list(jobs)
+        with self._lock:
+            # solve over the rules instead of jobs (much less)
+            _jobs = defaultdict(list)
+            for job in jobs:
+                _jobs[job.rule].append(job)
+            jobs = _jobs
+            # sort the jobs by priority
+            for _jobs in jobs.values():
+                _jobs.sort(key=self.dag.priority, reverse=True)
+            rules = list(jobs)
 
-        # greedyness (1 means take all possible jobs for a selected rule
-        alpha = 1
+            # greedyness (1 means take all possible jobs for a selected rule
+            alpha = 1
 
-        # Step 1: initialization
-        n = len(rules)
-        x = [0] * n  # selected jobs of each rule
-        E = set(range(n))  # rules free to select
-        u = [len(jobs[rule]) for rule in rules]  # number of jobs left
-        b = list(self.resources.values())  # resource capacities
-        a = list(map(self.rule_weight, rules))  # resource usage of rules
-        c = list(map(partial(self.rule_reward, jobs=jobs), rules))  # matrix of cumulative rewards over jobs
+            # Step 1: initialization
+            n = len(rules)
+            x = [0] * n  # selected jobs of each rule
+            E = set(range(n))  # rules free to select
+            u = [len(jobs[rule]) for rule in rules]  # number of jobs left
+            b = list(self.resources.values())  # resource capacities
+            a = list(map(self.rule_weight, rules))  # resource usage of rules
+            c = list(map(partial(self.rule_reward, jobs=jobs), rules))  # matrix of cumulative rewards over jobs
 
-        while True:
-            # Step 2: compute effective capacities
-            y = [
-                (
-                    min(
-                        (min(u[j], b_i // a_j_i) if a_j_i > 0 else u[j])
-                        for b_i, a_j_i in zip(b, a[j]) if a_j_i)
-                    if j in E else 0)
-                for j in range(n)]
-            if not any(y):
-                break
+            while True:
+                # Step 2: compute effective capacities
+                y = [
+                    (
+                        min(
+                            (min(u[j], b_i // a_j_i) if a_j_i > 0 else u[j])
+                            for b_i, a_j_i in zip(b, a[j]) if a_j_i)
+                        if j in E else 0)
+                    for j in range(n)]
+                if not any(y):
+                    break
 
-            # Step 3: compute rewards on cumulative sums and normalize by y
-            # in order to not prefer rules with small weights
-            reward = [(
-                [((crit[x_j + y_j] - crit[x_j]) / y_j if y_j else 0) for crit in c_j]
-                if j in E else [0] * len(c_j))
-                for j, (c_j, y_j, x_j) in enumerate(zip(c, y, x))]
-            j_sel = max(E, key=reward.__getitem__)  # argmax
+                # Step 3: compute rewards on cumulative sums and normalize by y
+                # in order to not prefer rules with small weights
+                reward = [(
+                    [((crit[x_j + y_j] - crit[x_j]) / y_j if y_j else 0) for crit in c_j]
+                    if j in E else [0] * len(c_j))
+                    for j, (c_j, y_j, x_j) in enumerate(zip(c, y, x))]
+                j_sel = max(E, key=reward.__getitem__)  # argmax
 
-            # Step 4: batch increment
-            y_sel = min(u[j_sel], max(1, alpha * y[j_sel]))
+                # Step 4: batch increment
+                y_sel = min(u[j_sel], max(1, alpha * y[j_sel]))
 
-            # Step 5: update information
-            x[j_sel] += y_sel
-            b = [b_i - (a_j_i * y_sel) for b_i, a_j_i in zip(b, a[j_sel])]
-            u[j_sel] -= y_sel
-            if not u[j_sel] or alpha == 1:
-                E.remove(j_sel)
-            if not E:
-                break
+                # Step 5: update information
+                x[j_sel] += y_sel
+                b = [b_i - (a_j_i * y_sel) for b_i, a_j_i in zip(b, a[j_sel])]
+                u[j_sel] -= y_sel
+                if not u[j_sel] or alpha == 1:
+                    E.remove(j_sel)
+                if not E:
+                    break
 
-        # Solution is the list of jobs that was selected from the selected rules
-        solution = list(chain(
-            *[jobs[rules[j]][:x_] for j, x_ in enumerate(x)]))
-        # update resources
-        for name, b_i in zip(self.resources, b):
-            self.resources[name] = b_i
-        return solution
+            # Solution is the list of jobs that was selected from the selected rules
+            solution = list(chain(
+                *[jobs[rules[j]][:x_] for j, x_ in enumerate(x)]))
+            # update resources
+            for name, b_i in zip(self.resources, b):
+                self.resources[name] = b_i
+            return solution
 
     def rule_weight(self, rule, maxcores=None):
         res = rule.resources
