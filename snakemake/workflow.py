@@ -114,7 +114,7 @@ class Workflow:
         return rule.name in self._localrules
 
     def execute(
-        self, targets=None, dryrun=False,  touch=False, cores=1,
+        self, targets=None, dryrun=False,  touch=False, cores=1, nodes=1,
         forcetargets=False, forceall=False, forcerun=None,
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
@@ -129,6 +129,7 @@ class Workflow:
 
         self.global_resources = dict() if cluster or resources is None else resources
         self.global_resources["_cores"] = cores
+        self.global_resources["_nodes"] = nodes
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))

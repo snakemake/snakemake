@@ -24,6 +24,7 @@ __version__ = "2.4.9"
 def snakemake(snakefile,
     listrules=False,
     cores=1,
+    nodes=1,
     resources=None,
     workdir=None,
     targets=None,
@@ -116,6 +117,7 @@ def snakemake(snakefile,
                     subsnakemake = partial(
                         snakemake,
                         cores=cores,
+                        nodes=nodes,
                         resources=resources,
                         dryrun=dryrun,
                         touch=touch,
@@ -142,7 +144,7 @@ def snakemake(snakefile,
                         timestamp=timestamp)
                     success = workflow.execute(
                         targets=targets, dryrun=dryrun, touch=touch,
-                        cores=cores, forcetargets=forcetargets,
+                        cores=cores, nodes=nodes, forcetargets=forcetargets,
                         forceall=forceall, forcerun=forcerun,
                         prioritytargets=prioritytargets, quiet=quiet,
                         keepgoing=keepgoing, printshellcmds=printshellcmds,
@@ -416,10 +418,15 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+    cores, nodes = args.cores, sys.maxsize
+    if args.cluster:
+        cores, nodes = nodes, cores
+
     success = snakemake(
             args.snakefile,
             listrules=args.list,
-            cores=args.cores,
+            cores=cores,
+            nodes=nodes,
             resources=resources,
             workdir=args.directory,
             targets=args.target,

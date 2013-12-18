@@ -38,7 +38,7 @@ class Rule:
             self.temp_output = set()
             self.protected_output = set()
             self.subworkflow_input = dict()
-            self.resources = dict(_cores=1)
+            self.resources = dict(_cores=1, _nodes=1)
             self.priority = 1
             self.version = None
             self._log = None

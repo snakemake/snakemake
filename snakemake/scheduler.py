@@ -81,9 +81,6 @@ class JobScheduler:
                 workflow, dag, None, submitcmd=cluster,
                 printreason=printreason, quiet=quiet,
                 printshellcmds=printshellcmds, output_wait=output_wait)
-            self.rule_weight = partial(
-                self.rule_weight,
-                maxcores=1)
             if immediate_submit:
                 self.rule_reward = self.dryrun_rule_reward
                 self._submit_callback = partial(
@@ -297,18 +294,12 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 self.resources[name] = b_i
             return solution
 
-    def rule_weight(self, rule, maxcores=None):
+    def rule_weight(self, rule):
         res = rule.resources
-        if maxcores is None:
-            maxcores = self.workflow.global_resources["_cores"]
-
-        def calc_res(item):
-            name, value = item
-            if name == "_cores":
-                return min(maxcores, res["_cores"])
+        def calc_res(name, value):
             return min(res.get(name, 0), value)
 
-        return list(map(calc_res, self.workflow.global_resources.items()))
+        return [calc_res(*item) for item in self.workflow.global_resources.items()]
 
     def rule_reward(self, rule, jobs=None):
         jobs = jobs[rule]
