@@ -271,7 +271,7 @@ class Workflow:
 
         if not dryrun and not quiet and len(dag):
             if cluster:
-                logger.warning("Provided cluster nodes: {}".format(cores))
+                logger.warning("Provided cluster nodes: {}".format(nodes))
             else:
                 logger.warning("Provided cores: {}".format(cores))
             logger.warning("\n".join(dag.stats()))
