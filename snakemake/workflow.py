@@ -206,9 +206,13 @@ class Workflow:
             globals_backup = dict(self.globals)
             # execute subworkflows
             for subworkflow in self.subworkflows:
-                logger.warning("Executing subworkflow {}.".format(subworkflow.name))
-                if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow.targets(dag)):
-                    return False
+                subworkflow_targets = subworkflow.targets(dag)
+                if subworkflow_targets:
+                    logger.warning("Executing subworkflow {}.".format(subworkflow.name))
+                    if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow_targets):
+                        return False
+                else:
+                    logger.warning("Subworkflow {}: Nothing to be done.".format(subworkflow.name))
             if self.subworkflows:
                 logger.warning("Executing main workflow.")
             # rescue globals
@@ -491,7 +495,7 @@ class Subworkflow:
         return [self.target(path) for path in paths]
 
     def targets(self, dag):
-        return [f for job in dag.jobs for f in job.subworkflow_input if job.subworkflow_input[f] is self]
+        return [f for job in dag.needrun_jobs for f in job.subworkflow_input if job.subworkflow_input[f] is self]
 
 
 class Rules:
