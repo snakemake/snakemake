@@ -10,7 +10,7 @@ from itertools import chain, accumulate
 
 from snakemake.executors import DryrunExecutor, TouchExecutor
 from snakemake.executors import ClusterExecutor, CPUExecutor
-from snakemake.logging import logger
+import snakemake.logging as logging
 
 __author__ = "Johannes Köster"
 
@@ -331,8 +331,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
     def progress(self):
         """ Display the progress. """
-        logger.info("{} of {} steps ({:.0%}) done".format(self.finished_jobs,
-            len(self.dag), self.finished_jobs / len(self.dag)))
+        logger.progress(self.finished_jobs, len(self.dag))
 
 
 def cumsum(iterable, zero=[0]):

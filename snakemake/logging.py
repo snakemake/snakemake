@@ -56,20 +56,84 @@ class ColorizingStreamHandler(logging.StreamHandler):
             message.append(self.RESET_SEQ)
         return "".join(message)
 
-logger = logging.getLogger(__name__)
+
+
+logger = Logger()
+stream_handler = None
 handler = None
 
 
-def init_logger(nocolor=False, stdout=False, debug=False, timestamp=False):
+class Logger:
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+
+    def info(self, msg):
+        handler(dict(level="info", msg=msg))
+
+    def debug(self, msg):
+        handler(dict(level="debug", msg=msg))
+
+    def critical(self, msg):
+        handler(dict(level="critical", msg=msg))
+
+    def progress(self, count, total):
+        handler(dict(level="progress", count=count, total=total))
+
+    def job_info(self, **msg):
+        msg["level"] = "job_info"
+        handler(msg)
+    
+
+def quiet_console_handler(msg):
+    level = msg["level"]
+    if level == "info":
+        logger.warning(msg["msg"])
+    elif level == "critical":
+        logger.critical(msg["msg"])
+    elif level == "debug":
+        logger.debug(msg["msg"])
+
+
+def console_handler(msg):
+    def job_info(msg):
+        def format_item(item, omit=None, valueformat=str):
+            value = msg[item]
+            if value != omit:
+                return "\t{}: {}".format(item, valueformat(value))
+                
+        yield "{}rule {}:".format("local" if msg["local"] else "", msg["name"])
+        for item in "input output".split():
+            yield format_item(item, omit=[], ", ".join)
+        for item in "log reason".split():
+            yield format_item(item, omit="")
+        for item in "priority threads".split():
+            yield format_item(item, omit=1)
+        
+    quiet_console_handler(msg)
+    if level == "progress":
+        done = msg["done"]
+        total = msg["total"]
+        logger.info("{} of {} steps ({:.0%}) done".format(done, total, done / total))
+    elif level == "job_info":
+        if "msg" in msg:
+            logger.info(msg["msg"])
+        else:
+            logger.info("\n".join(job_info(msg)))
+
+
+def init_logger(log_handler=console_handler, nocolor=False, stdout=False, debug=False, timestamp=False):
     global logger
+    global stream_handler
     global handler
-    if handler:
-        logger.removeHandler(handler)
-    handler = ColorizingStreamHandler(
+    handler = log_handler
+    if stream_handler:
+        logger.removeHandler(stream_handler)
+    stream_handler = ColorizingStreamHandler(
         nocolor=nocolor, stream=sys.stdout if stdout else sys.stderr,
         timestamp=timestamp
     )
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG if debug else logging.INFO)
+    logger.logger.addHandler(stream_handler)
+    logger.logger.setLevel(logging.DEBUG if debug else logging.INFO)
+
 
 init_logger()

@@ -15,7 +15,7 @@ from itertools import chain
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
-from snakemake.logging import logger
+import snakemake.logging as logging
 from snakemake.stats import Stats
 from snakemake.utils import format, Unformattable
 from snakemake.exceptions import print_exception, get_exception_origin
@@ -64,40 +64,22 @@ class AbstractExecutor:
                 else:
                     yield f
 
-        def format_ruleitem(name, value):
-            return "" if not value else "\t{}: {}".format(name, value)
+        priority = self.dag.priority(job)
+        logger.job_info(
+            msg=job.message,
+            name=job.rule.name,
+            local=self.workflow.is_local(job.rule),
+            input=list(format_files(job, job.input, job.ruleio, job.dynamic_input))),
+            output=list(format_files(job, job.output, job.ruleio, job.dynamic_output)),
+            log=job.log,
+            reason=self.dag.reason(job),
+            priority="highest" if priority == Job.HIGHEST_PRIORITY else priority,
+            threads=job.threads,
+            shellcmd=job.shellcmd)
 
-        desc = list()
-        if not self.quiet:
-            if job.message:
-                desc.append(job.message)
-            else:
-                desc.append("{}rule {}:".format(self.rule_prefix(job), job.rule.name))
-                for name, value in (
-                    ("input", ", ".join(format_files(
-                        job, job.input, job.ruleio, job.dynamic_input))),
-                    ("output", ", ".join(format_files(
-                        job, job.output, job.ruleio,
-                        job.dynamic_output))),
-                    ("log", job.log),
-                    ("reason",
-                        self.dag.reason(job) if self.printreason else None)):
-                    if value:
-                        desc.append(format_ruleitem(name, value))
-                priority = self.dag.priority(job)
-                if priority > 1:
-                    desc.append(format_ruleitem(
-                        "priority", "highest"
-                        if priority == Job.HIGHEST_PRIORITY
-                        else priority))
-                if self.printthreads and job.threads > 1:
-                    desc.append(format_ruleitem("threads", job.threads))
-        if self.printshellcmds and job.shellcmd:
-            desc.append(job.shellcmd)
-        if desc:
-            logger.info("\n".join(desc))
-            if job.dynamic_output:
-                logger.warning("Subsequent jobs will be added dynamically "
+        if job.dynamic_output:
+            logger.info(
+                    "Subsequent jobs will be added dynamically "
                     "depending on the output of this rule")
 
     def finish_job(self, job):
