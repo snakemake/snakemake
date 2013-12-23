@@ -15,7 +15,7 @@ from itertools import chain
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
-import snakemake.logging as logging
+from snakemake.logging import logger
 from snakemake.stats import Stats
 from snakemake.utils import format, Unformattable
 from snakemake.exceptions import print_exception, get_exception_origin
@@ -69,7 +69,7 @@ class AbstractExecutor:
             msg=job.message,
             name=job.rule.name,
             local=self.workflow.is_local(job.rule),
-            input=list(format_files(job, job.input, job.ruleio, job.dynamic_input))),
+            input=list(format_files(job, job.input, job.ruleio, job.dynamic_input)),
             output=list(format_files(job, job.output, job.ruleio, job.dynamic_output)),
             log=job.log,
             reason=self.dag.reason(job),
@@ -109,7 +109,7 @@ class RealExecutor(AbstractExecutor):
         try:
             self.workflow.persistence.started(job)
         except IOError as e:
-            logger.warning("Failed to set marker file for job started ({}). "
+            logger.info("Failed to set marker file for job started ({}). "
                 "Snakemake will work, but cannot ensure that output files "
                 "are complete in case of a kill signal or power loss. "
                 "Please ensure write permissions for the "
@@ -122,7 +122,7 @@ class RealExecutor(AbstractExecutor):
         try:
             self.workflow.persistence.finished(job)
         except IOError as e:
-            logger.warning("Failed to remove marker file for job started "
+            logger.info("Failed to remove marker file for job started "
                 "({}). Please ensure write permissions for the "
                 "directory {}".format(
                     e, self.workflow.persistence.path))

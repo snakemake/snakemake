@@ -15,7 +15,7 @@ from functools import partial
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
-import snakemake.logging as logging
+from snakemake.logging import setup_logger
 
 __author__ = "Johannes Köster"
 __version__ = "2.4.9"
@@ -64,7 +64,7 @@ def snakemake(snakefile,
     nodeps=False,
     jobscript=None,
     timestamp=False,
-    log_handler=logging.console_handler):
+    log_handler=None):
     """
     Run snakemake on a given snakefile.
     Note: at the moment, this function is not thread-safe!
@@ -82,10 +82,7 @@ def snakemake(snakefile,
     time_measurements -- measure the running times of all rules
     lock              -- lock the working directory
     """
-
-    if quiet:
-        log_handler = logging.quiet_console_handler
-    init_logger(log_handler=log_handler, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
+    setup_logger(handler=log_handler, quiet=quiet, printshellcmds=printshellcmds, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
 
     if not os.path.exists(snakefile):
         logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))

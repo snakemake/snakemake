@@ -198,7 +198,7 @@ class DAG:
         """ Raise exception if output files of job are missing. """
         for f in job.expanded_output:
             if not f.exists:
-                logger.warning("Output file {} not present. Waiting {} "
+                logger.info("Output file {} not present. Waiting {} "
                 "seconds to ensure that this is not because of filesystem "
                 "latency.".format(f, wait))
                 while not f.exists and wait > 0:
@@ -222,7 +222,7 @@ class DAG:
         """ Write-protect output files that are marked with protected(). """
         for f in job.expanded_output:
             if f in job.protected_output:
-                logger.warning("Write-protecting output file {}".format(f))
+                logger.info("Write-protecting output file {}".format(f))
                 f.protect()
 
     def handle_temp(self, job):
@@ -244,7 +244,7 @@ class DAG:
                     yield f
 
         for f in unneeded_files():
-            logger.warning("Removing temporary output file {}".format(f))
+            logger.info("Removing temporary output file {}".format(f))
             f.remove()
 
     def jobid(self, job):
@@ -455,7 +455,7 @@ class DAG:
                 self._ready_jobs.add(job_)
 
         if update_dynamic and job.dynamic_output:
-            logger.warning("Dynamically updating jobs")
+            logger.info("Dynamically updating jobs")
             newjob = self.update_dynamic(job)
             if newjob:
                 # simulate that this job ran and was finished before

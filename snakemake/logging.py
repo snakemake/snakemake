@@ -57,83 +57,96 @@ class ColorizingStreamHandler(logging.StreamHandler):
         return "".join(message)
 
 
-
-logger = Logger()
-stream_handler = None
-handler = None
-
-
 class Logger:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.handler = self.console_handler
+        self.stream_handler = None
+        self.printshellcmds = False
+        self.printreason = False
+    
+    def set_stream_handler(self, stream_handler):
+        if self.stream_handler is not None:
+            self.logger.removeHandler(self.stream_handler)
+        self.stream_handler = stream_handler
+        self.logger.addHandler(stream_handler)
+
+    def set_level(self, level):
+        self.logger.setLevel(level)
 
     def info(self, msg):
-        handler(dict(level="info", msg=msg))
+        self.handler(dict(level="info", msg=msg))
 
     def debug(self, msg):
-        handler(dict(level="debug", msg=msg))
+        self.handler(dict(level="debug", msg=msg))
 
-    def critical(self, msg):
-        handler(dict(level="critical", msg=msg))
+    def error(self, msg):
+        self.handler(dict(level="error", msg=msg))
 
-    def progress(self, count, total):
-        handler(dict(level="progress", count=count, total=total))
+    def progress(self, done=None, total=None):
+        self.handler(dict(level="progress", done=done, total=total))
 
     def job_info(self, **msg):
         msg["level"] = "job_info"
-        handler(msg)
-    
+        self.handler(msg)
 
-def quiet_console_handler(msg):
-    level = msg["level"]
-    if level == "info":
-        logger.warning(msg["msg"])
-    elif level == "critical":
-        logger.critical(msg["msg"])
-    elif level == "debug":
-        logger.debug(msg["msg"])
+    def console_handler(self, msg):
+        def job_info(msg):
+            def format_item(item, omit=None, valueformat=str):
+                value = msg[item]
+                if value != omit:
+                    return "\t{}: {}".format(item, valueformat(value))
+                    
+            yield "{}rule {}:".format("local" if msg["local"] else "", msg["name"])
+            for item in "input output".split():
+                fmt = format_item(item, omit=[], valueformat=", ".join)
+                if fmt != None:
+                    yield fmt
+            singleitems = ["log"]
+            if self.printreason:
+                singleitems.append("reason")
+            for item in singleitems:
+                fmt = format_item(item, omit=None)
+                if fmt != None:
+                    yield fmt
+            for item in "priority threads".split():
+                fmt = format_item(item, omit=1)
+                if fmt != None:
+                    yield fmt
+            
+        level = msg["level"]
+        if level == "info":
+            self.logger.warning(msg["msg"])
+        elif level == "error":
+            self.logger.error(msg["msg"])
+        elif level == "debug":
+            self.logger.debug(msg["msg"])
+        elif level == "progress" and not self.quiet:
+            done = msg["done"]
+            total = msg["total"]
+            self.logger.info("{} of {} steps ({:.0%}) done".format(done, total, done / total))
+        elif level == "job_info":
+            if not self.quiet:
+                if msg["msg"] is not None:
+                    self.logger.info(msg["msg"])
+                else:
+                    self.logger.info("\n".join(job_info(msg)))
+            elif self.printshellcmds:
+                self.logger.info(msg["shellcmd"])
 
 
-def console_handler(msg):
-    def job_info(msg):
-        def format_item(item, omit=None, valueformat=str):
-            value = msg[item]
-            if value != omit:
-                return "\t{}: {}".format(item, valueformat(value))
-                
-        yield "{}rule {}:".format("local" if msg["local"] else "", msg["name"])
-        for item in "input output".split():
-            yield format_item(item, omit=[], ", ".join)
-        for item in "log reason".split():
-            yield format_item(item, omit="")
-        for item in "priority threads".split():
-            yield format_item(item, omit=1)
-        
-    quiet_console_handler(msg)
-    if level == "progress":
-        done = msg["done"]
-        total = msg["total"]
-        logger.info("{} of {} steps ({:.0%}) done".format(done, total, done / total))
-    elif level == "job_info":
-        if "msg" in msg:
-            logger.info(msg["msg"])
-        else:
-            logger.info("\n".join(job_info(msg)))
+logger = Logger()
 
 
-def init_logger(log_handler=console_handler, nocolor=False, stdout=False, debug=False, timestamp=False):
-    global logger
-    global stream_handler
-    global handler
-    handler = log_handler
-    if stream_handler:
-        logger.removeHandler(stream_handler)
+def setup_logger(handler=None, quiet=False, printshellcmds=False, printreason=False, nocolor=False, stdout=False, debug=False, timestamp=False):
+    if handler is not None:
+        logger.handler = handler
     stream_handler = ColorizingStreamHandler(
         nocolor=nocolor, stream=sys.stdout if stdout else sys.stderr,
         timestamp=timestamp
     )
-    logger.logger.addHandler(stream_handler)
-    logger.logger.setLevel(logging.DEBUG if debug else logging.INFO)
-
-
-init_logger()
+    logger.set_stream_handler(stream_handler)
+    logger.set_level(logging.DEBUG if debug else logging.INFO)
+    logger.quiet = quiet
+    logger.printshellcmds = printshellcmds
+    logger.printreason = printreason

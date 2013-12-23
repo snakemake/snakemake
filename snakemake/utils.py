@@ -153,7 +153,7 @@ def report(
         mime, encoding = mimetypes.guess_type(file)
         if mime is None:
             mime = "text/plain"
-            logger.warning("Could not detect mimetype for {}, assuming "
+            logger.info("Could not detect mimetype for {}, assuming "
             "text/plain.".format(file))
         if encoding is None:
             encoding = defaultenc

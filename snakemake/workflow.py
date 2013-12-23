@@ -182,7 +182,7 @@ class Workflow:
         if unlock:
             try:
                 self.persistence.cleanup_locks()
-                logger.warning("Unlocking working directory.")
+                logger.info("Unlocking working directory.")
                 return True
             except IOError:
                 logger.error("Error: Unlocking the directory {} failed. Maybe "
@@ -191,7 +191,7 @@ class Workflow:
         try:
             self.persistence.lock()
         except IOError:
-            logger.critical("Error: Directory cannot be locked. Please make "
+            logger.error("Error: Directory cannot be locked. Please make "
                 "sure that no other Snakemake process is trying to create "
                 "the same files in the following directory:\n{}\n"
                 "If you are sure that no other "
@@ -208,13 +208,13 @@ class Workflow:
             for subworkflow in self.subworkflows:
                 subworkflow_targets = subworkflow.targets(dag)
                 if subworkflow_targets:
-                    logger.warning("Executing subworkflow {}.".format(subworkflow.name))
+                    logger.info("Executing subworkflow {}.".format(subworkflow.name))
                     if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow_targets):
                         return False
                 else:
-                    logger.warning("Subworkflow {}: Nothing to be done.".format(subworkflow.name))
+                    logger.info("Subworkflow {}: Nothing to be done.".format(subworkflow.name))
             if self.subworkflows:
-                logger.warning("Executing main workflow.")
+                logger.info("Executing main workflow.")
             # rescue globals
             self.globals.update(globals_backup)
 
@@ -224,7 +224,7 @@ class Workflow:
         if nodeps:
             missing_input = [f for job in dag.targetjobs for f in job.input if dag.needrun(job) and not os.path.exists(f)]
             if missing_input:
-                logger.critical("Dependency resolution disabled (--nodeps) "
+                logger.error("Dependency resolution disabled (--nodeps) "
                     "but missing input " 
                     "files detected. If this happens on a cluster, please make sure "
                     "that you handle the dependencies yourself or turn of "
@@ -275,21 +275,21 @@ class Workflow:
 
         if not dryrun and not quiet and len(dag):
             if cluster:
-                logger.warning("Provided cluster nodes: {}".format(nodes))
+                logger.info("Provided cluster nodes: {}".format(nodes))
             else:
-                logger.warning("Provided cores: {}".format(cores))
-            logger.warning("\n".join(dag.stats()))
+                logger.info("Provided cores: {}".format(cores))
+            logger.info("\n".join(dag.stats()))
 
         success = scheduler.schedule()
 
         if success:
             if dryrun:
                 if not quiet:
-                    logger.warning("\n".join(dag.stats()))
+                    logger.info("\n".join(dag.stats()))
             elif stats:
                 scheduler.stats.to_csv(stats)
         else:
-            logger.critical(
+            logger.error(
                 "Exiting because a job execution failed. "
                 "Look above for error message")
             return False
