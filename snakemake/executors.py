@@ -307,7 +307,7 @@ class ClusterExecutor(RealExecutor):
         return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
-        return os.path.join(self.tmpdir, "{}.{}.snakemake-job.sh".format(job.rule.name, self.dag.jobid(job)))
+        return os.path.join(self.tmpdir, "snakejob.{}.{}.sh".format(job.rule.name, self.dag.jobid(job)))
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log, linemaps):
