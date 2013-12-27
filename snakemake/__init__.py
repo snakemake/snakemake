@@ -334,7 +334,7 @@ def get_argument_parser():
     parser.add_argument(
         "--jobname", "--jn", default="snakejob.{rulename}.{jobid}.sh", metavar="NAME",
         help="Provide a custom name for the jobscript that is submitted to the cluster (see --cluster)."
-        "NAME is \"snakejob.{rulename}.{jobid}.sh\" per default. The wildcards {rulename} and {jobid} have to be present in the name.")
+        "NAME is \"snakejob.{rulename}.{jobid}.sh\" per default. The wildcard {jobid} has to be present in the name.")
     parser.add_argument(
         "--reason", "-r", action = "store_true",
         help="Print the reason for each executed rule.")
