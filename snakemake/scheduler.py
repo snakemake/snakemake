@@ -24,6 +24,7 @@ class JobScheduler:
         dryrun=False,
         touch=False,
         cluster=None,
+        jobname=None,
         immediate_submit=False,
         quiet=False,
         printreason=False,
@@ -78,7 +79,7 @@ class JobScheduler:
                 threads=use_threads,
                 output_wait=output_wait)
             self._executor = ClusterExecutor(
-                workflow, dag, None, submitcmd=cluster,
+                workflow, dag, None, submitcmd=cluster, jobname=jobname,
                 printreason=printreason, quiet=quiet,
                 printshellcmds=printshellcmds, output_wait=output_wait)
             if immediate_submit:

@@ -109,8 +109,7 @@ class _IOFile(str):
             rule=self.rule)
 
     def get_wildcard_names(self):
-        return set(match.group('name') for match in
-            _wildcard_regex.finditer(self.file))
+        return get_wildcard_names(self.file)
 
     def contains_wildcard(self):
         return contains_wildcard(self.file)
@@ -135,6 +134,11 @@ class _IOFile(str):
 
 _wildcard_regex = re.compile(
     "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
+
+
+def get_wildcard_names(pattern):
+    return set(match.group('name') for match in
+            _wildcard_regex.finditer(pattern))
 
 
 def contains_wildcard(path):

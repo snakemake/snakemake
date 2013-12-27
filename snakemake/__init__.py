@@ -43,6 +43,7 @@ def snakemake(snakefile,
     quiet=False,
     keepgoing=False,
     cluster=None,
+    jobname="snakejob.{rulename}.{jobid}.sh",
     immediate_submit=False,
     standalone=False,
     ignore_ambiguity=False,
@@ -127,6 +128,7 @@ def snakemake(snakefile,
                         quiet=quiet,
                         keepgoing=keepgoing,
                         cluster=cluster,
+                        jobname=jobname,
                         immediate_submit=immediate_submit,
                         standalone=standalone,
                         ignore_ambiguity=ignore_ambiguity,
@@ -149,7 +151,7 @@ def snakemake(snakefile,
                         prioritytargets=prioritytargets, quiet=quiet,
                         keepgoing=keepgoing, printshellcmds=printshellcmds,
                         printreason=printreason, printrulegraph=printrulegraph,
-                        printdag=printdag, cluster=cluster,
+                        printdag=printdag, cluster=cluster, jobname=jobname,
                         immediate_submit=immediate_submit,
                         ignore_ambiguity=ignore_ambiguity,
                         workdir=workdir, stats=stats,
@@ -330,6 +332,10 @@ def get_argument_parser():
             "The default script resides as 'jobscript.sh' in the "
             "installation directory.")
     parser.add_argument(
+        "--jobname", "--jn", default="snakejob.{rulename}.{jobid}.sh", metavar="NAME",
+        help="Provide a custom name for the jobscript that is submitted to the cluster (see --cluster)."
+        "NAME is \"snakejob.{rulename}.{jobid}.sh\" per default. The wildcards {rulename} and {jobid} have to be present in the name.")
+    parser.add_argument(
         "--reason", "-r", action = "store_true",
         help="Print the reason for each executed rule.")
     parser.add_argument(
@@ -445,6 +451,7 @@ def main():
             quiet=args.quiet,
             keepgoing=args.keep_going,
             cluster=args.cluster,
+            jobname=args.jobname,
             immediate_submit=args.immediate_submit,
             standalone=True,
             ignore_ambiguity=args.allow_ambiguity,

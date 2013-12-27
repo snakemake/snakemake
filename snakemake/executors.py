@@ -18,6 +18,7 @@ from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.stats import Stats
 from snakemake.utils import format, Unformattable
+from snakemake.io import get_wildcard_names
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException
 from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError
@@ -205,7 +206,7 @@ class CPUExecutor(RealExecutor):
 class ClusterExecutor(RealExecutor):
 
     def __init__(
-        self, workflow, dag, cores, submitcmd="qsub",
+        self, workflow, dag, cores, submitcmd="qsub", jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False, quiet=False, printshellcmds=False, output_wait=3):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
@@ -226,7 +227,11 @@ class ClusterExecutor(RealExecutor):
         except IOError as e:
             raise WorkflowError(e)
 
+        if not "jobid" in get_wildcard_names(jobname):
+            raise WorkflowError("Defined jobname (\"{}\") has to contain the wildcard {jobid}.")
+
         self.submitcmd = submitcmd
+        self.jobname = jobname
         self.threads = []
         self._tmpdir = None
         self.cores = cores if cores else ""
@@ -307,7 +312,7 @@ class ClusterExecutor(RealExecutor):
         return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
-        return os.path.join(self.tmpdir, "snakejob.{}.{}.sh".format(job.rule.name, self.dag.jobid(job)))
+        return os.path.join(self.tmpdir, self.jobname.format(rulename=job.rule.name, jobid=self.dag.jobid(job)))
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log, linemaps):
