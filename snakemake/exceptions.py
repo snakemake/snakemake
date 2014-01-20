@@ -65,31 +65,31 @@ def print_exception(ex, linemaps, print_traceback=True):
     origin = get_exception_origin(ex, linemaps)
     if origin is not None:
         lineno, file = origin
-        logger.critical(format_error(
+        logger.error(format_error(
             ex, lineno, linemaps=linemaps, snakefile=file,
             show_traceback=print_traceback))
         return
     if isinstance(ex, SyntaxError):
-        logger.critical(format_error(
+        logger.error(format_error(
             ex, ex.lineno, linemaps=linemaps, snakefile=ex.filename,
             show_traceback=print_traceback))
     elif isinstance(ex, TokenError):
-        logger.critical(format_error(
+        logger.error(format_error(
             ex, None,
             show_traceback=print_traceback))
     elif isinstance(ex, RuleException):
         for e in ex._include + [ex]:
             if not e.omit:
-                logger.critical(format_error(
+                logger.error(format_error(
                     e, e.lineno, linemaps=linemaps, snakefile=e.filename,
                     show_traceback=print_traceback))
     elif isinstance(ex, WorkflowError):
-        logger.critical(
+        logger.error(
             format_error(
                 ex, ex.lineno, linemaps=linemaps, snakefile=ex.snakefile,
                 show_traceback=print_traceback))
     elif isinstance(ex, KeyboardInterrupt):
-        logger.warning("Cancelling snakemake on user request.")
+        logger.info("Cancelling snakemake on user request.")
     else:
         traceback.print_exception(type(ex), ex, ex.__traceback__)
 

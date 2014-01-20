@@ -124,12 +124,12 @@ class JobScheduler:
                 self._open_jobs.wait()
             except:
                 # this will be caused because of SIGTERM or SIGINT
-                logger.warning("Terminating processes on user request.")
+                logger.info("Terminating processes on user request.")
                 self._executor.shutdown()
                 return False
             self._open_jobs.clear()
             if not self.keepgoing and self._errors:
-                logger.warning("Will exit after finishing "
+                logger.info("Will exit after finishing "
                     "currently running jobs.")
                 self._executor.shutdown()
                 return False
@@ -195,7 +195,7 @@ class JobScheduler:
             self.running.remove(job)
             self.failed.add(job)
             if self.keepgoing:
-                logger.warning("Job failed, going on with independent jobs.")
+                logger.info("Job failed, going on with independent jobs.")
             else:
                 self._open_jobs.set()
 
@@ -332,8 +332,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
     def progress(self):
         """ Display the progress. """
-        logger.info("{} of {} steps ({:.0%}) done".format(self.finished_jobs,
-            len(self.dag), self.finished_jobs / len(self.dag)))
+        logger.progress(done=self.finished_jobs, total=len(self.dag))
 
 
 def cumsum(iterable, zero=[0]):
