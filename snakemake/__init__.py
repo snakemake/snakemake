@@ -83,7 +83,7 @@ def snakemake(snakefile,
     time_measurements -- measure the running times of all rules
     lock              -- lock the working directory
     """
-    setup_logger(handler=log_handler, quiet=quiet, printshellcmds=printshellcmds, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
+    setup_logger(handler=log_handler, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
 
     if not os.path.exists(snakefile):
         logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))
