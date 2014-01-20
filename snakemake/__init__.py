@@ -15,7 +15,7 @@ from functools import partial
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
-from snakemake.logging import setup_logger
+from snakemake.logging import setup_logger, logger
 
 __author__ = "Johannes Köster"
 __version__ = "2.4.9"
