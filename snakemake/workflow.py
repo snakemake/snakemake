@@ -169,7 +169,7 @@ class Workflow:
             force_incomplete=force_incomplete,
             ignore_incomplete=ignore_incomplete, notemp=notemp)
 
-        self.persistence = Persistence(nolock=nolock, dag=dag)
+        self.persistence = Persistence(nolock=nolock, dag=dag, warn_only=dryrun or printrulegraph or printdag or summary or list_version_changes or list_code_changes or list_input_changes or list_params_changes)
 
         if cleanup_metadata:
             for f in cleanup_metadata:

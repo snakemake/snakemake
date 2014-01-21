@@ -17,7 +17,7 @@ from snakemake.utils import listfiles
 
 class Persistence:
 
-    def __init__(self, nolock=False, dag=None):
+    def __init__(self, nolock=False, dag=None, warn_only=False):
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
             os.mkdir(self.path)
@@ -41,6 +41,9 @@ class Persistence:
 
         if nolock:
             self.lock = self.noop
+            self.unlock = self.noop
+        if warn_only:
+            self.lock = self.lock_warn_only
             self.unlock = self.noop
 
     @property
@@ -67,6 +70,12 @@ class Persistence:
                     if not inputfiles.isdisjoint(files):
                         return True
         return False
+
+    def lock_warn_only(self):
+        if self.locked:
+            logging.info("Error: Directory cannot be locked. This usually "
+            "means that another Snakemake instance is running on this directory."
+            "Another possiblity is that a previous run exited unexpectedly.")
 
     def lock(self):
         if self.locked:
