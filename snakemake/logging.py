@@ -131,7 +131,7 @@ class Logger:
                     self.logger.info(msg["msg"])
                 else:
                     self.logger.info("\n".join(job_info(msg)))
-            elif self.printshellcmds:
+            if self.printshellcmds:
                 self.logger.info(msg["shellcmd"])
 
 
