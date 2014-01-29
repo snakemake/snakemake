@@ -190,12 +190,14 @@ class UnexpectedOutputException(IOException):
 
 
 class AmbiguousRuleException(RuleException):
-    def __init__(self, filename, rule1, rule2, lineno=None, snakefile=None):
+    def __init__(self, filename, job_a, job_b, lineno=None, snakefile=None):
         super().__init__(
-            "Rules {} and {} are ambiguous for the file {}.".format(
-                rule1, rule2, filename),
+            "Rules {job_a} and {job_b} are ambiguous for the file {f}.\n"
+            "Expected input files:\n"
+            "\t{job_a}: {job_a.input}\n"
+            "\t{job_b}: {job_b.input}".format(job_a=job_a, job_b=job_b, f=filename),
             lineno=lineno, snakefile=snakefile)
-        self.rule1, self.rule2 = rule1, rule2
+        self.rule1, self.rule2 = job_a.rule, job_b.rule
 
 
 class CyclicGraphException(RuleException):

@@ -261,7 +261,7 @@ class DAG:
         jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
         cycles = list()
 
-        for i, job in enumerate(jobs):
+        for job in jobs:
             if file in job.input:
                 cycles.append(job)
                 continue
@@ -274,12 +274,12 @@ class DAG:
                     skip_until_dynamic=skip_until_dynamic)
                 # TODO this might fail if a rule discarded here is needed
                 # elsewhere
-                if i > 0:
-                    if job < jobs[i - 1] or self.ignore_ambiguity:
+                if producer:
+                    if job < producer or self.ignore_ambiguity:
                         break
                     elif producer is not None:
                         raise AmbiguousRuleException(
-                            file, job.rule, jobs[i - 1].rule)
+                            file, job, producer)
                 producer = job
             except (MissingInputException, CyclicGraphException) as ex:
                 exceptions.append(ex)
