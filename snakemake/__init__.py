@@ -25,15 +25,15 @@ def snakemake(snakefile,
     listrules=False,
     cores=1,
     nodes=1,
-    resources=None,
+    resources=dict(),
     workdir=None,
     targets=None,
     dryrun=False,
     touch=False,
     forcetargets=False,
     forceall=False,
-    forcerun=None,
-    prioritytargets=None,
+    forcerun=[],
+    prioritytargets=[],
     stats=None,
     printreason=False,
     printshellcmds=False,
@@ -71,18 +71,57 @@ def snakemake(snakefile,
     Note: at the moment, this function is not thread-safe!
 
     Arguments
-    snakefile         -- the snakefile.
-    list              -- list rules.
-    jobs              -- maximum number of parallel jobs (default: 1).
-    directory         -- working directory (default: current directory).
-    rule              -- execute this rule (default: first rule in snakefile).
-    dryrun            -- print the rules that would be executed,
-        but do not execute them.
-    forcethis         -- force the selected rule to be executed
-    forceall          -- force all rules to be executed
-    time_measurements -- measure the running times of all rules
-    lock              -- lock the working directory
+    snakefile               -- the path to the snakefile
+    listrules               -- list rules (default False)
+    cores                   -- the number of provided cores (ignored when using cluster support) (default 1)
+    nodes                   -- the number of provided cluster nodes (ignored without cluster support) (default 1)
+    resources               -- provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
+    workdir                 -- path to working directory (default None)
+    targets                 -- list of targets, e.g. rule or file names (default None)
+    dryrun                  -- only dry-run the workflow (default False)
+    touch                   -- only touch all output files if present (default False)
+    forcetargets            -- force given targets to be re-created (default False)
+    forceall                -- force all output files to be re-created (default False)
+    forcerun                -- list of files and rules that shall be re-created/re-executed (default [])
+    prioritytargets         -- list of targets that shall be run with maximum priority (default [])
+    stats                   -- path to file that shall contain stats about the workflow execution (default None)
+    printreason             -- print the reason for the execution of each job (default false)
+    printshellcmds          -- print the shell command of each job (default False)
+    printdag                -- print the dag in the graphviz dot language (default False)
+    printrulegraph          -- print the graph of rules in the graphviz dot language (default False)
+    nocolor                 -- do not print colored output (default False)
+    quiet                   -- do not print any default job information (default False)
+    keepgoing               -- keep goind upon errors (default False)
+    cluster                 -- submission command of a cluster or batch system to use, e.g. qsub (default None)
+    jobname                 -- naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
+    immediate_submit        -- immediately submit all cluster jobs, regardless of dependencies (default False)
+    standalone              -- kill all processes very rudely in case of failure (do not use this if you use this API) (default False)
+    ignore_ambiguity        -- ignore ambiguous rules and always take the first possible one (default False)
+    snakemakepath           -- path to the snakemake executable (default None)
+    lock                    -- lock the working directory when executing the workflow (default True)
+    unlock                  -- just unlock the working directory (default False)
+    cleanup_metadata        -- just cleanup metadata of output files (default False)
+    force_incomplete        -- force the re-creation of incomplete files (default False)
+    ignore_incomplete       -- ignore incomplete files (default False)
+    list_version_changes    -- list output files with changed rule version (default False)
+    list_code_changes       -- list output files with changed rule code (default False)
+    list_input_changes      -- list output files with changed input files (default False)
+    list_params_changes     -- list output files with changed params (default False)
+    summary                 -- list summary of all output files and their status (default False)
+    output_wait             -- how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
+    print_compilation       -- print the compilation of the snakefile (default False)
+    debug                   -- show additional debug output (default False)
+    notemp                  -- ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
+    nodeps                  -- ignore dependencies (default False)
+    jobscript               -- path to a custom shell script template for cluster jobs (default None)
+    timestamp               -- print time stamps in front of any output (default False)
+    log_handler             -- redirect snakemake output to this custom log handler, a function that takes a log message dictionary as its only argument (have a look at the function snakemake.logging.Logger.console_handler for an example) (default None)
     """
+    if cluster:
+        cores = sys.maxsize
+    else:
+        nodes = sys.maxsize
+
     setup_logger(handler=log_handler, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
 
     if not os.path.exists(snakefile):
@@ -424,15 +463,11 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    cores, nodes = args.cores, sys.maxsize
-    if args.cluster:
-        cores, nodes = nodes, cores
-
     success = snakemake(
             args.snakefile,
             listrules=args.list,
-            cores=cores,
-            nodes=nodes,
+            cores=args.cores,
+            nodes=args.cores,
             resources=resources,
             workdir=args.directory,
             targets=args.target,
