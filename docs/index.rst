@@ -10,6 +10,8 @@ Build systems like GNU Make are frequently used to create complicated workflows,
 
 Apart from being a command line tool, Snakemake can also be called from withing other python code and hence serve as a framework for organizing workflows withing your software. These pages describe the public parts of the Snakemake api.
 
+For the user documentation and general information, see https://bitbucket.org/johanneskoester/snakemake.
+
 Contents:
 
 .. toctree::
