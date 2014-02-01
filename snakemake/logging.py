@@ -91,23 +91,46 @@ class Logger:
         self.handler(msg)
 
     def console_handler(self, msg):
-        """
-        The default snakemake log handler. Prints the output to the console.
+        """The default snakemake log handler.
+        
+        Prints the output to the console.
         The function expects a log message dictionary with the following (partially optional) entries:
+
+        level
+            the log level (info, error, debug, progress, job_info)
+
+        msg
+            the log message (only for levels info, error, debug and job_info)
+
+        done
+            number of already executed jobs (level progress only)
+
+        total
+            number of total jobs (level progress only)
+
+        input
+            list of input files of a job (level job_info only)
+
+        output
+            list of output files of a job (level job_info only)
+
+        log
+            path to log file of a job (level job_info only)
+
+        local
+            whether a job is executed locally (level job_info only)
+
+        reason
+            the job reason (level job_info only)
+
+        priority
+            the job priority (level job_info only)
+
+        threads
+            the threads of the job (level job_info only)
         
-            level:      the log level (info, error, debug, progress, job_info)
-            msg:        the log message (only for levels info, error, debug and job_info)
-            done:       number of already executed jobs (level progress only)
-            total:      number of total jobs (level progress only)
-            input:      list of input files of a job (level job_info only)
-            output:     list of output files of a job (level job_info only)
-            log:        path to log file of a job (level job_info only)
-            local:      whether a job is executed locally (level job_info only)
-            reason:     the job reason (level job_info only)
-            priority:   the job priority (level job_info only)
-            threads:    the threads of the job (level job_info only)
-        
-        msg     -- the log message dictionary
+        Args:
+            msg (dict):     the log message dictionary
         """
         def job_info(msg):
             def format_item(item, omit=None, valueformat=str):

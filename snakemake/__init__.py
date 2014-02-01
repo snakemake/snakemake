@@ -66,56 +66,60 @@ def snakemake(snakefile,
     jobscript=None,
     timestamp=False,
     log_handler=None):
-    """
-    Run snakemake on a given snakefile.
-    Note: at the moment, this function is not thread-safe!
+    """Run snakemake on a given snakefile.
 
-    Arguments
-    snakefile               -- the path to the snakefile
-    listrules               -- list rules (default False)
-    cores                   -- the number of provided cores (ignored when using cluster support) (default 1)
-    nodes                   -- the number of provided cluster nodes (ignored without cluster support) (default 1)
-    resources               -- provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
-    workdir                 -- path to working directory (default None)
-    targets                 -- list of targets, e.g. rule or file names (default None)
-    dryrun                  -- only dry-run the workflow (default False)
-    touch                   -- only touch all output files if present (default False)
-    forcetargets            -- force given targets to be re-created (default False)
-    forceall                -- force all output files to be re-created (default False)
-    forcerun                -- list of files and rules that shall be re-created/re-executed (default [])
-    prioritytargets         -- list of targets that shall be run with maximum priority (default [])
-    stats                   -- path to file that shall contain stats about the workflow execution (default None)
-    printreason             -- print the reason for the execution of each job (default false)
-    printshellcmds          -- print the shell command of each job (default False)
-    printdag                -- print the dag in the graphviz dot language (default False)
-    printrulegraph          -- print the graph of rules in the graphviz dot language (default False)
-    nocolor                 -- do not print colored output (default False)
-    quiet                   -- do not print any default job information (default False)
-    keepgoing               -- keep goind upon errors (default False)
-    cluster                 -- submission command of a cluster or batch system to use, e.g. qsub (default None)
-    jobname                 -- naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
-    immediate_submit        -- immediately submit all cluster jobs, regardless of dependencies (default False)
-    standalone              -- kill all processes very rudely in case of failure (do not use this if you use this API) (default False)
-    ignore_ambiguity        -- ignore ambiguous rules and always take the first possible one (default False)
-    snakemakepath           -- path to the snakemake executable (default None)
-    lock                    -- lock the working directory when executing the workflow (default True)
-    unlock                  -- just unlock the working directory (default False)
-    cleanup_metadata        -- just cleanup metadata of output files (default False)
-    force_incomplete        -- force the re-creation of incomplete files (default False)
-    ignore_incomplete       -- ignore incomplete files (default False)
-    list_version_changes    -- list output files with changed rule version (default False)
-    list_code_changes       -- list output files with changed rule code (default False)
-    list_input_changes      -- list output files with changed input files (default False)
-    list_params_changes     -- list output files with changed params (default False)
-    summary                 -- list summary of all output files and their status (default False)
-    output_wait             -- how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
-    print_compilation       -- print the compilation of the snakefile (default False)
-    debug                   -- show additional debug output (default False)
-    notemp                  -- ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
-    nodeps                  -- ignore dependencies (default False)
-    jobscript               -- path to a custom shell script template for cluster jobs (default None)
-    timestamp               -- print time stamps in front of any output (default False)
-    log_handler             -- redirect snakemake output to this custom log handler, a function that takes a log message dictionary as its only argument (have a look at the function snakemake.logging.Logger.console_handler for an example) (default None)
+    This function provides access to the whole snakemake functionality. It is not thread-safe.
+
+    Args:
+        snakefile (str):            the path to the snakefile
+        listrules (bool):           list rules (default False)
+        cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
+        nodes (int):                the number of provided cluster nodes (ignored without cluster support) (default 1)
+        resources (dict):           provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
+        workdir (str):              path to working directory (default None)
+        targets (list):             list of targets, e.g. rule or file names (default None)
+        dryrun (bool):              only dry-run the workflow (default False)
+        touch (bool):               only touch all output files if present (default False)
+        forcetargets (bool):        force given targets to be re-created (default False)
+        forceall (bool):            force all output files to be re-created (default False)
+        forcerun (list):             list of files and rules that shall be re-created/re-executed (default [])
+        prioritytargets (list):     list of targets that shall be run with maximum priority (default [])
+        stats (str):                path to file that shall contain stats about the workflow execution (default None)
+        printreason (bool):         print the reason for the execution of each job (default false)
+        printshellcmds (bool):      print the shell command of each job (default False)
+        printdag (bool):            print the dag in the graphviz dot language (default False)
+        printrulegraph (bool):      print the graph of rules in the graphviz dot language (default False)
+        nocolor (bool):             do not print colored output (default False)
+        quiet (bool):               do not print any default job information (default False)
+        keepgoing (bool):           keep goind upon errors (default False)
+        cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
+        jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
+        immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
+        standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False)
+        ignore_ambiguity (bool):    ignore ambiguous rules and always take the first possible one (default False)
+        snakemakepath (str):        path to the snakemake executable (default None)
+        lock (bool):                lock the working directory when executing the workflow (default True)
+        unlock (bool):              just unlock the working directory (default False)
+        cleanup_metadata (bool):    just cleanup metadata of output files (default False)
+        force_incomplete (bool):    force the re-creation of incomplete files (default False)
+        ignore_incomplete (bool):   ignore incomplete files (default False)
+        list_version_changes (bool): list output files with changed rule version (default False)
+        list_code_changes (bool):   list output files with changed rule code (default False)
+        list_input_changes (bool):  list output files with changed input files (default False)
+        list_params_changes (bool): list output files with changed params (default False)
+        summary (bool):             list summary of all output files and their status (default False)
+        output_wait (bool):         how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
+        print_compilation (bool):   print the compilation of the snakefile (default False)
+        debug (bool):               show additional debug output (default False)
+        notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
+        nodeps (bool):              ignore dependencies (default False)
+        jobscript (str):           path to a custom shell script template for cluster jobs (default None)
+        timestamp (bool):           print time stamps in front of any output (default False)
+        log_handler (function)      redirect snakemake output to this custom log handler, a function that takes a log message dictionary as its only argument (have a look at the function snakemake.logging.Logger.console_handler for an example) (default None)
+
+    Returns:
+        bool:   True if workflow execution was successful.
+
     """
     if cluster:
         cores = sys.maxsize
