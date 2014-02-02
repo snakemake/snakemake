@@ -187,6 +187,13 @@ def report(
 
 
 def R(code):
+    """Execute R code
+    
+    This function executes the R code given as a string. The function requires rpy2 to be installed.
+
+    Args:
+        code (str): R code to be executed
+    """
     import rpy2.robjects as robjects
     robjects.r(format(textwrap.dedent(code), stepout=2))
 
