@@ -115,7 +115,46 @@ def snakemake(snakefile,
         nodeps (bool):              ignore dependencies (default False)
         jobscript (str):           path to a custom shell script template for cluster jobs (default None)
         timestamp (bool):           print time stamps in front of any output (default False)
-        log_handler (function)      redirect snakemake output to this custom log handler, a function that takes a log message dictionary as its only argument (have a look at the function snakemake.logging.Logger.console_handler for an example) (default None)
+        log_handler (function):      redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
+
+            :level:
+                the log level ("info", "error", "debug", "progress", "job_info")
+
+            :level="info", "error" or "debug":
+                :msg:
+                    the log message
+            :level="progress":
+                :done:
+                    number of already executed jobs
+
+                :total:
+                    number of total jobs
+
+            :level="job_info":
+                :input:
+                    list of input files of a job
+
+                :output:
+                    list of output files of a job
+
+                :log:
+                    path to log file of a job
+
+                :local:
+                    whether a job is executed locally (i.e. ignoring cluster)
+
+                :msg:
+                    the job message
+
+                :reason:
+                    the job reason
+
+                :priority:
+                    the job priority
+
+                :threads:
+                    the threads of the job
+
 
     Returns:
         bool:   True if workflow execution was successful.
