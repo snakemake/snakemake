@@ -1,1 +1,2 @@
 sphinxcontrib-napoleon
+sphinx_bootstrap_theme
