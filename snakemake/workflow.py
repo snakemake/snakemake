@@ -370,6 +370,7 @@ class Workflow:
                 rule.log = ruleinfo.log
             if ruleinfo.message:
                 rule.message = ruleinfo.message
+            rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
@@ -445,6 +446,12 @@ class Workflow:
             return ruleinfo
         return decorate
 
+    def norun(self):
+        def decorate(ruleinfo):
+            ruleinfo.norun = True
+            return ruleinfo
+        return decorate
+
     def run(self, func):
         return RuleInfo(func)
 
@@ -458,6 +465,7 @@ class RuleInfo:
     def __init__(self, func):
         self.func = func
         self.shellcmd = None
+        self.norun = False
         self.input = None
         self.output = None
         self.params = None

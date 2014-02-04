@@ -360,8 +360,11 @@ class DAG:
                 # TODO find a way to handle added/removed input files here?
                 if not job.output:
                     if job.input:
-                        reason.updated_input_run.update(
-                            [f for f in job.input if not f.exists])
+                        if job.rule.norun:
+                            reason.updated_input_run.update(
+                                [f for f in job.input if not f.exists])
+                        else:
+                            reason.nooutput = True
                     else:
                         reason.noio = True
                 else:

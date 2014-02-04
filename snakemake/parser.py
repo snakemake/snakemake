@@ -424,6 +424,8 @@ class Rule(GlobalKeywordState):
 
     def end(self):
         if not self.run:
+            yield "@workflow.norun()"
+            yield "\n"
             for t in self.subautomaton("run", rulename=self.rulename).start():
                 yield t
             # the end is detected.

@@ -284,6 +284,7 @@ class Reason:
         self.incomplete_output = set()
         self.forced = False
         self.noio = False
+        self.nooutput = False
         self.derived = True
 
     def __str__(self):
@@ -293,7 +294,10 @@ class Reason:
         else:
             if self.noio:
                 s.append("Rules with neither input nor "
-                    "output files are always executed")
+                    "output files are always executed.")
+            elif self.nooutput:
+                s.append("Rules with a run or shell declaration but no output "
+                    "are always executed.")
             else:
                 if self.missing_output:
                     s.append("Missing output files: {}".format(
@@ -315,4 +319,4 @@ class Reason:
 
     def __bool__(self):
         return bool(self.updated_input or self.missing_output or self.forced
-            or self.updated_input_run or self.noio)
+            or self.updated_input_run or self.noio or self.nooutput)
