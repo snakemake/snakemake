@@ -18,22 +18,22 @@ from snakemake.exceptions import print_exception
 from snakemake.logging import setup_logger, logger
 
 __author__ = "Johannes Köster"
-__version__ = "2.4.9"
+__version__ = "2.5"
 
 
 def snakemake(snakefile,
     listrules=False,
     cores=1,
     nodes=1,
-    resources=None,
+    resources=dict(),
     workdir=None,
     targets=None,
     dryrun=False,
     touch=False,
     forcetargets=False,
     forceall=False,
-    forcerun=None,
-    prioritytargets=None,
+    forcerun=[],
+    prioritytargets=[],
     stats=None,
     printreason=False,
     printshellcmds=False,
@@ -66,23 +66,105 @@ def snakemake(snakefile,
     jobscript=None,
     timestamp=False,
     log_handler=None):
-    """
-    Run snakemake on a given snakefile.
-    Note: at the moment, this function is not thread-safe!
+    """Run snakemake on a given snakefile.
 
-    Arguments
-    snakefile         -- the snakefile.
-    list              -- list rules.
-    jobs              -- maximum number of parallel jobs (default: 1).
-    directory         -- working directory (default: current directory).
-    rule              -- execute this rule (default: first rule in snakefile).
-    dryrun            -- print the rules that would be executed,
-        but do not execute them.
-    forcethis         -- force the selected rule to be executed
-    forceall          -- force all rules to be executed
-    time_measurements -- measure the running times of all rules
-    lock              -- lock the working directory
+    This function provides access to the whole snakemake functionality. It is not thread-safe.
+
+    Args:
+        snakefile (str):            the path to the snakefile
+        listrules (bool):           list rules (default False)
+        cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
+        nodes (int):                the number of provided cluster nodes (ignored without cluster support) (default 1)
+        resources (dict):           provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
+        workdir (str):              path to working directory (default None)
+        targets (list):             list of targets, e.g. rule or file names (default None)
+        dryrun (bool):              only dry-run the workflow (default False)
+        touch (bool):               only touch all output files if present (default False)
+        forcetargets (bool):        force given targets to be re-created (default False)
+        forceall (bool):            force all output files to be re-created (default False)
+        forcerun (list):             list of files and rules that shall be re-created/re-executed (default [])
+        prioritytargets (list):     list of targets that shall be run with maximum priority (default [])
+        stats (str):                path to file that shall contain stats about the workflow execution (default None)
+        printreason (bool):         print the reason for the execution of each job (default false)
+        printshellcmds (bool):      print the shell command of each job (default False)
+        printdag (bool):            print the dag in the graphviz dot language (default False)
+        printrulegraph (bool):      print the graph of rules in the graphviz dot language (default False)
+        nocolor (bool):             do not print colored output (default False)
+        quiet (bool):               do not print any default job information (default False)
+        keepgoing (bool):           keep goind upon errors (default False)
+        cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
+        jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
+        immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
+        standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False)
+        ignore_ambiguity (bool):    ignore ambiguous rules and always take the first possible one (default False)
+        snakemakepath (str):        path to the snakemake executable (default None)
+        lock (bool):                lock the working directory when executing the workflow (default True)
+        unlock (bool):              just unlock the working directory (default False)
+        cleanup_metadata (bool):    just cleanup metadata of output files (default False)
+        force_incomplete (bool):    force the re-creation of incomplete files (default False)
+        ignore_incomplete (bool):   ignore incomplete files (default False)
+        list_version_changes (bool): list output files with changed rule version (default False)
+        list_code_changes (bool):   list output files with changed rule code (default False)
+        list_input_changes (bool):  list output files with changed input files (default False)
+        list_params_changes (bool): list output files with changed params (default False)
+        summary (bool):             list summary of all output files and their status (default False)
+        output_wait (bool):         how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
+        print_compilation (bool):   print the compilation of the snakefile (default False)
+        debug (bool):               show additional debug output (default False)
+        notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
+        nodeps (bool):              ignore dependencies (default False)
+        jobscript (str):           path to a custom shell script template for cluster jobs (default None)
+        timestamp (bool):           print time stamps in front of any output (default False)
+        log_handler (function):      redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
+
+            :level:
+                the log level ("info", "error", "debug", "progress", "job_info")
+
+            :level="info", "error" or "debug":
+                :msg:
+                    the log message
+            :level="progress":
+                :done:
+                    number of already executed jobs
+
+                :total:
+                    number of total jobs
+
+            :level="job_info":
+                :input:
+                    list of input files of a job
+
+                :output:
+                    list of output files of a job
+
+                :log:
+                    path to log file of a job
+
+                :local:
+                    whether a job is executed locally (i.e. ignoring cluster)
+
+                :msg:
+                    the job message
+
+                :reason:
+                    the job reason
+
+                :priority:
+                    the job priority
+
+                :threads:
+                    the threads of the job
+
+
+    Returns:
+        bool:   True if workflow execution was successful.
+
     """
+    if cluster:
+        cores = sys.maxsize
+    else:
+        nodes = sys.maxsize
+
     setup_logger(handler=log_handler, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
 
     if not os.path.exists(snakefile):
@@ -424,15 +506,11 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    cores, nodes = args.cores, sys.maxsize
-    if args.cluster:
-        cores, nodes = nodes, cores
-
     success = snakemake(
             args.snakefile,
             listrules=args.list,
-            cores=cores,
-            nodes=nodes,
+            cores=args.cores,
+            nodes=args.cores,
             resources=resources,
             workdir=args.directory,
             targets=args.target,

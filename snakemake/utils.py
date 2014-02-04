@@ -23,24 +23,27 @@ from snakemake.logging import logger
 
 
 def linecount(filename):
-    """
-    Return the number of lines of given file
+    """Return the number of lines of given file.
 
-    Arguments
-    filename -- the path to the file
+    Args:
+        filename (str): the path to the file
     """
     with open(filename) as f:
         return sum(1 for l in f)
 
 
 def listfiles(pattern, restriction=None, omit_value=None):
-    """
-    Yield a tuple of existing filepaths for the given pattern.
+    """Yield a tuple of existing filepaths for the given pattern.
+
     Wildcard values are yielded as the second tuple item.
 
-    Arguments
-    pattern -- a filepattern.
-        Wildcards are specified in snakemake syntax, e.g. "{id}.txt"
+    Args:
+        pattern (str):       a filepattern. Wildcards are specified in snakemake syntax, e.g. "{id}.txt"
+        restriction (dict):  restrict to wildcard values given in this dictionary
+        omit_value (str):    wildcard value to omit
+
+    Yields:
+        tuple: The next file matching the pattern, and the corresponding wildcards object
     """
     pattern = os.path.normpath(pattern)
     first_wildcard = re.search("{[^{]", pattern)
@@ -69,8 +72,7 @@ def listfiles(pattern, restriction=None, omit_value=None):
 
 
 def makedirs(dirnames):
-    """
-    Recursively create the given directory or directories without
+    """Recursively create the given directory or directories without
     reporting errors if they are present.
     """
     if isinstance(dirnames, str):
@@ -84,43 +86,42 @@ def report(
     text, path,
     stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
     defaultenc="utf8", template=None, metadata=None, **files):
-    """
-    Create an HTML report using python docutils.
+    """Create an HTML report using python docutils.
+
     Attention: This function needs Python docutils to be installed for the
     python installation you use with Snakemake.
 
-    Arguments
-    text -- The "restructured text" as it is expected by python docutils.
-    path -- The path to the desired output file
-    stylesheet -- An optional path to a css file that defines the style of the
-        document. This defaults to <your snakemake install>/report.css.
-        Use the default to get a hint how to create your own.
-    defaultenc -- The encoding that is reported to the browser for embedded
-        text files, defaults to utf8.
-    template -- An optional path to a docutils HTML template.
-    metadata -- E.g. an optional author name or email address.
-
-    All other keyword args are intepreted as paths to files that shall be
+    All keywords not listed below are intepreted as paths to files that shall be
     embedded into the document. They keywords will be available as link
     targets in the text. E.g. append a file as keyword arg via F1=input[0]
     and put a download link in the text like this:
 
-    report('''
-    ==============
-    Report for ...
-    ==============
+    .. code:: python
+    
+        report('''
+        ==============
+        Report for ...
+        ==============
 
-    Some text. A link to an embedded file: F1_.
+        Some text. A link to an embedded file: F1_.
 
-    Further text.
-    ''', outputpath, F1=input[0])
+        Further text.
+        ''', outputpath, F1=input[0])
 
-    Instead of specifying each file as a keyword arg, you can also expand
-    the input of your rule if it is completely named, e.g.:
+        Instead of specifying each file as a keyword arg, you can also expand
+        the input of your rule if it is completely named, e.g.:
 
-    report('''
-    Some text...
-    ''', outputpath, **input)
+        report('''
+        Some text...
+        ''', outputpath, **input)
+
+    Args:
+        text (str):         The "restructured text" as it is expected by python docutils.
+        path (str):         The path to the desired output file
+        stylesheet (str):   An optional path to a css file that defines the style of the document. This defaults to <your snakemake install>/report.css. Use the default to get a hint how to create your own.
+        defaultenc (str):   The encoding that is reported to the browser for embedded text files, defaults to utf8.
+        template (str):     An optional path to a docutils HTML template.
+        metadata (str):     E.g. an optional author name or email address.
 
     """
     outmime, _ = mimetypes.guess_type(path)
@@ -186,11 +187,22 @@ def report(
 
 
 def R(code):
+    """Execute R code
+    
+    This function executes the R code given as a string. The function requires rpy2 to be installed.
+
+    Args:
+        code (str): R code to be executed
+    """
     import rpy2.robjects as robjects
     robjects.r(format(textwrap.dedent(code), stepout=2))
 
 
 def format(string, *args, stepout=1, **kwargs):
+    """Format a string in Snakemake style.
+    
+    This means that keywords embedded in braces are replaced by any variable values that are available in the current namespace.
+    """
     class SequenceFormatter:
         def __init__(self, sequence):
             self._sequence = sequence
@@ -237,6 +249,10 @@ class Unformattable:
 
 
 def read_job_properties(jobscript, prefix="# properties"):
+    """Read the job properties defined in a snakemake jobscript.
+    
+    This function is a helper for writing custom wrappers for the snakemake --cluster functionality. Applying this function to a jobscript will return a dict containing information about the job.
+    """
     with open(jobscript) as jobscript:
         for l in jobscript:
             if l.startswith(prefix):

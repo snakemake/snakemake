@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import logging
+import logging as _logging
 import platform
 import time
 import sys
@@ -9,7 +9,7 @@ from multiprocessing import Lock
 __author__ = "Johannes Köster"
 
 
-class ColorizingStreamHandler(logging.StreamHandler):
+class ColorizingStreamHandler(_logging.StreamHandler):
     _output_lock = Lock()
 
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
@@ -59,7 +59,7 @@ class ColorizingStreamHandler(logging.StreamHandler):
 
 class Logger:
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = _logging.getLogger(__name__)
         self.handler = self.console_handler
         self.stream_handler = None
         self.printshellcmds = False
@@ -91,6 +91,13 @@ class Logger:
         self.handler(msg)
 
     def console_handler(self, msg):
+        """The default snakemake log handler.
+        
+        Prints the output to the console.
+        
+        Args:
+            msg (dict):     the log message dictionary
+        """
         def job_info(msg):
             def format_item(item, omit=None, valueformat=str):
                 value = msg[item]
@@ -146,7 +153,7 @@ def setup_logger(handler=None, quiet=False, printshellcmds=False, printreason=Fa
         timestamp=timestamp
     )
     logger.set_stream_handler(stream_handler)
-    logger.set_level(logging.DEBUG if debug else logging.INFO)
+    logger.set_level(_logging.DEBUG if debug else _logging.INFO)
     logger.quiet = quiet
     logger.printshellcmds = printshellcmds
     logger.printreason = printreason
