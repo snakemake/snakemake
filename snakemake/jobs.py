@@ -243,8 +243,9 @@ class Job:
         properties = {
             "rule": self.rule.name,
             "local": self.dag.workflow.is_local(self.rule),
-            "input": self.input,    
+            "input": self.input,
             "output": self.output,
+            "params": self.params,
             "threads": self.threads,
             "resources": resources
         }
