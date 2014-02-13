@@ -248,12 +248,12 @@ class Unformattable:
         raise ValueError(self.errormsg)
 
 
-def read_job_properties(jobscript, prefix="# properties"):
+def read_job_properties(jobscript, prefix="# properties", pattern=re.compile("# properties = (.*)")):
     """Read the job properties defined in a snakemake jobscript.
     
     This function is a helper for writing custom wrappers for the snakemake --cluster functionality. Applying this function to a jobscript will return a dict containing information about the job.
     """
     with open(jobscript) as jobscript:
-        for l in jobscript:
-            if l.startswith(prefix):
-                return json.loads(l.split("=")[1])
+        for m in map(pattern.match, jobscript):
+            if m:
+                return json.loads(m.group(1))
