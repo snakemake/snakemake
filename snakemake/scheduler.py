@@ -121,7 +121,8 @@ class JobScheduler:
         
         while True:
             try:
-                self._open_jobs.wait()
+                # work around so that the wait does not prevent keyboard interrupts
+                while not self._open_jobs.wait(0xFFFFF): pass
             except:
                 # this will be caused because of SIGTERM or SIGINT
                 logger.info("Terminating processes on user request.")

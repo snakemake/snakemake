@@ -316,6 +316,9 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log, 
     try:
         # execute the actual run method.
         run(input, output, params, wildcards, threads, resources, log)
+    except KeyboardInterrupt:
+        # just silently stop on keyboard interrupt
+        pass
     except (Exception, BaseException) as ex:
         # this ensures that exception can be re-raised in the parent thread
         lineno, file = get_exception_origin(ex, linemaps)
