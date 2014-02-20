@@ -54,6 +54,10 @@ def is_string(token):
     return token.type == tokenize.STRING
 
 
+def is_eof(token):
+    return token.type == tokenize.ENDMARKER
+
+
 def lineno(token):
     return token.start[0]
 
@@ -150,7 +154,7 @@ class KeywordState(TokenAutomaton):
         if self.lasttoken == "\n" and is_comment(token):
             # ignore lines containing only comments
             self.line -= 1
-        if self.line and self.indent <= 0:
+        if (self.line and self.indent <= 0) or is_eof(token):
             for t, token_ in self.decorate_end(token):
                 yield t, token_
             yield "\n", token
