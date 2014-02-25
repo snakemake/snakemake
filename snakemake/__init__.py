@@ -482,7 +482,7 @@ def get_argument_parser():
     parser.add_argument(
         "--debug", action="store_true", help="Print debugging output.")
     parser.add_argument(
-        "--profile", help="Profile Snakemake. This requires yappi to be installed.")
+        "--profile", metavar="FILE", help="Profile Snakemake and write the output to FILE. This requires yappi to be installed.")
     parser.add_argument(
             "--bash-completion", action="store_true", help="Output code to register bash completion for snakemake. Put the following in your .bashrc (including the accents): `snakemake --bash-completion`")
     parser.add_argument(
