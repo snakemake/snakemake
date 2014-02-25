@@ -121,8 +121,7 @@ class _IOFile(str):
         return self._regex
 
     def match(self, target):
-        match = self.regex().match(target)
-        return match if match else None
+        return self.regex().match(target) or None
 
     def __eq__(self, other):
         f = other._file if isinstance(other, _IOFile) else other
