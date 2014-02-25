@@ -115,14 +115,13 @@ class _IOFile(str):
         return contains_wildcard(self.file)
 
     def regex(self):
-        if not self._regex:
+        if self._regex is None:
             # compile a regular expression
             self._regex = re.compile(regex(self.file))
         return self._regex
 
     def match(self, target):
-        match = self.regex().match(target)
-        return match if match else None
+        return self.regex().match(target) or None
 
     def __eq__(self, other):
         f = other._file if isinstance(other, _IOFile) else other

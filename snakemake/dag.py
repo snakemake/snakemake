@@ -566,7 +566,7 @@ class DAG:
                 if file in job.dependencies:
                     jobs = [Job(job.dependencies[file], self, targetfile=file)]
                 else:
-                    jobs = self.file2jobs(file)
+                    jobs = file2jobs(file)
                 dependencies[file].extend(jobs)
             except MissingRuleException as ex:
                 pass
@@ -671,6 +671,7 @@ class DAG:
     def rule2job(self, targetrule):
         return Job(targetrule, self)
 
+    @lru_cache()
     def file2jobs(self, targetfile):
         jobs = [Job(rule, self, targetfile=targetfile) for rule in self.rules if rule.is_producer(targetfile)]
         if not jobs:

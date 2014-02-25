@@ -11,7 +11,7 @@ from functools import lru_cache, partial
 from itertools import filterfalse, count
 
 from snakemake.logging import logger
-from snakemake.jobs import Job
+from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles
 
 
@@ -250,9 +250,9 @@ class Persistence:
 
     def outputfiles(self):
         # we only look at output files that will be updated
-        return Job.files(self.dag.needrun_jobs, "output")
+        return jobfiles(self.dag.needrun_jobs, "output")
 
     def inputfiles(self):
         # we consider all input files, also of not running jobs
-        return Job.files(self.dag.jobs, "input")
+        return jobfiles(self.dag.jobs, "input")
 

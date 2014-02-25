@@ -18,17 +18,18 @@ from snakemake.exceptions import UnexpectedOutputException
 __author__ = "Johannes Köster"
 
 
+def jobfiles(jobs, type):
+    return chain(*map(attrgetter(type), jobs))
+
+
 class Job:
     HIGHEST_PRIORITY = sys.maxsize
-
-    @staticmethod
-    def files(jobs, type):
-        return chain(*map(attrgetter(type), jobs))
 
     def __init__(self, rule, dag, targetfile=None, format_wildcards=None):
         self.rule = rule
         self.dag = dag
         self.targetfile = targetfile
+
         self.wildcards_dict = self.rule.get_wildcards(targetfile)
         self.wildcards = Wildcards(fromdict=self.wildcards_dict)
         self._format_wildcards = (self.wildcards
@@ -265,7 +266,6 @@ class Job:
 
     def __gt__(self, other):
         return self.rule.__gt__(other.rule)
-
 
     def __hash__(self):
         return self._hash

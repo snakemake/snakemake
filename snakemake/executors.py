@@ -178,6 +178,10 @@ class CPUExecutor(RealExecutor):
                 raise ex
             self.finish_job(job)
             callback(job)
+        except KeyboardInterrupt:
+            job.cleanup()
+            self.workflow.persistence.cleanup(job)
+            # no error callback, just silently ignore the interrupt as the main scheduler is also killed
         except (Exception, BaseException) as ex:
             print_exception(ex, self.workflow.linemaps)
             job.cleanup()
@@ -316,6 +320,9 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log, 
     try:
         # execute the actual run method.
         run(input, output, params, wildcards, threads, resources, log)
+    except KeyboardInterrupt as e:
+        # re-raise the keyboard interrupt in order to record an error in the scheduler but ignore it
+        raise e
     except (Exception, BaseException) as ex:
         # this ensures that exception can be re-raised in the parent thread
         lineno, file = get_exception_origin(ex, linemaps)
