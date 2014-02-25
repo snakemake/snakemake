@@ -482,6 +482,8 @@ def get_argument_parser():
     parser.add_argument(
         "--debug", action="store_true", help="Print debugging output.")
     parser.add_argument(
+        "--profile", help="Profile Snakemake. This requires yappi to be installed.")
+    parser.add_argument(
             "--bash-completion", action="store_true", help="Output code to register bash completion for snakemake. Put the following in your .bashrc (including the accents): `snakemake --bash-completion`")
     parser.add_argument(
         "--version", "-v", action="version", version=__version__)
@@ -505,6 +507,10 @@ def main():
         print("", file=sys.stderr)
         parser.print_help()
         sys.exit(1)
+
+    if args.profile:
+        import yappi
+        yappi.start()
 
     success = snakemake(
             args.snakefile,
@@ -549,6 +555,13 @@ def main():
             jobscript=args.jobscript,
             notemp=args.notemp,
             timestamp=args.timestamp)
+
+    if args.profile:
+        with open(args.profile, "w") as out:
+            profile = yappi.get_func_stats()
+            profile.sort("totaltime")
+            profile.print_all(out=out)
+
     sys.exit(0 if success else 1)
 
 

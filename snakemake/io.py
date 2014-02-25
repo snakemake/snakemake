@@ -115,7 +115,7 @@ class _IOFile(str):
         return contains_wildcard(self.file)
 
     def regex(self):
-        if not self._regex:
+        if self._regex is None:
             # compile a regular expression
             self._regex = re.compile(regex(self.file))
         return self._regex
