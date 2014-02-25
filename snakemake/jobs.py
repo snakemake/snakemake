@@ -29,6 +29,7 @@ class Job:
         self.rule = rule
         self.dag = dag
         self.targetfile = targetfile
+
         self.wildcards_dict = self.rule.get_wildcards(targetfile)
         self.wildcards = Wildcards(fromdict=self.wildcards_dict)
         self._format_wildcards = (self.wildcards

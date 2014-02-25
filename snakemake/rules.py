@@ -310,7 +310,6 @@ class Rule:
 
         if wildcards is None:
             wildcards = dict()
-        # TODO validate
         missing_wildcards = self.wildcard_names - set(wildcards.keys())
 
         if missing_wildcards:
