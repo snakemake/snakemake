@@ -6,7 +6,9 @@ if sys.version_info < (3,2):
     sys.stdout.write("At least Python 3.2 is required.\n")
     sys.exit(1)
 
-from snakemake import __version__, get_argument_parser
+
+# load version info
+exec(open("snakemake/version.py").read())
 
 
 setup(
