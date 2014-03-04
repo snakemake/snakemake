@@ -254,6 +254,10 @@ def snakemake(snakefile,
                         subsnakemake=subsnakemake
                         )
 
+    except BrokenPipeError:
+        # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
+        # in such a case, snakemake shall stop scheduling and quit with error 1
+        success = False
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)
         success = False
