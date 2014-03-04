@@ -54,21 +54,19 @@ class Persistence:
 
     @property
     def locked(self):
-        strip = lambda lines: map(str.strip, lines)
         inputfiles = set(self.inputfiles())
         outputfiles = set(self.outputfiles())
         if os.path.exists(self._lockdir):
             for lockfile in self._locks("input"):
                 with open(lockfile) as lock:
-                    if not outputfiles.isdisjoint(strip(lock.readlines())):
-                        return True
+                    for f in lock:
+                        if f in outputfiles:
+                            return True
             for lockfile in self._locks("output"):
                 with open(lockfile) as lock:
-                    files = strip(lock.readlines())
-                    if not outputfiles.isdisjoint(files):
-                        return True
-                    if not inputfiles.isdisjoint(files):
-                        return True
+                    for f in lock:
+                        if f in outputfiles or f in inputfiles:
+                            return True
         return False
 
     def lock_warn_only(self):
