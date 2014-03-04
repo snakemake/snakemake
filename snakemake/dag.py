@@ -146,6 +146,15 @@ class DAG:
     def downstream_size(self, job):
         return self._downstream_size[job]
 
+    def _job_values(self, jobs, values):
+        return [values[job] for job in jobs]
+
+    def priorities(self, jobs):
+        return self._job_values(jobs, self._priority)
+
+    def downstream_sizes(self, jobs):
+        return self._job_values(jobs, self._downstream_size)
+
     def noneedrun_finished(self, job):
         """
         Return whether a given job is finished or was not

@@ -15,6 +15,11 @@ from snakemake.logging import logger
 __author__ = "Johannes Köster"
 
 
+
+def cumsum(iterable, zero=[0]):
+    return list(chain(zero, accumulate(iterable)))
+
+
 class JobScheduler:
     def __init__(
         self,
@@ -199,33 +204,6 @@ class JobScheduler:
             else:
                 self._open_jobs.set()
 
-    def _job_selector(self, jobs):
-        """ Solve 0-1 knapsack to maximize cpu utilization. """
-
-        dimi, dimj = len(jobs) + 1, self._cores + 1
-        K = [[(0, 0) for c in range(dimj)] for i in range(dimi)]
-        for i in range(1, dimi):
-            for j in range(1, dimj):
-                job = jobs[i - 1]
-                w = self.job_weight(job)
-                v = job.priority, job.inputsize if not self.dryrun else 0
-                if w > j:
-                    K[i][j] = K[i - 1][j]
-                else:
-                    K[i][j] = max(K[i - 1][j],
-                        tuple(map(operator.add, v, K[i - 1][j - w])))
-
-        solution = set()
-        i = dimi - 1
-        j = dimj - 1
-        while i > 0:
-            if K[i][j] != K[i - 1][j]:
-                job = jobs[i - 1]
-                solution.add(job)
-                j = j - job.threads
-            i -= 1
-        return solution
-
     def job_selector(self, jobs):
         """
         Using the greedy heuristic from
@@ -307,7 +285,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         return (
             self.priority_reward(jobs),
             self.downstream_reward(jobs),
-            cumsum(map(operator.attrgetter("inputsize"), jobs)))
+            cumsum([job.inputsize for job in jobs]))
 
     def dryrun_rule_reward(self, rule, jobs=None):
         jobs = jobs[rule]
@@ -317,10 +295,10 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             [0] * (len(jobs) + 1))
 
     def priority_reward(self, jobs):
-        return cumsum(map(self.dag.priority, jobs))
+        return cumsum(self.dag.priorities(jobs))
 
     def downstream_reward(self, jobs):
-        return cumsum(map(self.dag.downstream_size, jobs))
+        return cumsum(self.dag.downstream_sizes(jobs))
 
     def job_weight(self, job):
         """ Job weight that uses threads. """
@@ -333,7 +311,3 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
     def progress(self):
         """ Display the progress. """
         logger.progress(done=self.finished_jobs, total=len(self.dag))
-
-
-def cumsum(iterable, zero=[0]):
-    return list(chain(zero, accumulate(iterable)))
