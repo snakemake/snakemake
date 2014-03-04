@@ -42,9 +42,10 @@ class ColorizingStreamHandler(_logging.StreamHandler):
                 self.stream.write(self.decorate(record))
                 self.stream.write(getattr(self, 'terminator', '\n'))
                 self.flush()
-            except (KeyboardInterrupt, SystemExit):
-                raise
-            except:
+            except (KeyboardInterrupt, SystemExit, BrokenPipeError):
+                # ignore any exceptions in these cases as any relevant messages have been printed before
+                pass
+            except Exception as e:
                 self.handleError(record)
 
     def decorate(self, record):
