@@ -201,7 +201,7 @@ class Workflow:
                 "the --unlock argument.".format(os.getcwd()))
             return False
 
-        if self.subworkflows:
+        if self.subworkflows and not printdag and not printrulegraph:
             # backup globals
             globals_backup = dict(self.globals)
             # execute subworkflows
