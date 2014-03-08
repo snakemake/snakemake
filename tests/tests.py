@@ -127,3 +127,6 @@ def test_local_import():
 
 def test_ruledeps():
     run(dpath("test_ruledeps"))
+
+def test_persistent_dict():
+    run(dpath("test_persistent_dict"))
