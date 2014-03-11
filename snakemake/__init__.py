@@ -488,7 +488,7 @@ def get_argument_parser():
     parser.add_argument(
         "--profile", metavar="FILE", help="Profile Snakemake and write the output to FILE. This requires yappi to be installed.")
     parser.add_argument(
-            "--bash-completion", action="store_true", help="Output code to register bash completion for snakemake. Put the following in your .bashrc (including the accents): `snakemake --bash-completion`")
+            "--bash-completion", action="store_true", help="Output code to register bash completion for snakemake. Put the following in your .bashrc (including the accents): `snakemake --bash-completion` or issue it in an open terminal session.")
     parser.add_argument(
         "--version", "-v", action="version", version=__version__)
     return parser
@@ -497,7 +497,7 @@ def get_argument_parser():
 def main():
     parser = get_argument_parser()
     args = parser.parse_args()
-    
+
     if args.bash_completion:
         print("complete -C snakemake-bash-completion snakemake")
         sys.exit(0)
@@ -587,7 +587,7 @@ def bash_completion(snakefile="Snakefile"):
         if files:
             print(*files, sep="\n")
         elif os.path.exists(snakefile):
-            workflow = Workflow(snakefile=snakefile, snakemakepath=get_snakemake_path())
+            workflow = Workflow(snakefile=snakefile, snakemakepath="snakemake")
             workflow.include(snakefile)
 
             workflow_files = sorted(set(

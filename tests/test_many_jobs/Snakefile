@@ -1,6 +1,6 @@
 
 rule:
-	input: expand("{sample}.out", sample=range(500))
+	input: expand("{sample}.out", sample=range(50000))
 	
 
 rule:
