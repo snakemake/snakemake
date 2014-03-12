@@ -4,6 +4,10 @@ import csv
 from collections import defaultdict
 
 
+fmt_float = "{:.2f}".format
+fmt_time = time.ctime
+
+
 class Stats:
     def __init__(self):
         self.starttime = dict()
@@ -23,22 +27,22 @@ class Stats:
         for rule, runtimes in runtimes.items():
             yield (
                 rule,
-                sum(runtimes) / len(runtimes),
-                min(runtimes), max(runtimes))
+                fmt_float(sum(runtimes) / len(runtimes)),
+                fmt_float(min(runtimes)), fmt_float(max(runtimes)))
 
     @property
     def file_runtimes(self):
         for job, t in self.starttime.items():
             for f in job.expanded_output:
                 start, stop = t, self.endtime[job]
-                yield f, start, stop, stop - start 
+                yield f, fmt_time(start), fmt_time(stop), fmt_float(stop - start)
 
     @property
     def overall_runtime(self):
         if self.starttime and self.endtime:
-            return max(self.endtime.values()) - min(self.starttime.values())
+            return fmt_float(max(self.endtime.values()) - min(self.starttime.values()))
         else:
-            return 0
+            return fmt_float(0)
 
     def to_csv(self, path):
         with open(path, "w") as f:
@@ -50,6 +54,6 @@ class Stats:
             for runtime in self.rule_runtimes:
                 writer.writerow(runtime)
             writer.writerow(list())
-            writer.writerow("file starttime endtime duration".split())
+            writer.writerow("file start-time stop-time duration".split())
             for runtime in self.file_runtimes:
                 writer.writerow(runtime)
