@@ -27,9 +27,11 @@ class Stats:
                 min(runtimes), max(runtimes))
 
     @property
-    def job_runtimes(self):
+    def file_runtimes(self):
         for job, t in self.starttime.items():
-            yield job, t, self.endtime[job]
+            for f in job.expanded_output:
+                start, stop = t, self.endtime[job]
+                yield f, start, stop, stop - start 
 
     @property
     def overall_runtime(self):
@@ -48,6 +50,6 @@ class Stats:
             for runtime in self.rule_runtimes:
                 writer.writerow(runtime)
             writer.writerow(list())
-            writer.writerow("file starttime endtime".split())
-            for runtime in self.job_runtimes:
+            writer.writerow("file starttime endtime duration".split())
+            for runtime in self.file_runtimes:
                 writer.writerow(runtime)
