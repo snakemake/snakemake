@@ -236,7 +236,7 @@ def format(string, *args, stepout=1, **kwargs):
             "make sure that you defined that variable. "
             "Also note that braces not used for variable access "
             "have to be escaped by repeating them, "
-            "i.e. {{print $1}}".format(str(ex)))
+            "i.e. {{{{print $1}}}}".format(str(ex)))
 
 
 class Unformattable:
