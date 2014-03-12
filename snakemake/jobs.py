@@ -241,12 +241,13 @@ class Job:
 
     def json(self):
         resources = {name: res for name, res in self.resources.items() if name != "_cores"}
+        params = {name: value for name, value in self.params.items()}
         properties = {
             "rule": self.rule.name,
             "local": self.dag.workflow.is_local(self.rule),
             "input": self.input,
             "output": self.output,
-            "params": self.params,
+            "params": params,
             "threads": self.threads,
             "resources": resources
         }
