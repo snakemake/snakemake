@@ -1,4 +1,5 @@
 
+
 class Test:
 	def __init__(self):
 		self.include = "test.out"
@@ -6,6 +7,7 @@ class Test:
 
 rule:
 	output: Test().include
-	shell: "touch {output}"
+	shell: 
+        "touch {output}"
 
 
