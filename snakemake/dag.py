@@ -7,14 +7,16 @@ from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
 from operator import itemgetter, attrgetter
 
-from snakemake.io import IOFile, _IOFile
+from snakemake.io import IOFile, _IOFile, PeriodicityDetector
 from snakemake.jobs import Job, Reason
 from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException
+from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import UnexpectedOutputException
 from snakemake.logging import logger
+
 
 __author__ = "Johannes Köster"
 
@@ -71,6 +73,8 @@ class DAG:
 
         self.force_incomplete = force_incomplete
         self.ignore_incomplete = ignore_incomplete
+
+        self.periodic_wildcard_detector = PeriodicityDetector()
 
     def init(self):
         """ Initialise the DAG. """
@@ -227,6 +231,18 @@ class DAG:
                     "archive, e.g. by using 'touch'.".format(
                         ", ".join(job.expanded_output)), rule=job.rule)
 
+    def check_periodic_wildcards(self, job):
+        """ Raise an exception if a wildcard of the given job appears to be periodic,
+        indicating a cyclic dependency. """
+        for wildcard, value in job.wildcards_dict.items():
+            periodic_substring = self.periodic_wildcard_detector.is_periodic(value)
+            if periodic_substring is not None:
+                raise PeriodicWildcardError(
+                    "The value {} in wildcard {} is periodically repeated ({}). "
+                    "This would lead to an infinite recursion. "
+                    "To avoid this, e.g. restrict the wildcards in this rule to certain values.".format(
+                        periodic_substring, wildcard, value), rule=job.rule)
+
     def handle_protected(self, job):
         """ Write-protect output files that are marked with protected(). """
         for f in job.expanded_output:
@@ -271,6 +287,7 @@ class DAG:
         cycles = list()
 
         for job in jobs:
+            self.check_periodic_wildcards(job)
             if file in job.input:
                 cycles.append(job)
                 continue
@@ -329,7 +346,7 @@ class DAG:
                 producer[file] = self.update(jobs, file=file, visited=visited,
                     skip_until_dynamic=skip_until_dynamic
                         or file in job.dynamic_input)
-            except (MissingInputException, CyclicGraphException) as ex:
+            except (MissingInputException, CyclicGraphException, PeriodicWildcardError) as ex:
                 exceptions[file] = ex
 
         for file, job_ in producer.items():

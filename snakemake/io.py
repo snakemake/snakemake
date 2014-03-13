@@ -454,3 +454,20 @@ class Params(Namedlist):
 
 class Resources(Namedlist):
     pass
+
+
+##### Wildcard pumping detection #####
+
+class PeriodicityDetector:
+    def __init__(self, min_repeat=15, max_repeat=100):
+        """
+        Args:
+            max_len (int): The maximum length of the periodic substring.
+        """
+        self.regex = re.compile("((?P<value>.+)(?P=value){{{min_repeat},{max_repeat}}})$".format(min_repeat=min_repeat - 1, max_repeat=max_repeat - 1))
+
+    def is_periodic(self, value):
+        """Returns the periodic substring or None if not periodic."""
+        m = self.regex.search(value) # search for a periodic suffix.
+        if m is not None:
+            return m.group("value")

@@ -176,6 +176,10 @@ class MissingInputException(IOException):
             lineno=lineno, snakefile=snakefile)
 
 
+class PeriodicWildcardError(RuleException):
+    pass
+
+
 class ProtectedOutputException(IOException):
     def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
         super().__init__("Write-protected output files", rule, files, include,
