@@ -125,7 +125,7 @@ class Workflow:
         list_input_changes=False, list_params_changes=False,
         summary=False, output_wait=3, nolock=False, unlock=False,
         resources=None, notemp=False, nodeps=False,
-        cleanup_metadata=None, subsnakemake=None):
+        cleanup_metadata=None, subsnakemake=None, updated_files=None):
 
         self.global_resources = dict() if cluster or resources is None else resources
         self.global_resources["_cores"] = cores
@@ -207,10 +207,12 @@ class Workflow:
             # execute subworkflows
             for subworkflow in self.subworkflows:
                 subworkflow_targets = subworkflow.targets(dag)
+                updated = list()
                 if subworkflow_targets:
                     logger.info("Executing subworkflow {}.".format(subworkflow.name))
-                    if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow_targets):
+                    if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow_targets, updated_files=updated):
                         return False
+                    dag.updated_subworkflow_files.update(subworkflow.target(f) for f in updated)
                 else:
                     logger.info("Subworkflow {}: Nothing to be done.".format(subworkflow.name))
             if self.subworkflows:
@@ -231,6 +233,8 @@ class Workflow:
                     "--immediate-submit. Missing input files:\n{}".format(
                         "\n".join(missing_input)))
                 return False
+
+        updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
         if printdag:
             print(dag)
@@ -503,7 +507,7 @@ class Subworkflow:
         return [self.target(path) for path in paths]
 
     def targets(self, dag):
-        return [f for job in dag.needrun_jobs for f in job.subworkflow_input if job.subworkflow_input[f] is self]
+        return [f for job in dag.jobs for f in job.subworkflow_input if job.subworkflow_input[f] is self]
 
 
 class Rules:

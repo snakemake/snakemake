@@ -63,6 +63,7 @@ class DAG:
 
         self.forcerules = set()
         self.forcefiles = set()
+        self.updated_subworkflow_files = set()
         if forceall:
             self.forcerules.update(self.rules)
         elif forcerules:
@@ -379,9 +380,13 @@ class DAG:
         def needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
-            if (job not in self.omitforce and job.rule in self.forcerules
+            updated_subworkflow_input = self.updated_subworkflow_files.intersection(job.input)
+            if (job not in self.omitforce and
+                job.rule in self.forcerules
                 or not self.forcefiles.isdisjoint(job.output)):
                 reason.forced = True
+            elif updated_subworkflow_input:
+                reason.updated_input.update(updated_subworkflow_input)
             elif job in self.targetjobs:
                 # TODO find a way to handle added/removed input files here?
                 if not job.output:

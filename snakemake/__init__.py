@@ -65,6 +65,7 @@ def snakemake(snakefile,
     nodeps=False,
     jobscript=None,
     timestamp=False,
+    updated_files=None,
     log_handler=None):
     """Run snakemake on a given snakefile.
 
@@ -113,8 +114,9 @@ def snakemake(snakefile,
         debug (bool):               show additional debug output (default False)
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
         nodeps (bool):              ignore dependencies (default False)
-        jobscript (str):           path to a custom shell script template for cluster jobs (default None)
+        jobscript (str):            path to a custom shell script template for cluster jobs (default None)
         timestamp (bool):           print time stamps in front of any output (default False)
+        updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
         log_handler (function):      redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
 
             :level:
@@ -160,6 +162,9 @@ def snakemake(snakefile,
         bool:   True if workflow execution was successful.
 
     """
+    if updated_files is None:
+        updated_files = list()
+
     if cluster:
         cores = sys.maxsize
     else:
@@ -251,7 +256,8 @@ def snakemake(snakefile,
                         notemp=notemp,
                         nodeps=nodeps,
                         cleanup_metadata=cleanup_metadata,
-                        subsnakemake=subsnakemake
+                        subsnakemake=subsnakemake,
+                        updated_files=updated_files
                         )
 
     except BrokenPipeError:
