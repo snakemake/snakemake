@@ -551,7 +551,7 @@ def parse(path):
         # add Snakefile directory to path
         compilation.append("import sys; sys.path.insert(0, '{}')".format(os.path.dirname(os.path.abspath(path))))
         compilation.append("\n")
-        lines = 2
+        lines = 1
         for t, orig_token in automaton.consume():
             l = lineno(orig_token)
             linemap.update(
