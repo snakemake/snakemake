@@ -123,7 +123,10 @@ class Logger:
                 fmt = format_item(item, omit=1)
                 if fmt != None:
                     yield fmt
-            
+            resources = format_resources(msg["resources"])
+            if resources:
+                yield "\tresources: " + resources
+
         level = msg["level"]
         if level == "info":
             self.logger.warning(msg["msg"])
@@ -143,6 +146,14 @@ class Logger:
                     self.logger.info("\n".join(job_info(msg)))
             if self.printshellcmds and msg["shellcmd"]:
                 self.logger.info(msg["shellcmd"])
+
+
+def format_resources(resources, omit_resources="_cores _nodes".split()):
+    return ", ".join("{}={}".format(name, value) for name, value in resources.items() if name not in omit_resources)
+
+
+def format_resource_names(resources, omit_resources="_cores _nodes".split()):
+    return ", ".join(name for name in resources if name not in omit_resources)
 
 
 logger = Logger()

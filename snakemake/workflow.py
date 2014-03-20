@@ -11,7 +11,7 @@ from itertools import filterfalse, chain
 from functools import partial
 from operator import attrgetter
 
-from snakemake.logging import logger
+from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder
 from snakemake.exceptions import RuleException, CreateRuleException, \
     UnknownRuleException, NoRulesException, print_exception
@@ -282,6 +282,16 @@ class Workflow:
                 logger.info("Provided cluster nodes: {}".format(nodes))
             else:
                 logger.info("Provided cores: {}".format(cores))
+            provided_resources = format_resources(resources)
+            if provided_resources:
+                logger.info("Provided resources: " + provided_resources)
+            ignored_resources = format_resource_names(set(
+                resource
+                for job in dag.needrun_jobs
+                for resource in job.resources_dict
+                if resource not in resources))
+            if ignored_resources:
+                logger.info("Ignored resources: " + ignored_resources)
             logger.info("\n".join(dag.stats()))
 
         success = scheduler.schedule()

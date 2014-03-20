@@ -434,7 +434,7 @@ class Namedlist(list):
         return hash(tuple(self))
 
     def __str__(self):
-        return " ".join(self)
+        return " ".join(map(str, self))
 
 
 class InputFiles(Namedlist):

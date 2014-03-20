@@ -74,6 +74,7 @@ class AbstractExecutor:
             output=list(format_files(job, job.output, job.ruleio, job.dynamic_output)),
             log=job.log,
             reason=self.dag.reason(job),
+            resources=job.resources_dict,
             priority="highest" if priority == Job.HIGHEST_PRIORITY else priority,
             threads=job.threads,
             shellcmd=job.shellcmd)

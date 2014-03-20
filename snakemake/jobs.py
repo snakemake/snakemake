@@ -40,11 +40,11 @@ class Job:
             self.log, self.ruleio, self.dependencies) = rule.expand_wildcards(
             self.wildcards_dict)
 
-        self.resources = {
+        self.resources_dict = {
             name: min(self.rule.workflow.global_resources.get(name, res), res)
             for name, res in rule.resources.items()}
-        self.threads = self.resources["_cores"]
-        self.resources = Resources(fromdict=self.resources)
+        self.threads = self.resources_dict["_cores"]
+        self.resources = Resources(fromdict=self.resources_dict)
         self._inputsize = None
 
         self.dynamic_output, self.dynamic_input = set(), set()
@@ -239,8 +239,8 @@ class Job:
         except NameError as ex:
             raise RuleException("NameError: " + str(ex), rule=self.rule)
 
-    def json(self):
-        resources = {name: res for name, res in self.resources.items() if name != "_cores"}
+    def properties(self, omit_resources="_cores _nodes".split()):
+        resources = {name: res for name, res in self.resources.items() if name not in omit_resources}
         params = {name: value for name, value in self.params.items()}
         properties = {
             "rule": self.rule.name,
@@ -251,7 +251,10 @@ class Job:
             "threads": self.threads,
             "resources": resources
         }
-        return json.dumps(properties)
+        return properties
+
+    def json(self):
+        return json.dumps(self.properties())
 
     def __repr__(self):
         return self.rule.name
