@@ -77,6 +77,8 @@ def print_exception(ex, linemaps, print_traceback=True):
         logger.error(format_error(
             ex, None,
             show_traceback=print_traceback))
+    elif isinstance(ex, MissingRuleException):
+        logger.error(format_error(ex, None, linemaps=linemaps, snakefile=ex.filename, show_traceback=False))
     elif isinstance(ex, RuleException):
         for e in ex._include + [ex]:
             if not e.omit:
