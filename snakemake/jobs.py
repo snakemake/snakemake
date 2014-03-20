@@ -41,7 +41,7 @@ class Job:
             self.wildcards_dict)
 
         self.resources = {
-            name: min(self.rule.workflow.global_resources.get(name, 0), res)
+            name: min(self.rule.workflow.global_resources.get(name, res), res)
             for name, res in rule.resources.items()}
         self.threads = self.resources["_cores"]
         self.resources = Resources(fromdict=self.resources)
