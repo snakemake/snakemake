@@ -6,6 +6,7 @@ import os
 import shutil
 import signal
 import marshal
+import pickle
 from base64 import urlsafe_b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse, count
@@ -181,7 +182,9 @@ class Persistence:
 
     @lru_cache()
     def code(self, rule):
-        return marshal.dumps(rule.run_func.__code__)
+        code = rule.run_func.__code__
+        d = pickle.dumps((code.co_code, code.co_varnames, code.co_consts, code.co_names))
+        return d
 
     @lru_cache()
     def input(self, job):
