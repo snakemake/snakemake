@@ -83,16 +83,10 @@ class DAG:
             job = self.update([job])
             self.targetjobs.add(job)
 
-        exceptions = defaultdict(list)
         for file in self.targetfiles:
-            try:
-                job = self.update(self.file2jobs(file), file=file)
-                self.targetjobs.add(job)
-            except MissingRuleException as ex:
-                exceptions[file].append(ex)
+            job = self.update(self.file2jobs(file), file=file)
+            self.targetjobs.add(job)
 
-        if exceptions:
-            raise RuleException(include=chain(*exceptions.values()))
         self.update_needrun()
 
     def check_incomplete(self):
@@ -339,6 +333,7 @@ class DAG:
 
         skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 
+        missing_input = job.missing_input
         producer = dict()
         exceptions = dict()
         for file, jobs in potential_dependencies:
@@ -348,23 +343,18 @@ class DAG:
                     skip_until_dynamic=skip_until_dynamic
                         or file in job.dynamic_input)
             except (MissingInputException, CyclicGraphException, PeriodicWildcardError) as ex:
-                exceptions[file] = ex
+                if file in missing_input:
+                    self.delete_job(job, recursive=False)  # delete job from tree
+                    raise ex
 
         for file, job_ in producer.items():
             dependencies[job_].add(file)
             self.depending[job_][job].add(file)
 
-        missing_input = job.missing_input - set(producer)
+        missing_input -= producer.keys()
         if missing_input:
-            include = list()
-            noproducer = list()
-            for f in missing_input:
-                if f in exceptions:
-                    include.append(exceptions[f])
-                else:
-                    noproducer.append(f)
             self.delete_job(job, recursive=False)  # delete job from tree
-            raise MissingInputException(job.rule, noproducer, include=include)
+            raise MissingInputException(job.rule, missing_input)
 
         if skip_until_dynamic:
             self._dynamic.add(job)
