@@ -3,6 +3,9 @@
 import tokenize
 import textwrap
 import os
+from urllib.error import HTTPError
+import urllib.request
+from io import TextIOWrapper
 
 
 __author__ = "Johannes Köster"
@@ -517,7 +520,14 @@ class Snakefile:
 
     def __init__(self, path):
         self.path = path
-        self.file = open(self.path)
+        try:
+            self.file = open(self.path)
+        except FileNotFoundError as e:
+            try:
+                self.file = TextIOWrapper(urllib.request.urlopen(self.path))
+            except HTTPError:
+                raise WorkflowError("Could not open {}.".format(path))
+
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = 0
 

@@ -130,3 +130,6 @@ def test_ruledeps():
 
 def test_persistent_dict():
     run(dpath("test_persistent_dict"))
+
+def test_url_include():
+    run(dpath("test_url_include"))
