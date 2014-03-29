@@ -504,12 +504,16 @@ class Subworkflow:
     def snakefile(self):
         if self._snakefile is None:
             return os.path.abspath(os.path.join(self.workdir, "Snakefile"))
-        return os.path.abspath(os.path.join(self.workflow.basedir, self._snakefile))
+        if not os.path.isabs(self._snakefile):
+            return os.path.abspath(os.path.join(self.workflow.basedir, self._snakefile))
+        return self._snakefile
 
     @property
     def workdir(self):
         workdir = "." if self._workdir is None else self._workdir
-        return os.path.abspath(os.path.join(self.workflow.basedir, workdir))
+        if not os.path.isabs(workdir):
+            return os.path.abspath(os.path.join(self.workflow.basedir, workdir))
+        return workdir
 
     def target(self, paths):
         if not_iterable(paths):
