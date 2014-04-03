@@ -238,6 +238,8 @@ class Job:
                       log=self.log, **_variables)
         except NameError as ex:
             raise RuleException("NameError: " + str(ex), rule=self.rule)
+        except IndexError as ex:
+            raise RuleException("IndexError: " + str(ex), rule=self.rule)
 
     def properties(self, omit_resources="_cores _nodes".split()):
         resources = {name: res for name, res in self.resources.items() if name not in omit_resources}
