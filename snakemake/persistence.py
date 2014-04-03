@@ -183,8 +183,7 @@ class Persistence:
     @lru_cache()
     def code(self, rule):
         code = rule.run_func.__code__
-        d = pickle.dumps((code.co_code, code.co_varnames, code.co_consts, code.co_names))
-        return d
+        return pickle_code(code)
 
     @lru_cache()
     def input(self, job):
@@ -257,3 +256,10 @@ class Persistence:
         # we consider all input files, also of not running jobs
         return jobfiles(self.dag.jobs, "input")
 
+
+def pickle_code(code):
+    consts = [
+        (pickle_code(const) if type(const) == type(code) else const)
+        for const in code.co_consts
+    ]
+    return pickle.dumps((code.co_code, code.co_varnames, consts, code.co_names))
