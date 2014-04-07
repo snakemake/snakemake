@@ -446,7 +446,7 @@ class Rule(GlobalKeywordState):
         if is_name(token):
             self.rulename = token.string
         elif is_colon(token):
-            self.lineno = lineno(token)
+            self.lineno = self.snakefile.lines
             self.state = self.block
             for t in self.start():
                 yield t, token
@@ -530,6 +530,7 @@ class Snakefile:
 
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = 0
+        self.lines = 1
 
     def __next__(self):
         return next(self.tokens)
@@ -561,13 +562,11 @@ def parse(path):
         # add Snakefile directory to path
         compilation.append("import sys; sys.path.insert(0, '{}')".format(os.path.dirname(os.path.abspath(path))))
         compilation.append("\n")
-        lines = 1
         for t, orig_token in automaton.consume():
             l = lineno(orig_token)
             linemap.update(
-                dict((i, l) for i in range(lines, lines + t.count("\n"))))
-            lines += t.count("\n")
+                dict((i, l) for i in range(snakefile.lines, snakefile.lines + t.count("\n"))))
+            snakefile.lines += t.count("\n")
             compilation.append(t)
         compilation = "".join(format_tokens(compilation))
-        #print(compilation)
         return compilation, linemap
