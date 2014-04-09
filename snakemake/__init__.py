@@ -564,7 +564,8 @@ def main():
             debug=args.debug,
             jobscript=args.jobscript,
             notemp=args.notemp,
-            timestamp=args.timestamp)
+            timestamp=args.timestamp,
+            output_wait=args.output_wait)
 
     if args.profile:
         with open(args.profile, "w") as out:
