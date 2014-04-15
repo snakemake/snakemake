@@ -264,6 +264,10 @@ def dynamic(value):
                     "The wildcards in dynamic files cannot be constrained.")
     return annotated
 
+# TODO handle flag, hide it in prints?
+def done(prefix, *wildcards):
+    return flag(".snakemake/done/{}.{}.done".format(prefix, ".".join(wildcards)), "done")
+
 
 def expand(*args, **wildcards):
     """
