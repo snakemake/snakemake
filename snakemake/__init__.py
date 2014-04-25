@@ -63,6 +63,7 @@ def snakemake(snakefile,
     debug=False,
     notemp=False,
     nodeps=False,
+    keep_target_files=False,
     jobscript=None,
     timestamp=False,
     updated_files=None,
@@ -114,6 +115,7 @@ def snakemake(snakefile,
         debug (bool):               show additional debug output (default False)
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
         nodeps (bool):              ignore dependencies (default False)
+        keep_target_files (bool):   Do not adjust the paths of given target files relative to the working directory.
         jobscript (str):            path to a custom shell script template for cluster jobs (default None)
         timestamp (bool):           print time stamps in front of any output (default False)
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
@@ -255,15 +257,17 @@ def snakemake(snakefile,
                         resources=resources,
                         notemp=notemp,
                         nodeps=nodeps,
+                        keep_target_files=keep_target_files,
                         cleanup_metadata=cleanup_metadata,
                         subsnakemake=subsnakemake,
                         updated_files=updated_files
                         )
 
-    except BrokenPipeError:
+    # BrokenPipeError is not present in Python 3.2, so lets wait until everbody uses > 3.2
+    #except BrokenPipeError:
         # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
         # in such a case, snakemake shall stop scheduling and quit with error 1
-        success = False
+    #    success = False
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)
         success = False
@@ -484,6 +488,9 @@ def get_argument_parser():
         "probably needed files by other parts of the workflow."
         )
     parser.add_argument(
+        "--keep-target-files", action="store_true",
+        help="Do not adjust the paths of given target files relative to the working directory.")
+    parser.add_argument(
         '--timestamp', '-T', action='store_true',
         help='Add a timestamp to all logging output')
     parser.add_argument(
@@ -565,7 +572,8 @@ def main():
             jobscript=args.jobscript,
             notemp=args.notemp,
             timestamp=args.timestamp,
-            output_wait=args.output_wait)
+            output_wait=args.output_wait,
+            keep_target_files=args.keep_target_files)
 
     if args.profile:
         with open(args.profile, "w") as out:

@@ -125,7 +125,7 @@ class Workflow:
         list_input_changes=False, list_params_changes=False,
         summary=False, output_wait=3, nolock=False, unlock=False,
         resources=None, notemp=False, nodeps=False,
-        cleanup_metadata=None, subsnakemake=None, updated_files=None):
+        cleanup_metadata=None, subsnakemake=None, updated_files=None, keep_target_files=False):
 
         self.global_resources = dict() if cluster or resources is None else resources
         self.global_resources["_cores"] = cores
@@ -134,8 +134,12 @@ class Workflow:
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
 
-        def files(items):
-            return map(os.path.relpath, filterfalse(self.is_rule, items))
+        if keep_target_files:
+            def files(items):
+                return filterfalse(self.is_rule, items)
+        else:
+            def files(items):
+                return map(os.path.relpath, filterfalse(self.is_rule, items))
 
         if workdir is None:
             workdir = os.getcwd() if self._workdir is None else self._workdir

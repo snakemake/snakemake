@@ -530,7 +530,7 @@ class Snakefile:
 
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = 0
-        self.lines = 1
+        self.lines = 2
 
     def __next__(self):
         return next(self.tokens)
