@@ -37,6 +37,7 @@ class Rule:
             self.dynamic_input = set()
             self.temp_output = set()
             self.protected_output = set()
+            self.touch_output = set()
             self.subworkflow_input = dict()
             self.resources = dict(_cores=1, _nodes=1)
             self.priority = 1
@@ -62,6 +63,7 @@ class Rule:
             self.dynamic_input = other.dynamic_input
             self.temp_output = other.temp_output
             self.protected_output = other.protected_output
+            self.touch_output = other.touch_output
             self.subworkflow_input = other.subworkflow_input
             self.resources = other.resources
             self.priority = other.priority
@@ -104,6 +106,9 @@ class Rule:
                 if old in branch.protected_output:
                     branch.protected_output.discard(old)
                     branch.protected_output.update(exp)
+                if old in branch.touch_output:
+                    branch.touch_output.discard(old)
+                    branch.touch_output.update(exp)
 
             branch.wildcard_names.clear()
             non_dynamic_wildcards = dict(
@@ -202,6 +207,10 @@ class Rule:
                 if not output:
                     raise SyntaxError("Only output files may be protected")
                 self.protected_output.add(_item)
+            if is_flagged(item, "touch"):
+                if not output:
+                    raise SyntaxError("Only output files may be marked for touching.")
+                self.touch_output.add(_item)
             if is_flagged(item, "dynamic"):
                 if output:
                     self.dynamic_output.add(_item)

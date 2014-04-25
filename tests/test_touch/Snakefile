@@ -1,0 +1,5 @@
+rule:
+    output:
+        touch("test.out")
+    shell:
+        "exit 0"

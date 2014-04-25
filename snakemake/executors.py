@@ -85,6 +85,7 @@ class AbstractExecutor:
                     "depending on the output of this rule")
 
     def finish_job(self, job):
+        self.dag.handle_touch(job)
         self.dag.check_output(job, wait=self.output_wait)
         self.dag.handle_protected(job)
         self.dag.handle_temp(job)

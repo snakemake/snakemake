@@ -49,6 +49,7 @@ class Job:
 
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
+        self.touch_output = set()
         self.subworkflow_input = dict()
         for f in self.output:
             f_ = self.ruleio[f]
@@ -58,6 +59,8 @@ class Job:
                 self.temp_output.add(f)
             if f_ in self.rule.protected_output:
                 self.protected_output.add(f)
+            if f_ in self.rule.touch_output:
+                self.touch_output.add(f)
         for f in self.input:
             f_ = self.ruleio[f]
             if f_ in self.rule.dynamic_input:

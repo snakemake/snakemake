@@ -133,3 +133,6 @@ def test_persistent_dict():
 
 def test_url_include():
     run(dpath("test_url_include"))
+
+def test_touch():
+    run(dpath("test_touch"))

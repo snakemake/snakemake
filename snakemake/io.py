@@ -94,6 +94,14 @@ class _IOFile(str):
             else:
                 raise e
 
+    def touch_or_create(self):
+        try:
+            self.touch()
+        except MissingOutputException:
+            # create empty file
+            with open(self.file, "w") as f:
+                pass
+
     def apply_wildcards(
         self, wildcards, fill_missing=False,
         fail_dynamic=False):
@@ -263,6 +271,10 @@ def dynamic(value):
                 raise SyntaxError(
                     "The wildcards in dynamic files cannot be constrained.")
     return annotated
+
+
+def touch(value):
+    return flag(value, "touch")
 
 
 def expand(*args, **wildcards):

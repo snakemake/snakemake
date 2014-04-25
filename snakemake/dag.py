@@ -242,8 +242,15 @@ class DAG:
         """ Write-protect output files that are marked with protected(). """
         for f in job.expanded_output:
             if f in job.protected_output:
-                logger.info("Write-protecting output file {}".format(f))
+                logger.info("Write-protecting output file {}.".format(f))
                 f.protect()
+
+    def handle_touch(self, job):
+        """ Touches those output files that are marked for touching. """
+        for f in job.expanded_output:
+            if f in job.touch_output:
+                logger.info("Touching output file {}.".format(f))
+                f.touch_or_create()
 
     def handle_temp(self, job):
         """ Remove temp files if they are no longer needed. """
@@ -264,7 +271,7 @@ class DAG:
                     yield f
 
         for f in unneeded_files():
-            logger.info("Removing temporary output file {}".format(f))
+            logger.info("Removing temporary output file {}.".format(f))
             f.remove()
 
     def jobid(self, job):
@@ -489,6 +496,7 @@ class DAG:
 
                 self.postprocess()
                 self.handle_protected(newjob)
+                self.handle_touch(newjob)
 
     def update_dynamic(self, job):
         dynamic_wildcards = job.dynamic_wildcards
