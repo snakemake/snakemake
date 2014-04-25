@@ -59,6 +59,7 @@ def snakemake(snakefile,
     list_params_changes=False,
     summary=False,
     output_wait=3,
+    input_wait=3,
     print_compilation=False,
     debug=False,
     notemp=False,
@@ -110,7 +111,8 @@ def snakemake(snakefile,
         list_input_changes (bool):  list output files with changed input files (default False)
         list_params_changes (bool): list output files with changed params (default False)
         summary (bool):             list summary of all output files and their status (default False)
-        output_wait (bool):         how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
+        output_wait (int):          how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
+        input_wait (int):           how many seconds to wait for an input file to appear before job is executed (default 3)
         print_compilation (bool):   print the compilation of the snakefile (default False)
         debug (bool):               show additional debug output (default False)
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
@@ -228,6 +230,7 @@ def snakemake(snakefile,
                         force_incomplete=force_incomplete,
                         ignore_incomplete=ignore_incomplete,
                         output_wait=output_wait,
+                        input_wait=input_wait,
                         debug=debug,
                         notemp=notemp,
                         nodeps=nodeps,
@@ -252,6 +255,7 @@ def snakemake(snakefile,
                         list_params_changes=list_params_changes,
                         summary=summary,
                         output_wait=output_wait,
+                        input_wait=input_wait,
                         nolock=not lock,
                         unlock=unlock,
                         resources=resources,
@@ -260,7 +264,7 @@ def snakemake(snakefile,
                         keep_target_files=keep_target_files,
                         cleanup_metadata=cleanup_metadata,
                         subsnakemake=subsnakemake,
-                        updated_files=updated_files
+                        updated_files=updated_files,
                         )
 
     # BrokenPipeError is not present in Python 3.2, so lets wait until everbody uses > 3.2
@@ -480,7 +484,12 @@ def get_argument_parser():
         "--output-wait", "-w", type=int, default=3, metavar="SECONDS",
         help="Wait given seconds if an output file of a job is not present after "
         "the job finished. This helps if your filesystem "
-        "suffers from latency.")
+        "suffers from latency (default 3).")
+    parser.add_argument(
+        "--input-wait", type=int, default=3, metavar="SECONDS",
+        help="Wait given seconds if an input file of a job is not present before "
+        "the job is executed. This helps if your filesystem "
+        "suffers from latency (default 0).")
     parser.add_argument(
         "--notemp", "--nt", action="store_true",
         help="Ignore temp() declarations. This is useful when running only "
@@ -573,6 +582,7 @@ def main():
             notemp=args.notemp,
             timestamp=args.timestamp,
             output_wait=args.output_wait,
+            input_wait=args.input_wait,
             keep_target_files=args.keep_target_files)
 
     if args.profile:

@@ -123,7 +123,7 @@ class Workflow:
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
-        summary=False, output_wait=3, nolock=False, unlock=False,
+        summary=False, output_wait=3, input_wait=3, nolock=False, unlock=False,
         resources=None, notemp=False, nodeps=False,
         cleanup_metadata=None, subsnakemake=None, updated_files=None, keep_target_files=False):
 
@@ -279,7 +279,7 @@ class Workflow:
             jobname=jobname, immediate_submit=immediate_submit,
             quiet=quiet, keepgoing=keepgoing,
             printreason=printreason, printshellcmds=printshellcmds,
-            output_wait=output_wait)
+            output_wait=output_wait, input_wait=input_wait)
 
         if not dryrun and not quiet and len(dag):
             if cluster:

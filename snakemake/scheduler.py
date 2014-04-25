@@ -35,7 +35,8 @@ class JobScheduler:
         printreason=False,
         printshellcmds=False,
         keepgoing=False,
-        output_wait=3):
+        output_wait=3,
+        input_wait=3):
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.dag = dag
@@ -69,24 +70,25 @@ class JobScheduler:
             self._executor = DryrunExecutor(
                 workflow, dag, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
-                output_wait=output_wait)
+                output_wait=output_wait, input_wait=input_wait)
             self.rule_reward = self.dryrun_rule_reward
         elif touch:
             self._executor = TouchExecutor(
                 workflow, dag, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
-                output_wait=output_wait)
+                output_wait=output_wait, input_wait=input_wait)
         elif cluster:
             # TODO properly set cores
             self._local_executor = CPUExecutor(
                 workflow, dag, cores, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
-                output_wait=output_wait)
+                output_wait=output_wait, input_wait=input_wait)
             self._executor = ClusterExecutor(
                 workflow, dag, None, submitcmd=cluster, jobname=jobname,
                 printreason=printreason, quiet=quiet,
-                printshellcmds=printshellcmds, output_wait=output_wait)
+                printshellcmds=printshellcmds, output_wait=output_wait,
+                input_wait=input_wait)
             if immediate_submit:
                 self.rule_reward = self.dryrun_rule_reward
                 self._submit_callback = partial(
@@ -101,7 +103,7 @@ class JobScheduler:
                 workflow, dag, cores, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
-                output_wait=output_wait)
+                output_wait=output_wait, input_wait=input_wait)
         self._open_jobs.set()
 
     @property

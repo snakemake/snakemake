@@ -14,6 +14,7 @@ from snakemake.io import IOFile, Wildcards, Resources, _IOFile
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException
 from snakemake.exceptions import UnexpectedOutputException
+from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
 
@@ -193,12 +194,23 @@ class Job:
         if protected:
             raise ProtectedOutputException(self.rule, protected)
 
-    def prepare(self):
+    def prepare(self, input_wait=3):
         """
         Prepare execution of job.
         This includes creation of directories and deletion of previously
         created dynamic files.
         """
+        # wait for input files which might not be present due to filesystem latency
+        input_exists = lambda: all(f.exists for f in self.input)
+        if not input_exists():
+            logger.info("Input file not present. Waiting at most {} seconds to ensure that "
+                "this is not because of filesystem "
+                "latency.".format(input_wait))
+        for i in range(input_wait):
+            if input_exists():
+                break
+            time.sleep(1)
+
         self.check_protected_output()
 
         unexpected_output = self.dag.reason(self).missing_output.intersection(
