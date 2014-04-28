@@ -765,7 +765,7 @@ class DAG:
             return "{}: {}".format(name, value)
 
         node2rule = lambda job: job.rule
-        node2label = lambda job: "\\n".join(chain([job.rule.name], map(format_wildcard, self.new_wildcards(job))))
+        node2label = lambda job: "\\n".join(chain([job.rule.name], sorted(map(format_wildcard, self.new_wildcards(job)))))
 
         dag = {job: self.dependencies[job] for job in self.jobs}
 
