@@ -157,6 +157,9 @@ class RuleException(Exception):
         return map(str, (ex for ex in self._include + [self] if not ex.omit))
 
 
+class InputFunctionException(RuleException):
+    pass
+
 class MissingOutputException(RuleException):
     pass
 
@@ -216,7 +219,7 @@ class CyclicGraphException(RuleException):
 class MissingRuleException(RuleException):
     def __init__(self, file, lineno=None, snakefile=None):
         super().__init__(
-            "No rule to produce {}.".format(file),
+            "No rule to produce {} (if you use input functions make sure that they don't raise unexpected exceptions).".format(file),
             lineno=lineno, snakefile=snakefile)
 
 

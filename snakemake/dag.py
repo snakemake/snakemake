@@ -14,7 +14,7 @@ from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException
 from snakemake.exceptions import PeriodicWildcardError
-from snakemake.exceptions import UnexpectedOutputException
+from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
 
 
@@ -702,7 +702,13 @@ class DAG:
 
     @lru_cache()
     def file2jobs(self, targetfile):
-        jobs = [Job(rule, self, targetfile=targetfile) for rule in self.rules if rule.is_producer(targetfile)]
+        jobs = []
+        for rule in self.rules:
+            if rule.is_producer(targetfile):
+                try:
+                    jobs.append(Job(rule, self, targetfile=targetfile))
+                except InputFunctionException:
+                    pass
         if not jobs:
             raise MissingRuleException(targetfile)
         return jobs

@@ -10,7 +10,7 @@ from collections import defaultdict
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
-from snakemake.exceptions import RuleException, IOFileException, WildcardError
+from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException
 
 __author__ = "Johannes Köster"
 
@@ -294,7 +294,10 @@ class Rule:
                 start = len(newitems)
                 is_iterable = True
                 if callable(item):
-                    item = item(wildcards_obj)
+                    try:
+                        item = item(wildcards_obj)
+                    except:
+                        raise InputFunctionException(rule=self)
                     if not_iterable(item):
                         item = [item]
                         is_iterable = False
