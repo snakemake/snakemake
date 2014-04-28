@@ -382,8 +382,7 @@ class Shell(Run):
         yield "\n"
         yield INDENT * (self.effective_indent + 1)
         yield "shell("
-        for t in self.shellcmd:
-            yield t
+        yield "\n".join(self.shellcmd)
         yield "\n"
         yield ")"
         for t in super().end():
