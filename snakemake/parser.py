@@ -8,6 +8,9 @@ import urllib.request
 from io import TextIOWrapper
 
 
+from snakemake.exceptions import WorkflowError
+
+
 __author__ = "Johannes Köster"
 
 
@@ -524,7 +527,7 @@ class Snakefile:
         except FileNotFoundError as e:
             try:
                 self.file = TextIOWrapper(urllib.request.urlopen(self.path))
-            except HTTPError:
+            except (HTTPError, ValueError):
                 raise WorkflowError("Could not open {}.".format(path))
 
         self.tokens = tokenize.generate_tokens(self.file.readline)
