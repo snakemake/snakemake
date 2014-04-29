@@ -311,14 +311,6 @@ class DAG:
                 producer = job
             except (MissingInputException, CyclicGraphException) as ex:
                 exceptions.append(ex)
-            except RuntimeError as ex:
-                if (isinstance(ex, RuntimeError) and
-                    str(ex).startswith("maximum recursion depth exceeded")):
-                    ex = RuleException("Maximum recursion depth exceeded. "
-                        "Maybe you have a cyclic dependency due to infinitely "
-                        "filled wildcards?\nProblematic "
-                        "input file:\n{}".format(file), rule=job.rule)
-                raise ex
         if producer is None:
             if cycles:
                 job = cycles[0]
