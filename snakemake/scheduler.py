@@ -239,25 +239,29 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             while True:
                 # Step 2: compute effective capacities
                 y = [
-                    (
-                        min(
-                            (min(u[j], b_i // a_j_i) if a_j_i > 0 else u[j])
-                            for b_i, a_j_i in zip(b, a[j]) if a_j_i)
-                        if j in E else 0)
-                    for j in range(n)]
+                        (
+                            min(
+                                (min(u[j], b_i // a_j_i) if a_j_i > 0 else u[j])
+                                for b_i, a_j_i in zip(b, a[j]) if a_j_i
+                            )
+                            if j in E else 0
+                        )
+                        for j in range(n)
+                    ]
                 if not any(y):
                     break
+                y = [(max(1, alpha * y_j) if y_j > 0 else 0) for y_j in y]
 
                 # Step 3: compute rewards on cumulative sums and normalize by y
                 # in order to not prefer rules with small weights / many jobs
                 reward = [(
-                    [((crit[x_j + y_j] - crit[x_j]) / y_j if y_j else 0) for crit in c_j]
+                    [(crit[x_j + y_j] - crit[x_j]) for crit in c_j]
                     if j in E else [0] * len(c_j))
                     for j, (c_j, y_j, x_j) in enumerate(zip(c, y, x))]
                 j_sel = max(E, key=reward.__getitem__)  # argmax
 
                 # Step 4: batch increment
-                y_sel = min(u[j_sel], max(1, alpha * y[j_sel]))
+                y_sel = y[j_sel]
 
                 # Step 5: update information
                 x[j_sel] += y_sel
