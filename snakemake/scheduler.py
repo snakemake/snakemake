@@ -249,7 +249,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                     break
 
                 # Step 3: compute rewards on cumulative sums and normalize by y
-                # in order to not prefer rules with small weights
+                # in order to not prefer rules with small weights / many jobs
                 reward = [(
                     [((crit[x_j + y_j] - crit[x_j]) / y_j if y_j else 0) for crit in c_j]
                     if j in E else [0] * len(c_j))
