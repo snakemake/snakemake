@@ -206,11 +206,15 @@ class JobScheduler:
             else:
                 self._open_jobs.set()
 
-    def job_selector(self, jobs):
+    def job_selector(self, jobs, alpha=1):
         """
         Using the greedy heuristic from
         "A Greedy Algorithm for the General Multidimensional Knapsack
 Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
+
+        Args:
+            jobs (list):    list of jobs
+            alpha (float):  greedyness (1 means take all possible jobs for a selected rule)
         """
         with self._lock:
             # solve over the rules instead of jobs (much less)
@@ -222,9 +226,6 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             for _jobs in jobs.values():
                 _jobs.sort(key=self.dag.priority, reverse=True)
             rules = list(jobs)
-
-            # greedyness (1 means take all possible jobs for a selected rule
-            alpha = 1
 
             # Step 1: initialization
             n = len(rules)
