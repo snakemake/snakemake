@@ -40,7 +40,7 @@ class Rule:
             self.touch_output = set()
             self.subworkflow_input = dict()
             self.resources = dict(_cores=1, _nodes=1)
-            self.priority = 1
+            self.priority = 0
             self.version = None
             self._log = None
             self.wildcard_names = set()

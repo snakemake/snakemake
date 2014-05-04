@@ -119,8 +119,8 @@ class Logger:
                 fmt = format_item(item, omit=None)
                 if fmt != None:
                     yield fmt
-            for item in "priority threads".split():
-                fmt = format_item(item, omit=1)
+            for item, omit in zip("priority threads".split(), [0,1]):
+                fmt = format_item(item, omit=omit)
                 if fmt != None:
                     yield fmt
             resources = format_resources(msg["resources"])
