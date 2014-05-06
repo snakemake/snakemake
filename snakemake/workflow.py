@@ -305,7 +305,7 @@ class Workflow:
                 if not quiet:
                     logger.info("\n".join(dag.stats()))
             elif stats:
-                scheduler.stats.to_csv(stats)
+                scheduler.stats.to_json(stats)
         else:
             logger.error(
                 "Exiting because a job execution failed. "

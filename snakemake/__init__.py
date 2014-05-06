@@ -440,7 +440,7 @@ def get_argument_parser():
         help="Print the reason for each executed rule.")
     parser.add_argument(
         "--stats", metavar="FILE",
-        help="Write stats about Snakefile execution to the given file.")
+        help="Write stats about Snakefile execution in JSON format to the given file.")
     parser.add_argument(
         "--nocolor", action = "store_true",
         help="Do not use a colored output.")

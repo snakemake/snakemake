@@ -1,10 +1,11 @@
 
 import time
 import csv
+import json
 from collections import defaultdict
 
+import snakemake.jobs
 
-fmt_float = "{:.2f}".format
 fmt_time = time.ctime
 
 
@@ -12,48 +13,63 @@ class Stats:
     def __init__(self):
         self.starttime = dict()
         self.endtime = dict()
+        self.priority = dict()
 
     def report_job_start(self, job):
         self.starttime[job] = time.time()
+        self.priority[job] = job.priority
 
     def report_job_end(self, job):
         self.endtime[job] = time.time()
 
     @property
-    def rule_runtimes(self):
+    def rule_stats(self):
         runtimes = defaultdict(list)
         for job, t in self.starttime.items():
             runtimes[job.rule].append(self.endtime[job] - t)
         for rule, runtimes in runtimes.items():
             yield (
                 rule,
-                fmt_float(sum(runtimes) / len(runtimes)),
-                fmt_float(min(runtimes)), fmt_float(max(runtimes)))
+                sum(runtimes) / len(runtimes),
+                min(runtimes), max(runtimes))
 
     @property
-    def file_runtimes(self):
+    def file_stats(self):
         for job, t in self.starttime.items():
             for f in job.expanded_output:
                 start, stop = t, self.endtime[job]
-                yield f, fmt_time(start), fmt_time(stop), fmt_float(stop - start)
+                priority = self.priority[job]
+                yield f, fmt_time(start), fmt_time(stop), stop - start, priority
 
     @property
     def overall_runtime(self):
         if self.starttime and self.endtime:
-            return fmt_float(max(self.endtime.values()) - min(self.starttime.values()))
+            return max(self.endtime.values()) - min(self.starttime.values())
         else:
-            return fmt_float(0)
+            return 0
 
-    def to_csv(self, path):
+    def to_json(self, path):
+        rule_stats = {
+            rule.name: {
+                "mean-runtime": mean_runtime,
+                "min-runtime": min_runtime,
+                "max-runtime": max_runtime
+            }
+            for rule, mean_runtime, min_runtime, max_runtime in self.rule_stats
+        }
+        file_stats = {
+            f: {
+                "start-time": start,
+                "stop-time": stop,
+                "duration": duration,
+                "priority": priority if priority != snakemake.jobs.Job.HIGHEST_PRIORITY else "highest"
+            }
+            for f, start, stop, duration, priority in self.file_stats
+        }
+
         with open(path, "w") as f:
-            writer = csv.writer(f, delimiter="\t")
-            writer.writerow("overall-runtime".split())
-            writer.writerow([self.overall_runtime])
-            writer.writerow(
-                "rule mean-runtime min-runtime max-runtime".split())
-            for runtime in self.rule_runtimes:
-                writer.writerow(runtime)
-            writer.writerow(list())
-            writer.writerow("file start-time stop-time duration".split())
-            for runtime in self.file_runtimes:
-                writer.writerow(runtime)
+            json.dump({
+                "total_runtime": self.overall_runtime,
+                "rules": rule_stats,
+                "files": file_stats
+            }, f, indent=4)
