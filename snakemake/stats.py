@@ -13,11 +13,9 @@ class Stats:
     def __init__(self):
         self.starttime = dict()
         self.endtime = dict()
-        self.priority = dict()
 
     def report_job_start(self, job):
         self.starttime[job] = time.time()
-        self.priority[job] = job.priority
 
     def report_job_end(self, job):
         self.endtime[job] = time.time()
@@ -38,8 +36,7 @@ class Stats:
         for job, t in self.starttime.items():
             for f in job.expanded_output:
                 start, stop = t, self.endtime[job]
-                priority = self.priority[job]
-                yield f, fmt_time(start), fmt_time(stop), stop - start, priority
+                yield f, fmt_time(start), fmt_time(stop), stop - start, job
 
     @property
     def overall_runtime(self):
@@ -62,9 +59,10 @@ class Stats:
                 "start-time": start,
                 "stop-time": stop,
                 "duration": duration,
-                "priority": priority if priority != snakemake.jobs.Job.HIGHEST_PRIORITY else "highest"
+                "priority": job.priority if job.priority != snakemake.jobs.Job.HIGHEST_PRIORITY else "highest",
+                "resources": job.resources_dict
             }
-            for f, start, stop, duration, priority in self.file_stats
+            for f, start, stop, duration, job in self.file_stats
         }
 
         with open(path, "w") as f:
