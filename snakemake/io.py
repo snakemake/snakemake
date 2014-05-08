@@ -409,7 +409,6 @@ class Namedlist(list):
             yield name, getattr(self, name)
 
     def allitems(self):
-        print(self, self._names)
         next = 0
         for name, index in sorted(
             self._names.items(),
