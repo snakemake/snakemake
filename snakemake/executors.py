@@ -194,9 +194,12 @@ class CPUExecutor(RealExecutor):
 
 class ClusterExecutor(RealExecutor):
 
+    default_jobscript = "jobscript.sh"
+
     def __init__(
-        self, workflow, dag, cores, submitcmd="qsub", jobname="snakejob.{rulename}.{jobid}.sh",
-        printreason=False, quiet=False, printshellcmds=False, output_wait=3, input_wait=0):
+        self, workflow, dag, cores, jobname="snakejob.{rulename}.{jobid}.sh",
+        printreason=False, quiet=False, printshellcmds=False,
+        output_wait=3, input_wait=0):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
             printshellcmds=printshellcmds, output_wait=output_wait, input_wait=input_wait)
@@ -209,7 +212,7 @@ class ClusterExecutor(RealExecutor):
         if jobscript is None:
             jobscript = os.path.join(
                 os.path.dirname(__file__),
-                'jobscript.sh')
+                self.default_jobscript)
         try:
             with open(jobscript) as f:
                 self.jobscript = f.read()
@@ -217,19 +220,50 @@ class ClusterExecutor(RealExecutor):
             raise WorkflowError(e)
 
         if not "jobid" in get_wildcard_names(jobname):
-            raise WorkflowError("Defined jobname (\"{}\") has to contain the wildcard {jobid}.")
+            raise WorkflowError(
+                "Defined jobname (\"{}\") has to contain the wildcard {jobid}.")
 
-        self.submitcmd = submitcmd
         self.jobname = jobname
         self.threads = []
         self._tmpdir = None
         self.cores = cores if cores else ""
-        self.external_jobid = dict()
 
     def shutdown(self):
         for thread in self.threads:
             thread.join()
         shutil.rmtree(self.tmpdir)
+
+    @property
+    def tmpdir(self):
+        if self._tmpdir is None:
+            while True:
+                self._tmpdir = ".snakemake.tmp." + "".join(random.sample(
+                    string.ascii_uppercase + string.digits, 6))
+                if not os.path.exists(self._tmpdir):
+                    os.mkdir(self._tmpdir)
+                    break
+        return os.path.abspath(self._tmpdir)
+
+    def get_jobscript(self, job):
+        return os.path.join(self.tmpdir, self.jobname.format(rulename=job.rule.name, jobid=self.dag.jobid(job)))
+
+    def spawn_jobscript(self, job, jobscript, **kwargs):
+        workdir = os.getcwd()
+        with open(jobscript, "w") as f:
+            print(format(self.jobscript, workflow=self.workflow, cores=self.cores, input_wait=self.input_wait, **kwargs), file=f)
+        os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
+
+class GenericClusterExecutor(ClusterExecutor):
+
+    def __init__(
+        self, workflow, dag, cores, submitcmd="qsub", jobname="snakejob.{rulename}.{jobid}.sh",
+        printreason=False, quiet=False, printshellcmds=False, output_wait=3, input_wait=0):
+        super().__init__(
+            workflow, dag, cores, jobname=jobname,
+            printreason=printreason, quiet=quiet,
+            printshellcmds=printshellcmds, output_wait=output_wait, input_wait=input_wait)
+        self.submitcmd = submitcmd
+        self.external_jobid = dict()
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
@@ -241,9 +275,9 @@ class ClusterExecutor(RealExecutor):
         jobscript = self.get_jobscript(job)
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
         jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
-        with open(jobscript, "w") as f:
-            print(format(self.jobscript, workflow=self.workflow, cores=self.cores, input_wait=self.input_wait), file=f)
-        os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
+        self.spawn_jobscript(
+            job, jobscript,
+            jobfinished=jobfinished, jobfailed=jobfailed, properties=properties)
 
         deps = " ".join(self.external_jobid[f] for f in job.input if f in self.external_jobid)
         submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps)
@@ -289,19 +323,59 @@ class ClusterExecutor(RealExecutor):
                 return
             time.sleep(1)
 
-    @property
-    def tmpdir(self):
-        if self._tmpdir is None:
-            while True:
-                self._tmpdir = ".snakemake.tmp." + "".join(random.sample(
-                    string.ascii_uppercase + string.digits, 6))
-                if not os.path.exists(self._tmpdir):
-                    os.mkdir(self._tmpdir)
-                    break
-        return os.path.abspath(self._tmpdir)
 
-    def get_jobscript(self, job):
-        return os.path.join(self.tmpdir, self.jobname.format(rulename=job.rule.name, jobid=self.dag.jobid(job)))
+class DRMAAExecutor(ClusterExecutor):
+    default_jobscript = "drmaa_jobscript.sh"
+
+    def __init__(
+        self, workflow, dag, cores, jobname="snakejob.{rulename}.{jobid}.sh",
+        printreason=False, quiet=False, printshellcmds=False,
+        output_wait=3, input_wait=0):
+        super().__init__(workflow, dag, cores, jobname=jobname,
+            printreason=printreason, quiet=quiet,
+            printshellcmds=printshellcmds, output_wait=output_wait,
+            input_wait=input_wait)
+        import drmaa
+        self.session = drmaa.Session()
+        self.session.initialize()
+
+    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+        jobscript = self.get_jobscript(job)
+        self.spawn_jobscript(job, jobscript)
+        jt = self.session.createJobTemplate()
+        jt.remoteCommand = jobscript
+        jt.joinFiles = True
+
+        jobid = self.session.runJob(jt)
+        self.session.deleteJobTemplate(jt)
+
+        thread = threading.Thread(
+            target=self._wait_for_job,
+            args=(job, callback, error_callback,
+                jobscript))
+        thread.daemon = True
+        thread.start()
+        self.threads.append(thread)
+
+        submit_callback(job)
+
+    def shutdown(self):
+        super().shutdown()
+        self.session.exit()
+
+    def _wait_for_job(
+        self, job, jobid, callback, error_callback,
+        jobscript):
+        retval = self.session.wait(jobid, drmaa.Session.TIMEOUT_WAIT_FOREVER)
+        os.remove(jobscript)
+        if retval.exitStatus == 0:
+            self.finish_job(job)
+            callback(job)
+        else:
+            print_exception(
+                ClusterJobException(job, self.dag.jobid(job), jobscript),
+                self.workflow.linemaps)
+            error_callback(job)
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log, linemaps):

@@ -9,7 +9,7 @@ from collections import defaultdict
 from itertools import chain, accumulate
 
 from snakemake.executors import DryrunExecutor, TouchExecutor
-from snakemake.executors import ClusterExecutor, CPUExecutor
+from snakemake.executors import GenericClusterExecutor, CPUExecutor
 from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
@@ -84,7 +84,7 @@ class JobScheduler:
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
                 output_wait=output_wait, input_wait=input_wait)
-            self._executor = ClusterExecutor(
+            self._executor = GenericClusterExecutor(
                 workflow, dag, None, submitcmd=cluster, jobname=jobname,
                 printreason=printreason, quiet=quiet,
                 printshellcmds=printshellcmds, output_wait=output_wait,
