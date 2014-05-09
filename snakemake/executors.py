@@ -335,7 +335,11 @@ class DRMAAExecutor(ClusterExecutor):
             printreason=printreason, quiet=quiet,
             printshellcmds=printshellcmds, output_wait=output_wait,
             input_wait=input_wait)
-        import drmaa
+        try:
+            import drmaa
+        except ImportError:
+            raise WorkflowError("Python support for DRMAA is not installed. "
+            "Please install it, e.g. with easy_install3 --user drmaa")
         self.session = drmaa.Session()
         self.session.initialize()
 
