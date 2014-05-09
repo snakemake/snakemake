@@ -58,6 +58,7 @@ def snakemake(snakefile,
     list_input_changes=False,
     list_params_changes=False,
     summary=False,
+    detailed_summary=False,
     output_wait=3,
     input_wait=3,
     print_compilation=False,
@@ -111,6 +112,7 @@ def snakemake(snakefile,
         list_input_changes (bool):  list output files with changed input files (default False)
         list_params_changes (bool): list output files with changed params (default False)
         summary (bool):             list summary of all output files and their status (default False)
+        detailed_summary (bool):    list summary of all input and output files and their status (default False)
         output_wait (int):          how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
         input_wait (int):           how many seconds to wait for an input file to appear before job is executed (default 3)
         print_compilation (bool):   print the compilation of the snakefile (default False)
@@ -254,6 +256,7 @@ def snakemake(snakefile,
                         list_input_changes=list_input_changes,
                         list_params_changes=list_params_changes,
                         summary=summary,
+                        detailed_summary=detailed_summary,
                         output_wait=output_wait,
                         input_wait=input_wait,
                         nolock=not lock,
@@ -363,6 +366,17 @@ def get_argument_parser():
         help="Print a summary of all files created by the workflow. The "
         "has the following columns: filename, modification time, "
         "rule version, status, plan.\n"
+        "Thereby rule version contains the version"
+        "the file was created with (see the version keyword of rules), and "
+        "status denotes whether the file is missing, its input files are "
+        "newer or if version or implementation of the rule changed since "
+        "file creation. Finally the last column denotes whether the file "
+        "will be updated or created during the next workflow execution.")
+    parser.add_argument(
+        "--detailed_summary", "-D", action="store_true",
+        help="Print a detailed summary of all files created by the workflow. The "
+        "has the following columns: inputfilename(s), outputfilename, modification time, "
+        "rule version, shell commad, status, plan.\n"
         "Thereby rule version contains the version"
         "the file was created with (see the version keyword of rules), and "
         "status denotes whether the file is missing, its input files are "
@@ -576,6 +590,7 @@ def main():
             list_input_changes=args.list_input_changes,
             list_params_changes=args.list_params_changes,
             summary=args.summary,
+            detailed_summary=args.detailed_summary,
             print_compilation=args.print_compilation,
             debug=args.debug,
             jobscript=args.jobscript,
