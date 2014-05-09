@@ -336,7 +336,6 @@ class DAG:
         producer = dict()
         exceptions = dict()
         for file, jobs in potential_dependencies:
-            # TODO check for pumping up wildcards...
             try:
                 producer[file] = self.update(jobs, file=file, visited=visited,
                     skip_until_dynamic=skip_until_dynamic

@@ -74,6 +74,10 @@ class Job:
                 self._hash ^= o.__hash__()
 
     @property
+    def priority(self):
+        return self.dag.priority(self)
+
+    @property
     def b64id(self):
         return base64.b64encode((self.rule.name +
             "".join(self.output)).encode("utf-8")).decode("utf-8")

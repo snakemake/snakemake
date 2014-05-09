@@ -411,7 +411,8 @@ class Namedlist(list):
     def allitems(self):
         next = 0
         for name, index in sorted(
-            self._names.items(), key=lambda item: item[1]):
+            self._names.items(),
+            key=lambda item: item[0]):
             start, end = index
             if start > next:
                 for item in self[next:start]:
