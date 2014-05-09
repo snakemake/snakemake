@@ -340,22 +340,32 @@ class DRMAAExecutor(ClusterExecutor):
         except ImportError:
             raise WorkflowError("Python support for DRMAA is not installed. "
             "Please install it, e.g. with easy_install3 --user drmaa")
+        except RuntimeError as e:
+            raise WorkflowError("Error loading drmaa support:\n{}".format(e))
         self.session = drmaa.Session()
         self.session.initialize()
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
+        super()._run(job)
         jobscript = self.get_jobscript(job)
         self.spawn_jobscript(job, jobscript)
         jt = self.session.createJobTemplate()
         jt.remoteCommand = jobscript
-        jt.joinFiles = True
+        #jt.joinFiles = True
 
-        jobid = self.session.runJob(jt)
+        import drmaa
+        try:
+            jobid = self.session.runJob(jt)
+        except drmaa.errors.InternalException as e:
+            print_exception(WorkflowError("DRMAA Error: {}".format(e)), self.workflow.linemaps)
+            error_callback(job)
+            return
+        logger.info("Submitted DRMAA job (jobid {})".format(jobid))
         self.session.deleteJobTemplate(jt)
 
         thread = threading.Thread(
             target=self._wait_for_job,
-            args=(job, callback, error_callback,
+            args=(job, jobid, callback, error_callback,
                 jobscript))
         thread.daemon = True
         thread.start()
@@ -370,6 +380,7 @@ class DRMAAExecutor(ClusterExecutor):
     def _wait_for_job(
         self, job, jobid, callback, error_callback,
         jobscript):
+        import drmaa
         retval = self.session.wait(jobid, drmaa.Session.TIMEOUT_WAIT_FOREVER)
         os.remove(jobscript)
         if retval.exitStatus == 0:

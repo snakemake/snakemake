@@ -9,7 +9,7 @@ from collections import defaultdict
 from itertools import chain, accumulate
 
 from snakemake.executors import DryrunExecutor, TouchExecutor
-from snakemake.executors import GenericClusterExecutor, CPUExecutor
+from snakemake.executors import GenericClusterExecutor, CPUExecutor, DRMAAExecutor
 from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
@@ -29,6 +29,7 @@ class JobScheduler:
         dryrun=False,
         touch=False,
         cluster=None,
+        drmaa=False,
         jobname=None,
         immediate_submit=False,
         quiet=False,
@@ -77,26 +78,34 @@ class JobScheduler:
                 workflow, dag, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 output_wait=output_wait, input_wait=input_wait)
-        elif cluster:
+        elif cluster or drmaa:
             # TODO properly set cores
             self._local_executor = CPUExecutor(
                 workflow, dag, cores, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
                 output_wait=output_wait, input_wait=input_wait)
-            self._executor = GenericClusterExecutor(
-                workflow, dag, None, submitcmd=cluster, jobname=jobname,
-                printreason=printreason, quiet=quiet,
-                printshellcmds=printshellcmds, output_wait=output_wait,
-                input_wait=input_wait)
-            if immediate_submit:
-                self.rule_reward = self.dryrun_rule_reward
-                self._submit_callback = partial(
-                    self._proceed,
-                    update_dynamic=False,
-                    print_progress=False,
-                    update_resources=False)
+            if cluster:
+                self._executor = GenericClusterExecutor(
+                    workflow, dag, None, submitcmd=cluster, jobname=jobname,
+                    printreason=printreason, quiet=quiet,
+                    printshellcmds=printshellcmds, output_wait=output_wait,
+                    input_wait=input_wait)
+                if immediate_submit:
+                    self.rule_reward = self.dryrun_rule_reward
+                    self._submit_callback = partial(
+                        self._proceed,
+                        update_dynamic=False,
+                        print_progress=False,
+                        update_resources=False)
+                else:
+                    self.run = self.run_cluster_or_local
             else:
+                self._executor = DRMAAExecutor(
+                    workflow, dag, None, jobname=jobname,
+                    printreason=printreason, quiet=quiet,
+                    printshellcmds=printshellcmds, output_wait=output_wait,
+                    input_wait=input_wait)
                 self.run = self.run_cluster_or_local
         else:
             self._executor = CPUExecutor(

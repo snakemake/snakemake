@@ -43,6 +43,7 @@ def snakemake(snakefile,
     quiet=False,
     keepgoing=False,
     cluster=None,
+    drmaa=False,
     jobname="snakejob.{rulename}.{jobid}.sh",
     immediate_submit=False,
     standalone=False,
@@ -96,6 +97,7 @@ def snakemake(snakefile,
         quiet (bool):               do not print any default job information (default False)
         keepgoing (bool):           keep goind upon errors (default False)
         cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
+        drmaa (bool):               use DRMAA for cluster support
         jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
         standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False)
@@ -180,6 +182,9 @@ def snakemake(snakefile,
         logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))
         return False
 
+    if cluster and drmaa:
+        raise ValueError("cluster and drmaa args are mutually exclusive")
+
     if workdir:
         olddir = os.getcwd()
     workflow = Workflow(
@@ -219,6 +224,7 @@ def snakemake(snakefile,
                         quiet=quiet,
                         keepgoing=keepgoing,
                         cluster=cluster,
+                        drmaa=drmaa,
                         jobname=jobname,
                         immediate_submit=immediate_submit,
                         standalone=standalone,
@@ -244,6 +250,7 @@ def snakemake(snakefile,
                         keepgoing=keepgoing, printshellcmds=printshellcmds,
                         printreason=printreason, printrulegraph=printrulegraph,
                         printdag=printdag, cluster=cluster, jobname=jobname,
+                        drmaa=drmaa,
                         immediate_submit=immediate_submit,
                         ignore_ambiguity=ignore_ambiguity,
                         workdir=workdir, stats=stats,
@@ -415,9 +422,15 @@ def get_argument_parser():
             "Execute snakemake rules with the given submit command, "
             "e.g. qsub. Snakemake compiles jobs into scripts that are "
             "submitted to the cluster with the given command, once all input "
-            "files for a particular job are present (also see the argument below).\n"
+            "files for a particular job are present.\n"
             "The submit command can be decorated to make it aware of certain job properties (input, output, params, wildcards, log, threads and dependencies (see the argument below)), e.g.:\n"
             "$ snakemake --cluster 'qsub -pe threaded {threads}'."))
+    parser.add_argument(
+        "--drmaa", action="store_true",
+        help="Execute snakemake on a cluster accessed via DRMAA, "
+            "Snakemake compiles jobs into scripts that are "
+            "submitted to the cluster with the given command, once all input "
+            "files for a particular job are present.")
     parser.add_argument(
         "--immediate-submit", "--is", action="store_true",
         help=(
@@ -534,6 +547,11 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+    if args.cluster and args.drmaa:
+        print("--cluster and --drmaa are mutually exclusive", file=sys.stderr)
+        parser.print_help()
+        sys.exit(1)
+
     if args.profile:
         import yappi
         yappi.start()
@@ -561,6 +579,7 @@ def main():
             quiet=args.quiet,
             keepgoing=args.keep_going,
             cluster=args.cluster,
+            drmaa=args.drmaa,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,
             standalone=True,
