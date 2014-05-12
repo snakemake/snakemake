@@ -253,14 +253,23 @@ class ClusterExecutor(RealExecutor):
         return os.path.join(self.tmpdir, self.jobname.format(rulename=job.rule.name, jobid=self.dag.jobid(job)))
 
     def spawn_jobscript(self, job, jobscript, **kwargs):
-        workdir = os.getcwd()
-        workflow = self.workflow
-        cores = self.cores
-        input_wait = self.input_wait
-        properties = job.json()
-        exec_job = format(self.exec_job, **kwargs)
-        with open(jobscript, "w") as f:
-            print(format(self.jobscript, **kwargs), file=f)
+        format = partial(
+            str.format,
+            job=job,
+            workdir=os.getcwd(),
+            workflow=self.workflow,
+            cores=self.cores,
+            input_wait=self.input_wait,
+            properties=job.json(),
+            **kwargs)
+        try:
+            exec_job = format(self.exec_job)
+            with open(jobscript, "w") as f:
+                print(format(self.jobscript, exec_job=exec_job), file=f)
+        except KeyError as e:
+            raise WorkflowError(
+                "Error formatting jobscript: {} not found\n"
+                "Make sure that your custom jobscript it up to date.".format(e))
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
 
 class GenericClusterExecutor(ClusterExecutor):
