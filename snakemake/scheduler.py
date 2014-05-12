@@ -30,6 +30,7 @@ class JobScheduler:
         touch=False,
         cluster=None,
         drmaa=False,
+        drmaa_args="",
         jobname=None,
         immediate_submit=False,
         quiet=False,
@@ -100,7 +101,7 @@ class JobScheduler:
                     self.run = self.run_cluster_or_local
             else:
                 self._executor = DRMAAExecutor(
-                    workflow, dag, None, jobname=jobname,
+                    workflow, dag, None, drmaa_args=drmaa_args, jobname=jobname,
                     printreason=printreason, quiet=quiet,
                     printshellcmds=printshellcmds, latency_wait=latency_wait)
                 self.run = self.run_cluster_or_local

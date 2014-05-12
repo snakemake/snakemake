@@ -345,7 +345,7 @@ class DRMAAExecutor(ClusterExecutor):
 
     def __init__(
         self, workflow, dag, cores, jobname="snakejob.{rulename}.{jobid}.sh",
-        printreason=False, quiet=False, printshellcmds=False,
+        printreason=False, quiet=False, printshellcmds=False, drmaa_args="",
         latency_wait=3):
         super().__init__(workflow, dag, cores, jobname=jobname,
             printreason=printreason, quiet=quiet,
@@ -358,6 +358,7 @@ class DRMAAExecutor(ClusterExecutor):
         except RuntimeError as e:
             raise WorkflowError("Error loading drmaa support:\n{}".format(e))
         self.session = drmaa.Session()
+        self.drmaa_args=drmaa_args
         self.session.initialize()
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
@@ -366,7 +367,7 @@ class DRMAAExecutor(ClusterExecutor):
         self.spawn_jobscript(job, jobscript)
         jt = self.session.createJobTemplate()
         jt.remoteCommand = jobscript
-        #jt.joinFiles = True
+        jt.nativeSpecification = job.format_wildcards(self.drmaa_args)
 
         import drmaa
         try:

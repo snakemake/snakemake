@@ -44,6 +44,7 @@ def snakemake(snakefile,
     keepgoing=False,
     cluster=None,
     drmaa=False,
+    drmaa_args="",
     jobname="snakejob.{rulename}.{jobid}.sh",
     immediate_submit=False,
     standalone=False,
@@ -99,6 +100,7 @@ def snakemake(snakefile,
         keepgoing (bool):           keep goind upon errors (default False)
         cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
         drmaa (bool):               use DRMAA for cluster support
+        drmaa_args (str):           args passed to the cluster when submitting a job
         jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
         standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False)
@@ -227,6 +229,7 @@ def snakemake(snakefile,
                         keepgoing=keepgoing,
                         cluster=cluster,
                         drmaa=drmaa,
+                        drmaa_args=drmaa_args,
                         jobname=jobname,
                         immediate_submit=immediate_submit,
                         standalone=standalone,
@@ -251,7 +254,7 @@ def snakemake(snakefile,
                         keepgoing=keepgoing, printshellcmds=printshellcmds,
                         printreason=printreason, printrulegraph=printrulegraph,
                         printdag=printdag, cluster=cluster, jobname=jobname,
-                        drmaa=drmaa,
+                        drmaa=drmaa, drmaa_args=drmaa_args,
                         immediate_submit=immediate_submit,
                         ignore_ambiguity=ignore_ambiguity,
                         workdir=workdir, stats=stats,
@@ -432,7 +435,13 @@ def get_argument_parser():
         help="Execute snakemake on a cluster accessed via DRMAA, "
             "Snakemake compiles jobs into scripts that are "
             "submitted to the cluster with the given command, once all input "
-            "files for a particular job are present.")
+            "files for a particular job are present. ")
+    parser.add_argument(
+        "--drmaa-args", metavar="NATIVE_ARGS",
+        help="This can be used to access options of the underlying cluster system, "
+            "thereby using the job properties input, output, params, wildcards, log, "
+            "threads and dependencies, e.g.: "
+            "'-pe threaded {threads}'.")
     parser.add_argument(
         "--immediate-submit", "--is", action="store_true",
         help=(
@@ -585,6 +594,7 @@ def main():
             keepgoing=args.keep_going,
             cluster=args.cluster,
             drmaa=args.drmaa,
+            drmaa_args=args.drmaa_args,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,
             standalone=True,
