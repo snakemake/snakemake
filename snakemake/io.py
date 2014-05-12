@@ -3,9 +3,11 @@
 import os
 import re
 import stat
+import time
 from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError
+from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
 
@@ -142,6 +144,22 @@ class _IOFile(str):
 _wildcard_regex = re.compile(
     "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>([^\{\}]+|\{\d+(,\d+)?\})*))?\s*\}")
 #    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
+
+
+def wait_for_files(files, latency_wait=3):
+    """Wait for given files to be present in filesystem."""
+    files = list(files)
+    get_missing = lambda: [f for f in files if not os.path.exists(f)]
+    missing = get_missing()
+    if missing:
+        logger.info("Waiting at most {} seconds for missing files.".format(latency_wait))
+        for _ in range(latency_wait):
+            if not get_missing():
+                return
+            time.sleep(1)
+        raise IOError(
+            "Missing files after {} seconds:\n{}".format(
+                latency_wait, "\n".join(get_missing())))
 
 
 def get_wildcard_names(pattern):

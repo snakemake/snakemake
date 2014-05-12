@@ -59,8 +59,8 @@ def snakemake(snakefile,
     list_input_changes=False,
     list_params_changes=False,
     summary=False,
-    output_wait=3,
-    input_wait=3,
+    latency_wait=3,
+    wait_for_files=None,
     print_compilation=False,
     debug=False,
     notemp=False,
@@ -114,8 +114,8 @@ def snakemake(snakefile,
         list_input_changes (bool):  list output files with changed input files (default False)
         list_params_changes (bool): list output files with changed params (default False)
         summary (bool):             list summary of all output files and their status (default False)
-        output_wait (int):          how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
-        input_wait (int):           how many seconds to wait for an input file to appear before job is executed (default 3)
+        latency_wait (int):         how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
+        wait_for_files (list):      wait for given files to be present before executing the workflow
         print_compilation (bool):   print the compilation of the snakefile (default False)
         debug (bool):               show additional debug output (default False)
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
@@ -237,8 +237,7 @@ def snakemake(snakefile,
                         cleanup_metadata=cleanup_metadata,
                         force_incomplete=force_incomplete,
                         ignore_incomplete=ignore_incomplete,
-                        output_wait=output_wait,
-                        input_wait=input_wait,
+                        latency_wait=latency_wait,
                         debug=debug,
                         notemp=notemp,
                         nodeps=nodeps,
@@ -263,8 +262,8 @@ def snakemake(snakefile,
                         list_input_changes=list_input_changes,
                         list_params_changes=list_params_changes,
                         summary=summary,
-                        output_wait=output_wait,
-                        input_wait=input_wait,
+                        latency_wait=latency_wait,
+                        wait_for_files=wait_for_files,
                         nolock=not lock,
                         unlock=unlock,
                         resources=resources,
@@ -497,15 +496,15 @@ def get_argument_parser():
         help="List all output files for which the defined params have changed "
         "in the Snakefile.")
     parser.add_argument(
-        "--output-wait", "-w", type=int, default=3, metavar="SECONDS",
+        "--latency-wait", "--output-wait", "-w", type=int, default=3, metavar="SECONDS",
         help="Wait given seconds if an output file of a job is not present after "
         "the job finished. This helps if your filesystem "
         "suffers from latency (default 3).")
     parser.add_argument(
-        "--input-wait", type=int, default=3, metavar="SECONDS",
-        help="Wait given seconds if an input file of a job is not present before "
-        "the job is executed. This helps if your filesystem "
-        "suffers from latency (default 0).")
+        "--wait-for-files", nargs="+", metavar="FILE", help="Wait --latency-wait seconds for these "
+        "files to be present before executing the workflow. "
+        "This option is used internally to handle filesystem latency in cluster "
+        "environments.")
     parser.add_argument(
         "--notemp", "--nt", action="store_true",
         help="Ignore temp() declarations. This is useful when running only "
@@ -606,8 +605,8 @@ def main():
             jobscript=args.jobscript,
             notemp=args.notemp,
             timestamp=args.timestamp,
-            output_wait=args.output_wait,
-            input_wait=args.input_wait,
+            latency_wait=args.latency_wait,
+            wait_for_files=args.wait_for_files,
             keep_target_files=args.keep_target_files,
             allowed_rules=args.allowed_rules)
 

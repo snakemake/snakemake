@@ -28,15 +28,14 @@ class AbstractExecutor:
 
     def __init__(self, workflow, dag,
         printreason=False, quiet=False,
-        printshellcmds=False, printthreads=True, output_wait=3, input_wait=0):
+        printshellcmds=False, printthreads=True, latency_wait=3):
         self.workflow = workflow
         self.dag = dag
         self.quiet = quiet
         self.printreason = printreason
         self.printshellcmds = printshellcmds
         self.printthreads = printthreads
-        self.output_wait = output_wait
-        self.input_wait = input_wait
+        self.latency_wait = latency_wait
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
@@ -87,7 +86,7 @@ class AbstractExecutor:
 
     def finish_job(self, job):
         self.dag.handle_touch(job)
-        self.dag.check_output(job, wait=self.output_wait)
+        self.dag.check_output(job, wait=self.latency_wait)
         self.dag.handle_protected(job)
         self.dag.handle_temp(job)
 
@@ -100,11 +99,11 @@ class RealExecutor(AbstractExecutor):
 
     def __init__(
         self, workflow, dag,
-        printreason=False, quiet=False, printshellcmds=False, output_wait=3, input_wait=0):
+        printreason=False, quiet=False, printshellcmds=False, latency_wait=3):
         super().__init__(
             workflow, dag, printreason=printreason,
             quiet=quiet, printshellcmds=printshellcmds,
-            output_wait=output_wait, input_wait=input_wait)
+            latency_wait=latency_wait)
         self.stats = Stats()
 
     def _run(self, job, callback=None, error_callback=None):
@@ -152,10 +151,10 @@ class CPUExecutor(RealExecutor):
 
     def __init__(
         self, workflow, dag, cores, printreason=False, quiet=False,
-        printshellcmds=False, threads=False, output_wait=3, input_wait=0):
+        printshellcmds=False, threads=False, latency_wait=3):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
-            printshellcmds=printshellcmds, output_wait=output_wait, input_wait=input_wait)
+            printshellcmds=printshellcmds, latency_wait=latency_wait)
         self.pool = (concurrent.futures.ThreadPoolExecutor(max_workers=cores)
             if threads
             else concurrent.futures.ProcessPoolExecutor(max_workers=cores))
@@ -199,10 +198,10 @@ class ClusterExecutor(RealExecutor):
     def __init__(
         self, workflow, dag, cores, jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False, quiet=False, printshellcmds=False,
-        output_wait=3, input_wait=0):
+        latency_wait=3):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
-            printshellcmds=printshellcmds, output_wait=output_wait, input_wait=input_wait)
+            printshellcmds=printshellcmds, latency_wait=latency_wait)
         if workflow.snakemakepath is None:
             raise ValueError(
             "Cluster executor needs to know the path "
@@ -226,7 +225,7 @@ class ClusterExecutor(RealExecutor):
         self.exec_job = (
             '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
             '--force -j{cores} --keep-target-files --allowed-rules {job.rule.name} '
-            '--input-wait {input_wait} '
+            '--wait-for-files {job.input} '
             '--directory {workdir} --nocolor --notemp --quiet --nolock {job.output}')
         self.jobname = jobname
         self.threads = []
@@ -259,7 +258,6 @@ class ClusterExecutor(RealExecutor):
             workdir=os.getcwd(),
             workflow=self.workflow,
             cores=self.cores,
-            input_wait=self.input_wait,
             properties=job.json(),
             **kwargs)
         try:
@@ -276,11 +274,11 @@ class GenericClusterExecutor(ClusterExecutor):
 
     def __init__(
         self, workflow, dag, cores, submitcmd="qsub", jobname="snakejob.{rulename}.{jobid}.sh",
-        printreason=False, quiet=False, printshellcmds=False, output_wait=3, input_wait=0):
+        printreason=False, quiet=False, printshellcmds=False, latency_wait=3):
         super().__init__(
             workflow, dag, cores, jobname=jobname,
             printreason=printreason, quiet=quiet,
-            printshellcmds=printshellcmds, output_wait=output_wait, input_wait=input_wait)
+            printshellcmds=printshellcmds, latency_wait=latency_wait)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
         self.exec_job += ' && touch "{jobfinished}" || touch "{jobfailed}"'
@@ -348,11 +346,10 @@ class DRMAAExecutor(ClusterExecutor):
     def __init__(
         self, workflow, dag, cores, jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False, quiet=False, printshellcmds=False,
-        output_wait=3, input_wait=0):
+        latency_wait=3):
         super().__init__(workflow, dag, cores, jobname=jobname,
             printreason=printreason, quiet=quiet,
-            printshellcmds=printshellcmds, output_wait=output_wait,
-            input_wait=input_wait)
+            printshellcmds=printshellcmds, latency_wait=latency_wait)
         try:
             import drmaa
         except ImportError:

@@ -7,7 +7,7 @@ from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
 from operator import itemgetter, attrgetter
 
-from snakemake.io import IOFile, _IOFile, PeriodicityDetector
+from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files
 from snakemake.jobs import Job, Reason
 from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
@@ -205,18 +205,12 @@ class DAG:
 
     def check_output(self, job, wait=3):
         """ Raise exception if output files of job are missing. """
-        for f in job.expanded_output:
-            if not f.exists:
-                logger.info("Output file {} not present. Waiting {} "
-                "seconds to ensure that this is not because of filesystem "
-                "latency.".format(f, wait))
-                while not f.exists and wait > 0:
-                    wait -= 1
-                    time.sleep(1)
-                if not f.exists:
-                    raise MissingOutputException("Output file {} not "
-                        "produced by rule {}.".format(f, job.rule.name),
-                        lineno=job.rule.lineno, snakefile=job.rule.snakefile)
+        try:
+            wait_for_files(job.expanded_output, latency_wait=wait)
+        except IOError as e:
+            raise MissingOutputException(str(e),
+                rule=job.rule)
+                    
         input_maxtime = job.input_maxtime
         if input_maxtime is not None:
             output_mintime = job.output_mintime

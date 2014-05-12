@@ -198,22 +198,12 @@ class Job:
         if protected:
             raise ProtectedOutputException(self.rule, protected)
 
-    def prepare(self, input_wait=3):
+    def prepare(self):
         """
         Prepare execution of job.
         This includes creation of directories and deletion of previously
         created dynamic files.
         """
-        # wait for input files which might not be present due to filesystem latency
-        input_exists = lambda: all(f.exists for f in self.input)
-        if not input_exists():
-            logger.info("Input file not present. Waiting at most {} seconds to ensure that "
-                "this is not because of filesystem "
-                "latency.".format(input_wait))
-        for i in range(input_wait):
-            if input_exists():
-                break
-            time.sleep(1)
 
         self.check_protected_output()
 

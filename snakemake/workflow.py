@@ -19,6 +19,7 @@ from snakemake.shell import shell
 from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
+import snakemake.io
 from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 
@@ -123,7 +124,7 @@ class Workflow:
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
-        summary=False, output_wait=3, input_wait=3, nolock=False, unlock=False,
+        summary=False, latency_wait=3, wait_for_files=None, nolock=False, unlock=False,
         resources=None, notemp=False, nodeps=False,
         cleanup_metadata=None, subsnakemake=None, updated_files=None, keep_target_files=False,
         allowed_rules=None):
@@ -168,6 +169,13 @@ class Workflow:
         rules = self.rules
         if allowed_rules:
             rules = [rule for rule in rules if rule.name in set(allowed_rules)]
+            
+        if wait_for_files is not None:
+            try:
+                snakemake.io.wait_for_files(wait_for_files, latency_wait=latency_wait)
+            except IOError as e:
+                logger.error(str(e))
+                return False
 
         dag = DAG(
             self, rules, dryrun=dryrun, targetfiles=targetfiles,
@@ -284,7 +292,7 @@ class Workflow:
             jobname=jobname, immediate_submit=immediate_submit,
             quiet=quiet, keepgoing=keepgoing, drmaa=drmaa,
             printreason=printreason, printshellcmds=printshellcmds,
-            output_wait=output_wait, input_wait=input_wait)
+            latency_wait=latency_wait)
 
         if not dryrun and not quiet and len(dag):
             if cluster:
