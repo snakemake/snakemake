@@ -441,7 +441,7 @@ def get_argument_parser():
         help="This can be used to access options of the underlying cluster system, "
             "thereby using the job properties input, output, params, wildcards, log, "
             "threads and dependencies, e.g.: "
-            "'-pe threaded {threads}'.")
+            "--drmaa-args '-pe threaded {threads}'.")
     parser.add_argument(
         "--immediate-submit", "--is", action="store_true",
         help=(

@@ -132,37 +132,37 @@ class JobScheduler:
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
-        while True:
-            try:
+        try:
+            while True:
                 # work around so that the wait does not prevent keyboard interrupts
                 while not self._open_jobs.wait(1): pass
-            except:
-                # this will be caused because of SIGTERM or SIGINT
-                logger.info("Terminating processes on user request.")
-                self._executor.shutdown()
-                return False
-            self._open_jobs.clear()
-            if not self.keepgoing and self._errors:
-                logger.info("Will exit after finishing "
-                    "currently running jobs.")
-                self._executor.shutdown()
-                return False
-            if not any(self.open_jobs):
-                self._executor.shutdown()
-                return not self._errors
+                
+                self._open_jobs.clear()
+                if not self.keepgoing and self._errors:
+                    logger.info("Will exit after finishing "
+                        "currently running jobs.")
+                    self._executor.shutdown()
+                    return False
+                if not any(self.open_jobs):
+                    self._executor.shutdown()
+                    return not self._errors
 
-            needrun = list(self.open_jobs)
-            assert needrun
+                needrun = list(self.open_jobs)
+                assert needrun
 
-            logger.debug("Resources before job selection: {}".format(self.resources))
-            logger.debug("Ready jobs ({}):\n\t".format(len(needrun)) + "\n\t".join(map(str, needrun)))
+                logger.debug("Resources before job selection: {}".format(self.resources))
+                logger.debug("Ready jobs ({}):\n\t".format(len(needrun)) + "\n\t".join(map(str, needrun)))
 
-            run = self.job_selector(needrun)
-            logger.debug("Selected jobs ({}):\n\t".format(len(run)) + "\n\t".join(map(str, run)))
-            self.running.update(run)
-            logger.debug("Resources after job selection: {}".format(self.resources))
-            for job in run:
-                self.run(job)
+                run = self.job_selector(needrun)
+                logger.debug("Selected jobs ({}):\n\t".format(len(run)) + "\n\t".join(map(str, run)))
+                self.running.update(run)
+                logger.debug("Resources after job selection: {}".format(self.resources))
+                for job in run:
+                    self.run(job)
+        except KeyboardInterrupt:
+            logger.info("Terminating processes on user request.")
+            self._executor.cancel()
+            return False
 
     def run(self, job):
         self._executor.run(

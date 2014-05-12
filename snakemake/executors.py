@@ -173,6 +173,9 @@ class CPUExecutor(RealExecutor):
     def shutdown(self):
         self.pool.shutdown()
 
+    def cancel(self):
+        self.pool.shutdown(wait=False)
+
     def _callback(self, job, callback, error_callback, future):
         try:
             ex = future.exception()
@@ -237,6 +240,9 @@ class ClusterExecutor(RealExecutor):
             thread.join()
         shutil.rmtree(self.tmpdir)
 
+    def cancel(self):
+        self.shutdown()    
+    
     @property
     def tmpdir(self):
         if self._tmpdir is None:
@@ -282,6 +288,10 @@ class GenericClusterExecutor(ClusterExecutor):
         self.submitcmd = submitcmd
         self.external_jobid = dict()
         self.exec_job += ' && touch "{jobfinished}" || touch "{jobfailed}"'
+
+    def cancel(self):
+        logger.info("Will exit after finishing currently running jobs.")
+        self.shutdown()
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
@@ -360,6 +370,13 @@ class DRMAAExecutor(ClusterExecutor):
         self.session = drmaa.Session()
         self.drmaa_args=drmaa_args
         self.session.initialize()
+        self.submitted = list()
+
+    def cancel(self):
+        from drmaa.const import JobControlAction
+        for jobid in self.submitted:
+            self.session.control(jobid, JobControlAction.TERMINATE)
+        self.shutdown()
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
@@ -377,6 +394,7 @@ class DRMAAExecutor(ClusterExecutor):
             error_callback(job)
             return
         logger.info("Submitted DRMAA job (jobid {})".format(jobid))
+        self.submitted.append(jobid)
         self.session.deleteJobTemplate(jt)
 
         thread = threading.Thread(
@@ -422,6 +440,11 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log, 
     threads   -- usable threads
     log       -- path to log file
     """
+    try:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+    except ValueError:
+        # ignore error in case of thread usage
+        pass
 
     if log is None:
         log = Unformattable(errormsg="log used but undefined")
