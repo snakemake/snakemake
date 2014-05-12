@@ -223,6 +223,10 @@ class ClusterExecutor(RealExecutor):
             raise WorkflowError(
                 "Defined jobname (\"{}\") has to contain the wildcard {jobid}.")
 
+        self.exec_job = (
+            '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
+            '--force -j{cores} --keep-target-files --input-wait {input_wait} '
+            '--directory {workdir} --nocolor --notemp --quiet --nolock {job.output}')
         self.jobname = jobname
         self.threads = []
         self._tmpdir = None
@@ -249,8 +253,13 @@ class ClusterExecutor(RealExecutor):
 
     def spawn_jobscript(self, job, jobscript, **kwargs):
         workdir = os.getcwd()
+        workflow = self.workflow
+        cores = self.cores
+        input_wait = self.input_wait
+        properties = job.json()
+        exec_job = format(self.exec_job, **kwargs)
         with open(jobscript, "w") as f:
-            print(format(self.jobscript, workflow=self.workflow, cores=self.cores, input_wait=self.input_wait, **kwargs), file=f)
+            print(format(self.jobscript, **kwargs), file=f)
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
 
 class GenericClusterExecutor(ClusterExecutor):
@@ -264,20 +273,20 @@ class GenericClusterExecutor(ClusterExecutor):
             printshellcmds=printshellcmds, output_wait=output_wait, input_wait=input_wait)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
+        self.exec_job += ' && touch "{jobfinished}" || touch "{jobfailed}"'
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
         workdir = os.getcwd()
         jobid = self.dag.jobid(job)
-        properties = job.json()
 
         jobscript = self.get_jobscript(job)
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
         jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
         self.spawn_jobscript(
             job, jobscript,
-            jobfinished=jobfinished, jobfailed=jobfailed, properties=properties)
+            jobfinished=jobfinished, jobfailed=jobfailed)
 
         deps = " ".join(self.external_jobid[f] for f in job.input if f in self.external_jobid)
         submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps)
@@ -325,7 +334,6 @@ class GenericClusterExecutor(ClusterExecutor):
 
 
 class DRMAAExecutor(ClusterExecutor):
-    default_jobscript = "drmaa_jobscript.sh"
 
     def __init__(
         self, workflow, dag, cores, jobname="snakejob.{rulename}.{jobid}.sh",
