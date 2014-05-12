@@ -125,7 +125,8 @@ class Workflow:
         list_input_changes=False, list_params_changes=False,
         summary=False, output_wait=3, input_wait=3, nolock=False, unlock=False,
         resources=None, notemp=False, nodeps=False,
-        cleanup_metadata=None, subsnakemake=None, updated_files=None, keep_target_files=False):
+        cleanup_metadata=None, subsnakemake=None, updated_files=None, keep_target_files=False,
+        allowed_rules=None):
 
         self.global_resources = dict() if cluster or resources is None else resources
         self.global_resources["_cores"] = cores
@@ -163,9 +164,13 @@ class Workflow:
         if forcetargets:
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
+        
+        rules = self.rules
+        if allowed_rules:
+            rules = [rule for rule in rules if rule.name in set(allowed_rules)]
 
         dag = DAG(
-            self, dryrun=dryrun, targetfiles=targetfiles,
+            self, rules, dryrun=dryrun, targetfiles=targetfiles,
             targetrules=targetrules,
             forceall=forceall, forcefiles=forcefiles,
             forcerules=forcerules, priorityfiles=priorityfiles,

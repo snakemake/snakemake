@@ -25,6 +25,7 @@ class DAG:
     def __init__(
         self,
         workflow,
+        rules=None,
         dryrun=False,
         targetfiles=None,
         targetrules=None,
@@ -49,7 +50,7 @@ class DAG:
         self._dynamic = set()
         self._len = 0
         self.workflow = workflow
-        self.rules = set(workflow.rules)
+        self.rules = set(rules)
         self.ignore_ambiguity = ignore_ambiguity
         self.targetfiles = targetfiles
         self.targetrules = targetrules

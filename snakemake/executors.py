@@ -225,7 +225,8 @@ class ClusterExecutor(RealExecutor):
 
         self.exec_job = (
             '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
-            '--force -j{cores} --keep-target-files --input-wait {input_wait} '
+            '--force -j{cores} --keep-target-files --allowed-rules {job.rule.name} '
+            '--input-wait {input_wait} '
             '--directory {workdir} --nocolor --notemp --quiet --nolock {job.output}')
         self.jobname = jobname
         self.threads = []

@@ -66,6 +66,7 @@ def snakemake(snakefile,
     notemp=False,
     nodeps=False,
     keep_target_files=False,
+    allowed_rules=None,
     jobscript=None,
     timestamp=False,
     updated_files=None,
@@ -120,6 +121,7 @@ def snakemake(snakefile,
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
         nodeps (bool):              ignore dependencies (default False)
         keep_target_files (bool):   Do not adjust the paths of given target files relative to the working directory.
+        allowed_rules (set):        Restrict allowed rules to the given set. If None or empty, all rules are used.
         jobscript (str):            path to a custom shell script template for cluster jobs (default None)
         timestamp (bool):           print time stamps in front of any output (default False)
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
@@ -272,6 +274,7 @@ def snakemake(snakefile,
                         cleanup_metadata=cleanup_metadata,
                         subsnakemake=subsnakemake,
                         updated_files=updated_files,
+                        allowed_rules=allowed_rules
                         )
 
     # BrokenPipeError is not present in Python 3.2, so lets wait until everbody uses > 3.2
@@ -513,6 +516,9 @@ def get_argument_parser():
         "--keep-target-files", action="store_true",
         help="Do not adjust the paths of given target files relative to the working directory.")
     parser.add_argument(
+        "--allowed-rules", nargs="+",
+        help="Only use given rules. If omitted, all rules in Snakefile are used.")
+    parser.add_argument(
         '--timestamp', '-T', action='store_true',
         help='Add a timestamp to all logging output')
     parser.add_argument(
@@ -602,7 +608,8 @@ def main():
             timestamp=args.timestamp,
             output_wait=args.output_wait,
             input_wait=args.input_wait,
-            keep_target_files=args.keep_target_files)
+            keep_target_files=args.keep_target_files,
+            allowed_rules=args.allowed_rules)
 
     if args.profile:
         with open(args.profile, "w") as out:
