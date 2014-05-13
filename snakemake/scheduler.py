@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os
+import os, signal
 import threading
 import multiprocessing
 import operator
@@ -135,14 +135,13 @@ class JobScheduler:
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
-                while not self._open_jobs.wait(1): pass
-                
+                while not self._open_jobs.wait(1):
+                    pass
+
                 self._open_jobs.clear()
                 if not self.keepgoing and self._errors:
                     logger.info("Will exit after finishing "
                         "currently running jobs.")
-                    #self._executor.shutdown()
-                    #return False
                     if not self.running:
                         self._executor.shutdown()
                         return False

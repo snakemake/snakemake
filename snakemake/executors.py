@@ -156,12 +156,9 @@ class CPUExecutor(RealExecutor):
             workflow, dag, printreason=printreason, quiet=quiet,
             printshellcmds=printshellcmds, latency_wait=latency_wait)
 
-        # ignore keyboard interrupts in the workers
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
         self.pool = (concurrent.futures.ThreadPoolExecutor(max_workers=cores)
             if threads
             else concurrent.futures.ProcessPoolExecutor(max_workers=cores))
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
