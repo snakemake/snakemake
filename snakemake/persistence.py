@@ -116,6 +116,7 @@ class Persistence:
         code = self._code(job.rule)
         input = self._input(job)
         params = self._params(job)
+        shellcmd = self._shellcmd(job)
         for f in job.expanded_output:
             self._delete_record(self._incomplete_path, f)
             self._record(self._version_path, version, f)
@@ -123,7 +124,7 @@ class Persistence:
             self._record(self._rule_path, job.rule.name, f)
             self._record(self._input_path, input, f)
             self._record(self._params_path, params, f)
-            self._record(self._shellcmd_path, params, f)
+            self._record(self._shellcmd_path, shellcmd, f)
 
     def cleanup(self, job):
         for f in job.expanded_output:
@@ -153,12 +154,15 @@ class Persistence:
     def input(self, path):
         if not os.path.exists(path):
             return None
-        return self._read_record(self._input_path, path)
+        return self._read_record(self._input_path, path).split("\n")
 
     def shellcmd(self, path):
         if not os.path.exists(path):
             return None
-        return self._read_record(self._shellcmd_path, path)
+        shellcmd = self._read_record(self._shellcmd_path, path)
+        if shellcmd:
+            return shellcmd
+        return None
 
     def version_changed(self, job, file=None):
         cr = partial(self._changed_records, self._version_path, job.rule.version)
