@@ -141,9 +141,13 @@ class JobScheduler:
                 if not self.keepgoing and self._errors:
                     logger.info("Will exit after finishing "
                         "currently running jobs.")
-                    self._executor.shutdown()
-                    return False
-                if not any(self.open_jobs):
+                    #self._executor.shutdown()
+                    #return False
+                    if not self.running:
+                        self._executor.shutdown()
+                        return False
+                    continue
+                if not any(self.open_jobs) and not self.running:
                     self._executor.shutdown()
                     return not self._errors
 
@@ -159,7 +163,7 @@ class JobScheduler:
                 logger.debug("Resources after job selection: {}".format(self.resources))
                 for job in run:
                     self.run(job)
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemExit):
             logger.info("Terminating processes on user request.")
             self._executor.cancel()
             return False

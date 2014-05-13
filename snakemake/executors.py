@@ -155,9 +155,13 @@ class CPUExecutor(RealExecutor):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
             printshellcmds=printshellcmds, latency_wait=latency_wait)
+
+        # ignore keyboard interrupts in the workers
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         self.pool = (concurrent.futures.ThreadPoolExecutor(max_workers=cores)
             if threads
             else concurrent.futures.ProcessPoolExecutor(max_workers=cores))
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
@@ -440,20 +444,16 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log, 
     threads   -- usable threads
     log       -- path to log file
     """
-    try:
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-    except ValueError:
-        # ignore error in case of thread usage
-        pass
 
     if log is None:
         log = Unformattable(errormsg="log used but undefined")
     try:
         # execute the actual run method.
         run(input, output, params, wildcards, threads, resources, log)
-    except KeyboardInterrupt as e:
+    #except (KeyboardInterrupt, SystemExit):
         # re-raise the keyboard interrupt in order to record an error in the scheduler but ignore it
-        raise e
+        #raise e
+    #    return
     except (Exception, BaseException) as ex:
         # this ensures that exception can be re-raised in the parent thread
         lineno, file = get_exception_origin(ex, linemaps)
