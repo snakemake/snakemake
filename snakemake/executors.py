@@ -8,6 +8,7 @@ import random
 import string
 import threading
 import concurrent.futures
+from concurrent.futures.process import BrokenProcessPool
 import subprocess
 import signal
 from functools import partial
@@ -22,6 +23,7 @@ from snakemake.io import get_wildcard_names
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException
 from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError
+from snakemake.futures import ProcessPoolExecutor
 
 
 class AbstractExecutor:
@@ -158,7 +160,7 @@ class CPUExecutor(RealExecutor):
 
         self.pool = (concurrent.futures.ThreadPoolExecutor(max_workers=cores)
             if threads
-            else concurrent.futures.ProcessPoolExecutor(max_workers=cores))
+            else ProcessPoolExecutor(max_workers=cores))
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
@@ -175,7 +177,7 @@ class CPUExecutor(RealExecutor):
         self.pool.shutdown()
 
     def cancel(self):
-        self.pool.shutdown(wait=False)
+        self.pool.shutdown()
 
     def _callback(self, job, callback, error_callback, future):
         try:
@@ -184,7 +186,7 @@ class CPUExecutor(RealExecutor):
                 raise ex
             self.finish_job(job)
             callback(job)
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, BrokenProcessPool):
             job.cleanup()
             self.workflow.persistence.cleanup(job)
             # no error callback, just silently ignore the interrupt as the main scheduler is also killed
@@ -447,10 +449,9 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log, 
     try:
         # execute the actual run method.
         run(input, output, params, wildcards, threads, resources, log)
-    #except (KeyboardInterrupt, SystemExit):
+    except (KeyboardInterrupt, SystemExit) as e:
         # re-raise the keyboard interrupt in order to record an error in the scheduler but ignore it
-        #raise e
-    #    return
+        raise e
     except (Exception, BaseException) as ex:
         # this ensures that exception can be re-raised in the parent thread
         lineno, file = get_exception_origin(ex, linemaps)

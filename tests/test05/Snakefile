@@ -12,8 +12,6 @@ rule compute1:
 	run:
 		assert len(output.inter) > 0
 		print(output.inter)
-		import time
-		time.sleep(5)
 		for out in output:
 			shell('(cat {input[0]} && echo "Part {out}") > {out}')
 

@@ -51,7 +51,7 @@ class JobScheduler:
 
         self.resources = dict(self.workflow.global_resources)
 
-        use_threads = os.name != "posix" or cluster
+        use_threads = os.name != "posix"
         if not use_threads:
             self._open_jobs = multiprocessing.Event()
             self._lock = multiprocessing.Lock()
@@ -81,7 +81,7 @@ class JobScheduler:
         elif cluster or drmaa:
             # TODO properly set cores
             self._local_executor = CPUExecutor(
-                workflow, dag, cores, printreason=printreason,
+                workflow, dag, multiprocessing.cpu_count(), printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
                 latency_wait=latency_wait)
