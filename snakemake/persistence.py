@@ -159,10 +159,7 @@ class Persistence:
     def shellcmd(self, path):
         if not os.path.exists(path):
             return None
-        shellcmd = self._read_record(self._shellcmd_path, path)
-        if shellcmd:
-            return shellcmd
-        return None
+        return self._read_record(self._shellcmd_path, path)
 
     def version_changed(self, job, file=None):
         cr = partial(self._changed_records, self._version_path, job.rule.version)
