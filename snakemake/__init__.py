@@ -110,7 +110,7 @@ def snakemake(snakefile,
         list_code_changes (bool):   list output files with changed rule code (default False)
         list_input_changes (bool):  list output files with changed input files (default False)
         list_params_changes (bool): list output files with changed params (default False)
-        summary (bool):             list summary of all output files and their status (default False). If no option  is specified a basic summary will be ouput. If 'detailed' is added an option, extra info about the input and shell commands will be included
+        summary (bool):             list summary of all output files and their status (default False). If no option  is specified a basic summary will be ouput. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
         output_wait (int):          how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
         input_wait (int):           how many seconds to wait for an input file to appear before job is executed (default 3)
         print_compilation (bool):   print the compilation of the snakefile (default False)
@@ -362,13 +362,14 @@ def get_argument_parser():
         "--summary", "-S", action="store", nargs="?", const="basic",
         help="Print a summary of all files created by the workflow. The "
         "has the following columns: filename, modification time, "
-        "rule version, input file(s), shell command, status, plan.\n"
+        "rule version, [input file(s), shell command], status, plan.\n"
         "Thereby rule version contains the version"
         "the file was created with (see the version keyword of rules), and "
         "status denotes whether the file is missing, its input files are "
         "newer or if version or implementation of the rule changed since "
         "file creation. The input file and shell command columns are self"
-        "explanatory. Finally the last column denotes whether the file "
+        "explanatory. These are included if the 'detailed' option is added"
+        "e.g '-summary detailed'. Finally the last column denotes whether the file "
         "will be updated or created during the next workflow execution.")
     parser.add_argument(
         "--touch", "-t", action="store_true",
