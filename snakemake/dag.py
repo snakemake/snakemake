@@ -2,6 +2,7 @@
 
 import textwrap
 import time
+import re
 from collections import defaultdict, Counter
 from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
@@ -796,62 +797,32 @@ class DAG:
             }}\
             """).format(items="\n".join(nodes + edges))
 
-    def summary(self):
-        yield "file\tdate\trule\tversion\tstatus\tplan"
+    def summary(self, summary_level):
+        if summary_level == "basic":
+            yield "file\tdate\trule\tversion\tstatus\tplan"
+        elif summary_level == "detailed":
+            yield "output_file\tdate\trule\tversion\tinput_file(s)\tshell cmd\tstatus\tplan"
         for job in self.jobs:
             output = job.rule.output if self.dynamic(job) else job.expanded_output
             for f in output:
                 rule = self.workflow.persistence.rule(f)
                 rule = "-" if rule is None else rule
-                version = self.workflow.persistence.version(f)
-                version = "-" if version is None else str(version)
-                date = time.ctime(f.mtime) if f.exists else "-"
-                pending = "update pending" if self.reason(job) else "no update"
-                status = "ok"
-                if not f.exists:
-                    status = "missing"
-                elif self.reason(job).updated_input:
-                    status = "updated input files"
-                elif self.workflow.persistence.version_changed(job, file=f):
-                    status = "version changed to {}".format(job.rule.version)
-                elif self.workflow.persistence.code_changed(job, file=f):
-                    status = "rule implementation changed"
-                elif self.workflow.persistence.input_changed(job, file=f):
-                    status = "set of input files changed"
-                elif self.workflow.persistence.params_changed(job, file=f):
-                    status = "params changed"
-                yield "\t".join((f, date, rule, version, status, pending))
-    def detailed_summary(self):
-        yield "input_file\toutput_file\tdate\trule\tversion\tshell cmd\tstatus\tplan"
-
-        job_summaries = []
-        for job in self.jobs:
-            job_summary = {}
-            output = job.rule.output if self.dynamic(job) else job.expanded_output
-            inputs = job.rule.input if self.dynamic(job) else job.expanded_input
-            job_summary["inputs"] = ",".join(list(inputs))
-            job_summary["outputs"] = []
-            for f in output:
-                output_summary = {}
-                output_summary["file"] = f
-
-                rule = self.workflow.persistence.rule(f)
-                rule = "-" if rule is None else rule
-                output_summary["rule"] = rule
-
-                shellcmd = job.rule.shellcmd
-                params = "-" if shellcmd is None else shellcmd
-                output_summary["shellcmd"] = shellcmd.replace('\n', '\\n')
 
                 version = self.workflow.persistence.version(f)
                 version = "-" if version is None else str(version)
-                output_summary["version"] = version
 
                 date = time.ctime(f.mtime) if f.exists else "-"
-                output_summary["date"] = date
 
                 pending = "update pending" if self.reason(job) else "no update"
-                output_summary["pending"] = pending
+
+                input = self.workflow.persistence.input(f)
+                input = "-" if input is None else ",".join(input)
+
+                shellcmd = self.workflow.persistence.shellcmd(f)
+                shellcmd = "-" if shellcmd is None else shellcmd
+                # remove new line characters and leading spaces
+                shellcmd = re.sub(r'^\n\s+', '', shellcmd)
+                shellcmd = re.sub(r'(.+)\n\s+', r'\1; ', shellcmd)
 
                 status = "ok"
                 if not f.exists:
@@ -866,18 +837,10 @@ class DAG:
                     status = "set of input files changed"
                 elif self.workflow.persistence.params_changed(job, file=f):
                     status = "params changed"
-                output_summary["status"] = status
-                
-                job_summary["outputs"].append(output_summary)
-            if len(job_summary["outputs"]) > 0:
-                job_summaries.append(job_summary)
-
-
-        for job_summary in sorted(job_summaries, key=lambda job_summary: job_summary["outputs"][0]["date"]):
-            if job_summary is None: continue
-
-            for output in job_summary["outputs"]:
-                yield "\t".join((job_summary["inputs"], output["file"], output["date"], output["rule"], output["version"], output["shellcmd"], output["status"], output["pending"]))
+                if summary_level == "basic":
+                    yield "\t".join((f, date, rule, version, status, pending))
+                elif summary_level == "detailed":
+                    yield "\t".join((f, date, rule, version, input, shellcmd, status, pending))
 
     def stats(self):
         if len(self):

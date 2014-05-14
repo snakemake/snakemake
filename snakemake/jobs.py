@@ -133,21 +133,6 @@ class Job:
                 yield f
 
     @property
-    def expanded_input(self):
-        """ Iterate over output files while dynamic output is expanded. """
-        for f, f_ in zip(self.input, self.rule.input):
-            if f in self.dynamic_output:
-                expansion = self.expand_dynamic(
-                    f_,
-                    restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill)
-                if not expansion:
-                    yield f_
-                for f, _ in expansion:
-                    yield IOFile(f, self.rule)
-            else:
-                yield f
-    @property
     def dynamic_wildcards(self):
         """ Return all wildcard values determined from dynamic output. """
         combinations = set()
