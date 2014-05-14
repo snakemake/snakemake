@@ -3,7 +3,7 @@
 import tokenize
 import textwrap
 import os
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError, ContentTooShortError
 import urllib.request
 from io import TextIOWrapper
 
@@ -527,8 +527,8 @@ class Snakefile:
         except FileNotFoundError as e:
             try:
                 self.file = TextIOWrapper(urllib.request.urlopen(self.path))
-            except (HTTPError, ValueError):
-                raise WorkflowError("Could not open {}.".format(path))
+            except (HTTPError, URLError, ContentTooShortError, ValueError):
+                raise WorkflowError("Failed to open {}.".format(path))
 
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = 0

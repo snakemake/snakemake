@@ -19,6 +19,10 @@ __author__ = "Johannes Köster"
 def cumsum(iterable, zero=[0]):
     return list(chain(zero, accumulate(iterable)))
 
+_ERROR_MSG_BOTTOM = (
+    "Exiting because a job execution failed. "
+    "Look above for error message")
+
 
 class JobScheduler:
     def __init__(
@@ -144,10 +148,13 @@ class JobScheduler:
                         "currently running jobs.")
                     if not self.running:
                         self._executor.shutdown()
+                        logger.error(_ERROR_MSG_FINAL)
                         return False
                     continue
                 if not any(self.open_jobs) and not self.running:
                     self._executor.shutdown()
+                    if self._errors:
+                        logger.error(_ERROR_MSG_FINAL)
                     return not self._errors
 
                 needrun = list(self.open_jobs)

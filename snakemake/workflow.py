@@ -320,9 +320,6 @@ class Workflow:
             elif stats:
                 scheduler.stats.to_json(stats)
         else:
-            logger.error(
-                "Exiting because a job execution failed. "
-                "Look above for error message")
             return False
         return True
 
