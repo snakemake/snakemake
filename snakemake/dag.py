@@ -797,11 +797,12 @@ class DAG:
             }}\
             """).format(items="\n".join(nodes + edges))
 
-    def summary(self, summary_level):
-        if summary_level == "basic":
-            yield "file\tdate\trule\tversion\tstatus\tplan"
-        elif summary_level == "detailed":
+    def summary(self, detailed = False):
+        if detailed:
             yield "output_file\tdate\trule\tversion\tinput_file(s)\tshell cmd\tstatus\tplan"
+        else:
+            yield "file\tdate\trule\tversion\tstatus\tplan"
+            
         for job in self.jobs:
             output = job.rule.output if self.dynamic(job) else job.expanded_output
             for f in output:
@@ -837,10 +838,11 @@ class DAG:
                     status = "set of input files changed"
                 elif self.workflow.persistence.params_changed(job, file=f):
                     status = "params changed"
-                if summary_level == "basic":
-                    yield "\t".join((f, date, rule, version, status, pending))
-                elif summary_level == "detailed":
+                if detailed:
                     yield "\t".join((f, date, rule, version, input, shellcmd, status, pending))
+                else:
+                    yield "\t".join((f, date, rule, version, status, pending))
+                    
 
     def stats(self):
         if len(self):
