@@ -142,23 +142,15 @@ class Persistence:
             map(lambda f: f.exists and marked_incomplete(f), job.output))
 
     def version(self, path):
-        if not os.path.exists(path):
-            return None
         return self._read_record(self._version_path, path)
 
     def rule(self, path):
-        if not os.path.exists(path):
-            return None
         return self._read_record(self._rule_path, path)
 
     def input(self, path):
-        if not os.path.exists(path):
-            return None
         return self._read_record(self._input_path, path).split("\n")
 
     def shellcmd(self, path):
-        if not os.path.exists(path):
-            return None
         return self._read_record(self._shellcmd_path, path)
 
     def version_changed(self, job, file=None):
