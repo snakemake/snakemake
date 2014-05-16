@@ -4,6 +4,7 @@ import logging as _logging
 import platform
 import time
 import sys
+import json
 from multiprocessing import Lock
 
 __author__ = "Johannes Köster"
@@ -93,6 +94,10 @@ class Logger:
         msg["level"] = "job_info"
         self.handler(msg)
 
+    def d3dag(self, **msg):
+        msg["level"] = "d3dag"
+        self.handler(msg)
+
     def console_handler(self, msg):
         """The default snakemake log handler.
         
@@ -146,6 +151,8 @@ class Logger:
                     self.logger.info("\n".join(job_info(msg)))
             if self.printshellcmds and msg["shellcmd"]:
                 self.logger.info(msg["shellcmd"])
+        elif level == "d3dag":
+            json.dumps({"nodes": msg["nodes"], "links": msg["links"]})
 
 
 def format_resources(resources, omit_resources="_cores _nodes".split()):

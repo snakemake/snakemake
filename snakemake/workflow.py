@@ -119,7 +119,7 @@ class Workflow:
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
         cluster=None, jobname=None, immediate_submit=False, ignore_ambiguity=False,
-        workdir=None, printrulegraph=False,
+        workdir=None, printrulegraph=False, printd3dag=False,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
@@ -240,7 +240,10 @@ class Workflow:
 
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
-        if printdag:
+        if printd3dag:
+            dag.d3dag()
+            return True
+        elif printdag:
             print(dag)
             return True
         elif printrulegraph:

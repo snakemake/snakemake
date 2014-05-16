@@ -840,7 +840,23 @@ class DAG:
                     yield "\t".join((f, date, rule, version, input, shellcmd, status, pending))
                 else:
                     yield "\t".join((f, date, rule, version, status, pending))
-                    
+
+    def d3dag(self):
+        def node(job):
+            return {"name": job.rule.name}
+
+        def link(a, b, value=1):
+            return {"source": a, "target": b, "value": value}
+
+        jobs = list(self.jobs)
+        jobindex = {job: k for k, job in enumerate(jobs)}
+        logger.d3dag(
+            nodes=list(map(node, jobs)),
+            links=[
+                link(jobindex[dep], jobindex[job])
+                for job in jobs for dep in self.dependencies[job]
+            ]
+        )
 
     def stats(self):
         if len(self):

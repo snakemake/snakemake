@@ -10,6 +10,8 @@ import multiprocessing
 import re
 import sys
 import inspect
+import threading
+import webbrowser
 from functools import partial
 
 
@@ -39,6 +41,7 @@ def snakemake(snakefile,
     printshellcmds=False,
     printdag=False,
     printrulegraph=False,
+    printd3dag=False,
     nocolor=False,
     quiet=False,
     keepgoing=False,
@@ -93,6 +96,7 @@ def snakemake(snakefile,
         printshellcmds (bool):      print the shell command of each job (default False)
         printdag (bool):            print the dag in the graphviz dot language (default False)
         printrulegraph (bool):      print the graph of rules in the graphviz dot language (default False)
+        printd3dag (bool):          print a D3.js compatible JSON representation of the DAG (default False)
         nocolor (bool):             do not print colored output (default False)
         quiet (bool):               do not print any default job information (default False)
         keepgoing (bool):           keep goind upon errors (default False)
@@ -246,6 +250,7 @@ def snakemake(snakefile,
                         keepgoing=keepgoing, printshellcmds=printshellcmds,
                         printreason=printreason, printrulegraph=printrulegraph,
                         printdag=printdag, cluster=cluster, jobname=jobname,
+                        printd3dag=printd3dag,
                         immediate_submit=immediate_submit,
                         ignore_ambiguity=ignore_ambiguity,
                         workdir=workdir, stats=stats,
@@ -318,6 +323,10 @@ def get_argument_parser():
         "--snakefile", "-s", metavar="FILE",
         default="Snakefile", help="The workflow definition in a snakefile.")
     parser.add_argument(
+        "--gui", nargs="?", const="8000", metavar="PORT", type=int,
+        help="Serve an HTML based user interface to the given port "
+        "(default: 8000). If possible, a browser window is opened.")
+    parser.add_argument(
         "--cores", "--jobs", "-j", action="store", default=1,
         const=multiprocessing.cpu_count(), nargs="?", metavar="N", type=int,
         help=(
@@ -361,6 +370,9 @@ def get_argument_parser():
             "cyclic if a rule appears in several steps of the workflow. "
             "Use this if above option leads to a DAG that is too large. "
             "Recommended use on Unix systems: snakemake --ruledag | dot | display")
+    parser.add_argument(
+        "--d3dag", action="store_true",
+        help="Print the DAG in D3.js compatible JSON format.")
     parser.add_argument(
         "--summary", "-S", action="store_true", 
         help="Print a summary of all files created by the workflow. The "
@@ -553,8 +565,31 @@ def main():
         import yappi
         yappi.start()
 
-    success = snakemake(
-            args.snakefile,
+    log_handler=None
+    if args.gui is not None:
+        try:
+            import snakemake.gui as gui
+        except ImportError:
+            print(
+                "Error: GUI needs Flask to be installed. Install "
+                "with easy_install or contact your administrator.",
+                file=sys.stderr)
+            sys.exit(1)
+        log_handler = gui.log_handler
+
+    _snakemake = partial(snakemake, args.snakefile, log_handler=log_handler)
+
+    if args.gui:
+        gui.register(_snakemake)
+        def open_browser():
+            try:
+                webbrowser.open("http://127.0.0.1:{}".format(args.gui))
+            except:
+                pass
+        threading.Timer(1.25, open_browser).start()
+        gui.app.run(port=args.gui)        
+    else:
+        success = _snakemake(
             listrules=args.list,
             cores=args.cores,
             nodes=args.cores,
@@ -566,6 +601,7 @@ def main():
             printreason=args.reason,
             printdag=args.dag,
             printrulegraph=args.rulegraph,
+            printd3dag=args.d3dag,
             touch=args.touch,
             forcetargets=args.force,
             forceall=args.forceall,
@@ -622,7 +658,6 @@ def bash_completion(snakefile="Snakefile"):
             action.option_strings[0] for action in get_argument_parser()._actions
             if action.option_strings and action.option_strings[0].startswith(prefix)]
         print(*opts, sep="\n")
-
     else:
         files = glob.glob("{}*".format(prefix))
         if files:

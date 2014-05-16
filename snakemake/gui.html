@@ -1,0 +1,104 @@
+<html>
+    <head>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.4.6/d3.min.js"></script>
+        <script type="text/javascript" src="https://raw.githubusercontent.com/d3/d3-plugins/master/sankey/sankey.js"></script>
+
+        <style>
+        body {
+          font-family: sans-serif;
+          font-size: small;
+        }
+        .node rect {
+          cursor: move;
+          fill-opacity: .9;
+          shape-rendering: crispEdges;
+        }
+        .node text {
+          pointer-events: none;
+          text-shadow: 0 1px 0 #fff;
+        }
+        .link {
+          fill: none;
+          stroke: #000;
+          stroke-opacity: .2;
+        }
+        .link:hover {
+          stroke-opacity: .5;
+        }
+        </style>
+        <script>
+        function render_dag() {
+            d3.json("dag.json", function(dag) {
+                var layout = d3.sankey()
+                    .size([{{dag_width}} - 50, {{dag_height}}])
+                    .nodeWidth({{node_width}})
+                    .nodePadding({{node_padding}})
+                    .nodes(dag.nodes)
+                    .links(dag.links)
+                    .layout(32)
+
+                var color = d3.scale.category20();
+
+                var svg = d3.select("body").append("svg")
+                    .attr("width", {{dag_width}})
+                    .attr("height", {{dag_height}})
+                    .append("g").attr("transform", "translate(40,0)");
+
+                var path = layout.link();
+                
+                var link = svg.append("g").selectAll(".link")
+                        .data(dag.links)
+                    .enter().append("path")
+                        .attr("class", "link")
+                        .attr("d", path)
+                        .style("stroke-width", function(d) { return Math.max(1, d.dy); })
+                        .sort(function(a, b) { return b.dy - a.dy; });
+                
+                link.append("title")
+                    .text(function(d) { return d.source.name + " → " + d.target.name + "\n" + d.value; });
+
+                var node = svg.append("g").selectAll(".node")
+                        .data(dag.nodes)
+                    .enter().append("g")
+                        .attr("class", "node")
+                        .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
+                    .call(d3.behavior.drag()
+                        .origin(function(d) { return d; })
+                        .on("dragstart", function() { this.parentNode.appendChild(this); })
+                        .on("drag", dragmove));
+
+                node.append("rect")
+                        .attr("height", function(d) { return d.dy; })
+                        .attr("width", layout.nodeWidth())
+                        .style("fill", function(d) { return d.color = color(d.name.replace(/ .*/, "")); })
+                        .style("stroke", function(d) { return d3.rgb(d.color).darker(2); })
+                    .append("title")
+                        .text(function(d) { return d.name + "\n" + d.value; });
+
+                node.append("text")
+                        .attr("x", -6)
+                        .attr("y", function(d) { return d.dy / 2; })
+                        .attr("dy", ".35em")
+                        .attr("text-anchor", "end")
+                        .attr("transform", null)
+                        .text(function(d) { return d.name; })
+                    .filter(function(d) { return d.x < {{dag_width}} / 2; })
+                        .attr("x", 6 + layout.nodeWidth())
+                        .attr("text-anchor", "start");
+
+                function dragmove(d) {
+                    d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min({{dag_height}} - d.dy, d3.event.y))) + ")");
+                    layout.relayout();
+                    link.attr("d", path);
+                }
+            });
+        }
+        render_dag();
+        </script>
+    </head>
+    <body>
+        <svg id="dag">
+        </svg>
+    </body>
+</html>
