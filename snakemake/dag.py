@@ -2,6 +2,7 @@
 
 import textwrap
 import time
+import re
 from collections import defaultdict, Counter
 from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
@@ -796,17 +797,34 @@ class DAG:
             }}\
             """).format(items="\n".join(nodes + edges))
 
-    def summary(self):
-        yield "file\tdate\trule\tversion\tstatus\tplan"
+    def summary(self, detailed = False):
+        if detailed:
+            yield "output_file\tdate\trule\tversion\tinput_file(s)\tshell cmd\tstatus\tplan"
+        else:
+            yield "file\tdate\trule\tversion\tstatus\tplan"
+            
         for job in self.jobs:
             output = job.rule.output if self.dynamic(job) else job.expanded_output
             for f in output:
                 rule = self.workflow.persistence.rule(f)
                 rule = "-" if rule is None else rule
+
                 version = self.workflow.persistence.version(f)
                 version = "-" if version is None else str(version)
+
                 date = time.ctime(f.mtime) if f.exists else "-"
+
                 pending = "update pending" if self.reason(job) else "no update"
+
+                input = self.workflow.persistence.input(f)
+                input = "-" if input is None else ",".join(input)
+
+                shellcmd = self.workflow.persistence.shellcmd(f)
+                shellcmd = "-" if shellcmd is None else shellcmd
+                # remove new line characters and leading spaces
+                shellcmd = re.sub(r'^\n\s+', '', shellcmd)
+                shellcmd = re.sub(r'(.+)\n\s+', r'\1; ', shellcmd)
+
                 status = "ok"
                 if not f.exists:
                     status = "missing"
@@ -820,7 +838,11 @@ class DAG:
                     status = "set of input files changed"
                 elif self.workflow.persistence.params_changed(job, file=f):
                     status = "params changed"
-                yield "\t".join((f, date, rule, version, status, pending))
+                if detailed:
+                    yield "\t".join((f, date, rule, version, input, shellcmd, status, pending))
+                else:
+                    yield "\t".join((f, date, rule, version, status, pending))
+                    
 
     def stats(self):
         if len(self):
