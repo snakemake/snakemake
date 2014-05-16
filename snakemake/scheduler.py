@@ -19,7 +19,7 @@ __author__ = "Johannes Köster"
 def cumsum(iterable, zero=[0]):
     return list(chain(zero, accumulate(iterable)))
 
-_ERROR_MSG_BOTTOM = (
+_ERROR_MSG_FINAL = (
     "Exiting because a job execution failed. "
     "Look above for error message")
 
