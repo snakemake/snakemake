@@ -148,7 +148,10 @@ class Persistence:
         return self._read_record(self._rule_path, path)
 
     def input(self, path):
-        return self._read_record(self._input_path, path).split("\n")
+        files = self._read_record(self._input_path, path)
+        if files is not None:
+            return files.split("\n")
+        return None
 
     def shellcmd(self, path):
         return self._read_record(self._shellcmd_path, path)

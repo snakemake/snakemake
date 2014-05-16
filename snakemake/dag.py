@@ -2,7 +2,6 @@
 
 import textwrap
 import time
-import re
 from collections import defaultdict, Counter
 from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
@@ -799,9 +798,9 @@ class DAG:
 
     def summary(self, detailed = False):
         if detailed:
-            yield "output_file\tdate\trule\tversion\tinput_file(s)\tshell cmd\tstatus\tplan"
+            yield "output_file\tdate\trule\tversion\tinput_file(s)\tshellcmd\tstatus\tplan"
         else:
-            yield "file\tdate\trule\tversion\tstatus\tplan"
+            yield "output_file\tdate\trule\tversion\tstatus\tplan"
             
         for job in self.jobs:
             output = job.rule.output if self.dynamic(job) else job.expanded_output
@@ -821,9 +820,8 @@ class DAG:
 
                 shellcmd = self.workflow.persistence.shellcmd(f)
                 shellcmd = "-" if shellcmd is None else shellcmd
-                # remove new line characters and leading spaces
-                shellcmd = re.sub(r'^\n\s+', '', shellcmd)
-                shellcmd = re.sub(r'(.+)\n\s+', r'\1; ', shellcmd)
+                # remove new line characters, leading and trailing whitespace
+                shellcmd = shellcmd.strip().replace("\n", "; ")
 
                 status = "ok"
                 if not f.exists:
