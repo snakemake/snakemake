@@ -33,8 +33,7 @@ class JobScheduler:
         dryrun=False,
         touch=False,
         cluster=None,
-        drmaa=False,
-        drmaa_args="",
+        drmaa=None,
         jobname=None,
         immediate_submit=False,
         quiet=False,
@@ -82,7 +81,7 @@ class JobScheduler:
                 workflow, dag, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 latency_wait=latency_wait)
-        elif cluster or drmaa:
+        elif cluster or (drmaa is not None):
             # TODO properly set cores
             self._local_executor = CPUExecutor(
                 workflow, dag, multiprocessing.cpu_count(), printreason=printreason,
@@ -105,7 +104,7 @@ class JobScheduler:
                     self.run = self.run_cluster_or_local
             else:
                 self._executor = DRMAAExecutor(
-                    workflow, dag, None, drmaa_args=drmaa_args, jobname=jobname,
+                    workflow, dag, None, drmaa_args=drmaa, jobname=jobname,
                     printreason=printreason, quiet=quiet,
                     printshellcmds=printshellcmds, latency_wait=latency_wait)
                 self.run = self.run_cluster_or_local
