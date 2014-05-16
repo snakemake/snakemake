@@ -2,12 +2,32 @@
     <head>
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.4.6/d3.min.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/js/bootstrap.min.js"></script>
         <script type="text/javascript" src="https://raw.githubusercontent.com/d3/d3-plugins/master/sankey/sankey.js"></script>
-
+        <link rel="stylesheet" type="text/css" href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/css/bootstrap.min.css"/>
         <style>
         body {
           font-family: sans-serif;
           font-size: small;
+          padding-top: 70px;
+        }
+        svg#dag {
+            width: 100%;
+            height: 500px;
+        }
+        #workflow-progress {
+            width: 100%;
+        }
+        #workflow-progress #progress-text {
+            width: 0%;
+            min-width: 100em;
+            text-align: right;
+            color: #CCCCCC;
+        }
+        #workflow-progress #progress-bar {
+            width: 0%;
+            height: 0.5em;
+            background-color: #CCCCCC;
         }
         .node rect {
           cursor: move;
@@ -29,9 +49,16 @@
         </style>
         <script>
         function render_dag() {
-            d3.json("dag.json", function(dag) {
+            d3.json("dag", function(dag) {
+                var svg = d3.select("#dag");
+                svg.select("g").remove();
+                var view = svg.append("g").attr("transform", "translate(40,0)");
+
+                var dag_width = parseInt(svg.style("width")) - 10;
+                var dag_height = parseInt(svg.style("height")) - 10;
+
                 var layout = d3.sankey()
-                    .size([{{dag_width}} - 50, {{dag_height}}])
+                    .size([dag_width - 50, dag_height])
                     .nodeWidth({{node_width}})
                     .nodePadding({{node_padding}})
                     .nodes(dag.nodes)
@@ -40,14 +67,9 @@
 
                 var color = d3.scale.category20();
 
-                var svg = d3.select("body").append("svg")
-                    .attr("width", {{dag_width}})
-                    .attr("height", {{dag_height}})
-                    .append("g").attr("transform", "translate(40,0)");
-
                 var path = layout.link();
                 
-                var link = svg.append("g").selectAll(".link")
+                var link = view.append("g").selectAll(".link")
                         .data(dag.links)
                     .enter().append("path")
                         .attr("class", "link")
@@ -58,7 +80,7 @@
                 link.append("title")
                     .text(function(d) { return d.source.name + " → " + d.target.name + "\n" + d.value; });
 
-                var node = svg.append("g").selectAll(".node")
+                var node = view.append("g").selectAll(".node")
                         .data(dag.nodes)
                     .enter().append("g")
                         .attr("class", "node")
@@ -83,22 +105,85 @@
                         .attr("text-anchor", "end")
                         .attr("transform", null)
                         .text(function(d) { return d.name; })
-                    .filter(function(d) { return d.x < {{dag_width}} / 2; })
+                    .filter(function(d) { return d.x < dag_width / 2; })
                         .attr("x", 6 + layout.nodeWidth())
                         .attr("text-anchor", "start");
 
                 function dragmove(d) {
-                    d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min({{dag_height}} - d.dy, d3.event.y))) + ")");
+                    d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(dag_height - d.dy, d3.event.y))) + ")");
                     layout.relayout();
                     link.attr("d", path);
                 }
             });
         }
-        render_dag();
+
+        var logid = 0;
+        function update() {
+            d3.json("progress", function(progress) {
+                var done = progress.done;
+                var total = progress.total;
+                var percent = done / total * 100;
+                $("#workflow-progress").removeClass("invisible")
+                $("#workflow-progress #progress-bar")
+                    .css("width", percent + "%");
+                $("#workflow-progress #progress-text")
+                    .css("width", percent + "%")
+                    .text(done + " of " + total + " jobs finished (" + percent + "%)");
+            });
+            
+            d3.json("log/" + logid, function(entry) {
+                if(entry) {
+                    if(entry.level == "job_info") {
+                        $("#log").append(
+                            '<div class="list-group-item"><h4>'
+                            + entry.rule + '</h4></div>');
+                    }
+                    else {
+                        var type = "info"
+                        switch(entry.level) {
+                            case "info":
+                                type="warning";
+                                break;
+                            case "error":
+                                type="danger";
+                                break;
+                        }
+                        $("#log").append(
+                            '<div class="list-group-item list-group-item-' + type + '">'
+                            + entry.msg +
+                            '</div>'
+                        );
+                    }
+                    logid++;
+                }
+            });
+        }
+        $( document ).ready(function() {
+            $("#run-btn").click(function() {
+                $.ajax("run");
+                $("#run-btn").prop("disabled",true);
+                setInterval(update, 2000);
+            });
+            
+            render_dag();
+            d3.select(window).on('resize', render_dag);
+        });
         </script>
     </head>
     <body>
+        <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
+            <div class="navbar-header"><p class="navbar-brand" href="#">Snakemake Workflow</p></div>
+            <button type="button" id="run-btn" class="btn btn-default navbar-btn">Run</button>
+        </nav>
         <svg id="dag">
         </svg>
+        <div id="workflow-progress invisible">
+            <div id="progress-bar">
+            </div>
+            <div id="progress-text">
+            </div>
+        </div>
+        <div class="list-group" id="log">
+        </div>
     </body>
 </html>

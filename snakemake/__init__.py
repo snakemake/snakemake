@@ -587,7 +587,7 @@ def main():
             except:
                 pass
         threading.Timer(1.25, open_browser).start()
-        gui.app.run(port=args.gui)        
+        gui.app.run(debug=True, port=args.gui)        
     else:
         success = _snakemake(
             listrules=args.list,
