@@ -859,17 +859,14 @@ class DAG:
         )
 
     def stats(self):
-        if len(self):
-            rules = Counter()
-            rules.update(job.rule for job in self.needrun_jobs)
-            rules.update(job.rule for job in self.finished_jobs)
-            yield "Job counts:"
-            yield "\tcount\tjobs"
-            for rule, count in rules.most_common():
-                yield "\t{}\t{}".format(count, rule)
-            yield "\t{}".format(len(self))
-        else:
-            yield "Nothing to be done."
+        rules = Counter()
+        rules.update(job.rule for job in self.needrun_jobs)
+        rules.update(job.rule for job in self.finished_jobs)
+        yield "Job counts:"
+        yield "\tcount\tjobs"
+        for rule, count in rules.most_common():
+            yield "\t{}\t{}".format(count, rule)
+        yield "\t{}".format(len(self))
 
     def __str__(self):
         return self.dot()

@@ -90,6 +90,12 @@ class Logger:
     def progress(self, done=None, total=None):
         self.handler(dict(level="progress", done=done, total=total))
 
+    def resources_info(self, msg):
+        self.handler(dict(level="resources_info", msg=msg))
+
+    def run_info(self, msg):
+        self.handler(dict(level="run_info", msg=msg))
+
     def job_info(self, **msg):
         msg["level"] = "job_info"
         self.handler(msg)
@@ -139,6 +145,10 @@ class Logger:
             self.logger.error(msg["msg"])
         elif level == "debug":
             self.logger.debug(msg["msg"])
+        elif level == "resources_info":
+            self.logger.warning(msg["msg"])
+        elif level == "run_info":
+            self.logger.warning(msg["msg"])
         elif level == "progress" and not self.quiet:
             done = msg["done"]
             total = msg["total"]

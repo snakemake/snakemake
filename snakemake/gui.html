@@ -32,9 +32,40 @@
             background-color: #CCCCCC;
         }
         
+        #left-panel {
+            float: left;
+            width: 50%;
+        }
+        
+        #left-panel #control {
+            padding: 5px;
+        }
+        
+        #log {
+            width: 50%;
+            float: right;
+        }
+        
         #log table {
             font-size: 10pt;
             margin: 0;
+        }
+        
+        #log div {
+             overflow: auto;
+             padding: 5px;
+        }
+        
+        #log .info {
+            background-color: #f1c40f;
+        }
+        
+        #log .error {
+            background-color: #e74c3c;
+        }
+        
+        #log .job_info {
+            background-color: #2ecc71;
         }
         
         th.ruleitem {
@@ -48,7 +79,6 @@
         }
         .node text {
           pointer-events: none;
-          text-shadow: 0 1px 0 #fff;
         }
         .link {
           fill: none;
@@ -106,7 +136,7 @@
                         .attr("height", function(d) { return d.dy; })
                         .attr("width", layout.nodeWidth())
                         .style("fill", function(d) { return d.color = color(d.name.replace(/ .*/, "")); })
-                        .style("stroke", function(d) { return d3.rgb(d.color).darker(2); })
+                        .style("stroke", function(d) { return d.color = color(d.name.replace(/ .*/, "")); })
                     .append("title")
                         .text(function(d) { return d.name + "\n" + d.value; });
 
@@ -149,11 +179,11 @@
                 console.log(entries);
                 $.each(entries, function(i, entry) {
                     if(entry.level == "job_info") {
-                        var html = '<div class="list-group-item list-group-item-success"><h4>'
-                        + entry.name + '</h4><table class="table">';
+                        var html = '<div class="job_info"><h4>'
+                        + entry.name + '</h4><table>';
                         $.each(["input", "output"], function(i, item) {
                             if(entry[item].length) {
-                                html += '<tr><th class="ruleitem">' + item + '</th><td>' + entry[item].join() + '</td></tr>';
+                                html += '<tr><th class="ruleitem">' + item + '</th><td>' + entry[item].join(", ") + '</td></tr>';
                             }
                         });
                         $.each(["threads", "priority"], function(item) {
@@ -163,7 +193,6 @@
                         });
                         html += '</table></div>';
                         $(html).appendTo($("#log"));
-                        
                     }
                     else {
                         var type = "info"
@@ -176,7 +205,7 @@
                                 break;
                         }
                         $("#log").append(
-                            '<div class="list-group-item list-group-item-' + type + '">'
+                            '<div class="' + entry.level + '">'
                             + entry.msg +
                             '</div>'
                         );
@@ -201,8 +230,7 @@
     </head>
     <body>
         <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
-            <div class="navbar-header"><p class="navbar-brand" href="#">Snakemake Workflow</p></div>
-            <button type="button" id="run-btn" class="btn btn-default navbar-btn">Run</button>
+            <div class="navbar-header"><p class="navbar-brand">Snakemake Workflow</p></div>
         </nav>
         <svg id="dag">
         </svg>
@@ -212,7 +240,12 @@
             <div id="progress-text">
             </div>
         </div>
-        <div class="list-group" id="log">
+        <div id="left-panel">
+            <form id="control">
+            <button type="button" id="run-btn" class="btn btn-default navbar-btn">Run</button>
+            </form>
+        </div>
+        <div id="log">
         </div>
     </body>
 </html>

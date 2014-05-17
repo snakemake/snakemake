@@ -16,11 +16,12 @@ def run_snakemake(**kwargs):
 
 
 def log_handler(msg):
-    if msg["level"] == "d3dag":
+    level = msg["level"]
+    if level == "d3dag":
         app.extensions["dag"] = msg
-    elif msg["level"] == "progress":
+    elif level == "progress":
         app.extensions["progress"] = msg
-    elif msg["level"] != "debug":
+    elif level in ("info", "error", "job_info"):
         app.extensions["log"].append(msg)
 
 
