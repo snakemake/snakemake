@@ -287,21 +287,22 @@ class Workflow:
             printreason=printreason, printshellcmds=printshellcmds,
             output_wait=output_wait, input_wait=input_wait)
 
-        if not dryrun and not quiet and len(dag):
-            if cluster:
-                logger.info("Provided cluster nodes: {}".format(nodes))
-            else:
-                logger.info("Provided cores: {}".format(cores))
-            provided_resources = format_resources(resources)
-            if provided_resources:
-                logger.info("Provided resources: " + provided_resources)
-            ignored_resources = format_resource_names(set(
-                resource
-                for job in dag.needrun_jobs
-                for resource in job.resources_dict
-                if resource not in resources))
-            if ignored_resources:
-                logger.info("Ignored resources: " + ignored_resources)
+        if not dryrun and not quiet:
+            if len(dag):
+                if cluster:
+                    logger.info("Provided cluster nodes: {}".format(nodes))
+                else:
+                    logger.info("Provided cores: {}".format(cores))
+                provided_resources = format_resources(resources)
+                if provided_resources:
+                    logger.info("Provided resources: " + provided_resources)
+                ignored_resources = format_resource_names(set(
+                    resource
+                    for job in dag.needrun_jobs
+                    for resource in job.resources_dict
+                    if resource not in resources))
+                if ignored_resources:
+                    logger.info("Ignored resources: " + ignored_resources)
             logger.info("\n".join(dag.stats()))
 
         success = scheduler.schedule()

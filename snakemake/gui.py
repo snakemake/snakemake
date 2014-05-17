@@ -1,6 +1,7 @@
-from flask import Flask, jsonify, render_template
+import json
 import os
 
+from flask import Flask, render_template
 
 app = Flask("Snakemake", template_folder=os.path.dirname(__file__))
 app.extensions = {"dag": None, "run_snakemake": None, "progress": "", "log": []}
@@ -15,9 +16,7 @@ def run_snakemake(**kwargs):
 
 
 def log_handler(msg):
-    print("log")
     if msg["level"] == "d3dag":
-        print(msg)
         app.extensions["dag"] = msg
     elif msg["level"] == "progress":
         app.extensions["progress"] = msg
@@ -32,24 +31,28 @@ def index():
 
 @app.route("/dag")
 def dag():
-    run_snakemake(printd3dag=True)
-    return jsonify(app.extensions["dag"])
+    if app.extensions["dag"] is None:
+        run_snakemake(printd3dag=True)
+    return json.dumps(app.extensions["dag"])
 
 
 @app.route("/log/<int:id>")
 def log(id):
-    log = app.extensions["log"]
+    log = app.extensions["log"][id:]
     print(log)
-    if id < len(log):
-        return jsonify(log[id])
-    return ""
+    import json
+    return json.dumps(log)
 
 
 @app.route("/progress")
 def progress():
-    return jsonify(app.extensions["progress"])
+    return json.dumps(app.extensions["progress"])
 
 
 @app.route("/run")
 def run():
-    run_snakemake()
+    try:
+        run_snakemake()
+    except Exception as e:
+        print(e)
+    return "test"

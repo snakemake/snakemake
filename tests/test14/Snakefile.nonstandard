@@ -18,7 +18,7 @@ rule compute2:
 	input: '{name}.{chromosome}.inter'
 	output: '{name}.{chromosome}.inter2'
 	params: test="a=b"
-	shell: 'echo copy; cp {input[0]} {output[0]}'
+	shell: 'sleep 1; echo copy; cp {input[0]} {output[0]}'
 
 rule gather:
 	input: ['{name}.%s.inter2'%c for c in chromosomes]

@@ -8,7 +8,7 @@
         <style>
         body {
           font-family: sans-serif;
-          font-size: small;
+          font-size: 10pt;
           padding-top: 70px;
         }
         svg#dag {
@@ -20,15 +20,27 @@
         }
         #workflow-progress #progress-text {
             width: 0%;
-            min-width: 100em;
+            transition: width 2s;
+            min-width: 13em;
             text-align: right;
             color: #CCCCCC;
         }
         #workflow-progress #progress-bar {
             width: 0%;
+            transition: width 2s;
             height: 0.5em;
             background-color: #CCCCCC;
         }
+        
+        #log table {
+            font-size: 10pt;
+            margin: 0;
+        }
+        
+        th.ruleitem {
+            width: 10em;
+        }
+        
         .node rect {
           cursor: move;
           fill-opacity: .9;
@@ -121,22 +133,37 @@
         function update() {
             d3.json("progress", function(progress) {
                 var done = progress.done;
-                var total = progress.total;
-                var percent = done / total * 100;
-                $("#workflow-progress").removeClass("invisible")
-                $("#workflow-progress #progress-bar")
-                    .css("width", percent + "%");
-                $("#workflow-progress #progress-text")
-                    .css("width", percent + "%")
-                    .text(done + " of " + total + " jobs finished (" + percent + "%)");
+                if(done) {
+                    var total = progress.total;
+                    var percent = done / total * 100;
+                    $("#workflow-progress").removeClass("invisible")
+                    $("#workflow-progress #progress-bar")
+                        .css("width", percent + "%");
+                    $("#workflow-progress #progress-text")
+                        .css("width", percent + "%")
+                        .text(done + " of " + total + " jobs finished (" + percent + "%)");
+                }
             });
             
-            d3.json("log/" + logid, function(entry) {
-                if(entry) {
+            $.getJSON("log/" + logid, function(entries) {
+                console.log(entries);
+                $.each(entries, function(i, entry) {
                     if(entry.level == "job_info") {
-                        $("#log").append(
-                            '<div class="list-group-item"><h4>'
-                            + entry.rule + '</h4></div>');
+                        var html = '<div class="list-group-item list-group-item-success"><h4>'
+                        + entry.name + '</h4><table class="table">';
+                        $.each(["input", "output"], function(i, item) {
+                            if(entry[item].length) {
+                                html += '<tr><th class="ruleitem">' + item + '</th><td>' + entry[item].join() + '</td></tr>';
+                            }
+                        });
+                        $.each(["threads", "priority"], function(item) {
+                            if(entry[item] > 1) {
+                                html += '<tr><th class="ruleitem">' + item + '</th><td>' + entry[item] + '</td></tr>';
+                            }
+                        });
+                        html += '</table></div>';
+                        $(html).appendTo($("#log"));
+                        
                     }
                     else {
                         var type = "info"
@@ -155,13 +182,15 @@
                         );
                     }
                     logid++;
-                }
+                });
             });
         }
         $( document ).ready(function() {
             $("#run-btn").click(function() {
                 $.ajax("run");
+                console.log("done");
                 $("#run-btn").prop("disabled",true);
+                update();
                 setInterval(update, 2000);
             });
             
@@ -177,7 +206,7 @@
         </nav>
         <svg id="dag">
         </svg>
-        <div id="workflow-progress invisible">
+        <div id="workflow-progress" class="invisible">
             <div id="progress-bar">
             </div>
             <div id="progress-text">
