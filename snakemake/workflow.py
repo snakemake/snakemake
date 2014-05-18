@@ -108,6 +108,11 @@ class Workflow:
         for rule in rules:
             logger.rule_info(name=rule.name, docstring=rule.docstring)
 
+    def list_resources(self):
+        for resource in set(resource for rule in self.rules for resource in rule.resources):
+            if resource not in "_cores _nodes".split():
+                logger.info(resource)
+
     def is_local(self, rule):
         return rule.name in self._localrules
 

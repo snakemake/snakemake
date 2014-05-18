@@ -286,28 +286,43 @@
             </div>
         </div>
         <div id="left-panel">
-            <form id="control">
+            <form class="form-horizontal" id="control">
                 <fieldset>
-                    <button type="button" id="run-btn" class="btn btn-default navbar-btn">Run</button>
                     <div class="form-group">
-                        <label for="targets">Targets</label>
-                        <select id="targets" class="form-control selectpicker" multiple>
-                            <option selected>{{targets[0]}}</option>
-                            {% for target in targets[1:] %}
-                            <option>{{target}}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button type="button" id="run-btn" class="btn btn-default navbar-btn">Run</button>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="cores">{{cores_label}}</label>
-                        <input type="text" class="form-control" id="cores" value="1">
+                        <label for="targets" class="col-sm-2 control-label">Targets</label>
+                        <div class="col-sm-10">
+                            <select id="targets" class="form-control selectpicker" multiple>
+                                <option selected>{{targets[0]}}</option>
+                                {% for target in targets[1:] %}
+                                <option>{{target}}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <h4>Resources</h4>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="cores" class="col-sm-2 control-label">{{cores_label}}</label>
+                        <div class="col-sm-10">
+                            <input type="text" class="col-sm-10 form-control" id="cores" value="1">
+                        </div>
                     </div>
                     {% for resource in resources %}
                         <div class="form-group">
-                            <label for="{{resource.name}}">{{resource.name}}</label>
-                            <div class="input-group">
-                                <span class="input-group-addon"><input type="checkbox" id="{{resource.name}}"></span>
-                                <input type="text" class="form-control" id="{{resource.name}}_value">
+                            <label for="{{resource}}" class="col-sm-2 control-label">{{resource}}</label>
+                            <div class="col-sm-10">
+                                <div class="input-group">
+                                    <span class="input-group-addon"><input type="checkbox" id="{{resource}}"></span>
+                                    <input type="text" class="form-control" id="{{resource}}_value">
+                                </div>
                             </div>
                         </div>
                     {% endfor %}

@@ -20,6 +20,7 @@ from snakemake.exceptions import print_exception
 from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
 
+
 __author__ = "Johannes Köster"
 
 
@@ -61,6 +62,7 @@ def snakemake(snakefile,
     list_code_changes=False,
     list_input_changes=False,
     list_params_changes=False,
+    list_resources=False,
     summary=False,
     detailed_summary=False,
     output_wait=3,
@@ -117,6 +119,7 @@ def snakemake(snakefile,
         list_code_changes (bool):   list output files with changed rule code (default False)
         list_input_changes (bool):  list output files with changed input files (default False)
         list_params_changes (bool): list output files with changed params (default False)
+        list_resources (bool):      list resources used in the workflow (default False)
         summary (bool):             list summary of all output files and their status (default False). If no option  is specified a basic summary will be ouput. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
         detailed_summary (bool):    list summary of all input and output files and their status (default False)
         output_wait (int):          how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
@@ -213,6 +216,8 @@ def snakemake(snakefile,
                 workflow.list_rules()
             elif list_target_rules:
                 workflow.list_rules(only_targets=True)
+            elif list_resources:
+                workflow.list_resources()
             else:
                     #if not printdag and not printrulegraph:
                     # handle subworkflows
@@ -572,7 +577,6 @@ def main():
         import yappi
         yappi.start()
 
-    log_handler=None
     if args.gui is not None:
         try:
             import snakemake.gui as gui
@@ -582,9 +586,8 @@ def main():
                 "with easy_install or contact your administrator.",
                 file=sys.stderr)
             sys.exit(1)
-        log_handler = gui.log_handler
 
-    _snakemake = partial(snakemake, args.snakefile, log_handler=log_handler)
+    _snakemake = partial(snakemake, args.snakefile)
 
     if args.gui:
         gui.register(_snakemake, args)
