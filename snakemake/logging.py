@@ -100,6 +100,10 @@ class Logger:
         msg["level"] = "job_info"
         self.handler(msg)
 
+    def rule_info(self, **msg):
+        msg["level"] = "rule_info"
+        self.handler(msg)
+
     def d3dag(self, **msg):
         msg["level"] = "d3dag"
         self.handler(msg)
@@ -161,6 +165,10 @@ class Logger:
                     self.logger.info("\n".join(job_info(msg)))
             if self.printshellcmds and msg["shellcmd"]:
                 self.logger.info(msg["shellcmd"])
+        elif level == "rule_info":
+            self.logger.info(msg["name"])
+            if msg["docstring"]:
+                self.logger.info("\t" + msg["docstring"])
         elif level == "d3dag":
             json.dumps({"nodes": msg["nodes"], "links": msg["links"]})
 

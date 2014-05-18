@@ -101,14 +101,12 @@ class Workflow:
             raise UnknownRuleException(name)
         return self._rules[name]
 
-    def list_rules(self, details=True, log=logger.info):
-        log("Available rules:")
-        for rule in self.rules:
-            log(rule.name)
-            if details:
-                if rule.docstring:
-                    for line in rule.docstring.split("\n"):
-                        log("\t" + line)
+    def list_rules(self, only_targets=False):
+        rules = self.rules
+        if only_targets:
+            rules = filterfalse(Rule.has_wildcards, rules)
+        for rule in rules:
+            logger.rule_info(name=rule.name, docstring=rule.docstring)
 
     def is_local(self, rule):
         return rule.name in self._localrules

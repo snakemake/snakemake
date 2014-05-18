@@ -25,6 +25,7 @@ __author__ = "Johannes Köster"
 
 def snakemake(snakefile,
     listrules=False,
+    list_target_rules=False,
     cores=1,
     nodes=1,
     resources=dict(),
@@ -80,6 +81,7 @@ def snakemake(snakefile,
     Args:
         snakefile (str):            the path to the snakefile
         listrules (bool):           list rules (default False)
+        list_target_rules (bool):   list target rules (default False)
         cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
         nodes (int):                the number of provided cluster nodes (ignored without cluster support) (default 1)
         resources (dict):           provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
@@ -209,6 +211,8 @@ def snakemake(snakefile,
         if not print_compilation:
             if listrules:
                 workflow.list_rules()
+            elif list_target_rules:
+                workflow.list_rules(only_targets=True)
             else:
                     #if not printdag and not printrulegraph:
                     # handle subworkflows
@@ -344,7 +348,10 @@ def get_argument_parser():
             "'gpu' they won't be run in parallel by the scheduler."))
     parser.add_argument(
         "--list", "-l", action="store_true",
-        help="Show availiable rules in given snakefile.")
+        help="Show availiable rules in given Snakefile.")
+    parser.add_argument(
+        "--list-target-rules", "--lt", action="store_true",
+        help="Show available target rules in given Snakefile.")
     parser.add_argument(
         "--directory", "-d", metavar="DIR", action="store",
         help=(
@@ -580,7 +587,7 @@ def main():
     _snakemake = partial(snakemake, args.snakefile, log_handler=log_handler)
 
     if args.gui:
-        gui.register(_snakemake)
+        gui.register(_snakemake, args)
         def open_browser():
             try:
                 webbrowser.open("http://127.0.0.1:{}".format(args.gui))
@@ -591,6 +598,7 @@ def main():
     else:
         success = _snakemake(
             listrules=args.list,
+            list_target_rules=args.list_target_rules,
             cores=args.cores,
             nodes=args.cores,
             resources=resources,
