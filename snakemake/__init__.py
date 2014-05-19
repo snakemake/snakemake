@@ -5,7 +5,7 @@ import subprocess
 import glob
 import argparse
 from argparse import ArgumentError
-import logging
+import logging as _logging
 import multiprocessing
 import re
 import sys
@@ -577,6 +577,8 @@ def main():
         import yappi
         yappi.start()
 
+    _snakemake = partial(snakemake, args.snakefile, snakemakepath=snakemakepath)
+
     if args.gui is not None:
         try:
             import snakemake.gui as gui
@@ -587,17 +589,23 @@ def main():
                 file=sys.stderr)
             sys.exit(1)
 
-    _snakemake = partial(snakemake, args.snakefile)
-
-    if args.gui:
+        _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
         gui.register(_snakemake, args)
+        url = "http://127.0.0.1:{}".format(args.gui)
+        print("Listening on {}.".format(url), file=sys.stderr)
         def open_browser():
             try:
-                webbrowser.open("http://127.0.0.1:{}".format(args.gui))
+                webbrowser.open(url)
             except:
                 pass
-        threading.Timer(1.25, open_browser).start()
-        gui.app.run(debug=True, threaded=True, port=args.gui)        
+        print("Open this address in your browser to access the GUI.", file=sys.stderr)
+        threading.Timer(0.5, open_browser).start()
+        success = True
+        try:
+            gui.app.run(debug=False, threaded=True, port=args.gui)
+        except (KeyboardInterrupt, SystemExit):
+            # silently close
+            pass
     else:
         success = _snakemake(
             listrules=args.list,

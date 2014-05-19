@@ -309,13 +309,15 @@ class Workflow:
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
+        if dryrun and not len(dag):
+            logger.info("Nothing to be done.")
 
         success = scheduler.schedule()
 
         if success:
             if dryrun:
-                if not quiet:
-                    logger.info("\n".join(dag.stats()))
+                if not quiet and len(dag):
+                    logger.run_info("\n".join(dag.stats()))
             elif stats:
                 scheduler.stats.to_json(stats)
         else:

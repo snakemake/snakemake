@@ -848,15 +848,20 @@ class DAG:
         def link(a, b, value=1):
             return {"source": a, "target": b, "value": value}
 
-        jobs = list(self.jobs)
+        jobs = list(self.needrun_jobs)
         jobindex = {job: k for k, job in enumerate(jobs)}
-        logger.d3dag(
-            nodes=list(map(node, jobs)),
-            links=[
-                link(jobindex[dep], jobindex[job])
-                for job in jobs for dep in self.dependencies[job]
-            ]
-        )
+
+        if len(jobs) > 200:
+            logger.info("Job-DAG is too large for visualization (>100 jobs).")
+        else:
+            logger.d3dag(
+                nodes=list(map(node, jobs)),
+                links=[
+                    link(jobindex[dep], jobindex[job])
+                    for job in jobs for dep in self.dependencies[job]
+                    if dep in jobindex
+                ]
+            )
 
     def stats(self):
         rules = Counter()

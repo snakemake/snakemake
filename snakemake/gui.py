@@ -2,7 +2,9 @@ import json
 import os
 import threading
 
-from flask import Flask, render_template
+from flask import Flask, render_template, request
+
+from snakemake.version import __version__
 
 LOCK = threading.Lock()
 
@@ -15,11 +17,29 @@ app.extensions = {
 
 def register(run_snakemake, args):
     app.extensions["run_snakemake"] = run_snakemake
-    app.extensions["args"] = {
-        "targets": args.target,
-        "cluster": args.cluster
-    }
-    
+    app.extensions["args"] = dict(
+        targets=args.target,
+        cluster=args.cluster,
+        workdir=args.directory,
+        touch=args.touch,
+        forcetargets=args.force,
+        forceall=args.forceall,
+        forcerun=args.forcerun,
+        prioritytargets=args.prioritize,
+        stats=args.stats,
+        keepgoing=args.keep_going,
+        jobname=args.jobname,
+        immediate_submit=args.immediate_submit,
+        ignore_ambiguity=args.allow_ambiguity,
+        lock=not args.nolock,
+        force_incomplete=args.rerun_incomplete,
+        ignore_incomplete=args.ignore_incomplete,
+        jobscript=args.jobscript,
+        notemp=args.notemp,
+        output_wait=args.output_wait,
+        input_wait=args.input_wait
+    )
+
     target_rules = []
     def log_handler(msg):
         if msg["level"] == "rule_info":
@@ -28,13 +48,14 @@ def register(run_snakemake, args):
     for target in args.target:
         target_rules.remove(target)
     app.extensions["targets"] = args.target + target_rules
-    
+
     resources = []
     def log_handler(msg):
         if msg["level"] == "info":
             resources.append(msg["msg"])
     run_snakemake(list_resources=True, log_handler=log_handler)
     app.extensions["resources"] = resources
+    app.extensions["snakefilepath"] = os.path.abspath(args.snakefile)
 
 
 def run_snakemake(**kwargs):
@@ -51,6 +72,8 @@ def index():
         targets=app.extensions["targets"],
         cores_label="Nodes" if args["cluster"] else "Cores",
         resources=app.extensions["resources"],
+        snakefilepath=app.extensions["snakefilepath"],
+        version=__version__,
         node_width=15,
         node_padding=10)
 
@@ -61,6 +84,8 @@ def dag():
         def record(msg):
             if msg["level"] == "d3dag":
                 app.extensions["dag"] = msg
+            elif msg["level"] in ("error", "info"):
+                app.extensions["log"].append(msg)
         run_snakemake(printd3dag=True, log_handler=record)
     return json.dumps(app.extensions["dag"])
 
@@ -68,7 +93,6 @@ def dag():
 @app.route("/log/<int:id>")
 def log(id):
     log = app.extensions["log"][id:]
-    import json
     return json.dumps(log)
 
 
@@ -77,8 +101,7 @@ def progress():
     return json.dumps(app.extensions["progress"])
 
 
-@app.route("/run")
-def run():
+def _run(dryrun=False):
     def log_handler(msg):
         level = msg["level"]
         if level == "progress":
@@ -88,10 +111,19 @@ def run():
 
     with LOCK:
         app.extensions["status"]["running"] = True
-    run_snakemake(log_handler=log_handler)
+    run_snakemake(log_handler=log_handler, dryrun=dryrun)
     with LOCK:
         app.extensions["status"]["running"] = False
     return ""
+
+@app.route("/run")
+def run():
+    _run()
+
+
+@app.route("/dryrun")
+def dryrun():
+    _run(dryrun=True)
 
 
 @app.route("/status")
@@ -112,5 +144,9 @@ def get_args():
 
 @app.route("/set_args", methods=["POST"])
 def set_args():
-    app.extensions["args"] = request.form
+    app.extensions["args"].update({name: value for name, value in request.form.items() if not name.endswith("[]")})
+    targets = request.form.getlist("targets[]")
+    if targets != app.extensions["args"]["targets"]:
+        app.extensions["dag"] = None
+    app.extensions["args"]["targets"] = targets
     return ""
