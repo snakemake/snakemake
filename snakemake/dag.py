@@ -843,7 +843,9 @@ class DAG:
 
     def d3dag(self):
         def node(job):
-            return {"name": job.rule.name}
+            target = not self.depending[job]
+            source = not self.dependencies[job]
+            return {"name": job.rule.name, "issource": source, "istarget": target}
 
         def link(a, b, value=1):
             return {"source": a, "target": b, "value": value}
@@ -851,7 +853,7 @@ class DAG:
         jobs = list(self.needrun_jobs)
         jobindex = {job: k for k, job in enumerate(jobs)}
 
-        if len(jobs) > 200:
+        if len(jobs) > 20000:
             logger.info("Job-DAG is too large for visualization (>100 jobs).")
         else:
             logger.d3dag(
