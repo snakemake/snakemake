@@ -791,17 +791,33 @@ class DAG:
             }}\
             """).format(items="\n".join(nodes + edges))
 
-    def summary(self):
-        yield "file\tdate\trule\tversion\tstatus\tplan"
+    def summary(self, detailed = False):
+        if detailed:
+            yield "output_file\tdate\trule\tversion\tinput_file(s)\tshellcmd\tstatus\tplan"
+        else:
+            yield "output_file\tdate\trule\tversion\tstatus\tplan"
+            
         for job in self.jobs:
             output = job.rule.output if self.dynamic(job) else job.expanded_output
             for f in output:
                 rule = self.workflow.persistence.rule(f)
                 rule = "-" if rule is None else rule
+
                 version = self.workflow.persistence.version(f)
                 version = "-" if version is None else str(version)
+
                 date = time.ctime(f.mtime) if f.exists else "-"
+
                 pending = "update pending" if self.reason(job) else "no update"
+
+                input = self.workflow.persistence.input(f)
+                input = "-" if input is None else ",".join(input)
+
+                shellcmd = self.workflow.persistence.shellcmd(f)
+                shellcmd = "-" if shellcmd is None else shellcmd
+                # remove new line characters, leading and trailing whitespace
+                shellcmd = shellcmd.strip().replace("\n", "; ")
+
                 status = "ok"
                 if not f.exists:
                     status = "missing"
@@ -815,20 +831,42 @@ class DAG:
                     status = "set of input files changed"
                 elif self.workflow.persistence.params_changed(job, file=f):
                     status = "params changed"
-                yield "\t".join((f, date, rule, version, status, pending))
+                if detailed:
+                    yield "\t".join((f, date, rule, version, input, shellcmd, status, pending))
+                else:
+                    yield "\t".join((f, date, rule, version, status, pending))
+
+    def d3dag(self):
+        def node(job):
+            return {"name": job.rule.name}
+
+        def link(a, b, value=1):
+            return {"source": a, "target": b, "value": value}
+
+        jobs = list(self.needrun_jobs)
+        jobindex = {job: k for k, job in enumerate(jobs)}
+
+        if len(jobs) > 200:
+            logger.info("Job-DAG is too large for visualization (>100 jobs).")
+        else:
+            logger.d3dag(
+                nodes=list(map(node, jobs)),
+                links=[
+                    link(jobindex[dep], jobindex[job])
+                    for job in jobs for dep in self.dependencies[job]
+                    if dep in jobindex
+                ]
+            )
 
     def stats(self):
-        if len(self):
-            rules = Counter()
-            rules.update(job.rule for job in self.needrun_jobs)
-            rules.update(job.rule for job in self.finished_jobs)
-            yield "Job counts:"
-            yield "\tcount\tjobs"
-            for rule, count in rules.most_common():
-                yield "\t{}\t{}".format(count, rule)
-            yield "\t{}".format(len(self))
-        else:
-            yield "Nothing to be done."
+        rules = Counter()
+        rules.update(job.rule for job in self.needrun_jobs)
+        rules.update(job.rule for job in self.finished_jobs)
+        yield "Job counts:"
+        yield "\tcount\tjobs"
+        for rule, count in rules.most_common():
+            yield "\t{}\t{}".format(count, rule)
+        yield "\t{}".format(len(self))
 
     def __str__(self):
         return self.dot()

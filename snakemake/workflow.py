@@ -102,14 +102,17 @@ class Workflow:
             raise UnknownRuleException(name)
         return self._rules[name]
 
-    def list_rules(self, details=True, log=logger.info):
-        log("Available rules:")
-        for rule in self.rules:
-            log(rule.name)
-            if details:
-                if rule.docstring:
-                    for line in rule.docstring.split("\n"):
-                        log("\t" + line)
+    def list_rules(self, only_targets=False):
+        rules = self.rules
+        if only_targets:
+            rules = filterfalse(Rule.has_wildcards, rules)
+        for rule in rules:
+            logger.rule_info(name=rule.name, docstring=rule.docstring)
+
+    def list_resources(self):
+        for resource in set(resource for rule in self.rules for resource in rule.resources):
+            if resource not in "_cores _nodes".split():
+                logger.info(resource)
 
     def is_local(self, rule):
         return rule.name in self._localrules
@@ -120,11 +123,19 @@ class Workflow:
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
         cluster=None, jobname=None, immediate_submit=False, ignore_ambiguity=False,
+<<<<<<< HEAD
         workdir=None, printrulegraph=False, drmaa=None,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
         summary=False, latency_wait=3, wait_for_files=None, nolock=False, unlock=False,
+=======
+        workdir=None, printrulegraph=False, printd3dag=False,
+        stats=None, force_incomplete=False, ignore_incomplete=False,
+        list_version_changes=False, list_code_changes=False,
+        list_input_changes=False, list_params_changes=False,
+        summary=False, detailed_summary= False, output_wait=3, input_wait=3, nolock=False, unlock=False,
+>>>>>>> master
         resources=None, notemp=False, nodeps=False,
         cleanup_metadata=None, subsnakemake=None, updated_files=None, keep_target_files=False,
         allowed_rules=None):
@@ -253,14 +264,20 @@ class Workflow:
 
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
-        if printdag:
+        if printd3dag:
+            dag.d3dag()
+            return True
+        elif printdag:
             print(dag)
             return True
         elif printrulegraph:
             print(dag.rule_dot())
             return True
         elif summary:
-            print("\n".join(dag.summary()))
+            print("\n".join(dag.summary(detailed=False)))
+            return True
+        elif detailed_summary:
+            print("\n".join(dag.summary(detailed=True)))
             return True
         elif list_version_changes:
             items = list(chain(
@@ -294,29 +311,34 @@ class Workflow:
             printreason=printreason, printshellcmds=printshellcmds,
             latency_wait=latency_wait)
 
-        if not dryrun and not quiet and len(dag):
-            if cluster:
-                logger.info("Provided cluster nodes: {}".format(nodes))
+        if not dryrun and not quiet:
+            if len(dag):
+                if cluster:
+                    logger.resources_info("Provided cluster nodes: {}".format(nodes))
+                else:
+                    logger.resources_info("Provided cores: {}".format(cores))
+                provided_resources = format_resources(resources)
+                if provided_resources:
+                    logger.resources_info("Provided resources: " + provided_resources)
+                ignored_resources = format_resource_names(set(
+                    resource
+                    for job in dag.needrun_jobs
+                    for resource in job.resources_dict
+                    if resource not in resources))
+                if ignored_resources:
+                    logger.resources_info("Ignored resources: " + ignored_resources)
+                logger.run_info("\n".join(dag.stats()))
             else:
-                logger.info("Provided cores: {}".format(cores))
-            provided_resources = format_resources(resources)
-            if provided_resources:
-                logger.info("Provided resources: " + provided_resources)
-            ignored_resources = format_resource_names(set(
-                resource
-                for job in dag.needrun_jobs
-                for resource in job.resources_dict
-                if resource not in resources))
-            if ignored_resources:
-                logger.info("Ignored resources: " + ignored_resources)
-            logger.info("\n".join(dag.stats()))
+                logger.info("Nothing to be done.")
+        if dryrun and not len(dag):
+            logger.info("Nothing to be done.")
 
         success = scheduler.schedule()
 
         if success:
             if dryrun:
-                if not quiet:
-                    logger.info("\n".join(dag.stats()))
+                if not quiet and len(dag):
+                    logger.run_info("\n".join(dag.stats()))
             elif stats:
                 scheduler.stats.to_json(stats)
         else:

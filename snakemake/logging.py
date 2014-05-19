@@ -4,6 +4,7 @@ import logging as _logging
 import platform
 import time
 import sys
+import json
 from multiprocessing import Lock
 
 __author__ = "Johannes Köster"
@@ -89,8 +90,22 @@ class Logger:
     def progress(self, done=None, total=None):
         self.handler(dict(level="progress", done=done, total=total))
 
+    def resources_info(self, msg):
+        self.handler(dict(level="resources_info", msg=msg))
+
+    def run_info(self, msg):
+        self.handler(dict(level="run_info", msg=msg))
+
     def job_info(self, **msg):
         msg["level"] = "job_info"
+        self.handler(msg)
+
+    def rule_info(self, **msg):
+        msg["level"] = "rule_info"
+        self.handler(msg)
+
+    def d3dag(self, **msg):
+        msg["level"] = "d3dag"
         self.handler(msg)
 
     def console_handler(self, msg):
@@ -134,6 +149,10 @@ class Logger:
             self.logger.error(msg["msg"])
         elif level == "debug":
             self.logger.debug(msg["msg"])
+        elif level == "resources_info":
+            self.logger.warning(msg["msg"])
+        elif level == "run_info":
+            self.logger.warning(msg["msg"])
         elif level == "progress" and not self.quiet:
             done = msg["done"]
             total = msg["total"]
@@ -146,6 +165,12 @@ class Logger:
                     self.logger.info("\n".join(job_info(msg)))
             if self.printshellcmds and msg["shellcmd"]:
                 self.logger.info(msg["shellcmd"])
+        elif level == "rule_info":
+            self.logger.info(msg["name"])
+            if msg["docstring"]:
+                self.logger.info("\t" + msg["docstring"])
+        elif level == "d3dag":
+            json.dumps({"nodes": msg["nodes"], "links": msg["links"]})
 
 
 def format_resources(resources, omit_resources="_cores _nodes".split()):

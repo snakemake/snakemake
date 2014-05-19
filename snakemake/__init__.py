@@ -5,11 +5,13 @@ import subprocess
 import glob
 import argparse
 from argparse import ArgumentError
-import logging
+import logging as _logging
 import multiprocessing
 import re
 import sys
 import inspect
+import threading
+import webbrowser
 from functools import partial
 
 
@@ -18,11 +20,13 @@ from snakemake.exceptions import print_exception
 from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
 
+
 __author__ = "Johannes Köster"
 
 
 def snakemake(snakefile,
     listrules=False,
+    list_target_rules=False,
     cores=1,
     nodes=1,
     resources=dict(),
@@ -39,6 +43,7 @@ def snakemake(snakefile,
     printshellcmds=False,
     printdag=False,
     printrulegraph=False,
+    printd3dag=False,
     nocolor=False,
     quiet=False,
     keepgoing=False,
@@ -58,7 +63,9 @@ def snakemake(snakefile,
     list_code_changes=False,
     list_input_changes=False,
     list_params_changes=False,
+    list_resources=False,
     summary=False,
+    detailed_summary=False,
     latency_wait=3,
     wait_for_files=None,
     print_compilation=False,
@@ -78,6 +85,7 @@ def snakemake(snakefile,
     Args:
         snakefile (str):            the path to the snakefile
         listrules (bool):           list rules (default False)
+        list_target_rules (bool):   list target rules (default False)
         cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
         nodes (int):                the number of provided cluster nodes (ignored without cluster support) (default 1)
         resources (dict):           provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
@@ -94,6 +102,7 @@ def snakemake(snakefile,
         printshellcmds (bool):      print the shell command of each job (default False)
         printdag (bool):            print the dag in the graphviz dot language (default False)
         printrulegraph (bool):      print the graph of rules in the graphviz dot language (default False)
+        printd3dag (bool):          print a D3.js compatible JSON representation of the DAG (default False)
         nocolor (bool):             do not print colored output (default False)
         quiet (bool):               do not print any default job information (default False)
         keepgoing (bool):           keep goind upon errors (default False)
@@ -116,6 +125,9 @@ def snakemake(snakefile,
         summary (bool):             list summary of all output files and their status (default False)
         latency_wait (int):         how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
         wait_for_files (list):      wait for given files to be present before executing the workflow
+        list_resources (bool):      list resources used in the workflow (default False)
+        summary (bool):             list summary of all output files and their status (default False). If no option  is specified a basic summary will be ouput. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
+        detailed_summary (bool):    list summary of all input and output files and their status (default False)
         print_compilation (bool):   print the compilation of the snakefile (default False)
         debug (bool):               show additional debug output (default False)
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
@@ -210,6 +222,10 @@ def snakemake(snakefile,
         if not print_compilation:
             if listrules:
                 workflow.list_rules()
+            elif list_target_rules:
+                workflow.list_rules(only_targets=True)
+            elif list_resources:
+                workflow.list_resources()
             else:
                     #if not printdag and not printrulegraph:
                     # handle subworkflows
@@ -252,6 +268,7 @@ def snakemake(snakefile,
                         printreason=printreason, printrulegraph=printrulegraph,
                         printdag=printdag, cluster=cluster, jobname=jobname,
                         drmaa=drmaa,
+                        printd3dag=printd3dag,
                         immediate_submit=immediate_submit,
                         ignore_ambiguity=ignore_ambiguity,
                         workdir=workdir, stats=stats,
@@ -264,6 +281,7 @@ def snakemake(snakefile,
                         summary=summary,
                         latency_wait=latency_wait,
                         wait_for_files=wait_for_files,
+                        detailed_summary=detailed_summary,
                         nolock=not lock,
                         unlock=unlock,
                         resources=resources,
@@ -324,6 +342,10 @@ def get_argument_parser():
         "--snakefile", "-s", metavar="FILE",
         default="Snakefile", help="The workflow definition in a snakefile.")
     parser.add_argument(
+        "--gui", nargs="?", const="8000", metavar="PORT", type=int,
+        help="Serve an HTML based user interface to the given port "
+        "(default: 8000). If possible, a browser window is opened.")
+    parser.add_argument(
         "--cores", "--jobs", "-j", action="store", default=1,
         const=multiprocessing.cpu_count(), nargs="?", metavar="N", type=int,
         help=(
@@ -341,7 +363,10 @@ def get_argument_parser():
             "'gpu' they won't be run in parallel by the scheduler."))
     parser.add_argument(
         "--list", "-l", action="store_true",
-        help="Show availiable rules in given snakefile.")
+        help="Show availiable rules in given Snakefile.")
+    parser.add_argument(
+        "--list-target-rules", "--lt", action="store_true",
+        help="Show available target rules in given Snakefile.")
     parser.add_argument(
         "--directory", "-d", metavar="DIR", action="store",
         help=(
@@ -368,7 +393,10 @@ def get_argument_parser():
             "Use this if above option leads to a DAG that is too large. "
             "Recommended use on Unix systems: snakemake --ruledag | dot | display")
     parser.add_argument(
-        "--summary", "-S", action="store_true",
+        "--d3dag", action="store_true",
+        help="Print the DAG in D3.js compatible JSON format.")
+    parser.add_argument(
+        "--summary", "-S", action="store_true", 
         help="Print a summary of all files created by the workflow. The "
         "has the following columns: filename, modification time, "
         "rule version, status, plan.\n"
@@ -377,6 +405,18 @@ def get_argument_parser():
         "status denotes whether the file is missing, its input files are "
         "newer or if version or implementation of the rule changed since "
         "file creation. Finally the last column denotes whether the file "
+        "will be updated or created during the next workflow execution.")
+    parser.add_argument(
+        "--detailed-summary", "-D", action="store_true",
+        help="Print a summary of all files created by the workflow. The "
+        "has the following columns: filename, modification time, "
+        "rule version, input file(s), shell command, status, plan.\n"
+        "Thereby rule version contains the version"
+        "the file was created with (see the version keyword of rules), and "
+        "status denotes whether the file is missing, its input files are "
+        "newer or if version or implementation of the rule changed since "
+        "file creation. The input file and shell command columns are self"
+        "explanatory. Finally the last column denotes whether the file "
         "will be updated or created during the next workflow execution.")
     parser.add_argument(
         "--touch", "-t", action="store_true",
@@ -565,9 +605,39 @@ def main():
         import yappi
         yappi.start()
 
-    success = snakemake(
-            args.snakefile,
+    _snakemake = partial(snakemake, args.snakefile, snakemakepath=snakemakepath)
+
+    if args.gui is not None:
+        try:
+            import snakemake.gui as gui
+        except ImportError:
+            print(
+                "Error: GUI needs Flask to be installed. Install "
+                "with easy_install or contact your administrator.",
+                file=sys.stderr)
+            sys.exit(1)
+
+        _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
+        gui.register(_snakemake, args)
+        url = "http://127.0.0.1:{}".format(args.gui)
+        print("Listening on {}.".format(url), file=sys.stderr)
+        def open_browser():
+            try:
+                webbrowser.open(url)
+            except:
+                pass
+        print("Open this address in your browser to access the GUI.", file=sys.stderr)
+        threading.Timer(0.5, open_browser).start()
+        success = True
+        try:
+            gui.app.run(debug=False, threaded=True, port=args.gui)
+        except (KeyboardInterrupt, SystemExit):
+            # silently close
+            pass
+    else:
+        success = _snakemake(
             listrules=args.list,
+            list_target_rules=args.list_target_rules,
             cores=args.cores,
             nodes=args.cores,
             resources=resources,
@@ -578,6 +648,7 @@ def main():
             printreason=args.reason,
             printdag=args.dag,
             printrulegraph=args.rulegraph,
+            printd3dag=args.d3dag,
             touch=args.touch,
             forcetargets=args.force,
             forceall=args.forceall,
@@ -604,6 +675,7 @@ def main():
             list_input_changes=args.list_input_changes,
             list_params_changes=args.list_params_changes,
             summary=args.summary,
+            detailed_summary=args.detailed_summary,
             print_compilation=args.print_compilation,
             debug=args.debug,
             jobscript=args.jobscript,
@@ -635,7 +707,6 @@ def bash_completion(snakefile="Snakefile"):
             action.option_strings[0] for action in get_argument_parser()._actions
             if action.option_strings and action.option_strings[0].startswith(prefix)]
         print(*opts, sep="\n")
-
     else:
         files = glob.glob("{}*".format(prefix))
         if files:
