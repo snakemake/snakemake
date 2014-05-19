@@ -36,8 +36,7 @@ def register(run_snakemake, args):
         ignore_incomplete=args.ignore_incomplete,
         jobscript=args.jobscript,
         notemp=args.notemp,
-        output_wait=args.output_wait,
-        input_wait=args.input_wait
+        latency_wait=args.latency_wait
     )
 
     target_rules = []
