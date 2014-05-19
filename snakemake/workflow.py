@@ -123,19 +123,11 @@ class Workflow:
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
         cluster=None, jobname=None, immediate_submit=False, ignore_ambiguity=False,
-<<<<<<< HEAD
-        workdir=None, printrulegraph=False, drmaa=None,
+        workdir=None, printrulegraph=False, printd3dag=False, drmaa=None,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
-        summary=False, latency_wait=3, wait_for_files=None, nolock=False, unlock=False,
-=======
-        workdir=None, printrulegraph=False, printd3dag=False,
-        stats=None, force_incomplete=False, ignore_incomplete=False,
-        list_version_changes=False, list_code_changes=False,
-        list_input_changes=False, list_params_changes=False,
-        summary=False, detailed_summary= False, output_wait=3, input_wait=3, nolock=False, unlock=False,
->>>>>>> master
+        summary=False, detailed_summary= False, latency_wait=3, wait_for_files=None, nolock=False, unlock=False,
         resources=None, notemp=False, nodeps=False,
         cleanup_metadata=None, subsnakemake=None, updated_files=None, keep_target_files=False,
         allowed_rules=None):
