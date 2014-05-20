@@ -191,6 +191,13 @@ class JobScheduler:
     def _noop(self, job):
         pass
 
+    def _free_resources(self, job):
+        for name, value in job.resources.items():
+            if name in self.resources:
+                value = self.calc_resource(name, value)
+                self.resources[name] += value
+                logger.debug("Releasing {} {} (now {}).".format(value, name, self.resources[name]))
+
     def _proceed(
         self, job, update_dynamic=True, print_progress=False,
         update_resources=True):
@@ -199,10 +206,7 @@ class JobScheduler:
             if update_resources:
                 self.finished_jobs += 1
                 self.running.remove(job)
-                for name, value in job.resources.items():
-                    if name in self.resources:
-                        self.resources[name] += value
-                        logger.debug("Releasing {} {} (now {}).".format(value, name, self.resources[name]))
+                self._free_resources(job)
 
             self.dag.finish(job, update_dynamic=update_dynamic)
 
@@ -219,10 +223,10 @@ class JobScheduler:
             self._errors = True
             self.running.remove(job)
             self.failed.add(job)
+            self._free_resources(job)
             if self.keepgoing:
                 logger.info("Job failed, going on with independent jobs.")
-            else:
-                self._open_jobs.set()
+            self._open_jobs.set()
 
     def job_selector(self, jobs, alpha=1):
         """
@@ -298,12 +302,18 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 self.resources[name] = b_i
             return solution
 
+    def calc_resource(self, name, value):
+        return min(value, self.workflow.global_resources[name])
+
     def rule_weight(self, rule):
         res = rule.resources
-        def calc_res(name, value):
-            return min(res.get(name, 0), value)
+        #def calc_res(name, value):
+        #    return min(res.get(name, 0), value)
 
-        return [calc_res(*item) for item in self.workflow.global_resources.items()]
+        #return [calc_res(*item) for item in self.workflow.global_resources.items()]
+        return [
+            self.calc_resource(name, res.get(name, 0))
+            for name in self.workflow.global_resources]
 
     def rule_reward(self, rule, jobs=None):
         jobs = jobs[rule]
