@@ -385,14 +385,14 @@ class DRMAAExecutor(ClusterExecutor):
         super()._run(job)
         jobscript = self.get_jobscript(job)
         self.spawn_jobscript(job, jobscript)
-        jt = self.session.createJobTemplate()
-        jt.remoteCommand = jobscript
-        jt.nativeSpecification = job.format_wildcards(self.drmaa_args)
-
         import drmaa
         try:
+            jt = self.session.createJobTemplate()
+            jt.remoteCommand = jobscript
+            jt.nativeSpecification = job.format_wildcards(self.drmaa_args)
+
             jobid = self.session.runJob(jt)
-        except drmaa.errors.InternalException as e:
+        except (drmaa.errors.InternalException, drmaa.errors.InvalidAttributeValueException) as e:
             print_exception(WorkflowError("DRMAA Error: {}".format(e)), self.workflow.linemaps)
             error_callback(job)
             return
@@ -418,7 +418,13 @@ class DRMAAExecutor(ClusterExecutor):
         self, job, jobid, callback, error_callback,
         jobscript):
         import drmaa
-        retval = self.session.wait(jobid, drmaa.Session.TIMEOUT_WAIT_FOREVER)
+        try:
+            retval = self.session.wait(jobid, drmaa.Session.TIMEOUT_WAIT_FOREVER)
+        except drmaa.errors.InternalException as e:
+            print_exception(WorkflowError("DRMAA Error: {}".format(e)), self.workflow.linemaps)
+            os.remove(jobscript)
+            error_callback(job)
+            return
         os.remove(jobscript)
         if retval.exitStatus == 0:
             self.finish_job(job)
