@@ -838,7 +838,9 @@ class DAG:
 
     def d3dag(self):
         def node(job):
-            return {"name": job.rule.name}
+            target = not any(filter(self.needrun, self.depending[job]))
+            source = not any(filter(self.needrun, self.dependencies[job]))
+            return {"name": job.rule.name, "issource": source, "istarget": target}
 
         def link(a, b, value=1):
             return {"source": a, "target": b, "value": value}
