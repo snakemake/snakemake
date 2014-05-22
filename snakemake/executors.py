@@ -8,7 +8,6 @@ import random
 import string
 import threading
 import concurrent.futures
-from concurrent.futures.process import BrokenProcessPool
 import subprocess
 import signal
 from functools import partial
@@ -149,6 +148,14 @@ class TouchExecutor(RealExecutor):
             error_callback(job)
 
 
+_ProcessPoolExceptions = (KeyboardInterrupt,)
+try:
+    from concurrent.futures.process import BrokenProcessPool
+    _ProcessPoolExceptions = (KeyboardInterrupt, BrokenProcessPool)
+except ImportError:
+    pass
+
+
 class CPUExecutor(RealExecutor):
 
     def __init__(
@@ -186,7 +193,7 @@ class CPUExecutor(RealExecutor):
                 raise ex
             self.finish_job(job)
             callback(job)
-        except (KeyboardInterrupt, BrokenProcessPool):
+        except _ProcessPoolExceptions:
             job.cleanup()
             self.workflow.persistence.cleanup(job)
             # no error callback, just silently ignore the interrupt as the main scheduler is also killed
