@@ -254,7 +254,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             x = [0] * n  # selected jobs of each rule
             E = set(range(n))  # rules free to select
             u = [len(jobs[rule]) for rule in rules]  # number of jobs left
-            b = list(self.resources.values())  # resource capacities
+            b = [self.resources[name] for name in self.workflow.global_resources]  # resource capacities
             a = list(map(self.rule_weight, rules))  # resource usage of rules
             c = list(map(partial(self.rule_reward, jobs=jobs), rules))  # matrix of cumulative rewards over jobs
 
@@ -307,10 +307,6 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
     def rule_weight(self, rule):
         res = rule.resources
-        #def calc_res(name, value):
-        #    return min(res.get(name, 0), value)
-
-        #return [calc_res(*item) for item in self.workflow.global_resources.items()]
         return [
             self.calc_resource(name, res.get(name, 0))
             for name in self.workflow.global_resources]
