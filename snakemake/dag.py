@@ -837,13 +837,11 @@ class DAG:
                     yield "\t".join((f, date, rule, version, status, pending))
 
     def d3dag(self):
-        def node(job):
-            target = not any(filter(self.needrun, self.depending[job]))
-            source = not any(filter(self.needrun, self.dependencies[job]))
-            return {"name": job.rule.name, "issource": source, "istarget": target}
+        def node(id, job):
+            return {"id": id, "value": {"label": job.rule.name, "rule": job.rule.name}}
 
-        def link(a, b, value=1):
-            return {"source": a, "target": b, "value": value}
+        def edge(a, b):
+            return {"u": a, "v": b}
 
         jobs = list(self.needrun_jobs)
         jobindex = {job: k for k, job in enumerate(jobs)}
@@ -852,9 +850,9 @@ class DAG:
             logger.info("Job-DAG is too large for visualization (>100 jobs).")
         else:
             logger.d3dag(
-                nodes=list(map(node, jobs)),
-                links=[
-                    link(jobindex[dep], jobindex[job])
+                nodes=[node(i, job) for i, job in enumerate(jobs)],
+                edges=[
+                    edge(jobindex[dep], jobindex[job])
                     for job in jobs for dep in self.dependencies[job]
                     if dep in jobindex
                 ]

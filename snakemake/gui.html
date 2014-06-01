@@ -3,7 +3,7 @@
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.4.6/d3.min.js"></script>
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/js/bootstrap.min.js"></script>
-        <script type="text/javascript" src="http://raw.githubusercontent.com/d3/d3-plugins/master/sankey/sankey.js"></script>
+        <script type="text/javascript" src="http://cpettitt.github.io/project/dagre-d3/v0.1.5/dagre-d3.js"></script>
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.5.4/bootstrap-select.min.js"></script>
         <link rel="stylesheet" type="text/css" href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/css/bootstrap.min.css"/>
         <link rel="stylesheet" type="text/css" href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.5.4/bootstrap-select.min.css"/>
@@ -38,11 +38,6 @@
         
         #top {
             padding-top: 70px;
-        }
-        
-        #top svg#dag {
-            width: 100%;
-            height: 500px;
         }
         
         #bottom {
@@ -126,18 +121,30 @@
             width: 10em;
             vertical-align: top;
         }
-        
-        #dag .node circle {
-            stroke-width: 0px;
+
+        #top #dag-container svg#dag {
+            width: 100%;
+            height: 500px;
+        }
+
+        #dag-container {
+            width: 95%;
+            margin: auto;
         }
         
-        #dag .link {
-            stroke: #555555;
+        #dag .node rect {
             stroke-width: 3px;
+            fill: #EEEEEE;
         }
-        
-        #dag marker {
-            fill: #555555;
+
+        #dag .edgeLabel rect {
+            fill: #fff;
+        }
+
+        #dag .edgePath {
+            stroke: #333333;
+            stroke-width: 3px;
+            fill: none;
         }
         </style>
         <script>
@@ -153,75 +160,20 @@
             var view = svg.append("g"),
                 width = parseInt(svg.style("width"))
                 height = parseInt(svg.style("height"));
-            console.log(dag);
+            view.attr("transform", "translate(5,5)");
             
             var color = d3.scale.category20();
-
-            // build the arrow.
-            svg.append("svg:defs").selectAll("marker")
-                .data(["end"])      // Different link/path types can be defined here
-              .enter().append("svg:marker")    // This section adds in the arrows
-                .attr("id", String)
-                .attr("viewBox", "0 -5 10 10")
-                .attr("refX", 15)
-                .attr("refY", 0)
-                .attr("markerWidth", 6)
-                .attr("markerHeight", 6)
-                .attr("orient", "auto")
-              .append("svg:path")
-                .attr("d", "M0,-5L10,0L0,5");
-
-            var force = d3.layout.force()
-                .charge(-500)
-                .gravity(.2)
-                .on("tick", tick)
-                .linkDistance(100)
-                .size([width, height]);
-
-            force.nodes(dag.nodes)
-                 .links(dag.links)
-                 .start();
-
-            var link = svg.selectAll(".link"),
-                node = svg.selectAll(".node");
-
-            link = link.data(dag.links)
-                       .enter().append("line")
-                       .attr("class", "link")
-                       .attr("marker-end", "url(#end)");
-            node = node.data(dag.nodes)
-                       .enter().append("g")
-                       .attr("class", "node")
-                       .call(force.drag);
-                       
-            node.append("circle")
-                       .style("fill", function(d) { return d.color = color(d.name.replace(/ .*/, "")); })
-                       .attr("r", 12)
-                       .attr("x", -8)
-                       .attr("y", -8)
-            node.append("text")
-                .attr("dx", 12)
-                .attr("dy", ".35em")
-                .text(function(d) {return d.name;});
-
-
-            function tick(e) {
-                link.attr("x1", function(d) { return d.source.x; })
-                    .attr("y1", function(d) { return d.source.y; })
-                    .attr("x2", function(d) { return d.target.x; })
-                    .attr("y2", function(d) { return d.target.y; });
-
-                node.attr("transform", function(d) {
-                    if(d.issource) {
-                        d.x += (100 - d.x) * .2 * e.alpha;
-                    }
-                    else if(d.istarget) {
-                        d.x += (width - 100 - d.x) * .2 * e.alpha;
-                    }
-                    return "translate(" + d.x + "," + d.y + ")";
-                })
-            }
-
+            
+            var layout = dagreD3.layout().rankDir("LR");
+            var g = dagreD3.json.decode(dag.nodes, dag.edges);
+            var renderer = new dagreD3.Renderer().layout(layout);
+            var oldDrawNodes = renderer.drawNodes();
+            renderer.drawNodes(function(graph, svg) {
+                var svgNodes = oldDrawNodes(graph, svg);
+                svgNodes.select("rect").attr("style", function(u) { return "stroke: " + color(g.node(u).rule); });
+                return svgNodes;
+            });
+            renderer.run(g, view);
         }
 
         function update_dag() {
@@ -332,8 +284,10 @@
           </div>
         </div>
         <div id="top">
-            <svg id="dag">
-            </svg>
+            <div id="dag-container">
+                <svg id="dag">
+                </svg>
+            </div>
             <div id="workflow-progress">
                 <div id="progress-bar">
                 </div>
