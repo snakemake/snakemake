@@ -843,11 +843,11 @@ class DAG:
         def edge(a, b):
             return {"u": a, "v": b}
 
-        jobs = list(self.needrun_jobs)
+        jobs = list(self.jobs)
         jobindex = {job: k for k, job in enumerate(jobs)}
 
-        if len(jobs) > 200:
-            logger.info("Job-DAG is too large for visualization (>100 jobs).")
+        if len(jobs) > 10000:
+            logger.info("Job-DAG is too large for visualization (>10000 jobs).")
         else:
             logger.d3dag(
                 nodes=[node(i, job) for i, job in enumerate(jobs)],
