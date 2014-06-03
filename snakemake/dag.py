@@ -843,7 +843,7 @@ class DAG:
         def edge(a, b):
             return {"u": a, "v": b}
 
-        jobs = list(self.jobs)
+        jobs = list(self.needrun_jobs)
         jobindex = {job: k for k, job in enumerate(jobs)}
 
         if len(jobs) > 10000:
