@@ -85,6 +85,9 @@ class AbstractExecutor:
                     "Subsequent jobs will be added dynamically "
                     "depending on the output of this rule")
 
+    def print_job_error(self, job):
+        logger.error("Error in job {} while creating output file{} {}.".format(job, "s" if len(job.output) > 1 else "", ", ".join(job.output)))
+
     def finish_job(self, job):
         self.dag.handle_touch(job)
         self.dag.check_output(job, wait=self.latency_wait)
@@ -198,6 +201,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.persistence.cleanup(job)
             # no error callback, just silently ignore the interrupt as the main scheduler is also killed
         except (Exception, BaseException) as ex:
+            self.print_job_error(job)
             print_exception(ex, self.workflow.linemaps)
             job.cleanup()
             self.workflow.persistence.cleanup(job)
@@ -354,6 +358,7 @@ class GenericClusterExecutor(ClusterExecutor):
             if os.path.exists(jobfailed):
                 os.remove(jobfailed)
                 os.remove(jobscript)
+                self.print_job_error(job)
                 print_exception(
                     ClusterJobException(job, self.dag.jobid(job), self.get_jobscript(job)), self.workflow.linemaps)
                 error_callback(job)
@@ -437,6 +442,7 @@ class DRMAAExecutor(ClusterExecutor):
             self.finish_job(job)
             callback(job)
         else:
+            self.print_job_error(job)
             print_exception(
                 ClusterJobException(job, self.dag.jobid(job), jobscript),
                 self.workflow.linemaps)
