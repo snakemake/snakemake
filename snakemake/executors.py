@@ -68,6 +68,7 @@ class AbstractExecutor:
 
         priority = self.dag.priority(job)
         logger.job_info(
+            jobid=self.dag.jobid(job),
             msg=job.message,
             name=job.rule.name,
             local=self.workflow.is_local(job.rule),

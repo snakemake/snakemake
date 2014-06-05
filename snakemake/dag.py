@@ -836,22 +836,23 @@ class DAG:
                 else:
                     yield "\t".join((f, date, rule, version, status, pending))
 
-    def d3dag(self):
-        def node(id, job):
-            return {"id": id, "value": {"label": job.rule.name, "rule": job.rule.name}}
+    def d3dag(self, max_jobs=10000):
+        def node(job):
+            jobid = self.jobid(job)
+            return {"id": jobid, "value": {"jobid": jobid, "label": job.rule.name, "rule": job.rule.name}}
 
         def edge(a, b):
-            return {"u": a, "v": b}
+            return {"u": self.jobid(a), "v": self.jobid(b)}
 
         jobs = list(self.needrun_jobs)
 
-        if len(jobs) > 10000:
-            logger.info("Job-DAG is too large for visualization (>10000 jobs).")
+        if len(jobs) > max_jobs:
+            logger.info("Job-DAG is too large for visualization (>{} jobs).".format(max_jobs))
         else:
             logger.d3dag(
-                nodes=[node(self.jobid(job), job) for job in jobs],
+                nodes=[node(job) for job in jobs],
                 edges=[
-                    edge(self.jobid(dep), self.jobid(job))
+                    edge(dep, job)
                     for job in jobs for dep in self.dependencies[job]
                     if self.needrun(dep)
                 ]

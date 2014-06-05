@@ -210,7 +210,7 @@ class JobScheduler:
 
             self.dag.finish(job, update_dynamic=update_dynamic)
 
-            logger.job_completed(
+            logger.job_finished(jobid=self.dag.jobid(job))
 
             if print_progress:
                 self.progress()

@@ -100,6 +100,10 @@ class Logger:
         msg["level"] = "job_info"
         self.handler(msg)
 
+    def job_finished(self, **msg):
+        msg["level"] = "job_finished"
+        self.handler(msg)
+
     def rule_info(self, **msg):
         msg["level"] = "rule_info"
         self.handler(msg)
@@ -165,6 +169,9 @@ class Logger:
                     self.logger.info("\n".join(job_info(msg)))
             if self.printshellcmds and msg["shellcmd"]:
                 self.logger.info(msg["shellcmd"])
+        elif level == "job_finished":
+            # do not display this on the console for now
+            pass
         elif level == "rule_info":
             self.logger.info(msg["name"])
             if msg["docstring"]:

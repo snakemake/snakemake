@@ -105,7 +105,7 @@ def _run(dryrun=False):
         level = msg["level"]
         if level == "progress":
             app.extensions["progress"] = msg
-        elif level in ("info", "error", "job_info"):
+        elif level in ("info", "error", "job_info", "job_finished"):
             app.extensions["log"].append(msg)
 
     with LOCK:

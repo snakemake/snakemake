@@ -125,7 +125,7 @@
 
         #dag-container {
             width: 100%;
-            max-height: 500px;
+            max-height: 400px;
             overflow: auto;
             text-align: center;
             padding: 10px;
@@ -167,7 +167,12 @@
             var oldDrawNodes = renderer.drawNodes();
             renderer.drawNodes(function(graph, svg) {
                 var svgNodes = oldDrawNodes(graph, svg);
-                svgNodes.select("rect").attr("style", function(u) { return "stroke: " + color(g.node(u).rule); });
+                svgNodes.select("rect")
+                    .attr("id", function(u) { return "job_" + g.node(u).jobid; })
+                    .attr("style", function(u) {
+                        col = color(g.node(u).rule);
+                        return "stroke: " + col + ";";
+                    });
                 return svgNodes;
             });
             
@@ -225,6 +230,9 @@
                         html += '</table></div>';
                         $(html).appendTo("#log");
                     }
+                    else if (entry.level == "job_finished") {
+                        // do nothing for now
+                    }
                     else {
                         var type = "info"
                         switch(entry.level) {
@@ -252,7 +260,7 @@
         
         $( document ).ready(function() {
             update_dag();
-            setInterval(update, 1000);
+            setInterval(update, 2000);
 
             $('.selectpicker').selectpicker();
 
