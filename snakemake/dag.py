@@ -844,17 +844,16 @@ class DAG:
             return {"u": a, "v": b}
 
         jobs = list(self.needrun_jobs)
-        jobindex = {job: k for k, job in enumerate(jobs)}
 
         if len(jobs) > 10000:
             logger.info("Job-DAG is too large for visualization (>10000 jobs).")
         else:
             logger.d3dag(
-                nodes=[node(i, job) for i, job in enumerate(jobs)],
+                nodes=[node(self.jobid(job), job) for job in jobs],
                 edges=[
-                    edge(jobindex[dep], jobindex[job])
+                    edge(self.jobid(dep), self.jobid(job))
                     for job in jobs for dep in self.dependencies[job]
-                    if dep in jobindex
+                    if self.needrun(dep)
                 ]
             )
 
