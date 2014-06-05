@@ -82,6 +82,24 @@ def makedirs(dirnames):
             os.makedirs(dirname)
 
 
+def data_uri(file, defaultenc="utf8"):
+    mime, encoding = mimetypes.guess_type(file)
+    if mime is None:
+        mime = "text/plain"
+        logger.info("Could not detect mimetype for {}, assuming "
+        "text/plain.".format(file))
+    if encoding is None:
+        encoding = defaultenc
+    with open(file, "rb") as f:
+        data = base64.b64encode(f.read())
+    uri = '''data:{mime};charset={charset};filename={filename};base64,{data}
+          '''.format(filename=os.path.basename(file),
+                     mime=mime,
+                     charset=encoding,
+                     data=data.decode())
+    return uri
+
+
 def report(
     text, path,
     stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
@@ -97,7 +115,7 @@ def report(
     and put a download link in the text like this:
 
     .. code:: python
-    
+
         report('''
         ==============
         Report for ...
@@ -148,7 +166,7 @@ def report(
     attachments = [textwrap.dedent("""
         .. container::
            :name: attachments
-           
+
         """)]
     for name, file in sorted(files.items()):
         mime, encoding = mimetypes.guess_type(file)
@@ -188,7 +206,7 @@ def report(
 
 def R(code):
     """Execute R code
-    
+
     This function executes the R code given as a string. The function requires rpy2 to be installed.
 
     Args:
@@ -200,7 +218,7 @@ def R(code):
 
 def format(string, *args, stepout=1, **kwargs):
     """Format a string in Snakemake style.
-    
+
     This means that keywords embedded in braces are replaced by any variable values that are available in the current namespace.
     """
     class SequenceFormatter:
@@ -250,7 +268,7 @@ class Unformattable:
 
 def read_job_properties(jobscript, prefix="# properties", pattern=re.compile("# properties = (.*)")):
     """Read the job properties defined in a snakemake jobscript.
-    
+
     This function is a helper for writing custom wrappers for the snakemake --cluster functionality. Applying this function to a jobscript will return a dict containing information about the job.
     """
     with open(jobscript) as jobscript:
