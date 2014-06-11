@@ -88,11 +88,11 @@ def data_uri(file, defaultenc="utf8"):
         encoding = defaultenc
     with open(file, "rb") as f:
         data = base64.b64encode(f.read())
-    uri = '''data:{mime};charset={charset};filename={filename};base64,{data}
-          '''.format(filename=os.path.basename(file),
+    uri = ("data:{mime};charset={charset};filename={filename};base64,{data}"
+           "".format(filename=os.path.basename(file),
                      mime=mime,
                      charset=encoding,
-                     data=data.decode())
+                     data=data.decode()))
     return uri
 
 
