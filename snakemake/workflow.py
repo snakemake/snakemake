@@ -25,7 +25,9 @@ from snakemake.persistence import Persistence
 
 
 class Workflow:
-    def __init__(self, snakefile=None, snakemakepath=None, jobscript=None):
+    def __init__(
+        self, snakefile=None, snakemakepath=None,
+        jobscript=None, overwrite_shellcmd=None):
         """
         Create the controller.
         """
@@ -44,6 +46,7 @@ class Workflow:
         self.global_resources = None
         self.globals = globals()
         self._subworkflows = dict()
+        self.overwrite_shellcmd = overwrite_shellcmd
 
     @property
     def subworkflows(self):
@@ -349,7 +352,7 @@ class Workflow:
         first_rule = self.first_rule
         if workdir:
             os.chdir(workdir)
-        code, linemap = parse(snakefile, overwrite_shellcmd=overwrite_shellcmd)
+        code, linemap = parse(snakefile, overwrite_shellcmd=self.overwrite_shellcmd)
 
         if print_compilation:
             print(code)

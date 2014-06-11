@@ -407,8 +407,9 @@ class Shell(Run):
     def overwrite_block_content(self, token):
         if self.token is None:
             self.token = token
-            self.shellcmd.append(self.overwrite_shellcmd)
-            yield self.overwrite_shellcmd, token
+            shellcmd = '"{}"'.format(self.overwrite_shellcmd)
+            self.shellcmd.append(shellcmd)
+            yield shellcmd, token
 
 
 class Rule(GlobalKeywordState):

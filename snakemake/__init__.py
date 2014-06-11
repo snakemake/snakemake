@@ -216,7 +216,7 @@ def snakemake(snakefile,
         olddir = os.getcwd()
     workflow = Workflow(
         snakefile=snakefile, snakemakepath=snakemakepath,
-        jobscript=jobscript)
+        jobscript=jobscript, overwrite_shellcmd=overwrite_shellcmd)
 
     if standalone:
         try:
@@ -230,8 +230,7 @@ def snakemake(snakefile,
     try:
         workflow.include(
             snakefile, workdir=workdir,
-            overwrite_first_rule=True, print_compilation=print_compilation,
-            overwrite_shellcmd=overwrite_shellcmd)
+            overwrite_first_rule=True, print_compilation=print_compilation)
         workflow.check()
 
         if not print_compilation:
