@@ -6,15 +6,10 @@ import os
 import json
 import io
 import re
-import fnmatch
 import mimetypes
 import base64
 import inspect
 import textwrap
-import tempfile
-import subprocess
-import shutil
-import mimetypes
 import datetime
 from itertools import chain
 
@@ -82,22 +77,40 @@ def makedirs(dirnames):
             os.makedirs(dirname)
 
 
-def report(
-    text, path,
-    stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
-    defaultenc="utf8", template=None, metadata=None, **files):
+def data_uri(file, defaultenc="utf8"):
+    """Craft a base64 data URI from file with proper encoding and mimetype."""
+    mime, encoding = mimetypes.guess_type(file)
+    if mime is None:
+        mime = "text/plain"
+        logger.info("Could not detect mimetype for {}, assuming "
+                    "text/plain.".format(file))
+    if encoding is None:
+        encoding = defaultenc
+    with open(file, "rb") as f:
+        data = base64.b64encode(f.read())
+    uri = ("data:{mime};charset={charset};filename={filename};base64,{data}"
+           "".format(filename=os.path.basename(file),
+                     mime=mime,
+                     charset=encoding,
+                     data=data.decode()))
+    return uri
+
+
+def report(text, path,
+           stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
+           defaultenc="utf8", template=None, metadata=None, **files):
     """Create an HTML report using python docutils.
 
     Attention: This function needs Python docutils to be installed for the
     python installation you use with Snakemake.
 
-    All keywords not listed below are intepreted as paths to files that shall be
-    embedded into the document. They keywords will be available as link
+    All keywords not listed below are intepreted as paths to files that shall
+    be embedded into the document. They keywords will be available as link
     targets in the text. E.g. append a file as keyword arg via F1=input[0]
     and put a download link in the text like this:
 
     .. code:: python
-    
+
         report('''
         ==============
         Report for ...
@@ -148,30 +161,20 @@ def report(
     attachments = [textwrap.dedent("""
         .. container::
            :name: attachments
-           
+
         """)]
     for name, file in sorted(files.items()):
-        mime, encoding = mimetypes.guess_type(file)
-        if mime is None:
-            mime = "text/plain"
-            logger.info("Could not detect mimetype for {}, assuming "
-            "text/plain.".format(file))
-        if encoding is None:
-            encoding = defaultenc
-        with open(file, "rb") as f:
-            data = base64.b64encode(f.read())
+        data = data_uri(file)
         attachments.append(
             '''
    .. container::
       :name: {name}
 
-      [{name}] :raw-html:`<a href="data:{mime};charset={charset};filename={filename};base64,{data}" download="{filename}" draggable="true">{filename}</a>`
+      [{name}] :raw-html:`<a href="{data}" download="{filename}" draggable="true">{filename}</a>`
             '''.format(
                 name=name,
                 filename=os.path.basename(file),
-                mime=mime,
-                charset=encoding,
-                data=data.decode()))
+                data=data))
 
     text = definitions + text + "\n\n" + "\n\n".join(attachments) + metadata
 
@@ -188,8 +191,9 @@ def report(
 
 def R(code):
     """Execute R code
-    
-    This function executes the R code given as a string. The function requires rpy2 to be installed.
+
+    This function executes the R code given as a string.
+    The function requires rpy2 to be installed.
 
     Args:
         code (str): R code to be executed
@@ -200,8 +204,9 @@ def R(code):
 
 def format(string, *args, stepout=1, **kwargs):
     """Format a string in Snakemake style.
-    
-    This means that keywords embedded in braces are replaced by any variable values that are available in the current namespace.
+
+    This means that keywords embedded in braces are replaced by any variable
+    values that are available in the current namespace.
     """
     class SequenceFormatter:
         def __init__(self, sequence):
@@ -224,7 +229,6 @@ def format(string, *args, stepout=1, **kwargs):
     # add local variables from calling rule/function
     variables.update(frame.f_locals)
     variables.update(kwargs)
-    strmethods = list()
     for key, value in list(variables.items()):
         if type(value) in (list, tuple, set, frozenset):
             variables[key] = SequenceFormatter(value)
@@ -248,10 +252,13 @@ class Unformattable:
         raise ValueError(self.errormsg)
 
 
-def read_job_properties(jobscript, prefix="# properties", pattern=re.compile("# properties = (.*)")):
+def read_job_properties(jobscript, prefix="# properties",
+                        pattern=re.compile("# properties = (.*)")):
     """Read the job properties defined in a snakemake jobscript.
-    
-    This function is a helper for writing custom wrappers for the snakemake --cluster functionality. Applying this function to a jobscript will return a dict containing information about the job.
+
+    This function is a helper for writing custom wrappers for the
+    snakemake --cluster functionality. Applying this function to a
+    jobscript will return a dict containing information about the job.
     """
     with open(jobscript) as jobscript:
         for m in map(pattern.match, jobscript):
