@@ -190,7 +190,7 @@ class Workflow:
             forcerules=forcerules, priorityfiles=priorityfiles,
             priorityrules=priorityrules, ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
-            ignore_incomplete=ignore_incomplete, notemp=notemp)
+            ignore_incomplete=ignore_incomplete or printdag or printrulegraph, notemp=notemp)
 
         self.persistence = Persistence(nolock=nolock, dag=dag, warn_only=dryrun or printrulegraph or printdag or summary or list_version_changes or list_code_changes or list_input_changes or list_params_changes)
 
