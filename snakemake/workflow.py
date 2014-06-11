@@ -130,7 +130,7 @@ class Workflow:
         summary=False, detailed_summary= False, latency_wait=3, wait_for_files=None, nolock=False, unlock=False,
         resources=None, notemp=False, nodeps=False,
         cleanup_metadata=None, subsnakemake=None, updated_files=None, keep_target_files=False,
-        allowed_rules=None):
+        allowed_rules=None, greedyness=1.0):
 
         self.global_resources = dict() if cluster or resources is None else resources
         self.global_resources["_cores"] = cores
@@ -301,7 +301,7 @@ class Workflow:
             jobname=jobname, immediate_submit=immediate_submit,
             quiet=quiet, keepgoing=keepgoing, drmaa=drmaa,
             printreason=printreason, printshellcmds=printshellcmds,
-            latency_wait=latency_wait)
+            latency_wait=latency_wait, greedyness=greedyness)
 
         if not dryrun and not quiet:
             if len(dag):

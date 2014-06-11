@@ -40,7 +40,8 @@ class JobScheduler:
         printreason=False,
         printshellcmds=False,
         keepgoing=False,
-        latency_wait=3,):
+        latency_wait=3,
+        greedyness=1.0):
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.dag = dag
@@ -51,6 +52,7 @@ class JobScheduler:
         self.running = set()
         self.failed = set()
         self.finished_jobs = 0
+        self.greedyness = greedyness
 
         self.resources = dict(self.workflow.global_resources)
 
@@ -230,7 +232,7 @@ class JobScheduler:
                 logger.info("Job failed, going on with independent jobs.")
             self._open_jobs.set()
 
-    def job_selector(self, jobs, alpha=1):
+    def job_selector(self, jobs):
         """
         Using the greedy heuristic from
         "A Greedy Algorithm for the General Multidimensional Knapsack
@@ -238,7 +240,6 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
         Args:
             jobs (list):    list of jobs
-            alpha (float):  greedyness (1 means take all possible jobs for a selected rule)
         """
         with self._lock:
             # solve over the rules instead of jobs (much less)
@@ -274,7 +275,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                     ]
                 if not any(y):
                     break
-                y = [(max(1, alpha * y_j) if y_j > 0 else 0) for y_j in y]
+                y = [(max(1, int(self.greedyness * y_j)) if y_j > 0 else 0) for y_j in y]
 
                 # Step 3: compute rewards on cumulative sums and normalize by y
                 # in order to not prefer rules with small weights / many jobs
@@ -291,7 +292,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 x[j_sel] += y_sel
                 b = [b_i - (a_j_i * y_sel) for b_i, a_j_i in zip(b, a[j_sel])]
                 u[j_sel] -= y_sel
-                if not u[j_sel] or alpha == 1:
+                if not u[j_sel] or self.greedyness == 1:
                     E.remove(j_sel)
                 if not E:
                     break
