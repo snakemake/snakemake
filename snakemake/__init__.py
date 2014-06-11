@@ -207,6 +207,7 @@ def snakemake(snakefile,
     if not os.path.exists(snakefile):
         logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))
         return False
+    snakefile = os.path.abspath(snakefile)
 
     if cluster and (drmaa is not None):
         raise ValueError("cluster and drmaa args are mutually exclusive")
