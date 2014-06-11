@@ -76,6 +76,8 @@ def snakemake(snakefile,
     allowed_rules=None,
     jobscript=None,
     timestamp=False,
+    greedyness=None,
+    overwrite_shellcmd=None,
     updated_files=None,
     log_handler=None):
     """Run snakemake on a given snakefile.
@@ -136,6 +138,8 @@ def snakemake(snakefile,
         allowed_rules (set):        Restrict allowed rules to the given set. If None or empty, all rules are used.
         jobscript (str):            path to a custom shell script template for cluster jobs (default None)
         timestamp (bool):           print time stamps in front of any output (default False)
+        greedyness (float):         set the greedyness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
+        overwrite_shellcmd (str):   a shell command that shall be executed instead of those given in the workflow. This is for debugging purposes only.
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
         log_handler (function):      redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
 
@@ -182,6 +186,7 @@ def snakemake(snakefile,
         bool:   True if workflow execution was successful.
 
     """
+    
     if updated_files is None:
         updated_files = list()
 
@@ -191,6 +196,13 @@ def snakemake(snakefile,
         nodes = sys.maxsize
 
     setup_logger(handler=log_handler, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
+
+    if greedyness is None:
+         greedyness = 0.5 if prioritytargets else 1.0
+    else:
+        if not (0 <= greedyness <= 1.0):
+            logger.error("Error: greedyness must be a float between 0 and 1.")
+            return False
 
     if not os.path.exists(snakefile):
         logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))
@@ -215,8 +227,10 @@ def snakemake(snakefile,
 
     success = True
     try:
-        workflow.include(snakefile, workdir=workdir,
-            overwrite_first_rule=True, print_compilation=print_compilation)
+        workflow.include(
+            snakefile, workdir=workdir,
+            overwrite_first_rule=True, print_compilation=print_compilation,
+            overwrite_shellcmd=overwrite_shellcmd)
         workflow.check()
 
         if not print_compilation:
@@ -258,7 +272,9 @@ def snakemake(snakefile,
                         notemp=notemp,
                         nodeps=nodeps,
                         jobscript=jobscript,
-                        timestamp=timestamp)
+                        timestamp=timestamp,
+                        greedyness=greedyness,
+                        overwrite_shellcmd=overwrite_shellcmd)
                     success = workflow.execute(
                         targets=targets, dryrun=dryrun, touch=touch,
                         cores=cores, nodes=nodes, forcetargets=forcetargets,
@@ -291,7 +307,8 @@ def snakemake(snakefile,
                         cleanup_metadata=cleanup_metadata,
                         subsnakemake=subsnakemake,
                         updated_files=updated_files,
-                        allowed_rules=allowed_rules
+                        allowed_rules=allowed_rules,
+                        greedyness=greedyness
                         )
 
     # BrokenPipeError is not present in Python 3.2, so lets wait until everbody uses > 3.2
@@ -566,8 +583,14 @@ def get_argument_parser():
         '--timestamp', '-T', action='store_true',
         help='Add a timestamp to all logging output')
     parser.add_argument(
+        "--greedyness", type=float, default=None, help="Set the greedyness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (1.0) provides the best speed and still acceptable scheduling quality.")
+    parser.add_argument(
         "--print-compilation", action="store_true",
         help="Print the python representation of the workflow.")
+    parser.add_argument(
+        "--overwrite-shellcmd",
+        help="Provide a shell command that shall be executed instead of those given in the workflow. "
+        "This is for debugging purposes only.")
     parser.add_argument(
         "--debug", action="store_true", help="Print debugging output.")
     parser.add_argument(
@@ -682,6 +705,8 @@ def main():
             jobscript=args.jobscript,
             notemp=args.notemp,
             timestamp=args.timestamp,
+            greedyness=args.greedyness,
+            overwrite_shellcmd=args.overwrite_shellcmd,
             latency_wait=args.latency_wait,
             wait_for_files=args.wait_for_files,
             keep_target_files=args.keep_target_files,
