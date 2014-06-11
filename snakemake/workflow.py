@@ -338,7 +338,7 @@ class Workflow:
         return True
 
     def include(self, snakefile, workdir=None, overwrite_first_rule=False,
-        print_compilation=False):
+        print_compilation=False, overwrite_shellcmd=None):
         """
         Include a snakefile.
         """
@@ -349,7 +349,7 @@ class Workflow:
         first_rule = self.first_rule
         if workdir:
             os.chdir(workdir)
-        code, linemap = parse(snakefile)
+        code, linemap = parse(snakefile, overwrite_shellcmd=overwrite_shellcmd)
 
         if print_compilation:
             print(code)

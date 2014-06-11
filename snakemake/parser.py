@@ -366,11 +366,15 @@ class Run(RuleKeywordState):
 
 class Shell(Run):
 
+    overwrite_shellcmd = None
+
     def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, rulename,
             base_indent=base_indent, dedent=dedent, root=root)
         self.shellcmd = list()
         self.token = None
+        if self.overwrite_shellcmd is not None:
+            self.block_content = self.overwrite_block_content
 
     def start(self):
         yield "@workflow.shellcmd("
@@ -399,6 +403,12 @@ class Shell(Run):
         self.token = token
         self.shellcmd.append(token.string)
         yield token.string, token
+
+    def overwrite_block_content(self, token):
+        if self.token is None:
+            self.token = token
+            self.shellcmd.append(self.overwrite_shellcmd)
+            yield self.overwrite_shellcmd, token
 
 
 class Rule(GlobalKeywordState):
@@ -556,7 +566,8 @@ def format_tokens(tokens):
         t_ = t
 
 
-def parse(path):
+def parse(path, overwrite_shellcmd=None):
+    Shell.overwrite_shellcmd = overwrite_shellcmd
     with Snakefile(path) as snakefile:
         automaton = Python(snakefile)
         linemap = dict()

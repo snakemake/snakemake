@@ -77,6 +77,7 @@ def snakemake(snakefile,
     jobscript=None,
     timestamp=False,
     greedyness=None,
+    overwrite_shellcmd=None,
     updated_files=None,
     log_handler=None):
     """Run snakemake on a given snakefile.
@@ -138,6 +139,7 @@ def snakemake(snakefile,
         jobscript (str):            path to a custom shell script template for cluster jobs (default None)
         timestamp (bool):           print time stamps in front of any output (default False)
         greedyness (float):         set the greedyness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
+        overwrite_shellcmd (str):   a shell command that shall be executed instead of those given in the workflow. This is for debugging purposes only.
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
         log_handler (function):      redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
 
@@ -225,8 +227,10 @@ def snakemake(snakefile,
 
     success = True
     try:
-        workflow.include(snakefile, workdir=workdir,
-            overwrite_first_rule=True, print_compilation=print_compilation)
+        workflow.include(
+            snakefile, workdir=workdir,
+            overwrite_first_rule=True, print_compilation=print_compilation,
+            overwrite_shellcmd=overwrite_shellcmd)
         workflow.check()
 
         if not print_compilation:
@@ -269,7 +273,8 @@ def snakemake(snakefile,
                         nodeps=nodeps,
                         jobscript=jobscript,
                         timestamp=timestamp,
-                        greedyness=greedyness)
+                        greedyness=greedyness,
+                        overwrite_shellcmd=overwrite_shellcmd)
                     success = workflow.execute(
                         targets=targets, dryrun=dryrun, touch=touch,
                         cores=cores, nodes=nodes, forcetargets=forcetargets,
@@ -583,6 +588,10 @@ def get_argument_parser():
         "--print-compilation", action="store_true",
         help="Print the python representation of the workflow.")
     parser.add_argument(
+        "--overwrite-shellcmd",
+        help="Provide a shell command that shall be executed instead of those given in the workflow. "
+        "This is for debugging purposes only.")
+    parser.add_argument(
         "--debug", action="store_true", help="Print debugging output.")
     parser.add_argument(
         "--profile", metavar="FILE", help="Profile Snakemake and write the output to FILE. This requires yappi to be installed.")
@@ -697,6 +706,7 @@ def main():
             notemp=args.notemp,
             timestamp=args.timestamp,
             greedyness=args.greedyness,
+            overwrite_shellcmd=args.overwrite_shellcmd,
             latency_wait=args.latency_wait,
             wait_for_files=args.wait_for_files,
             keep_target_files=args.keep_target_files,
