@@ -277,8 +277,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                     break
                 y = [(max(1, int(self.greedyness * y_j)) if y_j > 0 else 0) for y_j in y]
 
-                # Step 3: compute rewards on cumulative sums and normalize by y
-                # in order to not prefer rules with small weights / many jobs
+                # Step 3: compute rewards on cumulative sums
                 reward = [(
                     [(crit[x_j + y_j] - crit[x_j]) for crit in c_j]
                     if j in E else [0] * len(c_j))
@@ -333,6 +332,11 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
     def downstream_reward(self, jobs):
         return cumsum(self.dag.downstream_sizes(jobs))
+
+    def thread_reward(self, jobs):
+        """ Thread-based reward for jobs. Using this maximizes core 
+        saturation, but does not lead to faster computation in general."""
+        return cumsum([job.threads for job in jobs])
 
     def job_weight(self, job):
         """ Job weight that uses threads. """
