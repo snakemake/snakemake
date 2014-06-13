@@ -53,6 +53,9 @@ class JobScheduler:
         self.failed = set()
         self.finished_jobs = 0
         self.greedyness = greedyness
+        self.select_by_rule = False
+        if not self.select_by_rule:
+            self.greedyness = 1
 
         self.resources = dict(self.workflow.global_resources)
 
@@ -78,6 +81,7 @@ class JobScheduler:
                 quiet=quiet, printshellcmds=printshellcmds,
                 latency_wait=latency_wait)
             self.rule_reward = self.dryrun_rule_reward
+            self.job_reward = self.dryrun_job_reward
         elif touch:
             self._executor = TouchExecutor(
                 workflow, dag, printreason=printreason,
@@ -97,6 +101,7 @@ class JobScheduler:
                     printshellcmds=printshellcmds, latency_wait=latency_wait)
                 if immediate_submit:
                     self.rule_reward = self.dryrun_rule_reward
+                    self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(
                         self._proceed,
                         update_dynamic=False,
@@ -242,24 +247,49 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             jobs (list):    list of jobs
         """
         with self._lock:
-            # solve over the rules instead of jobs (much less)
-            _jobs = defaultdict(list)
-            for job in jobs:
-                _jobs[job.rule].append(job)
-            jobs = _jobs
-            # sort the jobs by priority
-            for _jobs in jobs.values():
-                _jobs.sort(key=self.dag.priority, reverse=True)
-            rules = list(jobs)
+            if self.select_by_rule:
+                # solve over the rules instead of jobs (much less, but might miss the best solution)
+                # each rule is an item with as many copies as jobs
+                _jobs = defaultdict(list)
+                for job in jobs:
+                    _jobs[job.rule].append(job)
 
-            # Step 1: initialization
-            n = len(rules)
-            x = [0] * n  # selected jobs of each rule
-            E = set(range(n))  # rules free to select
-            u = [len(jobs[rule]) for rule in rules]  # number of jobs left
+                jobs = _jobs
+
+                # sort the jobs by priority
+                for _jobs in jobs.values():
+                    _jobs.sort(key=self.dag.priority, reverse=True)
+                rules = list(jobs)
+
+                # Step 1: initialization
+                n = len(rules)
+                x = [0] * n  # selected jobs of each rule
+                E = set(range(n))  # rules free to select
+                u = [len(jobs[rule]) for rule in rules]  # number of jobs left
+                a = list(map(self.rule_weight, rules))  # resource usage of rules
+                c = list(map(partial(self.rule_reward, jobs=jobs), rules))  # matrix of cumulative rewards over jobs
+
+                def calc_reward():
+                    return [
+                        (
+                            [(crit[x_j + y_j] - crit[x_j]) for crit in c_j]
+                            if j in E else [0] * len(c_j)
+                        )
+                        for j, (c_j, y_j, x_j) in enumerate(zip(c, y, x))
+                    ]
+            else:
+                # each job is an item with one copy (0-1 MDKP)
+                n = len(jobs)
+                x = [0] * n  # selected jobs
+                E = set(range(n))  # jobs still free to select
+                u = [1] * n
+                a = list(map(self.job_weight, jobs))  # resource usage of jobs
+                c = list(map(self.job_reward, jobs))  # job rewards
+
+                def calc_reward():
+                    return [c_j * y_j for c_j, y_j in zip(c, y)]
+
             b = [self.resources[name] for name in self.workflow.global_resources]  # resource capacities
-            a = list(map(self.rule_weight, rules))  # resource usage of rules
-            c = list(map(partial(self.rule_reward, jobs=jobs), rules))  # matrix of cumulative rewards over jobs
 
             while True:
                 # Step 2: compute effective capacities
@@ -278,10 +308,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 y = [(max(1, int(self.greedyness * y_j)) if y_j > 0 else 0) for y_j in y]
 
                 # Step 3: compute rewards on cumulative sums
-                reward = [(
-                    [(crit[x_j + y_j] - crit[x_j]) for crit in c_j]
-                    if j in E else [0] * len(c_j))
-                    for j, (c_j, y_j, x_j) in enumerate(zip(c, y, x))]
+                reward = calc_reward()
                 j_sel = max(E, key=reward.__getitem__)  # argmax
 
                 # Step 4: batch increment
@@ -296,9 +323,12 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 if not E:
                     break
 
-            # Solution is the list of jobs that was selected from the selected rules
-            solution = list(chain(
-                *[jobs[rules[j]][:x_] for j, x_ in enumerate(x)]))
+            if self.select_by_rule:
+                # Solution is the list of jobs that was selected from the selected rules
+                solution = list(chain(
+                    *[jobs[rules[j]][:x_] for j, x_ in enumerate(x)]))
+            else:
+                solution = [job for job, sel in zip(jobs, x) if sel]
             # update resources
             for name, b_i in zip(self.resources, b):
                 self.resources[name] = b_i
@@ -339,12 +369,23 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         return cumsum([job.threads for job in jobs])
 
     def job_weight(self, job):
-        """ Job weight that uses threads. """
-        return job.threads
+        res = job.resources_dict
+        return [
+            self.calc_resource(name, res.get(name, 0))
+            for name in self.workflow.global_resources]
 
-    def simple_job_weight(self, job):
-        """ Job weight that ignores threads. """
-        return 1
+    def job_reward(self, job):
+        return (
+            self.dag.priority(job),
+            self.dag.downstream_size(job),
+            job.inputsize
+        )
+
+    def dryrun_job_reward(self, job):
+        return (
+            self.dag.priority(job),
+            self.dag.downstream_size(job)
+        )
 
     def progress(self):
         """ Display the progress. """
