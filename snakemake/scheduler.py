@@ -164,7 +164,8 @@ class JobScheduler:
                     return not self._errors
 
                 needrun = list(self.open_jobs)
-                assert needrun
+                if not needrun:
+                    continue
 
                 logger.debug("Resources before job selection: {}".format(self.resources))
                 logger.debug("Ready jobs ({}):\n\t".format(len(needrun)) + "\n\t".join(map(str, needrun)))
