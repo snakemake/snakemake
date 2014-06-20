@@ -357,6 +357,10 @@ class Workflow:
         if print_compilation:
             print(code)
 
+        # insert the current directory into sys.path
+        # this allows to import modules from the workflow directory
+        sys.path.insert(0, os.path.dirname(os.path.abspath(snakefile)))
+
         self.linemaps[snakefile] = linemap
         exec(compile(code, snakefile, "exec"), self.globals)
         if not overwrite_first_rule:
