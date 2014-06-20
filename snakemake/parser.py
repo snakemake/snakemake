@@ -543,7 +543,7 @@ class Snakefile:
 
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = 0
-        self.lines = 2
+        self.lines = 0
 
     def __next__(self):
         return next(self.tokens)
@@ -573,9 +573,6 @@ def parse(path, overwrite_shellcmd=None):
         automaton = Python(snakefile)
         linemap = dict()
         compilation = list()
-        # add Snakefile directory to path
-        compilation.append("import sys; sys.path.insert(0, '{}')".format(os.path.dirname(os.path.abspath(path))))
-        compilation.append("\n")
         for t, orig_token in automaton.consume():
             l = lineno(orig_token)
             linemap.update(
