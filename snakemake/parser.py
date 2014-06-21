@@ -440,7 +440,7 @@ class Rule(GlobalKeywordState):
                 rulename=("'{}'".format(self.rulename)
                     if self.rulename is not None else None),
                 lineno=self.lineno,
-                snakefile=self.snakefile.path))
+                snakefile=self.snakefile.path.replace('\\', '\\\\')))
 
     def end(self):
         if not self.run:
