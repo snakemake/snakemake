@@ -4,6 +4,7 @@ import logging as _logging
 import platform
 import time
 import sys
+import os
 import json
 from multiprocessing import Lock
 
@@ -28,8 +29,14 @@ class ColorizingStreamHandler(_logging.StreamHandler):
 
     def __init__(self, nocolor=False, stream=sys.stderr, timestamp=False):
         super().__init__(stream=stream)
-        self.nocolor = nocolor or not self.is_tty or platform.system() == 'Windows'
+        self.nocolor = nocolor or not self.can_color_tty
         self.timestamp = timestamp
+
+    @property
+    def can_color_tty(self):
+        if 'TERM' in os.environ and os.environ['TERM'] == 'dumb':
+            return False
+        return self.is_tty and not platform.system() == 'Windows'
 
     @property
     def is_tty(self):
