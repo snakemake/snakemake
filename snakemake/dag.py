@@ -284,7 +284,6 @@ class DAG:
         cycles = list()
 
         for job in jobs:
-            self.check_periodic_wildcards(job)
             if file in job.input:
                 cycles.append(job)
                 continue
@@ -292,6 +291,7 @@ class DAG:
                 cycles.append(job)
                 continue
             try:
+                self.check_periodic_wildcards(job)
                 self.update_(
                     job, visited=set(visited),
                     skip_until_dynamic=skip_until_dynamic)
@@ -304,7 +304,7 @@ class DAG:
                         raise AmbiguousRuleException(
                             file, job, producer)
                 producer = job
-            except (MissingInputException, CyclicGraphException) as ex:
+            except (MissingInputException, CyclicGraphException, PeriodicWildcardError) as ex:
                 exceptions.append(ex)
         if producer is None:
             if cycles:
