@@ -132,3 +132,16 @@ a:hover {
     text-decoration: underline;
 }
 
+
+div.figure {
+    margin-left: 2em;
+    margin-right: 2em;
+}
+
+div.figure img {
+    max-width: 100%;
+}
+
+p.caption {
+    font-style: italic;
+}
