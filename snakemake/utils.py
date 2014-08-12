@@ -12,10 +12,36 @@ import inspect
 import textwrap
 import datetime
 from itertools import chain
+from docutils.parsers.rst.directives.images import Image, Figure
+from docutils.parsers.rst import directives
 
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
 
+
+class EmbeddedMixin(object):
+    """
+    Replaces the URI of a directive with a base64-encoded version.
+
+    Useful for embedding images/figures in reports.
+    """
+    def run(self):
+        """
+        Image.run() handles most of the 
+        """
+        result = Image.run(self)
+        reference = directives.uri(self.arguments[0])
+        self.options['uri'] = data_uri(reference)
+        return result
+
+# Create (and register) new image:: and figure:: directives that use a base64
+# data URI instead of pointing to a filename.
+
+class EmbeddedImage(Image, EmbeddedMixin): pass
+directives.register_directive('embeddedimage', EmbeddedImage)
+
+class EmbeddedFigure(Figure, EmbeddedMixin): pass
+directives.register_directive('embeddedfigure', EmbeddedFigure)
 
 def linecount(filename):
     """Return the number of lines of given file.
@@ -94,6 +120,7 @@ def data_uri(file, defaultenc="utf8"):
                      charset=encoding,
                      data=data.decode()))
     return uri
+
 
 
 def report(text, path,
