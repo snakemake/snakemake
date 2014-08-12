@@ -77,11 +77,13 @@ def report(text, path,
     .. container::
        :name: metadata
 
-       {metadata} | {date}
+       {metadata}{date}
 
-    """).format(metadata=metadata, date=datetime.date.today().isoformat())
+    """).format(
+        metadata=metadata + " | " if metadata else "",
+        date=datetime.date.today().isoformat())
 
-    text = format(textwrap.dedent(text), stepout=2)
+    text = format(textwrap.dedent(text), stepout=3)
 
     attachments = [textwrap.dedent("""
         .. container::
