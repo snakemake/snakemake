@@ -347,8 +347,10 @@ class Workflow:
         """
         global workflow
         global rules
+
         workflow = self
         rules = Rules()
+
         first_rule = self.first_rule
         if workdir:
             os.chdir(workdir)
