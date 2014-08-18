@@ -26,7 +26,7 @@ class ProcessPoolExecutor(concurrent.futures.ProcessPoolExecutor):
                     args=(self._call_queue,
                           self._result_queue))
             p.start()
-            if sys.version_info == (3,2):
+            if sys.version_info < (3,3):
                 self._processes.add(p)
             else:
                 self._processes[p.pid] = p
