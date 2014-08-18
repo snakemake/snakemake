@@ -4,13 +4,9 @@ __author__ = "Johannes Köster"
 
 import os
 import json
-import io
 import re
-import mimetypes
-import base64
 import inspect
 import textwrap
-import datetime
 from itertools import chain
 
 from snakemake.io import regex, Namedlist
@@ -77,25 +73,6 @@ def makedirs(dirnames):
             os.makedirs(dirname)
 
 
-def data_uri(file, defaultenc="utf8"):
-    """Craft a base64 data URI from file with proper encoding and mimetype."""
-    mime, encoding = mimetypes.guess_type(file)
-    if mime is None:
-        mime = "text/plain"
-        logger.info("Could not detect mimetype for {}, assuming "
-                    "text/plain.".format(file))
-    if encoding is None:
-        encoding = defaultenc
-    with open(file, "rb") as f:
-        data = base64.b64encode(f.read())
-    uri = ("data:{mime};charset={charset};filename={filename};base64,{data}"
-           "".format(filename=os.path.basename(file),
-                     mime=mime,
-                     charset=encoding,
-                     data=data.decode()))
-    return uri
-
-
 def report(text, path,
            stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
            defaultenc="utf8", template=None, metadata=None, **files):
@@ -137,56 +114,13 @@ def report(text, path,
         metadata (str):     E.g. an optional author name or email address.
 
     """
-    outmime, _ = mimetypes.guess_type(path)
-    if outmime != "text/html":
-        raise ValueError("Path to report output has to be an HTML file.")
-    from docutils.core import publish_file
-    definitions = textwrap.dedent("""
-    .. role:: raw-html(raw)
-       :format: html
-
-    """)
-
-    metadata = textwrap.dedent("""
-
-    .. container::
-       :name: metadata
-
-       {metadata} | {date}
-
-    """).format(metadata=metadata, date=datetime.date.today().isoformat())
-
-    text = format(textwrap.dedent(text), stepout=2)
-
-    attachments = [textwrap.dedent("""
-        .. container::
-           :name: attachments
-
-        """)]
-    for name, file in sorted(files.items()):
-        data = data_uri(file)
-        attachments.append(
-            '''
-   .. container::
-      :name: {name}
-
-      [{name}] :raw-html:`<a href="{data}" download="{filename}" draggable="true">{filename}</a>`
-            '''.format(
-                name=name,
-                filename=os.path.basename(file),
-                data=data))
-
-    text = definitions + text + "\n\n" + "\n\n".join(attachments) + metadata
-
-    overrides = dict()
-    if template is not None:
-        overrides["template"] = template
-    if stylesheet is not None:
-        overrides["stylesheet_path"] = stylesheet
-    html = open(path, "w")
-    publish_file(
-        source=io.StringIO(text), destination=html,
-        writer_name="html", settings_overrides=overrides)
+    try:
+        import snakemake.report
+    except ImportError:
+        raise WorkflowError("Python 3 package docutils needs to be installed to use the report function.")
+    snakemake.report.report(
+        text, path, stylesheet=stylesheet, defaultenc=defaultenc,
+        template=template, metadata=metadata, **files)
 
 
 def R(code):
@@ -198,7 +132,10 @@ def R(code):
     Args:
         code (str): R code to be executed
     """
-    import rpy2.robjects as robjects
+    try:
+        import rpy2.robjects as robjects
+    except ImportError:
+        raise WorkflowError("Python 3 package rpy2 needs to be installed to use the R function.")
     robjects.r(format(textwrap.dedent(code), stepout=2))
 
 
