@@ -9,6 +9,7 @@ from snakemake.version import __version__
 LOCK = threading.Lock()
 
 app = Flask("snakemake", template_folder=os.path.dirname(__file__))
+#app.debug=True
 app.extensions = {
     "dag": None, "run_snakemake": None, "progress": "", "log": [],
     "status": {"running": False}, "args": None, "targets": [], "rule_info": [],

@@ -24,7 +24,7 @@ setup(
     entry_points={
         "console_scripts": ["snakemake = snakemake:main", "snakemake-bash-completion = snakemake:bash_completion"]
     },
-    package_data={'': ['*.css', '*.sh']},
+    package_data={'': ['*.css', '*.sh', '*.html']},
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
