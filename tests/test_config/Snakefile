@@ -1,5 +1,5 @@
 
-config: "test.json"
+configfile: "test.json"
 
 
 rule:

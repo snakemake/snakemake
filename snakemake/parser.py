@@ -219,7 +219,7 @@ class Workdir(GlobalKeywordState):
     pass
 
 
-class Config(GlobalKeywordState):
+class Configfile(GlobalKeywordState):
     pass
 
 
@@ -508,7 +508,7 @@ class Python(TokenAutomaton):
     subautomata = dict(
         include=Include,
         workdir=Workdir,
-        config=Config,
+        configfile=Configfile,
         ruleorder=Ruleorder,
         rule=Rule,
         subworkflow=Subworkflow,

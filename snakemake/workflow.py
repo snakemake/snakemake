@@ -381,7 +381,7 @@ class Workflow:
                 os.makedirs(workdir)
             self._workdir = workdir
 
-    def config(self, jsonpath):
+    def configfile(self, jsonpath):
         """ Update the global config with the given dictionary. """
         global config
         try:
