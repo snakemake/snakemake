@@ -1,0 +1,9 @@
+
+config: "test.json"
+
+
+rule:
+    output:
+        config["outfile"]
+    shell:
+        "touch {output}"

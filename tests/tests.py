@@ -139,3 +139,6 @@ def test_url_include():
 
 def test_touch():
     run(dpath("test_touch"))
+
+def test_config():
+    run(dpath("test_config"))

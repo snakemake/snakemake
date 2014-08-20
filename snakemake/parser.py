@@ -219,6 +219,10 @@ class Workdir(GlobalKeywordState):
     pass
 
 
+class Config(GlobalKeywordState):
+    pass
+
+
 class Ruleorder(GlobalKeywordState):
 
     def block_content(self, token):
@@ -504,6 +508,7 @@ class Python(TokenAutomaton):
     subautomata = dict(
         include=Include,
         workdir=Workdir,
+        config=Config,
         ruleorder=Ruleorder,
         rule=Rule,
         subworkflow=Subworkflow,
@@ -576,7 +581,7 @@ def parse(path, overwrite_shellcmd=None):
         for t, orig_token in automaton.consume():
             l = lineno(orig_token)
             linemap.update(
-                dict((i, l) for i in range(snakefile.lines, snakefile.lines + t.count("\n"))))
+                dict((i, l) for i in range(snakefile.lines + 1, snakefile.lines + t.count("\n") + 1)))
             snakefile.lines += t.count("\n")
             compilation.append(t)
         compilation = "".join(format_tokens(compilation))

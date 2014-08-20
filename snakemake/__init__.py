@@ -30,6 +30,7 @@ def snakemake(snakefile,
     cores=1,
     nodes=1,
     resources=dict(),
+    config=dict(),
     workdir=None,
     targets=None,
     dryrun=False,
@@ -91,6 +92,7 @@ def snakemake(snakefile,
         cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
         nodes (int):                the number of provided cluster nodes (ignored without cluster support) (default 1)
         resources (dict):           provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
+        config (dict):              override values for workflow config
         workdir (str):              path to working directory (default None)
         targets (list):             list of targets, e.g. rule or file names (default None)
         dryrun (bool):              only dry-run the workflow (default False)
@@ -216,7 +218,8 @@ def snakemake(snakefile,
         olddir = os.getcwd()
     workflow = Workflow(
         snakefile=snakefile, snakemakepath=snakemakepath,
-        jobscript=jobscript, overwrite_shellcmd=overwrite_shellcmd)
+        jobscript=jobscript, overwrite_shellcmd=overwrite_shellcmd,
+        overwrite_config=config)
 
     if standalone:
         try:
@@ -347,6 +350,30 @@ def parse_resources(args):
     return resources
 
 
+def parse_config(args):
+    parsers = [int, float, eval, str]
+    config = dict()
+    if args.config is not None:
+        valid = re.compile("[a-zA-Z_]\w*$")
+        for entry in args.config:
+            try:
+                key, val = entry.split("=", maxsplit=1)
+            except ValueError:
+                raise ValueError("Config entries have to be defined as name=value pairs.")
+            if not valid.match(key):
+                raise ValueError("Config entry must start with a valid identifier.")
+            v = None
+            for parser in parsers:
+                try:
+                    v = parser(val)
+                    break
+                except:
+                    pass
+            assert v is not None
+            config[key] = v
+    return config
+
+
 def get_argument_parser():
     parser = argparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
@@ -378,6 +405,13 @@ def get_argument_parser():
             "use resources by defining the resource keyword, e.g. "
             "resources: gpu=1. If now two rules require 1 of the resource "
             "'gpu' they won't be run in parallel by the scheduler."))
+    parser.add_argument(
+        "--config", nargs="*", metavar="KEY=VALUE",
+        help=(
+            "Set or overwrite values in the workflow config object. "
+            "The workflow config object is accessible as variable config inside "
+            "the workflow. Default values can be set by providing a JSON file "
+            "(see Documentation)."))
     parser.add_argument(
         "--list", "-l", action="store_true",
         help="Show availiable rules in given Snakefile.")
@@ -614,6 +648,7 @@ def main():
 
     try:
         resources = parse_resources(args)
+        config = parse_config(args)
     except ValueError as e:
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
@@ -665,6 +700,7 @@ def main():
             cores=args.cores,
             nodes=args.cores,
             resources=resources,
+            config=config,
             workdir=args.directory,
             targets=args.target,
             dryrun=args.dryrun,

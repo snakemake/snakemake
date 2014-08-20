@@ -6,6 +6,7 @@ import re
 import os
 import sys
 import signal
+import json
 from collections import OrderedDict
 from itertools import filterfalse, chain
 from functools import partial
@@ -14,7 +15,7 @@ from operator import attrgetter
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder
 from snakemake.exceptions import RuleException, CreateRuleException, \
-    UnknownRuleException, NoRulesException, print_exception
+    UnknownRuleException, NoRulesException, print_exception, WorkflowError
 from snakemake.shell import shell
 from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
@@ -27,7 +28,8 @@ from snakemake.persistence import Persistence
 class Workflow:
     def __init__(
         self, snakefile=None, snakemakepath=None,
-        jobscript=None, overwrite_shellcmd=None):
+        jobscript=None, overwrite_shellcmd=None,
+        overwrite_config=dict()):
         """
         Create the controller.
         """
@@ -47,6 +49,11 @@ class Workflow:
         self.globals = globals()
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
+        self.overwrite_config = overwrite_config
+
+        global config
+        config = dict()
+        config.update(self.overwrite_config)
 
     @property
     def subworkflows(self):
@@ -373,6 +380,20 @@ class Workflow:
             if not os.path.exists(workdir):
                 os.makedirs(workdir)
             self._workdir = workdir
+
+    def config(self, jsonpath):
+        """ Update the global config with the given dictionary. """
+        global config
+        try:
+            with open(jsonpath) as f:
+                c = json.load(f)
+        except FileNotFoundError:
+            raise WorkflowError("Config file {} not found.".format(jsonpath))
+        if not isinstance(c, dict):
+            raise WorkflowError("Workflow config must be given as JSON with keys at top level.")
+        for key, val in c.items():
+            if key not in self.overwrite_config:
+                config[key] = val
 
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
