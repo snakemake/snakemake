@@ -442,6 +442,8 @@ class Workflow:
                 rule.log = ruleinfo.log
             if ruleinfo.message:
                 rule.message = ruleinfo.message
+            if ruleinfo.benchmark:
+                rule.benchmark = ruleinfo.benchmark
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
@@ -479,6 +481,12 @@ class Workflow:
     def message(self, message):
         def decorate(ruleinfo):
             ruleinfo.message = message
+            return ruleinfo
+        return decorate
+
+    def benchmark(self, benchmark):
+        def decorate(ruleinfo):
+            ruleinfo.benchmark = benchmark
             return ruleinfo
         return decorate
 
@@ -542,6 +550,7 @@ class RuleInfo:
         self.output = None
         self.params = None
         self.message = None
+        self.benchmark = None
         self.threads = None
         self.resources = None
         self.priority = None

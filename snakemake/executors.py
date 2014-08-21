@@ -1,6 +1,8 @@
 
 import os
 import time
+import datetime
+import json
 import textwrap
 import stat
 import shutil
@@ -75,6 +77,7 @@ class AbstractExecutor:
             input=list(format_files(job, job.input, job.ruleio, job.dynamic_input)),
             output=list(format_files(job, job.output, job.ruleio, job.dynamic_output)),
             log=job.log,
+            benchmark=job.benchmark,
             reason=str(self.dag.reason(job)),
             resources=job.resources_dict,
             priority="highest" if priority == Job.HIGHEST_PRIORITY else priority,
@@ -178,9 +181,16 @@ class CPUExecutor(RealExecutor):
         job.prepare()
         super()._run(job)
 
+        log = None
+        if job.log is not None:
+            log = str(job.log)
+        benchmark = None
+        if job.benchmark is not None:
+            benchmark = str(job.benchmark)
+
         future = self.pool.submit(
             run_wrapper, job.rule.run_func, job.input.plainstrings(), job.output.plainstrings(), job.params,
-            job.wildcards, job.threads, job.resources, str(job.log), self.workflow.linemaps)
+            job.wildcards, job.threads, job.resources, log, benchmark, self.workflow.linemaps)
         future.add_done_callback(partial(
             self._callback, job, callback, error_callback))
 
@@ -450,7 +460,7 @@ class DRMAAExecutor(ClusterExecutor):
             error_callback(job)
 
 
-def run_wrapper(run, input, output, params, wildcards, threads, resources, log, linemaps):
+def run_wrapper(run, input, output, params, wildcards, threads, resources, log, benchmark, linemaps):
     """
     Wrapper around the run method that handles directory creation and
     output file deletion on error.
@@ -467,8 +477,19 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log, 
     if log is None:
         log = Unformattable(errormsg="log used but undefined")
     try:
-        # execute the actual run method.
-        run(input, output, params, wildcards, threads, resources, log)
+        runs = 1 if benchmark is None else 3
+        wallclock = []
+        cpu = []
+        for i in range(runs):
+            w = time.time()
+            c = time.clock()
+            # execute the actual run method.
+            run(input, output, params, wildcards, threads, resources, log)
+            w = time.time() - w
+            c = time.clock() - c
+            cpu.append(c)
+            wallclock.append(w)
+
     except (KeyboardInterrupt, SystemExit) as e:
         # re-raise the keyboard interrupt in order to record an error in the scheduler but ignore it
         raise e
@@ -478,3 +499,19 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log, 
         raise RuleException(format_error(
             ex, lineno, linemaps=linemaps, snakefile=file,
             show_traceback=True))
+
+    if benchmark is not None:
+        try:
+            with open(benchmark, "w") as f:
+                json.dump({
+                    name: {
+                        "s": times,
+                        "h:m:s": [str(datetime.timedelta(seconds=t)) for t in times]
+                    }
+                    for name, times in zip(
+                        "wall_clock_times cpu_times".split(),
+                        [wallclock, cpu]
+                    )
+                }, f, indent=4)
+        except (Exception, BaseException) as ex:
+            raise WorkflowError(ex)

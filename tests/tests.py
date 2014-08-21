@@ -142,3 +142,6 @@ def test_touch():
 
 def test_config():
     run(dpath("test_config"))
+
+def test_benchmark():
+    run(dpath("test_benchmark"))

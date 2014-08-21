@@ -333,8 +333,10 @@ class Params(RuleKeywordState):
 class Threads(RuleKeywordState):
     pass
 
+
 class Resources(RuleKeywordState):
     pass
+
 
 class Priority(RuleKeywordState):
     pass
@@ -349,6 +351,10 @@ class Log(RuleKeywordState):
 
 
 class Message(RuleKeywordState):
+    pass
+
+
+class Benchmark(RuleKeywordState):
     pass
 
 
@@ -427,6 +433,7 @@ class Rule(GlobalKeywordState):
         version=Version,
         log=Log,
         message=Message,
+        benchmark=Benchmark,
         run=Run,
         shell=Shell)
 

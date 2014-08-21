@@ -37,9 +37,11 @@ class Job:
             if format_wildcards is None
             else Wildcards(fromdict=format_wildcards))
 
-        (self.input, self.output, self.params,
-            self.log, self.ruleio, self.dependencies) = rule.expand_wildcards(
-            self.wildcards_dict)
+        (
+            self.input, self.output, self.params,
+            self.log, self.benchmark,
+            self.ruleio, self.dependencies
+        ) = rule.expand_wildcards(self.wildcards_dict)
 
         self.resources_dict = {
             name: min(self.rule.workflow.global_resources.get(name, res), res)

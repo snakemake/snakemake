@@ -1,0 +1,6 @@
+
+rule:
+    benchmark:
+        "test.benchmark.json"
+    shell:
+        "sleep 1"

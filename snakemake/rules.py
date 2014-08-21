@@ -43,6 +43,7 @@ class Rule:
             self.priority = 0
             self.version = None
             self._log = None
+            self._benchmark = None
             self.wildcard_names = set()
             self.lineno = lineno
             self.snakefile = snakefile
@@ -69,6 +70,7 @@ class Rule:
             self.priority = other.priority
             self.version = other.version
             self._log = other._log
+            self._benchmark = other._benchmark
             self.wildcard_names = other.wildcard_names
             self.lineno = other.lineno
             self.snakefile = other.snakefile
@@ -120,6 +122,7 @@ class Rule:
             branch._output,
             branch._params,
             branch._log,
+            branch._benchmark,
             _, branch.dependencies) = branch.expand_wildcards(wildcards=non_dynamic_wildcards)
             return branch, non_dynamic_wildcards
         return branch
@@ -137,6 +140,14 @@ class Rule:
     @log.setter
     def log(self, log):
         self._log = IOFile(log, rule=self)
+
+    @property
+    def benchmark(self):
+        return self._benchmark
+
+    @benchmark.setter
+    def benchmark(self, benchmark):
+        self._benchmark = IOFile(benchmark, rule=self)
 
     @property
     def input(self):
@@ -350,7 +361,8 @@ class Rule:
             ruleio.update(dict((f, f_) for f, f_ in zip(output, self.output)))
 
             log = self.log.apply_wildcards(wildcards) if self.log else None
-            return input, output, params, log, ruleio, dependencies
+            benchmark = self.benchmark.apply_wildcards(wildcards) if self.benchmark else None
+            return input, output, params, log, benchmark, ruleio, dependencies
         except WildcardError as ex:
             # this can only happen if an input contains an unresolved wildcard.
             raise RuleException(
