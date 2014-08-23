@@ -592,10 +592,10 @@ def get_argument_parser():
         help="List all output files for which the defined params have changed "
         "in the Snakefile.")
     parser.add_argument(
-        "--latency-wait", "--output-wait", "-w", type=int, default=3, metavar="SECONDS",
+        "--latency-wait", "--output-wait", "-w", type=int, default=5, metavar="SECONDS",
         help="Wait given seconds if an output file of a job is not present after "
         "the job finished. This helps if your filesystem "
-        "suffers from latency (default 3).")
+        "suffers from latency (default 5).")
     parser.add_argument(
         "--wait-for-files", nargs="*", metavar="FILE", help="Wait --latency-wait seconds for these "
         "files to be present before executing the workflow. "
