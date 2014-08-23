@@ -597,7 +597,7 @@ def get_argument_parser():
         "the job finished. This helps if your filesystem "
         "suffers from latency (default 3).")
     parser.add_argument(
-        "--wait-for-files", nargs="+", metavar="FILE", help="Wait --latency-wait seconds for these "
+        "--wait-for-files", nargs="*", metavar="FILE", help="Wait --latency-wait seconds for these "
         "files to be present before executing the workflow. "
         "This option is used internally to handle filesystem latency in cluster "
         "environments.")
