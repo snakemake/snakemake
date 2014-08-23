@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 echo `date` >> qsub.log
 tail -n1 $1 >> qsub.log
-./$1
+# simulate printing of job id by a random number
+echo $RANDOM
+sh $1

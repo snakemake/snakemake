@@ -1,0 +1,23 @@
+
+rule:
+	input: expand("{sample}.out", sample=range(50000))
+	
+
+rule:
+	input: "{sample}.inter2"
+	output: "{sample}.out"
+	shell: "touch {output}"
+
+rule:
+	input: "{sample}.inter1"
+	output: "{sample}.inter2"
+	shell: "touch {output}"
+
+rule:
+	input: "{sample}.in"
+	output: "{sample}.inter1"
+	shell: "touch {output}"
+
+rule:
+	output: "{sample}.in"
+	shell: "touch {output}"

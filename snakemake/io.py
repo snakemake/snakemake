@@ -3,8 +3,10 @@
 import os
 import re
 import stat
-from itertools import product
-from snakemake.exceptions import MissingOutputException
+import time
+from itertools import product, chain
+from collections import Iterable, namedtuple
+from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError
 from snakemake.logging import logger
 
 __author__ = "Johannes Köster"
@@ -67,7 +69,6 @@ class _IOFile(str):
                     raise e
 
     def protect(self):
-        logger.warning("Write protecting output file {}".format(self))
         mode = (os.stat(self.file).st_mode & ~stat.S_IWUSR &
             ~stat.S_IWGRP & ~stat.S_IWOTH)
         if os.path.isdir(self.file):
@@ -95,6 +96,14 @@ class _IOFile(str):
             else:
                 raise e
 
+    def touch_or_create(self):
+        try:
+            self.touch()
+        except MissingOutputException:
+            # create empty file
+            with open(self.file, "w") as f:
+                pass
+
     def apply_wildcards(
         self, wildcards, fill_missing=False,
         fail_dynamic=False):
@@ -110,20 +119,19 @@ class _IOFile(str):
             rule=self.rule)
 
     def get_wildcard_names(self):
-        return set(match.group('name') for match in re.finditer(
-            _wildcard_regex, self.file))
+        return get_wildcard_names(self.file)
+
+    def contains_wildcard(self):
+        return contains_wildcard(self.file)
 
     def regex(self):
-        if not self._regex:
-            # create a regular expression
+        if self._regex is None:
+            # compile a regular expression
             self._regex = re.compile(regex(self.file))
         return self._regex
 
     def match(self, target):
-        match = re.match(self.regex(), target)
-        if match and len(match.group()) == len(target):
-            return match
-        return None
+        return self.regex().match(target) or None
 
     def __eq__(self, other):
         f = other._file if isinstance(other, _IOFile) else other
@@ -134,7 +142,33 @@ class _IOFile(str):
 
 
 _wildcard_regex = re.compile(
-    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
+    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>([^\{\}]+|\{\d+(,\d+)?\})*))?\s*\}")
+#    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
+
+
+def wait_for_files(files, latency_wait=3):
+    """Wait for given files to be present in filesystem."""
+    files = list(files)
+    get_missing = lambda: [f for f in files if not os.path.exists(f)]
+    missing = get_missing()
+    if missing:
+        logger.info("Waiting at most {} seconds for missing files.".format(latency_wait))
+        for _ in range(latency_wait):
+            if not get_missing():
+                return
+            time.sleep(1)
+        raise IOError(
+            "Missing files after {} seconds:\n{}".format(
+                latency_wait, "\n".join(get_missing())))
+
+
+def get_wildcard_names(pattern):
+    return set(match.group('name') for match in
+            _wildcard_regex.finditer(pattern))
+
+
+def contains_wildcard(path):
+    return _wildcard_regex.search(path) is not None
 
 
 def remove(file):
@@ -150,27 +184,28 @@ def remove(file):
 
 
 def regex(filepattern):
-    f = ""
+    f = []
     last = 0
     wildcards = set()
-    for match in re.finditer(_wildcard_regex, filepattern):
-        f += re.escape(filepattern[last:match.start()])
+    for match in _wildcard_regex.finditer(filepattern):
+        f.append(re.escape(filepattern[last:match.start()]))
         wildcard = match.group("name")
         if wildcard in wildcards:
             if match.group("constraint"):
                 raise ValueError("If multiple wildcards of the same name "
                 "appear in a string, eventual constraints have to be defined "
                 "at the first occurence and will be inherited by the others.")
-            f += "(?P={})".format(wildcard)
+            f.append("(?P={})".format(wildcard))
         else:
             wildcards.add(wildcard)
-            f += "(?P<{}>{})".format(
+            f.append("(?P<{}>{})".format(
                 wildcard,
                 match.group("constraint")
-                    if match.group("constraint") else ".+")
+                    if match.group("constraint") else ".+"))
         last = match.end()
-    f += re.escape(filepattern[last:])
-    return f
+    f.append(re.escape(filepattern[last:]))
+    f.append("$") # ensure that the match spans the whole file
+    return "".join(f)
 
 
 def apply_wildcards(pattern, wildcards, fill_missing=False,
@@ -181,49 +216,84 @@ def apply_wildcards(pattern, wildcards, fill_missing=False,
             try:
                 value = wildcards[name]
                 if fail_dynamic and value == dynamic_fill:
-                    raise KeyError(name)
-                return value
+                    raise WildcardError(name)
+                return str(value)  # convert anything into a str
             except KeyError as ex:
                 if fill_missing:
                     return dynamic_fill
                 else:
-                    raise ex
+                    raise WildcardError(str(ex))
 
         return re.sub(_wildcard_regex, format_match, pattern)
 
 
-class temp(str):
+def not_iterable(value):
+    return isinstance(value, str) or not isinstance(value, Iterable)
+
+
+class AnnotatedString(str):
+    def __init__(self, value):
+        self.flags = dict()
+
+
+def flag(value, flag, flag_value=True):
+    if isinstance(value, AnnotatedString):
+        value.flags[flag] = flag_value
+        return value
+    if not_iterable(value):
+        value = AnnotatedString(value)
+        value.flags[flag] = flag_value
+        return value
+    return [flag(v, flag) for v in value]
+
+
+def is_flagged(value, flag):
+    if isinstance(value, AnnotatedString):
+        return flag in value.flags
+    return False
+
+
+def temp(value):
     """
     A flag for an input or output file that shall be removed after usage.
     """
-    pass
+    if is_flagged(value, "protected"):
+        raise SyntaxError("Protected and temporary flags are mutually exclusive.")
+    return flag(value, "temp")
 
 
-class temporary(temp):
+def temporary(value):
     """ An alias for temp. """
-    pass
+    return temp(value)
 
 
-class protected(str):
+def protected(value):
     """ A flag for a file that shall be write protected after creation. """
-    pass
+    if is_flagged(value, "temp"):
+        raise SyntaxError("Protected and temporary flags are mutually exclusive.")
+    return flag(value, "protected")
 
 
-class dynamic(str):
+def dynamic(value):
     """
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
     rule has been run """
-    def __new__(cls, file):
-        matches = list(re.finditer(_wildcard_regex, file))
+    annotated = flag(value, "dynamic")
+    tocheck = [annotated] if not_iterable(annotated) else annotated
+    for file in tocheck:
+        matches = list(_wildcard_regex.finditer(file))
         #if len(matches) != 1:
         #    raise SyntaxError("Dynamic files need exactly one wildcard.")
         for match in matches:
             if match.group("constraint"):
                 raise SyntaxError(
                     "The wildcards in dynamic files cannot be constrained.")
-        obj = str.__new__(cls, file)
-        return obj
+    return annotated
+
+
+def touch(value):
+    return flag(value, "touch")
 
 
 def expand(*args, **wildcards):
@@ -247,16 +317,42 @@ def expand(*args, **wildcards):
 
     def flatten(wildcards):
         for wildcard, values in wildcards.items():
-            if isinstance(values, str):
+            if isinstance(values, str) or not isinstance(values, Iterable):
                 values = [values]
             yield [(wildcard, value) for value in values]
 
-    expanded = list()
-    for comb in combinator(*flatten(wildcards)):
-        comb = dict(comb)
-        for filepattern in filepatterns:
-            expanded.append(filepattern.format(**comb))
-    return expanded
+    try:
+        return [filepattern.format(**comb) for comb in map(dict, combinator(*flatten(wildcards))) for filepattern in filepatterns]
+    except KeyError as e:
+        raise WildcardError("No values given for wildcard {}.".format(e))
+
+
+def glob_wildcards(pattern):
+    """
+    Glob the values of the wildcards by matching the given pattern to the filesystem.
+    Returns a named tuple with a list of values for each wildcard.
+    """
+    pattern = os.path.normpath(pattern)
+    first_wildcard = re.search("{[^{]", pattern)
+    dirname = os.path.dirname(pattern[:first_wildcard.start()]) if first_wildcard else os.path.dirname(pattern)
+    if not dirname:
+        dirname = "."
+    
+    names = [match.group('name')
+        for match in _wildcard_regex.finditer(pattern)]
+    Wildcards = namedtuple("Wildcards", names)
+    wildcards = Wildcards(*[list() for name in names])
+
+    pattern = re.compile(regex(pattern))
+    for dirpath, dirnames, filenames in os.walk(dirname):
+        for f in chain(filenames, dirnames):
+            if dirpath != ".":
+                f = os.path.join(dirpath, f)
+            match = re.match(pattern, f)
+            if match:
+                for name, value in match.groupdict().items():
+                    getattr(wildcards, name).append(value)
+    return wildcards
 
 
 # TODO rewrite Namedlist!
@@ -265,7 +361,7 @@ class Namedlist(list):
     A list that additionally provides functions to name items. Further,
     it is hashable, however the hash does not consider the item names.
     """
-    def __init__(self, toclone=None, fromdict=None):
+    def __init__(self, toclone=None, fromdict=None, plainstr=False):
         """
         Create the object.
 
@@ -278,7 +374,7 @@ class Namedlist(list):
         self._names = dict()
 
         if toclone:
-            self.extend(toclone)
+            self.extend(map(str, toclone) if plainstr else toclone)
             if isinstance(toclone, Namedlist):
                 self.take_names(toclone.get_names())
         if fromdict:
@@ -303,13 +399,11 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
-        if end is None:
-            end = index + 1
         self._names[name] = (index, end)
-        if index == end - 1:
+        if end is None:
             setattr(self, name, self[index])
         else:
-            setattr(self, name, self[index:end])
+            setattr(self, name, Namedlist(toclone=self[index:end]))
 
     def get_names(self):
         """
@@ -335,13 +429,14 @@ class Namedlist(list):
     def allitems(self):
         next = 0
         for name, index in sorted(
-            self._names.items(), key=lambda item: item[1]):
+            self._names.items(),
+            key=lambda item: item[1]):
             start, end = index
             if start > next:
                 for item in self[next:start]:
                     yield None, item
             yield name, getattr(self, name)
-            next = end
+            next = end if end is not None else start + 1
         for item in self[next:]:
             yield None, item
 
@@ -351,9 +446,14 @@ class Namedlist(list):
         for name, (i, j) in self._names.items():
             if i > index:
                 self._names[name] = (i + add, j + add)
+            elif i == index:
+                self.set_name(name, i, end=i+len(items))
 
     def keys(self):
         return self._names
+
+    def plainstrings(self):
+        return self.__class__.__call__(toclone=self, plainstr=True)
 
     def __getitem__(self, key):
         try:
@@ -366,7 +466,7 @@ class Namedlist(list):
         return hash(tuple(self))
 
     def __str__(self):
-        return " ".join(self)
+        return " ".join(map(str, self))
 
 
 class InputFiles(Namedlist):
@@ -383,3 +483,23 @@ class Wildcards(Namedlist):
 
 class Params(Namedlist):
     pass
+
+class Resources(Namedlist):
+    pass
+
+
+##### Wildcard pumping detection #####
+
+class PeriodicityDetector:
+    def __init__(self, min_repeat=15, max_repeat=100):
+        """
+        Args:
+            max_len (int): The maximum length of the periodic substring.
+        """
+        self.regex = re.compile("((?P<value>.+)(?P=value){{{min_repeat},{max_repeat}}})$".format(min_repeat=min_repeat - 1, max_repeat=max_repeat - 1))
+
+    def is_periodic(self, value):
+        """Returns the periodic substring or None if not periodic."""
+        m = self.regex.search(value) # search for a periodic suffix.
+        if m is not None:
+            return m.group("value")

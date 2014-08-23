@@ -1,0 +1,6 @@
+import bar
+import foo
+
+rule:
+	output: "test.out"
+	shell: "touch {output}"

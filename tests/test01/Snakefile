@@ -5,24 +5,28 @@ ruleorder: rule2 > rule4
 def testin(wildcards):
 	return "test.in"
 
+def version():
+	return "3.3"
+
 rule rule1:
-	''' This rule creates an intermediate file. '''
+	# This rule creates an intermediate file.
 	input: 
 		'test.inter'
 	output: 'dir/test.out'
 	log:    'log/logfile.log'
-	version: "3.3"
-	threads: 3
+	version: version()
+	threads: 4
 	shell: 
 		'if [ {threads} -ne 3 ]; then echo "This test has to be run with -j3 in order to succeed!"; exit 1; fi; ' \
-		'echo {TEST}; cp {input[0]} {output[0]}'
+		'echo {TEST}; cp {input[0]} {output[0]}' # append a comment
 
 rule rule2:
 	input: testin
 	output: 'test.inter'
-	message: 'Copying {input[0]} to {output[0]}'
+#	message: 'Copying {input[0]} to {output[0]}'
 	shell: 
-		'''cp {input[0]} {output[0]}
+		'''
+		cp {input[0]} {output[0]}
 		'''
 
 rule rule4:
@@ -30,8 +34,10 @@ rule rule4:
 	output: "test.inter"
 	shell: "cp {input} {output}"
 
+
 # this should be ignored since test.in is present
 rule rule3:
 	input: "dir/{a}.out"
 	output: "{a}.in"
 	shell: "cp {input} {output}"
+

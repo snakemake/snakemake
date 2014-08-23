@@ -1,0 +1,358 @@
+<html>
+    <head>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.4.6/d3.min.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/js/bootstrap.min.js"></script>
+        <script type="text/javascript" src="http://cpettitt.github.io/project/dagre-d3/v0.1.5/dagre-d3.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.5.4/bootstrap-select.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/css/bootstrap.min.css"/>
+        <link rel="stylesheet" type="text/css" href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.5.4/bootstrap-select.min.css"/>
+        <style>
+        body {
+          font-family: sans-serif;
+          font-size: 10pt;
+          font-color: #333333;
+          background-color: #EEEEEE;
+        }
+        
+        #header {
+            position: fixed;
+            top: 0px;
+            left: 0px;
+            width: 100%;
+            background-color: #3498db;
+            color: #FFFFFF;
+            font-size: 150%;
+            height: 70px;
+        }
+        
+        #header #snakemake {
+            float: left;
+            padding: 5px;
+            padding-right: 15px;
+        }
+        
+        #header #workflow {
+            float: left;
+            padding: 5px;
+        }
+        
+        #top {
+            padding-top: 70px;
+        }
+        
+        #bottom {
+            width: 100%;
+            border-width: 0px;
+        }
+        
+        #bottom td {
+            vertical-align: top;
+        }
+        
+        #workflow-progress {
+            width: 100%;
+        }
+        
+        #workflow-progress #progress-text {
+            width: 0%;
+            transition: width 2s;
+            min-width: 20em;
+            text-align: right;
+            color: #CCCCCC;
+            height: 2em;
+        }
+        
+        #workflow-progress #progress-bar {
+            width: 0%;
+            transition: width 2s;
+            height: 0.5em;
+            background-color: #CCCCCC;
+        }
+        
+        #left-panel {
+            width: 50%;
+            background-color: #DDDDDD;
+        }
+        
+        #left-panel #control {
+            padding: 5px;
+        }
+        
+        #log {
+            width: 50%;
+            background-color: #FFFFFF;
+        }
+        
+        #log table {
+            font-size: 10pt;
+            margin: 0;
+        }
+        
+        #log div {
+             overflow: auto;
+             padding: 5px;
+        }
+        
+        #log .info {
+            background-color: #f1c40f;
+        }
+        
+        #log .info:nth-child(even) {
+            background-color: #FFDD53;
+        }
+        
+        #log .error {
+            background-color: #e74c3c;
+        }
+        
+        #log .error:nth-child(even) {
+            background-color: #c0392b;
+        }
+        
+        #log .job_info {
+            background-color: #2ecc71;
+        }
+        
+        #log .job_info:nth-child(even) {
+            background-color: #27ae60;
+        }
+        
+        th.ruleitem {
+            width: 10em;
+            vertical-align: top;
+        }
+
+        #dag-container {
+            width: 100%;
+            max-height: 400px;
+            overflow: auto;
+            text-align: center;
+            padding: 10px;
+        }
+        
+        #dag .node rect {
+            stroke-width: 3px;
+            fill: #EEEEEE;
+        }
+
+        #dag .edgeLabel rect {
+            fill: #fff;
+        }
+
+        #dag .edgePath {
+            stroke: #333333;
+            stroke-width: 3px;
+            fill: none;
+        }
+        </style>
+        <script>
+        var dag = null;
+
+        function render_dag() {
+            if(!dag) {
+                return;
+            }
+            
+            var svg = d3.select("#dag");
+            svg.select("g").remove();
+            var view = svg.append("g");
+            view.attr("transform", "translate(5,5)");
+            
+            var color = d3.scale.category20();
+            
+            var layout = dagreD3.layout().rankDir("LR");
+            var g = dagreD3.json.decode(dag.nodes, dag.edges);
+            var renderer = new dagreD3.Renderer().layout(layout);
+            var oldDrawNodes = renderer.drawNodes();
+            renderer.drawNodes(function(graph, svg) {
+                var svgNodes = oldDrawNodes(graph, svg);
+                svgNodes.select("rect")
+                    .attr("id", function(u) { return "job_" + g.node(u).jobid; })
+                    .attr("style", function(u) {
+                        col = color(g.node(u).rule);
+                        return "stroke: " + col + ";";
+                    });
+                return svgNodes;
+            });
+            
+            var result = renderer.run(g, view);
+            svg.attr("width", result.graph().width + 40)
+               .attr("height", result.graph().height + 40);
+        }
+
+        function update_dag() {
+            d3.json("dag", function(dag_json) {
+                dag = dag_json;
+                render_dag();
+            });
+        }
+
+        var logid = 0;
+        function update() {
+            d3.json("status", function(status) {
+                if(status["running"]) {
+                    $("#control fieldset").attr("disabled", true);
+                }
+                else {
+                    $("#control fieldset").attr("disabled", false);
+                }
+            });
+        
+            d3.json("progress", function(progress) {
+                var done = progress.done;
+                if(done) {
+                    var total = progress.total;
+                    var percent = done / total * 100;
+                    $("#workflow-progress #progress-bar")
+                        .css("width", percent + "%");
+                    $("#workflow-progress #progress-text")
+                        .css("width", percent + "%")
+                        .text(done + " of " + total + " jobs finished (" + percent + "%)");
+                }
+            });
+            
+            $.getJSON("log/" + logid, function(entries) {
+                $.each(entries, function(i, entry) {
+                    if(entry.level == "job_info") {
+                        var html = '<div class="job_info"><h4>'
+                        + entry.name + '</h4><table>';
+                        $.each(["input", "output"], function(i, item) {
+                            if(entry[item].length) {
+                                html += '<tr><th class="ruleitem">' + item + '</th><td>' + entry[item].join(", ") + '</td></tr>';
+                            }
+                        });
+                        $.each(["threads", "priority"], function(item) {
+                            if(entry[item] > 1) {
+                                html += '<tr><th class="ruleitem">' + item + '</th><td>' + entry[item] + '</td></tr>';
+                            }
+                        });
+                        html += '</table></div>';
+                        $(html).appendTo("#log");
+                    }
+                    else if (entry.level == "job_finished") {
+                        // do nothing for now
+                    }
+                    else {
+                        var type = "info"
+                        switch(entry.level) {
+                            case "info":
+                                type="warning";
+                                break;
+                            case "error":
+                                type="danger";
+                                break;
+                        }
+                        $("#log").append(
+                            '<div class="' + entry.level + '">'
+                            + entry.msg +
+                            '</div>'
+                        );
+                    }
+                    logid++;
+                });
+            });
+        }
+        
+        function set_args() {
+            $.post("set_args", {"targets": $("#targets").val()});
+        }
+        
+        $( document ).ready(function() {
+            update_dag();
+            setInterval(update, 2000);
+
+            $('.selectpicker').selectpicker();
+
+            $("#run-btn").click(function() {
+                $("#log").empty();
+                $.ajax("run");
+            });
+
+            $("#dryrun-btn").click(function() {
+                $("#log").empty();
+                $.ajax("dryrun");
+            });
+
+            $("#targets").change(function() {
+                set_args();
+                update_dag();
+            });
+        });
+        </script>
+    </head>
+    <body>
+        <div id="header">
+          <div id="snakemake">SNAKEMAKE {{version}}</div>
+          <div id="workflow">
+              WORKFLOW<br/>
+             <span style="font-size: 50%; font-weight: normal;">{{snakefilepath}}</span>
+          </div>
+        </div>
+        <div id="top">
+            <div id="dag-container">
+                <svg id="dag">
+                </svg>
+            </div>
+            <div id="workflow-progress">
+                <div id="progress-bar">
+                </div>
+                <div id="progress-text">
+                </div>
+            </div>
+        </div>
+        <table id="bottom">
+            <tr>
+                <td id="left-panel">
+                    <form class="form-horizontal" id="control">
+                        <fieldset>
+                            <div class="form-group">
+                                <div class="col-sm-offset-2 col-sm-10">
+                                    <div class="btn-group">
+                                        <button type="button" id="dryrun-btn" class="btn btn-default">Dry-Run</button>
+                                        <button type="button" id="run-btn" class="btn btn-default">Run</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="targets" class="col-sm-2 control-label">Targets</label>
+                                <div class="col-sm-10">
+                                    <select id="targets" class="form-control selectpicker" autocomplete="off" multiple>
+                                        <option  selected="selected" value="{{targets[0]}}">{{targets[0]}}</option>
+                                        {% for target in targets[1:] %}
+                                        <option value="{{target}}">{{target}}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="col-sm-offset-2 col-sm-10">
+                                    <h4>Resources</h4>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="cores" class="col-sm-2 control-label">{{cores_label}}</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="col-sm-10 form-control" id="cores" value="1">
+                                </div>
+                            </div>
+                            {% for resource in resources %}
+                                <div class="form-group">
+                                    <label for="{{resource}}" class="col-sm-2 control-label">{{resource}}</label>
+                                    <div class="col-sm-10">
+                                        <div class="input-group">
+                                            <span class="input-group-addon"><input type="checkbox" id="{{resource}}"></span>
+                                            <input type="text" class="form-control" id="{{resource}}_value">
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </fieldset>
+                    </form>
+                </td>
+                <td id="log">
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>

@@ -1,0 +1,18 @@
+
+CONDITION = False
+
+if CONDITION:
+	rule:
+		output: "test.out"
+		shell:  "echo bla; exit 1"
+else:
+	rule:
+		output: "test.out"
+		shell:  "touch {output}"
+
+
+# the following is bad style and just for testing. You should rather write a rule that collects test{i}.out as input files and have ONE rule that generates any of the files with a wildcard.
+for i in range(3):
+	rule:
+		output: "test.{i}.out".format(i=i)
+		shell:  "touch {output}"

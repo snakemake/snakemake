@@ -2,6 +2,7 @@
 
 import os
 import traceback
+from tokenize import TokenError
 
 from snakemake.logging import logger
 
@@ -39,7 +40,7 @@ def cut_traceback(ex):
         dir = os.path.dirname(line[0])
         if not dir:
             dir = "."
-        if not os.path.samefile(snakemake_path, dir):
+        if not os.path.isdir(dir) or not os.path.samefile(snakemake_path, dir):
             yield line
 
 
@@ -51,7 +52,7 @@ def format_traceback(tb, linemaps):
             yield '  File "{}", line {}, in {}'.format(file, lineno, function)
 
 
-def print_exception(ex, linemaps, print_traceback=False):
+def print_exception(ex, linemaps, print_traceback=True):
     """
     Print an error message for a given exception.
 
@@ -64,24 +65,58 @@ def print_exception(ex, linemaps, print_traceback=False):
     origin = get_exception_origin(ex, linemaps)
     if origin is not None:
         lineno, file = origin
-        logger.critical(format_error(
+        logger.error(format_error(
             ex, lineno, linemaps=linemaps, snakefile=file,
             show_traceback=print_traceback))
         return
     if isinstance(ex, SyntaxError):
-        logger.critical(format_error(
+        logger.error(format_error(
             ex, ex.lineno, linemaps=linemaps, snakefile=ex.filename,
             show_traceback=print_traceback))
+    elif isinstance(ex, TokenError):
+        logger.error(format_error(
+            ex, None,
+            show_traceback=False))
+    elif isinstance(ex, MissingRuleException):
+        logger.error(format_error(ex, None, linemaps=linemaps, snakefile=ex.filename, show_traceback=False))
     elif isinstance(ex, RuleException):
         for e in ex._include + [ex]:
             if not e.omit:
-                logger.critical(format_error(
+                logger.error(format_error(
                     e, e.lineno, linemaps=linemaps, snakefile=e.filename,
                     show_traceback=print_traceback))
+    elif isinstance(ex, WorkflowError):
+        logger.error(
+            format_error(
+                ex, ex.lineno, linemaps=linemaps, snakefile=ex.snakefile,
+                show_traceback=print_traceback))
     elif isinstance(ex, KeyboardInterrupt):
-        logger.warning("Cancelling snakemake on user request.")
+        logger.info("Cancelling snakemake on user request.")
     else:
         traceback.print_exception(type(ex), ex, ex.__traceback__)
+
+
+class WorkflowError(Exception):
+
+    @staticmethod
+    def format_args(args):
+        for arg in args:
+            if isinstance(arg, str):
+                yield arg
+            else:
+                yield "{}: {}".format(arg.__class__.__name__, str(arg))
+
+    def __init__(self, *args, lineno=None, snakefile=None, rule=None):
+        super().__init__("\n".join(self.format_args(args)))
+        if rule is not None:
+            self.lineno = rule.lineno
+            self.snakefile = rule.snakefile
+        self.lineno = lineno
+        self.snakefile = snakefile
+
+
+class WildcardError(WorkflowError):
+    pass
 
 
 class RuleException(Exception):
@@ -106,20 +141,24 @@ class RuleException(Exception):
             for ex in include:
                 self._include.add(ex)
                 self._include.update(ex._include)
-        self._include = list(self._include)
-        self.lineno = lineno
-        self.filename = snakefile
         if rule is not None:
             if lineno is None:
                 lineno = rule.lineno
             if snakefile is None:
                 snakefile = rule.snakefile
+
+        self._include = list(self._include)
+        self.lineno = lineno
+        self.filename = snakefile
         self.omit = not message
 
     @property
     def messages(self):
         return map(str, (ex for ex in self._include + [self] if not ex.omit))
 
+
+class InputFunctionException(RuleException):
+    pass
 
 class MissingOutputException(RuleException):
     pass
@@ -142,19 +181,32 @@ class MissingInputException(IOException):
             lineno=lineno, snakefile=snakefile)
 
 
+class PeriodicWildcardError(RuleException):
+    pass
+
+
 class ProtectedOutputException(IOException):
     def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
         super().__init__("Write-protected output files", rule, files, include,
             lineno=lineno, snakefile=snakefile)
 
 
+class UnexpectedOutputException(IOException):
+    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
+        super().__init__("Unexpectedly present output files "
+        "(accidentally created by other rule?)", rule, files, include,
+        lineno=lineno, snakefile=snakefile)
+
+
 class AmbiguousRuleException(RuleException):
-    def __init__(self, filename, rule1, rule2, lineno=None, snakefile=None):
+    def __init__(self, filename, job_a, job_b, lineno=None, snakefile=None):
         super().__init__(
-            "Rules {} and {} are ambiguous for the file {}.".format(
-                rule1, rule2, filename),
+            "Rules {job_a} and {job_b} are ambiguous for the file {f}.\n"
+            "Expected input files:\n"
+            "\t{job_a}: {job_a.input}\n"
+            "\t{job_b}: {job_b.input}".format(job_a=job_a, job_b=job_b, f=filename),
             lineno=lineno, snakefile=snakefile)
-        self.rule1, self.rule2 = rule1, rule2
+        self.rule1, self.rule2 = job_a.rule, job_b.rule
 
 
 class CyclicGraphException(RuleException):
@@ -167,14 +219,17 @@ class CyclicGraphException(RuleException):
 class MissingRuleException(RuleException):
     def __init__(self, file, lineno=None, snakefile=None):
         super().__init__(
-            "No rule to produce {}.".format(file),
+            "No rule to produce {} (if you use input functions make sure that they don't raise unexpected exceptions).".format(file),
             lineno=lineno, snakefile=snakefile)
 
 
 class UnknownRuleException(RuleException):
-    def __init__(self, name, lineno=None, snakefile=None):
+    def __init__(self, name, prefix="", lineno=None, snakefile=None):
+        msg = "There is no rule named {}.".format(name)
+        if prefix:
+            msg = "{} {}".format(prefix, msg)
         super().__init__(
-            "There is no rule named {}.".format(name),
+            msg,
             lineno=lineno, snakefile=snakefile)
 
 
@@ -203,10 +258,10 @@ class IOFileException(RuleException):
 
 
 class ClusterJobException(RuleException):
-    def __init__(self, job):
+    def __init__(self, job, jobid, jobscript):
         super().__init__(
-            "Error executing rule {} on cluster. "
-            "For detailed error see the cluster log.".format(job.rule.name),
+            "Error executing rule {} on cluster (jobid: {}, jobscript: {}). "
+            "For detailed error see the cluster log.".format(job.rule.name, jobid, jobscript),
             lineno=job.rule.lineno, snakefile=job.rule.snakefile)
 
 

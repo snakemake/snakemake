@@ -7,7 +7,8 @@ rule all:
 
 rule compute1:
 	input: '{name}.in'
-	output: inter=['{name}.%s.inter'%c for c in chromosomes]
+	output: inter=expand('{{name}}.{chr}.inter', chr=chromosomes)
+	resources: gpu=1
 	run:
 		assert len(output.inter) > 0
 		print(output.inter)
@@ -17,17 +18,18 @@ rule compute1:
 rule compute2:
 	input: '{name}.{chromosome}.inter', 'other.txt'
 	output: '{name}.{chromosome}.inter2'
-	message: 'Converting {input[0]} --> {output[0]}'
+        threads: 2
+	resources: io=1
 	shell: 'cp {input[0]} {output[0]}'
 
 rule gather:
 	input: ['{name}.%s.inter2'%c for c in chromosomes]
 	output: '{name}.predictions'
-	message: 'Gathering results'
 	run:
 		shell('cat {} > {}'.format(' '.join(input), output[0]))
 
 rule other:
 	output: 'other.txt'
 	priority: 50
+	resources: gpu=1
 	shell: 'touch other.txt'

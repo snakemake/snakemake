@@ -1,7 +1,12 @@
 
 import time
 import csv
+import json
 from collections import defaultdict
+
+import snakemake.jobs
+
+fmt_time = time.ctime
 
 
 class Stats:
@@ -16,7 +21,7 @@ class Stats:
         self.endtime[job] = time.time()
 
     @property
-    def rule_runtimes(self):
+    def rule_stats(self):
         runtimes = defaultdict(list)
         for job, t in self.starttime.items():
             runtimes[job.rule].append(self.endtime[job] - t)
@@ -27,9 +32,11 @@ class Stats:
                 min(runtimes), max(runtimes))
 
     @property
-    def job_runtimes(self):
+    def file_stats(self):
         for job, t in self.starttime.items():
-            yield job, t, self.endtime[job]
+            for f in job.expanded_output:
+                start, stop = t, self.endtime[job]
+                yield f, fmt_time(start), fmt_time(stop), stop - start, job
 
     @property
     def overall_runtime(self):
@@ -38,16 +45,29 @@ class Stats:
         else:
             return 0
 
-    def to_csv(self, path):
+    def to_json(self, path):
+        rule_stats = {
+            rule.name: {
+                "mean-runtime": mean_runtime,
+                "min-runtime": min_runtime,
+                "max-runtime": max_runtime
+            }
+            for rule, mean_runtime, min_runtime, max_runtime in self.rule_stats
+        }
+        file_stats = {
+            f: {
+                "start-time": start,
+                "stop-time": stop,
+                "duration": duration,
+                "priority": job.priority if job.priority != snakemake.jobs.Job.HIGHEST_PRIORITY else "highest",
+                "resources": job.resources_dict
+            }
+            for f, start, stop, duration, job in self.file_stats
+        }
+
         with open(path, "w") as f:
-            writer = csv.writer(f, delimiter="\t")
-            writer.writerow("overall-runtime".split())
-            writer.writerow([self.overall_runtime])
-            writer.writerow(
-                "rule mean-runtime min-runtime max-runtime".split())
-            for runtime in self.rule_runtimes:
-                writer.writerow(runtime)
-            writer.writerow(list())
-            writer.writerow("file starttime endtime".split())
-            for runtime in self.job_runtimes:
-                writer.writerow(runtime)
+            json.dump({
+                "total_runtime": self.overall_runtime,
+                "rules": rule_stats,
+                "files": file_stats
+            }, f, indent=4)

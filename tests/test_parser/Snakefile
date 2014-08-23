@@ -1,0 +1,13 @@
+
+
+class Test:
+	def __init__(self):
+		self.include = "test.out"
+
+
+rule:
+	output: Test().include
+	shell: 
+        "touch {output}"
+
+

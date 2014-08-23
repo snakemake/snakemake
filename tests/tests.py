@@ -94,6 +94,9 @@ def test14():
 
 def test15():
 	run(dpath("test15"))
+
+def test16():
+    run(dpath("test16"))
 	
 def test_dynamic():
 	run(dpath("test_dynamic"))
@@ -103,3 +106,42 @@ def test_params():
 
 def test_same_wildcard():
 	run(dpath("test_same_wildcard"))
+
+def test_conditional():
+	run(dpath("test_conditional"), targets="test.out test.0.out test.1.out test.2.out".split())
+
+def test_shell():
+	run(dpath("test_shell"))
+
+def test_temp():
+	run(dpath("test_temp"), cluster="./qsub", targets="test.realigned.bam".split())
+
+def test_keyword_list():
+	run(dpath("test_keyword_list"))
+
+def test_subworkflows():
+    run(dpath("test_subworkflows"))
+
+def test_globwildcards():
+    run(dpath("test_globwildcards"))
+
+def test_local_import():
+    run(dpath("test_local_import"))
+
+def test_ruledeps():
+    run(dpath("test_ruledeps"))
+
+def test_persistent_dict():
+    run(dpath("test_persistent_dict"))
+
+def test_url_include():
+    run(dpath("test_url_include"))
+
+def test_touch():
+    run(dpath("test_touch"))
+
+def test_config():
+    run(dpath("test_config"))
+
+def test_benchmark():
+    run(dpath("test_benchmark"))

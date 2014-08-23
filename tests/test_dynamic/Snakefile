@@ -1,9 +1,9 @@
 # snakemake
 
 rule all:
-	input: dynamic("test.{n}.{bla}.out"), dynamic("test.{n}.{bla}.csv")
+	input: a=dynamic("test.{n}.{bla}.out"), b=dynamic("test.{n}.{bla}.csv")
 	run:
-		pass
+		print(input.b)
 
 rule inter:
 	input: "test.{n}.inter"
