@@ -11,6 +11,7 @@ from itertools import chain
 
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
+from snakemake.exceptions import WorkflowError
 
 
 def linecount(filename):
