@@ -689,13 +689,16 @@ class DAG:
     @lru_cache()
     def file2jobs(self, targetfile):
         jobs = []
+        exceptions = list()
         for rule in self.rules:
             if rule.is_producer(targetfile):
                 try:
                     jobs.append(Job(rule, self, targetfile=targetfile))
-                except InputFunctionException:
-                    pass
+                except InputFunctionException as e:
+                    exceptions.append(e)
         if not jobs:
+            if exceptions:
+                raise exceptions[0]
             raise MissingRuleException(targetfile)
         return jobs
 

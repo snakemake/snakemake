@@ -111,8 +111,9 @@ class WorkflowError(Exception):
         if rule is not None:
             self.lineno = rule.lineno
             self.snakefile = rule.snakefile
-        self.lineno = lineno
-        self.snakefile = snakefile
+        else:
+            self.lineno = lineno
+            self.snakefile = snakefile
 
 
 class WildcardError(WorkflowError):
@@ -157,7 +158,7 @@ class RuleException(Exception):
         return map(str, (ex for ex in self._include + [self] if not ex.omit))
 
 
-class InputFunctionException(RuleException):
+class InputFunctionException(WorkflowError):
     pass
 
 class MissingOutputException(RuleException):

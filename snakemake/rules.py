@@ -307,8 +307,8 @@ class Rule:
                 if callable(item):
                     try:
                         item = item(wildcards_obj)
-                    except:
-                        raise InputFunctionException(rule=self)
+                    except (Exception, BaseException) as e:
+                        raise InputFunctionException(e, rule=self)
                     if not_iterable(item):
                         item = [item]
                         is_iterable = False
