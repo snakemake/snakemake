@@ -406,6 +406,12 @@ class Shell(Run):
             yield t
 
     def decorate_end(self, token):
+        if self.token is None:
+            # no block after shell keyword
+            self.error(
+                "Shell command must be given as string after the shell keyword.",
+                token
+            )
         for t in self.end():
             yield t, self.token
 
