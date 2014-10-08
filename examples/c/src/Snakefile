@@ -19,16 +19,23 @@ OBJS = [join(ODIR, ofile) for ofile in _OBJS]
 
 rule hello:
     """build the executable from the object files"""
-    output: 'hello'
-    input: OBJS
-    shell: "{CC} -o {output} {input} {CFLAGS} {LIBS}"
+    output:
+        'hello'
+    input:
+        OBJS
+    shell:
+        "{CC} -o {output} {input} {CFLAGS} {LIBS}"
 
 rule c_to_o:
     """compile a single .c file to an .o file"""
-    output: temp('{ODIR}/{name}.o')
-    input: '{name}.c', HEADERS
-    shell: "{CC} -c -o {output} {input[0]} {CFLAGS}"
+    output:
+        temp('{ODIR}/{name}.o')
+    input:
+        '{name}.c', HEADERS
+    shell:
+        "{CC} -c -o {output} {input} {CFLAGS}"
 
 rule clean:
     """clean up temporary files"""
-    shell: "rm -f   *~  core  {IDIR}/*~"
+    shell:
+        "rm -f   *~  core  {IDIR}/*~"
