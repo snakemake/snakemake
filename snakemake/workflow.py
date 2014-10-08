@@ -137,9 +137,12 @@ class Workflow:
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
-        summary=False, detailed_summary= False, latency_wait=3, wait_for_files=None, nolock=False, unlock=False,
+        summary=False, detailed_summary= False, latency_wait=3,
+        benchmark_repeats=3,
+        wait_for_files=None, nolock=False, unlock=False,
         resources=None, notemp=False, nodeps=False,
-        cleanup_metadata=None, subsnakemake=None, updated_files=None, keep_target_files=False,
+        cleanup_metadata=None, subsnakemake=None, updated_files=None,
+        keep_target_files=False,
         allowed_rules=None, greedyness=1.0):
 
         self.global_resources = dict() if cluster or resources is None else resources
@@ -311,7 +314,9 @@ class Workflow:
             jobname=jobname, immediate_submit=immediate_submit,
             quiet=quiet, keepgoing=keepgoing, drmaa=drmaa,
             printreason=printreason, printshellcmds=printshellcmds,
-            latency_wait=latency_wait, greedyness=greedyness)
+            latency_wait=latency_wait, benchmark_repeats=benchmark_repeats,
+            greedyness=greedyness
+        )
 
         if not dryrun and not quiet:
             if len(dag):

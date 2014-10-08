@@ -31,7 +31,8 @@ class AbstractExecutor:
 
     def __init__(self, workflow, dag,
         printreason=False, quiet=False,
-        printshellcmds=False, printthreads=True, latency_wait=3):
+        printshellcmds=False, printthreads=True, latency_wait=3,
+        benchmark_repeats=3):
         self.workflow = workflow
         self.dag = dag
         self.quiet = quiet
@@ -39,6 +40,7 @@ class AbstractExecutor:
         self.printshellcmds = printshellcmds
         self.printthreads = printthreads
         self.latency_wait = latency_wait
+        self.benchmark_repeats = benchmark_repeats
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
@@ -107,11 +109,13 @@ class RealExecutor(AbstractExecutor):
 
     def __init__(
         self, workflow, dag,
-        printreason=False, quiet=False, printshellcmds=False, latency_wait=3):
+        printreason=False, quiet=False, printshellcmds=False, latency_wait=3,
+        benchmark_repeats=3):
         super().__init__(
             workflow, dag, printreason=printreason,
             quiet=quiet, printshellcmds=printshellcmds,
-            latency_wait=latency_wait)
+            latency_wait=latency_wait,
+            benchmark_repeats=benchmark_repeats)
         self.stats = Stats()
 
     def _run(self, job, callback=None, error_callback=None):
@@ -166,11 +170,21 @@ except ImportError:
 class CPUExecutor(RealExecutor):
 
     def __init__(
-        self, workflow, dag, cores, printreason=False, quiet=False,
-        printshellcmds=False, threads=False, latency_wait=3):
+        self,
+        workflow,
+        dag,
+        cores,
+        printreason=False,
+        quiet=False,
+        printshellcmds=False,
+        threads=False,
+        latency_wait=3,
+        benchmark_repeats=3
+    ):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
-            printshellcmds=printshellcmds, latency_wait=latency_wait)
+            printshellcmds=printshellcmds, latency_wait=latency_wait,
+            benchmark_repeats=benchmark_repeats)
 
         self.pool = (concurrent.futures.ThreadPoolExecutor(max_workers=cores)
             if threads
@@ -190,7 +204,7 @@ class CPUExecutor(RealExecutor):
 
         future = self.pool.submit(
             run_wrapper, job.rule.run_func, job.input.plainstrings(), job.output.plainstrings(), job.params,
-            job.wildcards, job.threads, job.resources, log, benchmark, self.workflow.linemaps)
+            job.wildcards, job.threads, job.resources, log, benchmark, self.benchmark_repeats, self.workflow.linemaps)
         future.add_done_callback(partial(
             self._callback, job, callback, error_callback))
 
@@ -224,9 +238,17 @@ class ClusterExecutor(RealExecutor):
     default_jobscript = "jobscript.sh"
 
     def __init__(
-        self, workflow, dag, cores, jobname="snakejob.{rulename}.{jobid}.sh",
-        printreason=False, quiet=False, printshellcmds=False,
-        latency_wait=3):
+        self,
+        workflow,
+        dag,
+        cores,
+        jobname="snakejob.{rulename}.{jobid}.sh",
+        printreason=False,
+        quiet=False,
+        printshellcmds=False,
+        latency_wait=3,
+        benchmark_repeats=3
+    ):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
             printshellcmds=printshellcmds, latency_wait=latency_wait)
@@ -253,7 +275,8 @@ class ClusterExecutor(RealExecutor):
         self.exec_job = (
             '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
             '--force -j{cores} --keep-target-files --allowed-rules {job.rule.name} '
-            '--wait-for-files {job.input} '
+            '--wait-for-files {job.input} --latency-wait {latency_wait} '
+            '--benchmark-repeats {benchmark_repeats} '
             '--directory {workdir} --nocolor --notemp --quiet --nolock {job.output}')
         self.jobname = jobname
         self.threads = []
@@ -290,6 +313,8 @@ class ClusterExecutor(RealExecutor):
             workflow=self.workflow,
             cores=self.cores,
             properties=job.json(),
+            latency_wait=self.latency_wait,
+            benchmark_repeats=self.benchmark_repeats,
             **kwargs)
         try:
             exec_job = format(self.exec_job)
@@ -304,12 +329,23 @@ class ClusterExecutor(RealExecutor):
 class GenericClusterExecutor(ClusterExecutor):
 
     def __init__(
-        self, workflow, dag, cores, submitcmd="qsub", jobname="snakejob.{rulename}.{jobid}.sh",
-        printreason=False, quiet=False, printshellcmds=False, latency_wait=3):
+        self,
+        workflow,
+        dag,
+        cores,
+        submitcmd="qsub",
+        jobname="snakejob.{rulename}.{jobid}.sh",
+        printreason=False,
+        quiet=False,
+        printshellcmds=False,
+        latency_wait=3,
+        benchmark_repeats=3
+    ):
         super().__init__(
             workflow, dag, cores, jobname=jobname,
             printreason=printreason, quiet=quiet,
-            printshellcmds=printshellcmds, latency_wait=latency_wait)
+            printshellcmds=printshellcmds, latency_wait=latency_wait,
+            benchmark_repeats=benchmark_repeats)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
         self.exec_job += ' && touch "{jobfinished}" || touch "{jobfailed}"'
@@ -380,12 +416,22 @@ class GenericClusterExecutor(ClusterExecutor):
 class DRMAAExecutor(ClusterExecutor):
 
     def __init__(
-        self, workflow, dag, cores, jobname="snakejob.{rulename}.{jobid}.sh",
-        printreason=False, quiet=False, printshellcmds=False, drmaa_args="",
-        latency_wait=3):
+        self,
+        workflow,
+        dag,
+        cores,
+        jobname="snakejob.{rulename}.{jobid}.sh",
+        printreason=False,
+        quiet=False,
+        printshellcmds=False,
+        drmaa_args="",
+        latency_wait=3,
+        benchmark_repeats=3
+    ):
         super().__init__(workflow, dag, cores, jobname=jobname,
             printreason=printreason, quiet=quiet,
-            printshellcmds=printshellcmds, latency_wait=latency_wait)
+            printshellcmds=printshellcmds, latency_wait=latency_wait,
+            benchmark_repeats=benchmark_repeats)
         try:
             import drmaa
         except ImportError:
@@ -460,7 +506,19 @@ class DRMAAExecutor(ClusterExecutor):
             error_callback(job)
 
 
-def run_wrapper(run, input, output, params, wildcards, threads, resources, log, benchmark, linemaps):
+def run_wrapper(
+    run,
+    input,
+    output,
+    params,
+    wildcards,
+    threads,
+    resources,
+    log,
+    benchmark,
+    benchmark_repeats,
+    linemaps
+):
     """
     Wrapper around the run method that handles directory creation and
     output file deletion on error.
@@ -477,7 +535,7 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log, 
     if log is None:
         log = Unformattable(errormsg="log used but undefined")
     try:
-        runs = 1 if benchmark is None else 3
+        runs = 1 if benchmark is None else benchmark_repeats
         wallclock = []
         cpu = []
         for i in range(runs):

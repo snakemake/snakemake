@@ -41,7 +41,9 @@ class JobScheduler:
         printshellcmds=False,
         keepgoing=False,
         latency_wait=3,
-        greedyness=1.0):
+        benchmark_repeats=3,
+        greedyness=1.0
+    ):
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.dag = dag
@@ -93,12 +95,13 @@ class JobScheduler:
                 workflow, dag, multiprocessing.cpu_count(), printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
-                latency_wait=latency_wait)
+                latency_wait=latency_wait, benchmark_repeats=benchmark_repeats)
             if cluster:
                 self._executor = GenericClusterExecutor(
                     workflow, dag, None, submitcmd=cluster, jobname=jobname,
                     printreason=printreason, quiet=quiet,
-                    printshellcmds=printshellcmds, latency_wait=latency_wait)
+                    printshellcmds=printshellcmds, latency_wait=latency_wait,
+                    benchmark_repeats=benchmark_repeats)
                 if immediate_submit:
                     self.rule_reward = self.dryrun_rule_reward
                     self.job_reward = self.dryrun_job_reward
@@ -113,14 +116,16 @@ class JobScheduler:
                 self._executor = DRMAAExecutor(
                     workflow, dag, None, drmaa_args=drmaa, jobname=jobname,
                     printreason=printreason, quiet=quiet,
-                    printshellcmds=printshellcmds, latency_wait=latency_wait)
+                    printshellcmds=printshellcmds, latency_wait=latency_wait,
+                    benchmark_repeats=benchmark_repeats)
                 self.run = self.run_cluster_or_local
         else:
             self._executor = CPUExecutor(
                 workflow, dag, cores, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
-                latency_wait=latency_wait)
+                latency_wait=latency_wait,
+                benchmark_repeats=benchmark_repeats)
         self._open_jobs.set()
 
     @property

@@ -68,6 +68,7 @@ def snakemake(snakefile,
     summary=False,
     detailed_summary=False,
     latency_wait=3,
+    benchmark_repeats=3,
     wait_for_files=None,
     print_compilation=False,
     debug=False,
@@ -128,6 +129,7 @@ def snakemake(snakefile,
         list_params_changes (bool): list output files with changed params (default False)
         summary (bool):             list summary of all output files and their status (default False)
         latency_wait (int):         how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
+        benchmark_repeats (int):    number of repeated runs of a job if declared for benchmarking (default 3)
         wait_for_files (list):      wait for given files to be present before executing the workflow
         list_resources (bool):      list resources used in the workflow (default False)
         summary (bool):             list summary of all output files and their status (default False). If no option  is specified a basic summary will be ouput. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
@@ -271,6 +273,7 @@ def snakemake(snakefile,
                         force_incomplete=force_incomplete,
                         ignore_incomplete=ignore_incomplete,
                         latency_wait=latency_wait,
+                        benchmark_repeats=benchmark_repeats,
                         debug=debug,
                         notemp=notemp,
                         nodeps=nodeps,
@@ -299,6 +302,7 @@ def snakemake(snakefile,
                         list_params_changes=list_params_changes,
                         summary=summary,
                         latency_wait=latency_wait,
+                        benchmark_repeats=benchmark_repeats,
                         wait_for_files=wait_for_files,
                         detailed_summary=detailed_summary,
                         nolock=not lock,
@@ -602,6 +606,10 @@ def get_argument_parser():
         "This option is used internally to handle filesystem latency in cluster "
         "environments.")
     parser.add_argument(
+        "--benchmark-repeats", type=int, default=3, metavar="N",
+        help="Repeat a job N times if marked for benchmarking (default 3)."
+    )
+    parser.add_argument(
         "--notemp", "--nt", action="store_true",
         help="Ignore temp() declarations. This is useful when running only "
         "a part of the workflow, since temp() would lead to deletion of "
@@ -744,6 +752,7 @@ def main():
             greedyness=args.greedyness,
             overwrite_shellcmd=args.overwrite_shellcmd,
             latency_wait=args.latency_wait,
+            benchmark_repeats=args.benchmark_repeats,
             wait_for_files=args.wait_for_files,
             keep_target_files=args.keep_target_files,
             allowed_rules=args.allowed_rules)
