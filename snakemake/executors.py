@@ -537,15 +537,11 @@ def run_wrapper(
     try:
         runs = 1 if benchmark is None else benchmark_repeats
         wallclock = []
-        cpu = []
         for i in range(runs):
             w = time.time()
-            c = time.clock()
             # execute the actual run method.
             run(input, output, params, wildcards, threads, resources, log)
             w = time.time() - w
-            c = time.clock() - c
-            cpu.append(c)
             wallclock.append(w)
 
     except (KeyboardInterrupt, SystemExit) as e:
@@ -567,8 +563,8 @@ def run_wrapper(
                         "h:m:s": [str(datetime.timedelta(seconds=t)) for t in times]
                     }
                     for name, times in zip(
-                        "wall_clock_times cpu_times".split(),
-                        [wallclock, cpu]
+                        "wall_clock_times".split(),
+                        [wallclock]
                     )
                 }, f, indent=4)
         except (Exception, BaseException) as ex:
