@@ -224,6 +224,8 @@ class Job:
                 os.remove(f)
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
+        if self.benchmark:
+            self.benchmark.prepare()
         if self.log:
             self.log.prepare()
 
