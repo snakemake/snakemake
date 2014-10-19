@@ -239,16 +239,18 @@ class Job:
         """ Format a string with variables from the job. """
         _variables = dict()
         _variables.update(self.rule.workflow.globals)
+        _variables.update(dict(
+            input=self.input,
+            output=self.output,
+            params=self.params,
+            wildcards=self._format_wildcards,
+            threads=self.threads,
+            resources=self.resources,
+            log=self.log
+        ))
         _variables.update(variables)
         try:
-            return format(string,
-                      input=self.input,
-                      output=self.output,
-                      params=self.params,
-                      wildcards=self._format_wildcards,
-                      threads=self.threads,
-                      resources=self.resources,
-                      log=self.log, **_variables)
+            return format(string, **_variables)
         except NameError as ex:
             raise RuleException("NameError: " + str(ex), rule=self.rule)
         except IndexError as ex:

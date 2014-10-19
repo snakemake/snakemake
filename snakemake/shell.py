@@ -32,6 +32,8 @@ class shell:
 
     def __new__(
         cls, cmd, *args, async=False, iterable=False, read=False, **kwargs):
+        if "stepout" in kwargs:
+            raise KeyError("Argument stepout is not allowed in shell command.")
         cmd = format(cmd, *args, stepout=2, **kwargs)
         stdout = sp.PIPE if iterable or async or read else STDOUT
 

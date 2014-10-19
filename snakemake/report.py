@@ -60,9 +60,17 @@ def data_uri(file, defaultenc="utf8"):
     return uri
 
 
-def report(text, path,
-           stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
-           defaultenc="utf8", template=None, metadata=None, **files):
+def report(
+    text,
+    path,
+    stylesheet=os.path.join(
+        os.path.dirname(__file__), "report.css"
+    ),
+    defaultenc="utf8",
+    template=None,
+    metadata=None,
+    **files
+):
     outmime, _ = mimetypes.guess_type(path)
     if outmime != "text/html":
         raise ValueError("Path to report output has to be an HTML file.")
