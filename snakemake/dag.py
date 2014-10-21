@@ -372,7 +372,7 @@ class DAG:
                 reason.updated_input.update(updated_subworkflow_input)
             elif job in self.targetjobs:
                 # TODO find a way to handle added/removed input files here?
-                if not job.output:
+                if not job.output and not job.benchmark:
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(

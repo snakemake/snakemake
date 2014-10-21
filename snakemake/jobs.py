@@ -161,6 +161,8 @@ class Job:
     def output_mintime(self):
         """ Return oldest output file. """
         existing = [f.mtime for f in self.expanded_output if f.exists]
+        if self.benchmark and self.benchmark.exists:
+            existing.append(self.benchmark.mtime)
         if existing:
             return min(existing)
         return None
@@ -175,12 +177,12 @@ class Job:
 
     def missing_output(self, requested=None):
         """ Return missing output files. """
-        if requested is None:
-            requested = set(self.output)
         files = set()
+        if self.benchmark and (requested is None or self.benchmark in requested):
+            files.add(self.benchmark)
 
         for f, f_ in zip(self.output, self.rule.output):
-            if f in requested:
+            if requested is None or f in requested:
                 if f in self.dynamic_output:
                     if not self.expand_dynamic(
                     f_,

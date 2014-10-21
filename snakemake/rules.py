@@ -169,6 +169,13 @@ class Rule:
     def output(self):
         return self._output
 
+    @property
+    def products(self):
+        products = list(self.output)
+        if self.benchmark:
+            products.append(self.benchmark)
+        return products
+
     def set_output(self, *output, **kwoutput):
         """
         Add a list of output files. Recursive lists are flattened.
@@ -375,7 +382,7 @@ class Rule:
         Returns True if this rule is a producer of the requested output.
         """
         try:
-            for o in self.output:
+            for o in self.products:
                 if o.match(requested_output):
                     return True
             return False
@@ -400,15 +407,14 @@ class Rule:
             return dict()
         bestmatchlen = 0
         bestmatch = None
-        bestmatch_output = None
-        for i, o in enumerate(self.output):
+
+        for o in self.products:
             match = o.match(requested_output)
             if match:
                 l = self.get_wildcard_len(match.groupdict())
                 if not bestmatch or bestmatchlen > l:
                     bestmatch = match.groupdict()
                     bestmatchlen = l
-                    bestmatch_output = self.output[i]
         return bestmatch
 
     @staticmethod

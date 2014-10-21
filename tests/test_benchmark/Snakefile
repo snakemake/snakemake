@@ -1,4 +1,9 @@
 
+
+rule all:
+    input:
+        "test.benchmark.json"
+
 rule:
     benchmark:
         "test.benchmark.json"
