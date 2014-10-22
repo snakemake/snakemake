@@ -179,7 +179,8 @@ class Job:
         """ Return missing output files. """
         files = set()
         if self.benchmark and (requested is None or self.benchmark in requested):
-            files.add(self.benchmark)
+            if not self.benchmark.exists:
+                files.add(self.benchmark)
 
         for f, f_ in zip(self.output, self.rule.output):
             if requested is None or f in requested:
