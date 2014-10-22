@@ -6,6 +6,6 @@ rule all:
 
 rule:
     benchmark:
-        "test.benchmark.json"
+        "{v}.benchmark.json"
     shell:
         "sleep 1"
