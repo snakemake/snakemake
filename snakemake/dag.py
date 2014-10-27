@@ -210,7 +210,7 @@ class DAG:
         except IOError as e:
             raise MissingOutputException(str(e),
                 rule=job.rule)
-                    
+
         input_maxtime = job.input_maxtime
         if input_maxtime is not None:
             output_mintime = job.output_mintime

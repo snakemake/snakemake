@@ -140,8 +140,8 @@ def R(code):
     robjects.r(format(textwrap.dedent(code), stepout=2))
 
 
-def format(string, *args, stepout=1, **kwargs):
-    """Format a string in Snakemake style.
+def format(_pattern, *args, stepout=1, **kwargs):
+    """Format a pattern in Snakemake style.
 
     This means that keywords embedded in braces are replaced by any variable
     values that are available in the current namespace.
@@ -171,7 +171,7 @@ def format(string, *args, stepout=1, **kwargs):
         if type(value) in (list, tuple, set, frozenset):
             variables[key] = SequenceFormatter(value)
     try:
-        return string.format(*args, **variables)
+        return _pattern.format(*args, **variables)
     except KeyError as ex:
         raise NameError(
             "The name {} is unknown in this context. Please"
