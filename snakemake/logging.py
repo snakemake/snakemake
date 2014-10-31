@@ -184,7 +184,7 @@ class Logger:
             if msg["docstring"]:
                 self.logger.info("\t" + msg["docstring"])
         elif level == "d3dag":
-            json.dumps({"nodes": msg["nodes"], "links": msg["links"]})
+            self.logger.info(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
 
 
 def format_resources(resources, omit_resources="_cores _nodes".split()):
