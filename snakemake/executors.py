@@ -206,7 +206,7 @@ class CPUExecutor(RealExecutor):
 
         future = self.pool.submit(
             run_wrapper, job.rule.run_func, job.input.plainstrings(), job.output.plainstrings(), job.params,
-            job.wildcards, job.threads, job.resources, log, benchmark, self.benchmark_repeats, self.workflow.linemaps)
+            job.wildcards, job.threads, job.resources, log, job.rule.version, benchmark, self.benchmark_repeats, self.workflow.linemaps)
         future.add_done_callback(partial(
             self._callback, job, callback, error_callback))
 
@@ -520,6 +520,7 @@ def run_wrapper(
     threads,
     resources,
     log,
+    version,
     benchmark,
     benchmark_repeats,
     linemaps
@@ -545,7 +546,7 @@ def run_wrapper(
         for i in range(runs):
             w = time.time()
             # execute the actual run method.
-            run(input, output, params, wildcards, threads, resources, log)
+            run(input, output, params, wildcards, threads, resources, log, version)
             w = time.time() - w
             wallclock.append(w)
 

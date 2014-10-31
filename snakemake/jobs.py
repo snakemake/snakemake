@@ -249,7 +249,8 @@ class Job:
             wildcards=self._format_wildcards,
             threads=self.threads,
             resources=self.resources,
-            log=self.log
+            log=self.log,
+            version=self.rule.version
         ))
         _variables.update(variables)
         try:

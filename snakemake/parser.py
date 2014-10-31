@@ -368,7 +368,7 @@ class Run(RuleKeywordState):
         yield "@workflow.run"
         yield "\n"
         yield ("def __{rulename}(input, output, params, wildcards, threads, "
-            "resources, log):".format(rulename=self.rulename))
+            "resources, log, version):".format(rulename=self.rulename))
 
     def end(self):
         yield ""
