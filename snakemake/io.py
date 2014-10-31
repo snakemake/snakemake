@@ -236,15 +236,15 @@ class AnnotatedString(str):
         self.flags = dict()
 
 
-def flag(value, flag, flag_value=True):
+def flag(value, flag_type, flag_value=True):
     if isinstance(value, AnnotatedString):
-        value.flags[flag] = flag_value
+        value.flags[flag_type] = flag_value
         return value
     if not_iterable(value):
         value = AnnotatedString(value)
-        value.flags[flag] = flag_value
+        value.flags[flag_type] = flag_value
         return value
-    return [flag(v, flag) for v in value]
+    return [flag(v, flag_type, flag_value=flag_value) for v in value]
 
 
 def is_flagged(value, flag):
