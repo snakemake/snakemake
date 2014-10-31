@@ -108,6 +108,10 @@ class DAG:
             self.update_dynamic(job)
 
     @property
+    def dynamic_output_jobs(self):
+        return (job for job in self.jobs if job.dynamic_output)
+
+    @property
     def jobs(self):
         """ All jobs in the DAG. """
         for job in self.bfs(self.dependencies, *self.targetjobs):
@@ -210,7 +214,7 @@ class DAG:
         except IOError as e:
             raise MissingOutputException(str(e),
                 rule=job.rule)
-                    
+
         input_maxtime = job.input_maxtime
         if input_maxtime is not None:
             output_mintime = job.output_mintime

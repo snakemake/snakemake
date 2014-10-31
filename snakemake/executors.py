@@ -276,10 +276,13 @@ class ClusterExecutor(RealExecutor):
 
         self.exec_job = (
             '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
-            '--force -j{cores} --keep-target-files --allowed-rules {job.rule.name} '
+            '--force -j{cores} --keep-target-files '
             '--wait-for-files {job.input} --latency-wait {latency_wait} '
             '--benchmark-repeats {benchmark_repeats} '
             '--directory {workdir} --nocolor --notemp --quiet --nolock {job.output}')
+        if not any(dag.dynamic_output_jobs):
+            # disable restiction to target rule in case of dynamic rules!
+            self.exec_job += " --allowed-rules {job.rule.name} "
         self.jobname = jobname
         self.threads = []
         self._tmpdir = None

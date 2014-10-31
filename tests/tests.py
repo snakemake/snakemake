@@ -145,3 +145,6 @@ def test_config():
 
 def test_benchmark():
     run(dpath("test_benchmark"))
+
+#def test_cluster_dynamic():
+#    run(dpath("test_cluster_dynamic"), cluster="../test14/qsub")
