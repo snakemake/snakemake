@@ -851,7 +851,7 @@ class DAG:
         def edge(a, b):
             return {"u": self.jobid(a), "v": self.jobid(b)}
 
-        jobs = list(self.needrun_jobs)
+        jobs = list(self.jobs)
 
         if len(jobs) > max_jobs:
             logger.info("Job-DAG is too large for visualization (>{} jobs).".format(max_jobs))
