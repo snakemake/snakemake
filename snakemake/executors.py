@@ -151,6 +151,8 @@ class TouchExecutor(RealExecutor):
         try:
             for f in job.expanded_output:
                 f.touch()
+            if job.benchmark:
+                job.benchmark.touch()
             time.sleep(0.1)
             self.finish_job(job)
             callback(job)
