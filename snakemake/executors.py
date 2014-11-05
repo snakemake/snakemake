@@ -300,7 +300,7 @@ class ClusterExecutor(RealExecutor):
     def tmpdir(self):
         if self._tmpdir is None:
             while True:
-                self._tmpdir = ".snakemake.tmp." + "".join(random.sample(
+                self._tmpdir = ".snakemake/tmp." + "".join(random.sample(
                     string.ascii_uppercase + string.digits, 6))
                 if not os.path.exists(self._tmpdir):
                     os.mkdir(self._tmpdir)
