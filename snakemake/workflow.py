@@ -43,6 +43,7 @@ class Workflow:
         self.basedir = os.path.dirname(snakefile)
         self.snakefile = os.path.abspath(snakefile)
         self.snakemakepath = snakemakepath
+        self.snakefilelist = []
         self.jobscript = jobscript
         self.persistence = None
         self.global_resources = None
@@ -357,6 +358,10 @@ class Workflow:
         """
         Include a snakefile.
         """
+        if snakefile in self.snakefilelist:
+            return
+        self.snakefilelist.append(snakefile)
+
         global workflow
         global rules
 
