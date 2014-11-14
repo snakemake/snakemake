@@ -790,7 +790,7 @@ class DAG:
         return textwrap.dedent(
             """\
             digraph snakemake_dag {{
-                graph[bgcolor=white];
+                graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
                 fontsize=10, penwidth=2];
                 edge[penwidth=2, color=grey];
