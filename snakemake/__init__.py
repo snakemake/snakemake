@@ -68,7 +68,7 @@ def snakemake(snakefile,
     summary=False,
     detailed_summary=False,
     latency_wait=3,
-    benchmark_repeats=3,
+    benchmark_repeats=1,
     wait_for_files=None,
     print_compilation=False,
     debug=False,
@@ -129,7 +129,7 @@ def snakemake(snakefile,
         list_params_changes (bool): list output files with changed params (default False)
         summary (bool):             list summary of all output files and their status (default False)
         latency_wait (int):         how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
-        benchmark_repeats (int):    number of repeated runs of a job if declared for benchmarking (default 3)
+        benchmark_repeats (int):    number of repeated runs of a job if declared for benchmarking (default 1)
         wait_for_files (list):      wait for given files to be present before executing the workflow
         list_resources (bool):      list resources used in the workflow (default False)
         summary (bool):             list summary of all output files and their status (default False). If no option  is specified a basic summary will be ouput. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
@@ -606,8 +606,8 @@ def get_argument_parser():
         "This option is used internally to handle filesystem latency in cluster "
         "environments.")
     parser.add_argument(
-        "--benchmark-repeats", type=int, default=3, metavar="N",
-        help="Repeat a job N times if marked for benchmarking (default 3)."
+        "--benchmark-repeats", type=int, default=1, metavar="N",
+        help="Repeat a job N times if marked for benchmarking (default 1)."
     )
     parser.add_argument(
         "--notemp", "--nt", action="store_true",
@@ -638,7 +638,7 @@ def get_argument_parser():
     parser.add_argument(
         "--profile", metavar="FILE", help="Profile Snakemake and write the output to FILE. This requires yappi to be installed.")
     parser.add_argument(
-            "--bash-completion", action="store_true", help="Output code to register bash completion for snakemake. Put the following in your .bashrc (including the accents): `snakemake --bash-completion` or issue it in an open terminal session.")
+        "--bash-completion", action="store_true", help="Output code to register bash completion for snakemake. Put the following in your .bashrc (including the accents): `snakemake --bash-completion` or issue it in an open terminal session.")
     parser.add_argument(
         "--version", "-v", action="version", version=__version__)
     return parser
