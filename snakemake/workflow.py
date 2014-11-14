@@ -359,6 +359,7 @@ class Workflow:
         Include a snakefile.
         """
         if snakefile in self.included:
+            logger.info("Multiple include of {} ignored".format(snakefile))
             return
         self.included.append(snakefile)
 
