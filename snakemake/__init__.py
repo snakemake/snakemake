@@ -218,10 +218,12 @@ def snakemake(snakefile,
 
     if workdir:
         olddir = os.getcwd()
+        os.chdir(workdir)
     workflow = Workflow(
         snakefile=snakefile, snakemakepath=snakemakepath,
         jobscript=jobscript, overwrite_shellcmd=overwrite_shellcmd,
-        overwrite_config=config)
+        overwrite_config=config, overwrite_workdir=workdir
+    )
 
     if standalone:
         try:
@@ -234,8 +236,10 @@ def snakemake(snakefile,
     success = True
     try:
         workflow.include(
-            snakefile, workdir=workdir,
-            overwrite_first_rule=True, print_compilation=print_compilation)
+            snakefile,
+            overwrite_first_rule=True,
+            print_compilation=print_compilation
+        )
         workflow.check()
 
         if not print_compilation:
@@ -280,7 +284,8 @@ def snakemake(snakefile,
                         jobscript=jobscript,
                         timestamp=timestamp,
                         greedyness=greedyness,
-                        overwrite_shellcmd=overwrite_shellcmd)
+                        overwrite_shellcmd=overwrite_shellcmd
+                    )
                     success = workflow.execute(
                         targets=targets, dryrun=dryrun, touch=touch,
                         cores=cores, nodes=nodes, forcetargets=forcetargets,
@@ -293,7 +298,7 @@ def snakemake(snakefile,
                         printd3dag=printd3dag,
                         immediate_submit=immediate_submit,
                         ignore_ambiguity=ignore_ambiguity,
-                        workdir=workdir, stats=stats,
+                        stats=stats,
                         force_incomplete=force_incomplete,
                         ignore_incomplete=ignore_incomplete,
                         list_version_changes=list_version_changes,
@@ -316,7 +321,7 @@ def snakemake(snakefile,
                         updated_files=updated_files,
                         allowed_rules=allowed_rules,
                         greedyness=greedyness
-                        )
+                    )
 
     # BrokenPipeError is not present in Python 3.2, so lets wait until everbody uses > 3.2
     #except BrokenPipeError:

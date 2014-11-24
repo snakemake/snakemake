@@ -29,13 +29,16 @@ class Workflow:
     def __init__(
         self, snakefile=None, snakemakepath=None,
         jobscript=None, overwrite_shellcmd=None,
-        overwrite_config=dict()):
+        overwrite_config=dict(),
+        overwrite_workdir=None):
         """
         Create the controller.
         """
         self._rules = OrderedDict()
         self.first_rule = None
         self._workdir = None
+        self.overwrite_workdir = overwrite_workdir
+        self.workdir_init = os.path.abspath(os.curdir)
         self._ruleorder = Ruleorder()
         self._localrules = set()
         self.linemaps = dict()
@@ -134,7 +137,7 @@ class Workflow:
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
         cluster=None, jobname=None, immediate_submit=False, ignore_ambiguity=False,
-        workdir=None, printrulegraph=False, printd3dag=False, drmaa=None,
+        printrulegraph=False, printd3dag=False, drmaa=None,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
@@ -159,10 +162,6 @@ class Workflow:
         else:
             def files(items):
                 return map(os.path.relpath, filterfalse(self.is_rule, items))
-
-        if workdir is None:
-            workdir = os.getcwd() if self._workdir is None else self._workdir
-        os.chdir(workdir)
 
         if not targets:
             targets = [self.first_rule] if self.first_rule is not None else list()
@@ -353,11 +352,19 @@ class Workflow:
             return False
         return True
 
-    def include(self, snakefile, workdir=None, overwrite_first_rule=False,
+    def include(self, snakefile, overwrite_first_rule=False,
         print_compilation=False, overwrite_shellcmd=None):
         """
         Include a snakefile.
         """
+        if os.path.exists(snakefile):
+            if not os.path.isabs(snakefile):
+                current_path = os.path.dirname(self.included[-1])
+                snakefile = os.path.join(current_path, snakefile)
+            snakefile = os.path.abspath(snakefile)
+        # else it could be an url.
+        # at least we don't want to modify the path for clarity.
+
         if snakefile in self.included:
             logger.info("Multiple include of {} ignored".format(snakefile))
             return
@@ -370,8 +377,6 @@ class Workflow:
         rules = Rules()
 
         first_rule = self.first_rule
-        if workdir:
-            os.chdir(workdir)
         code, linemap = parse(snakefile, overwrite_shellcmd=self.overwrite_shellcmd)
 
         if print_compilation:
@@ -379,7 +384,7 @@ class Workflow:
 
         # insert the current directory into sys.path
         # this allows to import modules from the workflow directory
-        sys.path.insert(0, os.path.dirname(os.path.abspath(snakefile)))
+        sys.path.insert(0, os.path.dirname(snakefile))
 
         self.linemaps[snakefile] = linemap
         exec(compile(code, snakefile, "exec"), self.globals)
@@ -387,10 +392,11 @@ class Workflow:
             self.first_rule = first_rule
 
     def workdir(self, workdir):
-        if self._workdir is None:
+        if self.overwrite_workdir is None:
             if not os.path.exists(workdir):
                 os.makedirs(workdir)
             self._workdir = workdir
+            os.chdir(workdir)
 
     def configfile(self, jsonpath):
         """ Update the global config with the given dictionary. """
