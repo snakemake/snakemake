@@ -219,6 +219,7 @@ def snakemake(snakefile,
     if workdir:
         olddir = os.getcwd()
         if not os.path.exists(workdir):
+            logger.info("Creating specified working directory {}.".format(workdir))
             os.makedirs(workdir)
         os.chdir(workdir)
     workflow = Workflow(
