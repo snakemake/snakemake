@@ -20,6 +20,7 @@ from snakemake.exceptions import print_exception
 from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
 from snakemake.io import load_configfile
+from snakemake.shell import shell
 
 
 __author__ = "Johannes Köster"
@@ -192,7 +193,7 @@ def snakemake(snakefile,
         bool:   True if workflow execution was successful.
 
     """
-    
+
     if updated_files is None:
         updated_files = list()
 

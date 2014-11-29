@@ -83,8 +83,7 @@ class AbstractExecutor:
             reason=str(self.dag.reason(job)),
             resources=job.resources_dict,
             priority="highest" if priority == Job.HIGHEST_PRIORITY else priority,
-            threads=job.threads,
-            shellcmd=job.shellcmd)
+            threads=job.threads)
 
         if job.dynamic_output:
             logger.info(
@@ -102,7 +101,10 @@ class AbstractExecutor:
 
 
 class DryrunExecutor(AbstractExecutor):
-    pass
+
+    def _run(self, job):
+        super()._run(job)
+        logger.shellcmd(job.shellcmd)
 
 
 class RealExecutor(AbstractExecutor):

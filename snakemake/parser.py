@@ -476,7 +476,7 @@ class Rule(GlobalKeywordState):
         if is_name(token):
             self.rulename = token.string
         elif is_colon(token):
-            self.lineno = self.snakefile.lines
+            self.lineno = self.snakefile.lines + 1
             self.state = self.block
             for t in self.start():
                 yield t, token
