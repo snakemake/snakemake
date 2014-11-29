@@ -19,6 +19,7 @@ from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
+from snakemake.io import load_configfile
 
 
 __author__ = "Johannes Köster"
@@ -31,6 +32,7 @@ def snakemake(snakefile,
     nodes=1,
     resources=dict(),
     config=dict(),
+    configfile=None,
     workdir=None,
     targets=None,
     dryrun=False,
@@ -216,6 +218,12 @@ def snakemake(snakefile,
     if cluster and (drmaa is not None):
         raise ValueError("cluster and drmaa args are mutually exclusive")
 
+    overwrite_config = dict()
+    if configfile:
+        overwrite_config.update(load_configfile(configfile))
+    if config:
+        overwrite_config.update(config)
+
     if workdir:
         olddir = os.getcwd()
         if not os.path.exists(workdir):
@@ -225,7 +233,7 @@ def snakemake(snakefile,
     workflow = Workflow(
         snakefile=snakefile, snakemakepath=snakemakepath,
         jobscript=jobscript, overwrite_shellcmd=overwrite_shellcmd,
-        overwrite_config=config, overwrite_workdir=workdir
+        overwrite_config=overwrite_config, overwrite_workdir=workdir
     )
 
     if standalone:
@@ -424,6 +432,14 @@ def get_argument_parser():
             "The workflow config object is accessible as variable config inside "
             "the workflow. Default values can be set by providing a JSON file "
             "(see Documentation)."))
+    parser.add_argument(
+        "--configfile", metavar="JSON_FILE",
+        help=(
+            "Specify or overwrite the config file of the workflow (see the docs). "
+            "Values specified in JSON format are available in the global config "
+            "dictionary inside the workflow."
+        )
+    )
     parser.add_argument(
         "--list", "-l", action="store_true",
         help="Show availiable rules in given Snakefile.")
@@ -717,6 +733,7 @@ def main():
             nodes=args.cores,
             resources=resources,
             config=config,
+            configfile=args.configfile,
             workdir=args.directory,
             targets=args.target,
             dryrun=args.dryrun,

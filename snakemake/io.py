@@ -4,6 +4,7 @@ import os
 import re
 import stat
 import time
+import json
 from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError
@@ -486,6 +487,17 @@ class Params(Namedlist):
 
 class Resources(Namedlist):
     pass
+
+
+def load_configfile(jsonpath):
+    try:
+        with open(jsonpath) as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        raise WorkflowError("Config file {} not found.".format(jsonpath))
+    if not isinstance(config, dict):
+        raise WorkflowError("Workflow config must be given as JSON with keys at top level.")
+    return config
 
 
 ##### Wildcard pumping detection #####

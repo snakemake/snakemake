@@ -401,13 +401,7 @@ class Workflow:
     def configfile(self, jsonpath):
         """ Update the global config with the given dictionary. """
         global config
-        try:
-            with open(jsonpath) as f:
-                c = json.load(f)
-        except FileNotFoundError:
-            raise WorkflowError("Config file {} not found.".format(jsonpath))
-        if not isinstance(c, dict):
-            raise WorkflowError("Workflow config must be given as JSON with keys at top level.")
+        c = snakemake.io.load_configfile(jsonpath)
         for key, val in c.items():
             if key not in self.overwrite_config:
                 config[key] = val
