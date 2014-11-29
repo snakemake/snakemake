@@ -283,6 +283,10 @@ class ClusterExecutor(RealExecutor):
             '--directory {workflow.overwrite_workdir} --nocolor '
             '--notemp --quiet --nolock {job.output}'
         )
+
+        if printshellcmds:
+            self.exec_job += " --printshellcmds "
+
         if not any(dag.dynamic_output_jobs):
             # disable restiction to target rule in case of dynamic rules!
             self.exec_job += " --allowed-rules {job.rule.name} "
