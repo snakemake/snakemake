@@ -234,8 +234,16 @@ class Job:
 
     def cleanup(self):
         """ Cleanup output files. """
-        for f in self.expanded_output:
-            if f.exists:
+        to_remove = [f for f in self.expanded_output if f.exists]
+        if to_remove:
+            logger.info(
+                "Removing output files of failed job {}"
+                " since they might be corrupted:\n{}".format(
+                    self,
+                    ", ".join(to_remove)
+                )
+            )
+            for f in to_remove:
                 f.remove()
 
     def format_wildcards(self, string, **variables):

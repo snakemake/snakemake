@@ -83,8 +83,7 @@ class AbstractExecutor:
             reason=str(self.dag.reason(job)),
             resources=job.resources_dict,
             priority="highest" if priority == Job.HIGHEST_PRIORITY else priority,
-            threads=job.threads,
-            shellcmd=job.shellcmd)
+            threads=job.threads)
 
         if job.dynamic_output:
             logger.info(
@@ -102,7 +101,10 @@ class AbstractExecutor:
 
 
 class DryrunExecutor(AbstractExecutor):
-    pass
+
+    def _run(self, job):
+        super()._run(job)
+        logger.shellcmd(job.shellcmd)
 
 
 class RealExecutor(AbstractExecutor):
@@ -275,11 +277,18 @@ class ClusterExecutor(RealExecutor):
                 "Defined jobname (\"{}\") has to contain the wildcard {jobid}.")
 
         self.exec_job = (
+            'cd {workflow.workdir_init} && '
             '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
             '--force -j{cores} --keep-target-files '
             '--wait-for-files {job.input} --latency-wait {latency_wait} '
             '--benchmark-repeats {benchmark_repeats} '
-            '--directory {workdir} --nocolor --notemp --quiet --nolock {job.output}')
+            '--directory {workflow.overwrite_workdir} --nocolor '
+            '--notemp --quiet --nolock {job.output}'
+        )
+
+        if printshellcmds:
+            self.exec_job += " --printshellcmds "
+
         if not any(dag.dynamic_output_jobs):
             # disable restiction to target rule in case of dynamic rules!
             self.exec_job += " --allowed-rules {job.rule.name} "
