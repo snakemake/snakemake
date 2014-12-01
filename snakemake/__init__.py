@@ -361,7 +361,7 @@ def parse_config(args):
         valid = re.compile("[a-zA-Z_]\w*$")
         for entry in args.config:
             try:
-                key, val = entry.split("=", maxsplit=1)
+                key, val = entry.split("=", 1)
             except ValueError:
                 raise ValueError("Config entries have to be defined as name=value pairs.")
             if not valid.match(key):
