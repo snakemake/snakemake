@@ -24,8 +24,8 @@ class OutputIndex:
     def match(self, file):
         node = self.root
         for c in file.constant_prefix():
-            n = node.children.get(c, None)
-            if n is None:
-                break
-            node = n
-        return node.rules
+            for rule in node.rules:
+                yield rule
+            node = node.children.get(c, None)
+            if node is None:
+                return
