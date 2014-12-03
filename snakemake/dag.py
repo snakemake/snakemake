@@ -16,6 +16,7 @@ from snakemake.exceptions import IncompleteFilesException
 from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
+from snakemake.output_index import OutputIndex
 
 
 __author__ = "Johannes Köster"
@@ -52,7 +53,7 @@ class DAG:
         self.workflow = workflow
         self.rules = set(rules)
         self.ignore_ambiguity = ignore_ambiguity
-        self.targetfiles = targetfiles
+        self.targetfiles = set(IOFile(f) for f in targetfiles)
         self.targetrules = targetrules
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
@@ -77,6 +78,8 @@ class DAG:
         self.ignore_incomplete = ignore_incomplete
 
         self.periodic_wildcard_detector = PeriodicityDetector()
+
+        self.output_index = OutputIndex(self.rules)
 
     def init(self):
         """ Initialise the DAG. """
@@ -690,8 +693,8 @@ class DAG:
     def rule2job(self, targetrule):
         return Job(targetrule, self)
 
-    @lru_cache()
     def file2jobs(self, targetfile):
+        rules = self.output_index.match(targetfile)
         jobs = []
         exceptions = list()
         for rule in self.rules:
