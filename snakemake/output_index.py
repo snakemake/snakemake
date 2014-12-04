@@ -1,3 +1,4 @@
+__author__ = "Johannes Köster"
 
 
 from collections import defaultdict
