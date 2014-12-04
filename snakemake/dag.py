@@ -53,7 +53,7 @@ class DAG:
         self.workflow = workflow
         self.rules = set(rules)
         self.ignore_ambiguity = ignore_ambiguity
-        self.targetfiles = set(IOFile(f) for f in targetfiles)
+        self.targetfiles = targetfiles
         self.targetrules = targetrules
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules

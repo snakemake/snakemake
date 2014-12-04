@@ -25,9 +25,9 @@ class OutputIndex:
                     node = node.children[c]
                 node.rules.add(rule)
 
-    def match(self, file):
+    def match(self, f):
         node = self.root
-        for c in file.constant_prefix():
+        for c in f:
             for rule in node.rules:
                 yield rule
             node = node.children.get(c, None)
