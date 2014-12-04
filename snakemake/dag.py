@@ -697,7 +697,7 @@ class DAG:
         rules = self.output_index.match(targetfile)
         jobs = []
         exceptions = list()
-        for rule in self.rules:
+        for rule in rules:
             if rule.is_producer(targetfile):
                 try:
                     jobs.append(Job(rule, self, targetfile=targetfile))
