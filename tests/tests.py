@@ -31,7 +31,7 @@ def is_connected():
         return False
 
 
-def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", subpath=None, **params):
+def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", subpath=None, check_md5=True, **params):
     """
     Test the Snakefile in path.
     There must be a Snakefile in the path and a subdirectory named
@@ -70,7 +70,8 @@ def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", s
                 targetfile = join(tmpdir, resultfile)
                 expectedfile = join(results_dir, resultfile)
                 assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(resultfile)
-                assert md5sum(targetfile) == md5sum(expectedfile), 'wrong result produced for file "{}"'.format(resultfile)
+                if check_md5:
+                    assert md5sum(targetfile) == md5sum(expectedfile), 'wrong result produced for file "{}"'.format(resultfile)
     finally:
         rmtree(tmpdir)
 
@@ -121,7 +122,7 @@ def test15():
     run(dpath("test15"))
 
 def test16():
-    run(dpath("test16"))
+    run(dpath("test16"), check_md5=False)
 
 def test_dynamic():
     run(dpath("test_dynamic"))
@@ -169,7 +170,7 @@ def test_config():
     run(dpath("test_config"))
 
 def test_benchmark():
-    run(dpath("test_benchmark"))
+    run(dpath("test_benchmark"), check_md5=False)
 
 def test_temp_expand():
     run(dpath("test_temp_expand"))
