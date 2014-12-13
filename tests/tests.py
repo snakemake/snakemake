@@ -52,7 +52,8 @@ def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", *
         else:
             assert success, "expected successful execution"
             for resultfile in os.listdir(results_dir):
-                if not os.path.isfile(resultfile):
+                if not os.path.isfile(os.path.join(results_dir, resultfile)):
+                    # FIXME: this means tests cannot use directories
                     continue # skip .svn dirs etc.
                 targetfile = join(tmpdir, resultfile)
                 expectedfile = join(results_dir, resultfile)
