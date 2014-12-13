@@ -1,7 +1,7 @@
+import os.path
 
 subworkflow test02:
-    workdir: "../test02"
-
+    workdir: config["subworkdir"]
 
 rule:
     input: "test.out"

@@ -5,6 +5,8 @@ from subprocess import call
 from tempfile import mkdtemp
 import hashlib
 import urllib
+from shutil import rmtree
+
 from snakemake import snakemake
 
 __author__ = "Tobias Marschall, Marcel Martin"
@@ -29,7 +31,7 @@ def is_connected():
         return False
 
 
-def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", **params):
+def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", subpath=None, **params):
     """
     Test the Snakefile in path.
     There must be a Snakefile in the path and a subdirectory named
@@ -45,8 +47,18 @@ def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", *
     assert os.path.exists(results_dir) and os.path.isdir(results_dir), '{} does not exist'.format(results_dir)
     tmpdir = mkdtemp()
     try:
+        config = {}
+        if subpath is not None:
+            # set up a working directory for the subworkflow and pass it in `config`
+            # for now, only one subworkflow is supported
+            assert os.path.exists(subpath) and os.path.isdir(subpath), '{} does not exist'.format(subpath)
+            subworkdir = os.path.join(tmpdir, "subworkdir")
+            os.mkdir(subworkdir)
+            call('cp `find {} -maxdepth 1 -type f` {}'.format(subpath, subworkdir), shell=True)
+            config['subworkdir'] = subworkdir
+
         call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir), shell=True)
-        success = snakemake(snakefile, cores=3, workdir=tmpdir, stats = "stats.txt", snakemakepath = SCRIPTPATH, **params)
+        success = snakemake(snakefile, cores=3, workdir=tmpdir, stats="stats.txt", snakemakepath=SCRIPTPATH, config=config, **params)
         if shouldfail:
             assert not success, "expected error on execution"
         else:
@@ -60,7 +72,7 @@ def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", *
                 assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(resultfile)
                 assert md5sum(targetfile) == md5sum(expectedfile), 'wrong result produced for file "{}"'.format(resultfile)
     finally:
-        call(['rm', '-rf', tmpdir])
+        rmtree(tmpdir)
 
 
 def test01():
@@ -133,7 +145,7 @@ def test_keyword_list():
     run(dpath("test_keyword_list"))
 
 def test_subworkflows():
-    run(dpath("test_subworkflows"))
+    run(dpath("test_subworkflows"), subpath=dpath("test02"))
 
 def test_globwildcards():
     run(dpath("test_globwildcards"))
