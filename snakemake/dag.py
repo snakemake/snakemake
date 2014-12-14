@@ -79,7 +79,7 @@ class DAG:
 
         self.periodic_wildcard_detector = PeriodicityDetector()
 
-        self.output_index = OutputIndex(self.rules)
+        self.update_output_index()
 
     def init(self):
         """ Initialise the DAG. """
@@ -92,6 +92,9 @@ class DAG:
             self.targetjobs.add(job)
 
         self.update_needrun()
+
+    def update_output_index(self):
+        self.output_index = OutputIndex(self.rules)
 
     def check_incomplete(self):
         if not self.ignore_incomplete:
@@ -574,6 +577,7 @@ class DAG:
         self.rules.add(newrule)
         if rule in self.forcerules:
             self.forcerules.add(newrule)
+        self.update_output_index()
 
     def collect_potential_dependencies(self, job):
         dependencies = defaultdict(list)
