@@ -1,0 +1,19 @@
+rule all:
+    input: expand("{sample}_final", sample=["a", "b", "c"])
+
+rule init:
+    output: "{sample}.init"
+    shell: "touch {output}"
+
+rule random_clusters:
+    input: "{sample}.init"
+    output: dynamic("{sample}_clusters/cluster_{clustid}")
+    run:
+        shell("mkdir -p {wildcards.sample}_clusters")
+        for i in range(3):
+            shell("touch {wildcards.sample}_clusters/cluster_" + str(i))
+
+rule concatenate_clusters:
+    input: dynamic("{sample}_clusters/cluster_{clustid}")
+    output: "{sample}_final"
+    shell: "touch {output}"
