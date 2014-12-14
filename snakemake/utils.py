@@ -49,9 +49,9 @@ def listfiles(pattern, restriction=None, omit_value=None):
     for dirpath, dirnames, filenames in os.walk(dirname):
         for f in chain(filenames, dirnames):
             if dirpath != ".":
-                f = os.path.join(dirpath, f)
+                f = os.path.normpath(os.path.join(dirpath, f))
             match = re.match(pattern, f)
-            if match and len(match.group()) == len(f):
+            if match:
                 wildcards = Namedlist(fromdict=match.groupdict())
                 if restriction is not None:
                     invalid = any(
