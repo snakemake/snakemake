@@ -125,7 +125,7 @@ class Job:
             if f in self.dynamic_output:
                 expansion = self.expand_dynamic(
                     f_,
-                    restriction=self.wildcards,
+                    restriction=self.wildcards_dict,
                     omit_value=_IOFile.dynamic_fill)
                 if not expansion:
                     yield f_
@@ -142,7 +142,7 @@ class Job:
             if f in self.dynamic_output:
                 for f, w in self.expand_dynamic(
                     f_,
-                    restriction=self.wildcards,
+                    restriction=self.wildcards_dict,
                     omit_value=_IOFile.dynamic_fill):
                     combinations.add(tuple(w.items()))
         wildcards = defaultdict(list)
@@ -187,7 +187,7 @@ class Job:
                 if f in self.dynamic_output:
                     if not self.expand_dynamic(
                     f_,
-                    restriction=self.wildcards,
+                    restriction=self.wildcards_dict,
                     omit_value=_IOFile.dynamic_fill):
                         files.add("{} (dynamic)".format(f_))
                 elif not f.exists:
@@ -221,7 +221,7 @@ class Job:
             for f, _ in chain(*map(
                 partial(
                     self.expand_dynamic,
-                    restriction=self.wildcards,
+                    restriction=self.wildcards_dict,
                     omit_value=_IOFile.dynamic_fill),
                 self.rule.dynamic_output)):
                 os.remove(f)
@@ -291,8 +291,7 @@ class Job:
     def __eq__(self, other):
         if other is None:
             return False
-        return self.rule == other.rule and (self.dynamic_output
-            or self.wildcards_dict == other.wildcards_dict)
+        return self.rule == other.rule and self.wildcards_dict == other.wildcards_dict
 
     def __lt__(self, other):
         return self.rule.__lt__(other.rule)

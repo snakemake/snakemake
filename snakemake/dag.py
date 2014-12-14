@@ -502,6 +502,7 @@ class DAG:
                 self.bfs(self.depending, job)))
         newrule, non_dynamic_wildcards = job.rule.dynamic_branch(
             dynamic_wildcards, input=False)
+        # TODO do not replace the rule; just add it
         self.replace_rule(job.rule, newrule)
 
         # no targetfile needed for job
@@ -574,6 +575,7 @@ class DAG:
         self.rules.add(newrule)
         if rule in self.forcerules:
             self.forcerules.add(newrule)
+        self.output_index = OutputIndex(self.rules)
 
     def collect_potential_dependencies(self, job):
         dependencies = defaultdict(list)
