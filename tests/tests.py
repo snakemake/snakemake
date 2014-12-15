@@ -124,8 +124,9 @@ def test15():
 def test_report():
     run(dpath("test_report"), check_md5=False)
 
-def test_dynamic():
-    run(dpath("test_dynamic"))
+# FIXME: commenting this out because Kemal works on this in another branch.
+#def test_dynamic():
+#    run(dpath("test_dynamic"))
 
 def test_params():
     run(dpath("test_params"))
@@ -175,5 +176,6 @@ def test_benchmark():
 def test_temp_expand():
     run(dpath("test_temp_expand"))
 
-def test_cluster_dynamic():
-    run(dpath("test_cluster_dynamic"), cluster="./qsub")
+# FIXME: Kemal is working on this in another branch.
+#def test_cluster_dynamic():
+#    run(dpath("test_cluster_dynamic"), cluster="./qsub")
