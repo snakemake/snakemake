@@ -552,10 +552,10 @@ class Snakefile:
     def __init__(self, path):
         self.path = path
         try:
-            self.file = open(self.path)
+            self.file = open(self.path, encoding="utf-8")
         except FileNotFoundError as e:
             try:
-                self.file = TextIOWrapper(urllib.request.urlopen(self.path))
+                self.file = TextIOWrapper(urllib.request.urlopen(self.path), encoding="utf-8")
             except (HTTPError, URLError, ContentTooShortError, ValueError):
                 raise WorkflowError("Failed to open {}.".format(path))
 
