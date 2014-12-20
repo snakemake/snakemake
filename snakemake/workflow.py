@@ -7,6 +7,7 @@ import os
 import sys
 import signal
 import json
+import urllib
 from collections import OrderedDict
 from itertools import filterfalse, chain
 from functools import partial
@@ -47,6 +48,7 @@ class Workflow:
         self.snakefile = os.path.abspath(snakefile)
         self.snakemakepath = snakemakepath
         self.included = []
+        self.included_stack = []
         self.jobscript = jobscript
         self.persistence = None
         self.global_resources = None
@@ -357,9 +359,10 @@ class Workflow:
         """
         Include a snakefile.
         """
-        if os.path.exists(snakefile):
-            if not os.path.isabs(snakefile):
-                current_path = os.path.dirname(self.included[-1])
+        # check if snakefile is a path to the filesystem
+        if not urllib.parse.urlparse(snakefile).scheme:
+            if not os.path.isabs(snakefile) and self.included_stack:
+                current_path = os.path.dirname(self.included_stack[-1])
                 snakefile = os.path.join(current_path, snakefile)
             snakefile = os.path.abspath(snakefile)
         # else it could be an url.
@@ -369,6 +372,7 @@ class Workflow:
             logger.info("Multiple include of {} ignored".format(snakefile))
             return
         self.included.append(snakefile)
+        self.included_stack.append(snakefile)
 
         global workflow
         global rules
@@ -390,6 +394,7 @@ class Workflow:
         exec(compile(code, snakefile, "exec"), self.globals)
         if not overwrite_first_rule:
             self.first_rule = first_rule
+        self.included_stack.pop()
 
     def workdir(self, workdir):
         if self.overwrite_workdir is None:
