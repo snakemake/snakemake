@@ -230,6 +230,7 @@ def snakemake(snakefile,
         if not os.path.exists(workdir):
             logger.info("Creating specified working directory {}.".format(workdir))
             os.makedirs(workdir)
+        workdir = os.path.abspath(workdir)
         os.chdir(workdir)
     workflow = Workflow(
         snakefile=snakefile, snakemakepath=snakemakepath,
