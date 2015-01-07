@@ -1,3 +1,7 @@
+from snakemake.utils import min_version
+
+min_version("2.1")
+
 TEST = "abc"
 
 ruleorder: rule2 > rule4

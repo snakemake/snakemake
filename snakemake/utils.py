@@ -12,6 +12,7 @@ from itertools import chain
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
+import snakemake
 
 
 def linecount(filename):
@@ -202,3 +203,10 @@ def read_job_properties(jobscript, prefix="# properties",
         for m in map(pattern.match, jobscript):
             if m:
                 return json.loads(m.group(1))
+
+
+def min_version(version):
+    """Require minimum snakemake version, raise workflow error if not met."""
+    import pkg_resources
+    if pkg_resources.parse_version(snakemake.__version__) < pkg_resources.parse_version(version):
+        raise WorkflowError("Expecting Snakemake version {} or higher.".format(version))
