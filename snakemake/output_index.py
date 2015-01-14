@@ -26,12 +26,12 @@ class OutputIndex:
                 node.rules.add(rule)
 
     def match(self, f):
+        rules = set()
         node = self.root
         for c in f:
-            for rule in node.rules:
-                yield rule
+            rules.update(node.rules)
             node = node.children.get(c, None)
             if node is None:
                 return
-        for rule in node.rules:
-            yield rule
+        rules.update(node.rules)
+        return rules

@@ -733,7 +733,6 @@ class DAG:
             deps = [(
                 group[0] if preselect.isdisjoint(group) else preselect.intersection(group).pop()
             ) for group in (list(g) for _, g in groupby(deps, key))]
-#            deps = [next(g) for _, g in groupby(deps, key)]
             dag[job].extend(deps)
             preselect_parents(job)
             for dep in deps:
