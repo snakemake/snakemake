@@ -20,10 +20,17 @@ class OutputIndex:
             if rule.benchmark:
                 output.append(rule.benchmark)
             for f in output:
-                node = self.root
-                for c in f.constant_prefix():
-                    node = node.children[c]
-                node.rules.add(rule)
+                self.add_output(rule, f)
+
+    def add_output(self, rule, f):
+        node = self.root
+        for c in f.constant_prefix():
+            node = node.children[c]
+            if rule in node.rules:
+                # a prefix of file f is already recorded for this rule
+                # hence we can stop here
+                return
+        node.rules.add(rule)
 
     def match(self, f):
         node = self.root
