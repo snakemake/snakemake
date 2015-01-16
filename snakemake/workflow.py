@@ -56,6 +56,8 @@ class Workflow:
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config
+        self._onsuccess = lambda: None
+        self._onerror = lambda: None
 
         global config
         config = dict()
@@ -350,9 +352,11 @@ class Workflow:
                     logger.run_info("\n".join(dag.stats()))
             elif stats:
                 scheduler.stats.to_json(stats)
+            self._onsuccess()
+            return True
         else:
+            self._onerror()
             return False
-        return True
 
     def include(self, snakefile, overwrite_first_rule=False,
         print_compilation=False, overwrite_shellcmd=None):
@@ -395,6 +399,12 @@ class Workflow:
         if not overwrite_first_rule:
             self.first_rule = first_rule
         self.included_stack.pop()
+
+    def onsuccess(self, func):
+        self._onsuccess = func
+
+    def onerror(self, func):
+        self._onerror = func
 
     def workdir(self, workdir):
         if self.overwrite_workdir is None:

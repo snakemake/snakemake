@@ -4,6 +4,15 @@ min_version("2.1")
 
 TEST = "abc"
 
+
+onsuccess:
+    print("Workflow finished")
+
+
+onerror:
+    print("Workflow failed")
+
+
 ruleorder: rule2 > rule4
 
 def testin(wildcards):

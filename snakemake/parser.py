@@ -186,6 +186,18 @@ class GlobalKeywordState(KeywordState):
         yield "workflow.{keyword}(".format(keyword=self.keyword)
 
 
+class DecoratorKeywordState(KeywordState):
+    decorator = None
+
+    def start(self):
+        yield "@workflow.{}".format(self.decorator)
+        yield "\n"
+        yield "def __{}():".format(self.decorator)
+
+    def end(self):
+        yield ""
+
+
 class RuleKeywordState(KeywordState):
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True, rulename=None):
@@ -516,6 +528,14 @@ class Rule(GlobalKeywordState):
         return self.indent
 
 
+class OnSuccess(DecoratorKeywordState):
+    decorator = "onsuccess"
+
+
+class OnError(DecoratorKeywordState):
+    decorator = "onerror"
+
+
 class Python(TokenAutomaton):
 
     subautomata = dict(
@@ -525,7 +545,10 @@ class Python(TokenAutomaton):
         ruleorder=Ruleorder,
         rule=Rule,
         subworkflow=Subworkflow,
-        localrules=Localrules)
+        localrules=Localrules,
+        onsuccess=OnSuccess,
+        onerror=OnError
+    )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
