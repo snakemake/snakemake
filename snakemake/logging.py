@@ -86,10 +86,9 @@ class Logger:
         self.logfile_handler.close()
         os.remove(self.logfile)
 
-    def get_log(self):
+    def get_logfile(self):
         self.logfile_handler.flush()
-        with open(self.logfile) as f:
-            return f.read()
+        return self.logfile
 
     def handler(self, msg):
         for handler in self.log_handler:
