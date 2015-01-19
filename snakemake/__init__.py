@@ -348,6 +348,7 @@ def snakemake(snakefile,
         os.chdir(olddir)
     if workflow.persistence:
         workflow.persistence.unlock()
+    logger.cleanup()
     return success
 
 

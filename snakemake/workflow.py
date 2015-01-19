@@ -352,10 +352,12 @@ class Workflow:
                     logger.run_info("\n".join(dag.stats()))
             elif stats:
                 scheduler.stats.to_json(stats)
-            self._onsuccess()
+            if not dryrun:
+                self._onsuccess(logger.get_log())
             return True
         else:
-            self._onerror()
+            if not dryrun:
+                self._onerror(logger.get_log())
             return False
 
     def include(self, snakefile, overwrite_first_rule=False,

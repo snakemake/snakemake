@@ -188,11 +188,12 @@ class GlobalKeywordState(KeywordState):
 
 class DecoratorKeywordState(KeywordState):
     decorator = None
+    args = list()
 
     def start(self):
         yield "@workflow.{}".format(self.decorator)
         yield "\n"
-        yield "def __{}():".format(self.decorator)
+        yield "def __{}({}):".format(self.decorator, ", ".join(self.args))
 
     def end(self):
         yield ""
@@ -530,10 +531,12 @@ class Rule(GlobalKeywordState):
 
 class OnSuccess(DecoratorKeywordState):
     decorator = "onsuccess"
+    args = ["log"]
 
 
 class OnError(DecoratorKeywordState):
     decorator = "onerror"
+    args = ["log"]
 
 
 class Python(TokenAutomaton):

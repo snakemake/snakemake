@@ -7,10 +7,14 @@ TEST = "abc"
 
 onsuccess:
     print("Workflow finished")
+    print("Log:")
+    print(log)
 
 
 onerror:
     print("Workflow failed")
+    print("Log:")
+    print(log)
 
 
 ruleorder: rule2 > rule4
