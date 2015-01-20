@@ -56,8 +56,8 @@ class Workflow:
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config
-        self._onsuccess = lambda: None
-        self._onerror = lambda: None
+        self._onsuccess = lambda log: None
+        self._onerror = lambda log: None
 
         global config
         config = dict()

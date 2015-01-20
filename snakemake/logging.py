@@ -76,6 +76,8 @@ class Logger:
         self.stream_handler = None
         self.printshellcmds = False
         self.printreason = False
+
+    def setup(self):
         # logfile output is done always
         _, self.logfile = tempfile.mkstemp(prefix="", suffix=".snakemake.log")
         self.logfile_handler = _logging.FileHandler(self.logfile)
@@ -217,11 +219,10 @@ def format_resources(resources, omit_resources="_cores _nodes".split()):
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
     return ", ".join(name for name in resources if name not in omit_resources)
 
-
 logger = Logger()
 
-
 def setup_logger(handler=None, quiet=False, printshellcmds=False, printreason=False, nocolor=False, stdout=False, debug=False, timestamp=False):
+    logger.setup()
     if handler is not None:
         # custom log handler
         logger.log_handler.append(handler)
