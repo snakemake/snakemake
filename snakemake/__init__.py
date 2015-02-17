@@ -84,7 +84,8 @@ def snakemake(snakefile,
     greedyness=None,
     overwrite_shellcmd=None,
     updated_files=None,
-    log_handler=None):
+    log_handler=None,
+    keep_logger=False):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -202,7 +203,8 @@ def snakemake(snakefile,
     else:
         nodes = sys.maxsize
 
-    setup_logger(handler=log_handler, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
+    if not keep_logger:
+        setup_logger(handler=log_handler, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
 
     if greedyness is None:
          greedyness = 0.5 if prioritytargets else 1.0
@@ -230,6 +232,7 @@ def snakemake(snakefile,
         if not os.path.exists(workdir):
             logger.info("Creating specified working directory {}.".format(workdir))
             os.makedirs(workdir)
+        workdir = os.path.abspath(workdir)
         os.chdir(workdir)
     workflow = Workflow(
         snakefile=snakefile, snakemakepath=snakemakepath,
@@ -262,7 +265,7 @@ def snakemake(snakefile,
             elif list_resources:
                 workflow.list_resources()
             else:
-                    #if not printdag and not printrulegraph:
+                    # if not printdag and not printrulegraph:
                     # handle subworkflows
                     subsnakemake = partial(
                         snakemake,
@@ -296,7 +299,8 @@ def snakemake(snakefile,
                         jobscript=jobscript,
                         timestamp=timestamp,
                         greedyness=greedyness,
-                        overwrite_shellcmd=overwrite_shellcmd
+                        overwrite_shellcmd=overwrite_shellcmd,
+                        keep_logger=True
                     )
                     success = workflow.execute(
                         targets=targets, dryrun=dryrun, touch=touch,
@@ -347,6 +351,8 @@ def snakemake(snakefile,
         os.chdir(olddir)
     if workflow.persistence:
         workflow.persistence.unlock()
+    if not keep_logger:
+        logger.cleanup()
     return success
 
 

@@ -16,6 +16,7 @@ from snakemake.exceptions import IncompleteFilesException
 from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
+from snakemake.output_index import OutputIndex
 
 
 __author__ = "Johannes Köster"
@@ -78,6 +79,8 @@ class DAG:
 
         self.periodic_wildcard_detector = PeriodicityDetector()
 
+        self.update_output_index()
+
     def init(self):
         """ Initialise the DAG. """
         for job in map(self.rule2job, self.targetrules):
@@ -89,6 +92,9 @@ class DAG:
             self.targetjobs.add(job)
 
         self.update_needrun()
+
+    def update_output_index(self):
+        self.output_index = OutputIndex(self.rules)
 
     def check_incomplete(self):
         if not self.ignore_incomplete:
@@ -571,6 +577,7 @@ class DAG:
         self.rules.add(newrule)
         if rule in self.forcerules:
             self.forcerules.add(newrule)
+        self.update_output_index()
 
     def collect_potential_dependencies(self, job):
         dependencies = defaultdict(list)
@@ -690,11 +697,11 @@ class DAG:
     def rule2job(self, targetrule):
         return Job(targetrule, self)
 
-    @lru_cache()
     def file2jobs(self, targetfile):
+        rules = self.output_index.match(targetfile)
         jobs = []
         exceptions = list()
-        for rule in self.rules:
+        for rule in rules:
             if rule.is_producer(targetfile):
                 try:
                     jobs.append(Job(rule, self, targetfile=targetfile))
@@ -726,7 +733,6 @@ class DAG:
             deps = [(
                 group[0] if preselect.isdisjoint(group) else preselect.intersection(group).pop()
             ) for group in (list(g) for _, g in groupby(deps, key))]
-#            deps = [next(g) for _, g in groupby(deps, key)]
             dag[job].extend(deps)
             preselect_parents(job)
             for dep in deps:

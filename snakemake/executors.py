@@ -282,8 +282,8 @@ class ClusterExecutor(RealExecutor):
             '--force -j{cores} --keep-target-files '
             '--wait-for-files {job.input} --latency-wait {latency_wait} '
             '--benchmark-repeats {benchmark_repeats} '
-            '--directory {workflow.overwrite_workdir} --nocolor '
-            '--notemp --quiet --nolock {job.output}'
+            '{overwrite_workdir} --nocolor '
+            '--notemp --quiet --nolock {target}'
         )
 
         if printshellcmds:
@@ -320,15 +320,21 @@ class ClusterExecutor(RealExecutor):
         return os.path.join(self.tmpdir, self.jobname.format(rulename=job.rule.name, jobid=self.dag.jobid(job)))
 
     def spawn_jobscript(self, job, jobscript, **kwargs):
+        overwrite_workdir = ""
+        if self.workflow.overwrite_workdir:
+            overwrite_workdir = "--directory {}".format(self.workflow.overwrite_workdir)
+
+        target = job.output if job.output else job.rule.name
         format = partial(
             str.format,
             job=job,
-            workdir=os.getcwd(),
+            overwrite_workdir=overwrite_workdir,
             workflow=self.workflow,
             cores=self.cores,
             properties=job.json(),
             latency_wait=self.latency_wait,
             benchmark_repeats=self.benchmark_repeats,
+            target=target,
             **kwargs)
         try:
             exec_job = format(self.exec_job)

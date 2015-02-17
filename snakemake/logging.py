@@ -7,6 +7,7 @@ import sys
 import os
 import json
 from multiprocessing import Lock
+import tempfile
 
 __author__ = "Johannes Köster"
 
@@ -71,11 +72,30 @@ class ColorizingStreamHandler(_logging.StreamHandler):
 class Logger:
     def __init__(self):
         self.logger = _logging.getLogger(__name__)
-        self.handler = self.console_handler
+        self.log_handler = [self.text_handler]
         self.stream_handler = None
         self.printshellcmds = False
         self.printreason = False
-    
+
+    def setup(self):
+        # logfile output is done always
+        _, self.logfile = tempfile.mkstemp(prefix="", suffix=".snakemake.log")
+        self.logfile_handler = _logging.FileHandler(self.logfile)
+        self.logger.addHandler(self.logfile_handler)
+
+    def cleanup(self):
+        self.logger.removeHandler(self.logfile_handler)
+        self.logfile_handler.close()
+        os.remove(self.logfile)
+
+    def get_logfile(self):
+        self.logfile_handler.flush()
+        return self.logfile
+
+    def handler(self, msg):
+        for handler in self.log_handler:
+            handler(msg)
+
     def set_stream_handler(self, stream_handler):
         if self.stream_handler is not None:
             self.logger.removeHandler(self.stream_handler)
@@ -123,7 +143,7 @@ class Logger:
         msg["level"] = "d3dag"
         self.handler(msg)
 
-    def console_handler(self, msg):
+    def text_handler(self, msg):
         """The default snakemake log handler.
         
         Prints the output to the console.
@@ -199,18 +219,21 @@ def format_resources(resources, omit_resources="_cores _nodes".split()):
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
     return ", ".join(name for name in resources if name not in omit_resources)
 
-
 logger = Logger()
 
-
 def setup_logger(handler=None, quiet=False, printshellcmds=False, printreason=False, nocolor=False, stdout=False, debug=False, timestamp=False):
+    logger.setup()
     if handler is not None:
-        logger.handler = handler
-    stream_handler = ColorizingStreamHandler(
-        nocolor=nocolor, stream=sys.stdout if stdout else sys.stderr,
-        timestamp=timestamp
-    )
-    logger.set_stream_handler(stream_handler)
+        # custom log handler
+        logger.log_handler.append(handler)
+    else:
+        # console output only if no custom logger was specified
+        stream_handler = ColorizingStreamHandler(
+            nocolor=nocolor, stream=sys.stdout if stdout else sys.stderr,
+            timestamp=timestamp
+        )
+        logger.set_stream_handler(stream_handler)
+
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
     logger.quiet = quiet
     logger.printshellcmds = printshellcmds

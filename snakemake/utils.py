@@ -12,6 +12,7 @@ from itertools import chain
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
+import snakemake
 
 
 def linecount(filename):
@@ -49,9 +50,9 @@ def listfiles(pattern, restriction=None, omit_value=None):
     for dirpath, dirnames, filenames in os.walk(dirname):
         for f in chain(filenames, dirnames):
             if dirpath != ".":
-                f = os.path.join(dirpath, f)
+                f = os.path.normpath(os.path.join(dirpath, f))
             match = re.match(pattern, f)
-            if match and len(match.group()) == len(f):
+            if match:
                 wildcards = Namedlist(fromdict=match.groupdict())
                 if restriction is not None:
                     invalid = any(
@@ -202,3 +203,10 @@ def read_job_properties(jobscript, prefix="# properties",
         for m in map(pattern.match, jobscript):
             if m:
                 return json.loads(m.group(1))
+
+
+def min_version(version):
+    """Require minimum snakemake version, raise workflow error if not met."""
+    import pkg_resources
+    if pkg_resources.parse_version(snakemake.__version__) < pkg_resources.parse_version(version):
+        raise WorkflowError("Expecting Snakemake version {} or higher.".format(version))

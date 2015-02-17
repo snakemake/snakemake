@@ -5,6 +5,8 @@ from subprocess import call
 from tempfile import mkdtemp
 import hashlib
 import urllib
+from shutil import rmtree
+
 from snakemake import snakemake
 
 __author__ = "Tobias Marschall, Marcel Martin"
@@ -29,7 +31,7 @@ def is_connected():
         return False
 
 
-def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", **params):
+def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", subpath=None, check_md5=True, **params):
     """
     Test the Snakefile in path.
     There must be a Snakefile in the path and a subdirectory named
@@ -45,21 +47,33 @@ def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", *
     assert os.path.exists(results_dir) and os.path.isdir(results_dir), '{} does not exist'.format(results_dir)
     tmpdir = mkdtemp()
     try:
+        config = {}
+        if subpath is not None:
+            # set up a working directory for the subworkflow and pass it in `config`
+            # for now, only one subworkflow is supported
+            assert os.path.exists(subpath) and os.path.isdir(subpath), '{} does not exist'.format(subpath)
+            subworkdir = os.path.join(tmpdir, "subworkdir")
+            os.mkdir(subworkdir)
+            call('cp `find {} -maxdepth 1 -type f` {}'.format(subpath, subworkdir), shell=True)
+            config['subworkdir'] = subworkdir
+
         call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir), shell=True)
-        success = snakemake(snakefile, cores=3, workdir=tmpdir, stats = "stats.txt", snakemakepath = SCRIPTPATH, **params)
+        success = snakemake(snakefile, cores=3, workdir=tmpdir, stats="stats.txt", snakemakepath=SCRIPTPATH, config=config, **params)
         if shouldfail:
             assert not success, "expected error on execution"
         else:
             assert success, "expected successful execution"
             for resultfile in os.listdir(results_dir):
-                if not os.path.isfile(resultfile):
+                if not os.path.isfile(os.path.join(results_dir, resultfile)):
+                    # FIXME: this means tests cannot use directories
                     continue # skip .svn dirs etc.
                 targetfile = join(tmpdir, resultfile)
                 expectedfile = join(results_dir, resultfile)
                 assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(resultfile)
-                assert md5sum(targetfile) == md5sum(expectedfile), 'wrong result produced for file "{}"'.format(resultfile)
+                if check_md5:
+                    assert md5sum(targetfile) == md5sum(expectedfile), 'wrong result produced for file "{}"'.format(resultfile)
     finally:
-        call(['rm', '-rf', tmpdir])
+        rmtree(tmpdir)
 
 
 def test01():
@@ -107,11 +121,12 @@ def test14():
 def test15():
     run(dpath("test15"))
 
-def test16():
-    run(dpath("test16"))
+def test_report():
+    run(dpath("test_report"), check_md5=False)
 
-def test_dynamic():
-    run(dpath("test_dynamic"))
+# FIXME: commenting this out because Kemal works on this in another branch.
+#def test_dynamic():
+#    run(dpath("test_dynamic"))
 
 def test_params():
     run(dpath("test_params"))
@@ -132,7 +147,7 @@ def test_keyword_list():
     run(dpath("test_keyword_list"))
 
 def test_subworkflows():
-    run(dpath("test_subworkflows"))
+    run(dpath("test_subworkflows"), subpath=dpath("test02"))
 
 def test_globwildcards():
     run(dpath("test_globwildcards"))
@@ -156,10 +171,11 @@ def test_config():
     run(dpath("test_config"))
 
 def test_benchmark():
-    run(dpath("test_benchmark"))
+    run(dpath("test_benchmark"), check_md5=False)
 
 def test_temp_expand():
     run(dpath("test_temp_expand"))
 
-def test_cluster_dynamic():
-    run(dpath("test_cluster_dynamic"), cluster="./qsub")
+# FIXME: Kemal is working on this in another branch.
+#def test_cluster_dynamic():
+#    run(dpath("test_cluster_dynamic"), cluster="./qsub")

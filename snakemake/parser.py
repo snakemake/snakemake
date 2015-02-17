@@ -186,6 +186,19 @@ class GlobalKeywordState(KeywordState):
         yield "workflow.{keyword}(".format(keyword=self.keyword)
 
 
+class DecoratorKeywordState(KeywordState):
+    decorator = None
+    args = list()
+
+    def start(self):
+        yield "@workflow.{}".format(self.decorator)
+        yield "\n"
+        yield "def __{}({}):".format(self.decorator, ", ".join(self.args))
+
+    def end(self):
+        yield ""
+
+
 class RuleKeywordState(KeywordState):
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True, rulename=None):
@@ -516,6 +529,16 @@ class Rule(GlobalKeywordState):
         return self.indent
 
 
+class OnSuccess(DecoratorKeywordState):
+    decorator = "onsuccess"
+    args = ["log"]
+
+
+class OnError(DecoratorKeywordState):
+    decorator = "onerror"
+    args = ["log"]
+
+
 class Python(TokenAutomaton):
 
     subautomata = dict(
@@ -525,7 +548,10 @@ class Python(TokenAutomaton):
         ruleorder=Ruleorder,
         rule=Rule,
         subworkflow=Subworkflow,
-        localrules=Localrules)
+        localrules=Localrules,
+        onsuccess=OnSuccess,
+        onerror=OnError
+    )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -552,10 +578,10 @@ class Snakefile:
     def __init__(self, path):
         self.path = path
         try:
-            self.file = open(self.path)
+            self.file = open(self.path, encoding="utf-8")
         except FileNotFoundError as e:
             try:
-                self.file = TextIOWrapper(urllib.request.urlopen(self.path))
+                self.file = TextIOWrapper(urllib.request.urlopen(self.path), encoding="utf-8")
             except (HTTPError, URLError, ContentTooShortError, ValueError):
                 raise WorkflowError("Failed to open {}.".format(path))
 

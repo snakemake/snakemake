@@ -60,7 +60,7 @@ class shell:
     @staticmethod
     def iter_stdout(proc, cmd):
         for l in proc.stdout:
-            yield l[:-1]
+            yield l[:-1].decode()
         retcode = proc.wait()
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
