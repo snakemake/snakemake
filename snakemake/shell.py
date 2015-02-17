@@ -6,6 +6,7 @@ import os
 import subprocess as sp
 
 from snakemake.utils import format
+from snakemake.logging import logger
 
 
 __author__ = "Johannes Köster"
@@ -35,6 +36,9 @@ class shell:
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
         cmd = format(cmd, *args, stepout=2, **kwargs)
+
+        logger.shellcmd(cmd)
+
         stdout = sp.PIPE if iterable or async or read else STDOUT
 
         close_fds = sys.platform != 'win32'
@@ -56,7 +60,7 @@ class shell:
     @staticmethod
     def iter_stdout(proc, cmd):
         for l in proc.stdout:
-            yield l[:-1]
+            yield l[:-1].decode()
         retcode = proc.wait()
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)

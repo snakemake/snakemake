@@ -1,4 +1,8 @@
 
+
+include: "test.rules"
+
+
 configfile: "test.json"
 
 

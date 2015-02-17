@@ -1,4 +1,21 @@
+from snakemake.utils import min_version
+
+min_version("2.1")
+
 TEST = "abc"
+
+
+onsuccess:
+    print("Workflow finished")
+    print("Log:")
+    print(log)
+
+
+onerror:
+    print("Workflow failed")
+    print("Log:")
+    print(log)
+
 
 ruleorder: rule2 > rule4
 

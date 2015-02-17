@@ -7,6 +7,7 @@ import os
 import sys
 import signal
 import json
+import urllib
 from collections import OrderedDict
 from itertools import filterfalse, chain
 from functools import partial
@@ -29,13 +30,16 @@ class Workflow:
     def __init__(
         self, snakefile=None, snakemakepath=None,
         jobscript=None, overwrite_shellcmd=None,
-        overwrite_config=dict()):
+        overwrite_config=dict(),
+        overwrite_workdir=None):
         """
         Create the controller.
         """
         self._rules = OrderedDict()
         self.first_rule = None
         self._workdir = None
+        self.overwrite_workdir = overwrite_workdir
+        self.workdir_init = os.path.abspath(os.curdir)
         self._ruleorder = Ruleorder()
         self._localrules = set()
         self.linemaps = dict()
@@ -44,6 +48,7 @@ class Workflow:
         self.snakefile = os.path.abspath(snakefile)
         self.snakemakepath = snakemakepath
         self.included = []
+        self.included_stack = []
         self.jobscript = jobscript
         self.persistence = None
         self.global_resources = None
@@ -51,6 +56,8 @@ class Workflow:
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config
+        self._onsuccess = lambda log: None
+        self._onerror = lambda log: None
 
         global config
         config = dict()
@@ -134,7 +141,7 @@ class Workflow:
         prioritytargets=None, quiet=False, keepgoing=False,
         printshellcmds=False, printreason=False, printdag=False,
         cluster=None, jobname=None, immediate_submit=False, ignore_ambiguity=False,
-        workdir=None, printrulegraph=False, printd3dag=False, drmaa=None,
+        printrulegraph=False, printd3dag=False, drmaa=None,
         stats=None, force_incomplete=False, ignore_incomplete=False,
         list_version_changes=False, list_code_changes=False,
         list_input_changes=False, list_params_changes=False,
@@ -159,10 +166,6 @@ class Workflow:
         else:
             def files(items):
                 return map(os.path.relpath, filterfalse(self.is_rule, items))
-
-        if workdir is None:
-            workdir = os.getcwd() if self._workdir is None else self._workdir
-        os.chdir(workdir)
 
         if not targets:
             targets = [self.first_rule] if self.first_rule is not None else list()
@@ -349,19 +352,33 @@ class Workflow:
                     logger.run_info("\n".join(dag.stats()))
             elif stats:
                 scheduler.stats.to_json(stats)
+            if not dryrun:
+                self._onsuccess(logger.get_logfile())
+            return True
         else:
+            if not dryrun:
+                self._onerror(logger.get_logfile())
             return False
-        return True
 
-    def include(self, snakefile, workdir=None, overwrite_first_rule=False,
+    def include(self, snakefile, overwrite_first_rule=False,
         print_compilation=False, overwrite_shellcmd=None):
         """
         Include a snakefile.
         """
+        # check if snakefile is a path to the filesystem
+        if not urllib.parse.urlparse(snakefile).scheme:
+            if not os.path.isabs(snakefile) and self.included_stack:
+                current_path = os.path.dirname(self.included_stack[-1])
+                snakefile = os.path.join(current_path, snakefile)
+            snakefile = os.path.abspath(snakefile)
+        # else it could be an url.
+        # at least we don't want to modify the path for clarity.
+
         if snakefile in self.included:
-            logger.warning("Multiple include of {} ignored".format(snakefile))
+            logger.info("Multiple include of {} ignored".format(snakefile))
             return
         self.included.append(snakefile)
+        self.included_stack.append(snakefile)
 
         global workflow
         global rules
@@ -370,8 +387,6 @@ class Workflow:
         rules = Rules()
 
         first_rule = self.first_rule
-        if workdir:
-            os.chdir(workdir)
         code, linemap = parse(snakefile, overwrite_shellcmd=self.overwrite_shellcmd)
 
         if print_compilation:
@@ -379,29 +394,31 @@ class Workflow:
 
         # insert the current directory into sys.path
         # this allows to import modules from the workflow directory
-        sys.path.insert(0, os.path.dirname(os.path.abspath(snakefile)))
+        sys.path.insert(0, os.path.dirname(snakefile))
 
         self.linemaps[snakefile] = linemap
         exec(compile(code, snakefile, "exec"), self.globals)
         if not overwrite_first_rule:
             self.first_rule = first_rule
+        self.included_stack.pop()
+
+    def onsuccess(self, func):
+        self._onsuccess = func
+
+    def onerror(self, func):
+        self._onerror = func
 
     def workdir(self, workdir):
-        if self._workdir is None:
+        if self.overwrite_workdir is None:
             if not os.path.exists(workdir):
                 os.makedirs(workdir)
             self._workdir = workdir
+            os.chdir(workdir)
 
     def configfile(self, jsonpath):
         """ Update the global config with the given dictionary. """
         global config
-        try:
-            with open(jsonpath) as f:
-                c = json.load(f)
-        except FileNotFoundError:
-            raise WorkflowError("Config file {} not found.".format(jsonpath))
-        if not isinstance(c, dict):
-            raise WorkflowError("Workflow config must be given as JSON with keys at top level.")
+        c = snakemake.io.load_configfile(jsonpath)
         for key, val in c.items():
             if key not in self.overwrite_config:
                 config[key] = val

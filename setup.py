@@ -1,10 +1,17 @@
 # coding: utf-8
-from setuptools import setup
+
 import sys
 
 if sys.version_info < (3,2):
-    sys.stdout.write("At least Python 3.2 is required.\n")
-    sys.exit(1)
+    print("At least Python 3.2 is required.\n", file=sys.stderr)
+    exit(1)
+
+
+try:
+    from setuptools import setup
+except ImportError:
+    print("Please install setuptools before installing snakemake.", file=sys.stderr)
+    exit(1)
 
 
 # load version info

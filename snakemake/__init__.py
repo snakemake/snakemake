@@ -19,6 +19,8 @@ from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
+from snakemake.io import load_configfile
+from snakemake.shell import shell
 
 
 __author__ = "Johannes Köster"
@@ -31,6 +33,7 @@ def snakemake(snakefile,
     nodes=1,
     resources=dict(),
     config=dict(),
+    configfile=None,
     workdir=None,
     targets=None,
     dryrun=False,
@@ -81,7 +84,8 @@ def snakemake(snakefile,
     greedyness=None,
     overwrite_shellcmd=None,
     updated_files=None,
-    log_handler=None):
+    log_handler=None,
+    keep_logger=False):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -190,7 +194,7 @@ def snakemake(snakefile,
         bool:   True if workflow execution was successful.
 
     """
-    
+
     if updated_files is None:
         updated_files = list()
 
@@ -199,7 +203,8 @@ def snakemake(snakefile,
     else:
         nodes = sys.maxsize
 
-    setup_logger(handler=log_handler, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
+    if not keep_logger:
+        setup_logger(handler=log_handler, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
 
     if greedyness is None:
          greedyness = 0.5 if prioritytargets else 1.0
@@ -216,12 +221,24 @@ def snakemake(snakefile,
     if cluster and (drmaa is not None):
         raise ValueError("cluster and drmaa args are mutually exclusive")
 
+    overwrite_config = dict()
+    if configfile:
+        overwrite_config.update(load_configfile(configfile))
+    if config:
+        overwrite_config.update(config)
+
     if workdir:
         olddir = os.getcwd()
+        if not os.path.exists(workdir):
+            logger.info("Creating specified working directory {}.".format(workdir))
+            os.makedirs(workdir)
+        workdir = os.path.abspath(workdir)
+        os.chdir(workdir)
     workflow = Workflow(
         snakefile=snakefile, snakemakepath=snakemakepath,
         jobscript=jobscript, overwrite_shellcmd=overwrite_shellcmd,
-        overwrite_config=config)
+        overwrite_config=overwrite_config, overwrite_workdir=workdir
+    )
 
     if standalone:
         try:
@@ -234,8 +251,10 @@ def snakemake(snakefile,
     success = True
     try:
         workflow.include(
-            snakefile, workdir=workdir,
-            overwrite_first_rule=True, print_compilation=print_compilation)
+            snakefile,
+            overwrite_first_rule=True,
+            print_compilation=print_compilation
+        )
         workflow.check()
 
         if not print_compilation:
@@ -246,7 +265,7 @@ def snakemake(snakefile,
             elif list_resources:
                 workflow.list_resources()
             else:
-                    #if not printdag and not printrulegraph:
+                    # if not printdag and not printrulegraph:
                     # handle subworkflows
                     subsnakemake = partial(
                         snakemake,
@@ -280,7 +299,9 @@ def snakemake(snakefile,
                         jobscript=jobscript,
                         timestamp=timestamp,
                         greedyness=greedyness,
-                        overwrite_shellcmd=overwrite_shellcmd)
+                        overwrite_shellcmd=overwrite_shellcmd,
+                        keep_logger=True
+                    )
                     success = workflow.execute(
                         targets=targets, dryrun=dryrun, touch=touch,
                         cores=cores, nodes=nodes, forcetargets=forcetargets,
@@ -293,7 +314,7 @@ def snakemake(snakefile,
                         printd3dag=printd3dag,
                         immediate_submit=immediate_submit,
                         ignore_ambiguity=ignore_ambiguity,
-                        workdir=workdir, stats=stats,
+                        stats=stats,
                         force_incomplete=force_incomplete,
                         ignore_incomplete=ignore_incomplete,
                         list_version_changes=list_version_changes,
@@ -316,7 +337,7 @@ def snakemake(snakefile,
                         updated_files=updated_files,
                         allowed_rules=allowed_rules,
                         greedyness=greedyness
-                        )
+                    )
 
     # BrokenPipeError is not present in Python 3.2, so lets wait until everbody uses > 3.2
     #except BrokenPipeError:
@@ -330,6 +351,8 @@ def snakemake(snakefile,
         os.chdir(olddir)
     if workflow.persistence:
         workflow.persistence.unlock()
+    if not keep_logger:
+        logger.cleanup()
     return success
 
 
@@ -361,7 +384,7 @@ def parse_config(args):
         valid = re.compile("[a-zA-Z_]\w*$")
         for entry in args.config:
             try:
-                key, val = entry.split("=", maxsplit=1)
+                key, val = entry.split("=", 1)
             except ValueError:
                 raise ValueError("Config entries have to be defined as name=value pairs.")
             if not valid.match(key):
@@ -416,6 +439,14 @@ def get_argument_parser():
             "The workflow config object is accessible as variable config inside "
             "the workflow. Default values can be set by providing a JSON file "
             "(see Documentation)."))
+    parser.add_argument(
+        "--configfile", metavar="JSON_FILE",
+        help=(
+            "Specify or overwrite the config file of the workflow (see the docs). "
+            "Values specified in JSON format are available in the global config "
+            "dictionary inside the workflow."
+        )
+    )
     parser.add_argument(
         "--list", "-l", action="store_true",
         help="Show availiable rules in given Snakefile.")
@@ -709,6 +740,7 @@ def main():
             nodes=args.cores,
             resources=resources,
             config=config,
+            configfile=args.configfile,
             workdir=args.directory,
             targets=args.target,
             dryrun=args.dryrun,
