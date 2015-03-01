@@ -114,6 +114,7 @@ class WorkflowError(Exception):
         else:
             self.lineno = lineno
             self.snakefile = snakefile
+        self.rule = rule
 
 
 class WildcardError(WorkflowError):
