@@ -134,6 +134,10 @@ class Rule:
         return bool(self.wildcard_names)
 
     @property
+    def wildcard_count(self):
+        return len(self.wildcard_names)
+
+    @property
     def log(self):
         return self._log
 
@@ -428,11 +432,11 @@ class Rule:
         return sum(map(len, wildcards.values()))
 
     def __lt__(self, rule):
-        comp = self.workflow._ruleorder.compare(self.name, rule.name)
+        comp = self.workflow._ruleorder.compare(self, rule)
         return comp < 0
 
     def __gt__(self, rule):
-        comp = self.workflow._ruleorder.compare(self.name, rule.name)
+        comp = self.workflow._ruleorder.compare(self, rule)
         return comp > 0
 
     def __str__(self):
@@ -455,7 +459,7 @@ class Ruleorder:
         """
         self.order.append(list(rulenames))
 
-    def compare(self, rule1name, rule2name):
+    def compare(self, rule1, rule2):
         """
         Return whether rule2 has a higher priority than rule1.
         """
@@ -463,8 +467,8 @@ class Ruleorder:
         # i.e. clauses added later overwrite those before.
         for clause in reversed(self.order):
             try:
-                i = clause.index(rule1name)
-                j = clause.index(rule2name)
+                i = clause.index(rule1.name)
+                j = clause.index(rule2.name)
                 # rules with higher priority should have a smaller index
                 comp = j - i
                 if comp < 0:
@@ -474,6 +478,13 @@ class Ruleorder:
                 return comp
             except ValueError:
                 pass
+
+        # if not ruleorder given, use wildcard count
+        if rule1.wildcard_count < rule2.wildcard_count:
+            return 1
+        elif rule1.wildcard_count > rule2.wildcard_count:
+            return -1
+
         return 0
 
     def __iter__(self):
