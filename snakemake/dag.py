@@ -414,6 +414,7 @@ class DAG:
         dependencies = self.dependencies
         depending = self.depending
 
+        _needrun.clear()
         candidates = set(self.jobs)
 
         queue = list(filter(reason, map(needrun, candidates)))
@@ -493,6 +494,8 @@ class DAG:
                 self.postprocess()
                 self.handle_protected(newjob)
                 self.handle_touch(newjob)
+                # add finished jobs to len as they are not counted after new postprocess
+                self._len += len(self._finished)
 
     def update_dynamic(self, job):
         dynamic_wildcards = job.dynamic_wildcards
@@ -571,8 +574,6 @@ class DAG:
     def specialize_rule(self, rule, newrule):
         assert newrule is not None
         self.rules.add(newrule)
-        if rule in self.forcerules:
-            self.forcerules.add(newrule)
         self.update_output_index()
 
     def collect_potential_dependencies(self, job):

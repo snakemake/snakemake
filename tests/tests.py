@@ -180,3 +180,6 @@ def test_wildcard_count_ambiguity():
 
 def test_cluster_dynamic():
     run(dpath("test_cluster_dynamic"), cluster="./qsub")
+
+def test_dynamic_complex():
+    run(dpath("test_dynamic_complex"))

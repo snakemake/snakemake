@@ -140,10 +140,7 @@ class _IOFile(str):
     def match(self, target):
         return self.regex().match(target) or None
 
-    def __repr__(self):
-        return self
-
-    def __str__(self):
+    def format_dynamic(self):
         return self.replace(self.dynamic_fill, "{*}")
 
     def __eq__(self, other):

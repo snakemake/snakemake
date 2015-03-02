@@ -66,7 +66,7 @@ class AbstractExecutor:
             for f in io:
                 f_ = ruleio[f]
                 if f in dynamicio:
-                    yield "{} (dynamic)".format(f)
+                    yield "{} (dynamic)".format(f.format_dynamic())
                 else:
                     yield f
 
@@ -351,6 +351,7 @@ class ClusterExecutor(RealExecutor):
                 "Error formatting jobscript: {} not found\n"
                 "Make sure that your custom jobscript it up to date.".format(e))
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
+
 
 class GenericClusterExecutor(ClusterExecutor):
 

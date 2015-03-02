@@ -126,7 +126,8 @@ class Job:
                 expansion = self.expand_dynamic(
                     f_,
                     restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill)
+                    omit_value=_IOFile.dynamic_fill
+                )
                 if not expansion:
                     yield f_
                 for f, _ in expansion:
