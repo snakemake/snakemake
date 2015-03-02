@@ -66,7 +66,7 @@ class AbstractExecutor:
             for f in io:
                 f_ = ruleio[f]
                 if f in dynamicio:
-                    yield "{} (dynamic)".format(f_)
+                    yield "{} (dynamic)".format(f)
                 else:
                     yield f
 

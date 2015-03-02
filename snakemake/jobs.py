@@ -143,7 +143,8 @@ class Job:
                 for f, w in self.expand_dynamic(
                     f_,
                     restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill):
+                    omit_value=_IOFile.dynamic_fill
+                ):
                     combinations.add(tuple(w.items()))
         wildcards = defaultdict(list)
         for combination in combinations:
@@ -186,9 +187,10 @@ class Job:
             if requested is None or f in requested:
                 if f in self.dynamic_output:
                     if not self.expand_dynamic(
-                    f_,
-                    restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill):
+                        f_,
+                        restriction=self.wildcards,
+                        omit_value=_IOFile.dynamic_fill
+                    ):
                         files.add("{} (dynamic)".format(f_))
                 elif not f.exists:
                     files.add(f)
