@@ -570,10 +570,10 @@ class DAG:
 
     def replace_rule(self, rule, newrule):
         assert newrule is not None
-        try:
-            self.rules.remove(rule)
-        except KeyError:
-            pass  # ignore if rule was already removed
+        #try:
+        #    self.rules.remove(rule)
+        #except KeyError:
+        #    pass  # ignore if rule was already removed
         self.rules.add(newrule)
         if rule in self.forcerules:
             self.forcerules.add(newrule)

@@ -181,5 +181,5 @@ def test_wildcard_count_ambiguity():
 
 
 # FIXME: Kemal is working on this in another branch.
-#def test_cluster_dynamic():
-#    run(dpath("test_cluster_dynamic"), cluster="./qsub")
+def test_cluster_dynamic():
+    run(dpath("test_cluster_dynamic"), cluster="./qsub")
