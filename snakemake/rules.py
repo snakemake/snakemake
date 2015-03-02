@@ -134,10 +134,6 @@ class Rule:
         return bool(self.wildcard_names)
 
     @property
-    def wildcard_count(self):
-        return len(self.wildcard_names)
-
-    @property
     def log(self):
         return self._log
 
@@ -479,11 +475,10 @@ class Ruleorder:
             except ValueError:
                 pass
 
-        # if not ruleorder given, use wildcard count
-        if rule1.wildcard_count < rule2.wildcard_count:
-            return 1
-        elif rule1.wildcard_count > rule2.wildcard_count:
-            return -1
+        # if not ruleorder given, prefer rule without wildcards
+        wildcard_cmp = rule2.has_wildcards() - rule1.has_wildcards()
+        if wildcard_cmp != 0:
+            return wildcard_cmp
 
         return 0
 
