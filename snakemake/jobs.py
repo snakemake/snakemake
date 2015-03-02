@@ -71,7 +71,7 @@ class Job:
             if f_ in self.rule.subworkflow_input:
                 self.subworkflow_input[f] = self.rule.subworkflow_input[f_]
         self._hash = self.rule.__hash__()
-        if not self.dynamic_output:
+        if True or not self.dynamic_output:
             for o in self.output:
                 self._hash ^= o.__hash__()
 
