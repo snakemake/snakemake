@@ -175,7 +175,7 @@ def format(_pattern, *args, stepout=1, **kwargs):
         return _pattern.format(*args, **variables)
     except KeyError as ex:
         raise NameError(
-            "The name {} is unknown in this context. Please"
+            "The name {} is unknown in this context. Please "
             "make sure that you defined that variable. "
             "Also note that braces not used for variable access "
             "have to be escaped by repeating them, "
