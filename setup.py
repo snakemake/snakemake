@@ -23,7 +23,7 @@ setup(
     version=__version__,
     author='Johannes Köster',
     author_email='johannes.koester@tu-dortmund.de',
-    description='Build systems like make are frequently used to create complicated workflows, e.g. in bioninformatics. This project aims to reduce the complexity of creating workflows by providing a clean and modern domain specific language (DSL) in python style, together with a fast and comfortable execution environment.',
+    description='Build systems like make are frequently used to create complicated workflows, e.g. in bioinformatics. This project aims to reduce the complexity of creating workflows by providing a clean and modern domain specific language (DSL) in python style, together with a fast and comfortable execution environment.',
     zip_safe=False,
     license='MIT',
     url='http://snakemake.googlecode.com',
