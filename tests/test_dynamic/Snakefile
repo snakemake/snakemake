@@ -6,8 +6,8 @@ rule all:
 		print(input.b)
 
 rule inter:
-	input: "test.{n}.inter"
-	output: "test.{n}.out"
+	input: "test.{n}.{bla}.inter"
+	output: "test.{n}.{bla}.out"
 	shell: "cp {input} {output}"
 
 rule dynoutput:
@@ -16,11 +16,11 @@ rule dynoutput:
 	shell: "for i in {{0..2}}; do touch test.0$i.xy.inter; done"
 
 rule:
-	input: dynamic("test.{n}.{bla}.inter")
-	output: "test.{n}.txt"
+	input: "test.{n}.{bla}.inter"
+	output: "test.{n}.{bla}.txt"
 	shell: "touch {output}"
 
 rule:
-	input: "test.{n}.txt"
-	output: "test.{n}.csv"
+	input: "test.{n}.{bla}.txt"
+	output: "test.{n}.{bla}.csv"
 	shell: "cp {input} {output}"

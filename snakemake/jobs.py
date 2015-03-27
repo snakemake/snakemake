@@ -71,7 +71,7 @@ class Job:
             if f_ in self.rule.subworkflow_input:
                 self.subworkflow_input[f] = self.rule.subworkflow_input[f_]
         self._hash = self.rule.__hash__()
-        if not self.dynamic_output:
+        if True or not self.dynamic_output:
             for o in self.output:
                 self._hash ^= o.__hash__()
 
@@ -126,7 +126,8 @@ class Job:
                 expansion = self.expand_dynamic(
                     f_,
                     restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill)
+                    omit_value=_IOFile.dynamic_fill
+                )
                 if not expansion:
                     yield f_
                 for f, _ in expansion:
@@ -143,7 +144,8 @@ class Job:
                 for f, w in self.expand_dynamic(
                     f_,
                     restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill):
+                    omit_value=_IOFile.dynamic_fill
+                ):
                     combinations.add(tuple(w.items()))
         wildcards = defaultdict(list)
         for combination in combinations:
@@ -186,9 +188,10 @@ class Job:
             if requested is None or f in requested:
                 if f in self.dynamic_output:
                     if not self.expand_dynamic(
-                    f_,
-                    restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill):
+                        f_,
+                        restriction=self.wildcards,
+                        omit_value=_IOFile.dynamic_fill
+                    ):
                         files.add("{} (dynamic)".format(f_))
                 elif not f.exists:
                     files.add(f)

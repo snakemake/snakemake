@@ -414,6 +414,7 @@ class DAG:
         dependencies = self.dependencies
         depending = self.depending
 
+        _needrun.clear()
         candidates = set(self.jobs)
 
         queue = list(filter(reason, map(needrun, candidates)))
@@ -493,6 +494,8 @@ class DAG:
                 self.postprocess()
                 self.handle_protected(newjob)
                 self.handle_touch(newjob)
+                # add finished jobs to len as they are not counted after new postprocess
+                self._len += len(self._finished)
 
     def update_dynamic(self, job):
         dynamic_wildcards = job.dynamic_wildcards
@@ -505,7 +508,7 @@ class DAG:
                 self.bfs(self.depending, job)))
         newrule, non_dynamic_wildcards = job.rule.dynamic_branch(
             dynamic_wildcards, input=False)
-        self.replace_rule(job.rule, newrule)
+        self.specialize_rule(job.rule, newrule)
 
         # no targetfile needed for job
         newjob = Job(
@@ -515,7 +518,7 @@ class DAG:
             if job_.dynamic_input:
                 newrule_ = job_.rule.dynamic_branch(dynamic_wildcards)
                 if newrule_ is not None:
-                    self.replace_rule(job_.rule, newrule_)
+                    self.specialize_rule(job_.rule, newrule_)
                     if not self.dynamic(job_):
                         logger.debug("Updating job {}.".format(job_))
                         newjob_ = Job(newrule_, self,
@@ -568,15 +571,9 @@ class DAG:
             self.targetjobs.remove(job)
             self.targetjobs.add(newjob)
 
-    def replace_rule(self, rule, newrule):
+    def specialize_rule(self, rule, newrule):
         assert newrule is not None
-        try:
-            self.rules.remove(rule)
-        except KeyError:
-            pass  # ignore if rule was already removed
         self.rules.add(newrule)
-        if rule in self.forcerules:
-            self.forcerules.add(newrule)
         self.update_output_index()
 
     def collect_potential_dependencies(self, job):

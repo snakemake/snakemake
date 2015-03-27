@@ -124,9 +124,8 @@ def test15():
 def test_report():
     run(dpath("test_report"), check_md5=False)
 
-# FIXME: commenting this out because Kemal works on this in another branch.
-#def test_dynamic():
-#    run(dpath("test_dynamic"))
+def test_dynamic():
+    run(dpath("test_dynamic"))
 
 def test_params():
     run(dpath("test_params"))
@@ -176,6 +175,11 @@ def test_benchmark():
 def test_temp_expand():
     run(dpath("test_temp_expand"))
 
-# FIXME: Kemal is working on this in another branch.
-#def test_cluster_dynamic():
-#    run(dpath("test_cluster_dynamic"), cluster="./qsub")
+def test_wildcard_count_ambiguity():
+    run(dpath("test_wildcard_count_ambiguity"))
+
+def test_cluster_dynamic():
+    run(dpath("test_cluster_dynamic"), cluster="./qsub")
+
+def test_dynamic_complex():
+    run(dpath("test_dynamic_complex"))

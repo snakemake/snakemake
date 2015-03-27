@@ -31,7 +31,9 @@ class Workflow:
         self, snakefile=None, snakemakepath=None,
         jobscript=None, overwrite_shellcmd=None,
         overwrite_config=dict(),
-        overwrite_workdir=None):
+        overwrite_workdir=None,
+        overwrite_configfile=None,
+        config_args=None):
         """
         Create the controller.
         """
@@ -56,6 +58,8 @@ class Workflow:
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config
+        self.overwrite_configfile = overwrite_configfile
+        self.config_args = config_args
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
 

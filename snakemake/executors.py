@@ -66,7 +66,7 @@ class AbstractExecutor:
             for f in io:
                 f_ = ruleio[f]
                 if f in dynamicio:
-                    yield "{} (dynamic)".format(f_)
+                    yield "{} (dynamic)".format(f.format_dynamic())
                 else:
                     yield f
 
@@ -282,7 +282,7 @@ class ClusterExecutor(RealExecutor):
             '--force -j{cores} --keep-target-files '
             '--wait-for-files {job.input} --latency-wait {latency_wait} '
             '--benchmark-repeats {benchmark_repeats} '
-            '{overwrite_workdir} --nocolor '
+            '{overwrite_workdir} {overwrite_config} --nocolor '
             '--notemp --quiet --nolock {target}'
         )
 
@@ -323,12 +323,18 @@ class ClusterExecutor(RealExecutor):
         overwrite_workdir = ""
         if self.workflow.overwrite_workdir:
             overwrite_workdir = "--directory {}".format(self.workflow.overwrite_workdir)
+        overwrite_config = ""
+        if self.workflow.overwrite_configfile:
+            overwrite_config = "--configfile {}".format(self.workflow.overwrite_configfile)
+        if self.workflow.config_args:
+            overwrite_config += "--config {}".format(" ".join(self.workflow.config_args))
 
         target = job.output if job.output else job.rule.name
         format = partial(
             str.format,
             job=job,
             overwrite_workdir=overwrite_workdir,
+            overwrite_config=overwrite_config,
             workflow=self.workflow,
             cores=self.cores,
             properties=job.json(),
@@ -345,6 +351,7 @@ class ClusterExecutor(RealExecutor):
                 "Error formatting jobscript: {} not found\n"
                 "Make sure that your custom jobscript it up to date.".format(e))
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
+
 
 class GenericClusterExecutor(ClusterExecutor):
 

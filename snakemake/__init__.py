@@ -34,6 +34,7 @@ def snakemake(snakefile,
     resources=dict(),
     config=dict(),
     configfile=None,
+    config_args=None,
     workdir=None,
     targets=None,
     dryrun=False,
@@ -237,7 +238,9 @@ def snakemake(snakefile,
     workflow = Workflow(
         snakefile=snakefile, snakemakepath=snakemakepath,
         jobscript=jobscript, overwrite_shellcmd=overwrite_shellcmd,
-        overwrite_config=overwrite_config, overwrite_workdir=workdir
+        overwrite_config=overwrite_config, overwrite_workdir=workdir,
+        overwrite_configfile=configfile,
+        config_args=config_args
     )
 
     if standalone:
@@ -741,6 +744,7 @@ def main():
             resources=resources,
             config=config,
             configfile=args.configfile,
+            config_args=args.config,
             workdir=args.directory,
             targets=args.target,
             dryrun=args.dryrun,

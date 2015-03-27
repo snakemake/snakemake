@@ -79,13 +79,14 @@ class Logger:
 
     def setup(self):
         # logfile output is done always
-        _, self.logfile = tempfile.mkstemp(prefix="", suffix=".snakemake.log")
+        self.logfile_fd, self.logfile = tempfile.mkstemp(prefix="", suffix=".snakemake.log")
         self.logfile_handler = _logging.FileHandler(self.logfile)
         self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
         self.logger.removeHandler(self.logfile_handler)
         self.logfile_handler.close()
+        os.close(self.logfile_fd)
         os.remove(self.logfile)
 
     def get_logfile(self):

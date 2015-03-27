@@ -1,0 +1,14 @@
+
+
+rule all:
+    input: "test.out"
+
+
+rule a:
+    output: "{prefix}.out"
+    shell: "touch {output}"
+
+
+rule b:
+    output: "test.out"
+    shell: "touch {output}"

@@ -56,22 +56,22 @@ class Rule:
             self.workflow = other.workflow
             self.docstring = other.docstring
             self.message = other.message
-            self._input = other._input
-            self._output = other._output
-            self._params = other._params
-            self.dependencies = other.dependencies
-            self.dynamic_output = other.dynamic_output
-            self.dynamic_input = other.dynamic_input
-            self.temp_output = other.temp_output
-            self.protected_output = other.protected_output
-            self.touch_output = other.touch_output
-            self.subworkflow_input = other.subworkflow_input
+            self._input = InputFiles(other._input)
+            self._output = OutputFiles(other._output)
+            self._params = Params(other._params)
+            self.dependencies = dict(other.dependencies)
+            self.dynamic_output = set(other.dynamic_output)
+            self.dynamic_input = set(other.dynamic_input)
+            self.temp_output = set(other.temp_output)
+            self.protected_output = set(other.protected_output)
+            self.touch_output = set(other.touch_output)
+            self.subworkflow_input = dict(other.subworkflow_input)
             self.resources = other.resources
             self.priority = other.priority
             self.version = other.version
             self._log = other._log
             self._benchmark = other._benchmark
-            self.wildcard_names = other.wildcard_names
+            self.wildcard_names = set(other.wildcard_names)
             self.lineno = other.lineno
             self.snakefile = other.snakefile
             self.run_func = other.run_func
@@ -80,19 +80,21 @@ class Rule:
 
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):
-            return (self.input, self.dynamic_input) if input else (
-                self.output, self.dynamic_output)
+            return (rule.input, rule.dynamic_input) if input else (
+                rule.output, rule.dynamic_output)
         io, dynamic_io = get_io(self)
+
+        branch = Rule(self)
+        io_, dynamic_io_ = get_io(branch)
+
         expansion = defaultdict(list)
         for i, f in enumerate(io):
             if f in dynamic_io:
                 try:
                     for e in reversed(expand(f, zip, **wildcards)):
-                        expansion[i].append(IOFile(e, rule=self))
+                        expansion[i].append(IOFile(e, rule=branch))
                 except KeyError:
                     return None
-        branch = Rule(self)
-        io_, dynamic_io_ = get_io(branch)
 
         # replace the dynamic files with the expanded files
         replacements = [(i, io[i], e) for i, e in reversed(list(expansion.items()))]
@@ -428,11 +430,11 @@ class Rule:
         return sum(map(len, wildcards.values()))
 
     def __lt__(self, rule):
-        comp = self.workflow._ruleorder.compare(self.name, rule.name)
+        comp = self.workflow._ruleorder.compare(self, rule)
         return comp < 0
 
     def __gt__(self, rule):
-        comp = self.workflow._ruleorder.compare(self.name, rule.name)
+        comp = self.workflow._ruleorder.compare(self, rule)
         return comp > 0
 
     def __str__(self):
@@ -455,7 +457,7 @@ class Ruleorder:
         """
         self.order.append(list(rulenames))
 
-    def compare(self, rule1name, rule2name):
+    def compare(self, rule1, rule2):
         """
         Return whether rule2 has a higher priority than rule1.
         """
@@ -463,8 +465,8 @@ class Ruleorder:
         # i.e. clauses added later overwrite those before.
         for clause in reversed(self.order):
             try:
-                i = clause.index(rule1name)
-                j = clause.index(rule2name)
+                i = clause.index(rule1.name)
+                j = clause.index(rule2.name)
                 # rules with higher priority should have a smaller index
                 comp = j - i
                 if comp < 0:
@@ -474,6 +476,12 @@ class Ruleorder:
                 return comp
             except ValueError:
                 pass
+
+        # if not ruleorder given, prefer rule without wildcards
+        wildcard_cmp = rule2.has_wildcards() - rule1.has_wildcards()
+        if wildcard_cmp != 0:
+            return wildcard_cmp
+
         return 0
 
     def __iter__(self):

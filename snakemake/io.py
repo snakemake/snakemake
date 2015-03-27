@@ -140,6 +140,9 @@ class _IOFile(str):
     def match(self, target):
         return self.regex().match(target) or None
 
+    def format_dynamic(self):
+        return self.replace(self.dynamic_fill, "{*}")
+
     def __eq__(self, other):
         f = other._file if isinstance(other, _IOFile) else other
         return self._file == f
@@ -216,7 +219,7 @@ def regex(filepattern):
 
 
 def apply_wildcards(pattern, wildcards, fill_missing=False,
-        fail_dynamic=False, dynamic_fill=None):
+        fail_dynamic=False, dynamic_fill=None, keep_dynamic=False):
 
         def format_match(match):
             name = match.group("name")
@@ -226,7 +229,9 @@ def apply_wildcards(pattern, wildcards, fill_missing=False,
                     raise WildcardError(name)
                 return str(value)  # convert anything into a str
             except KeyError as ex:
-                if fill_missing:
+                if keep_dynamic:
+                    return "{{{}}}".format(name)
+                elif fill_missing:
                     return dynamic_fill
                 else:
                     raise WildcardError(str(ex))
