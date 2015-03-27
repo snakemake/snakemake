@@ -480,7 +480,7 @@ def get_argument_parser():
             "Note that each rule is displayed once, hence the displayed graph will be "
             "cyclic if a rule appears in several steps of the workflow. "
             "Use this if above option leads to a DAG that is too large. "
-            "Recommended use on Unix systems: snakemake --ruledag | dot | display")
+            "Recommended use on Unix systems: snakemake --rulegraph | dot | display")
     parser.add_argument(
         "--d3dag", action="store_true",
         help="Print the DAG in D3.js compatible JSON format.")
