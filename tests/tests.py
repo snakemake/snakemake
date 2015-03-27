@@ -64,9 +64,9 @@ def run(path, shouldfail=False, needs_connection=False, snakefile="Snakefile", s
         else:
             assert success, "expected successful execution"
             for resultfile in os.listdir(results_dir):
-                if not os.path.isfile(os.path.join(results_dir, resultfile)):
-                    # FIXME: this means tests cannot use directories
-                    continue # skip .svn dirs etc.
+                if resultfile == ".gitignore" or not os.path.isfile(os.path.join(results_dir, resultfile)):
+                    # this means tests cannot use directories as output files
+                    continue
                 targetfile = join(tmpdir, resultfile)
                 expectedfile = join(results_dir, resultfile)
                 assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(resultfile)
