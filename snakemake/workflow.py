@@ -137,7 +137,7 @@ class Workflow:
                 logger.info(resource)
 
     def is_local(self, rule):
-        return rule.name in self._localrules
+        return rule.name in self._localrules or rule.norun
 
     def execute(
         self, targets=None, dryrun=False,  touch=False, cores=1, nodes=1,
@@ -157,7 +157,7 @@ class Workflow:
         keep_target_files=False,
         allowed_rules=None, greedyness=1.0):
 
-        self.global_resources = dict() if cluster or resources is None else resources
+        self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
 
