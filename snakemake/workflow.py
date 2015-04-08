@@ -626,3 +626,9 @@ class Subworkflow:
 class Rules:
     """ A namespace for rules so that they can be accessed via dot notation. """
     pass
+
+
+def srcdir(path):
+    if not workflow.included_stack:
+        return None
+    return os.path.join(os.path.dirname(workflow.included_stack[-1]), path)

@@ -183,3 +183,6 @@ def test_cluster_dynamic():
 
 def test_dynamic_complex():
     run(dpath("test_dynamic_complex"))
+
+def test_srcdir():
+    run(dpath("test_srcdir"))
