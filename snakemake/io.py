@@ -9,6 +9,7 @@ from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError
 from snakemake.logging import logger
+import yaml
 
 __author__ = "Johannes Köster"
 
@@ -499,17 +500,22 @@ class Params(Namedlist):
 class Resources(Namedlist):
     pass
 
-
-def load_configfile(jsonpath):
+def load_configfile(configpath):
     try:
-        with open(jsonpath) as f:
-            config = json.load(f)
+        with open(configpath) as f:
+            try:
+                config = json.load(f)
+            except ValueError:
+                f.seek(0) # try again
+            try: 
+                config = yaml.load(f)
+            except yaml.YAMLError:
+                raise WorkflowError("""Config file not valid JSON or YAML.""")
     except FileNotFoundError:
-        raise WorkflowError("Config file {} not found.".format(jsonpath))
+        raise WorkflowError("Config file {} not found.".format(configpath))
     if not isinstance(config, dict):
-        raise WorkflowError("Workflow config must be given as JSON with keys at top level.")
+        raise WorkflowError("Workflow config must be given as JSON or YAML with keys at top level.")
     return config
-
 
 ##### Wildcard pumping detection #####
 
