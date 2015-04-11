@@ -9,7 +9,6 @@ from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError
 from snakemake.logging import logger
-import yaml
 
 __author__ = "Johannes Köster"
 
