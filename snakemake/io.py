@@ -499,17 +499,34 @@ class Params(Namedlist):
 class Resources(Namedlist):
     pass
 
-
-def load_configfile(jsonpath):
+def _load_configfile(configpath):
+    "Tries to load a configfile first as JSON, then as YAML, into a dict."
     try:
-        with open(jsonpath) as f:
-            config = json.load(f)
+        with open(configpath) as f:
+            try:
+                return json.load(f)
+            except ValueError:
+                f.seek(0) # try again
+            try:
+                import yaml
+            except ImportError:
+                raise WorkflowError("Config file is not valid JSON and PyYAML "
+                                    "has not been installed. Please install "
+                                    "PyYAML to use YAML config files.")
+            try: 
+                return yaml.load(f)
+            except yaml.YAMLError:
+                raise WorkflowError("Config file is not valid JSON or YAML.")
     except FileNotFoundError:
-        raise WorkflowError("Config file {} not found.".format(jsonpath))
-    if not isinstance(config, dict):
-        raise WorkflowError("Workflow config must be given as JSON with keys at top level.")
-    return config
+        raise WorkflowError("Config file {} not found.".format(configpath))
 
+def load_configfile(configpath):
+    "Loads a JSON or YAML configfile as a dict, then checks that it's a dict."
+    config = _load_configfile(configpath)
+    if not isinstance(config, dict):
+        raise WorkflowError("Workflow config must be given as JSON or YAML "
+                            "with keys at top level.")
+    return config
 
 ##### Wildcard pumping detection #####
 
