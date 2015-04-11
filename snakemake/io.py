@@ -500,19 +500,30 @@ class Params(Namedlist):
 class Resources(Namedlist):
     pass
 
-def load_configfile(configpath):
+def _load_configfile(configpath):
+    "Tries to load a configfile first as JSON, then as YAML, into a dict."
     try:
         with open(configpath) as f:
             try:
-                config = json.load(f)
+                return json.load(f)
             except ValueError:
                 f.seek(0) # try again
+            try:
+                import yaml
+            except ImportError:
+                print("Config file is not valid JSON and PyYAML has not been "
+                      "installed. Please install PyYAML.", file=sys.stderr)
+                exit(1)
             try: 
-                config = yaml.load(f)
+                return yaml.load(f)
             except yaml.YAMLError:
-                raise WorkflowError("""Config file not valid JSON or YAML.""")
+                raise WorkflowError("Config file is not valid JSON or YAML.")
     except FileNotFoundError:
         raise WorkflowError("Config file {} not found.".format(configpath))
+
+def load_configfile(configpath):
+    "Loads a JSON or YAML configfile as a dict, then checks that it's a dict."
+    config = _load_configfile(configpath)
     if not isinstance(config, dict):
         raise WorkflowError("Workflow config must be given as JSON or YAML with keys at top level.")
     return config

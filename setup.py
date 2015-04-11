@@ -6,24 +6,17 @@ if sys.version_info < (3,2):
     print("At least Python 3.2 is required.\n", file=sys.stderr)
     exit(1)
 
+
 try:
     from setuptools import setup
 except ImportError:
     print("Please install setuptools before installing snakemake.", file=sys.stderr)
     exit(1)
 
-try:
-    from pip.req import parse_requirements
-except ImportError:
-    print("Please install pip before installing snakemake.", file=sys.stderr)
-    exit(1)
 
 # load version info
 exec(open("snakemake/version.py").read())
 
-# from http://stackoverflow.com/questions/14399534/how-can-i-reference-requirements-txt-for-the-install-requires-kwarg-in-setuptool
-install_reqs = parse_requirements("requirements.txt", session=False)
-reqs = [str(ir.req) for ir in install_reqs]
 
 setup(
     name='snakemake',
@@ -35,7 +28,6 @@ setup(
     license='MIT',
     url='http://snakemake.googlecode.com',
     packages=['snakemake'],
-    install_requires=reqs,
     entry_points={
         "console_scripts": ["snakemake = snakemake:main", "snakemake-bash-completion = snakemake:bash_completion"]
     },
