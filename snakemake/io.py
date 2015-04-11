@@ -510,9 +510,9 @@ def _load_configfile(configpath):
             try:
                 import yaml
             except ImportError:
-                print("Config file is not valid JSON and PyYAML has not been "
-                      "installed. Please install PyYAML.", file=sys.stderr)
-                exit(1)
+                raise WorkflowError("Config file is not valid JSON and PyYAML "
+                                    "has not been installed. Please install "
+                                    "PyYAML to use YAML config files.")
             try: 
                 return yaml.load(f)
             except yaml.YAMLError:
@@ -524,7 +524,8 @@ def load_configfile(configpath):
     "Loads a JSON or YAML configfile as a dict, then checks that it's a dict."
     config = _load_configfile(configpath)
     if not isinstance(config, dict):
-        raise WorkflowError("Workflow config must be given as JSON or YAML with keys at top level.")
+        raise WorkflowError("Workflow config must be given as JSON or YAML "
+                            "with keys at top level.")
     return config
 
 ##### Wildcard pumping detection #####
