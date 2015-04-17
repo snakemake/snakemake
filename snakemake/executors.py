@@ -397,7 +397,7 @@ class GenericClusterExecutor(ClusterExecutor):
             jobfinished=jobfinished, jobfailed=jobfailed)
 
         deps = " ".join(self.external_jobid[f] for f in job.input if f in self.external_jobid)
-        cluster=Wildcards(fromdict=self.cluster_config.get(job.rule.name, dict()))
+        cluster = Wildcards(fromdict=self.cluster_config.get(job.rule.name, dict()))
         submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps, cluster=cluster)
         try:
             ext_jobid = subprocess.check_output(
