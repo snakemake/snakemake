@@ -19,7 +19,7 @@ from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
-from snakemake.io import load_configfile
+from snakemake.io import load_configfile, load_clusterconfig
 from snakemake.shell import shell
 
 
@@ -53,6 +53,7 @@ def snakemake(snakefile,
     quiet=False,
     keepgoing=False,
     cluster=None,
+    cluster_config=None,
     drmaa=None,
     jobname="snakejob.{rulename}.{jobid}.sh",
     immediate_submit=False,
@@ -117,6 +118,7 @@ def snakemake(snakefile,
         quiet (bool):               do not print any default job information (default False)
         keepgoing (bool):           keep goind upon errors (default False)
         cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
+        cluster (str):              configuration file for cluster options (default None)
         drmaa (str):                if not None use DRMAA for cluster support, str specifies native args passed to the cluster when submitting a job
         jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
@@ -204,6 +206,11 @@ def snakemake(snakefile,
     else:
         nodes = sys.maxsize
 
+    if cluster_config:
+        cluster_config = load_clusterconfig(cluster_config)
+    else:
+        cluster_config = dict()
+
     if not keep_logger:
         setup_logger(handler=log_handler, quiet=quiet, printreason=printreason, printshellcmds=printshellcmds, nocolor=nocolor, stdout=dryrun, debug=debug, timestamp=timestamp)
 
@@ -283,6 +290,7 @@ def snakemake(snakefile,
                         quiet=quiet,
                         keepgoing=keepgoing,
                         cluster=cluster,
+                        cluster_config=cluster_config,
                         drmaa=drmaa,
                         jobname=jobname,
                         immediate_submit=immediate_submit,
@@ -312,7 +320,8 @@ def snakemake(snakefile,
                         prioritytargets=prioritytargets, quiet=quiet,
                         keepgoing=keepgoing, printshellcmds=printshellcmds,
                         printreason=printreason, printrulegraph=printrulegraph,
-                        printdag=printdag, cluster=cluster, jobname=jobname,
+                        printdag=printdag, cluster=cluster, cluster_config=cluster_config,
+                        jobname=jobname,
                         drmaa=drmaa,
                         printd3dag=printd3dag,
                         immediate_submit=immediate_submit,
@@ -555,7 +564,15 @@ def get_argument_parser():
             "submitted to the cluster with the given command, once all input "
             "files for a particular job are present.\n"
             "The submit command can be decorated to make it aware of certain job properties (input, output, params, wildcards, log, threads and dependencies (see the argument below)), e.g.:\n"
-            "$ snakemake --cluster 'qsub -pe threaded {threads}'."))
+            "$ snakemake --cluster 'qsub -pe threaded {threads}'.")),
+    parser.add_argument(
+        "--cluster-config", "-u", metavar="JSON",
+        help=(
+            "A json file that defines the wildcards used in 'cluster'"
+            "for specific rules, instead of having them specified in the Snakefile."
+            "For example, for rule 'job' you may define: "
+            "{ 'job' : { 'time' : '24:00:00' } } "
+            "to specify the time part for rule 'job'.\n")),
     parser.add_argument(
         "--drmaa", nargs="?", const="", metavar="ARGS",
         help="Execute snakemake on a cluster accessed via DRMAA, "
@@ -763,6 +780,7 @@ def main():
             quiet=args.quiet,
             keepgoing=args.keep_going,
             cluster=args.cluster,
+            cluster_config=args.cluster_config,
             drmaa=args.drmaa,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,

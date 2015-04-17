@@ -528,6 +528,16 @@ def load_configfile(configpath):
                             "with keys at top level.")
     return config
 
+def load_clusterconfig(configpath):
+    "Tries to load a cluster config file as JSON."
+    with open(configpath) as f:
+        try:
+            return json.load(f)
+        except ValueError:
+            raise WorkflowError("Cluster config is not valid JSON.")
+        except FileNotFoundError:
+            raise WorkflowError("Cluster config file { not found.}".format(configpath))
+
 ##### Wildcard pumping detection #####
 
 class PeriodicityDetector:
