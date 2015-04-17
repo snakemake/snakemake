@@ -530,13 +530,14 @@ def load_configfile(configpath):
 
 def load_clusterconfig(configpath):
     "Tries to load a cluster config file as JSON."
-    with open(configpath) as f:
-        try:
-            return json.load(f)
-        except ValueError:
-            raise WorkflowError("Cluster config is not valid JSON.")
-        except FileNotFoundError:
-            raise WorkflowError("Cluster config file { not found.}".format(configpath))
+    try:
+        with open(configpath) as f:
+            try:
+                return json.load(f)
+            except ValueError:
+                raise WorkflowError("Cluster config is not valid JSON.")
+    except IOError:
+        raise WorkflowError("Cluster config file {} not found.".format(configpath))
 
 ##### Wildcard pumping detection #####
 
