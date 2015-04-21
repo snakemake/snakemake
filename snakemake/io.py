@@ -524,20 +524,9 @@ def load_configfile(configpath):
     "Loads a JSON or YAML configfile as a dict, then checks that it's a dict."
     config = _load_configfile(configpath)
     if not isinstance(config, dict):
-        raise WorkflowError("Workflow config must be given as JSON or YAML "
+        raise WorkflowError("Config file must be given as JSON or YAML "
                             "with keys at top level.")
     return config
-
-def load_clusterconfig(configpath):
-    "Tries to load a cluster config file as JSON."
-    try:
-        with open(configpath) as f:
-            try:
-                return json.load(f)
-            except ValueError:
-                raise WorkflowError("Cluster config is not valid JSON.")
-    except IOError:
-        raise WorkflowError("Cluster config file {} not found.".format(configpath))
 
 ##### Wildcard pumping detection #####
 

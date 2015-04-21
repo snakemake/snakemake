@@ -19,7 +19,7 @@ from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
-from snakemake.io import load_configfile, load_clusterconfig
+from snakemake.io import load_configfile
 from snakemake.shell import shell
 
 
@@ -207,7 +207,7 @@ def snakemake(snakefile,
         nodes = sys.maxsize
 
     if cluster_config:
-        cluster_config = load_clusterconfig(cluster_config)
+        cluster_config = load_configfile(cluster_config)
     else:
         cluster_config = dict()
 
