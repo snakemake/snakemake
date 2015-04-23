@@ -33,6 +33,7 @@ class JobScheduler:
         dryrun=False,
         touch=False,
         cluster=None,
+        cluster_config=None,
         drmaa=None,
         jobname=None,
         immediate_submit=False,
@@ -46,6 +47,7 @@ class JobScheduler:
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
+        self.cluster_config = cluster_config
         self.dag = dag
         self.workflow = workflow
         self.dryrun = dryrun
@@ -98,8 +100,8 @@ class JobScheduler:
                 latency_wait=latency_wait, benchmark_repeats=benchmark_repeats)
             if cluster:
                 self._executor = GenericClusterExecutor(
-                    workflow, dag, None, submitcmd=cluster, jobname=jobname,
-                    printreason=printreason, quiet=quiet,
+                    workflow, dag, None, submitcmd=cluster, cluster_config=cluster_config,
+                    jobname=jobname, printreason=printreason, quiet=quiet,
                     printshellcmds=printshellcmds, latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats)
                 if immediate_submit:

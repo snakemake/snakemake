@@ -20,7 +20,7 @@ from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.stats import Stats
 from snakemake.utils import format, Unformattable
-from snakemake.io import get_wildcard_names
+from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException
 from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError
@@ -361,6 +361,7 @@ class GenericClusterExecutor(ClusterExecutor):
         dag,
         cores,
         submitcmd="qsub",
+        cluster_config=dict(),
         jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False,
         quiet=False,
@@ -374,6 +375,7 @@ class GenericClusterExecutor(ClusterExecutor):
             printshellcmds=printshellcmds, latency_wait=latency_wait,
             benchmark_repeats=benchmark_repeats)
         self.submitcmd = submitcmd
+        self.cluster_config = cluster_config
         self.external_jobid = dict()
         self.exec_job += ' && touch "{jobfinished}" || touch "{jobfailed}"'
 
@@ -395,7 +397,10 @@ class GenericClusterExecutor(ClusterExecutor):
             jobfinished=jobfinished, jobfailed=jobfailed)
 
         deps = " ".join(self.external_jobid[f] for f in job.input if f in self.external_jobid)
-        submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps)
+        cluster_map = self.cluster_config.get("__default__", dict()).copy()
+        cluster_map.update(self.cluster_config.get(job.rule.name, dict()))
+        cluster_wildcards = Wildcards(fromdict=cluster_map)
+        submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps, cluster=cluster_wildcards)
         try:
             ext_jobid = subprocess.check_output(
                 '{submitcmd} "{jobscript}"'.format(

@@ -538,7 +538,7 @@ def load_configfile(configpath):
     "Loads a JSON or YAML configfile as a dict, then checks that it's a dict."
     config = _load_configfile(configpath)
     if not isinstance(config, dict):
-        raise WorkflowError("Workflow config must be given as JSON or YAML "
+        raise WorkflowError("Config file must be given as JSON or YAML "
                             "with keys at top level.")
     return config
 
