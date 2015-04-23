@@ -339,6 +339,20 @@ def expand(*args, **wildcards):
         raise WildcardError("No values given for wildcard {}.".format(e))
 
 
+def limit(pattern, **wildcards):
+    """
+    Limit wildcards to the given values.
+
+    Arguments:
+    **wildcards -- the wildcards as keyword arguments
+                   with their values as lists
+    """
+    return pattern.format(**{
+        wildcard: "{{{},{}}}".format(wildcard, "|".join(values))
+        for wildcard, values in wildcards.items()
+    })
+
+
 def glob_wildcards(pattern):
     """
     Glob the values of the wildcards by matching the given pattern to the filesystem.
