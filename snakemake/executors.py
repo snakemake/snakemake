@@ -397,7 +397,7 @@ class GenericClusterExecutor(ClusterExecutor):
             jobfinished=jobfinished, jobfailed=jobfailed)
 
         deps = " ".join(self.external_jobid[f] for f in job.input if f in self.external_jobid)
-        cluster_map = self.cluster_config.get("default", dict()).copy()
+        cluster_map = self.cluster_config.get("__default__", dict()).copy()
         cluster_map.update(self.cluster_config.get(job.rule.name, dict()))
         cluster_wildcards = Wildcards(fromdict=cluster_map)
         submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps, cluster=cluster_wildcards)
