@@ -213,14 +213,18 @@ class Persistence:
 
     def _record(self, subject, value, id, bin=False):
         if value is not None:
-            with open(
-                os.path.join(subject, self._b64id(id)),
-                "wb" if bin else "w") as f:
+            recpath = self._record_path(subject, id)
+            os.makedirs(os.path.dirname(recpath), exist_ok=True)
+            with open(recpath, "wb" if bin else "w") as f:
                 f.write(value)
 
     def _delete_record(self, subject, id):
         try:
-            os.remove(os.path.join(subject, self._b64id(id)))
+            recpath = self._record_path(subject, id)
+            os.remove(recpath)
+            recdirs = os.path.relpath(os.path.dirname(recpath), start=subject)
+            if recdirs != ".":
+                os.removedirs(recdirs)
         except OSError as e:
             if e.errno != 2:  # not missing
                 raise e
@@ -228,9 +232,7 @@ class Persistence:
     def _read_record(self, subject, id, bin=False):
         if not self._exists_record(subject, id):
             return None
-        with open(
-            os.path.join(subject, self._b64id(id)),
-            "rb" if bin else "r") as f:
+        with open(self._record_path(subject, id), "rb" if bin else "r") as f:
             return f.read()
 
     def _changed_records(self, subject, value, *ids, bin=False):
@@ -243,7 +245,7 @@ class Persistence:
         return self._read_record(subject, id, bin=bin) == value
 
     def _exists_record(self, subject, id):
-        return os.path.exists(os.path.join(subject, self._b64id(id)))
+        return os.path.exists(self._record_path(subject, id))
 
     def _locks(self, type):
         return (f for f, _ in listfiles(
@@ -261,6 +263,16 @@ class Persistence:
                 with open(lockfile, "w") as lock:
                     print(*files, sep="\n", file=lock)
                 return
+
+    def _record_path(self, subject, id):
+        max_len = os.pathconf(subject, "PC_NAME_MAX")
+        b64id = self._b64id(id)
+        # split into chunks of proper length
+        b64id = [b64id[i:i+max_len - 1] for i in range(0, len(b64id), max_len - 1)]
+        # prepend dirs with @ (does not occur in b64) to avoid conflict with b64-named files in the same dir
+        b64id = ["@" + s for s in b64id[:-1]] + [b64id[-1]]
+        path = os.path.join(subject, *b64id)
+        return path
 
     def all_outputfiles(self):
         # we only look at output files that will be updated
