@@ -472,7 +472,7 @@ class Workflow:
             if ruleinfo.version:
                 rule.version = ruleinfo.version
             if ruleinfo.log:
-                rule.log = ruleinfo.log
+                rule.set_log(*ruleinfo.log[0], **ruleinfo.log[1])
             if ruleinfo.message:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
@@ -547,9 +547,9 @@ class Workflow:
             return ruleinfo
         return decorate
 
-    def log(self, log):
+    def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
-            ruleinfo.log = log
+            ruleinfo.log = (logs, kwlogs)
             return ruleinfo
         return decorate
 

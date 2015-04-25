@@ -8,7 +8,7 @@ import sre_constants
 from collections import defaultdict
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist
-from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params
+from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException
 
@@ -42,7 +42,7 @@ class Rule:
             self.resources = dict(_cores=1, _nodes=1)
             self.priority = 0
             self.version = None
-            self._log = None
+            self._log = Log()
             self._benchmark = None
             self.wildcard_names = set()
             self.lineno = lineno
@@ -134,14 +134,6 @@ class Rule:
         Return True if rule contains wildcards.
         """
         return bool(self.wildcard_names)
-
-    @property
-    def log(self):
-        return self._log
-
-    @log.setter
-    def log(self, log):
-        self._log = IOFile(log, rule=self)
 
     @property
     def benchmark(self):
@@ -289,6 +281,31 @@ class Rule:
             except TypeError:
                 raise SyntaxError("Params have to be specified as strings.")
 
+    @property
+    def log(self):
+        return self._log
+
+    def set_log(self, *logs, **kwlogs):
+        for item in logs:
+            self._set_log_item(item)
+        for name, item in kwlogs.items():
+            self._set_log_item(item, name=name)
+
+    def _set_log_item(self, item, name=None):
+        if isinstance(item, str) or callable(item):
+            self.log.append(IOFile(item, rule=self) if isinstance(item, str) else item)
+            if name:
+                self.log.add_name(name)
+        else:
+            try:
+                start = len(self.log)
+                for i in item:
+                    self._set_log_item(i)
+                if name:
+                    self.log.set_name(name, start, end=len(self.log))
+            except TypeError:
+                raise SyntaxError("Log files have to be specified as strings.")
+
     def expand_wildcards(self, wildcards=None):
         """
         Expand wildcards depending on the requested output
@@ -369,15 +386,18 @@ class Rule:
 
             ruleio.update(dict((f, f_) for f, f_ in zip(output, self.output)))
 
-            log = self.log.apply_wildcards(wildcards) if self.log else None
+            log = Log()
+            _apply_wildcards(log, self.log, wildcards, wildcards_obj, concretize=concretize_iofile)
+
             benchmark = self.benchmark.apply_wildcards(wildcards) if self.benchmark else None
             return input, output, params, log, benchmark, ruleio, dependencies
         except WildcardError as ex:
             # this can only happen if an input contains an unresolved wildcard.
             raise RuleException(
-                "Wildcards in input or log file of rule {} cannot be "
+                "Wildcards in input, params, log or benchmark file of rule {} cannot be "
                 "determined from output files:\n{}".format(self, str(ex)),
-                lineno=self.lineno, snakefile=self.snakefile)
+                lineno=self.lineno, snakefile=self.snakefile
+            )
 
     def is_producer(self, requested_output):
         """

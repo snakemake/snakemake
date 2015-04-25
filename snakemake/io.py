@@ -510,8 +510,14 @@ class Wildcards(Namedlist):
 class Params(Namedlist):
     pass
 
+
 class Resources(Namedlist):
     pass
+
+
+class Log(Namedlist):
+    pass
+
 
 def _load_configfile(configpath):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
