@@ -78,7 +78,7 @@ class AbstractExecutor:
             local=self.workflow.is_local(job.rule),
             input=list(format_files(job, job.input, job.ruleio, job.dynamic_input)),
             output=list(format_files(job, job.output, job.ruleio, job.dynamic_output)),
-            log=job.log,
+            log=list(job.log),
             benchmark=job.benchmark,
             reason=str(self.dag.reason(job)),
             resources=job.resources_dict,
@@ -199,16 +199,13 @@ class CPUExecutor(RealExecutor):
         job.prepare()
         super()._run(job)
 
-        log = None
-        if job.log is not None:
-            log = str(job.log)
         benchmark = None
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
 
         future = self.pool.submit(
             run_wrapper, job.rule.run_func, job.input.plainstrings(), job.output.plainstrings(), job.params,
-            job.wildcards, job.threads, job.resources, log, job.rule.version, benchmark, self.benchmark_repeats, self.workflow.linemaps)
+            job.wildcards, job.threads, job.resources, job.log.plainstrings(), job.rule.version, benchmark, self.benchmark_repeats, self.workflow.linemaps)
         future.add_done_callback(partial(
             self._callback, job, callback, error_callback))
 
@@ -562,11 +559,9 @@ def run_wrapper(
     output    -- list of output files
     wildcards -- so far processed wildcards
     threads   -- usable threads
-    log       -- path to log file
+    log       -- list of log files
     """
 
-    if log is None:
-        log = Unformattable(errormsg="log used but undefined")
     try:
         runs = 1 if benchmark is None else benchmark_repeats
         wallclock = []
