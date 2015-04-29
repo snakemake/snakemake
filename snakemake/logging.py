@@ -159,11 +159,11 @@ class Logger:
                     return "\t{}: {}".format(item, valueformat(value))
 
             yield "{}rule {}:".format("local" if msg["local"] else "", msg["name"])
-            for item in "input output".split():
+            for item in "input output log".split():
                 fmt = format_item(item, omit=[], valueformat=", ".join)
                 if fmt != None:
                     yield fmt
-            singleitems = ["log", "benchmark"]
+            singleitems = ["benchmark"]
             if self.printreason:
                 singleitems.append("reason")
             for item in singleitems:

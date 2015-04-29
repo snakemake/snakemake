@@ -1,5 +1,9 @@
 from snakemake.utils import min_version
 
+
+shell.executable("/bin/bash")
+shell.prefix("source ~/.bashrc; ")
+
 min_version("2.1")
 
 TEST = "abc"
