@@ -262,7 +262,8 @@ class Job:
             threads=self.threads,
             resources=self.resources,
             log=self.log,
-            version=self.rule.version
+            version=self.rule.version,
+            rule=self.rule.name,
         ))
         _variables.update(variables)
         try:
