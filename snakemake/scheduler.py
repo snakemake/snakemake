@@ -97,7 +97,9 @@ class JobScheduler:
                 workflow, dag, multiprocessing.cpu_count(), printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
-                latency_wait=latency_wait, benchmark_repeats=benchmark_repeats)
+                latency_wait=latency_wait, benchmark_repeats=benchmark_repeats
+            )
+            self.run = self.run_cluster_or_local
             if cluster:
                 self._executor = GenericClusterExecutor(
                     workflow, dag, None, submitcmd=cluster, cluster_config=cluster_config,
@@ -112,15 +114,12 @@ class JobScheduler:
                         update_dynamic=False,
                         print_progress=False,
                         update_resources=False)
-                else:
-                    self.run = self.run_cluster_or_local
             else:
                 self._executor = DRMAAExecutor(
                     workflow, dag, None, drmaa_args=drmaa, jobname=jobname,
                     printreason=printreason, quiet=quiet,
                     printshellcmds=printshellcmds, latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats)
-                self.run = self.run_cluster_or_local
         else:
             self._executor = CPUExecutor(
                 workflow, dag, cores, printreason=printreason,
