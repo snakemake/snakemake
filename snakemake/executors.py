@@ -32,7 +32,7 @@ class AbstractExecutor:
     def __init__(self, workflow, dag,
         printreason=False, quiet=False,
         printshellcmds=False, printthreads=True, latency_wait=3,
-        benchmark_repeats=3):
+        benchmark_repeats=1):
         self.workflow = workflow
         self.dag = dag
         self.quiet = quiet
@@ -112,7 +112,7 @@ class RealExecutor(AbstractExecutor):
     def __init__(
         self, workflow, dag,
         printreason=False, quiet=False, printshellcmds=False, latency_wait=3,
-        benchmark_repeats=3):
+        benchmark_repeats=1):
         super().__init__(
             workflow, dag, printreason=printreason,
             quiet=quiet, printshellcmds=printshellcmds,
@@ -183,7 +183,7 @@ class CPUExecutor(RealExecutor):
         printshellcmds=False,
         threads=False,
         latency_wait=3,
-        benchmark_repeats=3
+        benchmark_repeats=1
     ):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
@@ -248,7 +248,7 @@ class ClusterExecutor(RealExecutor):
         quiet=False,
         printshellcmds=False,
         latency_wait=3,
-        benchmark_repeats=3,
+        benchmark_repeats=1,
         cluster_config=None,
     ):
         super().__init__(
@@ -371,7 +371,7 @@ class GenericClusterExecutor(ClusterExecutor):
         quiet=False,
         printshellcmds=False,
         latency_wait=3,
-        benchmark_repeats=3
+        benchmark_repeats=1
     ):
         super().__init__(
             workflow, dag, cores, jobname=jobname,
@@ -463,7 +463,7 @@ class DRMAAExecutor(ClusterExecutor):
         printshellcmds=False,
         drmaa_args="",
         latency_wait=3,
-        benchmark_repeats=3,
+        benchmark_repeats=1,
         cluster_config=None,
     ):
         super().__init__(workflow, dag, cores, jobname=jobname,
