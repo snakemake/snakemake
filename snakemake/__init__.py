@@ -568,11 +568,11 @@ def get_argument_parser():
     parser.add_argument(
         "--cluster-config", "-u", metavar="JSON",
         help=(
-            "A json file that defines the wildcards used in 'cluster'"
+            "A JSON or YAML file that defines the wildcards used in 'cluster'"
             "for specific rules, instead of having them specified in the Snakefile."
             "For example, for rule 'job' you may define: "
             "{ 'job' : { 'time' : '24:00:00' } } "
-            "to specify the time part for rule 'job'.\n")),
+            "to specify the time for rule 'job'.\n")),
     parser.add_argument(
         "--drmaa", nargs="?", const="", metavar="ARGS",
         help="Execute snakemake on a cluster accessed via DRMAA, "
