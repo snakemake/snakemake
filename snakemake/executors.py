@@ -397,7 +397,10 @@ class GenericClusterExecutor(ClusterExecutor):
         cluster_map = self.cluster_config.get("__default__", dict()).copy()
         cluster_map.update(self.cluster_config.get(job.rule.name, dict()))
         cluster_wildcards = Wildcards(fromdict=cluster_map)
-        submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps, cluster=cluster_wildcards)
+        try:
+            submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps, cluster=cluster_wildcards)
+        except AttributeError as e:
+            raise WorkflowError(str(e), rule=job.rule)
         try:
             ext_jobid = subprocess.check_output(
                 '{submitcmd} "{jobscript}"'.format(
