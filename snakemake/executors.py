@@ -248,7 +248,8 @@ class ClusterExecutor(RealExecutor):
         quiet=False,
         printshellcmds=False,
         latency_wait=3,
-        benchmark_repeats=3
+        benchmark_repeats=3,
+        cluster_config=None,
     ):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
@@ -293,6 +294,7 @@ class ClusterExecutor(RealExecutor):
         self.threads = []
         self._tmpdir = None
         self.cores = cores if cores else ""
+        self.cluster_config = cluster_config if cluster_config else dict()
 
     def shutdown(self):
         for thread in self.threads:
@@ -349,6 +351,11 @@ class ClusterExecutor(RealExecutor):
                 "Make sure that your custom jobscript it up to date.".format(e))
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
 
+    def cluster_wildcards(self, job):
+        cluster = self.cluster_config.get("__default__", dict()).copy()
+        cluster.update(self.cluster_config.get(job.rule.name, dict()))
+        return Wildcards(fromdict=cluster)
+
 
 class GenericClusterExecutor(ClusterExecutor):
 
@@ -358,7 +365,7 @@ class GenericClusterExecutor(ClusterExecutor):
         dag,
         cores,
         submitcmd="qsub",
-        cluster_config=dict(),
+        cluster_config=None,
         jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False,
         quiet=False,
@@ -370,9 +377,10 @@ class GenericClusterExecutor(ClusterExecutor):
             workflow, dag, cores, jobname=jobname,
             printreason=printreason, quiet=quiet,
             printshellcmds=printshellcmds, latency_wait=latency_wait,
-            benchmark_repeats=benchmark_repeats)
+            benchmark_repeats=benchmark_repeats,
+            cluster_config=cluster_config,
+        )
         self.submitcmd = submitcmd
-        self.cluster_config = cluster_config
         self.external_jobid = dict()
         self.exec_job += ' && touch "{jobfinished}" || touch "{jobfailed}"'
 
@@ -394,11 +402,8 @@ class GenericClusterExecutor(ClusterExecutor):
             jobfinished=jobfinished, jobfailed=jobfailed)
 
         deps = " ".join(self.external_jobid[f] for f in job.input if f in self.external_jobid)
-        cluster_map = self.cluster_config.get("__default__", dict()).copy()
-        cluster_map.update(self.cluster_config.get(job.rule.name, dict()))
-        cluster_wildcards = Wildcards(fromdict=cluster_map)
         try:
-            submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps, cluster=cluster_wildcards)
+            submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps, cluster=self.cluster_wildcards(job))
         except AttributeError as e:
             raise WorkflowError(str(e), rule=job.rule)
         try:
@@ -486,11 +491,17 @@ class DRMAAExecutor(ClusterExecutor):
         super()._run(job)
         jobscript = self.get_jobscript(job)
         self.spawn_jobscript(job, jobscript)
+
+        try:
+            drmaa_args = job.format_wildcards(self.drmaa_args, cluster=self.cluster_wildcards(job))
+        except AttributeError as e:
+            raise WorkflowError(str(e), rule=job.rule)
+
         import drmaa
         try:
             jt = self.session.createJobTemplate()
             jt.remoteCommand = jobscript
-            jt.nativeSpecification = job.format_wildcards(self.drmaa_args)
+            jt.nativeSpecification = drmaa_args
 
             jobid = self.session.runJob(jt)
         except (drmaa.errors.InternalException, drmaa.errors.InvalidAttributeValueException) as e:
