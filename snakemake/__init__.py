@@ -452,10 +452,10 @@ def get_argument_parser():
             "the workflow. Default values can be set by providing a JSON file "
             "(see Documentation)."))
     parser.add_argument(
-        "--configfile", metavar="JSON_FILE",
+        "--configfile", metavar="FILE",
         help=(
             "Specify or overwrite the config file of the workflow (see the docs). "
-            "Values specified in JSON format are available in the global config "
+            "Values specified in JSON or YAML format are available in the global config "
             "dictionary inside the workflow."
         )
     )
@@ -566,7 +566,7 @@ def get_argument_parser():
             "The submit command can be decorated to make it aware of certain job properties (input, output, params, wildcards, log, threads and dependencies (see the argument below)), e.g.:\n"
             "$ snakemake --cluster 'qsub -pe threaded {threads}'.")),
     parser.add_argument(
-        "--cluster-config", "-u", metavar="JSON",
+        "--cluster-config", "-u", metavar="FILE",
         help=(
             "A JSON or YAML file that defines the wildcards used in 'cluster'"
             "for specific rules, instead of having them specified in the Snakefile."
