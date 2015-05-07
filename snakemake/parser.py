@@ -170,8 +170,11 @@ class KeywordState(TokenAutomaton):
             self.line += 1
             yield token.string, token
         elif not (is_indent(token) or is_dedent(token)):
-            for t in self.block_content(token):
-                yield t
+            if is_comment(token):
+                yield token.string, token
+            else:
+                for t in self.block_content(token):
+                    yield t
 
     def yield_indent(self, token):
         return token.string, token
