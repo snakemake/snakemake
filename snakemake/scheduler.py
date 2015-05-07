@@ -105,7 +105,8 @@ class JobScheduler:
                     workflow, dag, None, submitcmd=cluster, cluster_config=cluster_config,
                     jobname=jobname, printreason=printreason, quiet=quiet,
                     printshellcmds=printshellcmds, latency_wait=latency_wait,
-                    benchmark_repeats=benchmark_repeats)
+                    benchmark_repeats=benchmark_repeats,
+                )
                 if immediate_submit:
                     self.rule_reward = self.dryrun_rule_reward
                     self.job_reward = self.dryrun_job_reward
@@ -113,20 +114,24 @@ class JobScheduler:
                         self._proceed,
                         update_dynamic=False,
                         print_progress=False,
-                        update_resources=False)
+                        update_resources=False,
+                    )
             else:
                 self._executor = DRMAAExecutor(
                     workflow, dag, None, drmaa_args=drmaa, jobname=jobname,
                     printreason=printreason, quiet=quiet,
                     printshellcmds=printshellcmds, latency_wait=latency_wait,
-                    benchmark_repeats=benchmark_repeats)
+                    benchmark_repeats=benchmark_repeats,
+                    cluster_config=cluster_config,
+                )
         else:
             self._executor = CPUExecutor(
                 workflow, dag, cores, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
                 latency_wait=latency_wait,
-                benchmark_repeats=benchmark_repeats)
+                benchmark_repeats=benchmark_repeats,
+            )
         self._open_jobs.set()
 
     @property

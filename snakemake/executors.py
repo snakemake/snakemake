@@ -463,12 +463,15 @@ class DRMAAExecutor(ClusterExecutor):
         printshellcmds=False,
         drmaa_args="",
         latency_wait=3,
-        benchmark_repeats=3
+        benchmark_repeats=3,
+        cluster_config=None,
     ):
         super().__init__(workflow, dag, cores, jobname=jobname,
             printreason=printreason, quiet=quiet,
             printshellcmds=printshellcmds, latency_wait=latency_wait,
-            benchmark_repeats=benchmark_repeats)
+            benchmark_repeats=benchmark_repeats,
+            cluster_config=cluster_config,
+        )
         try:
             import drmaa
         except ImportError:
