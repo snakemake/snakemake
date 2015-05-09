@@ -93,8 +93,9 @@ class JobScheduler:
                 latency_wait=latency_wait)
         elif cluster or (drmaa is not None):
             # TODO properly set cores
+            workers = min(sum(1 for _ in dag.local_needrun_jobs), multiprocessing.cpu_count())
             self._local_executor = CPUExecutor(
-                workflow, dag, multiprocessing.cpu_count(), printreason=printreason,
+                workflow, dag, workers, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
                 latency_wait=latency_wait, benchmark_repeats=benchmark_repeats
@@ -125,8 +126,13 @@ class JobScheduler:
                     cluster_config=cluster_config,
                 )
         else:
+            # local execution or execution of cluster job
+            # calculate how many parallel workers the executor shall spawn
+            # each job has at least one thread, hence we need to have
+            # the minimum of given cores and number of jobs
+            workers = min(cores, len(dag))
             self._executor = CPUExecutor(
-                workflow, dag, cores, printreason=printreason,
+                workflow, dag, workers, printreason=printreason,
                 quiet=quiet, printshellcmds=printshellcmds,
                 threads=use_threads,
                 latency_wait=latency_wait,
@@ -376,7 +382,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         return cumsum(self.dag.downstream_sizes(jobs))
 
     def thread_reward(self, jobs):
-        """ Thread-based reward for jobs. Using this maximizes core 
+        """ Thread-based reward for jobs. Using this maximizes core
         saturation, but does not lead to faster computation in general."""
         return cumsum([job.threads for job in jobs])
 

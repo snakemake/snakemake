@@ -131,6 +131,10 @@ class DAG:
             yield job
 
     @property
+    def local_needrun_jobs(self):
+        return filter(lambda job: self.workflow.is_local(job.rule), self.needrun_jobs)
+
+    @property
     def finished_jobs(self):
         """ Jobs that have been executed. """
         for job in filter(self.finished, self.bfs(
@@ -806,7 +810,7 @@ class DAG:
             yield "output_file\tdate\trule\tversion\tinput_file(s)\tshellcmd\tstatus\tplan"
         else:
             yield "output_file\tdate\trule\tversion\tstatus\tplan"
-            
+
         for job in self.jobs:
             output = job.rule.output if self.dynamic(job) else job.expanded_output
             for f in output:

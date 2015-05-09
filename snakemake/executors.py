@@ -177,7 +177,7 @@ class CPUExecutor(RealExecutor):
         self,
         workflow,
         dag,
-        cores,
+        workers,
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -190,9 +190,9 @@ class CPUExecutor(RealExecutor):
             printshellcmds=printshellcmds, latency_wait=latency_wait,
             benchmark_repeats=benchmark_repeats)
 
-        self.pool = (concurrent.futures.ThreadPoolExecutor(max_workers=cores)
+        self.pool = (concurrent.futures.ThreadPoolExecutor(max_workers=workers)
             if threads
-            else ProcessPoolExecutor(max_workers=cores))
+            else ProcessPoolExecutor(max_workers=workers))
 
     def run(
         self, job, callback=None, submit_callback=None, error_callback=None):
@@ -302,8 +302,8 @@ class ClusterExecutor(RealExecutor):
         shutil.rmtree(self.tmpdir)
 
     def cancel(self):
-        self.shutdown()    
-    
+        self.shutdown()
+
     @property
     def tmpdir(self):
         if self._tmpdir is None:
