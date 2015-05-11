@@ -189,11 +189,11 @@ class Workflow:
         if forcetargets:
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
-        
+
         rules = self.rules
         if allowed_rules:
             rules = [rule for rule in rules if rule.name in set(allowed_rules)]
-            
+
         if wait_for_files is not None:
             try:
                 snakemake.io.wait_for_files(wait_for_files, latency_wait=latency_wait)
@@ -268,7 +268,7 @@ class Workflow:
             missing_input = [f for job in dag.targetjobs for f in job.input if dag.needrun(job) and not os.path.exists(f)]
             if missing_input:
                 logger.error("Dependency resolution disabled (--nodeps) "
-                    "but missing input " 
+                    "but missing input "
                     "files detected. If this happens on a cluster, please make sure "
                     "that you handle the dependencies yourself or turn of "
                     "--immediate-submit. Missing input files:\n{}".format(

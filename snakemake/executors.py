@@ -253,7 +253,8 @@ class ClusterExecutor(RealExecutor):
     ):
         super().__init__(
             workflow, dag, printreason=printreason, quiet=quiet,
-            printshellcmds=printshellcmds, latency_wait=latency_wait)
+            printshellcmds=printshellcmds, latency_wait=latency_wait,
+            benchmark_repeats=benchmark_repeats)
         if workflow.snakemakepath is None:
             raise ValueError(
             "Cluster executor needs to know the path "

@@ -42,7 +42,7 @@ class JobScheduler:
         printshellcmds=False,
         keepgoing=False,
         latency_wait=3,
-        benchmark_repeats=3,
+        benchmark_repeats=1,
         greedyness=1.0
     ):
         """ Create a new instance of KnapsackJobScheduler. """
