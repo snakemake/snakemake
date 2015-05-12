@@ -201,7 +201,7 @@ def snakemake(snakefile,
     if updated_files is None:
         updated_files = list()
 
-    if cluster:
+    if cluster or drmaa:
         cores = sys.maxsize
     else:
         nodes = sys.maxsize
@@ -494,7 +494,7 @@ def get_argument_parser():
         "--d3dag", action="store_true",
         help="Print the DAG in D3.js compatible JSON format.")
     parser.add_argument(
-        "--summary", "-S", action="store_true", 
+        "--summary", "-S", action="store_true",
         help="Print a summary of all files created by the workflow. The "
         "has the following columns: filename, modification time, "
         "rule version, status, plan.\n"
@@ -845,7 +845,7 @@ def bash_completion(snakefile="Snakefile"):
                 if file.startswith(prefix)))
             if workflow_files:
                 print(*workflow_files, sep="\n")
-            
+
             rules = [
                 rule.name for rule in workflow.rules
                 if rule.name.startswith(prefix)]
