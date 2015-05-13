@@ -1,6 +1,7 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
+__email__ = "koester@jimmy.harvard.edu"
+__license__ = "MIT"
 
 import re
 import os
@@ -27,13 +28,15 @@ from snakemake.persistence import Persistence
 
 
 class Workflow:
-    def __init__(
-        self, snakefile=None, snakemakepath=None,
-        jobscript=None, overwrite_shellcmd=None,
-        overwrite_config=dict(),
-        overwrite_workdir=None,
-        overwrite_configfile=None,
-        config_args=None):
+    def __init__(self,
+                 snakefile=None,
+                 snakemakepath=None,
+                 jobscript=None,
+                 overwrite_shellcmd=None,
+                 overwrite_config=dict(),
+                 overwrite_workdir=None,
+                 overwrite_configfile=None,
+                 config_args=None):
         """
         Create the controller.
         """
@@ -77,14 +80,19 @@ class Workflow:
 
     @property
     def concrete_files(self):
-        return (file for rule in self.rules for file in chain(rule.input, rule.output) if not callable(file) and not file.contains_wildcard())
+        return (
+            file
+            for rule in self.rules for file in chain(rule.input, rule.output)
+            if not callable(file) and not file.contains_wildcard()
+        )
 
     def check(self):
         for clause in self._ruleorder:
             for rulename in clause:
                 if not self.is_rule(rulename):
                     raise UnknownRuleException(
-                        rulename, prefix = "Error in ruleorder definition.")
+                        rulename,
+                        prefix="Error in ruleorder definition.")
 
     def add_rule(self, name=None, lineno=None, snakefile=None):
         """
@@ -132,30 +140,60 @@ class Workflow:
             logger.rule_info(name=rule.name, docstring=rule.docstring)
 
     def list_resources(self):
-        for resource in set(resource for rule in self.rules for resource in rule.resources):
+        for resource in set(
+            resource for rule in self.rules for resource in rule.resources):
             if resource not in "_cores _nodes".split():
                 logger.info(resource)
 
     def is_local(self, rule):
         return rule.name in self._localrules or rule.norun
 
-    def execute(
-        self, targets=None, dryrun=False,  touch=False, cores=1, nodes=1,
-        forcetargets=False, forceall=False, forcerun=None,
-        prioritytargets=None, quiet=False, keepgoing=False,
-        printshellcmds=False, printreason=False, printdag=False,
-        cluster=None, cluster_config=None, jobname=None, immediate_submit=False, ignore_ambiguity=False,
-        printrulegraph=False, printd3dag=False, drmaa=None,
-        stats=None, force_incomplete=False, ignore_incomplete=False,
-        list_version_changes=False, list_code_changes=False,
-        list_input_changes=False, list_params_changes=False,
-        summary=False, detailed_summary= False, latency_wait=3,
-        benchmark_repeats=3,
-        wait_for_files=None, nolock=False, unlock=False,
-        resources=None, notemp=False, nodeps=False,
-        cleanup_metadata=None, subsnakemake=None, updated_files=None,
-        keep_target_files=False,
-        allowed_rules=None, greedyness=1.0):
+    def execute(self,
+                targets=None,
+                dryrun=False,
+                touch=False,
+                cores=1,
+                nodes=1,
+                forcetargets=False,
+                forceall=False,
+                forcerun=None,
+                prioritytargets=None,
+                quiet=False,
+                keepgoing=False,
+                printshellcmds=False,
+                printreason=False,
+                printdag=False,
+                cluster=None,
+                cluster_config=None,
+                jobname=None,
+                immediate_submit=False,
+                ignore_ambiguity=False,
+                printrulegraph=False,
+                printd3dag=False,
+                drmaa=None,
+                stats=None,
+                force_incomplete=False,
+                ignore_incomplete=False,
+                list_version_changes=False,
+                list_code_changes=False,
+                list_input_changes=False,
+                list_params_changes=False,
+                summary=False,
+                detailed_summary=False,
+                latency_wait=3,
+                benchmark_repeats=3,
+                wait_for_files=None,
+                nolock=False,
+                unlock=False,
+                resources=None,
+                notemp=False,
+                nodeps=False,
+                cleanup_metadata=None,
+                subsnakemake=None,
+                updated_files=None,
+                keep_target_files=False,
+                allowed_rules=None,
+                greedyness=1.0):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -165,14 +203,17 @@ class Workflow:
             return map(self._rules.__getitem__, filter(self.is_rule, items))
 
         if keep_target_files:
+
             def files(items):
                 return filterfalse(self.is_rule, items)
         else:
+
             def files(items):
                 return map(os.path.relpath, filterfalse(self.is_rule, items))
 
         if not targets:
-            targets = [self.first_rule] if self.first_rule is not None else list()
+            targets = [self.first_rule
+                       ] if self.first_rule is not None else list()
         if prioritytargets is None:
             prioritytargets = list()
         if forcerun is None:
@@ -182,9 +223,9 @@ class Workflow:
         priorityfiles = set(files(prioritytargets))
         forcerules = set(rules(forcerun))
         forcefiles = set(files(forcerun))
-        targetrules = set(chain(
-            rules(targets), filterfalse(Rule.has_wildcards, priorityrules),
-            filterfalse(Rule.has_wildcards, forcerules)))
+        targetrules = set(chain(rules(targets),
+                                filterfalse(Rule.has_wildcards, priorityrules),
+                                filterfalse(Rule.has_wildcards, forcerules)))
         targetfiles = set(chain(files(targets), priorityfiles, forcefiles))
         if forcetargets:
             forcefiles.update(targetfiles)
@@ -196,21 +237,33 @@ class Workflow:
 
         if wait_for_files is not None:
             try:
-                snakemake.io.wait_for_files(wait_for_files, latency_wait=latency_wait)
+                snakemake.io.wait_for_files(wait_for_files,
+                                            latency_wait=latency_wait)
             except IOError as e:
                 logger.error(str(e))
                 return False
 
         dag = DAG(
-            self, rules, dryrun=dryrun, targetfiles=targetfiles,
+            self, rules,
+            dryrun=dryrun,
+            targetfiles=targetfiles,
             targetrules=targetrules,
-            forceall=forceall, forcefiles=forcefiles,
-            forcerules=forcerules, priorityfiles=priorityfiles,
-            priorityrules=priorityrules, ignore_ambiguity=ignore_ambiguity,
+            forceall=forceall,
+            forcefiles=forcefiles,
+            forcerules=forcerules,
+            priorityfiles=priorityfiles,
+            priorityrules=priorityrules,
+            ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
-            ignore_incomplete=ignore_incomplete or printdag or printrulegraph, notemp=notemp)
+            ignore_incomplete=ignore_incomplete or printdag or printrulegraph,
+            notemp=notemp)
 
-        self.persistence = Persistence(nolock=nolock, dag=dag, warn_only=dryrun or printrulegraph or printdag or summary or list_version_changes or list_code_changes or list_input_changes or list_params_changes)
+        self.persistence = Persistence(
+            nolock=nolock,
+            dag=dag,
+            warn_only=dryrun or printrulegraph or printdag or summary or
+            list_version_changes or list_code_changes or list_input_changes or
+            list_params_changes)
 
         if cleanup_metadata:
             for f in cleanup_metadata:
@@ -227,12 +280,13 @@ class Workflow:
                 return True
             except IOError:
                 logger.error("Error: Unlocking the directory {} failed. Maybe "
-                "you don't have the permissions?")
+                             "you don't have the permissions?")
                 return False
         try:
             self.persistence.lock()
         except IOError:
-            logger.error("Error: Directory cannot be locked. Please make "
+            logger.error(
+                "Error: Directory cannot be locked. Please make "
                 "sure that no other Snakemake process is trying to create "
                 "the same files in the following directory:\n{}\n"
                 "If you are sure that no other "
@@ -250,12 +304,18 @@ class Workflow:
                 subworkflow_targets = subworkflow.targets(dag)
                 updated = list()
                 if subworkflow_targets:
-                    logger.info("Executing subworkflow {}.".format(subworkflow.name))
-                    if not subsnakemake(subworkflow.snakefile, workdir=subworkflow.workdir, targets=subworkflow_targets, updated_files=updated):
+                    logger.info(
+                        "Executing subworkflow {}.".format(subworkflow.name))
+                    if not subsnakemake(subworkflow.snakefile,
+                                        workdir=subworkflow.workdir,
+                                        targets=subworkflow_targets,
+                                        updated_files=updated):
                         return False
-                    dag.updated_subworkflow_files.update(subworkflow.target(f) for f in updated)
+                    dag.updated_subworkflow_files.update(subworkflow.target(f)
+                                                         for f in updated)
                 else:
-                    logger.info("Subworkflow {}: Nothing to be done.".format(subworkflow.name))
+                    logger.info("Subworkflow {}: Nothing to be done.".format(
+                        subworkflow.name))
             if self.subworkflows:
                 logger.info("Executing main workflow.")
             # rescue globals
@@ -265,9 +325,11 @@ class Workflow:
         dag.postprocess()
 
         if nodeps:
-            missing_input = [f for job in dag.targetjobs for f in job.input if dag.needrun(job) and not os.path.exists(f)]
+            missing_input = [f for job in dag.targetjobs for f in job.input
+                             if dag.needrun(job) and not os.path.exists(f)]
             if missing_input:
-                logger.error("Dependency resolution disabled (--nodeps) "
+                logger.error(
+                    "Dependency resolution disabled (--nodeps) "
                     "but missing input "
                     "files detected. If this happens on a cluster, please make sure "
                     "that you handle the dependencies yourself or turn of "
@@ -293,56 +355,61 @@ class Workflow:
             print("\n".join(dag.summary(detailed=True)))
             return True
         elif list_version_changes:
-            items = list(chain(
-                *map(self.persistence.version_changed, dag.jobs)))
+            items = list(
+                chain(*map(self.persistence.version_changed, dag.jobs)))
             if items:
                 print(*items, sep="\n")
             return True
         elif list_code_changes:
-            items = list(chain(
-                *map(self.persistence.code_changed, dag.jobs)))
+            items = list(chain(*map(self.persistence.code_changed, dag.jobs)))
             if items:
                 print(*items, sep="\n")
             return True
         elif list_input_changes:
-            items = list(chain(
-                *map(self.persistence.input_changed, dag.jobs)))
+            items = list(chain(*map(self.persistence.input_changed, dag.jobs)))
             if items:
                 print(*items, sep="\n")
             return True
         elif list_params_changes:
-            items = list(chain(
-                *map(self.persistence.params_changed, dag.jobs)))
+            items = list(
+                chain(*map(self.persistence.params_changed, dag.jobs)))
             if items:
                 print(*items, sep="\n")
             return True
 
-        scheduler = JobScheduler(
-            self, dag, cores, dryrun=dryrun, touch=touch, cluster=cluster,
-            cluster_config=cluster_config,
-            jobname=jobname, immediate_submit=immediate_submit,
-            quiet=quiet, keepgoing=keepgoing, drmaa=drmaa,
-            printreason=printreason, printshellcmds=printshellcmds,
-            latency_wait=latency_wait, benchmark_repeats=benchmark_repeats,
-            greedyness=greedyness
-        )
+        scheduler = JobScheduler(self, dag, cores,
+                                 dryrun=dryrun,
+                                 touch=touch,
+                                 cluster=cluster,
+                                 cluster_config=cluster_config,
+                                 jobname=jobname,
+                                 immediate_submit=immediate_submit,
+                                 quiet=quiet,
+                                 keepgoing=keepgoing,
+                                 drmaa=drmaa,
+                                 printreason=printreason,
+                                 printshellcmds=printshellcmds,
+                                 latency_wait=latency_wait,
+                                 benchmark_repeats=benchmark_repeats,
+                                 greedyness=greedyness)
 
         if not dryrun and not quiet:
             if len(dag):
                 if cluster:
-                    logger.resources_info("Provided cluster nodes: {}".format(nodes))
+                    logger.resources_info(
+                        "Provided cluster nodes: {}".format(nodes))
                 else:
                     logger.resources_info("Provided cores: {}".format(cores))
                 provided_resources = format_resources(resources)
                 if provided_resources:
-                    logger.resources_info("Provided resources: " + provided_resources)
-                ignored_resources = format_resource_names(set(
-                    resource
-                    for job in dag.needrun_jobs
-                    for resource in job.resources_dict
-                    if resource not in resources))
+                    logger.resources_info(
+                        "Provided resources: " + provided_resources)
+                ignored_resources = format_resource_names(
+                    set(resource for job in dag.needrun_jobs for resource in
+                        job.resources_dict if resource not in resources))
                 if ignored_resources:
-                    logger.resources_info("Ignored resources: " + ignored_resources)
+                    logger.resources_info(
+                        "Ignored resources: " + ignored_resources)
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
@@ -365,8 +432,10 @@ class Workflow:
                 self._onerror(logger.get_logfile())
             return False
 
-    def include(self, snakefile, overwrite_first_rule=False,
-        print_compilation=False, overwrite_shellcmd=None):
+    def include(self, snakefile,
+                overwrite_first_rule=False,
+                print_compilation=False,
+                overwrite_shellcmd=None):
         """
         Include a snakefile.
         """
@@ -392,7 +461,8 @@ class Workflow:
         rules = Rules()
 
         first_rule = self.first_rule
-        code, linemap = parse(snakefile, overwrite_shellcmd=self.overwrite_shellcmd)
+        code, linemap = parse(snakefile,
+                              overwrite_shellcmd=self.overwrite_shellcmd)
 
         if print_compilation:
             print(code)
@@ -431,7 +501,6 @@ class Workflow:
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
 
-
     def subworkflow(self, name, snakefile=None, workdir=None):
         sw = Subworkflow(self, name, snakefile, workdir)
         self._subworkflows[name] = sw
@@ -454,20 +523,23 @@ class Workflow:
             if ruleinfo.threads:
                 if not isinstance(ruleinfo.threads, int):
                     raise RuleException("Threads value has to be an integer.",
-                        rule=rule)
+                                        rule=rule)
                 rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.resources:
                 args, resources = ruleinfo.resources
                 if args:
                     raise RuleException("Resources have to be named.")
-                if not all(map(lambda r: isinstance(r, int), resources.values())):
-                    raise RuleException("Resources values have to be integers.", rule=rule)
+                if not all(map(lambda r: isinstance(r, int),
+                               resources.values())):
+                    raise RuleException(
+                        "Resources values have to be integers.",
+                        rule=rule)
                 rule.resources.update(resources)
             if ruleinfo.priority:
-                if (not isinstance(ruleinfo.priority, int)
-                    and not isinstance(ruleinfo.priority, float)):
+                if (not isinstance(ruleinfo.priority, int) and
+                    not isinstance(ruleinfo.priority, float)):
                     raise RuleException("Priority values have to be numeric.",
-                        rule=rule)
+                                        rule=rule)
                 rule.priority = ruleinfo.priority
             if ruleinfo.version:
                 rule.version = ruleinfo.version
@@ -485,84 +557,98 @@ class Workflow:
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
             setattr(rules, name, rule)
             return ruleinfo.func
+
         return decorate
 
     def docstring(self, string):
         def decorate(ruleinfo):
             ruleinfo.docstring = string
             return ruleinfo
+
         return decorate
 
     def input(self, *paths, **kwpaths):
         def decorate(ruleinfo):
             ruleinfo.input = (paths, kwpaths)
             return ruleinfo
+
         return decorate
 
     def output(self, *paths, **kwpaths):
         def decorate(ruleinfo):
             ruleinfo.output = (paths, kwpaths)
             return ruleinfo
+
         return decorate
 
     def params(self, *params, **kwparams):
         def decorate(ruleinfo):
             ruleinfo.params = (params, kwparams)
             return ruleinfo
+
         return decorate
 
     def message(self, message):
         def decorate(ruleinfo):
             ruleinfo.message = message
             return ruleinfo
+
         return decorate
 
     def benchmark(self, benchmark):
         def decorate(ruleinfo):
             ruleinfo.benchmark = benchmark
             return ruleinfo
+
         return decorate
 
     def threads(self, threads):
         def decorate(ruleinfo):
             ruleinfo.threads = threads
             return ruleinfo
+
         return decorate
 
     def resources(self, *args, **resources):
         def decorate(ruleinfo):
             ruleinfo.resources = (args, resources)
             return ruleinfo
+
         return decorate
 
     def priority(self, priority):
         def decorate(ruleinfo):
             ruleinfo.priority = priority
             return ruleinfo
+
         return decorate
 
     def version(self, version):
         def decorate(ruleinfo):
             ruleinfo.version = version
             return ruleinfo
+
         return decorate
 
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
             ruleinfo.log = (logs, kwlogs)
             return ruleinfo
+
         return decorate
 
     def shellcmd(self, cmd):
         def decorate(ruleinfo):
             ruleinfo.shellcmd = cmd
             return ruleinfo
+
         return decorate
 
     def norun(self):
         def decorate(ruleinfo):
             ruleinfo.norun = True
             return ruleinfo
+
         return decorate
 
     def run(self, func):
@@ -574,7 +660,6 @@ class Workflow:
 
 
 class RuleInfo:
-
     def __init__(self, func):
         self.func = func
         self.shellcmd = None
@@ -593,7 +678,6 @@ class RuleInfo:
 
 
 class Subworkflow:
-
     def __init__(self, workflow, name, snakefile, workdir):
         self.workflow = workflow
         self.name = name
@@ -605,14 +689,16 @@ class Subworkflow:
         if self._snakefile is None:
             return os.path.abspath(os.path.join(self.workdir, "Snakefile"))
         if not os.path.isabs(self._snakefile):
-            return os.path.abspath(os.path.join(self.workflow.basedir, self._snakefile))
+            return os.path.abspath(os.path.join(self.workflow.basedir,
+                                                self._snakefile))
         return self._snakefile
 
     @property
     def workdir(self):
         workdir = "." if self._workdir is None else self._workdir
         if not os.path.isabs(workdir):
-            return os.path.abspath(os.path.join(self.workflow.basedir, workdir))
+            return os.path.abspath(os.path.join(self.workflow.basedir,
+                                                workdir))
         return workdir
 
     def target(self, paths):
@@ -621,7 +707,8 @@ class Subworkflow:
         return [self.target(path) for path in paths]
 
     def targets(self, dag):
-        return [f for job in dag.jobs for f in job.subworkflow_input if job.subworkflow_input[f] is self]
+        return [f for job in dag.jobs for f in job.subworkflow_input
+                if job.subworkflow_input[f] is self]
 
 
 class Rules:

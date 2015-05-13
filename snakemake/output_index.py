@@ -1,11 +1,14 @@
 __author__ = "Johannes Köster"
-
+__copyright__ = "Copyright 2015, Johannes Köster"
+__email__ = "koester@jimmy.harvard.edu"
+__license__ = "MIT"
 
 from collections import defaultdict
 
 
 class Node:
     __slots__ = ["rules", "children"]
+
     def __init__(self):
         self.rules = set()
         self.children = defaultdict(Node)

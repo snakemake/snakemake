@@ -1,6 +1,7 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
+__email__ = "koester@jimmy.harvard.edu"
+__license__ = "MIT"
 
 import os
 import json
@@ -55,9 +56,8 @@ def listfiles(pattern, restriction=None, omit_value=None):
             if match:
                 wildcards = Namedlist(fromdict=match.groupdict())
                 if restriction is not None:
-                    invalid = any(
-                        omit_value not in v and v != wildcards[k]
-                        for k, v in restriction.items())
+                    invalid = any(omit_value not in v and v != wildcards[k]
+                                  for k, v in restriction.items())
                     if not invalid:
                         yield f, wildcards
                 else:
@@ -77,7 +77,9 @@ def makedirs(dirnames):
 
 def report(text, path,
            stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
-           defaultenc="utf8", template=None, metadata=None, **files):
+           defaultenc="utf8",
+           template=None,
+           metadata=None, **files):
     """Create an HTML report using python docutils.
 
     Attention: This function needs Python docutils to be installed for the
@@ -119,10 +121,13 @@ def report(text, path,
     try:
         import snakemake.report
     except ImportError:
-        raise WorkflowError("Python 3 package docutils needs to be installed to use the report function.")
-    snakemake.report.report(
-        text, path, stylesheet=stylesheet, defaultenc=defaultenc,
-        template=template, metadata=metadata, **files)
+        raise WorkflowError(
+            "Python 3 package docutils needs to be installed to use the report function.")
+    snakemake.report.report(text, path,
+                            stylesheet=stylesheet,
+                            defaultenc=defaultenc,
+                            template=template,
+                            metadata=metadata, **files)
 
 
 def R(code):
@@ -137,7 +142,8 @@ def R(code):
     try:
         import rpy2.robjects as robjects
     except ImportError:
-        raise WorkflowError("Python 3 package rpy2 needs to be installed to use the R function.")
+        raise WorkflowError(
+            "Python 3 package rpy2 needs to be installed to use the R function.")
     robjects.r(format(textwrap.dedent(code), stepout=2))
 
 
@@ -147,6 +153,7 @@ def format(_pattern, *args, stepout=1, **kwargs):
     This means that keywords embedded in braces are replaced by any variable
     values that are available in the current namespace.
     """
+
     class SequenceFormatter:
         def __init__(self, sequence):
             self._sequence = sequence
@@ -174,16 +181,14 @@ def format(_pattern, *args, stepout=1, **kwargs):
     try:
         return _pattern.format(*args, **variables)
     except KeyError as ex:
-        raise NameError(
-            "The name {} is unknown in this context. Please "
-            "make sure that you defined that variable. "
-            "Also note that braces not used for variable access "
-            "have to be escaped by repeating them, "
-            "i.e. {{{{print $1}}}}".format(str(ex)))
+        raise NameError("The name {} is unknown in this context. Please "
+                        "make sure that you defined that variable. "
+                        "Also note that braces not used for variable access "
+                        "have to be escaped by repeating them, "
+                        "i.e. {{{{print $1}}}}".format(str(ex)))
 
 
 class Unformattable:
-
     def __init__(self, errormsg="This cannot be used for formatting"):
         self.errormsg = errormsg
 
@@ -191,7 +196,8 @@ class Unformattable:
         raise ValueError(self.errormsg)
 
 
-def read_job_properties(jobscript, prefix="# properties",
+def read_job_properties(jobscript,
+                        prefix="# properties",
                         pattern=re.compile("# properties = (.*)")):
     """Read the job properties defined in a snakemake jobscript.
 
@@ -208,5 +214,7 @@ def read_job_properties(jobscript, prefix="# properties",
 def min_version(version):
     """Require minimum snakemake version, raise workflow error if not met."""
     import pkg_resources
-    if pkg_resources.parse_version(snakemake.__version__) < pkg_resources.parse_version(version):
-        raise WorkflowError("Expecting Snakemake version {} or higher.".format(version))
+    if pkg_resources.parse_version(
+        snakemake.__version__) < pkg_resources.parse_version(version):
+        raise WorkflowError(
+            "Expecting Snakemake version {} or higher.".format(version))
