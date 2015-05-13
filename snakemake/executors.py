@@ -305,6 +305,10 @@ class ClusterExecutor(RealExecutor):
     def cancel(self):
         self.shutdown()
 
+    def _run(self, job, callback=None, error_callback=None):
+        super()._run(job, callback=callback, error_callback=error_callback)
+        logger.shellcmd(job.shellcmd)
+
     @property
     def tmpdir(self):
         if self._tmpdir is None:
