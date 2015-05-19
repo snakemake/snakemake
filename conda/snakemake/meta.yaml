@@ -29,11 +29,11 @@ build:
 
 requirements:
   build:
-    - python >= 3.2
+    - python >=3.2
     - setuptools
 
   run:
-    - python >= 3.2
+    - python >=3.2
     - docutils
 
 test:
@@ -46,7 +46,6 @@ test:
     # entry points work.
 
     - snakemake --help
-    - snakemake-bash-completion --help
 
   # You can also put a file called run_test.py in the recipe that will be run
   # at test time.
