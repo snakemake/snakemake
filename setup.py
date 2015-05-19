@@ -32,7 +32,7 @@ setup(
     'comfortable execution environment.',
     zip_safe=False,
     license='MIT',
-    url='http://snakemake.googlecode.com',
+    url='https://bitbucket.org/johanneskoester/snakemake',
     packages=['snakemake'],
     entry_points={
         "console_scripts":
