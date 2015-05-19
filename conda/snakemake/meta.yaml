@@ -34,6 +34,7 @@ requirements:
 
   run:
     - python >= 3.2
+    - docutils
 
 test:
   # Python imports
