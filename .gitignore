@@ -2,3 +2,7 @@
 *.pyc
 
 build/
+dist/
+*.egg-info/
+*.egg
+.snakemake*
