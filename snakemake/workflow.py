@@ -70,6 +70,9 @@ class Workflow:
         config = dict()
         config.update(self.overwrite_config)
 
+        global rules
+        rules = Rules()
+
     @property
     def subworkflows(self):
         return self._subworkflows.values()
@@ -456,10 +459,8 @@ class Workflow:
         self.included_stack.append(snakefile)
 
         global workflow
-        global rules
 
         workflow = self
-        rules = Rules()
 
         first_rule = self.first_rule
         code, linemap = parse(snakefile,
