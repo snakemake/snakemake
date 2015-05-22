@@ -400,6 +400,7 @@ class Workflow:
                         "Provided cluster nodes: {}".format(nodes))
                 else:
                     logger.resources_info("Provided cores: {}".format(cores))
+                    logger.resources_info("Rules claiming more threads will be scaled down.")
                 provided_resources = format_resources(resources)
                 if provided_resources:
                     logger.resources_info(
