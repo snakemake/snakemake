@@ -42,6 +42,7 @@ def snakemake(snakefile,
               forcetargets=False,
               forceall=False,
               forcerun=[],
+              until=[],
               prioritytargets=[],
               stats=None,
               printreason=False,
@@ -351,6 +352,7 @@ def snakemake(snakefile,
                     forceall=forceall,
                     forcerun=forcerun,
                     prioritytargets=prioritytargets,
+                    until=until,
                     quiet=quiet,
                     keepgoing=keepgoing,
                     printshellcmds=printshellcmds,
@@ -622,6 +624,14 @@ def get_argument_parser():
         metavar="TARGET",
         help=("Tell the scheduler to assign creation of given targets "
               "(and all their dependencies) highest priority. (EXPERIMENTAL)"))
+    parser.add_argument(
+        "--until", "-U",
+        nargs="+",
+        metavar="TARGET",
+        help=("Prevent the execution or creation of the given rules or files "
+              "as well as any rules or files that are downstream of these "
+              "targets in the DAG. Use this option if you want to run "
+              "a workflow until a particular rule."))
     parser.add_argument(
         "--allow-ambiguity", "-a",
         action="store_true",
@@ -942,6 +952,7 @@ def main():
                             forceall=args.forceall,
                             forcerun=args.forcerun,
                             prioritytargets=args.prioritize,
+                            until=args.until,
                             stats=args.stats,
                             nocolor=args.nocolor,
                             quiet=args.quiet,

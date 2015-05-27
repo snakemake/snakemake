@@ -36,6 +36,8 @@ class DAG:
                  forcefiles=None,
                  priorityfiles=None,
                  priorityrules=None,
+                 untilfiles=None,
+                 untilrules=None,
                  ignore_ambiguity=False,
                  force_incomplete=False,
                  ignore_incomplete=False,
@@ -66,6 +68,8 @@ class DAG:
 
         self.forcerules = set()
         self.forcefiles = set()
+        self.untilrules = set()
+        self.untilfiles = set()
         self.updated_subworkflow_files = set()
         if forceall:
             self.forcerules.update(self.rules)
@@ -73,6 +77,11 @@ class DAG:
             self.forcerules.update(forcerules)
         if forcefiles:
             self.forcefiles.update(forcefiles)
+        if untilrules:
+            self.untilrules.update(untilrules)
+        if untilfiles:
+            self.untilfiles.update(untilfiles)
+
         self.omitforce = set()
 
         self.force_incomplete = force_incomplete
@@ -93,6 +102,8 @@ class DAG:
             self.targetjobs.add(job)
 
         self.update_needrun()
+        self.delete_until_jobs()
+
 
     def update_output_index(self):
         self.output_index = OutputIndex(self.rules)
@@ -553,6 +564,37 @@ class DAG:
 
         self._len = len(_needrun)
 
+    def until_jobs(self):
+        "Returns the jobs specified by --until rules or files."
+
+        def not_in_until(job):
+            untilrule_names = [rule.name for rule in self.untilrules]
+            return not (job.rule.name in untilrule_names 
+                    or str(job.rule.output) in self.untilfiles)
+
+        return self.bfs(self.depending, 
+                        *self.targetjobs, stop=not_in_until)
+
+    def delete_depending_jobs(self, job):
+        # maybe move this functionality into self.delete_jobs?
+        "Recursively remove all jobs that depend on a particular job." 
+
+        # cast as list so you don't modify the dict as you iterate
+        depending_jobs = list(self.depending[job]) 
+        for job in depending_jobs:
+            if job in self.depending:
+                self.delete_depending_jobs(job) # delete downstream jobs first
+                self.delete_job(job, recursive=False)
+                if job in self.targetjobs:
+                    self.targetjobs.remove(job) # apparently delete_job doesn't do this?
+
+    def delete_until_jobs(self):
+        "Removes jobs downstream of jobs specified by --until."
+        if not self.untilrules and not self.untilfiles:
+            return
+        for job in self.until_jobs():
+            self.delete_depending_jobs(job)
+
     def update_priority(self):
         """ Update job priorities. """
         prioritized = (lambda job: job.rule in self.priorityrules or
@@ -760,6 +802,7 @@ class DAG:
                     yield j
         if post:
             yield job
+
 
     def is_isomorph(self, job1, job2):
         if job1.rule != job2.rule:
