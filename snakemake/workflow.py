@@ -398,7 +398,7 @@ class Workflow:
 
         if not dryrun and not quiet:
             if len(dag):
-                if cluster:
+                if cluster or drmaa:
                     logger.resources_info(
                         "Provided cluster nodes: {}".format(nodes))
                 else:
