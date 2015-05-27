@@ -333,14 +333,14 @@ class ClusterExecutor(RealExecutor):
     def spawn_jobscript(self, job, jobscript, **kwargs):
         overwrite_workdir = ""
         if self.workflow.overwrite_workdir:
-            overwrite_workdir = "--directory {}".format(
+            overwrite_workdir = "--directory {} ".format(
                 self.workflow.overwrite_workdir)
         overwrite_config = ""
         if self.workflow.overwrite_configfile:
-            overwrite_config = "--configfile {}".format(
+            overwrite_config = "--configfile {} ".format(
                 self.workflow.overwrite_configfile)
         if self.workflow.config_args:
-            overwrite_config += "--config {}".format(
+            overwrite_config += "--config {} ".format(
                 " ".join(self.workflow.config_args))
 
         target = job.output if job.output else job.rule.name
