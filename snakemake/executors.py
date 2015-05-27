@@ -560,7 +560,7 @@ class DRMAAExecutor(ClusterExecutor):
             error_callback(job)
             return
         os.remove(jobscript)
-        if retval.exitStatus == 0:
+        if retval.hasExited and retval.exitStatus == 0:
             self.finish_job(job)
             callback(job)
         else:
