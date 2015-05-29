@@ -1,4 +1,7 @@
-# -*- coding: utf-8 -*-
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
+__email__ = "koester@jimmy.harvard.edu"
+__license__ = "MIT"
 
 import textwrap
 import time
@@ -19,26 +22,21 @@ from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 
 
-__author__ = "Johannes Köster"
-
-
 class DAG:
-    def __init__(
-        self,
-        workflow,
-        rules=None,
-        dryrun=False,
-        targetfiles=None,
-        targetrules=None,
-        forceall=False,
-        forcerules=None,
-        forcefiles=None,
-        priorityfiles=None,
-        priorityrules=None,
-        ignore_ambiguity=False,
-        force_incomplete=False,
-        ignore_incomplete=False,
-        notemp=False):
+    def __init__(self, workflow,
+                 rules=None,
+                 dryrun=False,
+                 targetfiles=None,
+                 targetrules=None,
+                 forceall=False,
+                 forcerules=None,
+                 forcefiles=None,
+                 priorityfiles=None,
+                 priorityrules=None,
+                 ignore_ambiguity=False,
+                 force_incomplete=False,
+                 ignore_incomplete=False,
+                 notemp=False):
 
         self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
@@ -108,9 +106,9 @@ class DAG:
                     raise IncompleteFilesException(incomplete)
 
     def check_dynamic(self):
-        for job in filter(
-            lambda job: (job.dynamic_output
-                and not self.needrun(job)), self.jobs):
+        for job in filter(lambda job: (
+            job.dynamic_output and not self.needrun(job)
+        ), self.jobs):
             self.update_dynamic(job)
 
     @property
@@ -126,15 +124,21 @@ class DAG:
     @property
     def needrun_jobs(self):
         """ Jobs that need to be executed. """
-        for job in filter(self.needrun, self.bfs(
-            self.dependencies, *self.targetjobs, stop=self.noneedrun_finished)):
+        for job in filter(self.needrun,
+                          self.bfs(self.dependencies, *self.targetjobs,
+                                   stop=self.noneedrun_finished)):
             yield job
+
+    @property
+    def local_needrun_jobs(self):
+        return filter(lambda job: self.workflow.is_local(job.rule),
+                      self.needrun_jobs)
 
     @property
     def finished_jobs(self):
         """ Jobs that have been executed. """
-        for job in filter(self.finished, self.bfs(
-            self.dependencies, *self.targetjobs)):
+        for job in filter(self.finished, self.bfs(self.dependencies,
+                                                  *self.targetjobs)):
             yield job
 
     @property
@@ -194,15 +198,17 @@ class DAG:
 
     @property
     def incomplete_files(self):
-        return list(chain(*(job.output for job in filter(
-            self.workflow.persistence.incomplete,
-            filterfalse(self.needrun, self.jobs)))))
+        return list(chain(*(
+            job.output for job in filter(self.workflow.persistence.incomplete,
+                                         filterfalse(self.needrun, self.jobs))
+        )))
 
     @property
     def newversion_files(self):
-        return list(chain(*(job.output for job in filter(
-            self.workflow.persistence.newversion,
-            self.jobs))))
+        return list(chain(*(
+            job.output
+            for job in filter(self.workflow.persistence.newversion, self.jobs)
+        )))
 
     def missing_temp(self, job):
         """
@@ -218,30 +224,33 @@ class DAG:
         try:
             wait_for_files(job.expanded_output, latency_wait=wait)
         except IOError as e:
-            raise MissingOutputException(str(e),
-                rule=job.rule)
+            raise MissingOutputException(str(e), rule=job.rule)
 
         input_maxtime = job.input_maxtime
         if input_maxtime is not None:
             output_mintime = job.output_mintime
             if output_mintime is not None and output_mintime < input_maxtime:
-                raise RuleException("Output files {} are older than input "
+                raise RuleException(
+                    "Output files {} are older than input "
                     "files. Did you extract an archive? Make sure that output "
                     "files have a more recent modification date than the "
                     "archive, e.g. by using 'touch'.".format(
-                        ", ".join(job.expanded_output)), rule=job.rule)
+                        ", ".join(job.expanded_output)),
+                    rule=job.rule)
 
     def check_periodic_wildcards(self, job):
         """ Raise an exception if a wildcard of the given job appears to be periodic,
         indicating a cyclic dependency. """
         for wildcard, value in job.wildcards_dict.items():
-            periodic_substring = self.periodic_wildcard_detector.is_periodic(value)
+            periodic_substring = self.periodic_wildcard_detector.is_periodic(
+                value)
             if periodic_substring is not None:
                 raise PeriodicWildcardError(
                     "The value {} in wildcard {} is periodically repeated ({}). "
                     "This would lead to an infinite recursion. "
                     "To avoid this, e.g. restrict the wildcards in this rule to certain values.".format(
-                        periodic_substring, wildcard, value), rule=job.rule)
+                        periodic_substring, wildcard, value),
+                    rule=job.rule)
 
     def handle_protected(self, job):
         """ Write-protect output files that are marked with protected(). """
@@ -262,8 +271,8 @@ class DAG:
         if self.notemp:
             return
 
-        needed = lambda job_, f: any(f in files
-            for j, files in self.depending[job_].items()
+        needed = lambda job_, f: any(
+            f in files for j, files in self.depending[job_].items()
             if not self.finished(j) and self.needrun(j) and j != job)
 
         def unneeded_files():
@@ -302,19 +311,19 @@ class DAG:
                 continue
             try:
                 self.check_periodic_wildcards(job)
-                self.update_(
-                    job, visited=set(visited),
-                    skip_until_dynamic=skip_until_dynamic)
+                self.update_(job,
+                             visited=set(visited),
+                             skip_until_dynamic=skip_until_dynamic)
                 # TODO this might fail if a rule discarded here is needed
                 # elsewhere
                 if producer:
                     if job < producer or self.ignore_ambiguity:
                         break
                     elif producer is not None:
-                        raise AmbiguousRuleException(
-                            file, job, producer)
+                        raise AmbiguousRuleException(file, job, producer)
                 producer = job
-            except (MissingInputException, CyclicGraphException, PeriodicWildcardError) as ex:
+            except (MissingInputException, CyclicGraphException,
+                    PeriodicWildcardError) as ex:
                 exceptions.append(ex)
         if producer is None:
             if cycles:
@@ -342,12 +351,17 @@ class DAG:
         exceptions = dict()
         for file, jobs in potential_dependencies:
             try:
-                producer[file] = self.update(jobs, file=file, visited=visited,
-                    skip_until_dynamic=skip_until_dynamic
-                        or file in job.dynamic_input)
-            except (MissingInputException, CyclicGraphException, PeriodicWildcardError) as ex:
+                producer[file] = self.update(
+                    jobs,
+                    file=file,
+                    visited=visited,
+                    skip_until_dynamic=skip_until_dynamic or file in
+                    job.dynamic_input)
+            except (MissingInputException, CyclicGraphException,
+                    PeriodicWildcardError) as ex:
                 if file in missing_input:
-                    self.delete_job(job, recursive=False)  # delete job from tree
+                    self.delete_job(job,
+                                    recursive=False)  # delete job from tree
                     raise ex
 
         for file, job_ in producer.items():
@@ -364,6 +378,7 @@ class DAG:
 
     def update_needrun(self):
         """ Update the information whether a job needs to be executed. """
+
         def output_mintime(job):
             for job_ in self.bfs(self.depending, job):
                 t = job_.output_mintime
@@ -373,10 +388,10 @@ class DAG:
         def needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
-            updated_subworkflow_input = self.updated_subworkflow_files.intersection(job.input)
-            if (job not in self.omitforce and
-                job.rule in self.forcerules
-                or not self.forcefiles.isdisjoint(job.output)):
+            updated_subworkflow_input = self.updated_subworkflow_files.intersection(
+                job.input)
+            if (job not in self.omitforce and job.rule in self.forcerules or
+                not self.forcefiles.isdisjoint(job.output)):
                 reason.forced = True
             elif updated_subworkflow_input:
                 reason.updated_input.update(updated_subworkflow_input)
@@ -385,8 +400,9 @@ class DAG:
                 if not job.output and not job.benchmark:
                     if job.input:
                         if job.rule.norun:
-                            reason.updated_input_run.update(
-                                [f for f in job.input if not f.exists])
+                            reason.updated_input_run.update([f
+                                                             for f in job.input
+                                                             if not f.exists])
                         else:
                             reason.nooutput = True
                     else:
@@ -397,13 +413,15 @@ class DAG:
                     else:
                         missing_output = job.missing_output(
                             requested=set(chain(*self.depending[job].values()))
-                                | self.targetfiles)
+                            | self.targetfiles)
                     reason.missing_output.update(missing_output)
             if not reason:
                 output_mintime_ = output_mintime(job)
                 if output_mintime_:
-                    updated_input = [f for f in job.input
-                        if f.exists and f.is_newer(output_mintime_)]
+                    updated_input = [
+                        f for f in job.input
+                        if f.exists and f.is_newer(output_mintime_)
+                    ]
                     reason.updated_input.update(updated_input)
             if noinitreason and reason:
                 reason.derived = False
@@ -441,13 +459,13 @@ class DAG:
 
     def update_priority(self):
         """ Update job priorities. """
-        prioritized = (lambda job: job.rule in self.priorityrules
-            or not self.priorityfiles.isdisjoint(job.output))
+        prioritized = (lambda job: job.rule in self.priorityrules or
+                       not self.priorityfiles.isdisjoint(job.output))
         for job in self.needrun_jobs:
             self._priority[job] = job.rule.priority
-        for job in self.bfs(
-            self.dependencies, *filter(prioritized, self.needrun_jobs),
-            stop=self.noneedrun_finished):
+        for job in self.bfs(self.dependencies,
+                            *filter(prioritized, self.needrun_jobs),
+                            stop=self.noneedrun_finished):
             self._priority[job] = Job.HIGHEST_PRIORITY
 
     def update_ready(self):
@@ -458,8 +476,9 @@ class DAG:
 
     def update_downstream_size(self):
         for job in self.needrun_jobs:
-            self._downstream_size[job] = sum(1 for _ in self.bfs(
-                self.depending, job, stop=self.noneedrun_finished)) - 1
+            self._downstream_size[job] = sum(
+                1 for _ in self.bfs(self.depending, job,
+                                    stop=self.noneedrun_finished)) - 1
 
     def postprocess(self):
         self.update_needrun()
@@ -503,16 +522,15 @@ class DAG:
             # this happens e.g. in dryrun if output is not yet present
             return
 
-        depending = list(
-            filter(lambda job_: not self.finished(job_),
-                self.bfs(self.depending, job)))
+        depending = list(filter(lambda job_: not self.finished(job_),
+                                self.bfs(self.depending, job)))
         newrule, non_dynamic_wildcards = job.rule.dynamic_branch(
-            dynamic_wildcards, input=False)
+            dynamic_wildcards,
+            input=False)
         self.specialize_rule(job.rule, newrule)
 
         # no targetfile needed for job
-        newjob = Job(
-            newrule, self, format_wildcards=non_dynamic_wildcards)
+        newjob = Job(newrule, self, format_wildcards=non_dynamic_wildcards)
         self.replace_job(job, newjob)
         for job_ in depending:
             if job_.dynamic_input:
@@ -522,14 +540,14 @@ class DAG:
                     if not self.dynamic(job_):
                         logger.debug("Updating job {}.".format(job_))
                         newjob_ = Job(newrule_, self,
-                            targetfile=job_.targetfile)
+                                      targetfile=job_.targetfile)
 
                         unexpected_output = self.reason(
                             job_).missing_output.intersection(
                                 newjob.existing_output)
                         if unexpected_output:
                             raise UnexpectedOutputException(newjob_.rule,
-                                unexpected_output)
+                                                            unexpected_output)
 
                         self.replace_job(job_, newjob_)
         return newjob
@@ -627,8 +645,9 @@ class DAG:
     def dfs(self, direction, *jobs, stop=lambda job: False, post=True):
         visited = set()
         for job in jobs:
-            for job_ in self._dfs(
-                direction, job, visited, stop=stop, post=post):
+            for job_ in self._dfs(direction, job, visited,
+                                  stop=stop,
+                                  post=post):
                 yield job_
 
     def _dfs(self, direction, job, visited, stop, post):
@@ -668,6 +687,7 @@ class DAG:
 
     def all_longest_paths(self, *jobs):
         paths = defaultdict(list)
+
         def all_longest_paths(_jobs):
             for job in _jobs:
                 if job in paths:
@@ -679,6 +699,7 @@ class DAG:
                 all_longest_paths(deps)
                 for _job in deps:
                     paths[job].extend(path + [job] for path in paths[_job])
+
         all_longest_paths(jobs)
         return chain(*(paths[job] for job in jobs))
 
@@ -727,9 +748,9 @@ class DAG:
                 return
             visited.add(job)
             deps = sorted(self.dependencies[job], key=key)
-            deps = [(
-                group[0] if preselect.isdisjoint(group) else preselect.intersection(group).pop()
-            ) for group in (list(g) for _, g in groupby(deps, key))]
+            deps = [(group[0] if preselect.isdisjoint(group) else
+                     preselect.intersection(group).pop())
+                    for group in (list(g) for _, g in groupby(deps, key))]
             dag[job].extend(deps)
             preselect_parents(job)
             for dep in deps:
@@ -738,7 +759,10 @@ class DAG:
         for job in self.targetjobs:
             build_ruledag(job)
 
-        return self._dot(dag.keys(), print_wildcards=False, print_types=False, dag=dag)
+        return self._dot(dag.keys(),
+                         print_wildcards=False,
+                         print_types=False,
+                         dag=dag)
 
     def rule_dot(self):
         graph = defaultdict(set)
@@ -761,22 +785,27 @@ class DAG:
             return "{}: {}".format(name, value)
 
         node2rule = lambda job: job.rule
-        node2label = lambda job: "\\n".join(chain([job.rule.name], sorted(map(format_wildcard, self.new_wildcards(job)))))
+        node2label = lambda job: "\\n".join(chain([job.rule.name], sorted(
+            map(format_wildcard, self.new_wildcards(job)))))
 
         dag = {job: self.dependencies[job] for job in self.jobs}
 
-        return self._dot(dag, node2rule=node2rule, node2style=node2style, node2label=node2label)
+        return self._dot(dag,
+                         node2rule=node2rule,
+                         node2style=node2style,
+                         node2label=node2label)
 
-    def _dot(
-        self, graph,
-        node2rule=lambda node: node,
-        node2style=lambda node: "rounded",
-        node2label=lambda node: node):
+    def _dot(self, graph,
+             node2rule=lambda node: node,
+             node2style=lambda node: "rounded",
+             node2label=lambda node: node):
 
         # color rules
         huefactor = 2 / (3 * len(self.rules))
-        rulecolor = {rule: "{:.2f} 0.6 0.85".format(i * huefactor)
-            for i, rule in enumerate(self.rules)}
+        rulecolor = {
+            rule: "{:.2f} 0.6 0.85".format(i * huefactor)
+            for i, rule in enumerate(self.rules)
+        }
 
         # markup
         node_markup = '\t{}[label = "{}", color = "{}", style="{}"];'.format
@@ -786,12 +815,14 @@ class DAG:
         ids = {node: i for i, node in enumerate(graph)}
 
         # calculate nodes
-        nodes = [node_markup(ids[node], node2label(node), rulecolor[node2rule(node)], node2style(node)) for node in graph]
+        nodes = [node_markup(ids[node], node2label(node),
+                             rulecolor[node2rule(node)], node2style(node))
+                 for node in graph]
         # calculate edges
-        edges = [edge_markup(ids[dep], ids[node]) for node, deps in graph.items() for dep in deps]
+        edges = [edge_markup(ids[dep], ids[node])
+                 for node, deps in graph.items() for dep in deps]
 
-        return textwrap.dedent(
-            """\
+        return textwrap.dedent("""\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -801,14 +832,15 @@ class DAG:
             }}\
             """).format(items="\n".join(nodes + edges))
 
-    def summary(self, detailed = False):
+    def summary(self, detailed=False):
         if detailed:
             yield "output_file\tdate\trule\tversion\tinput_file(s)\tshellcmd\tstatus\tplan"
         else:
             yield "output_file\tdate\trule\tversion\tstatus\tplan"
-            
+
         for job in self.jobs:
-            output = job.rule.output if self.dynamic(job) else job.expanded_output
+            output = job.rule.output if self.dynamic(
+                job) else job.expanded_output
             for f in output:
                 rule = self.workflow.persistence.rule(f)
                 rule = "-" if rule is None else rule
@@ -842,14 +874,22 @@ class DAG:
                 elif self.workflow.persistence.params_changed(job, file=f):
                     status = "params changed"
                 if detailed:
-                    yield "\t".join((f, date, rule, version, input, shellcmd, status, pending))
+                    yield "\t".join((f, date, rule, version, input, shellcmd,
+                                     status, pending))
                 else:
                     yield "\t".join((f, date, rule, version, status, pending))
 
     def d3dag(self, max_jobs=10000):
         def node(job):
             jobid = self.jobid(job)
-            return {"id": jobid, "value": {"jobid": jobid, "label": job.rule.name, "rule": job.rule.name}}
+            return {
+                "id": jobid,
+                "value": {
+                    "jobid": jobid,
+                    "label": job.rule.name,
+                    "rule": job.rule.name
+                }
+            }
 
         def edge(a, b):
             return {"u": self.jobid(a), "v": self.jobid(b)}
@@ -857,16 +897,13 @@ class DAG:
         jobs = list(self.jobs)
 
         if len(jobs) > max_jobs:
-            logger.info("Job-DAG is too large for visualization (>{} jobs).".format(max_jobs))
+            logger.info(
+                "Job-DAG is too large for visualization (>{} jobs).".format(
+                    max_jobs))
         else:
-            logger.d3dag(
-                nodes=[node(job) for job in jobs],
-                edges=[
-                    edge(dep, job)
-                    for job in jobs for dep in self.dependencies[job]
-                    if self.needrun(dep)
-                ]
-            )
+            logger.d3dag(nodes=[node(job) for job in jobs],
+                         edges=[edge(dep, job) for job in jobs for dep in
+                                self.dependencies[job] if self.needrun(dep)])
 
     def stats(self):
         rules = Counter()

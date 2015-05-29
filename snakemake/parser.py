@@ -1,4 +1,7 @@
-# -*- coding: utf-8 -*-
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
+__email__ = "koester@jimmy.harvard.edu"
+__license__ = "MIT"
 
 import tokenize
 import textwrap
@@ -7,15 +10,9 @@ from urllib.error import HTTPError, URLError, ContentTooShortError
 import urllib.request
 from io import TextIOWrapper
 
-
 from snakemake.exceptions import WorkflowError
 
-
-__author__ = "Johannes Köster"
-
-
 dd = textwrap.dedent
-
 
 INDENT = "\t"
 
@@ -69,7 +66,6 @@ def lineno(token):
 
 
 class StopAutomaton(Exception):
-
     def __init__(self, token):
         self.token = token
 
@@ -110,20 +106,20 @@ class TokenAutomaton:
                     yield t, orig
                     self.lasttoken = t
             except tokenize.TokenError as e:
-                self.error(str(e).split(",")[0].strip("()''"), token)  # TODO the inferred line number seems to be wrong sometimes
+                self.error(
+                    str(e).split(",")[0].strip("()''"), token
+                )  # TODO the inferred line number seems to be wrong sometimes
 
     def error(self, msg, token):
         raise SyntaxError(msg,
-            (self.snakefile.path, lineno(token), None, None))
+                          (self.snakefile.path, lineno(token), None, None))
 
     def subautomaton(self, automaton, *args, **kwargs):
         return self.subautomata[automaton](
-            self.snakefile,
-            *args,
+            self.snakefile, *args,
             base_indent=self.base_indent + self.indent,
             dedent=self.dedent,
-            root=False,
-            **kwargs)
+            root=False, **kwargs)
 
 
 class KeywordState(TokenAutomaton):
@@ -131,7 +127,10 @@ class KeywordState(TokenAutomaton):
     prefix = ""
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
+        super().__init__(snakefile,
+                         base_indent=base_indent,
+                         dedent=dedent,
+                         root=root)
         self.line = 0
         self.state = self.colon
 
@@ -152,9 +151,8 @@ class KeywordState(TokenAutomaton):
             for t in self.start():
                 yield t, token
         else:
-            self.error(
-                "Colon expected after keyword {}.".format(self.keyword),
-                token)
+            self.error("Colon expected after keyword {}.".format(self.keyword),
+                       token)
 
     def block(self, token):
         if self.lasttoken == "\n" and is_comment(token):
@@ -170,8 +168,11 @@ class KeywordState(TokenAutomaton):
             self.line += 1
             yield token.string, token
         elif not (is_indent(token) or is_dedent(token)):
-            for t in self.block_content(token):
-                yield t
+            if is_comment(token):
+                yield token.string, token
+            else:
+                for t in self.block_content(token):
+                    yield t
 
     def yield_indent(self, token):
         return token.string, token
@@ -181,7 +182,6 @@ class KeywordState(TokenAutomaton):
 
 
 class GlobalKeywordState(KeywordState):
-
     def start(self):
         yield "workflow.{keyword}(".format(keyword=self.keyword)
 
@@ -200,9 +200,15 @@ class DecoratorKeywordState(KeywordState):
 
 
 class RuleKeywordState(KeywordState):
-
-    def __init__(self, snakefile, base_indent=0, dedent=0, root=True, rulename=None):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
+    def __init__(self, snakefile,
+                 base_indent=0,
+                 dedent=0,
+                 root=True,
+                 rulename=None):
+        super().__init__(snakefile,
+                         base_indent=base_indent,
+                         dedent=dedent,
+                         root=root)
         self.rulename = rulename
 
     def start(self):
@@ -220,7 +226,6 @@ class SubworkflowKeywordState(KeywordState):
         # no end needed
         return list()
 
-
 # Global keyword states
 
 
@@ -237,7 +242,6 @@ class Configfile(GlobalKeywordState):
 
 
 class Ruleorder(GlobalKeywordState):
-
     def block_content(self, token):
         if is_greater(token):
             yield ",", token
@@ -245,8 +249,7 @@ class Ruleorder(GlobalKeywordState):
             yield '"{}"'.format(token.string), token
         else:
             self.error('Expected a descending order of rule names, '
-                'e.g. rule1 > rule2 > rule3 ...', token)
-
+                       'e.g. rule1 > rule2 > rule3 ...', token)
 
 # subworkflows
 
@@ -261,12 +264,14 @@ class SubworkflowWorkdir(SubworkflowKeywordState):
 
 class Subworkflow(GlobalKeywordState):
 
-    subautomata = dict(
-        snakefile=SubworkflowSnakefile,
-        workdir=SubworkflowWorkdir)
+    subautomata = dict(snakefile=SubworkflowSnakefile,
+                       workdir=SubworkflowWorkdir)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
+        super().__init__(snakefile,
+                         base_indent=base_indent,
+                         dedent=dedent,
+                         root=root)
         self.state = self.name
         self.has_snakefile = False
         self.has_workdir = False
@@ -275,12 +280,15 @@ class Subworkflow(GlobalKeywordState):
 
     def end(self):
         if not (self.has_snakefile or self.has_workdir):
-            self.error("A subworkflow needs either a path to a Snakefile or to a workdir.", self.primary_token)
+            self.error(
+                "A subworkflow needs either a path to a Snakefile or to a workdir.",
+                self.primary_token)
         yield ")"
 
     def name(self, token):
         if is_name(token):
-            yield "workflow.subworkflow('{name}'".format(name=token.string), token
+            yield "workflow.subworkflow('{name}'".format(
+                name=token.string), token
             self.has_name = True
         elif is_colon(token) and self.has_name:
             self.primary_token = token
@@ -295,12 +303,12 @@ class Subworkflow(GlobalKeywordState):
                     self.has_snakefile = True
                 if token.string == "workdir":
                     self.has_workdir = True
-                for t in self.subautomaton(
-                    token.string).consume():
+                for t in self.subautomaton(token.string).consume():
                     yield t
             except KeyError:
                 self.error("Unexpected keyword {} in "
-                    "subworkflow definition".format(token.string), token)
+                           "subworkflow definition".format(token.string),
+                           token)
             except StopAutomaton as e:
                 self.indentation(e.token)
                 for t in self.block(e.token):
@@ -313,11 +321,10 @@ class Subworkflow(GlobalKeywordState):
             pass
         else:
             self.error("Expecting subworkflow keyword, comment or docstrings "
-                "inside a subworkflow definition.", token)
+                       "inside a subworkflow definition.", token)
 
 
 class Localrules(GlobalKeywordState):
-
     def block_content(self, token):
         if is_comma(token):
             yield ",", token
@@ -325,8 +332,7 @@ class Localrules(GlobalKeywordState):
             yield '"{}"'.format(token.string), token
         else:
             self.error('Expected a comma separated list of rules that shall '
-            'not be executed by the cluster command.', token)
-
+                       'not be executed by the cluster command.', token)
 
 # Rule keyword states
 
@@ -372,16 +378,21 @@ class Benchmark(RuleKeywordState):
 
 
 class Run(RuleKeywordState):
-
-    def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
+    def __init__(self, snakefile, rulename,
+                 base_indent=0,
+                 dedent=0,
+                 root=True):
+        super().__init__(snakefile,
+                         base_indent=base_indent,
+                         dedent=dedent,
+                         root=root)
         self.rulename = rulename
 
     def start(self):
         yield "@workflow.run"
         yield "\n"
         yield ("def __{rulename}(input, output, params, wildcards, threads, "
-            "resources, log, version):".format(rulename=self.rulename))
+               "resources, log, version):".format(rulename=self.rulename))
 
     def end(self):
         yield ""
@@ -391,9 +402,14 @@ class Shell(Run):
 
     overwrite_shellcmd = None
 
-    def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
+    def __init__(self, snakefile, rulename,
+                 base_indent=0,
+                 dedent=0,
+                 root=True):
         super().__init__(snakefile, rulename,
-            base_indent=base_indent, dedent=dedent, root=root)
+                         base_indent=base_indent,
+                         dedent=dedent,
+                         root=root)
         self.shellcmd = list()
         self.token = None
         if self.overwrite_shellcmd is not None:
@@ -423,8 +439,7 @@ class Shell(Run):
             # no block after shell keyword
             self.error(
                 "Shell command must be given as string after the shell keyword.",
-                token
-            )
+                token)
         for t in self.end():
             yield t, self.token
 
@@ -442,22 +457,24 @@ class Shell(Run):
 
 
 class Rule(GlobalKeywordState):
-    subautomata = dict(
-        input=Input,
-        output=Output,
-        params=Params,
-        threads=Threads,
-        resources=Resources,
-        priority=Priority,
-        version=Version,
-        log=Log,
-        message=Message,
-        benchmark=Benchmark,
-        run=Run,
-        shell=Shell)
+    subautomata = dict(input=Input,
+                       output=Output,
+                       params=Params,
+                       threads=Threads,
+                       resources=Resources,
+                       priority=Priority,
+                       version=Version,
+                       log=Log,
+                       message=Message,
+                       benchmark=Benchmark,
+                       run=Run,
+                       shell=Shell)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
+        super().__init__(snakefile,
+                         base_indent=base_indent,
+                         dedent=dedent,
+                         root=root)
         self.state = self.name
         self.rulename = None
         self.lineno = None
@@ -466,11 +483,11 @@ class Rule(GlobalKeywordState):
 
     def start(self):
         yield ("@workflow.rule(name={rulename}, lineno={lineno}, "
-            "snakefile='{snakefile}')".format(
-                rulename=("'{}'".format(self.rulename)
-                    if self.rulename is not None else None),
-                lineno=self.lineno,
-                snakefile=self.snakefile.path.replace('\\', '\\\\')))
+               "snakefile='{snakefile}')".format(
+                   rulename=("'{}'".format(self.rulename) if self.rulename is
+                             not None else None),
+                   lineno=self.lineno,
+                   snakefile=self.snakefile.path.replace('\\', '\\\\')))
 
     def end(self):
         if not self.run:
@@ -501,15 +518,16 @@ class Rule(GlobalKeywordState):
             try:
                 if token.string == "run" or token.string == "shell":
                     if self.run:
-                        raise self.error("Multiple run or shell keywords in rule {}.".format(self.rulename), token)
+                        raise self.error(
+                            "Multiple run or shell keywords in rule {}.".format(
+                                self.rulename), token)
                     self.run = True
-                for t in self.subautomaton(
-                    token.string,
-                    rulename=self.rulename).consume():
+                for t in self.subautomaton(token.string,
+                                           rulename=self.rulename).consume():
                     yield t
             except KeyError:
                 self.error("Unexpected keyword {} in "
-                    "rule definition".format(token.string), token)
+                           "rule definition".format(token.string), token)
             except StopAutomaton as e:
                 self.indentation(e.token)
                 for t in self.block(e.token):
@@ -522,7 +540,7 @@ class Rule(GlobalKeywordState):
             yield "@workflow.docstring({})".format(token.string), token
         else:
             self.error("Expecting rule keyword, comment or docstrings "
-                "inside a rule definition.", token)
+                       "inside a rule definition.", token)
 
     @property
     def dedent(self):
@@ -541,20 +559,21 @@ class OnError(DecoratorKeywordState):
 
 class Python(TokenAutomaton):
 
-    subautomata = dict(
-        include=Include,
-        workdir=Workdir,
-        configfile=Configfile,
-        ruleorder=Ruleorder,
-        rule=Rule,
-        subworkflow=Subworkflow,
-        localrules=Localrules,
-        onsuccess=OnSuccess,
-        onerror=OnError
-    )
+    subautomata = dict(include=Include,
+                       workdir=Workdir,
+                       configfile=Configfile,
+                       ruleorder=Ruleorder,
+                       rule=Rule,
+                       subworkflow=Subworkflow,
+                       localrules=Localrules,
+                       onsuccess=OnSuccess,
+                       onerror=OnError)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
+        super().__init__(snakefile,
+                         base_indent=base_indent,
+                         dedent=dedent,
+                         root=root)
         self.state = self.python
 
     def python(self, token):
@@ -574,14 +593,14 @@ class Python(TokenAutomaton):
 
 
 class Snakefile:
-
     def __init__(self, path):
         self.path = path
         try:
             self.file = open(self.path, encoding="utf-8")
         except FileNotFoundError as e:
             try:
-                self.file = TextIOWrapper(urllib.request.urlopen(self.path), encoding="utf-8")
+                self.file = TextIOWrapper(urllib.request.urlopen(self.path),
+                                          encoding="utf-8")
             except (HTTPError, URLError, ContentTooShortError, ValueError):
                 raise WorkflowError("Failed to open {}.".format(path))
 
@@ -619,8 +638,8 @@ def parse(path, overwrite_shellcmd=None):
         compilation = list()
         for t, orig_token in automaton.consume():
             l = lineno(orig_token)
-            linemap.update(
-                dict((i, l) for i in range(snakefile.lines + 1, snakefile.lines + t.count("\n") + 1)))
+            linemap.update(dict((i, l) for i in range(
+                snakefile.lines + 1, snakefile.lines + t.count("\n") + 1)))
             snakefile.lines += t.count("\n")
             compilation.append(t)
         compilation = "".join(format_tokens(compilation))

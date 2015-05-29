@@ -1,6 +1,7 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
+__email__ = "koester@jimmy.harvard.edu"
+__license__ = "MIT"
 
 import os
 import shutil
@@ -17,7 +18,6 @@ from snakemake.utils import listfiles
 
 
 class Persistence:
-
     def __init__(self, nolock=False, dag=None, warn_only=False):
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
@@ -37,7 +37,9 @@ class Persistence:
         self._params_path = os.path.join(self.path, "params_tracking")
         self._shellcmd_path = os.path.join(self.path, "shellcmd_tracking")
 
-        for d in (self._incomplete_path, self._version_path, self._code_path, self._rule_path, self._input_path, self._params_path, self._shellcmd_path):
+        for d in (self._incomplete_path, self._version_path, self._code_path,
+                  self._rule_path, self._input_path, self._params_path,
+                  self._shellcmd_path):
             if not os.path.exists(d):
                 os.mkdir(d)
 
@@ -73,14 +75,15 @@ class Persistence:
 
     def lock_warn_only(self):
         if self.locked:
-            logger.info("Error: Directory cannot be locked. This usually "
-            "means that another Snakemake instance is running on this directory."
-            "Another possiblity is that a previous run exited unexpectedly.")
+            logger.info(
+                "Error: Directory cannot be locked. This usually "
+                "means that another Snakemake instance is running on this directory."
+                "Another possiblity is that a previous run exited unexpectedly.")
 
     def lock(self):
         if self.locked:
             raise IOError("Another snakemake process "
-                "has locked this directory.")
+                          "has locked this directory.")
         self._lock(self.all_inputfiles(), "input")
         self._lock(self.all_outputfiles(), "output")
 
@@ -157,14 +160,17 @@ class Persistence:
         return self._read_record(self._shellcmd_path, path)
 
     def version_changed(self, job, file=None):
-        cr = partial(self._changed_records, self._version_path, job.rule.version)
+        cr = partial(self._changed_records, self._version_path,
+                     job.rule.version)
         if file is None:
             return cr(*job.output)
         else:
             return bool(list(cr(file)))
 
     def code_changed(self, job, file=None):
-        cr = partial(self._changed_records, self._code_path, self._code(job.rule), bin=True)
+        cr = partial(self._changed_records, self._code_path,
+                     self._code(job.rule),
+                     bin=True)
         if file is None:
             return cr(*job.output)
         else:
@@ -178,7 +184,8 @@ class Persistence:
             return bool(list(cr(file)))
 
     def params_changed(self, job, file=None):
-        cr = partial(self._changed_records, self._params_path, self._params(job))
+        cr = partial(self._changed_records, self._params_path,
+                     self._params(job))
         if file is None:
             return cr(*job.output)
         else:
@@ -213,14 +220,18 @@ class Persistence:
 
     def _record(self, subject, value, id, bin=False):
         if value is not None:
-            with open(
-                os.path.join(subject, self._b64id(id)),
-                "wb" if bin else "w") as f:
+            recpath = self._record_path(subject, id)
+            os.makedirs(os.path.dirname(recpath), exist_ok=True)
+            with open(recpath, "wb" if bin else "w") as f:
                 f.write(value)
 
     def _delete_record(self, subject, id):
         try:
-            os.remove(os.path.join(subject, self._b64id(id)))
+            recpath = self._record_path(subject, id)
+            os.remove(recpath)
+            recdirs = os.path.relpath(os.path.dirname(recpath), start=subject)
+            if recdirs != ".":
+                os.removedirs(recdirs)
         except OSError as e:
             if e.errno != 2:  # not missing
                 raise e
@@ -228,9 +239,7 @@ class Persistence:
     def _read_record(self, subject, id, bin=False):
         if not self._exists_record(subject, id):
             return None
-        with open(
-            os.path.join(subject, self._b64id(id)),
-            "rb" if bin else "r") as f:
+        with open(self._record_path(subject, id), "rb" if bin else "r") as f:
             return f.read()
 
     def _changed_records(self, subject, value, *ids, bin=False):
@@ -243,24 +252,33 @@ class Persistence:
         return self._read_record(subject, id, bin=bin) == value
 
     def _exists_record(self, subject, id):
-        return os.path.exists(os.path.join(subject, self._b64id(id)))
+        return os.path.exists(self._record_path(subject, id))
 
     def _locks(self, type):
         return (f for f, _ in listfiles(
-            os.path.join(
-                self._lockdir,
-                "{{n,[0-9]+}}.{}.lock".format(type)))
-            if not os.path.isdir(f))
+            os.path.join(self._lockdir, "{{n,[0-9]+}}.{}.lock".format(type)))
+                if not os.path.isdir(f))
 
     def _lock(self, files, type):
         for i in count(0):
-            lockfile = os.path.join(
-                self._lockdir, "{}.{}.lock".format(i, type))
+            lockfile = os.path.join(self._lockdir,
+                                    "{}.{}.lock".format(i, type))
             if not os.path.exists(lockfile):
                 self._lockfile[type] = lockfile
                 with open(lockfile, "w") as lock:
                     print(*files, sep="\n", file=lock)
                 return
+
+    def _record_path(self, subject, id):
+        max_len = os.pathconf(subject, "PC_NAME_MAX")
+        b64id = self._b64id(id)
+        # split into chunks of proper length
+        b64id = [b64id[i:i + max_len - 1]
+                 for i in range(0, len(b64id), max_len - 1)]
+        # prepend dirs with @ (does not occur in b64) to avoid conflict with b64-named files in the same dir
+        b64id = ["@" + s for s in b64id[:-1]] + [b64id[-1]]
+        path = os.path.join(subject, *b64id)
+        return path
 
     def all_outputfiles(self):
         # we only look at output files that will be updated
@@ -272,8 +290,7 @@ class Persistence:
 
 
 def pickle_code(code):
-    consts = [
-        (pickle_code(const) if type(const) == type(code) else const)
-        for const in code.co_consts
-    ]
-    return pickle.dumps((code.co_code, code.co_varnames, consts, code.co_names))
+    consts = [(pickle_code(const) if type(const) == type(code) else const)
+              for const in code.co_consts]
+    return pickle.dumps(
+        (code.co_code, code.co_varnames, consts, code.co_names))
