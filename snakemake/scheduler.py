@@ -356,7 +356,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             else:
                 solution = [job for job, sel in zip(jobs, x) if sel]
             # update resources
-            for name, b_i in zip(self.resources, b):
+            for name, b_i in zip(self.workflow.global_resources, b):
                 self.resources[name] = b_i
             return solution
 
