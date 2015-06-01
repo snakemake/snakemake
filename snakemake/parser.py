@@ -112,7 +112,7 @@ class TokenAutomaton:
 
     def error(self, msg, token):
         raise SyntaxError(msg,
-                          (self.snakefile.path, lineno(token), 0, None))
+                          (self.snakefile.path, lineno(token), None, None))
 
     def subautomaton(self, automaton, *args, **kwargs):
         return self.subautomata[automaton](
