@@ -14,6 +14,8 @@ def format_error(ex, lineno,
                  linemaps=None,
                  snakefile=None,
                  show_traceback=False):
+    if linemaps is None:
+        linemaps = dict()
     msg = str(ex)
     if linemaps and snakefile:
         lineno = linemaps[snakefile][lineno]
@@ -63,6 +65,11 @@ def print_exception(ex, linemaps, print_traceback=True):
         the compiled lines to source code lines in the snakefile.
     """
     #traceback.print_exception(type(ex), ex, ex.__traceback__)
+    if isinstance(ex, SyntaxError) or isinstance(ex, IndentationError):
+        logger.error(format_error(ex, ex.lineno,
+                                  snakefile=ex.filename,
+                                  show_traceback=print_traceback))
+        return
     origin = get_exception_origin(ex, linemaps)
     if origin is not None:
         lineno, file = origin
@@ -71,11 +78,6 @@ def print_exception(ex, linemaps, print_traceback=True):
                                   snakefile=file,
                                   show_traceback=print_traceback))
         return
-    if isinstance(ex, SyntaxError):
-        logger.error(format_error(ex, ex.lineno,
-                                  linemaps=linemaps,
-                                  snakefile=ex.filename,
-                                  show_traceback=print_traceback))
     elif isinstance(ex, TokenError):
         logger.error(format_error(ex, None, show_traceback=False))
     elif isinstance(ex, MissingRuleException):
