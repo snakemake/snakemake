@@ -469,7 +469,7 @@ class Namedlist(list):
                 for item in self[next:start]:
                     yield None, item
             yield name, getattr(self, name)
-            next = end if end is not None else start + 1
+            next = end
         for item in self[next:]:
             yield None, item
 
