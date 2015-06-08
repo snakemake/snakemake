@@ -53,6 +53,7 @@ def snakemake(snakefile,
               keepgoing=False,
               cluster=None,
               cluster_config=None,
+              cluster_is_synchronous=False,
               drmaa=None,
               jobname="snakejob.{rulename}.{jobid}.sh",
               immediate_submit=False,
@@ -118,6 +119,7 @@ def snakemake(snakefile,
         keepgoing (bool):           keep goind upon errors (default False)
         cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
         cluster_config (str):       configuration file for cluster options (default None)
+        cluster_is_synchronous (bool): cluster submission command will block and return remote exit code (default False)
         drmaa (str):                if not None use DRMAA for cluster support, str specifies native args passed to the cluster when submitting a job
         jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
@@ -296,6 +298,7 @@ def snakemake(snakefile,
                                        keepgoing=keepgoing,
                                        cluster=cluster,
                                        cluster_config=cluster_config,
+                                       cluster_is_synchronous=cluster_is_synchronous,
                                        drmaa=drmaa,
                                        jobname=jobname,
                                        immediate_submit=immediate_submit,
@@ -335,6 +338,7 @@ def snakemake(snakefile,
                     printdag=printdag,
                     cluster=cluster,
                     cluster_config=cluster_config,
+                    cluster_is_synchronous=cluster_is_synchronous,
                     jobname=jobname,
                     drmaa=drmaa,
                     printd3dag=printd3dag,
@@ -616,6 +620,12 @@ def get_argument_parser():
          "{ 'job' : { 'time' : '24:00:00' } } "
          "to specify the time for rule 'job'.\n")),
     parser.add_argument(
+        "--cluster-is-synchronous",
+        action="store_true",
+        help=("cluster submission command will block, returning the remote exit"
+              "status upon remote termination (for example, this should be used"
+              "if the cluster command is 'qsub -sync y' (SGE)")),
+    parser.add_argument(
         "--drmaa",
         nargs="?",
         const="",
@@ -886,6 +896,7 @@ def main():
                              keepgoing=args.keep_going,
                              cluster=args.cluster,
                              cluster_config=args.cluster_config,
+                             cluster_is_synchronous=args.cluster_is_synchronous,
                              drmaa=args.drmaa,
                              jobname=args.jobname,
                              immediate_submit=args.immediate_submit,

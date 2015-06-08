@@ -11,8 +11,9 @@ from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate
 
-from snakemake.executors import DryrunExecutor, TouchExecutor
-from snakemake.executors import GenericClusterExecutor, CPUExecutor, DRMAAExecutor
+from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
+from snakemake.executors import GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor
+
 from snakemake.logging import logger
 
 
@@ -30,6 +31,7 @@ class JobScheduler:
                  touch=False,
                  cluster=None,
                  cluster_config=None,
+                 cluster_is_synchronous=False,
                  drmaa=None,
                  jobname=None,
                  immediate_submit=False,
@@ -43,6 +45,7 @@ class JobScheduler:
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.cluster_config = cluster_config
+        self.cluster_is_synchronous = cluster_is_synchronous
         self.dag = dag
         self.workflow = workflow
         self.dryrun = dryrun
@@ -102,7 +105,9 @@ class JobScheduler:
                 benchmark_repeats=benchmark_repeats)
             self.run = self.run_cluster_or_local
             if cluster:
-                self._executor = GenericClusterExecutor(
+                constructor = SynchronousClusterExecutor if cluster_is_synchronous \
+                              else GenericClusterExecutor
+                self._executor = constructor(
                     workflow, dag, None,
                     submitcmd=cluster,
                     cluster_config=cluster_config,
