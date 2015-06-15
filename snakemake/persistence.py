@@ -223,7 +223,7 @@ class Persistence:
             recpath = self._record_path(subject, id)
             os.makedirs(os.path.dirname(recpath), exist_ok=True)
             with open(recpath, "wb" if bin else "w") as f:
-                f.write(value)
+                f.write(value if bin else str(value))
 
     def _delete_record(self, subject, id):
         try:
