@@ -326,9 +326,12 @@ class ClusterExecutor(RealExecutor):
         return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
-        return os.path.join(self.tmpdir,
-                            self.jobname.format(rulename=job.rule.name,
-                                                jobid=self.dag.jobid(job)))
+        return os.path.join(
+            self.tmpdir,
+            job.format_wildcards(self.jobname,
+                                 rulename=job.rule.name,
+                                 jobid=self.dag.jobid(job),
+                                 cluster=self.cluster_wildcards(job)))
 
     def spawn_jobscript(self, job, jobscript, **kwargs):
         overwrite_workdir = ""
