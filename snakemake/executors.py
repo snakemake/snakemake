@@ -496,7 +496,6 @@ class SynchronousClusterExecutor(ClusterExecutor):
                          cluster_config=cluster_config, )
         self.submitcmd = submitcmd
         self.external_jobid = dict()
-        self.exec_job += ' && touch "{jobfinished}" || touch "{jobfailed}"'
 
     def cancel(self):
         logger.info("Will exit after finishing currently running jobs.")
@@ -511,11 +510,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
         jobid = self.dag.jobid(job)
 
         jobscript = self.get_jobscript(job)
-        jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
-        jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
-        self.spawn_jobscript(job, jobscript,
-                             jobfinished=jobfinished,
-                             jobfailed=jobfailed)
+        self.spawn_jobscript(job, jobscript)
 
         deps = " ".join(self.external_jobid[f] for f in job.input
                         if f in self.external_jobid)
@@ -528,30 +523,23 @@ class SynchronousClusterExecutor(ClusterExecutor):
             raise WorkflowError(str(e), rule=job.rule)
 
         thread = threading.Thread(target=self._submit_job,
-                                  args=(job, callback, error_callback, submitcmd, jobscript,
-                                        jobfinished, jobfailed))
+                                  args=(job, callback, error_callback, submitcmd, jobscript))
         thread.daemon = True
         thread.start()
         self.threads.append(thread)
         submit_callback(job)
 
-    def _submit_job(self, job, callback, error_callback, submitcmd, jobscript,
-                    jobfinished, jobfailed):
+    def _submit_job(self, job, callback, error_callback, submitcmd, jobscript):
         try:
             ext_jobid = subprocess.check_output(
                 '{submitcmd} "{jobscript}"'.format(submitcmd=submitcmd,
                                                    jobscript=jobscript),
                 shell=True).decode().split("\n")
-
-        except subprocess.CalledProcessError as ex:
-            pass
-
-        if os.path.exists(jobfinished):
             os.remove(jobscript)
             self.finish_job(job)
             callback(job)
 
-        elif os.path.exists(jobfailed):
+        except subprocess.CalledProcessError as ex:
             os.remove(jobscript)
             self.print_job_error(job)
             print_exception(ClusterJobException(job, self.dag.jobid(job),
