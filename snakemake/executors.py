@@ -1,4 +1,4 @@
-__author__ = "Johannes Köster"
+__authors__ = ["Johannes Köster", "David Alexander"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -474,12 +474,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
     invocations like "qsub -sync y" (SGE) or "bsub -K" (LSF) are
     synchronous, blocking the foreground thread and returning the
     remote exit code at remote exit.
-
-    impl. notes:
-
-    - not grabbing the "job id" that comes back immediately on job; is
-      this going to cause problems?
     """
+
     def __init__(self, workflow, dag, cores,
                  submitcmd="qsub",
                  cluster_config=None,
@@ -525,8 +521,9 @@ class SynchronousClusterExecutor(ClusterExecutor):
         except AttributeError as e:
             raise WorkflowError(str(e), rule=job.rule)
 
-        thread = threading.Thread(target=self._submit_job,
-                                  args=(job, callback, error_callback, submitcmd, jobscript))
+        thread = threading.Thread(
+            target=self._submit_job,
+            args=(job, callback, error_callback, submitcmd, jobscript))
         thread.daemon = True
         thread.start()
         self.threads.append(thread)
@@ -549,7 +546,6 @@ class SynchronousClusterExecutor(ClusterExecutor):
                                                 self.get_jobscript(job)),
                             self.workflow.linemaps)
             error_callback(job)
-
 
 
 class DRMAAExecutor(ClusterExecutor):

@@ -253,8 +253,16 @@ def test_dynamic_complex():
 def test_srcdir():
     run(dpath("test_srcdir"))
 
+
 def test_multiple_includes():
     run(dpath("test_multiple_includes"))
 
+
 def test_yaml_config():
     run(dpath("test_yaml_config"))
+
+
+def test_cluster_sync():
+    run(dpath("test14"),
+        snakefile="Snakefile.nonstandard",
+        cluster_sync="./qsub")
