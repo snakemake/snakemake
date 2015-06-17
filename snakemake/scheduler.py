@@ -11,8 +11,9 @@ from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate
 
-from snakemake.executors import DryrunExecutor, TouchExecutor
-from snakemake.executors import GenericClusterExecutor, CPUExecutor, DRMAAExecutor
+from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
+from snakemake.executors import GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor
+
 from snakemake.logging import logger
 
 
@@ -30,6 +31,7 @@ class JobScheduler:
                  touch=False,
                  cluster=None,
                  cluster_config=None,
+                 cluster_sync=None,
                  drmaa=None,
                  jobname=None,
                  immediate_submit=False,
@@ -43,6 +45,7 @@ class JobScheduler:
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.cluster_config = cluster_config
+        self.cluster_sync = cluster_sync
         self.dag = dag
         self.workflow = workflow
         self.dryrun = dryrun
@@ -88,7 +91,7 @@ class JobScheduler:
                                            quiet=quiet,
                                            printshellcmds=printshellcmds,
                                            latency_wait=latency_wait)
-        elif cluster or (drmaa is not None):
+        elif cluster or cluster_sync or (drmaa is not None):
             # TODO properly set cores
             workers = min(sum(1 for _ in dag.local_needrun_jobs),
                           multiprocessing.cpu_count())
@@ -101,10 +104,12 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 benchmark_repeats=benchmark_repeats)
             self.run = self.run_cluster_or_local
-            if cluster:
-                self._executor = GenericClusterExecutor(
+            if cluster or cluster_sync:
+                constructor = SynchronousClusterExecutor if cluster_sync \
+                              else GenericClusterExecutor
+                self._executor = constructor(
                     workflow, dag, None,
-                    submitcmd=cluster,
+                    submitcmd=(cluster or cluster_sync),
                     cluster_config=cluster_config,
                     jobname=jobname,
                     printreason=printreason,

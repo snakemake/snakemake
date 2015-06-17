@@ -168,6 +168,7 @@ class Workflow:
                 printdag=False,
                 cluster=None,
                 cluster_config=None,
+                cluster_sync=None,
                 jobname=None,
                 immediate_submit=False,
                 ignore_ambiguity=False,
@@ -385,6 +386,7 @@ class Workflow:
                                  touch=touch,
                                  cluster=cluster,
                                  cluster_config=cluster_config,
+                                 cluster_sync=cluster_sync,
                                  jobname=jobname,
                                  immediate_submit=immediate_submit,
                                  quiet=quiet,
@@ -398,7 +400,7 @@ class Workflow:
 
         if not dryrun and not quiet:
             if len(dag):
-                if cluster or drmaa:
+                if cluster or cluster_sync or drmaa:
                     logger.resources_info(
                         "Provided cluster nodes: {}".format(nodes))
                 else:

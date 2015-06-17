@@ -53,6 +53,7 @@ def snakemake(snakefile,
               keepgoing=False,
               cluster=None,
               cluster_config=None,
+              cluster_sync=None,
               drmaa=None,
               jobname="snakejob.{rulename}.{jobid}.sh",
               immediate_submit=False,
@@ -118,6 +119,7 @@ def snakemake(snakefile,
         keepgoing (bool):           keep goind upon errors (default False)
         cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
         cluster_config (str):       configuration file for cluster options (default None)
+        cluster_sync (str):         blocking cluster submission command (like SGE 'qsub -sync y')  (default None)
         drmaa (str):                if not None use DRMAA for cluster support, str specifies native args passed to the cluster when submitting a job
         jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
@@ -200,7 +202,7 @@ def snakemake(snakefile,
     if updated_files is None:
         updated_files = list()
 
-    if cluster or drmaa:
+    if cluster or cluster_sync or drmaa:
         cores = sys.maxsize
     else:
         nodes = sys.maxsize
@@ -232,7 +234,7 @@ def snakemake(snakefile,
         return False
     snakefile = os.path.abspath(snakefile)
 
-    if cluster and (drmaa is not None):
+    if sum(var is not None for var in (cluster, cluster_sync, drmaa)) > 1:
         raise ValueError("cluster and drmaa args are mutually exclusive")
 
     overwrite_config = dict()
@@ -296,6 +298,7 @@ def snakemake(snakefile,
                                        keepgoing=keepgoing,
                                        cluster=cluster,
                                        cluster_config=cluster_config,
+                                       cluster_sync=cluster_sync,
                                        drmaa=drmaa,
                                        jobname=jobname,
                                        immediate_submit=immediate_submit,
@@ -335,6 +338,7 @@ def snakemake(snakefile,
                     printdag=printdag,
                     cluster=cluster,
                     cluster_config=cluster_config,
+                    cluster_sync=cluster_sync,
                     jobname=jobname,
                     drmaa=drmaa,
                     printd3dag=printd3dag,
@@ -594,7 +598,9 @@ def get_argument_parser():
               "several can produce the same file. This allows the user to "
               "prioritize rules by their order in the snakefile."))
     # TODO extend below description to explain the wildcards that can be used
-    parser.add_argument(
+
+    cluster_group = parser.add_mutually_exclusive_group()
+    cluster_group.add_argument(
         "--cluster", "-c",
         metavar="CMD",
         help=
@@ -606,16 +612,13 @@ def get_argument_parser():
          "job properties (input, output, params, wildcards, log, threads "
          "and dependencies (see the argument below)), e.g.:\n"
          "$ snakemake --cluster 'qsub -pe threaded {threads}'.")),
-    parser.add_argument(
-        "--cluster-config", "-u",
-        metavar="FILE",
-        help=
-        ("A JSON or YAML file that defines the wildcards used in 'cluster'"
-         "for specific rules, instead of having them specified in the Snakefile."
-         "For example, for rule 'job' you may define: "
-         "{ 'job' : { 'time' : '24:00:00' } } "
-         "to specify the time for rule 'job'.\n")),
-    parser.add_argument(
+    cluster_group.add_argument(
+        "--cluster-sync",
+        metavar="CMD",
+        help=("cluster submission command will block, returning the remote exit"
+              "status upon remote termination (for example, this should be used"
+              "if the cluster command is 'qsub -sync y' (SGE)")),
+    cluster_group.add_argument(
         "--drmaa",
         nargs="?",
         const="",
@@ -629,6 +632,16 @@ def get_argument_parser():
         "threads and dependencies, e.g.: "
         "--drmaa ' -pe threaded {threads}'. Note that ARGS must be given in quotes and "
         "with a leading whitespace.")
+
+    parser.add_argument(
+        "--cluster-config", "-u",
+        metavar="FILE",
+        help=
+        ("A JSON or YAML file that defines the wildcards used in 'cluster'"
+         "for specific rules, instead of having them specified in the Snakefile."
+         "For example, for rule 'job' you may define: "
+         "{ 'job' : { 'time' : '24:00:00' } } "
+         "to specify the time for rule 'job'.\n")),
     parser.add_argument(
         "--immediate-submit", "--is",
         action="store_true",
@@ -817,11 +830,6 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    if args.cluster and args.drmaa:
-        print("--cluster and --drmaa are mutually exclusive", file=sys.stderr)
-        parser.print_help()
-        sys.exit(1)
-
     if args.profile:
         import yappi
         yappi.start()
@@ -886,6 +894,7 @@ def main():
                              keepgoing=args.keep_going,
                              cluster=args.cluster,
                              cluster_config=args.cluster_config,
+                             cluster_sync=args.cluster_sync,
                              drmaa=args.drmaa,
                              jobname=args.jobname,
                              immediate_submit=args.immediate_submit,

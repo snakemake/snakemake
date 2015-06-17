@@ -469,6 +469,89 @@ class GenericClusterExecutor(ClusterExecutor):
             time.sleep(1)
 
 
+class SynchronousClusterExecutor(ClusterExecutor):
+    """
+    invocations like "qsub -sync y" (SGE) or "bsub -K" (LSF) are
+    synchronous, blocking the foreground thread and returning the
+    remote exit code at remote exit.
+
+    impl. notes:
+
+    - not grabbing the "job id" that comes back immediately on job; is
+      this going to cause problems?
+    """
+    def __init__(self, workflow, dag, cores,
+                 submitcmd="qsub",
+                 cluster_config=None,
+                 jobname="snakejob.{rulename}.{jobid}.sh",
+                 printreason=False,
+                 quiet=False,
+                 printshellcmds=False,
+                 latency_wait=3,
+                 benchmark_repeats=1):
+        super().__init__(workflow, dag, cores,
+                         jobname=jobname,
+                         printreason=printreason,
+                         quiet=quiet,
+                         printshellcmds=printshellcmds,
+                         latency_wait=latency_wait,
+                         benchmark_repeats=benchmark_repeats,
+                         cluster_config=cluster_config, )
+        self.submitcmd = submitcmd
+        self.external_jobid = dict()
+
+    def cancel(self):
+        logger.info("Will exit after finishing currently running jobs.")
+        self.shutdown()
+
+    def run(self, job,
+            callback=None,
+            submit_callback=None,
+            error_callback=None):
+        super()._run(job)
+        workdir = os.getcwd()
+        jobid = self.dag.jobid(job)
+
+        jobscript = self.get_jobscript(job)
+        self.spawn_jobscript(job, jobscript)
+
+        deps = " ".join(self.external_jobid[f] for f in job.input
+                        if f in self.external_jobid)
+        try:
+            submitcmd = job.format_wildcards(
+                self.submitcmd,
+                dependencies=deps,
+                cluster=self.cluster_wildcards(job))
+        except AttributeError as e:
+            raise WorkflowError(str(e), rule=job.rule)
+
+        thread = threading.Thread(target=self._submit_job,
+                                  args=(job, callback, error_callback, submitcmd, jobscript))
+        thread.daemon = True
+        thread.start()
+        self.threads.append(thread)
+        submit_callback(job)
+
+    def _submit_job(self, job, callback, error_callback, submitcmd, jobscript):
+        try:
+            ext_jobid = subprocess.check_output(
+                '{submitcmd} "{jobscript}"'.format(submitcmd=submitcmd,
+                                                   jobscript=jobscript),
+                shell=True).decode().split("\n")
+            os.remove(jobscript)
+            self.finish_job(job)
+            callback(job)
+
+        except subprocess.CalledProcessError as ex:
+            os.remove(jobscript)
+            self.print_job_error(job)
+            print_exception(ClusterJobException(job, self.dag.jobid(job),
+                                                self.get_jobscript(job)),
+                            self.workflow.linemaps)
+            error_callback(job)
+
+
+
 class DRMAAExecutor(ClusterExecutor):
     def __init__(self, workflow, dag, cores,
                  jobname="snakejob.{rulename}.{jobid}.sh",
