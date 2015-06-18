@@ -197,7 +197,7 @@ class Workflow:
                 updated_files=None,
                 keep_target_files=False,
                 allowed_rules=None,
-                greedyness=1.0):
+                greediness=1.0):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -396,7 +396,7 @@ class Workflow:
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
                                  benchmark_repeats=benchmark_repeats,
-                                 greedyness=greedyness)
+                                 greediness=greediness)
 
         if not dryrun and not quiet:
             if len(dag):

@@ -41,7 +41,7 @@ class JobScheduler:
                  keepgoing=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 greedyness=1.0):
+                 greediness=1.0):
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.cluster_config = cluster_config
@@ -54,10 +54,10 @@ class JobScheduler:
         self.running = set()
         self.failed = set()
         self.finished_jobs = 0
-        self.greedyness = greedyness
+        self.greediness = greediness
         self.select_by_rule = False
         if not self.select_by_rule:
-            self.greedyness = 1
+            self.greediness = 1
 
         self.resources = dict(self.workflow.global_resources)
 
@@ -335,7 +335,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                       else 0) for j in range(n)]
                 if not any(y):
                     break
-                y = [(max(1, int(self.greedyness * y_j)) if y_j > 0 else 0)
+                y = [(max(1, int(self.greediness * y_j)) if y_j > 0 else 0)
                      for y_j in y]
 
                 # Step 3: compute rewards on cumulative sums
@@ -349,7 +349,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 x[j_sel] += y_sel
                 b = [b_i - (a_j_i * y_sel) for b_i, a_j_i in zip(b, a[j_sel])]
                 u[j_sel] -= y_sel
-                if not u[j_sel] or self.greedyness == 1:
+                if not u[j_sel] or self.greediness == 1:
                     E.remove(j_sel)
                 if not E:
                     break
