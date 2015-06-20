@@ -115,7 +115,7 @@ class Persistence:
             self._record(self._incomplete_path, "", f)
 
     def finished(self, job):
-        version = str(job.rule.version)
+        version = str(job.rule.version) if job.rule.version is not None else None
         code = self._code(job.rule)
         input = self._input(job)
         params = self._params(job)
@@ -219,11 +219,14 @@ class Persistence:
         return job.shellcmd
 
     def _record(self, subject, value, id, bin=False):
+        recpath = self._record_path(subject, id)
         if value is not None:
-            recpath = self._record_path(subject, id)
             os.makedirs(os.path.dirname(recpath), exist_ok=True)
             with open(recpath, "wb" if bin else "w") as f:
                 f.write(value)
+        else:
+            if os.path.exists(recpath):
+                os.remove(recpath)
 
     def _delete_record(self, subject, id):
         try:
