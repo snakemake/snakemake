@@ -319,6 +319,8 @@ def snakemake(snakefile,
                                        timestamp=timestamp,
                                        greediness=greediness,
                                        overwrite_shellcmd=overwrite_shellcmd,
+                                       config=config,
+                                       config_args=config_args,
                                        keep_logger=True)
                 success = workflow.execute(
                     targets=targets,
