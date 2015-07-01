@@ -18,7 +18,7 @@
 "
 
 " load settings from system python.vim (7.4)
-source $VIM/syntax/python.vim
+source $VIMRUNTIME/syntax/python.vim
 
 "
 " Snakemake rules, as of version 3.3
@@ -48,17 +48,10 @@ syn keyword pythonStatement	input output params message threads resources
 syn keyword pythonStatement	version run shell benchmark snakefile log
 syn keyword pythonStatement	rule subworkflow nextgroup=pythonFunction skipwhite
 
-" original from python.vim
-" A dot must be allowed because of @MyClass.myfunc decorators.
-" syn match   pythonFunction
-"       \ "\%(\%(def\s\|class\s\|@\)\s*\)\@<=\h\%(\w\|\.\)*" contained
-
+" similar to special def and class treatment from python.vim, except
+" parenthetical part of def and class
 syn match   pythonFunction
       \ "\%(\%(rule\s\|subworkflow\s\)\s*\)\@<=\h*" contained
-
-" original from python.vim
-" Sync at the beginning of class, function, or method definition.
-" syn sync match pythonSync grouphere NONE "^\s*\%(def\|class\)\s\+\h\w*\s*("
 
 syn sync match pythonSync grouphere NONE "^\s*\%(rule\|subworkflow\)\s\+\h\w*\s*"
 
