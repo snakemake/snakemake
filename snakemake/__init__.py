@@ -236,8 +236,8 @@ def snakemake(snakefile,
         return False
     snakefile = os.path.abspath(snakefile)
 
-    cluster_mode = cluster is not None or cluster_sync is not None or drmaa is not None
-    if cluster_mode:
+    cluster_mode = (cluster is not None) + (cluster_sync is not None) + (drmaa is not None)
+    if cluster_mode > 1:
         logger.error("Error: cluster and drmaa args are mutually exclusive")
         return False
     if debug and (cores > 1 or cluster_mode):
