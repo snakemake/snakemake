@@ -87,7 +87,8 @@ def snakemake(snakefile,
               overwrite_shellcmd=None,
               updated_files=None,
               log_handler=None,
-              keep_logger=False):
+              keep_logger=False,
+              verbose=False):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -143,7 +144,7 @@ def snakemake(snakefile,
         summary (bool):             list summary of all output files and their status (default False). If no option  is specified a basic summary will be ouput. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
         detailed_summary (bool):    list summary of all input and output files and their status (default False)
         print_compilation (bool):   print the compilation of the snakefile (default False)
-        debug (bool):               show additional debug output (default False)
+        debug (bool):               allow to use the debugger within rules
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
         nodeps (bool):              ignore dependencies (default False)
         keep_target_files (bool):   Do not adjust the paths of given target files relative to the working directory.
@@ -153,7 +154,8 @@ def snakemake(snakefile,
         greediness (float):         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
         overwrite_shellcmd (str):   a shell command that shall be executed instead of those given in the workflow. This is for debugging purposes only.
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
-        log_handler (function):      redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
+        verbose(bool):              show additional debug output (default False)
+        log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -219,7 +221,7 @@ def snakemake(snakefile,
                      printshellcmds=printshellcmds,
                      nocolor=nocolor,
                      stdout=dryrun,
-                     debug=debug,
+                     debug=verbose,
                      timestamp=timestamp)
 
     if greediness is None:
@@ -234,8 +236,13 @@ def snakemake(snakefile,
         return False
     snakefile = os.path.abspath(snakefile)
 
-    if sum(var is not None for var in (cluster, cluster_sync, drmaa)) > 1:
-        raise ValueError("cluster and drmaa args are mutually exclusive")
+    cluster_mode = cluster is not None or cluster_sync is not None or drmaa is not None
+    if cluster_mode:
+        logger.error("Error: cluster and drmaa args are mutually exclusive")
+        return False
+    if debug and (cores > 1 or cluster_mode):
+        logger.error("Error: debug mode cannot be used with more than one core or cluster execution.")
+        return False
 
     overwrite_config = dict()
     if configfile:
@@ -258,7 +265,8 @@ def snakemake(snakefile,
                         overwrite_config=overwrite_config,
                         overwrite_workdir=workdir,
                         overwrite_configfile=configfile,
-                        config_args=config_args)
+                        config_args=config_args,
+                        debug=debug)
 
     if standalone:
         try:
@@ -312,7 +320,7 @@ def snakemake(snakefile,
                                        ignore_incomplete=ignore_incomplete,
                                        latency_wait=latency_wait,
                                        benchmark_repeats=benchmark_repeats,
-                                       debug=debug,
+                                       verbose=verbose,
                                        notemp=notemp,
                                        nodeps=nodeps,
                                        jobscript=jobscript,
@@ -790,9 +798,14 @@ def get_argument_parser():
         "Provide a shell command that shall be executed instead of those "
         "given in the workflow. "
         "This is for debugging purposes only.")
-    parser.add_argument("--debug",
+    parser.add_argument("--verbose",
                         action="store_true",
                         help="Print debugging output.")
+    parser.add_argument("--debug",
+                        action="store_true",
+                        help=
+                        "Allow to debug rules with e.g. PDB. This flag "
+                        "allows to set breakpoints in run blocks.")
     parser.add_argument(
         "--profile",
         metavar="FILE",
@@ -915,6 +928,7 @@ def main():
                              summary=args.summary,
                              detailed_summary=args.detailed_summary,
                              print_compilation=args.print_compilation,
+                             verbose=args.verbose,
                              debug=args.debug,
                              jobscript=args.jobscript,
                              notemp=args.notemp,

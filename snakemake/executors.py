@@ -4,6 +4,7 @@ __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import os
+import sys
 import time
 import datetime
 import json
@@ -216,7 +217,7 @@ class CPUExecutor(RealExecutor):
             run_wrapper, job.rule.run_func, job.input.plainstrings(),
             job.output.plainstrings(), job.params, job.wildcards, job.threads,
             job.resources, job.log.plainstrings(), job.rule.version, benchmark,
-            self.benchmark_repeats, self.workflow.linemaps)
+            self.benchmark_repeats, self.workflow.linemaps, self.workflow.debug)
         future.add_done_callback(partial(self._callback, job, callback,
                                          error_callback))
 
@@ -654,7 +655,7 @@ class DRMAAExecutor(ClusterExecutor):
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
-                version, benchmark, benchmark_repeats, linemaps):
+                version, benchmark, benchmark_repeats, linemaps, debug=False):
     """
     Wrapper around the run method that handles directory creation and
     output file deletion on error.
@@ -667,6 +668,8 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
     threads   -- usable threads
     log       -- list of log files
     """
+    if os.name == "posix" and debug:
+        sys.stdin = open('/dev/stdin')
 
     try:
         runs = 1 if benchmark is None else benchmark_repeats

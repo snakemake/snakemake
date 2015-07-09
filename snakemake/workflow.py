@@ -36,7 +36,8 @@ class Workflow:
                  overwrite_config=dict(),
                  overwrite_workdir=None,
                  overwrite_configfile=None,
-                 config_args=None):
+                 config_args=None,
+                 debug=False):
         """
         Create the controller.
         """
@@ -65,6 +66,7 @@ class Workflow:
         self.config_args = config_args
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
+        self.debug = debug
 
         global config
         config = dict()
