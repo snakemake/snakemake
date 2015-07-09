@@ -40,6 +40,7 @@ class Rule:
             self.protected_output = set()
             self.touch_output = set()
             self.subworkflow_input = dict()
+            self.shadow_depth = None
             self.resources = dict(_cores=1, _nodes=1)
             self.priority = 0
             self.version = None
@@ -68,6 +69,7 @@ class Rule:
             self.protected_output = set(other.protected_output)
             self.touch_output = set(other.touch_output)
             self.subworkflow_input = dict(other.subworkflow_input)
+            self.shadow_depth = other.shadow_depth
             self.resources = other.resources
             self.priority = other.priority
             self.version = other.version

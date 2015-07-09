@@ -288,13 +288,14 @@ def test_cluster_sync():
 def test_symlink_temp():
     run(dpath("test_symlink_temp"), shouldfail=True)
 
-
 def test_empty_include():
     run(dpath("test_empty_include"))
 
 def test_script():
     run(dpath("test_script"))
 
+def test_shadow():
+    run(dpath("test_shadow"))
 
 
 if __name__ == '__main__':

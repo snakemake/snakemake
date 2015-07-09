@@ -358,6 +358,10 @@ class Threads(RuleKeywordState):
     pass
 
 
+class Shadow(RuleKeywordState):
+    pass
+
+
 class Resources(RuleKeywordState):
     pass
 
@@ -527,6 +531,7 @@ class Rule(GlobalKeywordState):
                        log=Log,
                        message=Message,
                        benchmark=Benchmark,
+                       shadow=Shadow,
                        run=Run,
                        shell=Shell,
                        script=Script)

@@ -7,6 +7,7 @@ import os
 import sys
 import base64
 import json
+import tempfile
 
 from collections import defaultdict
 from itertools import chain
@@ -47,6 +48,7 @@ class Job:
         }
         self.threads = self.resources_dict["_cores"]
         self.resources = Resources(fromdict=self.resources_dict)
+        self.shadow_dir = None
         self._inputsize = None
 
         self.dynamic_output, self.dynamic_input = set(), set()
@@ -138,6 +140,14 @@ class Job:
                     yield file_to_yield
             else:
                 yield f
+
+    @property
+    def expanded_shadowed_output(self):
+        """ Get the paths of output files, resolving shadow directory. """
+        if not self.shadow_dir:
+            return self.expanded_output
+        for f in self.expanded_output:
+            yield os.path.join(self.shadow_dir, f)
 
     @property
     def dynamic_wildcards(self):
@@ -311,6 +321,7 @@ class Job:
         Prepare execution of job.
         This includes creation of directories and deletion of previously
         created dynamic files.
+        Creates a shadow directory for the job if specified.
         """
 
         self.check_protected_output()
@@ -339,6 +350,37 @@ class Job:
             f.prepare()
         if self.benchmark:
             self.benchmark.prepare()
+
+        if not self.rule.shadow_depth:
+            return
+        # Create shadow directory structure
+        self.shadow_dir = tempfile.mkdtemp(
+            dir=self.rule.workflow.persistence.shadow_path)
+        cwd = os.getcwd()
+        # Shallow simply symlink everything in the working directory.
+        if self.rule.shadow_depth == "shallow":
+            for source in os.listdir(cwd):
+                link = os.path.join(self.shadow_dir, source)
+                os.symlink(os.path.abspath(source), link)
+        elif self.rule.shadow_depth == "full":
+            snakemake_dir = os.path.join(cwd, ".snakemake")
+            for dirpath, dirnames, filenames in os.walk(cwd):
+                # Must exclude .snakemake and its children to avoid infinite
+                # loop of symlinks.
+                if os.path.commonprefix([snakemake_dir, dirpath]) == snakemake_dir:
+                    continue
+                for dirname in dirnames:
+                    if dirname == ".snakemake":
+                        continue
+                    relative_source = os.path.relpath(os.path.join(dirpath, dirname))
+                    shadow = os.path.join(self.shadow_dir, relative_source)
+                    os.mkdir(shadow)
+
+                for filename in filenames:
+                    source = os.path.join(dirpath, filename)
+                    relative_source = os.path.relpath(source)
+                    link = os.path.join(self.shadow_dir, relative_source)
+                    os.symlink(source, link)
 
     def cleanup(self):
         """ Cleanup output files. """
