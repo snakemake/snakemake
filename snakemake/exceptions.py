@@ -17,7 +17,7 @@ def format_error(ex, lineno,
     if linemaps is None:
         linemaps = dict()
     msg = str(ex)
-    if linemaps and snakefile:
+    if linemaps and snakefile and snakefile in linemaps:
         lineno = linemaps[snakefile][lineno]
         if isinstance(ex, SyntaxError):
             msg = ex.msg
@@ -67,6 +67,7 @@ def print_exception(ex, linemaps, print_traceback=True):
     #traceback.print_exception(type(ex), ex, ex.__traceback__)
     if isinstance(ex, SyntaxError) or isinstance(ex, IndentationError):
         logger.error(format_error(ex, ex.lineno,
+                                  linemaps=linemaps,
                                   snakefile=ex.filename,
                                   show_traceback=print_traceback))
         return
