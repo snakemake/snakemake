@@ -53,6 +53,7 @@ def snakemake(snakefile,
               keepgoing=False,
               cluster=None,
               cluster_config=None,
+              cluster_sync=None,
               drmaa=None,
               jobname="snakejob.{rulename}.{jobid}.sh",
               immediate_submit=False,
@@ -82,11 +83,12 @@ def snakemake(snakefile,
               allowed_rules=None,
               jobscript=None,
               timestamp=False,
-              greedyness=None,
+              greediness=None,
               overwrite_shellcmd=None,
               updated_files=None,
               log_handler=None,
-              keep_logger=False):
+              keep_logger=False,
+              verbose=False):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -118,6 +120,7 @@ def snakemake(snakefile,
         keepgoing (bool):           keep goind upon errors (default False)
         cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
         cluster_config (str):       configuration file for cluster options (default None)
+        cluster_sync (str):         blocking cluster submission command (like SGE 'qsub -sync y')  (default None)
         drmaa (str):                if not None use DRMAA for cluster support, str specifies native args passed to the cluster when submitting a job
         jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
@@ -141,17 +144,18 @@ def snakemake(snakefile,
         summary (bool):             list summary of all output files and their status (default False). If no option  is specified a basic summary will be ouput. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
         detailed_summary (bool):    list summary of all input and output files and their status (default False)
         print_compilation (bool):   print the compilation of the snakefile (default False)
-        debug (bool):               show additional debug output (default False)
+        debug (bool):               allow to use the debugger within rules
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
         nodeps (bool):              ignore dependencies (default False)
         keep_target_files (bool):   Do not adjust the paths of given target files relative to the working directory.
         allowed_rules (set):        Restrict allowed rules to the given set. If None or empty, all rules are used.
         jobscript (str):            path to a custom shell script template for cluster jobs (default None)
         timestamp (bool):           print time stamps in front of any output (default False)
-        greedyness (float):         set the greedyness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
+        greediness (float):         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
         overwrite_shellcmd (str):   a shell command that shall be executed instead of those given in the workflow. This is for debugging purposes only.
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
-        log_handler (function):      redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
+        verbose(bool):              show additional debug output (default False)
+        log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -200,7 +204,7 @@ def snakemake(snakefile,
     if updated_files is None:
         updated_files = list()
 
-    if cluster or drmaa:
+    if cluster or cluster_sync or drmaa:
         cores = sys.maxsize
     else:
         nodes = sys.maxsize
@@ -217,14 +221,14 @@ def snakemake(snakefile,
                      printshellcmds=printshellcmds,
                      nocolor=nocolor,
                      stdout=dryrun,
-                     debug=debug,
+                     debug=verbose,
                      timestamp=timestamp)
 
-    if greedyness is None:
-        greedyness = 0.5 if prioritytargets else 1.0
+    if greediness is None:
+        greediness = 0.5 if prioritytargets else 1.0
     else:
-        if not (0 <= greedyness <= 1.0):
-            logger.error("Error: greedyness must be a float between 0 and 1.")
+        if not (0 <= greediness <= 1.0):
+            logger.error("Error: greediness must be a float between 0 and 1.")
             return False
 
     if not os.path.exists(snakefile):
@@ -232,8 +236,13 @@ def snakemake(snakefile,
         return False
     snakefile = os.path.abspath(snakefile)
 
-    if cluster and (drmaa is not None):
-        raise ValueError("cluster and drmaa args are mutually exclusive")
+    cluster_mode = (cluster is not None) + (cluster_sync is not None) + (drmaa is not None)
+    if cluster_mode > 1:
+        logger.error("Error: cluster and drmaa args are mutually exclusive")
+        return False
+    if debug and (cores > 1 or cluster_mode):
+        logger.error("Error: debug mode cannot be used with more than one core or cluster execution.")
+        return False
 
     overwrite_config = dict()
     if configfile:
@@ -256,7 +265,8 @@ def snakemake(snakefile,
                         overwrite_config=overwrite_config,
                         overwrite_workdir=workdir,
                         overwrite_configfile=configfile,
-                        config_args=config_args)
+                        config_args=config_args,
+                        debug=debug)
 
     if standalone:
         try:
@@ -296,6 +306,7 @@ def snakemake(snakefile,
                                        keepgoing=keepgoing,
                                        cluster=cluster,
                                        cluster_config=cluster_config,
+                                       cluster_sync=cluster_sync,
                                        drmaa=drmaa,
                                        jobname=jobname,
                                        immediate_submit=immediate_submit,
@@ -309,13 +320,15 @@ def snakemake(snakefile,
                                        ignore_incomplete=ignore_incomplete,
                                        latency_wait=latency_wait,
                                        benchmark_repeats=benchmark_repeats,
-                                       debug=debug,
+                                       verbose=verbose,
                                        notemp=notemp,
                                        nodeps=nodeps,
                                        jobscript=jobscript,
                                        timestamp=timestamp,
-                                       greedyness=greedyness,
+                                       greediness=greediness,
                                        overwrite_shellcmd=overwrite_shellcmd,
+                                       config=config,
+                                       config_args=config_args,
                                        keep_logger=True)
                 success = workflow.execute(
                     targets=targets,
@@ -335,6 +348,7 @@ def snakemake(snakefile,
                     printdag=printdag,
                     cluster=cluster,
                     cluster_config=cluster_config,
+                    cluster_sync=cluster_sync,
                     jobname=jobname,
                     drmaa=drmaa,
                     printd3dag=printd3dag,
@@ -362,7 +376,7 @@ def snakemake(snakefile,
                     subsnakemake=subsnakemake,
                     updated_files=updated_files,
                     allowed_rules=allowed_rules,
-                    greedyness=greedyness)
+                    greediness=greediness)
 
     # BrokenPipeError is not present in Python 3.2, so lets wait until everbody uses > 3.2
     #except BrokenPipeError:
@@ -594,7 +608,9 @@ def get_argument_parser():
               "several can produce the same file. This allows the user to "
               "prioritize rules by their order in the snakefile."))
     # TODO extend below description to explain the wildcards that can be used
-    parser.add_argument(
+
+    cluster_group = parser.add_mutually_exclusive_group()
+    cluster_group.add_argument(
         "--cluster", "-c",
         metavar="CMD",
         help=
@@ -606,16 +622,13 @@ def get_argument_parser():
          "job properties (input, output, params, wildcards, log, threads "
          "and dependencies (see the argument below)), e.g.:\n"
          "$ snakemake --cluster 'qsub -pe threaded {threads}'.")),
-    parser.add_argument(
-        "--cluster-config", "-u",
-        metavar="FILE",
-        help=
-        ("A JSON or YAML file that defines the wildcards used in 'cluster'"
-         "for specific rules, instead of having them specified in the Snakefile."
-         "For example, for rule 'job' you may define: "
-         "{ 'job' : { 'time' : '24:00:00' } } "
-         "to specify the time for rule 'job'.\n")),
-    parser.add_argument(
+    cluster_group.add_argument(
+        "--cluster-sync",
+        metavar="CMD",
+        help=("cluster submission command will block, returning the remote exit"
+              "status upon remote termination (for example, this should be used"
+              "if the cluster command is 'qsub -sync y' (SGE)")),
+    cluster_group.add_argument(
         "--drmaa",
         nargs="?",
         const="",
@@ -629,6 +642,16 @@ def get_argument_parser():
         "threads and dependencies, e.g.: "
         "--drmaa ' -pe threaded {threads}'. Note that ARGS must be given in quotes and "
         "with a leading whitespace.")
+
+    parser.add_argument(
+        "--cluster-config", "-u",
+        metavar="FILE",
+        help=
+        ("A JSON or YAML file that defines the wildcards used in 'cluster'"
+         "for specific rules, instead of having them specified in the Snakefile."
+         "For example, for rule 'job' you may define: "
+         "{ 'job' : { 'time' : '24:00:00' } } "
+         "to specify the time for rule 'job'.\n")),
     parser.add_argument(
         "--immediate-submit", "--is",
         action="store_true",
@@ -757,11 +780,11 @@ def get_argument_parser():
                         action='store_true',
                         help='Add a timestamp to all logging output')
     parser.add_argument(
-        "--greedyness",
+        "--greediness",
         type=float,
         default=None,
         help=
-        "Set the greedyness of scheduling. This value between 0 and 1 "
+        "Set the greediness of scheduling. This value between 0 and 1 "
         "determines how careful jobs are selected for execution. The default "
         "value (1.0) provides the best speed and still acceptable scheduling "
         "quality.")
@@ -775,9 +798,14 @@ def get_argument_parser():
         "Provide a shell command that shall be executed instead of those "
         "given in the workflow. "
         "This is for debugging purposes only.")
-    parser.add_argument("--debug",
+    parser.add_argument("--verbose",
                         action="store_true",
                         help="Print debugging output.")
+    parser.add_argument("--debug",
+                        action="store_true",
+                        help=
+                        "Allow to debug rules with e.g. PDB. This flag "
+                        "allows to set breakpoints in run blocks.")
     parser.add_argument(
         "--profile",
         metavar="FILE",
@@ -814,11 +842,6 @@ def main():
     except ValueError as e:
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
-        parser.print_help()
-        sys.exit(1)
-
-    if args.cluster and args.drmaa:
-        print("--cluster and --drmaa are mutually exclusive", file=sys.stderr)
         parser.print_help()
         sys.exit(1)
 
@@ -886,6 +909,7 @@ def main():
                              keepgoing=args.keep_going,
                              cluster=args.cluster,
                              cluster_config=args.cluster_config,
+                             cluster_sync=args.cluster_sync,
                              drmaa=args.drmaa,
                              jobname=args.jobname,
                              immediate_submit=args.immediate_submit,
@@ -904,11 +928,12 @@ def main():
                              summary=args.summary,
                              detailed_summary=args.detailed_summary,
                              print_compilation=args.print_compilation,
+                             verbose=args.verbose,
                              debug=args.debug,
                              jobscript=args.jobscript,
                              notemp=args.notemp,
                              timestamp=args.timestamp,
-                             greedyness=args.greedyness,
+                             greediness=args.greediness,
                              overwrite_shellcmd=args.overwrite_shellcmd,
                              latency_wait=args.latency_wait,
                              benchmark_repeats=args.benchmark_repeats,

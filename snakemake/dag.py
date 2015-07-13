@@ -546,8 +546,10 @@ class DAG:
                             job_).missing_output.intersection(
                                 newjob.existing_output)
                         if unexpected_output:
-                            raise UnexpectedOutputException(newjob_.rule,
-                                                            unexpected_output)
+                            logger.warning(
+                                "Warning: the following output files of rule {} were not "
+                                "present when the DAG was created:\n{}".format(
+                                    newjob_.rule, unexpected_output))
 
                         self.replace_job(job_, newjob_)
         return newjob

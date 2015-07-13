@@ -1,64 +1,22 @@
 package:
   name: snakemake
   version: "3.3"
-
 source:
   fn: snakemake-3.3.tar.gz
   url: https://pypi.python.org/packages/source/s/snakemake/snakemake-3.3.tar.gz
   md5: 92b9166e43cb1ee26bedfec0013b57de
-#  patches:
-   # List any patch files here
-   # - fix.patch
-
 build:
-  # preserve_egg_dir: True
   entry_points:
-    # Put any entry points (scripts to be generated automatically) here. The
-    # syntax is module:function.  For example
-    #
-    # - snakemake = snakemake:main
-    #
-    # Would create an entry point called snakemake that calls snakemake.main()
-
     - snakemake = snakemake:main
     - snakemake-bash-completion = snakemake:bash_completion
-
-  # If this is a new build for the same version, increment the build
-  # number. If you do not include this key, it defaults to 0.
-  # number: 1
-
 requirements:
   build:
     - python >=3.2
     - setuptools
-
   run:
     - python >=3.2
     - docutils
-
-test:
-  # Python imports
-  imports:
-    - snakemake
-
-  commands:
-    # You can put test commands to be run here.  Use this to test that the
-    # entry points work.
-
-    - snakemake --help
-
-  # You can also put a file called run_test.py in the recipe that will be run
-  # at test time.
-
-  # requires:
-    # Put any additional test requirements here.  For example
-    # - nose
-
 about:
   home: https://bitbucket.org/johanneskoester/snakemake
   license: MIT License
   summary: 'Build systems like GNU Make are frequently used to create complicated workflows, e.g. in bioinformatics. This project aims to reduce the complexity of creating workflows by providing a clean and modern domain specific language (DSL) in python style, together with a fast and comfortable execution environment.'
-
-# See
-# http://docs.continuum.io/conda/build.html for
-# more information about meta.yaml

@@ -1,9 +1,10 @@
-__author__ = "Johannes Köster"
+__authors__ = ["Johannes Köster", "David Alexander"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import os
+import sys
 import time
 import datetime
 import json
@@ -216,7 +217,7 @@ class CPUExecutor(RealExecutor):
             run_wrapper, job.rule.run_func, job.input.plainstrings(),
             job.output.plainstrings(), job.params, job.wildcards, job.threads,
             job.resources, job.log.plainstrings(), job.rule.version, benchmark,
-            self.benchmark_repeats, self.workflow.linemaps)
+            self.benchmark_repeats, self.workflow.linemaps, self.workflow.debug)
         future.add_done_callback(partial(self._callback, job, callback,
                                          error_callback))
 
@@ -326,9 +327,12 @@ class ClusterExecutor(RealExecutor):
         return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
-        return os.path.join(self.tmpdir,
-                            self.jobname.format(rulename=job.rule.name,
-                                                jobid=self.dag.jobid(job)))
+        return os.path.join(
+            self.tmpdir,
+            job.format_wildcards(self.jobname,
+                                 rulename=job.rule.name,
+                                 jobid=self.dag.jobid(job),
+                                 cluster=self.cluster_wildcards(job)))
 
     def spawn_jobscript(self, job, jobscript, **kwargs):
         overwrite_workdir = ""
@@ -466,6 +470,85 @@ class GenericClusterExecutor(ClusterExecutor):
             time.sleep(1)
 
 
+class SynchronousClusterExecutor(ClusterExecutor):
+    """
+    invocations like "qsub -sync y" (SGE) or "bsub -K" (LSF) are
+    synchronous, blocking the foreground thread and returning the
+    remote exit code at remote exit.
+    """
+
+    def __init__(self, workflow, dag, cores,
+                 submitcmd="qsub",
+                 cluster_config=None,
+                 jobname="snakejob.{rulename}.{jobid}.sh",
+                 printreason=False,
+                 quiet=False,
+                 printshellcmds=False,
+                 latency_wait=3,
+                 benchmark_repeats=1):
+        super().__init__(workflow, dag, cores,
+                         jobname=jobname,
+                         printreason=printreason,
+                         quiet=quiet,
+                         printshellcmds=printshellcmds,
+                         latency_wait=latency_wait,
+                         benchmark_repeats=benchmark_repeats,
+                         cluster_config=cluster_config, )
+        self.submitcmd = submitcmd
+        self.external_jobid = dict()
+
+    def cancel(self):
+        logger.info("Will exit after finishing currently running jobs.")
+        self.shutdown()
+
+    def run(self, job,
+            callback=None,
+            submit_callback=None,
+            error_callback=None):
+        super()._run(job)
+        workdir = os.getcwd()
+        jobid = self.dag.jobid(job)
+
+        jobscript = self.get_jobscript(job)
+        self.spawn_jobscript(job, jobscript)
+
+        deps = " ".join(self.external_jobid[f] for f in job.input
+                        if f in self.external_jobid)
+        try:
+            submitcmd = job.format_wildcards(
+                self.submitcmd,
+                dependencies=deps,
+                cluster=self.cluster_wildcards(job))
+        except AttributeError as e:
+            raise WorkflowError(str(e), rule=job.rule)
+
+        thread = threading.Thread(
+            target=self._submit_job,
+            args=(job, callback, error_callback, submitcmd, jobscript))
+        thread.daemon = True
+        thread.start()
+        self.threads.append(thread)
+        submit_callback(job)
+
+    def _submit_job(self, job, callback, error_callback, submitcmd, jobscript):
+        try:
+            ext_jobid = subprocess.check_output(
+                '{submitcmd} "{jobscript}"'.format(submitcmd=submitcmd,
+                                                   jobscript=jobscript),
+                shell=True).decode().split("\n")
+            os.remove(jobscript)
+            self.finish_job(job)
+            callback(job)
+
+        except subprocess.CalledProcessError as ex:
+            os.remove(jobscript)
+            self.print_job_error(job)
+            print_exception(ClusterJobException(job, self.dag.jobid(job),
+                                                self.get_jobscript(job)),
+                            self.workflow.linemaps)
+            error_callback(job)
+
+
 class DRMAAExecutor(ClusterExecutor):
     def __init__(self, workflow, dag, cores,
                  jobname="snakejob.{rulename}.{jobid}.sh",
@@ -572,7 +655,7 @@ class DRMAAExecutor(ClusterExecutor):
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
-                version, benchmark, benchmark_repeats, linemaps):
+                version, benchmark, benchmark_repeats, linemaps, debug=False):
     """
     Wrapper around the run method that handles directory creation and
     output file deletion on error.
@@ -585,6 +668,8 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
     threads   -- usable threads
     log       -- list of log files
     """
+    if os.name == "posix" and debug:
+        sys.stdin = open('/dev/stdin')
 
     try:
         runs = 1 if benchmark is None else benchmark_repeats

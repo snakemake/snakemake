@@ -218,7 +218,10 @@ class Job:
         unexpected_output = self.dag.reason(self).missing_output.intersection(
             self.existing_output)
         if unexpected_output:
-            raise UnexpectedOutputException(self.rule, unexpected_output)
+            logger.warning(
+                "Warning: the following output files of rule {} were not "
+                "present when the DAG was created:\n{}".format(
+                    self.rule, unexpected_output))
 
         if self.dynamic_output:
             for f, _ in chain(*map(partial(self.expand_dynamic,

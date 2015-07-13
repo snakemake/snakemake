@@ -36,7 +36,8 @@ class Workflow:
                  overwrite_config=dict(),
                  overwrite_workdir=None,
                  overwrite_configfile=None,
-                 config_args=None):
+                 config_args=None,
+                 debug=False):
         """
         Create the controller.
         """
@@ -65,6 +66,7 @@ class Workflow:
         self.config_args = config_args
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
+        self.debug = debug
 
         global config
         config = dict()
@@ -168,6 +170,7 @@ class Workflow:
                 printdag=False,
                 cluster=None,
                 cluster_config=None,
+                cluster_sync=None,
                 jobname=None,
                 immediate_submit=False,
                 ignore_ambiguity=False,
@@ -196,7 +199,7 @@ class Workflow:
                 updated_files=None,
                 keep_target_files=False,
                 allowed_rules=None,
-                greedyness=1.0):
+                greediness=1.0):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -385,6 +388,7 @@ class Workflow:
                                  touch=touch,
                                  cluster=cluster,
                                  cluster_config=cluster_config,
+                                 cluster_sync=cluster_sync,
                                  jobname=jobname,
                                  immediate_submit=immediate_submit,
                                  quiet=quiet,
@@ -394,11 +398,11 @@ class Workflow:
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
                                  benchmark_repeats=benchmark_repeats,
-                                 greedyness=greedyness)
+                                 greediness=greediness)
 
         if not dryrun and not quiet:
             if len(dag):
-                if cluster or drmaa:
+                if cluster or cluster_sync or drmaa:
                     logger.resources_info(
                         "Provided cluster nodes: {}".format(nodes))
                 else:

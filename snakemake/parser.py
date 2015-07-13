@@ -81,6 +81,7 @@ class TokenAutomaton:
         self.base_indent = base_indent
         self.line = 0
         self.indent = 0
+        self.was_indented = False
         self.lasttoken = None
         self._dedent = dedent
 
@@ -95,6 +96,7 @@ class TokenAutomaton:
     def indentation(self, token):
         if is_indent(token) or is_dedent(token):
             self.indent = token.end[1] - self.base_indent
+            self.was_indented |= self.indent > 0
 
     def consume(self):
         for token in self.snakefile:
@@ -154,11 +156,14 @@ class KeywordState(TokenAutomaton):
             self.error("Colon expected after keyword {}.".format(self.keyword),
                        token)
 
+    def is_block_end(self, token):
+        return (self.line and self.indent <= 0) or is_eof(token)
+
     def block(self, token):
         if self.lasttoken == "\n" and is_comment(token):
             # ignore lines containing only comments
             self.line -= 1
-        if (self.line and self.indent <= 0) or is_eof(token):
+        if self.is_block_end(token):
             for t, token_ in self.decorate_end(token):
                 yield t, token_
             yield "\n", token
@@ -397,6 +402,9 @@ class Run(RuleKeywordState):
     def end(self):
         yield ""
 
+    def is_block_end(self, token):
+        return (self.line and self.was_indented and self.indent <= 0) or is_eof(token)
+
 
 class Shell(Run):
 
@@ -414,6 +422,9 @@ class Shell(Run):
         self.token = None
         if self.overwrite_shellcmd is not None:
             self.block_content = self.overwrite_block_content
+
+    def is_block_end(self, token):
+        return (self.line and self.indent <= 0) or is_eof(token)
 
     def start(self):
         yield "@workflow.shellcmd("
@@ -643,4 +654,6 @@ def parse(path, overwrite_shellcmd=None):
             snakefile.lines += t.count("\n")
             compilation.append(t)
         compilation = "".join(format_tokens(compilation))
+        last = max(linemap)
+        linemap[last + 1] = linemap[last]
         return compilation, linemap

@@ -11,8 +11,9 @@ from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate
 
-from snakemake.executors import DryrunExecutor, TouchExecutor
-from snakemake.executors import GenericClusterExecutor, CPUExecutor, DRMAAExecutor
+from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
+from snakemake.executors import GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor
+
 from snakemake.logging import logger
 
 
@@ -30,6 +31,7 @@ class JobScheduler:
                  touch=False,
                  cluster=None,
                  cluster_config=None,
+                 cluster_sync=None,
                  drmaa=None,
                  jobname=None,
                  immediate_submit=False,
@@ -39,10 +41,11 @@ class JobScheduler:
                  keepgoing=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 greedyness=1.0):
+                 greediness=1.0):
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.cluster_config = cluster_config
+        self.cluster_sync = cluster_sync
         self.dag = dag
         self.workflow = workflow
         self.dryrun = dryrun
@@ -51,10 +54,10 @@ class JobScheduler:
         self.running = set()
         self.failed = set()
         self.finished_jobs = 0
-        self.greedyness = greedyness
+        self.greediness = greediness
         self.select_by_rule = False
         if not self.select_by_rule:
-            self.greedyness = 1
+            self.greediness = 1
 
         self.resources = dict(self.workflow.global_resources)
 
@@ -88,7 +91,7 @@ class JobScheduler:
                                            quiet=quiet,
                                            printshellcmds=printshellcmds,
                                            latency_wait=latency_wait)
-        elif cluster or (drmaa is not None):
+        elif cluster or cluster_sync or (drmaa is not None):
             # TODO properly set cores
             workers = min(sum(1 for _ in dag.local_needrun_jobs),
                           multiprocessing.cpu_count())
@@ -101,10 +104,12 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 benchmark_repeats=benchmark_repeats)
             self.run = self.run_cluster_or_local
-            if cluster:
-                self._executor = GenericClusterExecutor(
+            if cluster or cluster_sync:
+                constructor = SynchronousClusterExecutor if cluster_sync \
+                              else GenericClusterExecutor
+                self._executor = constructor(
                     workflow, dag, None,
-                    submitcmd=cluster,
+                    submitcmd=(cluster or cluster_sync),
                     cluster_config=cluster_config,
                     jobname=jobname,
                     printreason=printreason,
@@ -330,7 +335,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                       else 0) for j in range(n)]
                 if not any(y):
                     break
-                y = [(max(1, int(self.greedyness * y_j)) if y_j > 0 else 0)
+                y = [(max(1, int(self.greediness * y_j)) if y_j > 0 else 0)
                      for y_j in y]
 
                 # Step 3: compute rewards on cumulative sums
@@ -344,7 +349,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 x[j_sel] += y_sel
                 b = [b_i - (a_j_i * y_sel) for b_i, a_j_i in zip(b, a[j_sel])]
                 u[j_sel] -= y_sel
-                if not u[j_sel] or self.greedyness == 1:
+                if not u[j_sel] or self.greediness == 1:
                     E.remove(j_sel)
                 if not E:
                     break
@@ -356,7 +361,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             else:
                 solution = [job for job, sel in zip(jobs, x) if sel]
             # update resources
-            for name, b_i in zip(self.resources, b):
+            for name, b_i in zip(self.workflow.global_resources, b):
                 self.resources[name] = b_i
             return solution
 
