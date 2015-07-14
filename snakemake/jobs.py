@@ -348,7 +348,7 @@ class Reason:
                     s.append("Updated input files: {}".format(
                         ", ".join(updated_input)))
                 if self.updated_input_run:
-                    s.append("This run updates input files: {}".format(
+                    s.append("Input files updated by another job: {}".format(
                         ", ".join(self.updated_input_run)))
         s = "; ".join(s)
         return s
