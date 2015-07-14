@@ -1,4 +1,7 @@
-# -*- coding: utf-8 -*-
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
+__email__ = "koester@jimmy.harvard.edu"
+__license__ = "MIT"
 
 import logging as _logging
 import platform
@@ -8,8 +11,6 @@ import os
 import json
 from multiprocessing import Lock
 import tempfile
-
-__author__ = "Johannes Köster"
 
 
 class ColorizingStreamHandler(_logging.StreamHandler):
@@ -64,7 +65,8 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         if self.timestamp:
             message.insert(0, "[{}] ".format(time.asctime()))
         if not self.nocolor and record.levelname in self.colors:
-            message.insert(0, self.COLOR_SEQ % (30 + self.colors[record.levelname]))
+            message.insert(0, self.COLOR_SEQ %
+                           (30 + self.colors[record.levelname]))
             message.append(self.RESET_SEQ)
         return "".join(message)
 
@@ -79,13 +81,16 @@ class Logger:
 
     def setup(self):
         # logfile output is done always
-        _, self.logfile = tempfile.mkstemp(prefix="", suffix=".snakemake.log")
+        self.logfile_fd, self.logfile = tempfile.mkstemp(
+            prefix="",
+            suffix=".snakemake.log")
         self.logfile_handler = _logging.FileHandler(self.logfile)
         self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
         self.logger.removeHandler(self.logfile_handler)
         self.logfile_handler.close()
+        os.close(self.logfile_fd)
         os.remove(self.logfile)
 
     def get_logfile(self):
@@ -145,31 +150,33 @@ class Logger:
 
     def text_handler(self, msg):
         """The default snakemake log handler.
-        
+
         Prints the output to the console.
-        
+
         Args:
             msg (dict):     the log message dictionary
         """
+
         def job_info(msg):
             def format_item(item, omit=None, valueformat=str):
                 value = msg[item]
                 if value != omit:
                     return "\t{}: {}".format(item, valueformat(value))
 
-            yield "{}rule {}:".format("local" if msg["local"] else "", msg["name"])
-            for item in "input output".split():
+            yield "{}rule {}:".format("local" if msg["local"] else "",
+                                      msg["name"])
+            for item in "input output log".split():
                 fmt = format_item(item, omit=[], valueformat=", ".join)
                 if fmt != None:
                     yield fmt
-            singleitems = ["log", "benchmark"]
+            singleitems = ["benchmark"]
             if self.printreason:
                 singleitems.append("reason")
             for item in singleitems:
                 fmt = format_item(item, omit=None)
                 if fmt != None:
                     yield fmt
-            for item, omit in zip("priority threads".split(), [0,1]):
+            for item, omit in zip("priority threads".split(), [0, 1]):
                 fmt = format_item(item, omit=omit)
                 if fmt != None:
                     yield fmt
@@ -191,7 +198,8 @@ class Logger:
         elif level == "progress" and not self.quiet:
             done = msg["done"]
             total = msg["total"]
-            self.logger.info("{} of {} steps ({:.0%}) done".format(done, total, done / total))
+            self.logger.info("{} of {} steps ({:.0%}) done".format(
+                done, total, done / total))
         elif level == "job_info":
             if not self.quiet:
                 if msg["msg"] is not None:
@@ -213,15 +221,26 @@ class Logger:
 
 
 def format_resources(resources, omit_resources="_cores _nodes".split()):
-    return ", ".join("{}={}".format(name, value) for name, value in resources.items() if name not in omit_resources)
+    return ", ".join("{}={}".format(name, value)
+                     for name, value in resources.items()
+                     if name not in omit_resources)
 
 
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
     return ", ".join(name for name in resources if name not in omit_resources)
 
+
 logger = Logger()
 
-def setup_logger(handler=None, quiet=False, printshellcmds=False, printreason=False, nocolor=False, stdout=False, debug=False, timestamp=False):
+
+def setup_logger(handler=None,
+                 quiet=False,
+                 printshellcmds=False,
+                 printreason=False,
+                 nocolor=False,
+                 stdout=False,
+                 debug=False,
+                 timestamp=False):
     logger.setup()
     if handler is not None:
         # custom log handler
@@ -229,9 +248,9 @@ def setup_logger(handler=None, quiet=False, printshellcmds=False, printreason=Fa
     else:
         # console output only if no custom logger was specified
         stream_handler = ColorizingStreamHandler(
-            nocolor=nocolor, stream=sys.stdout if stdout else sys.stderr,
-            timestamp=timestamp
-        )
+            nocolor=nocolor,
+            stream=sys.stdout if stdout else sys.stderr,
+            timestamp=timestamp)
         logger.set_stream_handler(stream_handler)
 
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
