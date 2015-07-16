@@ -1,0 +1,14 @@
+import yaml
+
+configfile: "test.yaml"
+
+include: "echo.rule"
+include: "cp.rule"
+
+rule all:
+    input: "test.out.copy"
+    output: yaml = "config.yaml"
+    run:
+        with open(str(output.yaml), "w") as fh:
+            fh.write(yaml.dump(config, default_flow_style=False))
+
