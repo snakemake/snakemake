@@ -1,0 +1,13 @@
+# -*- snakemake -*-
+config_default = {
+    'echo': {
+        'options': '',
+    },
+}
+
+configdefault: config_default
+
+rule echo:
+    params: options = config['echo']['options']
+    output: temporary('{prefix}.out')
+    shell: 'echo "{params.options}" > {output}'
