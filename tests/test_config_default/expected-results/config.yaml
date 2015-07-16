@@ -1,0 +1,4 @@
+cp:
+  options: -f
+echo:
+  options: echo
