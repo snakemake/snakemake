@@ -26,6 +26,64 @@ import snakemake.io
 from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 
+def _update_config(config, config_default):
+    """Recursively update snakemake global configuration object. The
+    default object is defined in the preamble of rules files and
+    contains sensitive default settings.
+
+    Loops through items in config_default and updates the config
+    configuration. There are two cases:
+
+    1. If the key/value pair is not present in config the value in
+       config_default is used to set the corresponding value in
+       config
+
+    2. Else, use the set value in config
+
+    This procedure ensures that if a section is undefined in
+    config, a default value will always be present.
+
+    Note that this implementation requires that should the user use
+    keyword <snakemake.configfile> to include a configuration file, it
+    must be done *before* any <snakemake.include> statements.
+
+    Args:
+      config_default: default configuration object to update global config with
+
+    Returns:
+      config: updated configuration
+
+    """
+    if config is None:
+        return config_default
+    # Loop dict
+    for (key, value) in config_default.items():
+        if not key in config:
+            config[key] = None
+        else:
+            # Elementary type checking; could be improved by checking
+            # contents of lists (e.g list of ints, list of str etc)
+            if not config[key] is None:
+                assert isinstance(config[key], type(config_default[key])), \
+                    "Not same types: '{}', type '{}' (default) vs '{}', type '{}' (config)".format(
+                        config_default[key], 
+                        type(config_default[key]), 
+                        config[key],
+                        type(config[key]))
+        # 1. if config_default[key] is not a dictionary
+        if (not isinstance(config_default[key], dict)):
+            # Update if not present
+            if config[key] is None:
+                if isinstance(config_default[key], str):
+                    config[key] = os.path.expandvars(config_default[key])
+                else:
+                    config[key] = config_default[key]
+            elif isinstance(config[key], str):
+                config[key] = os.path.expandvars(config[key])
+        # 2. if config_default[key] is dictionary, do recursive update
+        else:
+            config[key]= _update_config(config[key], config_default[key])
+    return config
 
 class Workflow:
     def __init__(self,
@@ -500,9 +558,11 @@ class Workflow:
         """ Update the global config with the given dictionary. """
         global config
         c = snakemake.io.load_configfile(jsonpath)
-        for key, val in c.items():
-            if key not in self.overwrite_config:
-                config[key] = val
+        config = _update_config(config, c)
+
+    def configdefault(self, config_default):
+        global config
+        config = _update_config(config, config_default)
 
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
