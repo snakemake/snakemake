@@ -787,8 +787,9 @@ class DAG:
             return "{}: {}".format(name, value)
 
         node2rule = lambda job: job.rule
-        node2label = lambda job: "\\n".join(chain([job.rule.name], sorted(
-            map(format_wildcard, self.new_wildcards(job)))))
+        node2label = lambda job: "\\n".join(chain([
+            job.rule.name
+        ], sorted(map(format_wildcard, self.new_wildcards(job)))))
 
         dag = {job: self.dependencies[job] for job in self.jobs}
 
@@ -913,7 +914,8 @@ class DAG:
         rules.update(job.rule for job in self.finished_jobs)
         yield "Job counts:"
         yield "\tcount\tjobs"
-        for rule, count in rules.most_common():
+        for rule, count in sorted(rules.most_common(),
+                                  key=lambda item: item[0].name):
             yield "\t{}\t{}".format(count, rule)
         yield "\t{}".format(len(self))
 
