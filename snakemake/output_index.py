@@ -5,6 +5,8 @@ __license__ = "MIT"
 
 from collections import defaultdict
 
+from snakemake.io import _IOFile
+
 
 class Node:
     __slots__ = ["rules", "children"]
@@ -12,6 +14,9 @@ class Node:
     def __init__(self):
         self.rules = set()
         self.children = defaultdict(Node)
+
+    def __repr__(self):
+        return "({}) -> {}".format(self.rules, dict(self.children))
 
 
 class OutputIndex:
@@ -22,12 +27,12 @@ class OutputIndex:
             output = list(rule.output)
             if rule.benchmark:
                 output.append(rule.benchmark)
-            for f in output:
-                self.add_output(rule, f)
+            for constant_prefix in sorted(map(_IOFile.constant_prefix, output)):
+                self.add_output(rule, constant_prefix)
 
-    def add_output(self, rule, f):
+    def add_output(self, rule, constant_prefix):
         node = self.root
-        for c in f.constant_prefix():
+        for c in constant_prefix:
             node = node.children[c]
             if rule in node.rules:
                 # a prefix of file f is already recorded for this rule
