@@ -245,6 +245,8 @@ class Workdir(GlobalKeywordState):
 class Configfile(GlobalKeywordState):
     pass
 
+class ConfigDefault(GlobalKeywordState):
+    pass
 
 class Ruleorder(GlobalKeywordState):
     def block_content(self, token):
@@ -577,6 +579,7 @@ class Python(TokenAutomaton):
                        rule=Rule,
                        subworkflow=Subworkflow,
                        localrules=Localrules,
+                       configdefault=ConfigDefault,
                        onsuccess=OnSuccess,
                        onerror=OnError)
 
