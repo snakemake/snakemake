@@ -1,6 +1,6 @@
 package:
   name: snakemake
-  version: "3.3"
+  version: "3.4"
 source:
   fn: snakemake-3.3.tar.gz
   url: https://pypi.python.org/packages/source/s/snakemake/snakemake-3.3.tar.gz
