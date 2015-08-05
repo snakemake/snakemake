@@ -432,11 +432,10 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
+        self._names[name] = (index, end)
         if end is None:
-            self._names[name] = (index, index + 1)
             setattr(self, name, self[index])
         else:
-            self._names[name] = (index, end)
             setattr(self, name, Namedlist(toclone=self[index:end]))
 
     def get_names(self):
@@ -463,8 +462,10 @@ class Namedlist(list):
     def allitems(self):
         next = 0
         for name, index in sorted(self._names.items(),
-                                  key=lambda item: item[1]):
+                                  key=lambda item: item[1][0]):
             start, end = index
+            if end is None:
+                end = start + 1
             if start > next:
                 for item in self[next:start]:
                     yield None, item
