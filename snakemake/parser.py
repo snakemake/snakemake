@@ -241,7 +241,6 @@ class Include(GlobalKeywordState):
 class Workdir(GlobalKeywordState):
     pass
 
-
 class Configfile(GlobalKeywordState):
     pass
 
