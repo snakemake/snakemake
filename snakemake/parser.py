@@ -233,7 +233,6 @@ class SubworkflowKeywordState(KeywordState):
 
 # Global keyword states
 
-
 class Include(GlobalKeywordState):
     pass
 
@@ -241,8 +240,10 @@ class Include(GlobalKeywordState):
 class Workdir(GlobalKeywordState):
     pass
 
+
 class Configfile(GlobalKeywordState):
     pass
+
 
 class Ruleorder(GlobalKeywordState):
     def block_content(self, token):
