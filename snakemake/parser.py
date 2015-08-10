@@ -576,7 +576,6 @@ class Python(TokenAutomaton):
                        rule=Rule,
                        subworkflow=Subworkflow,
                        localrules=Localrules,
-                       configdefault=ConfigDefault,
                        onsuccess=OnSuccess,
                        onerror=OnError)
 
