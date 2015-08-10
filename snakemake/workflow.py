@@ -110,7 +110,7 @@ class Workflow:
 
         global config
         config = dict()
-        config.update(self.overwrite_config)
+        config = _update_config(config, self.overwrite_config)
 
         global rules
         rules = Rules()
@@ -541,10 +541,6 @@ class Workflow:
         global config
         c = snakemake.io.load_configfile(jsonpath)
         config = _update_config(config, c)
-
-    def configdefault(self, config_default):
-        global config
-        config = _update_config(config, config_default)
 
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
