@@ -1,11 +1,5 @@
 # -*- snakemake -*-
-config_default = {
-     'cp': {
-         'options': '-f',
-    },
-}
-
-configdefault: config_default
+configfile: 'cp.yaml'
 
 rule cp:
     params: options = config['cp']['options']

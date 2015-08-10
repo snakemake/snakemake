@@ -1,11 +1,5 @@
 # -*- snakemake -*-
-config_default = {
-    'echo': {
-        'options': '',
-    },
-}
-
-configdefault: config_default
+configfile: 'echo.yaml'
 
 rule echo:
     params: options = config['echo']['options']
