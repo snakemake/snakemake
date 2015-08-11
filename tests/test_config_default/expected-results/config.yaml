@@ -1,4 +1,4 @@
 cp:
-  options: -f
+  options: -u
 echo:
   options: echo

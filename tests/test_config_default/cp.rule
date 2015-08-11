@@ -1,5 +1,13 @@
 # -*- snakemake -*-
-configfile: 'cp.yaml'
+from snakemake.workflow import update_config
+
+c = {
+    'cp': {
+        'options': '-f',
+        },
+    }
+
+config = update_config(config, c)
 
 rule cp:
     params: options = config['cp']['options']

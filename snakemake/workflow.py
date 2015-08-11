@@ -26,7 +26,7 @@ import snakemake.io
 from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 
-def _update_config(config, config_default):
+def update_config(config, config_default):
     """Recursively update snakemake global configuration object. The
     default configuration is defined in the preamble of rules files and
     contains reasonable default settings.
@@ -57,7 +57,7 @@ def _update_config(config, config_default):
                     config[key],
                     type(config[key]))
         if (isinstance(config_default[key], Mapping)):
-            config[key]= _update_config(config.get(key, {}), config_default[key])
+            config[key]= update_config(config.get(key, {}), config_default[key])
         else:
             # Only set to default if not defined in config
             if not key in config:
@@ -110,7 +110,7 @@ class Workflow:
 
         global config
         config = dict()
-        config = _update_config(config, self.overwrite_config)
+        config = update_config(config, self.overwrite_config)
 
         global rules
         rules = Rules()
@@ -540,7 +540,7 @@ class Workflow:
         """ Update the global config with the given dictionary. """
         global config
         c = snakemake.io.load_configfile(jsonpath)
-        config = _update_config(config, c)
+        config = update_config(config, c)
 
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
