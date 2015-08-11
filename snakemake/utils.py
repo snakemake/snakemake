@@ -9,6 +9,7 @@ import re
 import inspect
 import textwrap
 from itertools import chain
+from collections import Mapping
 
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
@@ -218,3 +219,44 @@ def min_version(version):
         snakemake.__version__) < pkg_resources.parse_version(version):
         raise WorkflowError(
             "Expecting Snakemake version {} or higher.".format(version))
+
+
+def update_config(config, config_default):
+    """Recursively update snakemake global configuration object. The
+    default configuration is defined in the preamble of rules files and
+    contains reasonable default settings.
+
+    The function loops through items in *config_default* and updates the
+    config configuration according to the following rules:
+
+    1. If the key is present in config, use this value
+    2. Else, fall back on the value in config_default
+
+    This procedure ensures that if a key is undefined in config, it
+    will be set using a default value.
+
+    Args:
+      config_default: default configuration settings
+
+    Returns:
+      config: updated configuration
+    """
+    for (key, value) in config_default.items():
+        # Elementary type checking; could be improved by checking
+        # contents of lists (e.g list of ints, list of str etc)
+        if key in config:
+            assert isinstance(config[key], type(config_default[key])), \
+                "Not same types: '{}', type '{}' (default) vs '{}', type '{}' (config)".format(
+                    config_default[key], 
+                    type(config_default[key]), 
+                    config[key],
+                    type(config[key]))
+        if (isinstance(config_default[key], Mapping)):
+            config[key]= update_config(config.get(key, {}), config_default[key])
+        else:
+            # Only set to default if not defined in config
+            if not key in config:
+                config[key] = config_default[key]
+            if isinstance(config[key], str):
+                config[key] = os.path.expandvars(config[key])
+    return config
