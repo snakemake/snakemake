@@ -860,9 +860,6 @@ def main():
         import yappi
         yappi.start()
 
-    _snakemake = partial(snakemake, args.snakefile,
-                         snakemakepath=snakemakepath)
-
     if args.gui is not None:
         try:
             import snakemake.gui as gui
@@ -873,6 +870,9 @@ def main():
             sys.exit(1)
 
         _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
+
+        _snakemake = partial(snakemake, os.path.abspath(args.snakefile),
+                             snakemakepath=snakemakepath)
         gui.register(_snakemake, args)
         url = "http://127.0.0.1:{}".format(args.gui)
         print("Listening on {}.".format(url), file=sys.stderr)
@@ -893,7 +893,8 @@ def main():
             # silently close
             pass
     else:
-        success = _snakemake(listrules=args.list,
+        success = snakemake( args.snakefile,
+                             listrules=args.list,
                              list_target_rules=args.list_target_rules,
                              cores=args.cores,
                              nodes=args.cores,
