@@ -159,6 +159,7 @@ class Workflow:
                 touch=False,
                 cores=1,
                 nodes=1,
+                local_cores=1,
                 forcetargets=False,
                 forceall=False,
                 forcerun=None,
@@ -384,6 +385,7 @@ class Workflow:
             return True
 
         scheduler = JobScheduler(self, dag, cores,
+                                 local_cores=local_cores,
                                  dryrun=dryrun,
                                  touch=touch,
                                  cluster=cluster,
