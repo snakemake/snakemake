@@ -53,7 +53,8 @@ class _IOFile(str):
 
     @property
     def mtime(self):
-        return os.stat(self.file).st_mtime
+        # do not follow symlinks for modification time
+        return os.lstat(self.file).st_mtime
 
     def is_newer(self, time):
         return self.mtime > time
