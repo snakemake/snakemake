@@ -59,9 +59,13 @@ class _IOFile(str):
     @property
     def size(self):
         # follow symlinks but throw error if invalid
+        self.check_broken_symlink()
+        return os.path.getsize(self.file)
+
+    def check_broken_symlink(self):
+        """ Raise WorkflowError if file is a broken symlink. """
         if not self.exists and os.lstat(self.file):
             raise WorkflowError("File {} seems to be a broken symlink.".format(self.file))
-        return os.path.getsize(self.file)
 
     def is_newer(self, time):
         return self.mtime > time
