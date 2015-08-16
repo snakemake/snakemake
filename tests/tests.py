@@ -266,3 +266,7 @@ def test_cluster_sync():
     run(dpath("test14"),
         snakefile="Snakefile.nonstandard",
         cluster_sync="./qsub")
+
+def test_symlink_temp():
+    run(dpath("test_symlink_temp"), shouldfail=True)
+

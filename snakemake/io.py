@@ -56,6 +56,13 @@ class _IOFile(str):
         # do not follow symlinks for modification time
         return os.lstat(self.file).st_mtime
 
+    @property
+    def size(self):
+        # follow symlinks but throw error if invalid
+        if not self.exists and os.lstat(self.file):
+            raise WorkflowError("File {} seems to be a broken symlink.".format(self.file))
+        return os.path.getsize(self.file)
+
     def is_newer(self, time):
         return self.mtime > time
 
@@ -71,7 +78,7 @@ class _IOFile(str):
                     raise e
 
     def protect(self):
-        mode = (os.stat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~
+        mode = (os.lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~
                 stat.S_IWOTH)
         if os.path.isdir(self.file):
             for root, dirs, files in os.walk(self.file):
