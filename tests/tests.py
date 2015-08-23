@@ -230,6 +230,10 @@ def test_config():
     run(dpath("test_config"))
 
 
+def test_config_default():
+    run(dpath("test_config_default"))
+
+
 def test_benchmark():
     run(dpath("test_benchmark"), check_md5=False)
 
