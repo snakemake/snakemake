@@ -1,0 +1,16 @@
+
+
+rule:
+    input:
+        "a.txt"
+    output:
+        "test.txt"
+    shell:
+        "touch {output}"
+
+
+rule:
+    output:
+        temp(expand("{ds}.txt", ds="a b c".split()))
+    shell:
+        "touch {output}"

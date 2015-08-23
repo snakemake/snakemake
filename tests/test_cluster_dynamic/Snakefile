@@ -1,0 +1,26 @@
+import re, os, sys
+
+
+rule all:
+	input:
+		"out.txt"
+
+
+rule split:
+    input: 'test.txt'
+    output: dynamic('prefix{split_id}.txt')
+    run:
+        shell('split -l 2 {input} prefix')
+        for f in os.listdir(os.getcwd()):
+            if re.search('prefix[a-z][a-z]', f):
+                os.rename(f, f + '.txt')
+
+rule cut:
+    input: 'prefix{split_id,[a-z][a-z]}.txt'
+    output: '{split_id}_cut.txt'
+    shell: 'cut -f 1,2 {input} > {output}'
+
+rule merge:
+    input: dynamic('{split_id}_cut.txt')
+    output: 'out.txt'
+    shell: 'cat {input} > {output}'

@@ -1,0 +1,11 @@
+
+
+rule all:
+    input:
+        "test.benchmark.json"
+
+rule:
+    benchmark:
+        "{v}.benchmark.json"
+    shell:
+        "sleep 1"

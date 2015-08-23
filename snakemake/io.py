@@ -1,13 +1,29 @@
-# -*- coding: utf-8 -*-
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
+__email__ = "koester@jimmy.harvard.edu"
+__license__ = "MIT"
 
 import os
 import re
 import stat
+import time
+import json
 from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError
+from snakemake.logging import logger
 
-__author__ = "Johannes Köster"
+
+def lstat(f):
+    return os.stat(f, follow_symlinks=os.stat not in os.supports_follow_symlinks)
+
+
+def lutime(f, times):
+    return os.utime(f, times, follow_symlinks=os.utime not in os.supports_follow_symlinks)
+
+
+def lchmod(f, mode):
+    return os.chmod(f, mode, follow_symlinks=os.chmod not in os.supports_follow_symlinks)
 
 
 def IOFile(file, rule=None):
@@ -36,9 +52,8 @@ class _IOFile(str):
         if not self._is_function:
             return self._file
         else:
-            raise ValueError(
-                "This IOFile is specified as a function and "
-                "may not be used directly.")
+            raise ValueError("This IOFile is specified as a function and "
+                             "may not be used directly.")
 
     @property
     def exists(self):
@@ -50,7 +65,19 @@ class _IOFile(str):
 
     @property
     def mtime(self):
-        return os.stat(self.file).st_mtime
+        # do not follow symlinks for modification time
+        return lstat(self.file).st_mtime
+
+    @property
+    def size(self):
+        # follow symlinks but throw error if invalid
+        self.check_broken_symlink()
+        return os.path.getsize(self.file)
+
+    def check_broken_symlink(self):
+        """ Raise WorkflowError if file is a broken symlink. """
+        if not self.exists and lstat(self.file):
+            raise WorkflowError("File {} seems to be a broken symlink.".format(self.file))
 
     def is_newer(self, time):
         return self.mtime > time
@@ -67,23 +94,23 @@ class _IOFile(str):
                     raise e
 
     def protect(self):
-        mode = (os.stat(self.file).st_mode & ~stat.S_IWUSR &
-            ~stat.S_IWGRP & ~stat.S_IWOTH)
+        mode = (lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~
+                stat.S_IWOTH)
         if os.path.isdir(self.file):
             for root, dirs, files in os.walk(self.file):
                 for d in dirs:
-                    os.chmod(os.path.join(self.file, d), mode)
+                    lchmod(os.path.join(self.file, d), mode)
                 for f in files:
-                    os.chmod(os.path.join(self.file, f), mode)
+                    lchmod(os.path.join(self.file, f), mode)
         else:
-            os.chmod(self.file, mode)
+            lchmod(self.file, mode)
 
     def remove(self):
         remove(self.file)
 
     def touch(self):
         try:
-            os.utime(self.file, None)
+            lutime(self.file, None)
         except OSError as e:
             if e.errno == 2:
                 raise MissingOutputException(
@@ -94,19 +121,26 @@ class _IOFile(str):
             else:
                 raise e
 
-    def apply_wildcards(
-        self, wildcards, fill_missing=False,
-        fail_dynamic=False):
+    def touch_or_create(self):
+        try:
+            self.touch()
+        except MissingOutputException:
+            # create empty file
+            with open(self.file, "w") as f:
+                pass
+
+    def apply_wildcards(self, wildcards,
+                        fill_missing=False,
+                        fail_dynamic=False):
         f = self._file
         if self._is_function:
             f = self._file(Namedlist(fromdict=wildcards))
 
-        return IOFile(
-            apply_wildcards(
-                f, wildcards, fill_missing=fill_missing,
-                fail_dynamic=fail_dynamic,
-                dynamic_fill=self.dynamic_fill),
-            rule=self.rule)
+        return IOFile(apply_wildcards(f, wildcards,
+                                      fill_missing=fill_missing,
+                                      fail_dynamic=fail_dynamic,
+                                      dynamic_fill=self.dynamic_fill),
+                      rule=self.rule)
 
     def get_wildcard_names(self):
         return get_wildcard_names(self.file)
@@ -120,8 +154,17 @@ class _IOFile(str):
             self._regex = re.compile(regex(self.file))
         return self._regex
 
+    def constant_prefix(self):
+        first_wildcard = _wildcard_regex.search(self.file)
+        if first_wildcard:
+            return self.file[:first_wildcard.start()]
+        return self.file
+
     def match(self, target):
         return self.regex().match(target) or None
+
+    def format_dynamic(self):
+        return self.replace(self.dynamic_fill, "{*}")
 
     def __eq__(self, other):
         f = other._file if isinstance(other, _IOFile) else other
@@ -132,12 +175,30 @@ class _IOFile(str):
 
 
 _wildcard_regex = re.compile(
-    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
+    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>([^\{\}]+|\{\d+(,\d+)?\})*))?\s*\}")
+
+#    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
+
+
+def wait_for_files(files, latency_wait=3):
+    """Wait for given files to be present in filesystem."""
+    files = list(files)
+    get_missing = lambda: [f for f in files if not os.path.exists(f)]
+    missing = get_missing()
+    if missing:
+        logger.info("Waiting at most {} seconds for missing files.".format(
+            latency_wait))
+        for _ in range(latency_wait):
+            if not get_missing():
+                return
+            time.sleep(1)
+        raise IOError("Missing files after {} seconds:\n{}".format(
+            latency_wait, "\n".join(get_missing())))
 
 
 def get_wildcard_names(pattern):
-    return set(match.group('name') for match in
-            _wildcard_regex.finditer(pattern))
+    return set(match.group('name')
+               for match in _wildcard_regex.finditer(pattern))
 
 
 def contains_wildcard(path):
@@ -165,39 +226,42 @@ def regex(filepattern):
         wildcard = match.group("name")
         if wildcard in wildcards:
             if match.group("constraint"):
-                raise ValueError("If multiple wildcards of the same name "
-                "appear in a string, eventual constraints have to be defined "
-                "at the first occurence and will be inherited by the others.")
+                raise ValueError(
+                    "If multiple wildcards of the same name "
+                    "appear in a string, eventual constraints have to be defined "
+                    "at the first occurence and will be inherited by the others.")
             f.append("(?P={})".format(wildcard))
         else:
             wildcards.add(wildcard)
-            f.append("(?P<{}>{})".format(
-                wildcard,
-                match.group("constraint")
-                    if match.group("constraint") else ".+"))
+            f.append("(?P<{}>{})".format(wildcard, match.group("constraint") if
+                                         match.group("constraint") else ".+"))
         last = match.end()
     f.append(re.escape(filepattern[last:]))
-    f.append("$") # ensure that the match spans the whole file
+    f.append("$")  # ensure that the match spans the whole file
     return "".join(f)
 
 
-def apply_wildcards(pattern, wildcards, fill_missing=False,
-        fail_dynamic=False, dynamic_fill=None):
+def apply_wildcards(pattern, wildcards,
+                    fill_missing=False,
+                    fail_dynamic=False,
+                    dynamic_fill=None,
+                    keep_dynamic=False):
+    def format_match(match):
+        name = match.group("name")
+        try:
+            value = wildcards[name]
+            if fail_dynamic and value == dynamic_fill:
+                raise WildcardError(name)
+            return str(value)  # convert anything into a str
+        except KeyError as ex:
+            if keep_dynamic:
+                return "{{{}}}".format(name)
+            elif fill_missing:
+                return dynamic_fill
+            else:
+                raise WildcardError(str(ex))
 
-        def format_match(match):
-            name = match.group("name")
-            try:
-                value = wildcards[name]
-                if fail_dynamic and value == dynamic_fill:
-                    raise WildcardError(name)
-                return str(value)  # convert anything into a str
-            except KeyError as ex:
-                if fill_missing:
-                    return dynamic_fill
-                else:
-                    raise WildcardError(str(ex))
-
-        return re.sub(_wildcard_regex, format_match, pattern)
+    return re.sub(_wildcard_regex, format_match, pattern)
 
 
 def not_iterable(value):
@@ -209,15 +273,15 @@ class AnnotatedString(str):
         self.flags = dict()
 
 
-def flag(value, flag, flag_value=True):
+def flag(value, flag_type, flag_value=True):
     if isinstance(value, AnnotatedString):
-        value.flags[flag] = flag_value
+        value.flags[flag_type] = flag_value
         return value
     if not_iterable(value):
         value = AnnotatedString(value)
-        value.flags[flag] = flag_value
+        value.flags[flag_type] = flag_value
         return value
-    return [flag(v, flag) for v in value]
+    return [flag(v, flag_type, flag_value=flag_value) for v in value]
 
 
 def is_flagged(value, flag):
@@ -231,7 +295,8 @@ def temp(value):
     A flag for an input or output file that shall be removed after usage.
     """
     if is_flagged(value, "protected"):
-        raise SyntaxError("Protected and temporary flags are mutually exclusive.")
+        raise SyntaxError(
+            "Protected and temporary flags are mutually exclusive.")
     return flag(value, "temp")
 
 
@@ -243,7 +308,8 @@ def temporary(value):
 def protected(value):
     """ A flag for a file that shall be write protected after creation. """
     if is_flagged(value, "temp"):
-        raise SyntaxError("Protected and temporary flags are mutually exclusive.")
+        raise SyntaxError(
+            "Protected and temporary flags are mutually exclusive.")
     return flag(value, "protected")
 
 
@@ -267,6 +333,10 @@ def dynamic(value):
 # TODO handle flag, hide it in prints?
 def done(prefix, *wildcards):
     return flag(".snakemake/done/{}.{}.done".format(prefix, ".".join(wildcards)), "done")
+
+
+def touch(value):
+    return flag(value, "touch")
 
 
 def expand(*args, **wildcards):
@@ -295,9 +365,25 @@ def expand(*args, **wildcards):
             yield [(wildcard, value) for value in values]
 
     try:
-        return [filepattern.format(**comb) for comb in map(dict, combinator(*flatten(wildcards))) for filepattern in filepatterns]
+        return [filepattern.format(**comb)
+                for comb in map(dict, combinator(*flatten(wildcards))) for
+                filepattern in filepatterns]
     except KeyError as e:
         raise WildcardError("No values given for wildcard {}.".format(e))
+
+
+def limit(pattern, **wildcards):
+    """
+    Limit wildcards to the given values.
+
+    Arguments:
+    **wildcards -- the wildcards as keyword arguments
+                   with their values as lists
+    """
+    return pattern.format(**{
+        wildcard: "{{{},{}}}".format(wildcard, "|".join(values))
+        for wildcard, values in wildcards.items()
+    })
 
 
 def glob_wildcards(pattern):
@@ -307,12 +393,13 @@ def glob_wildcards(pattern):
     """
     pattern = os.path.normpath(pattern)
     first_wildcard = re.search("{[^{]", pattern)
-    dirname = os.path.dirname(pattern[:first_wildcard.start()]) if first_wildcard else os.path.dirname(pattern)
+    dirname = os.path.dirname(pattern[:first_wildcard.start(
+    )]) if first_wildcard else os.path.dirname(pattern)
     if not dirname:
         dirname = "."
-    
+
     names = [match.group('name')
-        for match in _wildcard_regex.finditer(pattern)]
+             for match in _wildcard_regex.finditer(pattern)]
     Wildcards = namedtuple("Wildcards", names)
     wildcards = Wildcards(*[list() for name in names])
 
@@ -334,6 +421,7 @@ class Namedlist(list):
     A list that additionally provides functions to name items. Further,
     it is hashable, however the hash does not consider the item names.
     """
+
     def __init__(self, toclone=None, fromdict=None, plainstr=False):
         """
         Create the object.
@@ -401,14 +489,16 @@ class Namedlist(list):
 
     def allitems(self):
         next = 0
-        for name, index in sorted(
-            self._names.items(), key=lambda item: item[1]):
+        for name, index in sorted(self._names.items(),
+                                  key=lambda item: item[1][0]):
             start, end = index
+            if end is None:
+                end = start + 1
             if start > next:
                 for item in self[next:start]:
                     yield None, item
             yield name, getattr(self, name)
-            next = end if end is not None else start + 1
+            next = end
         for item in self[next:]:
             yield None, item
 
@@ -419,7 +509,7 @@ class Namedlist(list):
             if i > index:
                 self._names[name] = (i + add, j + add)
             elif i == index:
-                self.set_name(name, i, end=i+len(items))
+                self.set_name(name, i, end=i + len(items))
 
     def keys(self):
         return self._names
@@ -456,22 +546,61 @@ class Wildcards(Namedlist):
 class Params(Namedlist):
     pass
 
+
 class Resources(Namedlist):
     pass
 
 
+class Log(Namedlist):
+    pass
+
+
+def _load_configfile(configpath):
+    "Tries to load a configfile first as JSON, then as YAML, into a dict."
+    try:
+        with open(configpath) as f:
+            try:
+                return json.load(f)
+            except ValueError:
+                f.seek(0)  # try again
+            try:
+                import yaml
+            except ImportError:
+                raise WorkflowError("Config file is not valid JSON and PyYAML "
+                                    "has not been installed. Please install "
+                                    "PyYAML to use YAML config files.")
+            try:
+                return yaml.load(f)
+            except yaml.YAMLError:
+                raise WorkflowError("Config file is not valid JSON or YAML.")
+    except FileNotFoundError:
+        raise WorkflowError("Config file {} not found.".format(configpath))
+
+
+def load_configfile(configpath):
+    "Loads a JSON or YAML configfile as a dict, then checks that it's a dict."
+    config = _load_configfile(configpath)
+    if not isinstance(config, dict):
+        raise WorkflowError("Config file must be given as JSON or YAML "
+                            "with keys at top level.")
+    return config
+
 ##### Wildcard pumping detection #####
 
+
 class PeriodicityDetector:
-    def __init__(self, min_repeat=15, max_repeat=100):
+    def __init__(self, min_repeat=50, max_repeat=100):
         """
         Args:
             max_len (int): The maximum length of the periodic substring.
         """
-        self.regex = re.compile("((?P<value>.+)(?P=value){{{min_repeat},{max_repeat}}})$".format(min_repeat=min_repeat - 1, max_repeat=max_repeat - 1))
+        self.regex = re.compile(
+            "((?P<value>.+)(?P=value){{{min_repeat},{max_repeat}}})$".format(
+                min_repeat=min_repeat - 1,
+                max_repeat=max_repeat - 1))
 
     def is_periodic(self, value):
         """Returns the periodic substring or None if not periodic."""
-        m = self.regex.search(value) # search for a periodic suffix.
+        m = self.regex.search(value)  # search for a periodic suffix.
         if m is not None:
             return m.group("value")

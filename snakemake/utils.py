@@ -1,25 +1,20 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
+__email__ = "koester@jimmy.harvard.edu"
+__license__ = "MIT"
 
 import os
 import json
-import io
 import re
-import fnmatch
-import mimetypes
-import base64
 import inspect
 import textwrap
-import tempfile
-import subprocess
-import shutil
-import mimetypes
-import datetime
 from itertools import chain
+from collections import Mapping
 
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
+from snakemake.exceptions import WorkflowError
+import snakemake
 
 
 def linecount(filename):
@@ -57,14 +52,13 @@ def listfiles(pattern, restriction=None, omit_value=None):
     for dirpath, dirnames, filenames in os.walk(dirname):
         for f in chain(filenames, dirnames):
             if dirpath != ".":
-                f = os.path.join(dirpath, f)
+                f = os.path.normpath(os.path.join(dirpath, f))
             match = re.match(pattern, f)
-            if match and len(match.group()) == len(f):
+            if match:
                 wildcards = Namedlist(fromdict=match.groupdict())
                 if restriction is not None:
-                    invalid = any(
-                        omit_value not in v and v != wildcards[k]
-                        for k, v in restriction.items())
+                    invalid = any(omit_value not in v and v != wildcards[k]
+                                  for k, v in restriction.items())
                     if not invalid:
                         yield f, wildcards
                 else:
@@ -82,22 +76,23 @@ def makedirs(dirnames):
             os.makedirs(dirname)
 
 
-def report(
-    text, path,
-    stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
-    defaultenc="utf8", template=None, metadata=None, **files):
+def report(text, path,
+           stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
+           defaultenc="utf8",
+           template=None,
+           metadata=None, **files):
     """Create an HTML report using python docutils.
 
     Attention: This function needs Python docutils to be installed for the
     python installation you use with Snakemake.
 
-    All keywords not listed below are intepreted as paths to files that shall be
-    embedded into the document. They keywords will be available as link
+    All keywords not listed below are intepreted as paths to files that shall
+    be embedded into the document. They keywords will be available as link
     targets in the text. E.g. append a file as keyword arg via F1=input[0]
     and put a download link in the text like this:
 
     .. code:: python
-    
+
         report('''
         ==============
         Report for ...
@@ -124,85 +119,42 @@ def report(
         metadata (str):     E.g. an optional author name or email address.
 
     """
-    outmime, _ = mimetypes.guess_type(path)
-    if outmime != "text/html":
-        raise ValueError("Path to report output has to be an HTML file.")
-    from docutils.core import publish_file
-    definitions = textwrap.dedent("""
-    .. role:: raw-html(raw)
-       :format: html
-
-    """)
-
-    metadata = textwrap.dedent("""
-
-    .. container::
-       :name: metadata
-
-       {metadata} | {date}
-
-    """).format(metadata=metadata, date=datetime.date.today().isoformat())
-
-    text = format(textwrap.dedent(text), stepout=2)
-
-    attachments = [textwrap.dedent("""
-        .. container::
-           :name: attachments
-           
-        """)]
-    for name, file in sorted(files.items()):
-        mime, encoding = mimetypes.guess_type(file)
-        if mime is None:
-            mime = "text/plain"
-            logger.info("Could not detect mimetype for {}, assuming "
-            "text/plain.".format(file))
-        if encoding is None:
-            encoding = defaultenc
-        with open(file, "rb") as f:
-            data = base64.b64encode(f.read())
-        attachments.append(
-            '''
-   .. container::
-      :name: {name}
-
-      [{name}] :raw-html:`<a href="data:{mime};charset={charset};filename={filename};base64,{data}" download="{filename}" draggable="true">{filename}</a>`
-            '''.format(
-                name=name,
-                filename=os.path.basename(file),
-                mime=mime,
-                charset=encoding,
-                data=data.decode()))
-
-    text = definitions + text + "\n\n" + "\n\n".join(attachments) + metadata
-
-    overrides = dict()
-    if template is not None:
-        overrides["template"] = template
-    if stylesheet is not None:
-        overrides["stylesheet_path"] = stylesheet
-    html = open(path, "w")
-    publish_file(
-        source=io.StringIO(text), destination=html,
-        writer_name="html", settings_overrides=overrides)
+    try:
+        import snakemake.report
+    except ImportError:
+        raise WorkflowError(
+            "Python 3 package docutils needs to be installed to use the report function.")
+    snakemake.report.report(text, path,
+                            stylesheet=stylesheet,
+                            defaultenc=defaultenc,
+                            template=template,
+                            metadata=metadata, **files)
 
 
 def R(code):
     """Execute R code
-    
-    This function executes the R code given as a string. The function requires rpy2 to be installed.
+
+    This function executes the R code given as a string.
+    The function requires rpy2 to be installed.
 
     Args:
         code (str): R code to be executed
     """
-    import rpy2.robjects as robjects
+    try:
+        import rpy2.robjects as robjects
+    except ImportError:
+        raise WorkflowError(
+            "Python 3 package rpy2 needs to be installed to use the R function.")
     robjects.r(format(textwrap.dedent(code), stepout=2))
 
 
-def format(string, *args, stepout=1, **kwargs):
-    """Format a string in Snakemake style.
-    
-    This means that keywords embedded in braces are replaced by any variable values that are available in the current namespace.
+def format(_pattern, *args, stepout=1, **kwargs):
+    """Format a pattern in Snakemake style.
+
+    This means that keywords embedded in braces are replaced by any variable
+    values that are available in the current namespace.
     """
+
     class SequenceFormatter:
         def __init__(self, sequence):
             self._sequence = sequence
@@ -224,23 +176,20 @@ def format(string, *args, stepout=1, **kwargs):
     # add local variables from calling rule/function
     variables.update(frame.f_locals)
     variables.update(kwargs)
-    strmethods = list()
     for key, value in list(variables.items()):
         if type(value) in (list, tuple, set, frozenset):
             variables[key] = SequenceFormatter(value)
     try:
-        return string.format(*args, **variables)
+        return _pattern.format(*args, **variables)
     except KeyError as ex:
-        raise NameError(
-            "The name {} is unknown in this context. Please"
-            "make sure that you defined that variable. "
-            "Also note that braces not used for variable access "
-            "have to be escaped by repeating them, "
-            "i.e. {{{{print $1}}}}".format(str(ex)))
+        raise NameError("The name {} is unknown in this context. Please "
+                        "make sure that you defined that variable. "
+                        "Also note that braces not used for variable access "
+                        "have to be escaped by repeating them, "
+                        "i.e. {{{{print $1}}}}".format(str(ex)))
 
 
 class Unformattable:
-
     def __init__(self, errormsg="This cannot be used for formatting"):
         self.errormsg = errormsg
 
@@ -248,12 +197,66 @@ class Unformattable:
         raise ValueError(self.errormsg)
 
 
-def read_job_properties(jobscript, prefix="# properties", pattern=re.compile("# properties = (.*)")):
+def read_job_properties(jobscript,
+                        prefix="# properties",
+                        pattern=re.compile("# properties = (.*)")):
     """Read the job properties defined in a snakemake jobscript.
-    
-    This function is a helper for writing custom wrappers for the snakemake --cluster functionality. Applying this function to a jobscript will return a dict containing information about the job.
+
+    This function is a helper for writing custom wrappers for the
+    snakemake --cluster functionality. Applying this function to a
+    jobscript will return a dict containing information about the job.
     """
     with open(jobscript) as jobscript:
         for m in map(pattern.match, jobscript):
             if m:
                 return json.loads(m.group(1))
+
+
+def min_version(version):
+    """Require minimum snakemake version, raise workflow error if not met."""
+    import pkg_resources
+    if pkg_resources.parse_version(
+        snakemake.__version__) < pkg_resources.parse_version(version):
+        raise WorkflowError(
+            "Expecting Snakemake version {} or higher.".format(version))
+
+
+def update_config(config, config_default):
+    """Recursively update snakemake global configuration object. The
+    default configuration is defined in the preamble of rules files and
+    contains reasonable default settings.
+
+    The function loops through items in *config_default* and updates the
+    config configuration according to the following rules:
+
+    1. If the key is present in config, use this value
+    2. Else, fall back on the value in config_default
+
+    This procedure ensures that if a key is undefined in config, it
+    will be set using a default value.
+
+    Args:
+      config_default: default configuration settings
+
+    Returns:
+      config: updated configuration
+    """
+    for (key, value) in config_default.items():
+        # Elementary type checking; could be improved by checking
+        # contents of lists (e.g list of ints, list of str etc)
+        if key in config:
+            assert isinstance(config[key], type(config_default[key])), \
+                "Not same types: '{}', type '{}' (default) vs '{}', type '{}' (config)".format(
+                    config_default[key], 
+                    type(config_default[key]), 
+                    config[key],
+                    type(config[key]))
+        if (isinstance(config_default[key], Mapping)):
+            config[key]= update_config(config.get(key, {}), config_default[key])
+        else:
+            # Only set to default if not defined in config
+            if not key in config:
+                config[key] = config_default[key]
+            if isinstance(config[key], str):
+                config[key] = os.path.expandvars(config[key])
+    return config

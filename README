@@ -5,4 +5,4 @@ e.g. in bioinformatics. This project aims to reduce the complexity of creating
 workflows by providing a clean and modern domain specific specification language (DSL) 
 in python style, together with a fast and comfortable execution environment.
 
-Copyright (c) 2013 Johannes Köster <johannes.koester@tu-dortmund.de> (see LICENSE)
+Copyright (c) 2015 Johannes Köster <johannes.koester@tu-dortmund.de> (see LICENSE)
