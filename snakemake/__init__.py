@@ -85,6 +85,7 @@ def snakemake(snakefile,
               jobscript=None,
               timestamp=False,
               greediness=None,
+              no_hooks=False,
               overwrite_shellcmd=None,
               updated_files=None,
               log_handler=None,
@@ -331,6 +332,7 @@ def snakemake(snakefile,
                                        jobscript=jobscript,
                                        timestamp=timestamp,
                                        greediness=greediness,
+                                       no_hooks=no_hooks,
                                        overwrite_shellcmd=overwrite_shellcmd,
                                        config=config,
                                        config_args=config_args,
@@ -382,7 +384,8 @@ def snakemake(snakefile,
                     subsnakemake=subsnakemake,
                     updated_files=updated_files,
                     allowed_rules=allowed_rules,
-                    greediness=greediness)
+                    greediness=greediness,
+                    no_hooks=no_hooks)
 
     except BrokenPipeError:
         # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
@@ -802,6 +805,11 @@ def get_argument_parser():
         "value (1.0) provides the best speed and still acceptable scheduling "
         "quality.")
     parser.add_argument(
+        "--no-hooks",
+        action="store_true",
+        help="Do not invoke onsuccess or onerror hooks after execution."
+    )
+    parser.add_argument(
         "--print-compilation",
         action="store_true",
         help="Print the python representation of the workflow.")
@@ -945,6 +953,7 @@ def main():
                              notemp=args.notemp,
                              timestamp=args.timestamp,
                              greediness=args.greediness,
+                             no_hooks=args.no_hooks,
                              overwrite_shellcmd=args.overwrite_shellcmd,
                              latency_wait=args.latency_wait,
                              benchmark_repeats=args.benchmark_repeats,

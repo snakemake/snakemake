@@ -200,7 +200,8 @@ class Workflow:
                 updated_files=None,
                 keep_target_files=False,
                 allowed_rules=None,
-                greediness=1.0):
+                greediness=1.0,
+                no_hooks=False):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -434,11 +435,11 @@ class Workflow:
                     logger.run_info("\n".join(dag.stats()))
             elif stats:
                 scheduler.stats.to_json(stats)
-            if not dryrun:
+            if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
             return True
         else:
-            if not dryrun:
+            if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
             return False
 

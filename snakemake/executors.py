@@ -289,7 +289,7 @@ class ClusterExecutor(RealExecutor):
             '--wait-for-files {job.input} --latency-wait {latency_wait} '
             '--benchmark-repeats {benchmark_repeats} '
             '{overwrite_workdir} {overwrite_config} --nocolor '
-            '--notemp --quiet --nolock {target}')
+            '--notemp --quiet --no-hooks --nolock {target}')
 
         if printshellcmds:
             self.exec_job += " --printshellcmds "
