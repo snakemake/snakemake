@@ -2,7 +2,8 @@
 from snakemake.utils import report
 
 rule report:
-    input: "Snakefile", fig1="fig.png", fig2="fig2.png"
+    input:
+        F1=["fig.png", "fig2.png"]
     output: "report.html"
     run:
         report("""
@@ -13,19 +14,19 @@ rule report:
 
         Here is an embedded image:
 
-        .. embeddedimage:: {input.fig1}
+        .. embeddedimage:: {input.F1[0]}
             :width: 200px
 
 
         Here is an example embedded figure:
 
-        .. embeddedfigure:: {input.fig2}
+        .. embeddedfigure:: {input.F1[1]}
 
             Figure title goes here
 
             Descriptive figure legend goes here
 
 
-        Embedded data F1_ and F2_.
+        Embedded data F1_.
 
-        """, output[0], F1=input[0], F2=input[0])
+        """, output[0], **input)
