@@ -5,8 +5,8 @@ __license__ = "MIT"
 
 import sys
 
-if sys.version_info < (3, 2):
-    print("At least Python 3.2 is required.\n", file=sys.stderr)
+if sys.version_info < (3, 3):
+    print("At least Python 3.3 is required.\n", file=sys.stderr)
     exit(1)
 
 try:

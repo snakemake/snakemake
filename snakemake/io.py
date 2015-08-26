@@ -14,6 +14,18 @@ from snakemake.exceptions import MissingOutputException, WorkflowError, Wildcard
 from snakemake.logging import logger
 
 
+def lstat(f):
+    return os.stat(f, follow_symlinks=os.stat not in os.supports_follow_symlinks)
+
+
+def lutime(f, times):
+    return os.utime(f, times, follow_symlinks=os.utime not in os.supports_follow_symlinks)
+
+
+def lchmod(f, mode):
+    return os.chmod(f, mode, follow_symlinks=os.chmod not in os.supports_follow_symlinks)
+
+
 def IOFile(file, rule=None):
     f = _IOFile(file)
     f.rule = rule
@@ -53,7 +65,19 @@ class _IOFile(str):
 
     @property
     def mtime(self):
-        return os.stat(self.file).st_mtime
+        # do not follow symlinks for modification time
+        return lstat(self.file).st_mtime
+
+    @property
+    def size(self):
+        # follow symlinks but throw error if invalid
+        self.check_broken_symlink()
+        return os.path.getsize(self.file)
+
+    def check_broken_symlink(self):
+        """ Raise WorkflowError if file is a broken symlink. """
+        if not self.exists and lstat(self.file):
+            raise WorkflowError("File {} seems to be a broken symlink.".format(self.file))
 
     def is_newer(self, time):
         return self.mtime > time
@@ -70,23 +94,23 @@ class _IOFile(str):
                     raise e
 
     def protect(self):
-        mode = (os.stat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~
+        mode = (lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~
                 stat.S_IWOTH)
         if os.path.isdir(self.file):
             for root, dirs, files in os.walk(self.file):
                 for d in dirs:
-                    os.chmod(os.path.join(self.file, d), mode)
+                    lchmod(os.path.join(self.file, d), mode)
                 for f in files:
-                    os.chmod(os.path.join(self.file, f), mode)
+                    lchmod(os.path.join(self.file, f), mode)
         else:
-            os.chmod(self.file, mode)
+            lchmod(self.file, mode)
 
     def remove(self):
         remove(self.file)
 
     def touch(self):
         try:
-            os.utime(self.file, None)
+            lutime(self.file, None)
         except OSError as e:
             if e.errno == 2:
                 raise MissingOutputException(
@@ -432,11 +456,10 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
+        self._names[name] = (index, end)
         if end is None:
-            self._names[name] = (index, index + 1)
             setattr(self, name, self[index])
         else:
-            self._names[name] = (index, end)
             setattr(self, name, Namedlist(toclone=self[index:end]))
 
     def get_names(self):
@@ -463,8 +486,10 @@ class Namedlist(list):
     def allitems(self):
         next = 0
         for name, index in sorted(self._names.items(),
-                                  key=lambda item: item[1]):
+                                  key=lambda item: item[1][0]):
             start, end = index
+            if end is None:
+                end = start + 1
             if start > next:
                 for item in self[next:start]:
                     yield None, item

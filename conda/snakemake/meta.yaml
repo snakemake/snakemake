@@ -1,10 +1,8 @@
 package:
   name: snakemake
-  version: "3.4"
+  version: "3.4.1"
 source:
-  fn: snakemake-3.3.tar.gz
-  url: https://pypi.python.org/packages/source/s/snakemake/snakemake-3.3.tar.gz
-  md5: 92b9166e43cb1ee26bedfec0013b57de
+  path: ../../
 build:
   entry_points:
     - snakemake = snakemake:main

@@ -19,6 +19,7 @@ import subprocess
 import signal
 from functools import partial
 from itertools import chain
+from collections import namedtuple
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -257,7 +258,7 @@ class ClusterExecutor(RealExecutor):
                  printshellcmds=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 cluster_config=None, ):
+                 cluster_config=None):
         super().__init__(workflow, dag,
                          printreason=printreason,
                          quiet=quiet,
@@ -289,7 +290,7 @@ class ClusterExecutor(RealExecutor):
             '--wait-for-files {job.input} --latency-wait {latency_wait} '
             '--benchmark-repeats {benchmark_repeats} '
             '{overwrite_workdir} {overwrite_config} --nocolor '
-            '--notemp --quiet --nolock {target}')
+            '--notemp --quiet --no-hooks --nolock {target}')
 
         if printshellcmds:
             self.exec_job += " --printshellcmds "
@@ -298,14 +299,21 @@ class ClusterExecutor(RealExecutor):
             # disable restiction to target rule in case of dynamic rules!
             self.exec_job += " --allowed-rules {job.rule.name} "
         self.jobname = jobname
-        self.threads = []
         self._tmpdir = None
         self.cores = cores if cores else ""
         self.cluster_config = cluster_config if cluster_config else dict()
 
+        self.active_jobs = list()
+        self.lock = threading.Lock()
+        self.wait = True
+        self.wait_thread = threading.Thread(target=self._wait_for_jobs)
+        self.wait_thread.daemon = True
+        self.wait_thread.start()
+
     def shutdown(self):
-        for thread in self.threads:
-            thread.join()
+        with self.lock:
+            self.wait = False
+        self.wait_thread.join()
         shutil.rmtree(self.tmpdir)
 
     def cancel(self):
@@ -374,6 +382,9 @@ class ClusterExecutor(RealExecutor):
         return Wildcards(fromdict=cluster)
 
 
+GenericClusterJob = namedtuple("GenericClusterJob", "job callback error_callback jobscript jobfinished jobfailed")
+
+
 class GenericClusterExecutor(ClusterExecutor):
     def __init__(self, workflow, dag, cores,
                  submitcmd="qsub",
@@ -391,7 +402,7 @@ class GenericClusterExecutor(ClusterExecutor):
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
-                         cluster_config=cluster_config, )
+                         cluster_config=cluster_config)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
         self.exec_job += ' && touch "{jobfinished}" || touch "{jobfailed}"'
@@ -440,34 +451,37 @@ class GenericClusterExecutor(ClusterExecutor):
             logger.debug("Submitted job {} with external jobid {}.".format(
                 jobid, ext_jobid))
 
-        thread = threading.Thread(target=self._wait_for_job,
-                                  args=(job, callback, error_callback,
-                                        jobscript, jobfinished, jobfailed))
-        thread.daemon = True
-        thread.start()
-        self.threads.append(thread)
-
         submit_callback(job)
+        with self.lock:
+            self.active_jobs.append(GenericClusterJob(job, callback, error_callback, jobscript, jobfinished, jobfailed))
 
-    def _wait_for_job(self, job, callback, error_callback, jobscript,
-                      jobfinished, jobfailed):
+    def _wait_for_jobs(self):
         while True:
-            if os.path.exists(jobfinished):
-                os.remove(jobfinished)
-                os.remove(jobscript)
-                self.finish_job(job)
-                callback(job)
-                return
-            if os.path.exists(jobfailed):
-                os.remove(jobfailed)
-                os.remove(jobscript)
-                self.print_job_error(job)
-                print_exception(ClusterJobException(job, self.dag.jobid(job),
-                                                    self.get_jobscript(job)),
-                                self.workflow.linemaps)
-                error_callback(job)
-                return
+            with self.lock:
+                if not self.wait:
+                    return
+                active_jobs = self.active_jobs
+                self.active_jobs = list()
+                for active_job in active_jobs:
+                    if os.path.exists(active_job.jobfinished):
+                        os.remove(active_job.jobfinished)
+                        os.remove(active_job.jobscript)
+                        self.finish_job(active_job.job)
+                        active_job.callback(active_job.job)
+                    elif os.path.exists(active_job.jobfailed):
+                        os.remove(active_job.jobfailed)
+                        os.remove(active_job.jobscript)
+                        self.print_job_error(active_job.job)
+                        print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
+                                                            jobscript),
+                                        self.workflow.linemaps)
+                        active_job.error_callback(active_job.job)
+                    else:
+                        self.active_jobs.append(active_job)
             time.sleep(1)
+
+
+SynchronousClusterJob = namedtuple("SynchronousClusterJob", "job callback error_callback jobscript process")
 
 
 class SynchronousClusterExecutor(ClusterExecutor):
@@ -522,31 +536,42 @@ class SynchronousClusterExecutor(ClusterExecutor):
         except AttributeError as e:
             raise WorkflowError(str(e), rule=job.rule)
 
-        thread = threading.Thread(
-            target=self._submit_job,
-            args=(job, callback, error_callback, submitcmd, jobscript))
-        thread.daemon = True
-        thread.start()
-        self.threads.append(thread)
+        process = subprocess.Popen('{submitcmd} "{jobscript}"'.format(submitcmd=submitcmd,
+                                           jobscript=jobscript), shell=True)
         submit_callback(job)
 
-    def _submit_job(self, job, callback, error_callback, submitcmd, jobscript):
-        try:
-            ext_jobid = subprocess.check_output(
-                '{submitcmd} "{jobscript}"'.format(submitcmd=submitcmd,
-                                                   jobscript=jobscript),
-                shell=True).decode().split("\n")
-            os.remove(jobscript)
-            self.finish_job(job)
-            callback(job)
+        with self.lock:
+            self.active_jobs.append(SynchronousClusterJob(job, callback, error_callback, jobscript, process))
 
-        except subprocess.CalledProcessError as ex:
-            os.remove(jobscript)
-            self.print_job_error(job)
-            print_exception(ClusterJobException(job, self.dag.jobid(job),
-                                                self.get_jobscript(job)),
-                            self.workflow.linemaps)
-            error_callback(job)
+    def _wait_for_jobs(self):
+        while True:
+            with self.lock:
+                if not self.wait:
+                    return
+                active_jobs = self.active_jobs
+                self.active_jobs = list()
+                for active_job in active_jobs:
+                    exitcode = active_job.process.poll()
+                    if exitcode is None:
+                        # job not yet finished
+                        self.active_jobs.append(active_job)
+                    elif exitcode == 0:
+                        # job finished successfully
+                        os.remove(active_job.jobscript)
+                        self.finish_job(active_job.job)
+                        active_job.callback(active_job.job)
+                    else:
+                        # job failed
+                        os.remove(active_job.jobscript)
+                        self.print_job_error(active_job.job)
+                        print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
+                                                            jobscript),
+                                        self.workflow.linemaps)
+                        active_job.error_callback(active_job.job)
+            time.sleep(1)
+
+
+DRMAAClusterJob = namedtuple("DRMAAClusterJob", "job jobid callback error_callback jobscript")
 
 
 class DRMAAExecutor(ClusterExecutor):
@@ -618,40 +643,49 @@ class DRMAAExecutor(ClusterExecutor):
         self.submitted.append(jobid)
         self.session.deleteJobTemplate(jt)
 
-        thread = threading.Thread(
-            target=self._wait_for_job,
-            args=(job, jobid, callback, error_callback, jobscript))
-        thread.daemon = True
-        thread.start()
-        self.threads.append(thread)
-
         submit_callback(job)
+
+        with self.lock:
+            self.active_jobs.append(DRMAAClusterJob(job, jobid, callback, error_callback, jobscript))
 
     def shutdown(self):
         super().shutdown()
         self.session.exit()
 
-    def _wait_for_job(self, job, jobid, callback, error_callback, jobscript):
+    def _wait_for_jobs(self):
         import drmaa
-        try:
-            retval = self.session.wait(jobid,
-                                       drmaa.Session.TIMEOUT_WAIT_FOREVER)
-        except drmaa.errors.InternalException as e:
-            print_exception(WorkflowError("DRMAA Error: {}".format(e)),
+        while True:
+            with self.lock:
+                if not self.wait:
+                    return
+                active_jobs = self.active_jobs
+                self.active_jobs = list()
+                for active_job in active_jobs:
+                    try:
+                        retval = self.session.wait(active_job.jobid,
+                                                   drmaa.Session.TIMEOUT_NO_WAIT)
+                    except drmaa.errors.InternalException as e:
+                        print_exception(WorkflowError("DRMAA Error: {}".format(e)),
+                                        self.workflow.linemaps)
+                        os.remove(active_job.jobscript)
+                        active_job.error_callback(active_job.job)
+                        break
+                    except drmaa.errors.ExitTimeoutException as e:
+                        # job still active
+                        self.active_jobs.append(active_job)
+                        break
+                    # job exited
+                    os.remove(active_job.jobscript)
+                    if retval.hasExited and retval.exitStatus == 0:
+                        self.finish_job(active_job.job)
+                        active_job.callback(active_job.job)
+                    else:
+                        self.print_job_error(active_job.job)
+                        print_exception(
+                            ClusterJobException(active_job.job, self.dag.jobid(active_job.job), active_job.jobscript),
                             self.workflow.linemaps)
-            os.remove(jobscript)
-            error_callback(job)
-            return
-        os.remove(jobscript)
-        if retval.hasExited and retval.exitStatus == 0:
-            self.finish_job(job)
-            callback(job)
-        else:
-            self.print_job_error(job)
-            print_exception(
-                ClusterJobException(job, self.dag.jobid(job), jobscript),
-                self.workflow.linemaps)
-            error_callback(job)
+                        active_job.error_callback(active_job.job)
+            time.sleep(1)
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log,

@@ -1,0 +1,7 @@
+# -*- snakemake -*-
+configfile: 'echo.yaml'
+
+rule echo:
+    params: options = config['echo']['options']
+    output: temporary('{prefix}.out')
+    shell: 'echo "{params.options}" > {output}'

@@ -35,18 +35,33 @@ h6 {
 }
 
 div#attachments {
+    display: inline-block;
     color: gray;
-    padding: 0px;
-    border: 1px solid white;
+    border-width: 1px;
+    border-style: solid;
+    border-color: white;
     border-radius: 4px 4px 4px 4px;
-    padding-top: 20px;
+    padding: 0px;
+}
+
+div#attachments dt {
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+div#attachments dd p {
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+div#attachments :target dt {
+    font-weight: bold;
 }
 
 div#attachments :target a {
     color: rgb(70, 136, 71);
-    border: 1px solid rgb(221, 221, 221);
-    border-radius: 4px 4px 4px 4px;
 }
+
 
 h1.title {
     text-align: center;

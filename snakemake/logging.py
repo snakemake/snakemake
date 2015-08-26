@@ -113,6 +113,9 @@ class Logger:
     def info(self, msg):
         self.handler(dict(level="info", msg=msg))
 
+    def warning(self, msg):
+        self.handler(dict(level="warning", msg=msg))
+
     def debug(self, msg):
         self.handler(dict(level="debug", msg=msg))
 
@@ -186,6 +189,8 @@ class Logger:
 
         level = msg["level"]
         if level == "info":
+            self.logger.warning(msg["msg"])
+        if level == "warning":
             self.logger.warning(msg["msg"])
         elif level == "error":
             self.logger.error(msg["msg"])

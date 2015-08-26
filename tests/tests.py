@@ -230,6 +230,10 @@ def test_config():
     run(dpath("test_config"))
 
 
+def test_config_default():
+    run(dpath("test_config_default"))
+
+
 def test_benchmark():
     run(dpath("test_benchmark"), check_md5=False)
 
@@ -266,3 +270,7 @@ def test_cluster_sync():
     run(dpath("test14"),
         snakefile="Snakefile.nonstandard",
         cluster_sync="./qsub")
+
+def test_symlink_temp():
+    run(dpath("test_symlink_temp"), shouldfail=True)
+

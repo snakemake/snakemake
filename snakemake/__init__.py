@@ -30,6 +30,7 @@ def snakemake(snakefile,
               list_target_rules=False,
               cores=1,
               nodes=1,
+              local_cores=1,
               resources=dict(),
               config=dict(),
               configfile=None,
@@ -84,6 +85,7 @@ def snakemake(snakefile,
               jobscript=None,
               timestamp=False,
               greediness=None,
+              no_hooks=False,
               overwrite_shellcmd=None,
               updated_files=None,
               log_handler=None,
@@ -99,6 +101,7 @@ def snakemake(snakefile,
         list_target_rules (bool):   list target rules (default False)
         cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
         nodes (int):                the number of provided cluster nodes (ignored without cluster support) (default 1)
+        local_cores (int):                the number of provided local cores if in cluster mode (ignored without cluster support) (default 1)
         resources (dict):           provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
         config (dict):              override values for workflow config
         workdir (str):              path to working directory (default None)
@@ -236,12 +239,14 @@ def snakemake(snakefile,
         return False
     snakefile = os.path.abspath(snakefile)
 
-    cluster_mode = (cluster is not None) + (cluster_sync is not None) + (drmaa is not None)
+    cluster_mode = (cluster is not None) + (cluster_sync is not
+                                            None) + (drmaa is not None)
     if cluster_mode > 1:
         logger.error("Error: cluster and drmaa args are mutually exclusive")
         return False
     if debug and (cores > 1 or cluster_mode):
-        logger.error("Error: debug mode cannot be used with more than one core or cluster execution.")
+        logger.error(
+            "Error: debug mode cannot be used with more than one core or cluster execution.")
         return False
 
     overwrite_config = dict()
@@ -296,6 +301,7 @@ def snakemake(snakefile,
                 subsnakemake = partial(snakemake,
                                        cores=cores,
                                        nodes=nodes,
+                                       local_cores=local_cores,
                                        resources=resources,
                                        dryrun=dryrun,
                                        touch=touch,
@@ -326,6 +332,7 @@ def snakemake(snakefile,
                                        jobscript=jobscript,
                                        timestamp=timestamp,
                                        greediness=greediness,
+                                       no_hooks=no_hooks,
                                        overwrite_shellcmd=overwrite_shellcmd,
                                        config=config,
                                        config_args=config_args,
@@ -336,6 +343,7 @@ def snakemake(snakefile,
                     touch=touch,
                     cores=cores,
                     nodes=nodes,
+                    local_cores=local_cores,
                     forcetargets=forcetargets,
                     forceall=forceall,
                     forcerun=forcerun,
@@ -376,13 +384,13 @@ def snakemake(snakefile,
                     subsnakemake=subsnakemake,
                     updated_files=updated_files,
                     allowed_rules=allowed_rules,
-                    greediness=greediness)
+                    greediness=greediness,
+                    no_hooks=no_hooks)
 
-    # BrokenPipeError is not present in Python 3.2, so lets wait until everbody uses > 3.2
-    #except BrokenPipeError:
-    # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
-    # in such a case, snakemake shall stop scheduling and quit with error 1
-    #    success = False
+    except BrokenPipeError:
+        # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
+        # in such a case, snakemake shall stop scheduling and quit with error 1
+        success = False
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)
         success = False
@@ -478,6 +486,16 @@ def get_argument_parser():
         help=("Use at most N cores in parallel (default: 1). "
               "If N is omitted, the limit is set to the number of "
               "available cores."))
+    parser.add_argument(
+        "--local-cores",
+        action="store",
+        default=multiprocessing.cpu_count(),
+        metavar="N",
+        type=int,
+        help=
+        ("In cluster mode, use at most N cores of the host machine in parallel "
+         " (default: number of CPU cores of the host). The cores are used to execute "
+         "local rules. This option is ignored when not in cluster mode."))
     parser.add_argument(
         "--resources", "--res",
         nargs="*",
@@ -625,9 +643,10 @@ def get_argument_parser():
     cluster_group.add_argument(
         "--cluster-sync",
         metavar="CMD",
-        help=("cluster submission command will block, returning the remote exit"
-              "status upon remote termination (for example, this should be used"
-              "if the cluster command is 'qsub -sync y' (SGE)")),
+        help=
+        ("cluster submission command will block, returning the remote exit"
+         "status upon remote termination (for example, this should be used"
+         "if the cluster command is 'qsub -sync y' (SGE)")),
     cluster_group.add_argument(
         "--drmaa",
         nargs="?",
@@ -655,14 +674,13 @@ def get_argument_parser():
     parser.add_argument(
         "--immediate-submit", "--is",
         action="store_true",
-        help=
-        "Immediately submit all jobs to the cluster instead of waiting "
-         "for present input files. This will fail, unless you make "
-         "the cluster aware of job dependencies, e.g. via:\n"
-         "$ snakemake --cluster 'sbatch --dependency {dependencies}.\n"
-         "Assuming that your submit script (here sbatch) outputs the "
-         "generated job id to the first stdout line, {dependencies} will "
-         "be filled with space separated job ids this job depends on.")
+        help="Immediately submit all jobs to the cluster instead of waiting "
+        "for present input files. This will fail, unless you make "
+        "the cluster aware of job dependencies, e.g. via:\n"
+        "$ snakemake --cluster 'sbatch --dependency {dependencies}.\n"
+        "Assuming that your submit script (here sbatch) outputs the "
+        "generated job id to the first stdout line, {dependencies} will "
+        "be filled with space separated job ids this job depends on.")
     parser.add_argument(
         "--jobscript", "--js",
         metavar="SCRIPT",
@@ -673,8 +691,7 @@ def get_argument_parser():
         "--jobname", "--jn",
         default="snakejob.{rulename}.{jobid}.sh",
         metavar="NAME",
-        help=
-        "Provide a custom name for the jobscript that is submitted to the "
+        help="Provide a custom name for the jobscript that is submitted to the "
         "cluster (see --cluster). NAME is \"snakejob.{rulename}.{jobid}.sh\" "
         "per default. The wildcard {jobid} has to be present in the name.")
     parser.add_argument("--reason", "-r",
@@ -783,19 +800,22 @@ def get_argument_parser():
         "--greediness",
         type=float,
         default=None,
-        help=
-        "Set the greediness of scheduling. This value between 0 and 1 "
+        help="Set the greediness of scheduling. This value between 0 and 1 "
         "determines how careful jobs are selected for execution. The default "
         "value (1.0) provides the best speed and still acceptable scheduling "
         "quality.")
+    parser.add_argument(
+        "--no-hooks",
+        action="store_true",
+        help="Do not invoke onsuccess or onerror hooks after execution."
+    )
     parser.add_argument(
         "--print-compilation",
         action="store_true",
         help="Print the python representation of the workflow.")
     parser.add_argument(
         "--overwrite-shellcmd",
-        help=
-        "Provide a shell command that shall be executed instead of those "
+        help="Provide a shell command that shall be executed instead of those "
         "given in the workflow. "
         "This is for debugging purposes only.")
     parser.add_argument("--verbose",
@@ -803,8 +823,7 @@ def get_argument_parser():
                         help="Print debugging output.")
     parser.add_argument("--debug",
                         action="store_true",
-                        help=
-                        "Allow to debug rules with e.g. PDB. This flag "
+                        help="Allow to debug rules with e.g. PDB. This flag "
                         "allows to set breakpoints in run blocks.")
     parser.add_argument(
         "--profile",
@@ -815,8 +834,7 @@ def get_argument_parser():
     parser.add_argument(
         "--bash-completion",
         action="store_true",
-        help=
-        "Output code to register bash completion for snakemake. Put the "
+        help="Output code to register bash completion for snakemake. Put the "
         "following in your .bashrc (including the accents): "
         "`snakemake --bash-completion` or issue it in an open terminal "
         "session.")
@@ -849,9 +867,6 @@ def main():
         import yappi
         yappi.start()
 
-    _snakemake = partial(snakemake, args.snakefile,
-                         snakemakepath=snakemakepath)
-
     if args.gui is not None:
         try:
             import snakemake.gui as gui
@@ -862,6 +877,9 @@ def main():
             sys.exit(1)
 
         _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
+
+        _snakemake = partial(snakemake, os.path.abspath(args.snakefile),
+                             snakemakepath=snakemakepath)
         gui.register(_snakemake, args)
         url = "http://127.0.0.1:{}".format(args.gui)
         print("Listening on {}.".format(url), file=sys.stderr)
@@ -882,7 +900,8 @@ def main():
             # silently close
             pass
     else:
-        success = _snakemake(listrules=args.list,
+        success = snakemake( args.snakefile,
+                             listrules=args.list,
                              list_target_rules=args.list_target_rules,
                              cores=args.cores,
                              nodes=args.cores,
@@ -934,6 +953,7 @@ def main():
                              notemp=args.notemp,
                              timestamp=args.timestamp,
                              greediness=args.greediness,
+                             no_hooks=args.no_hooks,
                              overwrite_shellcmd=args.overwrite_shellcmd,
                              latency_wait=args.latency_wait,
                              benchmark_repeats=args.benchmark_repeats,
