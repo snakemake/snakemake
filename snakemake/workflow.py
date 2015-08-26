@@ -25,7 +25,7 @@ from snakemake.parser import parse
 import snakemake.io
 from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
-from snakemake.utils import update_config
+
 
 class Workflow:
     def __init__(self,
@@ -70,7 +70,7 @@ class Workflow:
 
         global config
         config = dict()
-        config = update_config(config, self.overwrite_config)
+        config.update(self.overwrite_config)
 
         global rules
         rules = Rules()
@@ -503,7 +503,9 @@ class Workflow:
         """ Update the global config with the given dictionary. """
         global config
         c = snakemake.io.load_configfile(jsonpath)
-        config = update_config(config, c)
+        for key, val in c.items():
+            if key not in self.overwrite_config:
+                config[key] = val
 
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
