@@ -18,7 +18,7 @@ from snakemake import snakemake
 def dpath(path):
     """get path to a data file (relative to the directory this
 	test lives in)"""
-    return join(os.path.dirname(__file__), path)
+    return os.path.realpath(join(os.path.dirname(__file__), path))
 
 
 SCRIPTPATH = dpath("../bin/snakemake")
@@ -270,3 +270,7 @@ def test_cluster_sync():
 def test_symlink_temp():
     run(dpath("test_symlink_temp"), shouldfail=True)
 
+
+if __name__ == '__main__':
+    import nose
+    nose.run(defaultTest=__name__)

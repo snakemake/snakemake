@@ -5,4 +5,7 @@ build/
 dist/
 *.egg-info/
 *.egg
+.eggs/
 .snakemake*
+
+tests/*

@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+from setuptools.command.test import test as TestCommand
 import sys
 
 if sys.version_info < (3, 3):
@@ -18,6 +19,19 @@ except ImportError:
 
 # load version info
 exec(open("snakemake/version.py").read())
+
+
+class NoseTestCommand(TestCommand):
+    def finalize_options(self):
+        TestCommand.finalize_options(self)
+        self.test_args = []
+        self.test_suite = True
+
+    def run_tests(self):
+        # Run nose ensuring that argv simulates running nosetests directly
+        import nose
+        nose.run_exit(argv=['nosetests'])
+
 
 setup(
     name='snakemake',
@@ -40,6 +54,8 @@ setup(
          "snakemake-bash-completion = snakemake:bash_completion"]
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
+    tests_require=['nose>=1.3'],
+    cmdclass={'test': NoseTestCommand},
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",
      "Intended Audience :: Science/Research",
