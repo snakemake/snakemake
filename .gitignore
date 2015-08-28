@@ -7,5 +7,3 @@ dist/
 *.egg
 .eggs/
 .snakemake*
-
-tests/*
