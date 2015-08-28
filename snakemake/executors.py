@@ -202,6 +202,7 @@ class CPUExecutor(RealExecutor):
 
         self.pool = (concurrent.futures.ThreadPoolExecutor(max_workers=workers)
                      if threads else ProcessPoolExecutor(max_workers=workers))
+        self.threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
 
     def run(self, job,
             callback=None,
@@ -213,12 +214,20 @@ class CPUExecutor(RealExecutor):
         benchmark = None
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
-
-        future = self.pool.submit(
+        
+        if job.shellcmd is not None:
+          future = self.threadpool.submit(
             run_wrapper, job.rule.run_func, job.input.plainstrings(),
             job.output.plainstrings(), job.params, job.wildcards, job.threads,
             job.resources, job.log.plainstrings(), job.rule.version, benchmark,
             self.benchmark_repeats, self.workflow.linemaps, self.workflow.debug)
+        else:
+          future = self.pool.submit(
+            run_wrapper, job.rule.run_func, job.input.plainstrings(),
+            job.output.plainstrings(), job.params, job.wildcards, job.threads,
+            job.resources, job.log.plainstrings(), job.rule.version, benchmark,
+            self.benchmark_repeats, self.workflow.linemaps, self.workflow.debug)
+          
         future.add_done_callback(partial(self._callback, job, callback,
                                          error_callback))
 
