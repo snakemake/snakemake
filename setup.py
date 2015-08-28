@@ -3,12 +3,15 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+
 from setuptools.command.test import test as TestCommand
 import sys
+
 
 if sys.version_info < (3, 3):
     print("At least Python 3.3 is required.\n", file=sys.stderr)
     exit(1)
+
 
 try:
     from setuptools import setup
@@ -16,6 +19,7 @@ except ImportError:
     print("Please install setuptools before installing snakemake.",
           file=sys.stderr)
     exit(1)
+
 
 # load version info
 exec(open("snakemake/version.py").read())
