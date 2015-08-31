@@ -9,6 +9,7 @@ import re
 import inspect
 import textwrap
 from itertools import chain
+from collections import Mapping
 
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
@@ -218,3 +219,28 @@ def min_version(version):
         snakemake.__version__) < pkg_resources.parse_version(version):
         raise WorkflowError(
             "Expecting Snakemake version {} or higher.".format(version))
+
+
+def update_config(d, u):
+    """Recursively update dictionary d with u.
+
+    See
+    http://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
+    for details.
+
+    Args:
+      d (dict): dictionary to update
+      u (dict): dictionary whose items will overwrite those in d
+
+    Returns:
+      dict: updated dictionary
+
+    """
+    for (key, value) in u.items():
+        if (isinstance(value, Mapping)):
+            d[key]= update_config(d.get(key, {}), value)
+        else:
+            d[key] = value
+            if isinstance(d[key], str):
+                d[key] = os.path.expandvars(d[key])
+    return d
