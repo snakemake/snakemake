@@ -1,4 +1,4 @@
-__author__ = "Tobias Marschall, Marcel Martin, Johannes Köster"
+__authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
