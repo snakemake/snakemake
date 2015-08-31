@@ -239,7 +239,5 @@ def update_config(config, overwrite_config):
                 d[key]= _update(d.get(key, {}), value)
             else:
                 d[key] = value
-                if isinstance(d[key], str):
-                    d[key] = os.path.expandvars(d[key])
         return d
     _update(config, overwrite_config)
