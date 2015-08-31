@@ -221,26 +221,25 @@ def min_version(version):
             "Expecting Snakemake version {} or higher.".format(version))
 
 
-def update_config(d, u):
-    """Recursively update dictionary d with u.
+def update_config(config, overwrite_config):
+    """Recursively update dictionary config with overwrite_config.
 
     See
     http://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
     for details.
 
     Args:
-      d (dict): dictionary to update
-      u (dict): dictionary whose items will overwrite those in d
-
-    Returns:
-      dict: updated dictionary
+      config (dict): dictionary to update
+      overwrite_config (dict): dictionary whose items will overwrite those in config
 
     """
-    for (key, value) in u.items():
-        if (isinstance(value, Mapping)):
-            d[key]= update_config(d.get(key, {}), value)
-        else:
-            d[key] = value
-            if isinstance(d[key], str):
-                d[key] = os.path.expandvars(d[key])
-    return d
+    def _update(d, u):
+        for (key, value) in u.items():
+            if (isinstance(value, Mapping)):
+                d[key]= _update(d.get(key, {}), value)
+            else:
+                d[key] = value
+                if isinstance(d[key], str):
+                    d[key] = os.path.expandvars(d[key])
+        return d
+    _update(config, overwrite_config)

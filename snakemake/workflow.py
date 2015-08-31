@@ -504,8 +504,8 @@ class Workflow:
         """ Update the global config with the given dictionary. """
         global config
         c = snakemake.io.load_configfile(jsonpath)
-        config = update_config(config, c)
-        config = update_config(config, self.overwrite_config)
+        update_config(config, c)
+        update_config(config, self.overwrite_config)
 
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)

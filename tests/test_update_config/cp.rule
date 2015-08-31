@@ -7,7 +7,7 @@ c = {
         },
     }
 
-config = update_config(config, c)
+update_config(config, c)
 
 rule cp:
     params: options = config['cp']['options']
