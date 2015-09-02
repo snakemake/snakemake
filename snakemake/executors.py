@@ -670,11 +670,11 @@ class DRMAAExecutor(ClusterExecutor):
                                         self.workflow.linemaps)
                         os.remove(active_job.jobscript)
                         active_job.error_callback(active_job.job)
-                        break
+                        continue
                     except drmaa.errors.ExitTimeoutException as e:
                         # job still active
                         self.active_jobs.append(active_job)
-                        break
+                        continue
                     # job exited
                     os.remove(active_job.jobscript)
                     if retval.hasExited and retval.exitStatus == 0:
