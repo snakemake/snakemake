@@ -216,14 +216,8 @@ class CPUExecutor(RealExecutor):
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
         
-        if job.shellcmd is not None:
-          future = self.threadpool.submit(
-            run_wrapper, job.rule.run_func, job.input.plainstrings(),
-            job.output.plainstrings(), job.params, job.wildcards, job.threads,
-            job.resources, job.log.plainstrings(), job.rule.version, benchmark,
-            self.benchmark_repeats, self.workflow.linemaps, self.workflow.debug)
-        else:
-          future = self.pool.submit(
+        pool = self.threadpool if job.shellcmd is not None else self.pool
+        future = pool.submit(
             run_wrapper, job.rule.run_func, job.input.plainstrings(),
             job.output.plainstrings(), job.params, job.wildcards, job.threads,
             job.resources, job.log.plainstrings(), job.rule.version, benchmark,
