@@ -1,4 +1,4 @@
-__author__ = "Tobias Marschall, Marcel Martin, Johannes Köster"
+__authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -18,7 +18,7 @@ from snakemake import snakemake
 def dpath(path):
     """get path to a data file (relative to the directory this
 	test lives in)"""
-    return join(os.path.dirname(__file__), path)
+    return os.path.realpath(join(os.path.dirname(__file__), path))
 
 
 SCRIPTPATH = dpath("../bin/snakemake")
@@ -230,6 +230,10 @@ def test_config():
     run(dpath("test_config"))
 
 
+def test_update_config():
+    run(dpath("test_update_config"))
+
+
 def test_benchmark():
     run(dpath("test_benchmark"), check_md5=False)
 
@@ -270,3 +274,7 @@ def test_cluster_sync():
 def test_symlink_temp():
     run(dpath("test_symlink_temp"), shouldfail=True)
 
+
+if __name__ == '__main__':
+    import nose
+    nose.run(defaultTest=__name__)

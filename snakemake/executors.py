@@ -1,4 +1,5 @@
-__authors__ = ["Johannes Köster", "David Alexander"]
+__author__ = "Johannes Köster"
+__contributors__ = ["David Alexander"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -482,7 +483,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
                         print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
-                                                            jobscript),
+                                                            active_job.jobscript),
                                         self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
                     else:
@@ -678,11 +679,11 @@ class DRMAAExecutor(ClusterExecutor):
                                         self.workflow.linemaps)
                         os.remove(active_job.jobscript)
                         active_job.error_callback(active_job.job)
-                        break
+                        continue
                     except drmaa.errors.ExitTimeoutException as e:
                         # job still active
                         self.active_jobs.append(active_job)
-                        break
+                        continue
                     # job exited
                     os.remove(active_job.jobscript)
                     if retval.hasExited and retval.exitStatus == 0:
