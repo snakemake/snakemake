@@ -27,6 +27,7 @@ _ERROR_MSG_FINAL = ("Exiting because a job execution failed. "
 
 class JobScheduler:
     def __init__(self, workflow, dag, cores,
+                 local_cores=1,
                  dryrun=False,
                  touch=False,
                  cluster=None,
@@ -92,9 +93,8 @@ class JobScheduler:
                                            printshellcmds=printshellcmds,
                                            latency_wait=latency_wait)
         elif cluster or cluster_sync or (drmaa is not None):
-            # TODO properly set cores
             workers = min(sum(1 for _ in dag.local_needrun_jobs),
-                          multiprocessing.cpu_count())
+                          local_cores)
             self._local_executor = CPUExecutor(
                 workflow, dag, workers,
                 printreason=printreason,

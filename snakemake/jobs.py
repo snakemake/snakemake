@@ -90,7 +90,7 @@ class Job:
         Input files need to be present.
         """
         if self._inputsize is None:
-            self._inputsize = sum(map(os.path.getsize, self.input))
+            self._inputsize = sum(f.size for f in self.input)
         return self._inputsize
 
     @property
@@ -218,7 +218,10 @@ class Job:
         unexpected_output = self.dag.reason(self).missing_output.intersection(
             self.existing_output)
         if unexpected_output:
-            raise UnexpectedOutputException(self.rule, unexpected_output)
+            logger.warning(
+                "Warning: the following output files of rule {} were not "
+                "present when the DAG was created:\n{}".format(
+                    self.rule, unexpected_output))
 
         if self.dynamic_output:
             for f, _ in chain(*map(partial(self.expand_dynamic,
@@ -345,7 +348,7 @@ class Reason:
                     s.append("Updated input files: {}".format(
                         ", ".join(updated_input)))
                 if self.updated_input_run:
-                    s.append("This run updates input files: {}".format(
+                    s.append("Input files updated by another job: {}".format(
                         ", ".join(self.updated_input_run)))
         s = "; ".join(s)
         return s

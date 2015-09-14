@@ -17,7 +17,7 @@ def format_error(ex, lineno,
     if linemaps is None:
         linemaps = dict()
     msg = str(ex)
-    if linemaps and snakefile:
+    if linemaps and snakefile and snakefile in linemaps:
         lineno = linemaps[snakefile][lineno]
         if isinstance(ex, SyntaxError):
             msg = ex.msg
@@ -55,7 +55,7 @@ def format_traceback(tb, linemaps):
             yield '  File "{}", line {}, in {}'.format(file, lineno, function)
 
 
-def print_exception(ex, linemaps, print_traceback=True):
+def print_exception(ex, linemaps):
     """
     Print an error message for a given exception.
 
@@ -64,11 +64,13 @@ def print_exception(ex, linemaps, print_traceback=True):
     linemaps -- a dict of a dict that maps for each snakefile
         the compiled lines to source code lines in the snakefile.
     """
-    #traceback.print_exception(type(ex), ex, ex.__traceback__)
+    tb = "Full " + "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
+    logger.debug(tb)
     if isinstance(ex, SyntaxError) or isinstance(ex, IndentationError):
         logger.error(format_error(ex, ex.lineno,
+                                  linemaps=linemaps,
                                   snakefile=ex.filename,
-                                  show_traceback=print_traceback))
+                                  show_traceback=True))
         return
     origin = get_exception_origin(ex, linemaps)
     if origin is not None:
@@ -76,7 +78,7 @@ def print_exception(ex, linemaps, print_traceback=True):
         logger.error(format_error(ex, lineno,
                                   linemaps=linemaps,
                                   snakefile=file,
-                                  show_traceback=print_traceback))
+                                  show_traceback=True))
         return
     elif isinstance(ex, TokenError):
         logger.error(format_error(ex, None, show_traceback=False))
@@ -91,12 +93,12 @@ def print_exception(ex, linemaps, print_traceback=True):
                 logger.error(format_error(e, e.lineno,
                                           linemaps=linemaps,
                                           snakefile=e.filename,
-                                          show_traceback=print_traceback))
+                                          show_traceback=True))
     elif isinstance(ex, WorkflowError):
         logger.error(format_error(ex, ex.lineno,
                                   linemaps=linemaps,
                                   snakefile=ex.snakefile,
-                                  show_traceback=print_traceback))
+                                  show_traceback=True))
     elif isinstance(ex, KeyboardInterrupt):
         logger.info("Cancelling snakemake on user request.")
     else:

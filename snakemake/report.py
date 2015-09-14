@@ -102,16 +102,23 @@ def report(text, path,
            :name: attachments
 
         """)]
-    for name, file in sorted(files.items()):
-        data = data_uri(file)
+    for name, _files in sorted(files.items()):
+        if not isinstance(_files, list):
+            _files = [_files]
+        links = []
+        for file in _files:
+            data = data_uri(file)
+            links.append(':raw-html:`<a href="{data}" download="{filename}" draggable="true">{filename}</a>`'.format(
+                data=data, filename=os.path.basename(file)))
+        links = "\n\n          ".join(links)
         attachments.append('''
    .. container::
       :name: {name}
 
-      [{name}] :raw-html:`<a href="{data}" download="{filename}" draggable="true">{filename}</a>`
+      {name}:
+          {links}
             '''.format(name=name,
-                       filename=os.path.basename(file),
-                       data=data))
+                       links=links))
 
     text = definitions + text + "\n\n" + "\n\n".join(attachments) + metadata
 

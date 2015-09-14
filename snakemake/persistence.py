@@ -115,7 +115,8 @@ class Persistence:
             self._record(self._incomplete_path, "", f)
 
     def finished(self, job):
-        version = str(job.rule.version) if job.rule.version is not None else None
+        version = str(
+            job.rule.version) if job.rule.version is not None else None
         code = self._code(job.rule)
         input = self._input(job)
         params = self._params(job)
@@ -273,7 +274,9 @@ class Persistence:
                 return
 
     def _record_path(self, subject, id):
-        max_len = os.pathconf(subject, "PC_NAME_MAX")
+        max_len = os.pathconf(
+            subject,
+            "PC_NAME_MAX") if os.name == "posix" else 255  # maximum NTFS and FAT32 filename length
         b64id = self._b64id(id)
         # split into chunks of proper length
         b64id = [b64id[i:i + max_len - 1]

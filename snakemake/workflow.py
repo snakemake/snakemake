@@ -25,6 +25,7 @@ from snakemake.parser import parse
 import snakemake.io
 from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
+from snakemake.utils import update_config
 
 
 class Workflow:
@@ -36,7 +37,8 @@ class Workflow:
                  overwrite_config=dict(),
                  overwrite_workdir=None,
                  overwrite_configfile=None,
-                 config_args=None):
+                 config_args=None,
+                 debug=False):
         """
         Create the controller.
         """
@@ -65,6 +67,7 @@ class Workflow:
         self.config_args = config_args
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
+        self.debug = debug
 
         global config
         config = dict()
@@ -157,6 +160,7 @@ class Workflow:
                 touch=False,
                 cores=1,
                 nodes=1,
+                local_cores=1,
                 forcetargets=False,
                 forceall=False,
                 forcerun=None,
@@ -197,7 +201,8 @@ class Workflow:
                 updated_files=None,
                 keep_target_files=False,
                 allowed_rules=None,
-                greediness=1.0):
+                greediness=1.0,
+                no_hooks=False):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -382,6 +387,7 @@ class Workflow:
             return True
 
         scheduler = JobScheduler(self, dag, cores,
+                                 local_cores=local_cores,
                                  dryrun=dryrun,
                                  touch=touch,
                                  cluster=cluster,
@@ -430,11 +436,11 @@ class Workflow:
                     logger.run_info("\n".join(dag.stats()))
             elif stats:
                 scheduler.stats.to_json(stats)
-            if not dryrun:
+            if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
             return True
         else:
-            if not dryrun:
+            if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
             return False
 
@@ -498,9 +504,8 @@ class Workflow:
         """ Update the global config with the given dictionary. """
         global config
         c = snakemake.io.load_configfile(jsonpath)
-        for key, val in c.items():
-            if key not in self.overwrite_config:
-                config[key] = val
+        update_config(config, c)
+        update_config(config, self.overwrite_config)
 
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)

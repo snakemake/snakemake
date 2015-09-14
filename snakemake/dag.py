@@ -546,8 +546,10 @@ class DAG:
                             job_).missing_output.intersection(
                                 newjob.existing_output)
                         if unexpected_output:
-                            raise UnexpectedOutputException(newjob_.rule,
-                                                            unexpected_output)
+                            logger.warning(
+                                "Warning: the following output files of rule {} were not "
+                                "present when the DAG was created:\n{}".format(
+                                    newjob_.rule, unexpected_output))
 
                         self.replace_job(job_, newjob_)
         return newjob
@@ -785,8 +787,9 @@ class DAG:
             return "{}: {}".format(name, value)
 
         node2rule = lambda job: job.rule
-        node2label = lambda job: "\\n".join(chain([job.rule.name], sorted(
-            map(format_wildcard, self.new_wildcards(job)))))
+        node2label = lambda job: "\\n".join(chain([
+            job.rule.name
+        ], sorted(map(format_wildcard, self.new_wildcards(job)))))
 
         dag = {job: self.dependencies[job] for job in self.jobs}
 
@@ -911,7 +914,8 @@ class DAG:
         rules.update(job.rule for job in self.finished_jobs)
         yield "Job counts:"
         yield "\tcount\tjobs"
-        for rule, count in rules.most_common():
+        for rule, count in sorted(rules.most_common(),
+                                  key=lambda item: item[0].name):
             yield "\t{}\t{}".format(count, rule)
         yield "\t{}".format(len(self))
 
