@@ -26,6 +26,8 @@ class shell:
 
     @classmethod
     def executable(cls, cmd):
+        if os.path.split(cmd)[-1] == "bash":
+            cls._process_prefix = "set -o pipefail; "
         cls._process_args["executable"] = cmd
 
     @classmethod

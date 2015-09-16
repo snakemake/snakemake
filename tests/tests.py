@@ -1,4 +1,4 @@
-__author__ = "Tobias Marschall, Marcel Martin, Johannes Köster"
+__authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -228,6 +228,10 @@ def test_touch():
 
 def test_config():
     run(dpath("test_config"))
+
+
+def test_update_config():
+    run(dpath("test_update_config"))
 
 
 def test_benchmark():

@@ -1,4 +1,5 @@
 __author__ = "Johannes Köster"
+__contributors__ = ["Per Unneberg"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -9,6 +10,7 @@ import re
 import inspect
 import textwrap
 from itertools import chain
+from collections import Mapping
 
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
@@ -218,3 +220,25 @@ def min_version(version):
         snakemake.__version__) < pkg_resources.parse_version(version):
         raise WorkflowError(
             "Expecting Snakemake version {} or higher.".format(version))
+
+
+def update_config(config, overwrite_config):
+    """Recursively update dictionary config with overwrite_config.
+
+    See
+    http://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
+    for details.
+
+    Args:
+      config (dict): dictionary to update
+      overwrite_config (dict): dictionary whose items will overwrite those in config
+
+    """
+    def _update(d, u):
+        for (key, value) in u.items():
+            if (isinstance(value, Mapping)):
+                d[key]= _update(d.get(key, {}), value)
+            else:
+                d[key] = value
+        return d
+    _update(config, overwrite_config)

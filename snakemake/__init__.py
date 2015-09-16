@@ -478,7 +478,6 @@ def get_argument_parser():
     parser.add_argument(
         "--cores", "--jobs", "-j",
         action="store",
-        default=1,
         const=multiprocessing.cpu_count(),
         nargs="?",
         metavar="N",
@@ -807,8 +806,7 @@ def get_argument_parser():
     parser.add_argument(
         "--no-hooks",
         action="store_true",
-        help="Do not invoke onsuccess or onerror hooks after execution."
-    )
+        help="Do not invoke onsuccess or onerror hooks after execution.")
     parser.add_argument(
         "--print-compilation",
         action="store_true",
@@ -863,6 +861,19 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+    if (args.cluster or args.cluster_sync or args.drmaa):
+        if args.cores is None:
+            if args.dryrun:
+                args.cores = 1
+            else:
+                print(
+                    "Error: you need to specify the maximum number of jobs to "
+                    "be queued or executed at the same time with --jobs.",
+                    file=sys.stderr)
+                sys.exit(1)
+    elif args.cores is None:
+        args.cores = 1
+
     if args.profile:
         import yappi
         yappi.start()
@@ -900,66 +911,66 @@ def main():
             # silently close
             pass
     else:
-        success = snakemake( args.snakefile,
-                             listrules=args.list,
-                             list_target_rules=args.list_target_rules,
-                             cores=args.cores,
-                             nodes=args.cores,
-                             resources=resources,
-                             config=config,
-                             configfile=args.configfile,
-                             config_args=args.config,
-                             workdir=args.directory,
-                             targets=args.target,
-                             dryrun=args.dryrun,
-                             printshellcmds=args.printshellcmds,
-                             printreason=args.reason,
-                             printdag=args.dag,
-                             printrulegraph=args.rulegraph,
-                             printd3dag=args.d3dag,
-                             touch=args.touch,
-                             forcetargets=args.force,
-                             forceall=args.forceall,
-                             forcerun=args.forcerun,
-                             prioritytargets=args.prioritize,
-                             stats=args.stats,
-                             nocolor=args.nocolor,
-                             quiet=args.quiet,
-                             keepgoing=args.keep_going,
-                             cluster=args.cluster,
-                             cluster_config=args.cluster_config,
-                             cluster_sync=args.cluster_sync,
-                             drmaa=args.drmaa,
-                             jobname=args.jobname,
-                             immediate_submit=args.immediate_submit,
-                             standalone=True,
-                             ignore_ambiguity=args.allow_ambiguity,
-                             snakemakepath=snakemakepath,
-                             lock=not args.nolock,
-                             unlock=args.unlock,
-                             cleanup_metadata=args.cleanup_metadata,
-                             force_incomplete=args.rerun_incomplete,
-                             ignore_incomplete=args.ignore_incomplete,
-                             list_version_changes=args.list_version_changes,
-                             list_code_changes=args.list_code_changes,
-                             list_input_changes=args.list_input_changes,
-                             list_params_changes=args.list_params_changes,
-                             summary=args.summary,
-                             detailed_summary=args.detailed_summary,
-                             print_compilation=args.print_compilation,
-                             verbose=args.verbose,
-                             debug=args.debug,
-                             jobscript=args.jobscript,
-                             notemp=args.notemp,
-                             timestamp=args.timestamp,
-                             greediness=args.greediness,
-                             no_hooks=args.no_hooks,
-                             overwrite_shellcmd=args.overwrite_shellcmd,
-                             latency_wait=args.latency_wait,
-                             benchmark_repeats=args.benchmark_repeats,
-                             wait_for_files=args.wait_for_files,
-                             keep_target_files=args.keep_target_files,
-                             allowed_rules=args.allowed_rules)
+        success = snakemake(args.snakefile,
+                            listrules=args.list,
+                            list_target_rules=args.list_target_rules,
+                            cores=args.cores,
+                            nodes=args.cores,
+                            resources=resources,
+                            config=config,
+                            configfile=args.configfile,
+                            config_args=args.config,
+                            workdir=args.directory,
+                            targets=args.target,
+                            dryrun=args.dryrun,
+                            printshellcmds=args.printshellcmds,
+                            printreason=args.reason,
+                            printdag=args.dag,
+                            printrulegraph=args.rulegraph,
+                            printd3dag=args.d3dag,
+                            touch=args.touch,
+                            forcetargets=args.force,
+                            forceall=args.forceall,
+                            forcerun=args.forcerun,
+                            prioritytargets=args.prioritize,
+                            stats=args.stats,
+                            nocolor=args.nocolor,
+                            quiet=args.quiet,
+                            keepgoing=args.keep_going,
+                            cluster=args.cluster,
+                            cluster_config=args.cluster_config,
+                            cluster_sync=args.cluster_sync,
+                            drmaa=args.drmaa,
+                            jobname=args.jobname,
+                            immediate_submit=args.immediate_submit,
+                            standalone=True,
+                            ignore_ambiguity=args.allow_ambiguity,
+                            snakemakepath=snakemakepath,
+                            lock=not args.nolock,
+                            unlock=args.unlock,
+                            cleanup_metadata=args.cleanup_metadata,
+                            force_incomplete=args.rerun_incomplete,
+                            ignore_incomplete=args.ignore_incomplete,
+                            list_version_changes=args.list_version_changes,
+                            list_code_changes=args.list_code_changes,
+                            list_input_changes=args.list_input_changes,
+                            list_params_changes=args.list_params_changes,
+                            summary=args.summary,
+                            detailed_summary=args.detailed_summary,
+                            print_compilation=args.print_compilation,
+                            verbose=args.verbose,
+                            debug=args.debug,
+                            jobscript=args.jobscript,
+                            notemp=args.notemp,
+                            timestamp=args.timestamp,
+                            greediness=args.greediness,
+                            no_hooks=args.no_hooks,
+                            overwrite_shellcmd=args.overwrite_shellcmd,
+                            latency_wait=args.latency_wait,
+                            benchmark_repeats=args.benchmark_repeats,
+                            wait_for_files=args.wait_for_files,
+                            keep_target_files=args.keep_target_files,
+                            allowed_rules=args.allowed_rules)
 
     if args.profile:
         with open(args.profile, "w") as out:
