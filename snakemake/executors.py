@@ -203,6 +203,7 @@ class CPUExecutor(RealExecutor):
 
         self.pool = (concurrent.futures.ThreadPoolExecutor(max_workers=workers)
                      if threads else ProcessPoolExecutor(max_workers=workers))
+        self.threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
 
     def run(self, job,
             callback=None,
@@ -215,11 +216,13 @@ class CPUExecutor(RealExecutor):
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
 
-        future = self.pool.submit(
+        pool = self.threadpool if job.shellcmd is not None else self.pool
+        future = pool.submit(
             run_wrapper, job.rule.run_func, job.input.plainstrings(),
             job.output.plainstrings(), job.params, job.wildcards, job.threads,
             job.resources, job.log.plainstrings(), job.rule.version, benchmark,
             self.benchmark_repeats, self.workflow.linemaps, self.workflow.debug)
+
         future.add_done_callback(partial(self._callback, job, callback,
                                          error_callback))
 
@@ -670,11 +673,11 @@ class DRMAAExecutor(ClusterExecutor):
                                         self.workflow.linemaps)
                         os.remove(active_job.jobscript)
                         active_job.error_callback(active_job.job)
-                        break
+                        continue
                     except drmaa.errors.ExitTimeoutException as e:
                         # job still active
                         self.active_jobs.append(active_job)
-                        break
+                        continue
                     # job exited
                     os.remove(active_job.jobscript)
                     if retval.hasExited and retval.exitStatus == 0:
@@ -731,15 +734,8 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
     if benchmark is not None:
         try:
             with open(benchmark, "w") as f:
-                json.dump({
-                    name: {
-                        "s": times,
-                        "h:m:s": [str(datetime.timedelta(seconds=t))
-                                  for t in times]
-                    }
-                    for name, times in zip("wall_clock_times".split(),
-                                           [wallclock])
-                }, f,
-                          indent=4)
+                print("s", "h:m:s", sep="\t", file=f)
+                for t in wallclock:
+                    print(t, str(datetime.timedelta(seconds=t)), sep="\t", file=f)
         except (Exception, BaseException) as ex:
             raise WorkflowError(ex)
