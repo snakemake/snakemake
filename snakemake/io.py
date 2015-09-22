@@ -8,11 +8,12 @@ import re
 import stat
 import time
 import json
+import functools
 from itertools import product, chain
 from collections import Iterable, namedtuple
-from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError
+from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, S3FileException
 from snakemake.logging import logger
-
+import snakemake.remote_providers.S3 as S3
 
 def lstat(f):
     return os.stat(f, follow_symlinks=os.stat not in os.supports_follow_symlinks)
@@ -45,9 +46,46 @@ class _IOFile(str):
         obj._file = file
         obj.rule = None
         obj._regex = None
+
         return obj
 
+    def __init__(self, file):
+        self._remote_object = None
+        if self.is_remote:
+            additional_args = get_flag_value(self._file, "additional_remote_args") if get_flag_value(self._file, "additional_remote_args") else []
+            additional_kwargs = get_flag_value(self._file, "additional_remote_kwargs") if get_flag_value(self._file, "additional_remote_kwargs") else {}
+            self._remote_object = get_flag_value(self._file, "remote_provider").RemoteObject(self, *additional_args, **additional_kwargs)
+        pass
+
+    def _referToRemote(func):
+        """ 
+            A decorator so that if the file is remote and has a version 
+            of the same file-related function, call that version instead. 
+        """
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if self.is_remote:
+                if self.remote_object:
+                    if hasattr( self.remote_object, func.__name__):
+                        return getattr( self.remote_object, func.__name__)(*args, **kwargs)
+            return func(self, *args, **kwargs)
+        return wrapper
+
     @property
+    def is_remote(self):
+        return is_flagged(self._file, "remote")
+    
+    @property
+    def remote_object(self):
+        if not self._remote_object:
+            if self.is_remote:
+               additional_kwargs = get_flag_value(self._file, "additional_remote_kwargs") if get_flag_value(self._file, "additional_remote_kwargs") else {}
+               self._remote_object = get_flag_value(self._file, "remote_provider").RemoteObject(self, **additional_kwargs)
+        return self._remote_object
+    
+
+    @property
+    @_referToRemote
     def file(self):
         if not self._is_function:
             return self._file
@@ -56,31 +94,73 @@ class _IOFile(str):
                              "may not be used directly.")
 
     @property
+    @_referToRemote
     def exists(self):
         return os.path.exists(self.file)
 
     @property
-    def protected(self):
-        return self.exists and not os.access(self.file, os.W_OK)
+    def exists_local(self):
+        return os.path.exists(self.file)
 
     @property
+    def exists_remote(self):
+        return (self.is_remote and self.remote_object.exists())
+    
+
+    @property
+    def protected(self):
+        return self.exists_local and not os.access(self.file, os.W_OK)
+    
+    @property
+    @_referToRemote
     def mtime(self):
+        return lstat(self.file).st_mtime
+
+    @property
+    def flags(self):
+        return getattr(self._file, "flags", {})
+
+    @property
+    def mtime_local(self):
         # do not follow symlinks for modification time
         return lstat(self.file).st_mtime
 
     @property
+    @_referToRemote
     def size(self):
+        # follow symlinks but throw error if invalid
+        self.check_broken_symlink()
+        return os.path.getsize(self.file)
+
+    @property
+    def size_local(self):
         # follow symlinks but throw error if invalid
         self.check_broken_symlink()
         return os.path.getsize(self.file)
 
     def check_broken_symlink(self):
         """ Raise WorkflowError if file is a broken symlink. """
-        if not self.exists and lstat(self.file):
+        if not self.exists_local and lstat(self.file):
             raise WorkflowError("File {} seems to be a broken symlink.".format(self.file))
 
     def is_newer(self, time):
         return self.mtime > time
+
+    def download_from_remote(self):
+        logger.info("Downloading from remote: {}".format(self.file))
+
+        if self.is_remote and self.remote_object.exists():
+            self.remote_object.download()
+        else:
+            raise RemoteFileException("The file to be downloaded does not seem to exist remotely.")
+ 
+    def upload_to_remote(self):
+        logger.info("Uploading to remote: {}".format(self.file))
+
+        if self.is_remote and not self.remote_object.exists():
+            self.remote_object.upload()
+        else:
+            raise RemoteFileException("The file to be uploaded does not seem to exist remotely.")
 
     def prepare(self):
         path_until_wildcard = re.split(self.dynamic_fill, self.file)[0]
@@ -108,9 +188,10 @@ class _IOFile(str):
     def remove(self):
         remove(self.file)
 
-    def touch(self):
+    def touch(self, times=None):
+        """ times must be 2-tuple: (atime, mtime) """
         try:
-            lutime(self.file, None)
+            lutime(self.file, times)
         except OSError as e:
             if e.errno == 2:
                 raise MissingOutputException(
@@ -136,11 +217,21 @@ class _IOFile(str):
         if self._is_function:
             f = self._file(Namedlist(fromdict=wildcards))
 
-        return IOFile(apply_wildcards(f, wildcards,
+        # this bit ensures flags are transferred over to files after
+        # wildcards are applied
+
+        flagsBeforeWildcardResolution = getattr(f, "flags", {})
+
+
+        fileWithWildcardsApplied = IOFile(apply_wildcards(f, wildcards,
                                       fill_missing=fill_missing,
                                       fail_dynamic=fail_dynamic,
                                       dynamic_fill=self.dynamic_fill),
-                      rule=self.rule)
+                                      rule=self.rule)
+
+        fileWithWildcardsApplied.set_flags(getattr(f, "flags", {}))
+
+        return fileWithWildcardsApplied
 
     def get_wildcard_names(self):
         return get_wildcard_names(self.file)
@@ -165,6 +256,17 @@ class _IOFile(str):
 
     def format_dynamic(self):
         return self.replace(self.dynamic_fill, "{*}")
+
+    def clone_flags(self, other):
+        if isinstance(self._file, str):
+            self._file = AnnotatedString(self._file)
+        if isinstance(other._file, AnnotatedString):
+            self._file.flags = getattr(other._file, "flags", {})
+
+    def set_flags(self, flags):
+        if isinstance(self._file, str):
+            self._file = AnnotatedString(self._file)
+        self._file.flags = flags
 
     def __eq__(self, other):
         f = other._file if isinstance(other, _IOFile) else other
@@ -286,9 +388,17 @@ def flag(value, flag_type, flag_value=True):
 
 def is_flagged(value, flag):
     if isinstance(value, AnnotatedString):
-        return flag in value.flags
+        return flag in value.flags and value.flags[flag]
+    if isinstance(value, _IOFile):
+        return flag in value.flags and value.flags[flag]
     return False
 
+def get_flag_value(value, flag_type):
+    if isinstance(value, AnnotatedString):
+        if flag_type in value.flags:
+            return value.flags[flag_type]
+        else:
+            return None
 
 def temp(value):
     """
@@ -297,6 +407,9 @@ def temp(value):
     if is_flagged(value, "protected"):
         raise SyntaxError(
             "Protected and temporary flags are mutually exclusive.")
+    if is_flagged(value, "remote"):
+        raise SyntaxError(
+            "Remote and temporary flags are mutually exclusive.")
     return flag(value, "temp")
 
 
@@ -310,6 +423,9 @@ def protected(value):
     if is_flagged(value, "temp"):
         raise SyntaxError(
             "Protected and temporary flags are mutually exclusive.")
+    if is_flagged(value, "remote"):
+        raise SyntaxError(
+            "Remote and protected flags are mutually exclusive.")
     return flag(value, "protected")
 
 
@@ -318,7 +434,7 @@ def dynamic(value):
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
     rule has been run """
-    annotated = flag(value, "dynamic")
+    annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
         matches = list(_wildcard_regex.finditer(file))
@@ -334,6 +450,36 @@ def dynamic(value):
 def touch(value):
     return flag(value, "touch")
 
+def remote(value, provider=S3, keep=False, additional_args=None, additional_kwargs=None):
+
+    additional_args = [] if not additional_args else additional_args
+    additional_kwargs = {} if not additional_kwargs else additional_kwargs
+
+    if not provider:
+        raise RemoteFileException("Provider (S3, etc.) must be specified for remote file as kwarg.")
+    if is_flagged(value, "temp"):
+        raise SyntaxError(
+            "Remote and temporary flags are mutually exclusive.")
+    if is_flagged(value, "protected"):
+        raise SyntaxError(
+            "Remote and protected flags are mutually exclusive.")
+    return flag(
+                flag(
+                    flag( 
+                        flag( 
+                            flag(value, "remote"), 
+                            "remote_provider", 
+                            provider
+                        ), 
+                        "additional_remote_kwargs", 
+                        additional_kwargs
+                    ),
+                    "additional_remote_args",
+                    additional_args
+                ),
+                "keep",
+                keep
+            )
 
 def expand(*args, **wildcards):
     """
@@ -410,6 +556,31 @@ def glob_wildcards(pattern):
                     getattr(wildcards, name).append(value)
     return wildcards
 
+def glob_wildcards_remote(pattern, provider=S3, additional_kwargs=None):
+    additional_kwargs = additional_kwargs if additional_kwargs else {}
+    referenceObj = IOFile(remote(pattern, provider=provider, **additional_kwargs))
+    key_list = [k.name for k in referenceObj._remote_object.list] 
+
+    pattern = "./"+ referenceObj._remote_object.name
+    pattern = os.path.normpath(pattern)
+    first_wildcard = re.search("{[^{]", pattern)
+    dirname = os.path.dirname(pattern[:first_wildcard.start(
+    )]) if first_wildcard else os.path.dirname(pattern)
+    if not dirname:
+        dirname = "."
+
+    names = [match.group('name')
+             for match in _wildcard_regex.finditer(pattern)]
+    Wildcards = namedtuple("Wildcards", names)
+    wildcards = Wildcards(*[list() for name in names])
+
+    pattern = re.compile(regex(pattern))
+    for f in key_list:
+        match = re.match(pattern, f)
+        if match:
+            for name, value in match.groupdict().items():
+                getattr(wildcards, name).append(value)
+    return wildcards
 
 # TODO rewrite Namedlist!
 class Namedlist(list):

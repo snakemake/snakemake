@@ -95,7 +95,12 @@ class Rule:
             if f in dynamic_io:
                 try:
                     for e in reversed(expand(f, zip, **wildcards)):
-                        expansion[i].append(IOFile(e, rule=branch))
+                        # need to clone the flags so intermediate
+                        # dynamic remote file paths are expanded and 
+                        # removed appropriately
+                        ioFile = IOFile(e, rule=branch)
+                        ioFile.clone_flags(f)
+                        expansion[i].append(ioFile)
                 except KeyError:
                     return None
 

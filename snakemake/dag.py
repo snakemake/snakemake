@@ -10,7 +10,7 @@ from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
 from operator import itemgetter, attrgetter
 
-from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files
+from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged
 from snakemake.jobs import Job, Reason
 from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
@@ -287,6 +287,51 @@ class DAG:
         for f in unneeded_files():
             logger.info("Removing temporary output file {}.".format(f))
             f.remove()
+
+    def handle_remote(self, job):
+        """ Remove local files if they are no longer needed, and upload to S3. """
+        
+        needed = lambda job_, f: any(
+            f in files for j, files in self.depending[job_].items()
+            if not self.finished(j) and self.needrun(j) and j != job)
+
+        remote_files = set([f for f in job.expanded_input if f.is_remote]) | set([f for f in job.expanded_output if f.is_remote])
+        local_files = set([f for f in job.input if not f.is_remote]) | set([f for f in job.expanded_output if not f.is_remote])
+        files_to_keep = set(f for f in remote_files if is_flagged(f, "keep"))
+
+        # remove local files from list of remote files
+        # in case the same file is specified in both places
+        remote_files -= local_files
+        remote_files -= files_to_keep
+
+        def unneeded_files():
+            for job_, files in self.dependencies[job].items():
+                for f in (remote_files & files):
+                    if not needed(job_, f) and not f.protected:
+                        yield f
+            for f in filterfalse(partial(needed, job), [f for f in remote_files]):
+                if not f in self.targetfiles and not f.protected:
+                    yield f
+
+        def expanded_dynamic_depending_input_files():
+            for j in self.depending[job]:    
+                for f in j.expanded_input:
+                    yield f
+
+        unneededFiles = set(unneeded_files())
+        unneededFiles -= set(expanded_dynamic_depending_input_files())
+
+        for f in [f for f in job.expanded_output if f.is_remote]:
+            if not f.exists_remote:
+                logger.info("Uploading local output file to remote: {}".format(f))
+                f.upload_to_remote()
+
+        for f in set(unneededFiles):
+            logger.info("Removing local output file: {}".format(f))
+            f.remove()
+
+        job.rmdir_empty_remote_dirs()
+
 
     def jobid(self, job):
         if job not in self._jobid:

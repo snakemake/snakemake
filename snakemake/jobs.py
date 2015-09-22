@@ -13,7 +13,7 @@ from itertools import chain
 from functools import partial
 from operator import attrgetter
 
-from snakemake.io import IOFile, Wildcards, Resources, _IOFile
+from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException
 from snakemake.exceptions import UnexpectedOutputException
@@ -131,7 +131,40 @@ class Job:
                 if not expansion:
                     yield f_
                 for f, _ in expansion:
-                    yield IOFile(f, self.rule)
+                    fileToYield = IOFile(f, self.rule)
+
+                    fileToYield.clone_flags(f_)
+
+                    yield fileToYield
+            else:
+                yield f
+
+    @property
+    def expanded_input(self):
+        """ Iterate over input files while dynamic output is expanded. """
+
+        for f, f_ in zip(self.input, self.rule.input):
+            if not type(f_).__name__ == "function":
+                if type(f_.file).__name__ not in ["str", "function"]:
+                    if contains_wildcard(f_):
+
+                        expansion = self.expand_dynamic(
+                            f_,
+                            restriction=self.wildcards,
+                            omit_value=_IOFile.dynamic_fill)
+                        if not expansion:
+                            yield f_
+                        for f, _ in expansion:
+
+                            fileToYield = IOFile(f, self.rule)
+
+                            fileToYield.clone_flags(f_)
+
+                            yield fileToYield
+                    else:
+                        yield f
+                else:
+                    yield f
             else:
                 yield f
 
@@ -158,6 +191,34 @@ class Job:
         # omit file if it comes from a subworkflow
         return set(f for f in self.input
                    if not f.exists and not f in self.subworkflow_input)
+
+
+    @property
+    def present_remote_input(self):
+        files = set()
+
+        for f in self.input:
+            if f.is_remote:
+                if f.exists_remote:
+                    files.add(f)
+        return files
+    
+    @property
+    def present_remote_output(self):
+        files = set()
+
+        for f in self.remote_output:
+            if f.exists_remote:
+                files.add(f)
+        return files
+
+    @property
+    def missing_remote_input(self):
+        return self.remote_input - self.present_remote_input
+
+    @property
+    def missing_remote_output(self):
+        return self.remote_output - self.present_remote_output
 
     @property
     def output_mintime(self):
@@ -197,6 +258,74 @@ class Job:
                     files.add(f)
         return files
 
+
+    @property
+    def remote_input(self):
+        for f in self.input:
+            if f.is_remote:
+                yield f
+
+    @property
+    def remote_output(self):
+        for f in self.output:
+            if f.is_remote:
+                yield f
+
+    @property
+    def remote_input_newer_than_local(self):
+        files = set()
+        for f in self.remote_input:
+            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+                files.add(f)
+        return files
+
+    @property
+    def remote_input_older_than_local(self):
+        files = set()
+        for f in self.remote_input:
+            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+                files.add(f)
+        return files
+
+    @property
+    def remote_output_newer_than_local(self):
+        files = set()
+        for f in self.remote_output:
+            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+                files.add(f)
+        return files
+
+    @property
+    def remote_output_older_than_local(self):
+        files = set()
+        for f in self.remote_output:
+            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+                files.add(f)
+        return files
+
+    def transfer_updated_files(self):
+        for f in self.remote_output_older_than_local | self.remote_input_older_than_local:
+            f.upload_to_remote()
+
+        for f in self.remote_output_newer_than_local | self.remote_input_newer_than_local:
+            f.download_from_remote()
+    
+    @property
+    def files_to_download(self):
+        toDownload = set()
+
+        for f in self.input:
+            if f.is_remote:
+                if not f.exists_local and f.exists_remote:
+                    toDownload.add(f)
+
+        toDownload = toDownload | self.remote_input_newer_than_local
+        return toDownload
+
+    @property
+    def files_to_upload(self):
+        return self.missing_remote_input & self.remote_input_older_than_local
+
     @property
     def existing_output(self):
         return filter(lambda f: f.exists, self.expanded_output)
@@ -231,6 +360,10 @@ class Job:
                 os.remove(f)
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
+
+        for f in self.files_to_download:
+            f.download_from_remote()
+
         for f in self.log:
             f.prepare()
         if self.benchmark:
@@ -239,12 +372,31 @@ class Job:
     def cleanup(self):
         """ Cleanup output files. """
         to_remove = [f for f in self.expanded_output if f.exists]
+
+        to_remove.extend([f for f in self.remote_input if f.exists])
         if to_remove:
             logger.info("Removing output files of failed job {}"
                         " since they might be corrupted:\n{}".format(
                             self, ", ".join(to_remove)))
             for f in to_remove:
                 f.remove()
+
+            self.rmdir_empty_remote_dirs()
+
+    @property
+    def empty_remote_dirs(self):
+        remote_files = [f for f in (set(self.output) | set(self.input)) if f.is_remote]
+        emptyDirsToRemove = set(os.path.dirname(f) for f in remote_files if not len(os.listdir(os.path.dirname(f))))
+        return emptyDirsToRemove
+
+    def rmdir_empty_remote_dirs(self):
+        for d in self.empty_remote_dirs:
+            pathToDel = d
+            while len(pathToDel) > 0 and len(os.listdir(pathToDel)) == 0:
+                logger.info("rmdir empty dir: {}".format(pathToDel))
+                os.rmdir(pathToDel)
+                pathToDel = os.path.dirname(pathToDel)
+
 
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """

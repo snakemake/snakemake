@@ -265,6 +265,9 @@ def test_multiple_includes():
 def test_yaml_config():
     run(dpath("test_yaml_config"))
 
+def test_remote():
+   run(dpath("test_remote"))
+
 
 def test_cluster_sync():
     run(dpath("test14"),
