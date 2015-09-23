@@ -8,7 +8,6 @@ import re
 from snakemake.remote_providers.RemoteObjectProvider import RemoteObject
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, S3FileException
 from snakemake.remote_providers.implementations.S3 import S3Helper
-from snakemake.decorators import memoize
 
 import boto
 

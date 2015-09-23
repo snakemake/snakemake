@@ -10,12 +10,12 @@ import S3Mocked as S3Mocked
 rule all:
     input:
         # only keeping the file so we can copy it out to the cwd
-        remote("test-remote-bucket/out.txt", keep=True, provider=S3Mocked, additional_kwargs={})
+        remote("test-remote-bucket/out.txt", keep_local=True, provider=S3Mocked, additional_kwargs={})
     run:
         shell("mv test-remote-bucket/out.txt ./")
 
 rule split:
-    input: remote('test-remote-bucket/test.txt', keep=False, provider=S3Mocked, additional_kwargs={})
+    input: remote('test-remote-bucket/test.txt', keep_local=False, provider=S3Mocked, additional_kwargs={})
     output: remote(dynamic('test-remote-bucket/prefix{split_id}.txt'), provider=S3Mocked, additional_kwargs={})
     run:
         shell('split -l 2 {input} test-remote-bucket/prefix')
