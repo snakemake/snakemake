@@ -450,7 +450,7 @@ def dynamic(value):
 def touch(value):
     return flag(value, "touch")
 
-def remote(value, provider=S3, keep=False, additional_args=None, additional_kwargs=None):
+def remote(value, provider=S3, keep_local=False, additional_args=None, additional_kwargs=None):
 
     additional_args = [] if not additional_args else additional_args
     additional_kwargs = {} if not additional_kwargs else additional_kwargs
@@ -477,8 +477,8 @@ def remote(value, provider=S3, keep=False, additional_args=None, additional_kwar
                     "additional_remote_args",
                     additional_args
                 ),
-                "keep",
-                keep
+                "keep_local",
+                keep_local
             )
 
 def expand(*args, **wildcards):

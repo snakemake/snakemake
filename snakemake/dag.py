@@ -297,7 +297,7 @@ class DAG:
 
         remote_files = set([f for f in job.expanded_input if f.is_remote]) | set([f for f in job.expanded_output if f.is_remote])
         local_files = set([f for f in job.input if not f.is_remote]) | set([f for f in job.expanded_output if not f.is_remote])
-        files_to_keep = set(f for f in remote_files if is_flagged(f, "keep"))
+        files_to_keep = set(f for f in remote_files if is_flagged(f, "keep_local"))
 
         # remove local files from list of remote files
         # in case the same file is specified in both places
