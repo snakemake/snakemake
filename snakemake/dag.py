@@ -295,7 +295,7 @@ class DAG:
             f in files for j, files in self.depending[job_].items()
             if not self.finished(j) and self.needrun(j) and j != job)
 
-        remote_files = set([f for f in job.expanded_input if f.is_remote]) | set([f for f in job.expanded_output if f.is_remote])
+        remote_files = set([f for f in job.input if f.is_remote]) | set([f for f in job.expanded_output if f.is_remote])
         local_files = set([f for f in job.input if not f.is_remote]) | set([f for f in job.expanded_output if not f.is_remote])
         files_to_keep = set(f for f in remote_files if is_flagged(f, "keep_local"))
 
@@ -315,7 +315,7 @@ class DAG:
 
         def expanded_dynamic_depending_input_files():
             for j in self.depending[job]:    
-                for f in j.expanded_input:
+                for f in j.input:
                     yield f
 
         unneededFiles = set(unneeded_files())
