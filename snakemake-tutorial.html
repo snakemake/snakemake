@@ -68,6 +68,7 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <li><a href="#modularization">Modularization</a></li>
 <li><a href="#using-custom-scripts">Using custom scripts</a></li>
 <li><a href="#cluster-execution">Cluster execution</a></li>
+<li><a href="#constraining-wildcards">Constraining wildcards</a></li>
 </ul></li>
 </ul>
 </nav>
@@ -630,5 +631,12 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <p>Alternatively, Snakemake can use the Distributed Resource Management Application API (<a href="http://www.drmaa.org">DRMAA</a>). This API provides a common interface to control various resource management systems. The <strong>DRMAA support</strong> can be activated by invoking Snakemake as follows:</p>
 <pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">snakemake</span> --drmaa --jobs 100</code></pre>
 <p>If available, <strong>DRMAA is preferable over the generic cluster modes</strong> because it provides better control and error handling. To support additional cluster specific parametrization, a Snakefile can be complementd by a <a href="https://bitbucket.org/johanneskoester/snakemake/wiki/Documentation#markdown-header-cluster-configuration">cluster configuration</a>.</p>
+<h2 id="constraining-wildcards">Constraining wildcards</h2>
+<p>Snakemake uses regular expressions to match output files to input files and determine dependencies between the jobs. Sometimes it is useful to constrain the values a wildcard can have. This can be achieved by adding a regular expression that describes the set of allowed wildcard values. For example, the wildcard <code>sample</code> in the output file <code>&quot;sorted_reads/{sample}.bam&quot;</code> can be constrained to only allow alphanumeric sample names as <code>&quot;sorted_reads/{sample,[A-Za-z0-9]+}.bam&quot;</code>. This mechanism helps to solve two kinds of ambiguity.</p>
+<ul>
+<li>It can help to avoid ambiguous rules, i.e. two or more rules that can be applied to generate the same output file. Other ways of handling ambiguous rules are described in the <a href="https://bitbucket.org/johanneskoester/snakemake/wiki/Documentation">Documentation</a>.</li>
+<li>It can help to guide the regular expression based matching so that wildcards are assigned to the right parts of a file name. Consider the output file <code>{sample}.{group}.txt</code> and assume that the target file is <code>A.1.normal.txt</code>. It is not clear whether <code>dataset=&quot;A.1&quot;</code> and <code>group=&quot;normal&quot;</code> or <code>dataset=&quot;A&quot;</code> and <code>group=&quot;1.normal&quot;</code> is the right assignment. Here, constraining the dataset wildcard by <code>{sample,[A-Z]+}.{group}</code> solves the problem.</li>
+</ul>
+<p>When dealing with ambiguous rules, it is best practice to first try to solve the ambiguity by using a proper file structure, for example, by separating the output files of different steps in different directories.</p>
 </body>
 </html>
