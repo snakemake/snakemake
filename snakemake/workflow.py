@@ -23,7 +23,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, expand, dynamic, remote, glob_wildcards, glob_wildcards_remote, flag, not_iterable, touch
+from snakemake.io import protected, temp, temporary, expand, dynamic, remote, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 

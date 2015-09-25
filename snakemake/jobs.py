@@ -131,11 +131,11 @@ class Job:
                 if not expansion:
                     yield f_
                 for f, _ in expansion:
-                    fileToYield = IOFile(f, self.rule)
+                    file_to_yield = IOFile(f, self.rule)
 
-                    fileToYield.clone_flags(f_)
+                    file_to_yield.clone_flags(f_)
 
-                    yield fileToYield
+                    yield file_to_yield
             else:
                 yield f
 
@@ -165,7 +165,7 @@ class Job:
 
 
     @property
-    def present_remote_input(self):
+    def existing_remote_input(self):
         files = set()
 
         for f in self.input:
@@ -175,7 +175,7 @@ class Job:
         return files
     
     @property
-    def present_remote_output(self):
+    def existing_remote_output(self):
         files = set()
 
         for f in self.remote_output:
@@ -185,11 +185,11 @@ class Job:
 
     @property
     def missing_remote_input(self):
-        return self.remote_input - self.present_remote_input
+        return self.remote_input - self.existing_remote_input
 
     @property
     def missing_remote_output(self):
-        return self.remote_output - self.present_remote_output
+        return self.remote_output - self.existing_remote_output
 
     @property
     def output_mintime(self):
@@ -357,17 +357,12 @@ class Job:
     @property
     def empty_remote_dirs(self):
         remote_files = [f for f in (set(self.output) | set(self.input)) if f.is_remote]
-        emptyDirsToRemove = set(os.path.dirname(f) for f in remote_files if not len(os.listdir(os.path.dirname(f))))
-        return emptyDirsToRemove
+        empty_dirs_to_remove = set(os.path.dirname(f) for f in remote_files if not len(os.listdir(os.path.dirname(f))))
+        return empty_dirs_to_remove
 
     def rmdir_empty_remote_dirs(self):
         for d in self.empty_remote_dirs:
-            pathToDel = d
-            while len(pathToDel) > 0 and len(os.listdir(pathToDel)) == 0:
-                logger.info("rmdir empty dir: {}".format(pathToDel))
-                os.rmdir(pathToDel)
-                pathToDel = os.path.dirname(pathToDel)
-
+            os.removedirs(d)
 
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """

@@ -57,7 +57,7 @@ class _IOFile(str):
             self._remote_object = get_flag_value(self._file, "remote_provider").RemoteObject(self, *additional_args, **additional_kwargs)
         pass
 
-    def _referToRemote(func):
+    def _refer_to_remote(func):
         """ 
             A decorator so that if the file is remote and has a version 
             of the same file-related function, call that version instead. 
@@ -85,7 +85,7 @@ class _IOFile(str):
     
 
     @property
-    @_referToRemote
+    @_refer_to_remote
     def file(self):
         if not self._is_function:
             return self._file
@@ -94,9 +94,9 @@ class _IOFile(str):
                              "may not be used directly.")
 
     @property
-    @_referToRemote
+    @_refer_to_remote
     def exists(self):
-        return os.path.exists(self.file)
+        return self.exists_local
 
     @property
     def exists_local(self):
@@ -112,13 +112,9 @@ class _IOFile(str):
         return self.exists_local and not os.access(self.file, os.W_OK)
     
     @property
-    @_referToRemote
+    @_refer_to_remote
     def mtime(self):
-        return lstat(self.file).st_mtime
-
-    @property
-    def flags(self):
-        return getattr(self._file, "flags", {})
+        return self.mtime_local
 
     @property
     def mtime_local(self):
@@ -126,11 +122,13 @@ class _IOFile(str):
         return lstat(self.file).st_mtime
 
     @property
-    @_referToRemote
+    def flags(self):
+        return getattr(self._file, "flags", {})
+
+    @property
+    @_refer_to_remote
     def size(self):
-        # follow symlinks but throw error if invalid
-        self.check_broken_symlink()
-        return os.path.getsize(self.file)
+        return self.size_local
 
     @property
     def size_local(self):
@@ -220,18 +218,15 @@ class _IOFile(str):
         # this bit ensures flags are transferred over to files after
         # wildcards are applied
 
-        flagsBeforeWildcardResolution = getattr(f, "flags", {})
-
-
-        fileWithWildcardsApplied = IOFile(apply_wildcards(f, wildcards,
+        file_with_wildcards_applied = IOFile(apply_wildcards(f, wildcards,
                                       fill_missing=fill_missing,
                                       fail_dynamic=fail_dynamic,
                                       dynamic_fill=self.dynamic_fill),
                                       rule=self.rule)
 
-        fileWithWildcardsApplied.set_flags(getattr(f, "flags", {}))
+        file_with_wildcards_applied.clone_flags( self )
 
-        return fileWithWildcardsApplied
+        return file_with_wildcards_applied
 
     def get_wildcard_names(self):
         return get_wildcard_names(self.file)
@@ -451,7 +446,6 @@ def touch(value):
     return flag(value, "touch")
 
 def remote(value, provider=S3, keep_local=False, additional_args=None, additional_kwargs=None):
-
     additional_args = [] if not additional_args else additional_args
     additional_kwargs = {} if not additional_kwargs else additional_kwargs
 
@@ -528,7 +522,7 @@ def limit(pattern, **wildcards):
     })
 
 
-def glob_wildcards(pattern):
+def glob_wildcards(pattern, files=None):
     """
     Glob the values of the wildcards by matching the given pattern to the filesystem.
     Returns a named tuple with a list of values for each wildcard.
@@ -546,36 +540,13 @@ def glob_wildcards(pattern):
     wildcards = Wildcards(*[list() for name in names])
 
     pattern = re.compile(regex(pattern))
-    for dirpath, dirnames, filenames in os.walk(dirname):
-        for f in chain(filenames, dirnames):
-            if dirpath != ".":
-                f = os.path.join(dirpath, f)
-            match = re.match(pattern, f)
-            if match:
-                for name, value in match.groupdict().items():
-                    getattr(wildcards, name).append(value)
-    return wildcards
 
-def glob_wildcards_remote(pattern, provider=S3, additional_kwargs=None):
-    additional_kwargs = additional_kwargs if additional_kwargs else {}
-    referenceObj = IOFile(remote(pattern, provider=provider, **additional_kwargs))
-    key_list = [k.name for k in referenceObj._remote_object.list] 
+    if files is None:
+        files = ((os.path.join(dirpath, f) if dirpath != "." else f) 
+                    for dirpath, dirnames, filenames in os.walk(dirname) 
+                    for f in chain(filenames, dirnames))
 
-    pattern = "./"+ referenceObj._remote_object.name
-    pattern = os.path.normpath(pattern)
-    first_wildcard = re.search("{[^{]", pattern)
-    dirname = os.path.dirname(pattern[:first_wildcard.start(
-    )]) if first_wildcard else os.path.dirname(pattern)
-    if not dirname:
-        dirname = "."
-
-    names = [match.group('name')
-             for match in _wildcard_regex.finditer(pattern)]
-    Wildcards = namedtuple("Wildcards", names)
-    wildcards = Wildcards(*[list() for name in names])
-
-    pattern = re.compile(regex(pattern))
-    for f in key_list:
+    for f in files:
         match = re.match(pattern, f)
         if match:
             for name, value in match.groupdict().items():

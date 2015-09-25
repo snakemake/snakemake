@@ -1,0 +1,1 @@
+from snakemake.remote_providers.AbstractRemoteProvider.AbstractRemoteProvider import RemoteObject, RemoteProvider

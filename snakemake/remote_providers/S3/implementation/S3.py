@@ -29,11 +29,11 @@ class S3Helper(object):
 
     def upload_to_s3(
             self,
-            bucketName,
-            filePath,
+            bucket_name,
+            file_path,
             key=None,
-            useRelativePathForKey=True,
-            relativeStartDir=None,
+            use_relative_path_for_key=True,
+            relative_start_dir=None,
             replace=False,
             reduced_redundancy=False,
             headers=None):
@@ -42,51 +42,51 @@ class S3Helper(object):
             This function uploads a file to an AWS S3 bucket.
 
             Args:
-                bucketName: the name of the S3 bucket to use (bucket name only, not ARN)
-                filePath: The path to the file to upload.
+                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
+                file_path: The path to the file to upload.
                 key: The key to set for the file on S3. If not specified, this will default to the
                     name of the file.
-                useRelativePathForKey: If set to True (default), and key is None, the S3 key will include slashes
+                use_relative_path_for_key: If set to True (default), and key is None, the S3 key will include slashes
                     representing the path of the file relative to the CWD. If False only the
                     file basename will be used for the key.
-                relativeStartDir: The start dir to use for useRelativePathForKey. No effect if key is set.
+                relative_start_dir: The start dir to use for use_relative_path_for_key. No effect if key is set.
                 replace: If True a file with the same key will be replaced with the one being written
                 reduced_redundancy: Sets the file to AWS reduced redundancy storage.
                 headers: additional heads to pass to AWS
 
             Returns: The key of the file on S3 if written, None otherwise
         """
-        filePath = os.path.realpath(os.path.expanduser(filePath))
+        file_path = os.path.realpath(os.path.expanduser(file_path))
 
-        assert bucketName, "bucketName must be specified"
-        assert os.path.exists(filePath), "The file path specified does not exist: %s" % filePath
-        assert os.path.isfile(filePath), "The file path specified does not appear to be a file: %s" % filePath
+        assert bucket_name, "bucket_name must be specified"
+        assert os.path.exists(file_path), "The file path specified does not exist: %s" % file_path
+        assert os.path.isfile(file_path), "The file path specified does not appear to be a file: %s" % file_path
 
         try:
-            b = self.conn.get_bucket(bucketName)
+            b = self.conn.get_bucket(bucket_name)
         except:
-            b = self.conn.create_bucket(bucketName)
+            b = self.conn.create_bucket(bucket_name)
 
         k = Key(b)
 
         if key:
             k.key = key
         else:
-            if useRelativePathForKey:
-                if relativeStartDir:
-                    pathKey = os.path.relpath(filePath, relativeStartDir)
+            if use_relative_path_for_key:
+                if relative_start_dir:
+                    path_key = os.path.relpath(file_path, relative_start_dir)
                 else:
-                    pathKey = os.path.relpath(filePath)
+                    path_key = os.path.relpath(file_path)
             else:
-                pathKey = os.path.basename(filePath)
-            k.key = pathKey
+                path_key = os.path.basename(file_path)
+            k.key = path_key
         try:
-            bytesWritten = k.set_contents_from_filename(
-                filePath,
+            bytes_written = k.set_contents_from_filename(
+                file_path,
                 replace=replace,
                 reduced_redundancy=reduced_redundancy,
                 headers=headers)
-            if bytesWritten:
+            if bytes_written:
                 return k.key
             else:
                 return None
@@ -95,77 +95,77 @@ class S3Helper(object):
 
     def download_from_s3(
             self,
-            bucketName,
+            bucket_name,
             key,
-            destinationPath=None,
+            destination_path=None,
             expandKeyIntoDirs=True,
-            makeDestDirs=True,
-            headers=None, createStubOnly=False):
+            make_dest_dirs=True,
+            headers=None, create_stub_only=False):
         """ Download a file from s3
 
             This function downloads an object from a specified AWS S3 bucket.
 
             Args:
-                bucketName: the name of the S3 bucket to use (bucket name only, not ARN)
-                destinationPath: If specified, the file will be saved to this path, otherwise cwd.
+                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
+                destination_path: If specified, the file will be saved to this path, otherwise cwd.
                 expandKeyIntoDirs: Since S3 keys can include slashes, if this is True (defult)
                     then S3 keys with slashes are expanded into directories on the receiving end.
                     If it is False, the key is passed to os.path.basename() to get the substring
                     following the last slash.
-                makeDestDirs: If this is True (default) and the destination path includes directories
+                make_dest_dirs: If this is True (default) and the destination path includes directories
                     that do not exist, they will be created.
                 headers: Additional headers to pass to AWS
 
             Returns:
-                The destination path of the downloaded file on the receiving end, or None if the filePath
+                The destination path of the downloaded file on the receiving end, or None if the destination_path
                 could not be downloaded
         """
-        assert bucketName, "bucketName must be specified"
+        assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"
 
-        b = self.conn.get_bucket(bucketName)
+        b = self.conn.get_bucket(bucket_name)
         k = Key(b)
 
-        if destinationPath:
-            destinationPath = os.path.realpath(os.path.expanduser(destinationPath))
+        if destination_path:
+            destination_path = os.path.realpath(os.path.expanduser(destination_path))
         else:
             if expandKeyIntoDirs:
-                destinationPath = os.path.join(os.getcwd(), key)
+                destination_path = os.path.join(os.getcwd(), key)
             else:
-                destinationPath = os.path.join(os.getcwd(), os.path.basename(key))
+                destination_path = os.path.join(os.getcwd(), os.path.basename(key))
 
         # if the destination path does not exist
-        if not os.path.exists(os.path.dirname(destinationPath)) and makeDestDirs:
-            os.makedirs(os.path.dirname(destinationPath))
+        if not os.path.exists(os.path.dirname(destination_path)) and make_dest_dirs:
+            os.makedirs(os.path.dirname(destination_path))
 
-        k.key = key if key else os.path.basename(filePath)
+        k.key = key if key else os.path.basename(destination_path)
 
         try:
-            if not createStubOnly:
-                k.get_contents_to_filename(destinationPath, headers=headers)
+            if not create_stub_only:
+                k.get_contents_to_filename(destination_path, headers=headers)
             else:
                 # just create an empty file with the right timestamps
-                with open(destinationPath, 'wb') as fp:
+                with open(destination_path, 'wb') as fp:
                     modified_tuple = email.utils.parsedate_tz(k.last_modified)
                     modified_stamp = int(email.utils.mktime_tz(modified_tuple))
                     os.utime(fp.name, (modified_stamp, modified_stamp))
-            return destinationPath
+            return destination_path
         except:
             return None
 
-    def _upload_part(self, bucketName, multipart_id, part_num, source_path, offset, bytesToWrite, numberOfRetries=5):
+    def _upload_part(self, bucket_name, multipart_id, part_num, source_path, offset, bytes_to_write, number_of_retries=5):
 
-        def _upload(retriesRemaining=numberOfRetries):
+        def _upload(retries_remaining=number_of_retries):
             try:
-                b = self.conn.get_bucket(bucketName)
+                b = self.conn.get_bucket(bucket_name)
                 for mp in b.get_all_multipart_uploads():
                     if mp.id == multipart_id:
-                        with FileChunkIO(source_path, 'r', offset=offset, bytes=bytesToWrite) as fp:
+                        with FileChunkIO(source_path, 'r', offset=offset, bytes=bytes_to_write) as fp:
                             mp.upload_part_from_file(fp=fp, part_num=part_num)
                         break
             except Exception() as e:
-                if retriesRemaining:
-                    _upload(retriesRemaining=retriesRemaining - 1)
+                if retries_remaining:
+                    _upload(retries_remaining=retries_remaining - 1)
                 else:
                     raise e
 
@@ -173,11 +173,11 @@ class S3Helper(object):
 
     def upload_to_s3_multipart(
             self,
-            bucketName,
-            filePath,
+            bucket_name,
+            file_path,
             key=None,
-            useRelativePathForKey=True,
-            relativeStartDir=None,
+            use_relative_path_for_key=True,
+            relative_start_dir=None,
             replace=False,
             reduced_redundancy=False,
             headers=None,
@@ -187,14 +187,14 @@ class S3Helper(object):
             This function uploads a file to an AWS S3 bucket.
 
             Args:
-                bucketName: the name of the S3 bucket to use (bucket name only, not ARN)
-                filePath: The path to the file to upload.
+                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
+                file_path: The path to the file to upload.
                 key: The key to set for the file on S3. If not specified, this will default to the
                     name of the file.
-                useRelativePathForKey: If set to True (default), and key is None, the S3 key will include slashes
+                use_relative_path_for_key: If set to True (default), and key is None, the S3 key will include slashes
                     representing the path of the file relative to the CWD. If False only the
                     file basename will be used for the key.
-                relativeStartDir: The start dir to use for useRelativePathForKey. No effect if key is set.
+                relative_start_dir: The start dir to use for use_relative_path_for_key. No effect if key is set.
                 replace: If True a file with the same key will be replaced with the one being written
                 reduced_redundancy: Sets the file to AWS reduced redundancy storage.
                 headers: additional heads to pass to AWS
@@ -202,50 +202,50 @@ class S3Helper(object):
 
             Returns: The key of the file on S3 if written, None otherwise
         """
-        filePath = os.path.realpath(os.path.expanduser(filePath))
+        file_path = os.path.realpath(os.path.expanduser(file_path))
 
-        assert bucketName, "bucketName must be specified"
-        assert os.path.exists(filePath), "The file path specified does not exist: %s" % filePath
-        assert os.path.isfile(filePath), "The file path specified does not appear to be a file: %s" % filePath
+        assert bucket_name, "bucket_name must be specified"
+        assert os.path.exists(file_path), "The file path specified does not exist: %s" % file_path
+        assert os.path.isfile(file_path), "The file path specified does not appear to be a file: %s" % file_path
 
         try:
-            b = self.conn.get_bucket(bucketName)
+            b = self.conn.get_bucket(bucket_name)
         except:
-            b = self.conn.create_bucket(bucketName)
+            b = self.conn.create_bucket(bucket_name)
 
-        pathKey = None
+        path_key = None
         if key:
-            pathKey = key
+            path_key = key
         else:
-            if useRelativePathForKey:
-                if relativeStartDir:
-                    pathKey = os.path.relpath(filePath, relativeStartDir)
+            if use_relative_path_for_key:
+                if relative_start_dir:
+                    path_key = os.path.relpath(file_path, relative_start_dir)
                 else:
-                    pathKey = os.path.relpath(filePath)
+                    path_key = os.path.relpath(file_path)
             else:
-                pathKey = os.path.basename(filePath)
+                path_key = os.path.basename(file_path)
 
-        mp = b.initiate_multipart_upload(pathKey, headers=headers)
+        mp = b.initiate_multipart_upload(path_key, headers=headers)
 
-        sourceSize = os.stat(filePath).st_size
+        source_size = os.stat(file_path).st_size
 
-        bytesPerChunk = 52428800  # 50MB = 50 * 1024 * 1024
-        chunkCount = int(math.ceil(sourceSize / float(bytesPerChunk)))
+        bytes_per_chunk = 52428800  # 50MB = 50 * 1024 * 1024
+        chunk_count = int(math.ceil(source_size / float(bytes_per_chunk)))
 
         pool = Pool(processes=parallel_processes)
-        for i in range(chunkCount):
-            offset = i * bytesPerChunk
-            remainingBytes = sourceSize - offset
-            bytesToWrite = min([bytesPerChunk, remainingBytes])
-            partNum = i + 1
-            pool.apply_async(self._upload_part, [bucketName, mp.id, partNum, filePath, offset, bytesToWrite])
+        for i in range(chunk_count):
+            offset = i * bytes_per_chunk
+            remaining_bytes = source_size - offset
+            bytes_to_write = min([bytes_per_chunk, remaining_bytes])
+            part_num = i + 1
+            pool.apply_async(self._upload_part, [bucket_name, mp.id, part_num, file_path, offset, bytes_to_write])
         pool.close()
         pool.join()
 
-        if len(mp.get_all_parts()) == chunkCount:
+        if len(mp.get_all_parts()) == chunk_count:
             mp.complete_upload()
             try:
-                key = b.get_key(pathKey)
+                key = b.get_key(path_key)
                 return key.key
             except:
                 return None
@@ -253,81 +253,81 @@ class S3Helper(object):
             mp.cancel_upload()
             return None
 
-    def delete_from_bucket(self, bucketName, key, headers=None):
+    def delete_from_bucket(self, bucket_name, key, headers=None):
         """ Delete a file from s3
 
             This function deletes an object from a specified AWS S3 bucket.
 
             Args:
-                bucketName: the name of the S3 bucket to use (bucket name only, not ARN)
+                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
                 key: the key of the object to delete from the bucket
                 headers: Additional headers to pass to AWS
 
             Returns:
                 The name of the object deleted
         """
-        assert bucketName, "bucketName must be specified"
+        assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"
 
-        b = self.conn.get_bucket(bucketName)
+        b = self.conn.get_bucket(bucket_name)
         k = Key(b)
         k.key = key
         ret = k.delete(headers=headers)
         return ret.name
 
-    def exists_in_bucket(self, bucketName, key, headers=None):
+    def exists_in_bucket(self, bucket_name, key, headers=None):
         """ Returns whether the key exists in the bucket
 
             Args:
-                bucketName: the name of the S3 bucket to use (bucket name only, not ARN)
+                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
                 key: the key of the object to delete from the bucket
                 headers: Additional headers to pass to AWS
 
             Returns:
                 True | False
         """
-        assert bucketName, "bucketName must be specified"
+        assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"
 
-        b = self.conn.get_bucket(bucketName)
+        b = self.conn.get_bucket(bucket_name)
         k = Key(b)
         k.key = key
         return k.exists(headers=headers)
 
-    def key_size(self, bucketName, key, headers=None):
+    def key_size(self, bucket_name, key, headers=None):
         """ Returns the size of a key based on a HEAD request
 
             Args:
-                bucketName: the name of the S3 bucket to use (bucket name only, not ARN)
+                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
                 key: the key of the object to delete from the bucket
                 headers: Additional headers to pass to AWS
 
             Returns:
                 Size in kb
         """
-        assert bucketName, "bucketName must be specified"
+        assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"
 
-        b = self.conn.get_bucket(bucketName)
+        b = self.conn.get_bucket(bucket_name)
         k = b.lookup(key)
 
         return k.size
 
-    def key_last_modified(self, bucketName, key, headers=None):
+    def key_last_modified(self, bucket_name, key, headers=None):
         """ Returns a timestamp of a key based on a HEAD request
 
             Args:
-                bucketName: the name of the S3 bucket to use (bucket name only, not ARN)
+                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
                 key: the key of the object to delete from the bucket
                 headers: Additional headers to pass to AWS
 
             Returns:
                 timestamp
         """
-        assert bucketName, "bucketName must be specified"
+        assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"
 
-        b = self.conn.get_bucket(bucketName)
+        b = self.conn.get_bucket(bucket_name)
         k = b.lookup(key)
 
         # email.utils parsing of timestamp mirrors boto whereas
@@ -337,5 +337,5 @@ class S3Helper(object):
 
         return epochTime
 
-    def list_keys(self, bucketName):
-        return self.conn.get_bucket(bucketName).list()
+    def list_keys(self, bucket_name):
+        return self.conn.get_bucket(bucket_name).list()

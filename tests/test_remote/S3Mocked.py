@@ -15,14 +15,14 @@ import boto
 from moto import mock_s3
 
 # intra-module
-from snakemake.remote_providers.S3 import RemoteObject as S3RemoteObject
-from snakemake.remote_providers.implementations.S3 import S3Helper
-from snakemake.decorators import decAllMethods
+from snakemake.remote_providers.S3 import RemoteObject as S3RemoteObject, RemoteProvider as S3RemoteProvider
+from snakemake.remote_providers.S3.implementation import S3Helper
+from snakemake.decorators import dec_all_methods
 
 def noop():
     pass
 
-def pickledMotoWrapper(func):
+def pickled_moto_wrapper(func):
     """
         This is a class decorator that in turn decorates all methods within
         a class to mock out boto calls with moto-simulated ones.
@@ -35,30 +35,35 @@ def pickledMotoWrapper(func):
         but works ok in practice.
     """
     def wrapper_func(self, *args, **kwargs):
-        motoContextFile = "motoState.p"
+        moto_context_file = "motoState.p"
 
-        motoContext = mock_s3()
+        moto_context = mock_s3()
 
         # load moto buckets from pickle
-        if os.path.isfile(motoContextFile) and os.path.getsize(motoContextFile) > 0:
-            with file_lock(motoContextFile):
-                with open( motoContextFile, "rb" ) as f:
-                    motoContext.backends["global"].buckets = pickle.load( f )
+        if os.path.isfile(moto_context_file) and os.path.getsize(moto_context_file) > 0:
+            with file_lock(moto_context_file):
+                with open( moto_context_file, "rb" ) as f:
+                    moto_context.backends["global"].buckets = pickle.load( f )
 
-        motoContext.backends["global"].reset = noop
+        moto_context.backends["global"].reset = noop
 
-        mockedFunction = motoContext(func)
+        mocked_function = moto_context(func)
 
-        retval = mockedFunction(self, *args, **kwargs)
+        retval = mocked_function(self, *args, **kwargs)
 
-        with file_lock(motoContextFile):
-            with open( motoContextFile, "wb" ) as f:
-                pickle.dump(motoContext.backends["global"].buckets, f)
+        with file_lock(moto_context_file):
+            with open( moto_context_file, "wb" ) as f:
+                pickle.dump(moto_context.backends["global"].buckets, f)
 
         return retval
     return wrapper_func
 
-@decAllMethods(pickledMotoWrapper, prefix=None)
+@dec_all_methods(pickled_moto_wrapper, prefix=None)
+class RemoteProvider(S3RemoteProvider):
+    def __init__(self, *args, **kwargs):
+        return super(RemoteProvider, self).__init__(*args, **kwargs)
+        
+@dec_all_methods(pickled_moto_wrapper, prefix=None)
 class RemoteObject(S3RemoteObject):
     """ 
         This is a derivative of the S3 remote provider that mocks
@@ -68,17 +73,17 @@ class RemoteObject(S3RemoteObject):
     """
 
     def __init__(self, *args, **kwargs):
-        bucketName = 'test-remote-bucket'
-        testFile = "test.txt"
+        bucket_name = 'test-remote-bucket'
+        test_file = "test.txt"
 
         conn = boto.connect_s3()
-        if bucketName not in [b.name for b in conn.get_all_buckets()]:
-            conn.create_bucket(bucketName)
+        if bucket_name not in [b.name for b in conn.get_all_buckets()]:
+            conn.create_bucket(bucket_name)
 
         # "Upload" files that should be in S3 before tests...
         s3c = S3Helper()
-        if not s3c.exists_in_bucket(bucketName, testFile):
-            s3c.upload_to_s3(bucketName, testFile)
+        if not s3c.exists_in_bucket(bucket_name, test_file):
+            s3c.upload_to_s3(bucket_name, test_file)
 
         return super(RemoteObject, self).__init__(*args, **kwargs)
 

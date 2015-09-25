@@ -3,14 +3,23 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import re
+import re, sys
 
-from snakemake.remote_providers.RemoteObjectProvider import RemoteObject
+from snakemake.remote_providers.AbstractRemoteProvider import RemoteObject, RemoteProvider
+from snakemake.remote_providers.S3.implementation import S3Helper
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, S3FileException
-from snakemake.remote_providers.implementations.S3 import S3Helper
+import snakemake.io 
 
 import boto
 
+class RemoteProvider(RemoteProvider):
+    def __init__(self, *args, **kwargs):
+        super(RemoteProvider, self).__init__(*args, **kwargs)
+
+        self._s3c = S3Helper(*args, **kwargs)
+    
+    def glob_wildcards_remote():
+        pass
 
 class RemoteObject(RemoteObject):
     """ This is a class to interact with the AWS S3 object store.
@@ -19,8 +28,12 @@ class RemoteObject(RemoteObject):
     def __init__(self, *args, **kwargs):
         super(RemoteObject, self).__init__(*args, **kwargs)
 
-        # pass all args but the first, which is the ioFile
-        self._s3c = S3Helper(*args[1:], **kwargs)
+        #self._s3c = S3Helper(*args[1:], **kwargs)
+        if "provider" in kwargs:
+            self._s3c = kwargs["provider"]
+        else:
+            # pass all args but the first, which is the ioFile
+            self._s3c = S3Helper(*args[1:], **kwargs)
 
     # === Implementations of abstract class members ===
 
@@ -49,7 +62,6 @@ class RemoteObject(RemoteObject):
         self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.file())
 
     def upload(self):
-        conn = boto.connect_s3()
         if self.size() > 5000:
             self._s3c.upload_to_s3_multipart(self.s3_bucket, self.file(), self.s3_key)
         else:
@@ -83,7 +95,7 @@ class RemoteObject(RemoteObject):
     def s3_create_stub(self):
         if self._matched_s3_path:
             if not self.exists:
-                self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.file, createStubOnly=True)
+                self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.file, create_stub_only=True)
         else:
             raise S3FileException("The file to be downloaded cannot be parsed as an s3 path in form 'bucket/key': %s" %
                                   self.file())

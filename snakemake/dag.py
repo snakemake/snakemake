@@ -10,7 +10,7 @@ from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
 from operator import itemgetter, attrgetter
 
-from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged
+from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
 from snakemake.jobs import Job, Reason
 from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
@@ -313,20 +313,46 @@ class DAG:
                 if not f in self.targetfiles and not f.protected:
                     yield f
 
-        def expanded_dynamic_depending_input_files():
-            for j in self.depending[job]:    
-                for f in j.input:
+        def expanded_input(job):
+            for f, f_ in zip(job.input, job.rule.input):
+                if not type(f_).__name__ == "function":
+                    if type(f_.file).__name__ not in ["str", "function"]:
+                        if contains_wildcard(f_):
+
+                            expansion = job.expand_dynamic(
+                                f_,
+                                restriction=job.wildcards,
+                                omit_value=_IOFile.dynamic_fill)
+                            if not expansion:
+                                yield f_
+                            for f, _ in expansion:
+
+                                file_to_yield = IOFile(f, job.rule)
+
+                                file_to_yield.clone_flags(f_)
+
+                                yield file_to_yield
+                        else:
+                            yield f
+                    else:
+                        yield f
+                else:
                     yield f
 
-        unneededFiles = set(unneeded_files())
-        unneededFiles -= set(expanded_dynamic_depending_input_files())
+        def expanded_dynamic_depending_input_files():
+            for j in self.depending[job]:    
+                for f in expanded_input(j):
+                    yield f
+
+        unneeded_files = set(unneeded_files())
+        unneeded_files -= set(expanded_dynamic_depending_input_files())
 
         for f in [f for f in job.expanded_output if f.is_remote]:
             if not f.exists_remote:
                 logger.info("Uploading local output file to remote: {}".format(f))
                 f.upload_to_remote()
 
-        for f in set(unneededFiles):
+        for f in set(unneeded_files):
             logger.info("Removing local output file: {}".format(f))
             f.remove()
 
