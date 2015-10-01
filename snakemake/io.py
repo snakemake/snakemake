@@ -13,7 +13,7 @@ from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, S3FileException
 from snakemake.logging import logger
-import snakemake.remote_providers.S3 as S3
+import snakemake.remote.S3 as S3
 
 def lstat(f):
     return os.stat(f, follow_symlinks=os.stat not in os.supports_follow_symlinks)
@@ -75,6 +75,10 @@ class _IOFile(str):
     def is_remote(self):
         return is_flagged(self._file, "remote")
     
+    @property
+    def should_keep_local(self):
+        return is_flagged(self._file, "keep_local")
+
     @property
     def remote_object(self):
         if not self._remote_object:

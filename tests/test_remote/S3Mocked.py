@@ -15,8 +15,8 @@ import boto
 from moto import mock_s3
 
 # intra-module
-from snakemake.remote_providers.S3 import RemoteObject as S3RemoteObject, RemoteProvider as S3RemoteProvider
-from snakemake.remote_providers.S3.implementation import S3Helper
+from snakemake.remote.S3 import RemoteObject as S3RemoteObject, RemoteProvider as S3RemoteProvider
+from snakemake.remote.S3 import S3Helper
 from snakemake.decorators import dec_all_methods
 
 def noop():

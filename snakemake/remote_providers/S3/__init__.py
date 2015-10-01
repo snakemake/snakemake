@@ -1,1 +1,0 @@
-from snakemake.remote_providers.S3.S3 import RemoteProvider, RemoteObject

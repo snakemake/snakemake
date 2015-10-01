@@ -3,12 +3,14 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
+# built-ins
 import os, sys
 from abc import ABCMeta, abstractmethod
 
+# module-specific
 import snakemake.io
 
-class RemoteProvider:
+class AbstractRemoteProvider:
     """ This is an abstract class to be used to derive remote provider classes. These might be used to hold common credentials,
         and are then passed to RemoteObjects.
     """
@@ -39,7 +41,7 @@ class RemoteProvider:
 
         return snakemake.io.glob_wildcards(pattern, files=key_list)
 
-class RemoteObject:
+class AbstractRemoteObject:
     """ This is an abstract class to be used to derive remote object classes for 
         different cloud storage providers. For example, there could be classes for interacting with 
         Amazon AWS S3 and Google Cloud Storage, both derived from this common base class.

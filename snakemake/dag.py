@@ -17,6 +17,7 @@ from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException
 from snakemake.exceptions import PeriodicWildcardError
+from snakemake.exceptions import RemoteFileException
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
@@ -297,7 +298,7 @@ class DAG:
 
         remote_files = set([f for f in job.input if f.is_remote]) | set([f for f in job.expanded_output if f.is_remote])
         local_files = set([f for f in job.input if not f.is_remote]) | set([f for f in job.expanded_output if not f.is_remote])
-        files_to_keep = set(f for f in remote_files if is_flagged(f, "keep_local"))
+        files_to_keep = set(f for f in remote_files if f.should_keep_local)
 
         # remove local files from list of remote files
         # in case the same file is specified in both places
@@ -351,6 +352,8 @@ class DAG:
             if not f.exists_remote:
                 logger.info("Uploading local output file to remote: {}".format(f))
                 f.upload_to_remote()
+                if not f.exists_remote:
+                    raise RemoteFileException("The file upload was attempted, but it does not exist on remote. Check that your credentials have read AND write permissions.")
 
         for f in set(unneeded_files):
             logger.info("Removing local output file: {}".format(f))
