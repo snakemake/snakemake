@@ -27,7 +27,8 @@ class OutputIndex:
             output = list(rule.output)
             if rule.benchmark:
                 output.append(rule.benchmark)
-            for constant_prefix in sorted(map(_IOFile.constant_prefix, output)):
+            for constant_prefix in sorted(map(_IOFile.constant_prefix,
+                                              output)):
                 self.add_output(rule, constant_prefix)
 
     def add_output(self, rule, constant_prefix):
