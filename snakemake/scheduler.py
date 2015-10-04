@@ -93,8 +93,7 @@ class JobScheduler:
                                            printshellcmds=printshellcmds,
                                            latency_wait=latency_wait)
         elif cluster or cluster_sync or (drmaa is not None):
-            workers = min(sum(1 for _ in dag.local_needrun_jobs),
-                          local_cores)
+            workers = min(sum(1 for _ in dag.local_needrun_jobs), local_cores)
             self._local_executor = CPUExecutor(
                 workflow, dag, workers,
                 printreason=printreason,
@@ -176,22 +175,30 @@ class JobScheduler:
                 while not self._open_jobs.wait(1):
                     pass
 
+                # obtain needrun and running jobs in a thread-safe way
+                with self._lock:
+                    needrun = list(self.open_jobs)
+                    running = list(self.running)
+                # free the event
                 self._open_jobs.clear()
+
+                # handle errors
                 if not self.keepgoing and self._errors:
                     logger.info("Will exit after finishing "
                                 "currently running jobs.")
-                    if not self.running:
+                    if not running:
                         self._executor.shutdown()
                         logger.error(_ERROR_MSG_FINAL)
                         return False
                     continue
-                if not any(self.open_jobs) and not self.running:
+                # normal shutdown because all jobs have been finished
+                if not needrun and not running:
                     self._executor.shutdown()
                     if self._errors:
                         logger.error(_ERROR_MSG_FINAL)
                     return not self._errors
 
-                needrun = list(self.open_jobs)
+                # continue if no new job needs to be executed
                 if not needrun:
                     continue
 
@@ -200,12 +207,16 @@ class JobScheduler:
                 logger.debug("Ready jobs ({}):\n\t".format(len(needrun)) +
                              "\n\t".join(map(str, needrun)))
 
+                # select jobs by solving knapsack problem
                 run = self.job_selector(needrun)
                 logger.debug("Selected jobs ({}):\n\t".format(len(run)) +
                              "\n\t".join(map(str, run)))
-                self.running.update(run)
+                # update running jobs
+                with self._lock:
+                    self.running.update(run)
                 logger.debug(
                     "Resources after job selection: {}".format(self.resources))
+                # actually run jobs
                 for job in run:
                     self.run(job)
         except (KeyboardInterrupt, SystemExit):

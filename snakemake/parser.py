@@ -611,6 +611,7 @@ class Snakefile:
         except FileNotFoundError as e:
             try:
                 self.file = TextIOWrapper(urllib.request.urlopen(self.path),
+                                          timeout=10,
                                           encoding="utf-8")
             except (HTTPError, URLError, ContentTooShortError, ValueError):
                 raise WorkflowError("Failed to open {}.".format(path))

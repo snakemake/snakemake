@@ -16,7 +16,7 @@ class Node:
         self.children = defaultdict(Node)
 
     def __repr__(self):
-        return "({}) -> {}".format(self.rules, dict(self.children))
+        return "({}) -> {}".format(list(map(str, self.rules)), dict(self.children))
 
 
 class OutputIndex:
