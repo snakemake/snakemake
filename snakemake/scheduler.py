@@ -222,7 +222,9 @@ class JobScheduler:
         except (KeyboardInterrupt, SystemExit):
             logger.info("Terminating processes on user request.")
             self._executor.cancel()
-            for job in self.running:
+            with self._lock():
+                running = list(self.running)
+            for job in running:
                 job.cleanup()
             return False
 
