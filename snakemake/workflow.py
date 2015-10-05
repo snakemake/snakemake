@@ -201,6 +201,8 @@ class Workflow:
                 updated_files=None,
                 keep_target_files=False,
                 allowed_rules=None,
+                temporary_rules=None,
+                protected_rules=None,
                 greediness=1.0,
                 no_hooks=False):
 
@@ -244,6 +246,20 @@ class Workflow:
         if allowed_rules:
             rules = [rule for rule in rules if rule.name in set(allowed_rules)]
 
+        if temporary_rules:
+            for rule in rules:
+                if rule.name in temporary_rules:
+                    rule.temp_output = rule.output
+
+        # Unfortunately does not check for mutual exclusiveness of
+        # temporary and protected; these need to be set in another
+        # way.
+        if protected_rules:
+            for rule in rules:
+                if rule.name in protected_rules:
+                    rule.protected_output = rule.output
+
+                
         if wait_for_files is not None:
             try:
                 snakemake.io.wait_for_files(wait_for_files,
