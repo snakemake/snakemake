@@ -403,7 +403,8 @@ class Run(RuleKeywordState):
         yield ""
 
     def is_block_end(self, token):
-        return (self.line and self.was_indented and self.indent <= 0) or is_eof(token)
+        return (self.line and self.was_indented and self.indent <= 0
+                ) or is_eof(token)
 
 
 class Shell(Run):
@@ -611,7 +612,6 @@ class Snakefile:
         except FileNotFoundError as e:
             try:
                 self.file = TextIOWrapper(urllib.request.urlopen(self.path),
-                                          timeout=10,
                                           encoding="utf-8")
             except (HTTPError, URLError, ContentTooShortError, ValueError):
                 raise WorkflowError("Failed to open {}.".format(path))
