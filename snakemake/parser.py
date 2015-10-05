@@ -655,6 +655,7 @@ def parse(path, overwrite_shellcmd=None):
             snakefile.lines += t.count("\n")
             compilation.append(t)
         compilation = "".join(format_tokens(compilation))
-        last = max(linemap)
-        linemap[last + 1] = linemap[last]
+        if linemap:
+            last = max(linemap)
+            linemap[last + 1] = linemap[last]
         return compilation, linemap
