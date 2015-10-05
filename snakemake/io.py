@@ -304,6 +304,12 @@ def temporary(value):
     """ An alias for temp. """
     return temp(value)
 
+def set_temporary_rules(rules, temporary_rules):
+    """Set the output of rules to temporary if rule.name is in temporary_rules"""
+    for rule in rules:
+        if rule.name in temporary_rules:
+            rule.temp_output = rule.output
+
 
 def protected(value):
     """ A flag for a file that shall be write protected after creation. """
@@ -312,6 +318,11 @@ def protected(value):
             "Protected and temporary flags are mutually exclusive.")
     return flag(value, "protected")
 
+def set_protected_rules(rules, protected_rules):
+    """Set the output of rules to protected if rule.name is in protected_rules"""
+    for rule in rules:
+        if rule.name in protected_rules:
+            rule.protected_output = rule.output
 
 def dynamic(value):
     """
