@@ -11,9 +11,8 @@ import json
 import functools
 from itertools import product, chain
 from collections import Iterable, namedtuple
-from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, S3FileException
+from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException
 from snakemake.logging import logger
-import snakemake.remote.S3 as S3
 
 def lstat(f):
     return os.stat(f, follow_symlinks=os.stat not in os.supports_follow_symlinks)
@@ -49,14 +48,6 @@ class _IOFile(str):
 
         return obj
 
-    def __init__(self, file):
-        self._remote_object = None
-        if self.is_remote:
-            additional_args = get_flag_value(self._file, "additional_remote_args") if get_flag_value(self._file, "additional_remote_args") else []
-            additional_kwargs = get_flag_value(self._file, "additional_remote_kwargs") if get_flag_value(self._file, "additional_remote_kwargs") else {}
-            self._remote_object = get_flag_value(self._file, "remote_provider").RemoteObject(self, *additional_args, **additional_kwargs)
-        pass
-
     def _refer_to_remote(func):
         """ 
             A decorator so that if the file is remote and has a version 
@@ -65,9 +56,13 @@ class _IOFile(str):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if self.is_remote:
-                if self.remote_object:
-                    if hasattr( self.remote_object, func.__name__):
-                        return getattr( self.remote_object, func.__name__)(*args, **kwargs)
+                # if the file string is different in the iofile, update the remote object
+                # (as in the case of wildcard expansion)
+                if get_flag_value(self._file, "remote_object").file != self._file:
+                    get_flag_value(self._file, "remote_object")._iofile = self
+
+                if hasattr( self.remote_object, func.__name__):
+                    return getattr( self.remote_object, func.__name__)(*args, **kwargs)
             return func(self, *args, **kwargs)
         return wrapper
 
@@ -81,12 +76,7 @@ class _IOFile(str):
 
     @property
     def remote_object(self):
-        if not self._remote_object:
-            if self.is_remote:
-               additional_kwargs = get_flag_value(self._file, "additional_remote_kwargs") if get_flag_value(self._file, "additional_remote_kwargs") else {}
-               self._remote_object = get_flag_value(self._file, "remote_provider").RemoteObject(self, **additional_kwargs)
-        return self._remote_object
-    
+        return get_flag_value(self._file, "remote_object")
 
     @property
     @_refer_to_remote
@@ -109,7 +99,6 @@ class _IOFile(str):
     @property
     def exists_remote(self):
         return (self.is_remote and self.remote_object.exists())
-    
 
     @property
     def protected(self):
@@ -448,36 +437,6 @@ def dynamic(value):
 
 def touch(value):
     return flag(value, "touch")
-
-def remote(value, provider=S3, keep_local=False, additional_args=None, additional_kwargs=None):
-    additional_args = [] if not additional_args else additional_args
-    additional_kwargs = {} if not additional_kwargs else additional_kwargs
-
-    if not provider:
-        raise RemoteFileException("Provider (S3, etc.) must be specified for remote file as kwarg.")
-    if is_flagged(value, "temp"):
-        raise SyntaxError(
-            "Remote and temporary flags are mutually exclusive.")
-    if is_flagged(value, "protected"):
-        raise SyntaxError(
-            "Remote and protected flags are mutually exclusive.")
-    return flag(
-                flag(
-                    flag( 
-                        flag( 
-                            flag(value, "remote"), 
-                            "remote_provider", 
-                            provider
-                        ), 
-                        "additional_remote_kwargs", 
-                        additional_kwargs
-                    ),
-                    "additional_remote_args",
-                    additional_args
-                ),
-                "keep_local",
-                keep_local
-            )
 
 def expand(*args, **wildcards):
     """

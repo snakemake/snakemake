@@ -19,7 +19,6 @@ from filechunkio import FileChunkIO
 
 # module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
-#from snakemake.remote_providers.S3.implementation import S3Helper
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, S3FileException
 import snakemake.io 
 
@@ -47,9 +46,6 @@ class RemoteObject(AbstractRemoteObject):
             self._s3c = S3Helper(*args[1:], **kwargs)
 
     # === Implementations of abstract class members ===
-
-    def file(self):
-        return self._file
 
     def exists(self):
         if self._matched_s3_path:
