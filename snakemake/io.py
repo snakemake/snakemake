@@ -56,11 +56,7 @@ class _IOFile(str):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if self.is_remote:
-                # if the file string is different in the iofile, update the remote object
-                # (as in the case of wildcard expansion)
-                if get_flag_value(self._file, "remote_object").file != self._file:
-                    get_flag_value(self._file, "remote_object")._iofile = self
-
+                self.update_remote_filepath()                
                 if hasattr( self.remote_object, func.__name__):
                     return getattr( self.remote_object, func.__name__)(*args, **kwargs)
             return func(self, *args, **kwargs)
@@ -68,14 +64,21 @@ class _IOFile(str):
 
     @property
     def is_remote(self):
-        return is_flagged(self._file, "remote")
+        return is_flagged(self._file, "remote_object")
+
+    def update_remote_filepath(self):
+        # if the file string is different in the iofile, update the remote object
+        # (as in the case of wildcard expansion)
+        if get_flag_value(self._file, "remote_object").file != self._file:
+            get_flag_value(self._file, "remote_object")._iofile = self    
     
     @property
     def should_keep_local(self):
-        return is_flagged(self._file, "keep_local")
+        return get_flag_value(self._file, "remote_object").keep_local
 
     @property
     def remote_object(self):
+        self.update_remote_filepath()
         return get_flag_value(self._file, "remote_object")
 
     @property
@@ -146,9 +149,8 @@ class _IOFile(str):
             raise RemoteFileException("The file to be downloaded does not seem to exist remotely.")
  
     def upload_to_remote(self):
-        logger.info("Uploading to remote: {}".format(self.file))
-
         if self.is_remote and not self.remote_object.exists():
+            logger.info("Uploading to remote: {}".format(self.file))
             self.remote_object.upload()
         else:
             raise RemoteFileException("The file to be uploaded does not seem to exist remotely.")

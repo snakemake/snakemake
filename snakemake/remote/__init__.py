@@ -9,7 +9,6 @@ from abc import ABCMeta, abstractmethod
 
 # module-specific
 import snakemake.io
-#import snakemake.remote.S3 as S3
 from snakemake.exceptions import RemoteFileException
 
 class AbstractRemoteProvider:
@@ -34,42 +33,30 @@ class AbstractRemoteProvider:
                 "Remote and protected flags are mutually exclusive.")
 
         provider = sys.modules[self.__module__] # get module of derived class
-        remote_object = provider.RemoteObject(*additional_args, **additional_kwargs)
+        remote_object = provider.RemoteObject(*additional_args, keep_local=keep_local, provider=self, **additional_kwargs)
 
         return snakemake.io.flag(
-                    snakemake.io.flag(
-                        snakemake.io.flag(
-                            snakemake.io.flag( 
-                                snakemake.io.flag( 
-                                    snakemake.io.flag(value, "remote"), 
-                                    "remote_provider", 
-                                    provider
-                                ), 
-                                "additional_remote_kwargs", 
-                                additional_kwargs
-                            ),
-                            "additional_remote_args",
-                            additional_args
-                        ),
-                        "keep_local",
-                        keep_local
-                    ),
+                value, 
                 "remote_object",
                 remote_object
             )
 
-    def glob_wildcards(self, pattern, provider=None, additional_args=None, additional_kwargs=None):
+    def glob_wildcards(self, pattern, additional_args=None, additional_kwargs=None):
         additional_args   = self.args if not additional_args else additional_args
         additional_kwargs = self.kwargs if not additional_kwargs else additional_kwargs
         
         referenceObj = snakemake.io.IOFile(self.remote(pattern, additional_args, additional_kwargs))
 
-        pattern = "./"+ referenceObj._remote_object.name
+        pattern = "./"+ referenceObj.remote_object.name
         pattern = os.path.normpath(pattern)
 
-        key_list = [k.name for k in referenceObj._remote_object.list] 
+        key_list = [k.name for k in referenceObj.remote_object.list] 
 
         return snakemake.io.glob_wildcards(pattern, files=key_list)
+
+    @abstractmethod
+    def remote_interface(self):
+        pass
 
 class AbstractRemoteObject:
     """ This is an abstract class to be used to derive remote object classes for 
@@ -78,10 +65,14 @@ class AbstractRemoteObject:
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, keep_local=False, provider=None, **kwargs):
+        # self._iofile must be set before the remote object can be used, in io.py or elsewhere
         self._iofile = None
         self.args = args
         self.kwargs = kwargs
+
+        self.keep_local = keep_local
+        self.provider = provider
 
     @property
     def _file(self):

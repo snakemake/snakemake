@@ -28,22 +28,21 @@ class RemoteProvider(AbstractRemoteProvider):
 
         self._s3c = S3Helper(*args, **kwargs)
     
-    def glob_wildcards_remote():
-        pass
+    def remote_interface(self):
+        return self._s3c
 
 class RemoteObject(AbstractRemoteObject):
     """ This is a class to interact with the AWS S3 object store.
     """
 
-    def __init__(self, *args, **kwargs):
-        super(RemoteObject, self).__init__(*args, **kwargs)
+    def __init__(self, *args, keep_local=False, provider=None, **kwargs):
+        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
         #self._s3c = S3Helper(*args[1:], **kwargs)
-        if "provider" in kwargs:
-            self._s3c = kwargs["provider"]
+        if provider:
+            self._s3c = provider.remote_interface()
         else:
-            # pass all args but the first, which is the ioFile
-            self._s3c = S3Helper(*args[1:], **kwargs)
+            self._s3c = S3Helper(*args, **kwargs)
 
     # === Implementations of abstract class members ===
 

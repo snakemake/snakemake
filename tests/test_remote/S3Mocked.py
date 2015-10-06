@@ -72,7 +72,7 @@ class RemoteObject(S3RemoteObject):
         test file to the moto-simulated bucket at the start.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         bucket_name = 'test-remote-bucket'
         test_file = "test.txt"
 
@@ -85,7 +85,7 @@ class RemoteObject(S3RemoteObject):
         if not s3c.exists_in_bucket(bucket_name, test_file):
             s3c.upload_to_s3(bucket_name, test_file)
 
-        return super(RemoteObject, self).__init__(*args, **kwargs)
+        return super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
 
 # ====== Helpers =====
