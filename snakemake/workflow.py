@@ -26,6 +26,7 @@ import snakemake.io
 from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
+from snakemake.remote import S3
 
 
 class Workflow:
@@ -667,6 +668,11 @@ class Workflow:
     def _empty_decorator(f):
         return f
 
+
+# so that remote() is available by default in the Snakefile
+# via the S3 provider, sans credentials 
+# (boto assumes credentials are set via ENV or ~/.aws/credentials)
+remote = S3.RemoteProvider().remote
 
 class RuleInfo:
     def __init__(self, func):
