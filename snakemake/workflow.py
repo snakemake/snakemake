@@ -26,8 +26,6 @@ import snakemake.io
 from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
-from snakemake.remote import S3
-
 
 class Workflow:
     def __init__(self,
@@ -669,10 +667,22 @@ class Workflow:
         return f
 
 
-# so that remote() is available by default in the Snakefile
-# via the S3 provider, sans credentials 
-# (boto assumes credentials are set via ENV or ~/.aws/credentials)
-remote = S3.RemoteProvider().remote
+def remote(*args, **kwargs):
+    # so that remote() is available by default in the Snakefile
+    # via the S3 provider, sans credentials 
+    # (boto assumes credentials are set via ENV or ~/.aws/credentials)
+    try:
+        import moto
+        import boto
+        import filechunkio
+
+        from snakemake.remote import S3
+
+        remote = S3.RemoteProvider().remote
+        return remote(*args, **kwargs)
+    except ImportError as e:
+        raise WorkflowError("The Python 3 packages 'boto' and 'filechunkio' " + 
+        "need to be installed to use S3 remote() file functionality. %s" % e.msg)
 
 class RuleInfo:
     def __init__(self, func):

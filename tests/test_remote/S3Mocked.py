@@ -10,14 +10,20 @@ import pickle
 import time
 import threading
 
-# third-party
-import boto
-from moto import mock_s3
-
 # intra-module
 from snakemake.remote.S3 import RemoteObject as S3RemoteObject, RemoteProvider as S3RemoteProvider
 from snakemake.remote.S3 import S3Helper
 from snakemake.decorators import dec_all_methods
+from snakemake.exceptions import WorkflowError
+
+try:
+    # third-party
+    import boto
+    from moto import mock_s3
+    import filechunkio
+except ImportError as e:
+    raise WorkflowError("The Python 3 packages 'moto', boto' and 'filechunkio' " + 
+        "need to be installed to use S3Mocked remote() file functionality. %s" % e.msg)
 
 def noop():
     pass

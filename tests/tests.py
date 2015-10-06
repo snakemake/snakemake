@@ -266,7 +266,17 @@ def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 def test_remote():
-   run(dpath("test_remote"))
+    try:
+        import moto
+        import boto
+        import filechunkio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_remote"))
+    except ImportError:
+        pass
+   
 
 
 def test_cluster_sync():

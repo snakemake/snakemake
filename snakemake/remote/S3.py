@@ -12,15 +12,19 @@ from time import mktime
 import datetime
 from multiprocessing import Pool
 
-# third-party modules
-import boto
-from boto.s3.key import Key
-from filechunkio import FileChunkIO
-
 # module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, S3FileException
 import snakemake.io 
+
+try:
+    # third-party modules
+    import boto
+    from boto.s3.key import Key
+    from filechunkio import FileChunkIO
+except ImportError as e:
+    raise WorkflowError("The Python 3 packages 'boto' and 'filechunkio' " + 
+        "need to be installed to use S3 remote() file functionality. %s" % e.msg)
 
 class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, **kwargs):
