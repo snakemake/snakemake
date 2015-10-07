@@ -23,7 +23,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch, set_temporary_rules, set_protected_rules
+from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 
@@ -201,8 +201,6 @@ class Workflow:
                 updated_files=None,
                 keep_target_files=False,
                 allowed_rules=None,
-                temporary_rules=None,
-                protected_rules=None,
                 greediness=1.0,
                 no_hooks=False):
 
@@ -245,14 +243,6 @@ class Workflow:
         rules = self.rules
         if allowed_rules:
             rules = [rule for rule in rules if rule.name in set(allowed_rules)]
-
-        if temporary_rules:
-            set_temporary_rules(rules, temporary_rules)
-        # Unfortunately does not check for mutual exclusiveness of
-        # temporary and protected; these need to be set in another
-        # way.
-        if protected_rules:
-            set_protected_rules(rules, protected_rules)
 
         if wait_for_files is not None:
             try:

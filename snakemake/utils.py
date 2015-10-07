@@ -242,3 +242,16 @@ def update_config(config, overwrite_config):
                 d[key] = value
         return d
     _update(config, overwrite_config)
+
+def set_temporary_output(*rules):
+    """Set the output of rules to temporary"""
+    for rule in rules:
+        logger.debug("setting output of rule '{rule}' to temporary".format(rule=rule))
+        rule.temp_output = rule.output
+
+def set_protected_output(*rules):
+    """Set the output of rules to protected"""
+    for rule in rules:
+        logger.debug("setting output of rule '{rule}' to protected".format(rule=rule))
+        rule.protected_output = rule.output
+

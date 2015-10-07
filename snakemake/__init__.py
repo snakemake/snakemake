@@ -82,8 +82,6 @@ def snakemake(snakefile,
               nodeps=False,
               keep_target_files=False,
               allowed_rules=None,
-              temporary_rules=None,
-              protected_rules=None,
               jobscript=None,
               timestamp=False,
               greediness=None,
@@ -154,8 +152,6 @@ def snakemake(snakefile,
         nodeps (bool):              ignore dependencies (default False)
         keep_target_files (bool):   Do not adjust the paths of given target files relative to the working directory.
         allowed_rules (set):        Restrict allowed rules to the given set. If None or empty, all rules are used.
-        temporary_rules (set):      Set output of rules in the given set to temporary.
-        protected_rules (set):      Set output of rules in the given set to protected.
         jobscript (str):            path to a custom shell script template for cluster jobs (default None)
         timestamp (bool):           print time stamps in front of any output (default False)
         greediness (float):         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
@@ -388,8 +384,6 @@ def snakemake(snakefile,
                     subsnakemake=subsnakemake,
                     updated_files=updated_files,
                     allowed_rules=allowed_rules,
-                    temporary_rules=temporary_rules,
-                    protected_rules=protected_rules,
                     greediness=greediness,
                     no_hooks=no_hooks)
 
@@ -798,16 +792,6 @@ def get_argument_parser():
         nargs="+",
         help=
         "Only use given rules. If omitted, all rules in Snakefile are used.")
-    parser.add_argument(
-        "--temporary-rules",
-        nargs="+",
-        help=
-        "Set output of given rules to temporary.")
-    parser.add_argument(
-        "--protected-rules",
-        nargs="+",
-        help=
-        "Set output of given rules to protected.")
     parser.add_argument('--timestamp', '-T',
                         action='store_true',
                         help='Add a timestamp to all logging output')
@@ -986,9 +970,7 @@ def main():
                             benchmark_repeats=args.benchmark_repeats,
                             wait_for_files=args.wait_for_files,
                             keep_target_files=args.keep_target_files,
-                            allowed_rules=args.allowed_rules,
-                            temporary_rules=args.temporary_rules,
-                            protected_rules=args.protected_rules)
+                            allowed_rules=args.allowed_rules)
 
     if args.profile:
         with open(args.profile, "w") as out:
