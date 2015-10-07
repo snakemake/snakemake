@@ -115,7 +115,7 @@ class _IOFile(str):
     @property
     def mtime_local(self):
         # do not follow symlinks for modification time
-        return lstat(self.file).st_mtime
+        return int(lstat(self.file).st_mtime)
 
     @property
     def flags(self):
@@ -141,9 +141,8 @@ class _IOFile(str):
         return self.mtime > time
 
     def download_from_remote(self):
-        logger.info("Downloading from remote: {}".format(self.file))
-
         if self.is_remote and self.remote_object.exists():
+            logger.info("Downloading from remote: {}".format(self.file))
             self.remote_object.download()
         else:
             raise RemoteFileException("The file to be downloaded does not seem to exist remotely.")

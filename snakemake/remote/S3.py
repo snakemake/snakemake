@@ -10,7 +10,8 @@ import time
 import email.utils
 from time import mktime
 import datetime
-from multiprocessing import Pool
+import functools
+import concurrent.futures
 
 # module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
@@ -42,7 +43,6 @@ class RemoteObject(AbstractRemoteObject):
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
-        #self._s3c = S3Helper(*args[1:], **kwargs)
         if provider:
             self._s3c = provider.remote_interface()
         else:
@@ -72,7 +72,7 @@ class RemoteObject(AbstractRemoteObject):
         self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.file())
 
     def upload(self):
-        if self.size() > 5000:
+        if self.size() > 10 * 1024 * 1024: # S3 complains if multipart uploads are <10MB
             self._s3c.upload_to_s3_multipart(self.s3_bucket, self.file(), self.s3_key)
         else:
             self._s3c.upload_to_s3(self.s3_bucket, self.file(), self.s3_key)
@@ -324,15 +324,13 @@ class S3Helper(object):
         bytes_per_chunk = 52428800  # 50MB = 50 * 1024 * 1024
         chunk_count = int(math.ceil(source_size / float(bytes_per_chunk)))
 
-        pool = Pool(processes=parallel_processes)
-        for i in range(chunk_count):
-            offset = i * bytes_per_chunk
-            remaining_bytes = source_size - offset
-            bytes_to_write = min([bytes_per_chunk, remaining_bytes])
-            part_num = i + 1
-            pool.apply_async(self._upload_part, [bucket_name, mp.id, part_num, file_path, offset, bytes_to_write])
-        pool.close()
-        pool.join()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=parallel_processes) as executor:
+            for i in range(chunk_count):
+                offset = i * bytes_per_chunk
+                remaining_bytes = source_size - offset
+                bytes_to_write = min([bytes_per_chunk, remaining_bytes])
+                part_num = i + 1
+                executor.submit(functools.partial(self._upload_part, bucket_name, mp.id, part_num, file_path, offset, bytes_to_write))
 
         if len(mp.get_all_parts()) == chunk_count:
             mp.complete_upload()

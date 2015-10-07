@@ -352,6 +352,12 @@ class DAG:
             if not f.exists_remote:
                 logger.info("Uploading local output file to remote: {}".format(f))
                 f.upload_to_remote()
+                remote_mtime = f.mtime
+                # immediately force local mtime to match remote, 
+                # since conversions from S3 headers are not 100% reliable
+                # without this, newness comparisons may fail down the line
+                f.touch(times=(remote_mtime, remote_mtime))
+
                 if not f.exists_remote:
                     raise RemoteFileException("The file upload was attempted, but it does not exist on remote. Check that your credentials have read AND write permissions.")
 
