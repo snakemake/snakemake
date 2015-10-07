@@ -33,7 +33,7 @@ class AbstractRemoteProvider:
                 "Remote and protected flags are mutually exclusive.")
 
         provider = sys.modules[self.__module__] # get module of derived class
-        remote_object = provider.RemoteObject(*additional_args, keep_local=keep_local, provider=self, **additional_kwargs)
+        remote_object = provider.RemoteObject(*additional_args, keep_local=keep_local, provider=provider.RemoteProvider(), **additional_kwargs)
 
         return snakemake.io.flag(
                 value, 

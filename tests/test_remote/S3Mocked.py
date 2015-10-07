@@ -67,7 +67,7 @@ def pickled_moto_wrapper(func):
 @dec_all_methods(pickled_moto_wrapper, prefix=None)
 class RemoteProvider(S3RemoteProvider):
     def __init__(self, *args, **kwargs):
-        return super(RemoteProvider, self).__init__(*args, **kwargs)
+        super(RemoteProvider, self).__init__(*args, **kwargs)
         
 @dec_all_methods(pickled_moto_wrapper, prefix=None)
 class RemoteObject(S3RemoteObject):
@@ -79,6 +79,8 @@ class RemoteObject(S3RemoteObject):
     """
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
+        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+
         bucket_name = 'test-remote-bucket'
         test_file = "test.txt"
 
@@ -90,8 +92,6 @@ class RemoteObject(S3RemoteObject):
         s3c = S3Helper()
         if not s3c.exists_in_bucket(bucket_name, test_file):
             s3c.upload_to_s3(bucket_name, test_file)
-
-        return super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
 
 # ====== Helpers =====
