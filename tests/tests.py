@@ -271,8 +271,13 @@ def test_cluster_sync():
         snakefile="Snakefile.nonstandard",
         cluster_sync="./qsub")
 
+
 def test_symlink_temp():
     run(dpath("test_symlink_temp"), shouldfail=True)
+
+
+def test_empty_include():
+    run(dpath("test_empty_include"))
 
 
 if __name__ == '__main__':

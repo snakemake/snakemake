@@ -456,7 +456,9 @@ class Workflow:
             if not os.path.isabs(snakefile) and self.included_stack:
                 current_path = os.path.dirname(self.included_stack[-1])
                 snakefile = os.path.join(current_path, snakefile)
-            snakefile = os.path.abspath(snakefile)
+            # Could still be an url if relative import was used
+            if not urllib.parse.urlparse(snakefile).scheme:
+                snakefile = os.path.abspath(snakefile)
         # else it could be an url.
         # at least we don't want to modify the path for clarity.
 
