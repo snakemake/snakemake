@@ -55,6 +55,11 @@ def format_traceback(tb, linemaps):
             yield '  File "{}", line {}, in {}'.format(file, lineno, function)
 
 
+def log_verbose_traceback(ex):
+    tb = "Full " + "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
+    logger.debug(tb)
+
+
 def print_exception(ex, linemaps):
     """
     Print an error message for a given exception.
@@ -64,8 +69,7 @@ def print_exception(ex, linemaps):
     linemaps -- a dict of a dict that maps for each snakefile
         the compiled lines to source code lines in the snakefile.
     """
-    tb = "Full " + "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
-    logger.debug(tb)
+    log_verbose_traceback(ex)
     if isinstance(ex, SyntaxError) or isinstance(ex, IndentationError):
         logger.error(format_error(ex, ex.lineno,
                                   linemaps=linemaps,

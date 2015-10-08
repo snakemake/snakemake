@@ -26,6 +26,7 @@ import snakemake.io
 from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
+from snakemake.script import script
 
 
 class Workflow:
@@ -564,6 +565,7 @@ class Workflow:
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
+            rule.script = ruleinfo.script
             ruleinfo.func.__name__ = "__{}".format(name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
             setattr(rules, name, rule)
@@ -655,6 +657,13 @@ class Workflow:
 
         return decorate
 
+    def script(self, path):
+        def decorate(ruleinfo):
+            ruleinfo.script = path
+            return ruleinfo
+
+        return decorate
+
     def norun(self):
         def decorate(ruleinfo):
             ruleinfo.norun = True
@@ -674,6 +683,7 @@ class RuleInfo:
     def __init__(self, func):
         self.func = func
         self.shellcmd = None
+        self.script = None
         self.norun = False
         self.input = None
         self.output = None
