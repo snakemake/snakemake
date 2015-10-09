@@ -5,10 +5,11 @@ __license__ = "MIT"
 
 import inspect
 import os
+import traceback
 
 from snakemake.utils import format
 from snakemake.logging import logger
-
+from snakemake.exceptions import WorkflowError
 
 class REncoder:
     """Encoding Pyton data structures into R."""
@@ -31,8 +32,6 @@ class REncoder:
 
     @classmethod
     def encode_list(cls, l):
-        if not l:
-            return ""
         return "c({})".format(", ".join(map(cls.encode_value, l)))
 
     @classmethod
@@ -52,7 +51,7 @@ class REncoder:
         positional = cls.encode_list(namedlist)
         named = cls.encode_items(namedlist.items())
         source = "list("
-        if positional:
+        if positional != "c()":
             source += positional
         if named:
             source += ", " + named
@@ -83,10 +82,13 @@ def script(basedir, path, input, output, params, wildcards, threads, resources,
 
     if path.endswith(".py"):
         with open(path) as source:
-            exec(compile(source.read(), path, "exec"), {
-                "snakemake": Snakemake(input, output, params, wildcards,
-                                       threads, resources, log, config)
-            })
+            try:
+                exec(compile(source.read(), path, "exec"), {
+                    "snakemake": Snakemake(input, output, params, wildcards,
+                                           threads, resources, log, config)
+                })
+            except (Exception, BaseException) as ex:
+                raise WorkflowError("".join(traceback.format_exception(type(ex), ex, ex.__traceback__)))
     elif path.endswith(".R"):
         try:
             import rpy2.robjects as robjects
@@ -128,6 +130,7 @@ def script(basedir, path, input, output, params, wildcards, threads, resources,
                            for name, value in resources.items()
                            if name != "_cores" and name != "_nodes"
                        }), REncoder.encode_dict(config))
+            logger.debug(preamble)
             source = preamble + source.read()
             robjects.r(source)
     else:
