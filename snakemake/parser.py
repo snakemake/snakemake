@@ -484,13 +484,6 @@ class Script(Run):
         return (self.line and self.indent <= 0) or is_eof(token)
 
     def start(self):
-        yield "@workflow.script("
-
-    def end(self):
-        # the end is detected. So we can savely reset the indent to zero here
-        self.indent = 0
-        yield ")"
-        yield "\n"
         for t in super().start():
             yield t
         yield "\n"
@@ -498,8 +491,10 @@ class Script(Run):
         yield "script("
         yield '"{}"'.format(os.path.abspath(os.path.dirname(self.snakefile.path)))
         yield ", "
-        yield "\n".join(self.path)
-        yield "\n"
+
+    def end(self):
+        # the end is detected. So we can savely reset the indent to zero here
+        self.indent = 0
         yield ", input, output, params, wildcards, threads, resources, log, config"
         yield ")"
         for t in super().end():
