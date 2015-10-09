@@ -21,8 +21,9 @@ class REncoder:
             return cls.encode_dict(value)
         elif isinstance(value, str):
             return '"{}"'.format(value)
-        elif isinstance(value, int) or isinstance(value, bool) or isinstance(
-            value, float):
+        elif isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        elif isinstance(value, int) or isinstance(value, float):
             return str(value)
         else:
             raise ValueError(
