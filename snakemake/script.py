@@ -7,6 +7,7 @@ import inspect
 import os
 
 from snakemake.utils import format
+from snakemake.logging import logger
 
 
 class REncoder:
@@ -37,7 +38,7 @@ class REncoder:
     def encode_items(cls, items):
         def encode_item(item):
             name, value = item
-            return "{} = {}".format(name, cls.encode_value(value))
+            return '"{}" = {}'.format(name, cls.encode_value(value))
 
         return ", ".join(map(encode_item, items))
 
