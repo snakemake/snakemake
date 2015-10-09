@@ -489,7 +489,8 @@ class Script(Run):
         yield "\n"
         yield INDENT * (self.effective_indent + 1)
         yield "script("
-        yield '"{}"'.format(os.path.abspath(os.path.dirname(self.snakefile.path)))
+        yield '"{}"'.format(
+            os.path.abspath(os.path.dirname(self.snakefile.path)))
         yield ", "
 
     def end(self):
@@ -576,7 +577,7 @@ class Rule(GlobalKeywordState):
     def block_content(self, token):
         if is_name(token):
             try:
-                if token.string == "run" or token.string == "shell":
+                if token.string == "run" or token.string == "shell" or token.string == "script":
                     if self.run:
                         raise self.error(
                             "Multiple run or shell keywords in rule {}.".format(
