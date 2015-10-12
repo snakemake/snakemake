@@ -139,7 +139,7 @@ class JobScheduler:
             # calculate how many parallel workers the executor shall spawn
             # each job has at least one thread, hence we need to have
             # the minimum of given cores and number of jobs
-            workers = min(cores, len(dag))
+            workers = min(cores, max(1, len(dag)))
             self._executor = CPUExecutor(workflow, dag, workers,
                                          printreason=printreason,
                                          quiet=quiet,
