@@ -200,6 +200,7 @@ class Workflow:
                 subsnakemake=None,
                 updated_files=None,
                 keep_target_files=False,
+                keep_shadow=False,
                 allowed_rules=None,
                 greediness=1.0,
                 no_hooks=False):
@@ -385,6 +386,9 @@ class Workflow:
             if items:
                 print(*items, sep="\n")
             return True
+
+        if not keep_shadow:
+            self.persistence.cleanup_shadow()
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,

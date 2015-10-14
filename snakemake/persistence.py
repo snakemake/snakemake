@@ -111,6 +111,11 @@ class Persistence:
         self._delete_record(self._params_path, path)
         self._delete_record(self._shellcmd_path, path)
 
+    def cleanup_shadow(self):
+        if os.path.exists(self.shadow_path):
+            shutil.rmtree(self.shadow_path)
+            os.mkdir(self.shadow_path)
+
     def started(self, job):
         for f in job.output:
             self._record(self._incomplete_path, "", f)

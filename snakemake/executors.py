@@ -297,7 +297,7 @@ class ClusterExecutor(RealExecutor):
         self.exec_job = (
             'cd {workflow.workdir_init} && '
             '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
-            '--force -j{cores} --keep-target-files '
+            '--force -j{cores} --keep-target-files --keep-shadow '
             '--wait-for-files {job.input} --latency-wait {latency_wait} '
             '--benchmark-repeats {benchmark_repeats} '
             '{overwrite_workdir} {overwrite_config} --nocolor '
@@ -698,6 +698,7 @@ class DRMAAExecutor(ClusterExecutor):
                         active_job.error_callback(active_job.job)
             time.sleep(1)
 
+
 @contextlib.contextmanager
 def change_working_directory(directory=None):
     """ Change working directory in execution context if provided. """
@@ -711,6 +712,7 @@ def change_working_directory(directory=None):
             os.chdir(saved_directory)
     else:
         yield
+
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
                 version, benchmark, benchmark_repeats, linemaps, debug=False,
