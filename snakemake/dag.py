@@ -10,13 +10,14 @@ from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
 from operator import itemgetter, attrgetter
 
-from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files
+from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
 from snakemake.jobs import Job, Reason
 from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException
 from snakemake.exceptions import PeriodicWildcardError
+from snakemake.exceptions import RemoteFileException
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
@@ -287,6 +288,85 @@ class DAG:
         for f in unneeded_files():
             logger.info("Removing temporary output file {}.".format(f))
             f.remove()
+
+    def handle_remote(self, job):
+        """ Remove local files if they are no longer needed, and upload to S3. """
+        
+        needed = lambda job_, f: any(
+            f in files for j, files in self.depending[job_].items()
+            if not self.finished(j) and self.needrun(j) and j != job)
+
+        remote_files = set([f for f in job.input if f.is_remote]) | set([f for f in job.expanded_output if f.is_remote])
+        local_files = set([f for f in job.input if not f.is_remote]) | set([f for f in job.expanded_output if not f.is_remote])
+        files_to_keep = set(f for f in remote_files if f.should_keep_local)
+
+        # remove local files from list of remote files
+        # in case the same file is specified in both places
+        remote_files -= local_files
+        remote_files -= files_to_keep
+
+        def unneeded_files():
+            for job_, files in self.dependencies[job].items():
+                for f in (remote_files & files):
+                    if not needed(job_, f) and not f.protected:
+                        yield f
+            for f in filterfalse(partial(needed, job), [f for f in remote_files]):
+                if not f in self.targetfiles and not f.protected:
+                    yield f
+
+        def expanded_input(job):
+            for f, f_ in zip(job.input, job.rule.input):
+                if not type(f_).__name__ == "function":
+                    if type(f_.file).__name__ not in ["str", "function"]:
+                        if contains_wildcard(f_):
+
+                            expansion = job.expand_dynamic(
+                                f_,
+                                restriction=job.wildcards,
+                                omit_value=_IOFile.dynamic_fill)
+                            if not expansion:
+                                yield f_
+                            for f, _ in expansion:
+
+                                file_to_yield = IOFile(f, job.rule)
+
+                                file_to_yield.clone_flags(f_)
+
+                                yield file_to_yield
+                        else:
+                            yield f
+                    else:
+                        yield f
+                else:
+                    yield f
+
+        def expanded_dynamic_depending_input_files():
+            for j in self.depending[job]:    
+                for f in expanded_input(j):
+                    yield f
+
+        unneeded_files = set(unneeded_files())
+        unneeded_files -= set(expanded_dynamic_depending_input_files())
+
+        for f in [f for f in job.expanded_output if f.is_remote]:
+            if not f.exists_remote:
+                logger.info("Uploading local output file to remote: {}".format(f))
+                f.upload_to_remote()
+                remote_mtime = f.mtime
+                # immediately force local mtime to match remote, 
+                # since conversions from S3 headers are not 100% reliable
+                # without this, newness comparisons may fail down the line
+                f.touch(times=(remote_mtime, remote_mtime))
+
+                if not f.exists_remote:
+                    raise RemoteFileException("The file upload was attempted, but it does not exist on remote. Check that your credentials have read AND write permissions.")
+
+        for f in set(unneeded_files):
+            logger.info("Removing local output file: {}".format(f))
+            f.remove()
+
+        job.rmdir_empty_remote_dirs()
+
 
     def jobid(self, job):
         if job not in self._jobid:

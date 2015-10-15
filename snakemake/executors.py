@@ -109,6 +109,7 @@ class AbstractExecutor:
     def finish_job(self, job):
         self.dag.handle_touch(job)
         self.dag.check_output(job, wait=self.latency_wait)
+        self.dag.handle_remote(job)
         self.dag.handle_protected(job)
         self.dag.handle_temp(job)
 
