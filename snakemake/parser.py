@@ -468,6 +468,54 @@ class Shell(Run):
             yield shellcmd, token
 
 
+class Script(Run):
+    def __init__(self, snakefile, rulename,
+                 base_indent=0,
+                 dedent=0,
+                 root=True):
+        super().__init__(snakefile, rulename,
+                         base_indent=base_indent,
+                         dedent=dedent,
+                         root=root)
+        self.path = list()
+        self.token = None
+
+    def is_block_end(self, token):
+        return (self.line and self.indent <= 0) or is_eof(token)
+
+    def start(self):
+        for t in super().start():
+            yield t
+        yield "\n"
+        yield INDENT * (self.effective_indent + 1)
+        yield "script("
+        yield '"{}"'.format(
+            os.path.abspath(os.path.dirname(self.snakefile.path)))
+        yield ", "
+
+    def end(self):
+        # the end is detected. So we can savely reset the indent to zero here
+        self.indent = 0
+        yield ", input, output, params, wildcards, threads, resources, log, config"
+        yield ")"
+        for t in super().end():
+            yield t
+
+    def decorate_end(self, token):
+        if self.token is None:
+            # no block after script keyword
+            self.error(
+                "Script path must be given as string after the script keyword.",
+                token)
+        for t in self.end():
+            yield t, self.token
+
+    def block_content(self, token):
+        self.token = token
+        self.path.append(token.string)
+        yield token.string, token
+
+
 class Rule(GlobalKeywordState):
     subautomata = dict(input=Input,
                        output=Output,
@@ -480,7 +528,8 @@ class Rule(GlobalKeywordState):
                        message=Message,
                        benchmark=Benchmark,
                        run=Run,
-                       shell=Shell)
+                       shell=Shell,
+                       script=Script)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,
@@ -528,7 +577,7 @@ class Rule(GlobalKeywordState):
     def block_content(self, token):
         if is_name(token):
             try:
-                if token.string == "run" or token.string == "shell":
+                if token.string == "run" or token.string == "shell" or token.string == "script":
                     if self.run:
                         raise self.error(
                             "Multiple run or shell keywords in rule {}.".format(

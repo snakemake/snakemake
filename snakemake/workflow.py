@@ -26,6 +26,7 @@ import snakemake.io
 from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
+from snakemake.script import script
 
 
 class Workflow:

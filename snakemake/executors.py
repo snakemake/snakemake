@@ -29,7 +29,7 @@ from snakemake.stats import Stats
 from snakemake.utils import format, Unformattable
 from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
-from snakemake.exceptions import format_error, RuleException
+from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError
 from snakemake.futures import ProcessPoolExecutor
 
@@ -724,6 +724,7 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
         # re-raise the keyboard interrupt in order to record an error in the scheduler but ignore it
         raise e
     except (Exception, BaseException) as ex:
+        log_verbose_traceback(ex)
         # this ensures that exception can be re-raised in the parent thread
         lineno, file = get_exception_origin(ex, linemaps)
         raise RuleException(format_error(ex, lineno,

@@ -50,6 +50,7 @@ class Rule:
             self.snakefile = snakefile
             self.run_func = None
             self.shellcmd = None
+            self.script = None
             self.norun = False
         elif len(args) == 1:
             other = args[0]
@@ -77,6 +78,7 @@ class Rule:
             self.snakefile = other.snakefile
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
+            self.script = other.script
             self.norun = other.norun
 
     def dynamic_branch(self, wildcards, input=True):

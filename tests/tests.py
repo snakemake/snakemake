@@ -279,6 +279,10 @@ def test_symlink_temp():
 def test_empty_include():
     run(dpath("test_empty_include"))
 
+def test_script():
+    run(dpath("test_script"))
+
+
 
 if __name__ == '__main__':
     import nose

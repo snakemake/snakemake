@@ -1,0 +1,14 @@
+
+rule:
+    input:
+        "test.in"
+    output:
+        txt="test.out"
+    script:
+        "scripts/test.R"
+
+rule:
+    output:
+        "test.in"
+    script:
+        "scripts/test.py"
