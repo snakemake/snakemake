@@ -3,6 +3,8 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import os
+import shutil
 import textwrap
 import time
 from collections import defaultdict, Counter
@@ -223,7 +225,7 @@ class DAG:
     def check_output(self, job, wait=3):
         """ Raise exception if output files of job are missing. """
         try:
-            wait_for_files(job.expanded_output, latency_wait=wait)
+            wait_for_files(job.expanded_shadowed_output, latency_wait=wait)
         except IOError as e:
             raise MissingOutputException(str(e), rule=job.rule)
 
@@ -238,6 +240,20 @@ class DAG:
                     "archive, e.g. by using 'touch'.".format(
                         ", ".join(job.expanded_output)),
                     rule=job.rule)
+
+    def unshadow_output(self, job):
+        """ Move files from shadow directory to real output paths. """
+        if not job.shadow_dir or not job.expanded_output:
+            return
+        cwd = os.getcwd()
+        for real_output in job.expanded_output:
+            shadow_output = os.path.join(job.shadow_dir, real_output)
+            if os.path.realpath(shadow_output) == os.path.realpath(real_output):
+                continue
+            logger.info("Moving shadow output {} to destination {}".format(
+                shadow_output, real_output))
+            shutil.move(shadow_output, real_output)
+        shutil.rmtree(job.shadow_dir)
 
     def check_periodic_wildcards(self, job):
         """ Raise an exception if a wildcard of the given job appears to be periodic,
