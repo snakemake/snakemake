@@ -81,6 +81,7 @@ def snakemake(snakefile,
               notemp=False,
               nodeps=False,
               keep_target_files=False,
+              keep_shadow=False,
               allowed_rules=None,
               jobscript=None,
               timestamp=False,
@@ -151,6 +152,7 @@ def snakemake(snakefile,
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
         nodeps (bool):              ignore dependencies (default False)
         keep_target_files (bool):   Do not adjust the paths of given target files relative to the working directory.
+        keep_shadow (bool):         Do not delete the shadow directory on snakemake startup.
         allowed_rules (set):        Restrict allowed rules to the given set. If None or empty, all rules are used.
         jobscript (str):            path to a custom shell script template for cluster jobs (default None)
         timestamp (bool):           print time stamps in front of any output (default False)
@@ -336,7 +338,8 @@ def snakemake(snakefile,
                                        overwrite_shellcmd=overwrite_shellcmd,
                                        config=config,
                                        config_args=config_args,
-                                       keep_logger=True)
+                                       keep_logger=True,
+                                       keep_shadow=True)
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
@@ -380,6 +383,7 @@ def snakemake(snakefile,
                     notemp=notemp,
                     nodeps=nodeps,
                     keep_target_files=keep_target_files,
+                    keep_shadow=keep_shadow,
                     cleanup_metadata=cleanup_metadata,
                     subsnakemake=subsnakemake,
                     updated_files=updated_files,
@@ -788,6 +792,11 @@ def get_argument_parser():
         help=
         "Do not adjust the paths of given target files relative to the working directory.")
     parser.add_argument(
+        "--keep-shadow",
+        action="store_true",
+        help=
+        "Do not delete the shadow directory on snakemake startup.")
+    parser.add_argument(
         "--allowed-rules",
         nargs="+",
         help=
@@ -970,6 +979,7 @@ def main():
                             benchmark_repeats=args.benchmark_repeats,
                             wait_for_files=args.wait_for_files,
                             keep_target_files=args.keep_target_files,
+                            keep_shadow=args.keep_shadow,
                             allowed_rules=args.allowed_rules)
 
     if args.profile:

@@ -53,7 +53,8 @@ setup(
          "snakemake-bash-completion = snakemake:bash_completion"]
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
-    tests_require=['nose>=1.3'],
+    tests_require=['nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6', 'moto>=0.4.14'],
+    #install_requires=['boto>=2.38.0','filechunkio>=1.6', 'moto>=0.4.14'], # uncomment to install by default
     cmdclass={'test': NoseTestCommand},
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",

@@ -224,6 +224,11 @@ class UnexpectedOutputException(IOException):
                          lineno=lineno,
                          snakefile=snakefile)
 
+class ImproperShadowException(RuleException):
+    def __init__(self, rule, lineno=None, snakefile=None):
+        super().__init__("Rule cannot shadow if using ThreadPoolExecutor",
+                         rule=rule, lineno=lineno, snakefile=snakefile)
+
 
 class AmbiguousRuleException(RuleException):
     def __init__(self, filename, job_a, job_b, lineno=None, snakefile=None):
@@ -286,6 +291,13 @@ class IOFileException(RuleException):
     def __init__(self, msg, lineno=None, snakefile=None):
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
+class RemoteFileException(RuleException):
+    def __init__(self, msg, lineno=None, snakefile=None):
+        super().__init__(msg, lineno=lineno, snakefile=snakefile)
+
+class S3FileException(RuleException):
+    def __init__(self, msg, lineno=None, snakefile=None):
+        super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
 class ClusterJobException(RuleException):
     def __init__(self, job, jobid, jobscript):
