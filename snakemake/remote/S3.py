@@ -31,6 +31,17 @@ class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, **kwargs):
         super(RemoteProvider, self).__init__(*args, **kwargs)
 
+        # allow key_id and secret to be specified with aws_, gs_, or no prefix. 
+        # Standardize to the aws_ prefix expected by boto.
+        if "gs_access_key_id" in kwargs:
+            kwargs["aws_access_key_id"] = kwargs.pop("gs_access_key_id")
+        if "gs_secret_access_key" in kwargs:
+            kwargs["aws_secret_access_key"] = kwargs.pop("gs_secret_access_key")
+        if "access_key_id" in kwargs:
+            kwargs["aws_access_key_id"] = kwargs.pop("access_key_id")
+        if "secret_access_key" in kwargs:
+            kwargs["aws_secret_access_key"] = kwargs.pop("secret_access_key")
+
         self._s3c = S3Helper(*args, **kwargs)
     
     def remote_interface(self):

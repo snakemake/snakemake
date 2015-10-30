@@ -17,10 +17,5 @@ except ImportError as e:
 
 class RemoteProvider(S3RemoteProvider):
     def __init__(self, *args, **kwargs):
-        if "gs_access_key_id" in kwargs:
-            kwargs["aws_access_key_id"] = kwargs.pop("gs_access_key_id")
-        if "gs_secret_access_key" in kwargs:
-            kwargs["aws_secret_access_key"] = kwargs.pop("gs_secret_access_key")
-
         kwargs["host"] = "storage.googleapis.com"
         super(RemoteProvider, self).__init__(*args, **kwargs)
