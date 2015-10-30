@@ -26,11 +26,6 @@ exec(open("snakemake/version.py").read())
 
 
 class NoseTestCommand(TestCommand):
-    def finalize_options(self):
-        TestCommand.finalize_options(self)
-        self.test_args = []
-        self.test_suite = True
-
     def run_tests(self):
         # Run nose ensuring that argv simulates running nosetests directly
         import nose
@@ -58,7 +53,8 @@ setup(
          "snakemake-bash-completion = snakemake:bash_completion"]
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
-    tests_require=['nose>=1.3'],
+    tests_require=['nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6', 'moto>=0.4.14'],
+    #install_requires=['boto>=2.38.0','filechunkio>=1.6', 'moto>=0.4.14'], # uncomment to install by default
     cmdclass={'test': NoseTestCommand},
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",

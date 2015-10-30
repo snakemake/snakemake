@@ -26,7 +26,7 @@ import snakemake.io
 from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
-
+from snakemake.script import script
 
 class Workflow:
     def __init__(self,
@@ -200,6 +200,7 @@ class Workflow:
                 subsnakemake=None,
                 updated_files=None,
                 keep_target_files=False,
+                keep_shadow=False,
                 allowed_rules=None,
                 greediness=1.0,
                 no_hooks=False):
@@ -386,6 +387,9 @@ class Workflow:
                 print(*items, sep="\n")
             return True
 
+        if not keep_shadow:
+            self.persistence.cleanup_shadow()
+
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
                                  dryrun=dryrun,
@@ -456,7 +460,9 @@ class Workflow:
             if not os.path.isabs(snakefile) and self.included_stack:
                 current_path = os.path.dirname(self.included_stack[-1])
                 snakefile = os.path.join(current_path, snakefile)
-            snakefile = os.path.abspath(snakefile)
+            # Could still be an url if relative import was used
+            if not urllib.parse.urlparse(snakefile).scheme:
+                snakefile = os.path.abspath(snakefile)
         # else it could be an url.
         # at least we don't want to modify the path for clarity.
 
@@ -534,6 +540,15 @@ class Workflow:
                     raise RuleException("Threads value has to be an integer.",
                                         rule=rule)
                 rule.resources["_cores"] = ruleinfo.threads
+            if ruleinfo.shadow_depth:
+                if ruleinfo.shadow_depth not in (True, "shallow", "full"):
+                    raise RuleException(
+                        "Shadow must either be 'shallow', 'full', "
+                        "or True (equivalent to 'full')", rule=rule)
+                if ruleinfo.shadow_depth is True:
+                    rule.shadow_depth = 'full'
+                else:
+                    rule.shadow_depth = ruleinfo.shadow_depth
             if ruleinfo.resources:
                 args, resources = ruleinfo.resources
                 if args:
@@ -618,6 +633,13 @@ class Workflow:
 
         return decorate
 
+    def shadow(self, shadow_depth):
+        def decorate(ruleinfo):
+            ruleinfo.shadow_depth = shadow_depth
+            return ruleinfo
+
+        return decorate
+
     def resources(self, *args, **resources):
         def decorate(ruleinfo):
             ruleinfo.resources = (args, resources)
@@ -679,6 +701,7 @@ class RuleInfo:
         self.message = None
         self.benchmark = None
         self.threads = None
+        self.shadow_depth = None
         self.resources = None
         self.priority = None
         self.version = None

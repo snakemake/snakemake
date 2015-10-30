@@ -265,14 +265,37 @@ def test_multiple_includes():
 def test_yaml_config():
     run(dpath("test_yaml_config"))
 
+def test_remote():
+    try:
+        import moto
+        import boto
+        import filechunkio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_remote"))
+    except ImportError:
+        pass
+   
+
 
 def test_cluster_sync():
     run(dpath("test14"),
         snakefile="Snakefile.nonstandard",
         cluster_sync="./qsub")
 
+
 def test_symlink_temp():
     run(dpath("test_symlink_temp"), shouldfail=True)
+
+def test_empty_include():
+    run(dpath("test_empty_include"))
+
+def test_script():
+    run(dpath("test_script"))
+
+def test_shadow():
+    run(dpath("test_shadow"))
 
 
 if __name__ == '__main__':

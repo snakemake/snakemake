@@ -144,7 +144,7 @@ def R(code):
     try:
         import rpy2.robjects as robjects
     except ImportError:
-        raise WorkflowError(
+        raise ValueError(
             "Python 3 package rpy2 needs to be installed to use the R function.")
     robjects.r(format(textwrap.dedent(code), stepout=2))
 
@@ -234,11 +234,29 @@ def update_config(config, overwrite_config):
       overwrite_config (dict): dictionary whose items will overwrite those in config
 
     """
+
     def _update(d, u):
         for (key, value) in u.items():
             if (isinstance(value, Mapping)):
-                d[key]= _update(d.get(key, {}), value)
+                d[key] = _update(d.get(key, {}), value)
             else:
                 d[key] = value
         return d
+
     _update(config, overwrite_config)
+
+
+def set_temporary_output(*rules):
+    """Set the output of rules to temporary"""
+    for rule in rules:
+        logger.debug(
+            "setting output of rule '{rule}' to temporary".format(rule=rule))
+        rule.temp_output = set(rule.output)
+
+
+def set_protected_output(*rules):
+    """Set the output of rules to protected"""
+    for rule in rules:
+        logger.debug(
+            "setting output of rule '{rule}' to protected".format(rule=rule))
+        rule.protected_output = set(rule.output)
