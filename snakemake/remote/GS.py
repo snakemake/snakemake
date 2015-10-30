@@ -3,20 +3,8 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-# built-ins
-import os, re, sys
-import math
-import time
-import email.utils
-from time import mktime
-import datetime
-import functools
-import concurrent.futures
-
 # module-specific
 from snakemake.remote.S3 import RemoteObject, RemoteProvider as S3RemoteProvider
-from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, S3FileException
-import snakemake.io 
 
 try:
     # third-party modules
