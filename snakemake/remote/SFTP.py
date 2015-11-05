@@ -3,20 +3,12 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, re, sys
-import math
-import time
-import email.utils
-from time import mktime
-import datetime
-import functools
-import concurrent.futures
-
+import os, re
 from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
-from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, SFTPFileException
+from snakemake.exceptions import SFTPFileException
 import snakemake.io 
 
 try:
