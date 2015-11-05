@@ -110,11 +110,7 @@ class RemoteObject(AbstractRemoteObject):
                 file_path = file_path[1:] if file_path[0] == "/" else file_path
                 file_list.append(file_path)
 
-            print(dirname)
-
             sftpc.walktree(dirname, fcallback=_append_item, dcallback=_append_item, ucallback=_append_item)
-
-        print(file_list)
 
         return file_list
 
