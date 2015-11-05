@@ -50,7 +50,7 @@ class AbstractRemoteProvider:
         pattern = "./"+ referenceObj.remote_object.name
         pattern = os.path.normpath(pattern)
 
-        key_list = [k.name for k in referenceObj.remote_object.list] 
+        key_list = [k for k in referenceObj.remote_object.list] 
 
         return snakemake.io.glob_wildcards(pattern, files=key_list)
 
