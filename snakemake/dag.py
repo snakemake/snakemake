@@ -570,7 +570,7 @@ class DAG:
         def not_in_until(job):
             untilrule_names = [rule.name for rule in self.untilrules]
             return not (job.rule.name in untilrule_names 
-                    or str(job.rule.output) in self.untilfiles)
+                        or str(job.output) in self.untilfiles)
 
         return self.bfs(self.depending, 
                         *self.targetjobs, stop=not_in_until)
