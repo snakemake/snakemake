@@ -45,12 +45,12 @@ class AbstractRemoteProvider:
         additional_args   = self.args if not additional_args else additional_args
         additional_kwargs = self.kwargs if not additional_kwargs else additional_kwargs
         
-        referenceObj = snakemake.io.IOFile(self.remote(pattern, additional_args, additional_kwargs))
+        referenceObj = snakemake.io.IOFile(self.remote(pattern, additional_args=additional_args, additional_kwargs=additional_kwargs))
 
         pattern = "./"+ referenceObj.remote_object.name
         pattern = os.path.normpath(pattern)
 
-        key_list = [k.name for k in referenceObj.remote_object.list] 
+        key_list = [k for k in referenceObj.remote_object.list] 
 
         return snakemake.io.glob_wildcards(pattern, files=key_list)
 

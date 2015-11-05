@@ -79,7 +79,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def list(self):
-        return self._s3c.list_keys(self.s3_bucket)
+        return [k.name for k in self._s3c.list_keys(self.s3_bucket)]
 
     # === Related methods ===
 
