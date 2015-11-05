@@ -122,7 +122,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def _matched_address(self):
-        return re.search("^(?:(?P<protocol>.*)\://)?(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$", self._iofile._file)
+        return re.search("^(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$", self._iofile._file)
     
     @property
     def protocol(self):
