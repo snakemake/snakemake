@@ -47,6 +47,8 @@ class RemoteObject(AbstractRemoteObject):
         # as a kwarg to remote() or the RemoteProvider (overriding the latter with the former if both)
         kwargs_to_use = {}
         kwargs_to_use["host"] = self.host
+        kwargs_to_use["username"] = None
+        kwargs_to_use["password"] = None
         kwargs_to_use["port"] = self.port
         kwargs_to_use["encrypt_data_channel"] = self.encrypt_data_channel
 
@@ -80,6 +82,7 @@ class RemoteObject(AbstractRemoteObject):
     def mtime(self):
         if self.exists():
             with self.ftpc() as ftpc:
+                ftpc.synchronize_times()
                 return ftpc.path.getmtime(self.remote_path)
         else:
             raise SFTPFileException("The file does not seem to exist remotely: %s" % self.file())
@@ -97,12 +100,13 @@ class RemoteObject(AbstractRemoteObject):
                 # if the destination path does not exist
                 if not os.path.exists(os.path.dirname(self.local_path)) and make_dest_dirs:
                     os.makedirs(os.path.dirname(self.local_path))
-                #ftpc.synchronize_times()
+                ftpc.synchronize_times()
                 ftpc.download(source=self.remote_path, target=self.local_path)
             else:
                 raise SFTPFileException("The file does not seem to exist remotely: %s" % self.file())
     def upload(self):
         with self.ftpc() as ftpc:
+            ftpc.synchronize_times()
             ftpc.upload(source=self.local_path, target=self.remote_path)
 
     @property
@@ -132,7 +136,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def _matched_address(self):
-        return re.search("^(?:(?P<protocol>.*)\://)?(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$", self._iofile._file)
+        return re.search("^(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$", self._iofile._file)
     
     @property
     def protocol(self):
