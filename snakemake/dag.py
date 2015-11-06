@@ -584,11 +584,19 @@ class DAG:
         "Removes jobs downstream of jobs specified by --until."
         if not self.untilrules and not self.untilfiles:
             return
-        jobs = list(self.downstream_of_until()) # need to cast as list before deleting jobs
-        for job in jobs:
-            self.delete_job(job, recursive=False)
+        downstream_jobs = set(self.downstream_of_until()) # need to cast as list before deleting jobs
+        # first, iterate through and update target jobs
+        for job in downstream_jobs:
             if job in self.targetjobs:
                 self.targetjobs.remove(job)
+                for job_ in filter(lambda __job: __job not in downstream_jobs, 
+                                   self.bfs(self.dependencies, job,
+                                            stop=lambda __job: __job not in downstream_jobs,
+                                            include=True)):
+                    self.targetjobs.add(job_)
+        # then, iterate again, this time deleting jobs
+        for job in downstream_jobs:
+            self.delete_job(job, recursive=False)
 
     def update_priority(self):
         """ Update job priorities. """
@@ -748,12 +756,14 @@ class DAG:
                 pass
         return dependencies
 
-    def bfs(self, direction, *jobs, stop=lambda job: False):
+    def bfs(self, direction, *jobs, stop=lambda job: False, include=False):
         queue = list(jobs)
         visited = set(queue)
         while queue:
             job = queue.pop(0)
             if stop(job):
+                if include:
+                    yield job
                 # stop criterion reached for this node
                 continue
             yield job
