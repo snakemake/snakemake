@@ -84,12 +84,13 @@ class RemoteObject(AbstractRemoteObject):
         with self.sftpc() as sftpc:
             if self.exists():
                 # if the destination path does not exist
-                if not os.path.exists(os.path.dirname(self.local_path)) and make_dest_dirs:
-                    os.makedirs(os.path.dirname(self.local_path))
+                if make_dest_dirs:
+                    os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
 
                 sftpc.get(remotepath=self.remote_path, localpath=self.local_path, preserve_mtime=True)
             else:
                 raise SFTPFileException("The file does not seem to exist remotely: %s" % self.file())
+
     def upload(self):
         with self.sftpc() as sftpc:
             sftpc.put(localpath=self.local_path, remotepath=self.remote_path, confirm=True, preserve_mtime=True)
