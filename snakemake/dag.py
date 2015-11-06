@@ -77,8 +77,8 @@ class DAG:
             self.forcerules.update(forcerules)
         if forcefiles:
             self.forcefiles.update(forcefiles)
-        if untilrules:
-            self.untilrules.update(untilrules)
+        if untilrules: # keep only the rule names
+            self.untilrules.update(set(rule.name for rule in untilrules))
         if untilfiles:
             self.untilfiles.update(untilfiles)
 
@@ -564,36 +564,31 @@ class DAG:
 
         self._len = len(_needrun)
 
+
+    def in_until(self, job):
+        return (job.rule.name in self.untilrules or
+                not self.untilfiles.isdisjoint(job.output))
+
+
     def until_jobs(self):
-        "Returns the jobs specified by --until rules or files."
+        'Returns a generator of jobs specified by untiljobs'
+        return (job for job in self.jobs if self.in_until(job))
 
-        def not_in_until(job):
-            untilrule_names = [rule.name for rule in self.untilrules]
-            return not (job.rule.name in untilrule_names 
-                        or str(job.output) in self.untilfiles)
+    def downstream_of_until(self):
+        "Returns the jobs downstream of --until rules or files."
+        return filter(lambda job: not self.in_until(job), 
+                      self.bfs(self.depending, *self.until_jobs()))
 
-        return self.bfs(self.depending, 
-                        *self.targetjobs, stop=not_in_until)
-
-    def delete_depending_jobs(self, job):
-        # maybe move this functionality into self.delete_jobs?
-        "Recursively remove all jobs that depend on a particular job." 
-
-        # cast as list so you don't modify the dict as you iterate
-        depending_jobs = list(self.depending[job]) 
-        for job in depending_jobs:
-            if job in self.depending:
-                self.delete_depending_jobs(job) # delete downstream jobs first
-                self.delete_job(job, recursive=False)
-                if job in self.targetjobs:
-                    self.targetjobs.remove(job) # apparently delete_job doesn't do this?
 
     def delete_until_jobs(self):
         "Removes jobs downstream of jobs specified by --until."
         if not self.untilrules and not self.untilfiles:
             return
-        for job in self.until_jobs():
-            self.delete_depending_jobs(job)
+        jobs = list(self.downstream_of_until()) # need to cast as list before deleting jobs
+        for job in jobs:
+            self.delete_job(job, recursive=False)
+            if job in self.targetjobs:
+                self.targetjobs.remove(job)
 
     def update_priority(self):
         """ Update job priorities. """
