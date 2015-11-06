@@ -450,7 +450,9 @@ def parse_config(args):
             for parser in parsers:
                 try:
                     v = parser(val)
-                    break
+                    # avoid accidental interpretation as function
+                    if not isinstance(v, callable):
+                        break
                 except:
                     pass
             assert v is not None
