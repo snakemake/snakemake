@@ -8,8 +8,7 @@ from itertools import product, chain
 from contextlib import contextmanager
 
 # module-specific
-from snakemake.remote import AbstractRemoteProvider
-from snakemake.remote.base import DomainObject
+from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import FTPFileException
 import snakemake.io 
 
