@@ -8,7 +8,8 @@ from itertools import product, chain
 from contextlib import contextmanager
 
 # module-specific
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.remote import AbstractRemoteProvider
+from snakemake.remote.base import DomainObject
 from snakemake.exceptions import FTPFileException
 import snakemake.io 
 
@@ -24,7 +25,7 @@ class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, **kwargs):
         super(RemoteProvider, self).__init__(*args, **kwargs)
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(DomainObject):
     """ This is a class to interact with an FTP server.
     """
 
@@ -49,7 +50,7 @@ class RemoteObject(AbstractRemoteObject):
         kwargs_to_use["host"] = self.host
         kwargs_to_use["username"] = None
         kwargs_to_use["password"] = None
-        kwargs_to_use["port"] = self.port
+        kwargs_to_use["port"] = int(self.port) if self.port else 21
         kwargs_to_use["encrypt_data_channel"] = self.encrypt_data_channel
 
         for k,v in self.provider.kwargs.items():
@@ -114,12 +115,8 @@ class RemoteObject(AbstractRemoteObject):
     def list(self):
         file_list = []
 
-        pattern = os.path.normpath(self.remote_path)
-        first_wildcard = re.search("{[^{]", pattern)
-        dirname = os.path.dirname(pattern[:first_wildcard.start(
-        )]) if first_wildcard else os.path.dirname(pattern)
-        if not dirname:
-            dirname = "."
+        first_wildcard = self._iofile.constant_prefix()
+        dirname = first_wildcard.replace(self.path_prefix, "")
 
         with self.ftpc() as ftpc:
             file_list = [(os.path.join(dirpath, f) if dirpath != "." else f) 
@@ -128,43 +125,3 @@ class RemoteObject(AbstractRemoteObject):
             file_list = [file_path[1:] if file_path[0] == "/" else file_path for file_path in file_list]
 
         return file_list
-
-    # === Related methods ===
-
-    @property
-    def name(self):
-        return self.path_remainder
-
-    @property
-    def _matched_address(self):
-        return re.search("^(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$", self._iofile._file)
-    
-    @property
-    def protocol(self):
-        if self._matched_address:
-            return self._matched_address.group("protocol")
-
-    @property
-    def host(self):
-        if self._matched_address:
-            return self._matched_address.group("host")
-
-    @property
-    def port(self):
-        if self._matched_address.group("port"):
-            return int(self._matched_address.group("port"))
-        else:
-            return 21
-    
-    @property
-    def path_remainder(self):
-        if self._matched_address:
-            return self._matched_address.group("path_remainder")
-
-    @property
-    def local_path(self):
-        return self._iofile._file
-
-    @property
-    def remote_path(self):
-        return self.path_remainder

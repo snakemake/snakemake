@@ -7,7 +7,8 @@ import os, re
 from contextlib import contextmanager
 
 # module-specific
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.remote import AbstractRemoteProvider
+from snakemake.remote.base import DomainObject
 from snakemake.exceptions import SFTPFileException
 import snakemake.io 
 
@@ -23,7 +24,7 @@ class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, **kwargs):
         super(RemoteProvider, self).__init__(*args, **kwargs)
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(DomainObject):
     """ This is a class to interact with the AWS S3 object store.
     """
 
@@ -44,7 +45,7 @@ class RemoteObject(AbstractRemoteObject):
         # as a kwarg to remote() or the RemoteProvider (overriding the latter with the former if both)
         kwargs_to_use = {}
         kwargs_to_use["host"] = self.host
-        kwargs_to_use["port"] = self.port
+        kwargs_to_use["port"] = int(self.port) if self.port else 22
         for k,v in self.provider.kwargs.items():
             kwargs_to_use[k] = v
         for k,v in self.kwargs.items():
@@ -99,12 +100,8 @@ class RemoteObject(AbstractRemoteObject):
     def list(self):
         file_list = []
 
-        pattern = os.path.normpath(self.remote_path)
-        first_wildcard = re.search("{[^{]", pattern)
-        dirname = os.path.dirname(pattern[:first_wildcard.start(
-        )]) if first_wildcard else os.path.dirname(pattern)
-        if not dirname:
-            dirname = "."
+        first_wildcard = self._iofile.constant_prefix()
+        dirname = first_wildcard.replace(self.path_prefix, "")
 
         with self.sftpc() as sftpc:
             def _append_item(file_path):
@@ -114,45 +111,3 @@ class RemoteObject(AbstractRemoteObject):
             sftpc.walktree(dirname, fcallback=_append_item, dcallback=_append_item, ucallback=_append_item)
 
         return file_list
-
-    # === Related methods ===
-
-    @property
-    def name(self):
-        return self.path_remainder
-
-    @property
-    def _matched_address(self):
-        return re.search("^(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$", self._iofile._file)
-    
-    @property
-    def protocol(self):
-        if self._matched_address:
-            return self._matched_address.group("protocol")
-
-    @property
-    def host(self):
-        if self._matched_address:
-            return self._matched_address.group("host")
-
-    @property
-    def port(self):
-        if self._matched_address.group("port"):
-            return int(self._matched_address.group("port"))
-        else:
-            return 22
-    
-    @property
-    def path_remainder(self):
-        if self._matched_address:
-            return self._matched_address.group("path_remainder")
-
-    @property
-    def local_path(self):
-        return self._iofile._file
-        #return "{host}{path_remainder}".format(host=self.host, port=self.port, path_remainder=self.path_remainder)    
-
-    @property
-    def remote_path(self):
-        return self.path_remainder
-
