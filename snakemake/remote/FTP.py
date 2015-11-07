@@ -98,12 +98,13 @@ class RemoteObject(AbstractRemoteObject):
         with self.ftpc() as ftpc:
             if self.exists():
                 # if the destination path does not exist
-                if not os.path.exists(os.path.dirname(self.local_path)) and make_dest_dirs:
-                    os.makedirs(os.path.dirname(self.local_path))
+                if make_dest_dirs:
+                    os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
                 ftpc.synchronize_times()
                 ftpc.download(source=self.remote_path, target=self.local_path)
             else:
                 raise SFTPFileException("The file does not seem to exist remotely: %s" % self.file())
+
     def upload(self):
         with self.ftpc() as ftpc:
             ftpc.synchronize_times()
