@@ -366,7 +366,6 @@ class DAG:
 
         for f in [f for f in job.expanded_output if f.is_remote]:
             if not f.exists_remote:
-                logger.info("Uploading local output file to remote: {}".format(f))
                 f.upload_to_remote()
                 remote_mtime = f.mtime
                 # immediately force local mtime to match remote, 
