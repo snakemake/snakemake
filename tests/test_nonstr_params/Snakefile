@@ -5,5 +5,4 @@ rule:
         test=True
     run:
         assert params.test is True
-        with open(output[0], "w") as f:
-            print("")
+        shell("touch {output}")
