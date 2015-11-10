@@ -450,7 +450,9 @@ def parse_config(args):
             for parser in parsers:
                 try:
                     v = parser(val)
-                    break
+                    # avoid accidental interpretation as function
+                    if not isinstance(v, callable):
+                        break
                 except:
                     pass
             assert v is not None
@@ -856,7 +858,8 @@ def main():
     args = parser.parse_args()
 
     if args.bash_completion:
-        print("complete -C snakemake-bash-completion snakemake")
+        cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
+        sys.stdout.buffer.write(cmd)
         sys.exit(0)
 
     snakemakepath = sys.argv[0]
@@ -997,30 +1000,31 @@ def bash_completion(snakefile="Snakefile"):
             "Calculate bash completion for snakemake. This tool shall not be invoked by hand.")
         sys.exit(1)
 
+    def print_candidates(candidates):
+        if candidates:
+            candidates = sorted(set(candidates))
+            ## Use bytes for avoiding '^M' under Windows.
+            sys.stdout.buffer.write(b'\n'.join(s.encode() for s in candidates))
+
     prefix = sys.argv[2]
 
     if prefix.startswith("-"):
-        opts = [action.option_strings[0]
-                for action in get_argument_parser()._actions
-                if action.option_strings and
-                action.option_strings[0].startswith(prefix)]
-        print(*opts, sep="\n")
+        print_candidates(action.option_strings[0]
+                         for action in get_argument_parser()._actions
+                         if action.option_strings and
+                         action.option_strings[0].startswith(prefix))
     else:
         files = glob.glob("{}*".format(prefix))
         if files:
-            print(*files, sep="\n")
+            print_candidates(files)
         elif os.path.exists(snakefile):
             workflow = Workflow(snakefile=snakefile, snakemakepath="snakemake")
             workflow.include(snakefile)
 
-            workflow_files = sorted(set(file
-                                        for file in workflow.concrete_files
-                                        if file.startswith(prefix)))
-            if workflow_files:
-                print(*workflow_files, sep="\n")
-
-            rules = [rule.name for rule in workflow.rules
-                     if rule.name.startswith(prefix)]
-            if rules:
-                print(*rules, sep="\n")
+            print_candidates([file
+                              for file in workflow.concrete_files
+                              if file.startswith(prefix)] +
+                             [rule.name
+                              for rule in workflow.rules
+                              if rule.name.startswith(prefix)])
     sys.exit(0)
