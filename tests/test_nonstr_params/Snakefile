@@ -1,0 +1,9 @@
+rule:
+    output:
+        "test.out"
+    params:
+        test=True
+    run:
+        assert params.test is True
+        with open(output[0], "w") as f:
+            print("")
