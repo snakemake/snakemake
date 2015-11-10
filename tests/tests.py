@@ -265,6 +265,7 @@ def test_multiple_includes():
 def test_yaml_config():
     run(dpath("test_yaml_config"))
 
+
 def test_remote():
     try:
         import moto
@@ -276,7 +277,6 @@ def test_remote():
         run(dpath("test_remote"))
     except ImportError:
         pass
-   
 
 
 def test_cluster_sync():
@@ -288,14 +288,21 @@ def test_cluster_sync():
 def test_symlink_temp():
     run(dpath("test_symlink_temp"), shouldfail=True)
 
+
 def test_empty_include():
     run(dpath("test_empty_include"))
+
 
 def test_script():
     run(dpath("test_script"))
 
+
 def test_shadow():
     run(dpath("test_shadow"))
+
+
+def test_nonstr_params():
+    run(dpath("test_nonstr_params"))
 
 
 if __name__ == '__main__':
