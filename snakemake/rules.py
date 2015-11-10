@@ -8,7 +8,7 @@ import re
 import sys
 import inspect
 import sre_constants
-from collections import defaultdict
+from collections import defaultdict, Iterable
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
@@ -100,7 +100,7 @@ class Rule:
                 try:
                     for e in reversed(expand(f, zip, **wildcards)):
                         # need to clone the flags so intermediate
-                        # dynamic remote file paths are expanded and 
+                        # dynamic remote file paths are expanded and
                         # removed appropriately
                         ioFile = IOFile(e, rule=branch)
                         ioFile.clone_flags(f)
@@ -278,7 +278,7 @@ class Rule:
             self._set_params_item(item, name=name)
 
     def _set_params_item(self, item, name=None):
-        if isinstance(item, str) or callable(item):
+        if not_iterable(item) or callable(item):
             self.params.append(item)
             if name:
                 self.params.add_name(name)
@@ -332,6 +332,11 @@ class Rule:
                 return f.apply_wildcards(wildcards,
                                          fill_missing=f in self.dynamic_input,
                                          fail_dynamic=self.dynamic_output)
+
+        def concretize_param(p, wildcards):
+            if isinstance(p, str):
+                return apply_wildcards(p, wildcards)
+            return p
 
         def _apply_wildcards(newitems, olditems, wildcards, wildcards_obj,
                              concretize=apply_wildcards,
@@ -391,7 +396,7 @@ class Rule:
                              ruleio=ruleio)
 
             params = Params()
-            _apply_wildcards(params, self.params, wildcards, wildcards_obj)
+            _apply_wildcards(params, self.params, wildcards, wildcards_obj, concretize=concretize_param)
 
             output = OutputFiles(o.apply_wildcards(wildcards)
                                  for o in self.output)

@@ -401,7 +401,7 @@ class Run(RuleKeywordState):
         yield "@workflow.run"
         yield "\n"
         yield ("def __{rulename}(input, output, params, wildcards, threads, "
-               "resources, log, version):".format(rulename=self.rulename))
+               "resources, log, version):".format(rulename=self.rulename if self.rulename is not None else self.snakefile.rulecount))
 
     def end(self):
         yield ""
@@ -542,8 +542,8 @@ class Rule(GlobalKeywordState):
                          dedent=dedent,
                          root=root)
         self.state = self.name
-        self.rulename = None
         self.lineno = None
+        self.rulename = None
         self.run = False
         self.snakefile.rulecount += 1
 

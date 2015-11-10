@@ -20,7 +20,7 @@ rule full:
     shell:
         """
         echo 1 > more_junk.out
-        cat {input} >> {output}
+        cat {input} > {output}
         echo simple_full >> {output}
         test ! -f junk.out
         """
