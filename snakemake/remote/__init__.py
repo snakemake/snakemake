@@ -21,10 +21,7 @@ class AbstractRemoteProvider:
         self.args = args
         self.kwargs = kwargs
 
-    def remote(self, value, keep_local=False, additional_args=None, additional_kwargs=None):
-        additional_args = [] if not additional_args else additional_args
-        additional_kwargs = {} if not additional_kwargs else additional_kwargs
-
+    def remote(self, value, *args, keep_local=False, **kwargs):
         if snakemake.io.is_flagged(value, "temp"):
             raise SyntaxError(
                 "Remote and temporary flags are mutually exclusive.")
@@ -33,7 +30,7 @@ class AbstractRemoteProvider:
                 "Remote and protected flags are mutually exclusive.")
 
         provider = sys.modules[self.__module__] # get module of derived class
-        remote_object = provider.RemoteObject(*additional_args, keep_local=keep_local, provider=provider.RemoteProvider(*self.args,  **self.kwargs), **additional_kwargs)
+        remote_object = provider.RemoteObject(*args, keep_local=keep_local, provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs)
 
         return snakemake.io.flag(
                 value, 
@@ -41,11 +38,11 @@ class AbstractRemoteProvider:
                 remote_object
             )
 
-    def glob_wildcards(self, pattern, additional_args=None, additional_kwargs=None):
-        additional_args   = self.args if not additional_args else additional_args
-        additional_kwargs = self.kwargs if not additional_kwargs else additional_kwargs
+    def glob_wildcards(self, pattern, *args, **kwargs):
+        args   = self.args if not args else args
+        kwargs = self.kwargs if not kwargs else kwargs
         
-        referenceObj = snakemake.io.IOFile(self.remote(pattern, additional_args=additional_args, additional_kwargs=additional_kwargs))
+        referenceObj = snakemake.io.IOFile(self.remote(pattern, *args, **kwargs))
 
         pattern = "./"+ referenceObj.remote_object.name
         pattern = os.path.normpath(pattern)
