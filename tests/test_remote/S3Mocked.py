@@ -9,6 +9,7 @@ from contextlib import contextmanager
 import pickle
 import time
 import threading
+import functools
 
 # intra-module
 from snakemake.remote.S3 import RemoteObject as S3RemoteObject, RemoteProvider as S3RemoteProvider
@@ -44,6 +45,9 @@ def pickled_moto_wrapper(func):
         moto_context_file = "motoState.p"
 
         moto_context = mock_s3()
+        moto_context.start()
+
+        moto_context.backends["global"].reset = noop
 
         # load moto buckets from pickle
         if os.path.isfile(moto_context_file) and os.path.getsize(moto_context_file) > 0:
@@ -51,17 +55,18 @@ def pickled_moto_wrapper(func):
                 with open( moto_context_file, "rb" ) as f:
                     moto_context.backends["global"].buckets = pickle.load( f )
 
-        moto_context.backends["global"].reset = noop
-
         mocked_function = moto_context(func)
-
         retval = mocked_function(self, *args, **kwargs)
 
         with file_lock(moto_context_file):
             with open( moto_context_file, "wb" ) as f:
                 pickle.dump(moto_context.backends["global"].buckets, f)
 
+        moto_context.stop()
+
         return retval
+    functools.update_wrapper(wrapper_func, func)
+    wrapper_func.__wrapped__ = func
     return wrapper_func
 
 @dec_all_methods(pickled_moto_wrapper, prefix=None)
@@ -96,19 +101,25 @@ class RemoteObject(S3RemoteObject):
 
 # ====== Helpers =====
 
+def touch(fname, mode=0o666, dir_fd=None, **kwargs):
+    # create lock file faster
+    # https://stackoverflow.com/a/1160227
+    flags = os.O_CREAT | os.O_APPEND
+    with os.fdopen(os.open(fname, flags=flags, mode=mode, dir_fd=dir_fd)) as f:
+        os.utime(f.fileno() if os.utime in os.supports_fd else fname,
+            dir_fd=None if os.supports_fd else dir_fd, **kwargs)
+
 @contextmanager
 def file_lock(filepath):
     lock_file = filepath + ".lock"
 
     while os.path.isfile(lock_file):
-        time.sleep(0.1)
+        time.sleep(2)
 
-    with open(lock_file, 'w') as f:
-        f.write("1")
+    touch(lock_file)
 
     try:
         yield
     finally:
         if os.path.isfile(lock_file):
             os.remove(lock_file)
-
