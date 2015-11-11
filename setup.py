@@ -53,7 +53,8 @@ setup(
          "snakemake-bash-completion = snakemake:bash_completion"]
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
-    tests_require=['rpy2', 'docutils', 'nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6', 'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8'],
+    tests_require=['rpy2', 'docutils', 'nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6', 
+                    'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8', 'dropbox>=3.38'],
     cmdclass={'test': NoseTestCommand},
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",
