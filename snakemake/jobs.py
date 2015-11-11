@@ -77,6 +77,10 @@ class Job:
                 self._hash ^= o.__hash__()
 
     @property
+    def is_shadow(self):
+        return self.rule.shadow_depth is not None
+
+    @property
     def priority(self):
         return self.dag.priority(self)
 
@@ -183,7 +187,7 @@ class Job:
                 if f.exists_remote:
                     files.add(f)
         return files
-    
+
     @property
     def existing_remote_output(self):
         files = set()
@@ -290,7 +294,7 @@ class Job:
 
         for f in self.remote_output_newer_than_local | self.remote_input_newer_than_local:
             f.download_from_remote()
-    
+
     @property
     def files_to_download(self):
         toDownload = set()
@@ -351,7 +355,7 @@ class Job:
         if self.benchmark:
             self.benchmark.prepare()
 
-        if not self.rule.shadow_depth:
+        if not self.is_shadow:
             return
         # Create shadow directory structure
         self.shadow_dir = tempfile.mkdtemp(
