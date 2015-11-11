@@ -400,7 +400,7 @@ class Run(RuleKeywordState):
     def start(self):
         yield "@workflow.run"
         yield "\n"
-        yield ("def __{rulename}(input, output, params, wildcards, threads, "
+        yield ("def __rule_{rulename}(input, output, params, wildcards, threads, "
                "resources, log, version):".format(rulename=self.rulename if self.rulename is not None else self.snakefile.rulecount))
 
     def end(self):
@@ -659,7 +659,7 @@ class Python(TokenAutomaton):
 
 
 class Snakefile:
-    def __init__(self, path):
+    def __init__(self, path, rulecount=0):
         self.path = path
         try:
             self.file = open(self.path, encoding="utf-8")
@@ -671,7 +671,7 @@ class Snakefile:
                 raise WorkflowError("Failed to open {}.".format(path))
 
         self.tokens = tokenize.generate_tokens(self.file.readline)
-        self.rulecount = 0
+        self.rulecount = rulecount
         self.lines = 0
 
     def __next__(self):
@@ -696,9 +696,9 @@ def format_tokens(tokens):
         t_ = t
 
 
-def parse(path, overwrite_shellcmd=None):
+def parse(path, overwrite_shellcmd=None, rulecount=0):
     Shell.overwrite_shellcmd = overwrite_shellcmd
-    with Snakefile(path) as snakefile:
+    with Snakefile(path, rulecount=rulecount) as snakefile:
         automaton = Python(snakefile)
         linemap = dict()
         compilation = list()
@@ -712,4 +712,4 @@ def parse(path, overwrite_shellcmd=None):
         if linemap:
             last = max(linemap)
             linemap[last + 1] = linemap[last]
-        return compilation, linemap
+        return compilation, linemap, snakefile.rulecount
