@@ -104,7 +104,7 @@ class RemoteObject(DomainObject):
 
         with self.sftpc() as sftpc:
             def _append_item(file_path):
-                file_path = file_path[1:] if file_path[0] == "/" else file_path
+                file_path = file_path.lstrip("/")
                 file_list.append(file_path)
 
             sftpc.walktree(dirname, fcallback=_append_item, dcallback=_append_item, ucallback=_append_item)
