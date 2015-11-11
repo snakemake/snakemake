@@ -222,7 +222,7 @@ class CPUExecutor(RealExecutor):
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
 
-        pool = self.threadpool if job.shellcmd is not None or not job.is_shadow else self.pool
+        pool = self.pool if job.shellcmd is not None or job.is_shadow else self.threadpool
         future = pool.submit(
             run_wrapper, job.rule.run_func, job.input.plainstrings(),
             job.output.plainstrings(), job.params, job.wildcards, job.threads,
