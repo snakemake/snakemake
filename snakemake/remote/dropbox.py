@@ -49,20 +49,13 @@ class RemoteObject(AbstractRemoteObject):
                     DropboxFileException("ERROR: Invalid Dropbox OAuth access token; try re-generating an access token from the app console on the web.")
         
     # === Implementations of abstract class members ===
-
+  
     def exists(self):
-       try:
-           return os.path.basename(self.remote_file()) in [e.name for e in self._dropboxc.files_list_folder(path=os.path.dirname(self.remote_file())).entries]
-       except:
-           raise DropboxFileException("An error occured checking for the remote existence of: %s" % self.remote_file())
-
-    # alternate method for checking if a file exists:    
-    # def exists(self):
-    #     try:
-    #         metadata = self._dropboxc.files_get_metadata(self.remote_file())
-    #         return True
-    #     except:
-    #         return False
+        try:
+            metadata = self._dropboxc.files_get_metadata(self.remote_file())
+            return True
+        except:
+            return False
 
     def mtime(self):
         if self.exists():
