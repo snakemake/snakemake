@@ -268,46 +268,6 @@ class Job:
                 yield f
 
     @property
-    def local_input_str(self):
-        ret = set()
-
-        for f in self.local_input:
-            if not f.is_remote:
-                ret.add(f)
-
-        return " ".join(list(ret))
-
-    @property
-    def local_output_str(self):
-        ret = set()
-
-        for f in self.local_input:
-            if not f.is_remote:
-                ret.add(f)
-
-        return " ".join(list(ret))
-
-    @property
-    def remote_input_str(self):
-        ret = set()
-
-        for f in self.local_input:
-            if f.is_remote:
-                ret.add(f)
-
-        return " ".join(list(ret))
-
-    @property
-    def remote_output_str(self):
-        ret = set()
-
-        for f in self.local_input:
-            if f.is_remote:
-                ret.add(f)
-
-        return " ".join(list(ret))
-
-    @property
     def remote_input_newer_than_local(self):
         files = set()
         for f in self.remote_input:
