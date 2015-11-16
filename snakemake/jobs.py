@@ -454,9 +454,10 @@ class Job:
 
     @property
     def empty_remote_dirs(self):
-        remote_files = [f for f in (set(self.output) | set(self.input)) if f.is_remote]
-        empty_dirs_to_remove = set(os.path.dirname(f) for f in remote_files if os.path.exists(os.path.dirname(f)) and not len(os.listdir(os.path.dirname(f))))
-        return empty_dirs_to_remove
+        for f in (set(self.output) | set(self.input)):
+            if f.is_remote:
+                if os.path.exists(os.path.dirname(f)) and not len( os.listdir( os.path.dirname(f))):
+                    yield os.path.dirname(f)
 
     def rmdir_empty_remote_dirs(self):
         for d in self.empty_remote_dirs:
