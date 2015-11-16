@@ -298,7 +298,7 @@ class ClusterExecutor(RealExecutor):
             'cd {workflow.workdir_init} && '
             '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
             '--force -j{cores} --keep-target-files --keep-shadow '
-            '--wait-for-files {job.input} --latency-wait {latency_wait} '
+            '--wait-for-files {job.local_input_str} --latency-wait {latency_wait} '
             '--benchmark-repeats {benchmark_repeats} '
             '{overwrite_workdir} {overwrite_config} --nocolor '
             '--notemp --quiet --no-hooks --nolock {target}')

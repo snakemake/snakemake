@@ -243,6 +243,17 @@ class Job:
                     files.add(f)
         return files
 
+    @property
+    def local_input(self):
+        for f in self.input:
+            if not f.is_remote:
+                yield f
+
+    @property
+    def local_output(self):
+        for f in self.output:
+            if not f.is_remote:
+                yield f
 
     @property
     def remote_input(self):
@@ -255,6 +266,46 @@ class Job:
         for f in self.output:
             if f.is_remote:
                 yield f
+
+    @property
+    def local_input_str(self):
+        ret = set()
+
+        for f in self.local_input:
+            if not f.is_remote:
+                ret.add(f)
+
+        return " ".join(list(ret))
+
+    @property
+    def local_output_str(self):
+        ret = set()
+
+        for f in self.local_input:
+            if not f.is_remote:
+                ret.add(f)
+
+        return " ".join(list(ret))
+
+    @property
+    def remote_input_str(self):
+        ret = set()
+
+        for f in self.local_input:
+            if f.is_remote:
+                ret.add(f)
+
+        return " ".join(list(ret))
+
+    @property
+    def remote_output_str(self):
+        ret = set()
+
+        for f in self.local_input:
+            if f.is_remote:
+                ret.add(f)
+
+        return " ".join(list(ret))
 
     @property
     def remote_input_newer_than_local(self):
@@ -404,12 +455,15 @@ class Job:
     @property
     def empty_remote_dirs(self):
         remote_files = [f for f in (set(self.output) | set(self.input)) if f.is_remote]
-        empty_dirs_to_remove = set(os.path.dirname(f) for f in remote_files if not len(os.listdir(os.path.dirname(f))))
+        empty_dirs_to_remove = set(os.path.dirname(f) for f in remote_files if os.path.exists(os.path.dirname(f)) and not len(os.listdir(os.path.dirname(f))))
         return empty_dirs_to_remove
 
     def rmdir_empty_remote_dirs(self):
         for d in self.empty_remote_dirs:
-            os.removedirs(d)
+            try:
+                os.removedirs(d)
+            except:
+                pass # it's ok if we can't remove the leaf
 
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """
