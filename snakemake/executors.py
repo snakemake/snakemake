@@ -269,7 +269,8 @@ class ClusterExecutor(RealExecutor):
                  printshellcmds=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 cluster_config=None):
+                 cluster_config=None, local_input=None):
+        local_input = local_input or []
         super().__init__(workflow, dag,
                          printreason=printreason,
                          quiet=quiet,
@@ -298,7 +299,7 @@ class ClusterExecutor(RealExecutor):
             'cd {workflow.workdir_init} && '
             '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
             '--force -j{cores} --keep-target-files --keep-shadow '
-            '--wait-for-files {job.input} --latency-wait {latency_wait} '
+            '--wait-for-files {local_input} --latency-wait {latency_wait} '
             '--benchmark-repeats {benchmark_repeats} '
             '{overwrite_workdir} {overwrite_config} --nocolor '
             '--notemp --quiet --no-hooks --nolock {target}')
@@ -367,6 +368,7 @@ class ClusterExecutor(RealExecutor):
                 " ".join(self.workflow.config_args))
 
         target = job.output if job.output else job.rule.name
+        local_input = " ".join(job.local_input)
         format = partial(str.format,
                          job=job,
                          overwrite_workdir=overwrite_workdir,
@@ -376,7 +378,7 @@ class ClusterExecutor(RealExecutor):
                          properties=job.json(),
                          latency_wait=self.latency_wait,
                          benchmark_repeats=self.benchmark_repeats,
-                         target=target, **kwargs)
+                         target=target, local_input=local_input, **kwargs)
         try:
             exec_job = format(self.exec_job)
             with open(jobscript, "w") as f:
