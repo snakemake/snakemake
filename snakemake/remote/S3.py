@@ -239,8 +239,8 @@ class S3Helper(object):
                 destination_path = os.path.join(os.getcwd(), os.path.basename(key))
 
         # if the destination path does not exist
-        if not os.path.exists(os.path.dirname(destination_path)) and make_dest_dirs:
-            os.makedirs(os.path.dirname(destination_path))
+        if make_dest_dirs:
+            os.makedirs(os.path.dirname(destination_path), exist_ok=True)
 
         k.key = key if key else os.path.basename(destination_path)
 
