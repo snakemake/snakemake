@@ -10,7 +10,7 @@ import inspect
 import sre_constants
 from collections import defaultdict, Iterable
 
-from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist
+from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException
@@ -89,6 +89,22 @@ class Rule:
                 rule.output, rule.dynamic_output
             )
 
+        def partially_expand(f, wildcards):
+            """Expand the wildcards in f from the ones present in wildcards
+
+            This is done by replacing all wildcard delimiters by `{{` or `}}`
+            that are not in `wildcards.keys()`.
+            """
+            # perform the partial expansion from f's string representation
+            s = str(f).replace('{', '{{').replace('}', '}}')
+            for key in wildcards.keys():
+                s = s.replace('{{{{{}}}}}'.format(key),
+                              '{{{}}}'.format(key))
+            # build result
+            anno_s = AnnotatedString(s)
+            anno_s.flags = f.flags
+            return IOFile(anno_s, f.rule)
+
         io, dynamic_io = get_io(self)
 
         branch = Rule(self)
@@ -97,6 +113,7 @@ class Rule:
         expansion = defaultdict(list)
         for i, f in enumerate(io):
             if f in dynamic_io:
+                f = partially_expand(f, wildcards)
                 try:
                     for e in reversed(expand(f, zip, **wildcards)):
                         # need to clone the flags so intermediate
