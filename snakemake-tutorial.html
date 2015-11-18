@@ -35,53 +35,16 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <header>
 <h1 class="title">Snakemake Tutorial</h1>
 </header>
-<nav id="TOC">
-<ul>
-<li><a href="#setup">Setup</a><ul>
-<li><a href="#setup-a-linux-vm-with-vagrant-under-windows">Setup a Linux VM with Vagrant under Windows</a></li>
-<li><a href="#step-1-installing-miniconda-3">Step 1: Installing Miniconda 3</a></li>
-<li><a href="#step-2-preparing-a-working-directory">Step 2: Preparing a working directory</a></li>
-<li><a href="#step-3-creating-an-environment-with-the-required-software">Step 3: Creating an environment with the required software</a></li>
-<li><a href="#step-4-activating-the-environment">Step 4: Activating the environment</a></li>
-</ul></li>
-<li><a href="#basics-an-example-workflow">Basics: An example workflow</a><ul>
-<li><a href="#step-1-mapping-reads">Step 1: Mapping reads</a></li>
-<li><a href="#step-2-generalizing-the-read-mapping-rule">Step 2: Generalizing the read mapping rule</a></li>
-<li><a href="#step-3-sorting-read-alignments">Step 3: Sorting read alignments</a></li>
-<li><a href="#step-4-indexing-read-alignments-and-visualizing-the-dag-of-jobs">Step 4: Indexing read alignments and visualizing the DAG of jobs</a></li>
-<li><a href="#step-5-calling-genomic-variants">Step 5: Calling genomic variants</a></li>
-<li><a href="#step-6-writing-a-report">Step 6: Writing a report</a></li>
-<li><a href="#step-7-adding-a-target-rule">Step 7: Adding a target rule</a></li>
-<li><a href="#summary">Summary</a></li>
-</ul></li>
-<li><a href="#advanced-decorating-the-example-workflow">Advanced: Decorating the example workflow</a><ul>
-<li><a href="#step-1-specifying-the-number-of-used-threads">Step 1: Specifying the number of used threads</a></li>
-<li><a href="#step-2-config-files">Step 2: Config files</a></li>
-<li><a href="#step-3-input-functions">Step 3: Input functions</a></li>
-<li><a href="#step-4-rule-parameters">Step 4: Rule parameters</a></li>
-<li><a href="#step-5-logging">Step 5: Logging</a></li>
-<li><a href="#step-6-temporary-and-protected-files">Step 6: Temporary and protected files</a></li>
-<li><a href="#summary-1">Summary</a></li>
-</ul></li>
-<li><a href="#additional-features">Additional features</a><ul>
-<li><a href="#benchmarking">Benchmarking</a></li>
-<li><a href="#modularization">Modularization</a></li>
-<li><a href="#using-custom-scripts">Using custom scripts</a></li>
-<li><a href="#cluster-execution">Cluster execution</a></li>
-<li><a href="#constraining-wildcards">Constraining wildcards</a></li>
-</ul></li>
-</ul>
-</nav>
-<p>This tutorial introduces the text-based workflow system <a href="https://bitbucket.org/johanneskoester/snakemake">Snakemake</a>. Snakemake follows the <a href="https://www.gnu.org/software/make">GNU Make</a> paradigm: workflows are defined in terms of rules that define how to create output files from input files. Dependencies between the rules are determined automatically, creating a DAG (directed acyclic graph) of jobs that can be automatically parallelized.</p>
+<p>This tutorial introduces the text-based workflow system <a href="http://snakemake.bitbucket.org">Snakemake</a>. Snakemake follows the <a href="https://www.gnu.org/software/make">GNU Make</a> paradigm: workflows are defined in terms of rules that define how to create output files from input files. Dependencies between the rules are determined automatically, creating a DAG (directed acyclic graph) of jobs that can be automatically parallelized.</p>
 <p>Snakemake sets itself apart from existing text-based workflow systems in the following way. Hooking into the Python interpreter, Snakemake offers a definition language that is an extension of <a href="http://www.python.org">Python</a> with syntax to define rules and workflow specific properties. This allows to combine the flexibility of a plain scripting language with a pythonic workflow definition. The Python language is known to be concise yet readable and can appear almost like pseudo-code. The syntactic extensions provided by Snakemake maintain this property for the definition of the workflow. Further, Snakemakes scheduling algorithm can be constrained by priorities, provided cores and customizable resources and it provides a generic support for distributed computing (e.g., cluster or batch systems). Hence, a Snakemake workflow scales without modification from single core workstations and multi-core servers to cluster or batch systems.</p>
 <p>While the examples presented here come from Bioinformatics, Snakemake is considered a general-purpose workflow management system for any discipline.</p>
-<p><strong>Note:</strong> To get the most up-to-date version of this tutorial and further information on Snakemake, please visit the <a href="https://bitbucket.org/johanneskoester/snakemake">Snakemake homepage</a>. Also have a look at the corresponding <a href="http://slides.com/johanneskoester/deck-1">slides</a>.</p>
+<p><strong>Note:</strong> To get the most up-to-date version of this tutorial and further information on Snakemake, please visit the <a href="http://snakemake.bitbucket.org">Snakemake homepage</a>. Also have a look at the corresponding <a href="http://slides.com/johanneskoester/deck-1">slides</a>.</p>
 <hr />
 <h1 id="setup">Setup</h1>
 <p>To go through this tutorial, you need the following software installed:</p>
 <ul>
 <li><a href="http://www.python.org">Python</a> ≥3.3</li>
-<li><a href="https://bitbucket.org/johanneskoester/snakemake">Snakemake</a> 3.4.2</li>
+<li><a href="http://snakemake.bitbucket.org">Snakemake</a> 3.4.2</li>
 <li><a href="http://bio-bwa.sourceforge.net">BWA</a> 0.7.12</li>
 <li><a href="http://www.htslib.org">SAMtools</a> 1.2</li>
 <li><a href="http://www.htslib.org">BCFtools</a> 1.2</li>
@@ -209,7 +172,7 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">expand</span>(<span class="st">&quot;sorted_reads/{sample}.{replicate}.bam&quot;</span>, sample=SAMPLES, replicate=[0, 1])</code></pre>
 <p>would create the product of all elements of <code>SAMPLES</code> and the list <code>[0, 1]</code>, yielding</p>
 <pre class="sourceCode bash"><code class="sourceCode bash">[<span class="st">&quot;sorted_reads/A.0.bam&quot;</span>, <span class="st">&quot;sorted_reads/A.1.bam&quot;</span>, <span class="st">&quot;sorted_reads/B.0.bam&quot;</span>, <span class="st">&quot;sorted_reads/B.1.bam&quot;</span>]</code></pre>
-<p>For more information, see the <a href="https://bitbucket.org/johanneskoester/snakemake/wiki/Documentation">Documentation</a>. Here, we use only the simple case of <code>expand</code>. We first let Snakemake know which samples we want to consider. Remember that Snakemake works top-down, it does not automatically infer this from, e.g., the fastq files in the data folder. Remember that Snakefiles are in principle Python code enhanced by some declarative statements to define workflows. Hence, we can define the list of samples ad-hoc in plain Python at the top of the Snakefile:</p>
+<p>For more information, see the <a href="https://bitbucket.org/snakemake/snakemake/wiki/Documentation">Documentation</a>. Here, we use only the simple case of <code>expand</code>. We first let Snakemake know which samples we want to consider. Remember that Snakemake works top-down, it does not automatically infer this from, e.g., the fastq files in the data folder. Remember that Snakefiles are in principle Python code enhanced by some declarative statements to define workflows. Hence, we can define the list of samples ad-hoc in plain Python at the top of the Snakefile:</p>
 <pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">SAMPLES</span> = [<span class="st">&quot;A&quot;</span>, <span class="st">&quot;B&quot;</span>]</code></pre>
 <p>Later, we will learn about more sophisticated ways like <strong>config files</strong>. Now, we can add the following rule to our Snakefile:</p>
 <pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">rule</span> bcftools_call:
@@ -361,7 +324,7 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <p>When a workflow is executed, <strong>the number of threads the jobs need is considered by the Snakemake scheduler</strong>. In particular, the scheduler ensures that the sum of the threads of all running jobs does not exceed a given number of available CPU cores. This number can be given with the <code>--cores</code> command line argument (per default, Snakemake uses only 1 CPU core). For example</p>
 <pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">snakemake</span> --cores 10</code></pre>
 <p>would execute the workflow with 10 cores. Since the rule <code>bwa_map</code> needs 8 threads, only one job of the rule can run at a time, and the Snakemake scheduler will try to saturate the remaining cores with other jobs like, e.g., <code>samtools_sort</code>. The threads directive in a rule is interpreted as a maximum: when <strong>less cores than threads</strong> are provided, the number of threads a rule uses will be <strong>reduced to the number of given cores</strong>.</p>
-<p>Apart from the very common thread resource, Snakemake provides a <code>resources</code> directive that can be used to <strong>specify arbitrary resources</strong>, e.g., memory usage or auxiliary computing devices like GPUs. Similar to threads, these can be considered by the scheduler when an available amount of that resource is given with the command line argument <code>--resources</code>. Details can be found in the Snakemake <a href="https://bitbucket.org/johanneskoester/snakemake/wiki/Documentation">Documentation</a>.</p>
+<p>Apart from the very common thread resource, Snakemake provides a <code>resources</code> directive that can be used to <strong>specify arbitrary resources</strong>, e.g., memory usage or auxiliary computing devices like GPUs. Similar to threads, these can be considered by the scheduler when an available amount of that resource is given with the command line argument <code>--resources</code>. Details can be found in the Snakemake <a href="https://bitbucket.org/snakemake/snakemake/wiki/Documentation">Documentation</a>.</p>
 <h3 id="exercise-3">Exercise</h3>
 <ul>
 <li>With the flag <code>--forceall</code> you can enforce a complete re-execution of the workflow. Combine this flag with different values for <code>--cores</code> and examine how the scheduler selects jobs to run in parallel.</li>
@@ -558,7 +521,7 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <span class="st">        &quot;&quot;&quot;</span>, output[0], T1=input[0])</code></pre>
 <hr />
 <h1 id="additional-features">Additional features</h1>
-<p>In the following, we introduce some features that are beyond the scope of above example workflow. For details and even more features, see the <a href="https://bitbucket.org/johanneskoester/snakemake/wiki/Documentation">Documentation</a>, the <a href="https://bitbucket.org/johanneskoester/snakemake/wiki/FAQ">FAQ</a> and the command line help (<code>snakemake --help</code>).</p>
+<p>In the following, we introduce some features that are beyond the scope of above example workflow. For details and even more features, see the <a href="https://bitbucket.org/snakemake/snakemake/wiki/Documentation">Documentation</a>, the <a href="https://bitbucket.org/snakemake/snakemake/wiki/FAQ">FAQ</a> and the command line help (<code>snakemake --help</code>).</p>
 <h2 id="benchmarking">Benchmarking</h2>
 <p>With the <code>benchmark</code> directive, Snakemake can be instructed to <strong>measure the wall clock time of a job</strong>. We activate benchmarking for the rule <code>bwa_map</code>:</p>
 <pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">rule</span> bwa_map:
@@ -609,7 +572,7 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <h2 id="modularization">Modularization</h2>
 <p>In order to re-use building blocks or simply to structure large workflows, it is sometimes reasonable to <strong>split a workflow into modules</strong>. For this, Snakemake provides the <code>include</code> directive to include another Snakefile into the current one, e.g.:</p>
 <pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">include</span>: <span class="st">&quot;path/to/other.snakefile&quot;</span></code></pre>
-<p>Alternatively, Snakemake allows to <strong>define sub-workflows</strong>. A sub-workflow refers to a working directory with a complete Snakemake workflow. Output files of that sub-workflow can be used in the current Snakefile. When executing, Snakemake ensures that the output files of the sub-workflow are up-to-date before executing the current workflow. This mechanism is particularly useful when you want to extend a previous analysis without modifying it. For details about sub-workflows, see the <a href="https://bitbucket.org/johanneskoester/snakemake/wiki/Documentation">Documentation</a>.</p>
+<p>Alternatively, Snakemake allows to <strong>define sub-workflows</strong>. A sub-workflow refers to a working directory with a complete Snakemake workflow. Output files of that sub-workflow can be used in the current Snakefile. When executing, Snakemake ensures that the output files of the sub-workflow are up-to-date before executing the current workflow. This mechanism is particularly useful when you want to extend a previous analysis without modifying it. For details about sub-workflows, see the <a href="https://bitbucket.org/snakemake/snakemake/wiki/Documentation">Documentation</a>.</p>
 <h3 id="exercise-9">Exercise</h3>
 <ul>
 <li>Put the read mapping related rules into a separate Snakefile and use the <code>include</code> directive to make them available in our example workflow again.</li>
@@ -617,7 +580,7 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <h2 id="using-custom-scripts">Using custom scripts</h2>
 <p>With Snakemake, there are two strategies to use custom scripts in your workflow.</p>
 <h3 id="method-1-use-the-run-directive">Method 1: Use the run directive</h3>
-<p>With the <code>run</code> directive, Snakemake already provides a way to execute plain Python code in a rule. Apart from Python, this can also be used to execute <a href="https://www.r-project.org">R</a> code by using the Python package <a href="http://rpy.sourceforge.net">rpy2</a>. Further, Snakemake provides a function <code>snakemake.utils.R</code> that allows to pass a string that is interpreted as R code. The code can thereby refer to, e.g., input and output files or parameters of the rule. Examples can be found in the <a href="https://bitbucket.org/johanneskoester/snakemake/wiki/Documentation">Documentation</a>.</p>
+<p>With the <code>run</code> directive, Snakemake already provides a way to execute plain Python code in a rule. Apart from Python, this can also be used to execute <a href="https://www.r-project.org">R</a> code by using the Python package <a href="http://rpy.sourceforge.net">rpy2</a>. Further, Snakemake provides a function <code>snakemake.utils.R</code> that allows to pass a string that is interpreted as R code. The code can thereby refer to, e.g., input and output files or parameters of the rule. Examples can be found in the <a href="https://bitbucket.org/snakemake/snakemake/wiki/Documentation">Documentation</a>.</p>
 <h3 id="method-2-create-separate-scripts">Method 2: Create separate scripts</h3>
 <p>For larger tasks, it is a good idea to <strong>create separate scripts</strong> with command line interfaces, which are then invoked from Snakemake via the <code>shell</code> directive. This also allows to re-use the scripts in other analyses. In case of R, we propose to use <a href="https://stat.ethz.ch/R-manual/R-devel/library/utils/html/Rscript.html">Rscript</a> for invocation.</p>
 <h2 id="cluster-execution">Cluster execution</h2>
@@ -630,11 +593,11 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">snakemake</span> --cluster <span class="st">&quot;qsub -pe threaded {threads}&quot;</span> --jobs 100</code></pre>
 <p>Alternatively, Snakemake can use the Distributed Resource Management Application API (<a href="http://www.drmaa.org">DRMAA</a>). This API provides a common interface to control various resource management systems. The <strong>DRMAA support</strong> can be activated by invoking Snakemake as follows:</p>
 <pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">snakemake</span> --drmaa --jobs 100</code></pre>
-<p>If available, <strong>DRMAA is preferable over the generic cluster modes</strong> because it provides better control and error handling. To support additional cluster specific parametrization, a Snakefile can be complementd by a <a href="https://bitbucket.org/johanneskoester/snakemake/wiki/Documentation#markdown-header-cluster-configuration">cluster configuration</a>.</p>
+<p>If available, <strong>DRMAA is preferable over the generic cluster modes</strong> because it provides better control and error handling. To support additional cluster specific parametrization, a Snakefile can be complementd by a <a href="https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-cluster-configuration">cluster configuration</a>.</p>
 <h2 id="constraining-wildcards">Constraining wildcards</h2>
 <p>Snakemake uses regular expressions to match output files to input files and determine dependencies between the jobs. Sometimes it is useful to constrain the values a wildcard can have. This can be achieved by adding a regular expression that describes the set of allowed wildcard values. For example, the wildcard <code>sample</code> in the output file <code>&quot;sorted_reads/{sample}.bam&quot;</code> can be constrained to only allow alphanumeric sample names as <code>&quot;sorted_reads/{sample,[A-Za-z0-9]+}.bam&quot;</code>. This mechanism helps to solve two kinds of ambiguity.</p>
 <ul>
-<li>It can help to avoid ambiguous rules, i.e. two or more rules that can be applied to generate the same output file. Other ways of handling ambiguous rules are described in the <a href="https://bitbucket.org/johanneskoester/snakemake/wiki/Documentation">Documentation</a>.</li>
+<li>It can help to avoid ambiguous rules, i.e. two or more rules that can be applied to generate the same output file. Other ways of handling ambiguous rules are described in the <a href="https://bitbucket.org/snakemake/snakemake/wiki/Documentation">Documentation</a>.</li>
 <li>It can help to guide the regular expression based matching so that wildcards are assigned to the right parts of a file name. Consider the output file <code>{sample}.{group}.txt</code> and assume that the target file is <code>A.1.normal.txt</code>. It is not clear whether <code>dataset=&quot;A.1&quot;</code> and <code>group=&quot;normal&quot;</code> or <code>dataset=&quot;A&quot;</code> and <code>group=&quot;1.normal&quot;</code> is the right assignment. Here, constraining the dataset wildcard by <code>{sample,[A-Z]+}.{group}</code> solves the problem.</li>
 </ul>
 <p>When dealing with ambiguous rules, it is best practice to first try to solve the ambiguity by using a proper file structure, for example, by separating the output files of different steps in different directories.</p>
