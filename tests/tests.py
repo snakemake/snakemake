@@ -307,7 +307,7 @@ def test_until():
 
 def test_omitfrom():
     run(dpath("test_omitfrom"), 
-        omitfrom=['leveltwo_first', # rule name
+        omit_from=['leveltwo_first', # rule name
                   'leveltwo_second.txt']) # file name
 
 def test_nonstr_params():
