@@ -21,7 +21,7 @@ class REncoder:
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, str):
-            return '"{}"'.format(value)
+            return repr(value)
         elif isinstance(value, bool):
             return "TRUE" if value else "FALSE"
         elif isinstance(value, int) or isinstance(value, float):
@@ -44,7 +44,8 @@ class REncoder:
 
     @classmethod
     def encode_dict(cls, d):
-        return "list({})".format(cls.encode_items(d.items()))
+        d = "list({})".format(cls.encode_items(d.items()))
+        return d
 
     @classmethod
     def encode_namedlist(cls, namedlist):

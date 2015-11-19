@@ -38,14 +38,14 @@ setup(
     author='Johannes Köster',
     author_email='johannes.koester@tu-dortmund.de',
     description=
-    'Build systems like GNU Make are frequently used to create complicated '
-    'workflows, e.g. in bioinformatics. This project aims to reduce the '
-    'complexity of creating workflows by providing a clean and modern domain '
-    'specific language (DSL) in python style, together with a fast and '
-    'comfortable execution environment.',
+    'Snakemake is a workflow management system that aims to reduce the complexity '
+    'of creating workflows by providing a fast and comfortable execution environment, '
+    'together with a clean and modern specification language in python style. '
+    'Snakemake workflows are essentially Python scripts extended by declarative '
+    'code to define rules. Rules describe how to create output files from input files.',
     zip_safe=False,
     license='MIT',
-    url='https://bitbucket.org/johanneskoester/snakemake',
+    url='http://snakemake.bitbucket.org',
     packages=['snakemake'],
     entry_points={
         "console_scripts":
@@ -53,8 +53,8 @@ setup(
          "snakemake-bash-completion = snakemake:bash_completion"]
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
-    tests_require=['nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6', 'moto>=0.4.14'],
-    #install_requires=['boto>=2.38.0','filechunkio>=1.6', 'moto>=0.4.14'], # uncomment to install by default
+    tests_require=['rpy2', 'docutils', 'nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6', 
+                     'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8', 'requests>=2.8.1', 'dropbox>=3.38'],
     cmdclass={'test': NoseTestCommand},
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",

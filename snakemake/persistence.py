@@ -215,7 +215,7 @@ class Persistence:
 
     @lru_cache()
     def _params(self, job):
-        return "\n".join(sorted(job.params))
+        return "\n".join(sorted(map(repr, job.params)))
 
     @lru_cache()
     def _output(self, job):

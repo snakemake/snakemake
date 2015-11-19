@@ -8,9 +8,9 @@ import re
 import sys
 import inspect
 import sre_constants
-from collections import defaultdict
+from collections import defaultdict, Iterable
 
-from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist
+from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException
@@ -89,6 +89,22 @@ class Rule:
                 rule.output, rule.dynamic_output
             )
 
+        def partially_expand(f, wildcards):
+            """Expand the wildcards in f from the ones present in wildcards
+
+            This is done by replacing all wildcard delimiters by `{{` or `}}`
+            that are not in `wildcards.keys()`.
+            """
+            # perform the partial expansion from f's string representation
+            s = str(f).replace('{', '{{').replace('}', '}}')
+            for key in wildcards.keys():
+                s = s.replace('{{{{{}}}}}'.format(key),
+                              '{{{}}}'.format(key))
+            # build result
+            anno_s = AnnotatedString(s)
+            anno_s.flags = f.flags
+            return IOFile(anno_s, f.rule)
+
         io, dynamic_io = get_io(self)
 
         branch = Rule(self)
@@ -97,10 +113,11 @@ class Rule:
         expansion = defaultdict(list)
         for i, f in enumerate(io):
             if f in dynamic_io:
+                f = partially_expand(f, wildcards)
                 try:
                     for e in reversed(expand(f, zip, **wildcards)):
                         # need to clone the flags so intermediate
-                        # dynamic remote file paths are expanded and 
+                        # dynamic remote file paths are expanded and
                         # removed appropriately
                         ioFile = IOFile(e, rule=branch)
                         ioFile.clone_flags(f)
@@ -278,7 +295,7 @@ class Rule:
             self._set_params_item(item, name=name)
 
     def _set_params_item(self, item, name=None):
-        if isinstance(item, str) or callable(item):
+        if not_iterable(item) or callable(item):
             self.params.append(item)
             if name:
                 self.params.add_name(name)
@@ -332,6 +349,11 @@ class Rule:
                 return f.apply_wildcards(wildcards,
                                          fill_missing=f in self.dynamic_input,
                                          fail_dynamic=self.dynamic_output)
+
+        def concretize_param(p, wildcards):
+            if isinstance(p, str):
+                return apply_wildcards(p, wildcards)
+            return p
 
         def _apply_wildcards(newitems, olditems, wildcards, wildcards_obj,
                              concretize=apply_wildcards,
@@ -391,7 +413,7 @@ class Rule:
                              ruleio=ruleio)
 
             params = Params()
-            _apply_wildcards(params, self.params, wildcards, wildcards_obj)
+            _apply_wildcards(params, self.params, wildcards, wildcards_obj, concretize=concretize_param)
 
             output = OutputFiles(o.apply_wildcards(wildcards)
                                  for o in self.output)
