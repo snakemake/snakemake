@@ -13,6 +13,7 @@ from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException
 from snakemake.logging import logger
+from inspect import isfunction, ismethod
 
 def lstat(f):
     return os.stat(f, follow_symlinks=os.stat not in os.supports_follow_symlinks)
@@ -41,7 +42,7 @@ class _IOFile(str):
 
     def __new__(cls, file):
         obj = str.__new__(cls, file)
-        obj._is_function = type(file).__name__ in ["function", "method"]
+        obj._is_function = isfunction(file) or ismethod(file)
         obj._file = file
         obj.rule = None
         obj._regex = None
