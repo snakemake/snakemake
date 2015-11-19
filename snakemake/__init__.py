@@ -43,6 +43,7 @@ def snakemake(snakefile,
               forceall=False,
               forcerun=[],
               until=[],
+              omit_from=[],
               prioritytargets=[],
               stats=None,
               printreason=False,
@@ -628,10 +629,17 @@ def get_argument_parser():
         "--until", "-U",
         nargs="+",
         metavar="TARGET",
+        help=("Runs the pipeline until it reaches the specified rule or "
+              "filenames. Only runs jobs that are dependencies of the specified "
+              "rule or files, does not run sibling DAGs. "))
+    parser.add_argument(
+        "--omit-from", "-O",
+        nargs="+",
+        metavar="TARGET",
         help=("Prevent the execution or creation of the given rules or files "
-              "as well as any rules or files that are downstream of these "
-              "targets in the DAG. Use this option if you want to run "
-              "a workflow until a particular rule."))
+              "as well as any rules or files that are downstream of these targets "
+              "in the DAG. Also runs jobs in sibling DAGs that are independent of the "
+              "rules or files specified here."))
     parser.add_argument(
         "--allow-ambiguity", "-a",
         action="store_true",
@@ -953,6 +961,7 @@ def main():
                             forcerun=args.forcerun,
                             prioritytargets=args.prioritize,
                             until=args.until,
+                            omit_from=args.omit_from,
                             stats=args.stats,
                             nocolor=args.nocolor,
                             quiet=args.quiet,
