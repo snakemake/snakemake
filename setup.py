@@ -46,7 +46,7 @@ setup(
     zip_safe=False,
     license='MIT',
     url='http://snakemake.bitbucket.org',
-    packages=['snakemake'],
+    packages=['snakemake', 'snakemake.remote'],
     entry_points={
         "console_scripts":
         ["snakemake = snakemake:main",
