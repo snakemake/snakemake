@@ -23,6 +23,7 @@ if not isinstance(sys.stdout, _io.TextIOWrapper):
 class shell:
     _process_args = {}
     _process_prefix = ""
+    _process_suffix = ""
 
     @classmethod
     def executable(cls, cmd):
@@ -33,6 +34,10 @@ class shell:
     @classmethod
     def prefix(cls, prefix):
         cls._process_prefix = format(prefix, stepout=2)
+
+    @classmethod
+    def suffix(cls, suffix):
+        cls._process_suffix = format(suffix, stepout=2)
 
     def __new__(cls, cmd, *args,
                 async=False,
@@ -47,7 +52,11 @@ class shell:
         stdout = sp.PIPE if iterable or async or read else STDOUT
 
         close_fds = sys.platform != 'win32'
-        proc = sp.Popen(cls._process_prefix + cmd,
+
+        proc = sp.Popen("{} {} {}".format(
+                            cls._process_prefix,
+                            cmd,
+                            cls._process_suffix),
                         bufsize=-1,
                         shell=True,
                         stdout=stdout,

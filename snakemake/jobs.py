@@ -77,6 +77,10 @@ class Job:
                 self._hash ^= o.__hash__()
 
     @property
+    def is_shadow(self):
+        return self.rule.shadow_depth is not None
+
+    @property
     def priority(self):
         return self.dag.priority(self)
 
@@ -183,7 +187,7 @@ class Job:
                 if f.exists_remote:
                     files.add(f)
         return files
-    
+
     @property
     def existing_remote_output(self):
         files = set()
@@ -239,6 +243,17 @@ class Job:
                     files.add(f)
         return files
 
+    @property
+    def local_input(self):
+        for f in self.input:
+            if not f.is_remote:
+                yield f
+
+    @property
+    def local_output(self):
+        for f in self.output:
+            if not f.is_remote:
+                yield f
 
     @property
     def remote_input(self):
@@ -290,7 +305,7 @@ class Job:
 
         for f in self.remote_output_newer_than_local | self.remote_input_newer_than_local:
             f.download_from_remote()
-    
+
     @property
     def files_to_download(self):
         toDownload = set()
@@ -351,7 +366,7 @@ class Job:
         if self.benchmark:
             self.benchmark.prepare()
 
-        if not self.rule.shadow_depth:
+        if not self.is_shadow:
             return
         # Create shadow directory structure
         self.shadow_dir = tempfile.mkdtemp(
@@ -399,13 +414,17 @@ class Job:
 
     @property
     def empty_remote_dirs(self):
-        remote_files = [f for f in (set(self.output) | set(self.input)) if f.is_remote]
-        empty_dirs_to_remove = set(os.path.dirname(f) for f in remote_files if not len(os.listdir(os.path.dirname(f))))
-        return empty_dirs_to_remove
+        for f in (set(self.output) | set(self.input)):
+            if f.is_remote:
+                if os.path.exists(os.path.dirname(f)) and not len( os.listdir( os.path.dirname(f))):
+                    yield os.path.dirname(f)
 
     def rmdir_empty_remote_dirs(self):
         for d in self.empty_remote_dirs:
-            os.removedirs(d)
+            try:
+                os.removedirs(d)
+            except:
+                pass # it's ok if we can't remove the leaf
 
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """

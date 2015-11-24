@@ -13,6 +13,7 @@ from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException
 from snakemake.logging import logger
+from inspect import isfunction, ismethod
 
 def lstat(f):
     return os.stat(f, follow_symlinks=os.stat not in os.supports_follow_symlinks)
@@ -41,7 +42,7 @@ class _IOFile(str):
 
     def __new__(cls, file):
         obj = str.__new__(cls, file)
-        obj._is_function = type(file).__name__ == "function"
+        obj._is_function = isfunction(file) or ismethod(file)
         obj._file = file
         obj.rule = None
         obj._regex = None
@@ -49,14 +50,14 @@ class _IOFile(str):
         return obj
 
     def _refer_to_remote(func):
-        """ 
-            A decorator so that if the file is remote and has a version 
-            of the same file-related function, call that version instead. 
+        """
+            A decorator so that if the file is remote and has a version
+            of the same file-related function, call that version instead.
         """
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if self.is_remote:
-                self.update_remote_filepath()                
+                self.update_remote_filepath()
                 if hasattr( self.remote_object, func.__name__):
                     return getattr( self.remote_object, func.__name__)(*args, **kwargs)
             return func(self, *args, **kwargs)
@@ -70,8 +71,8 @@ class _IOFile(str):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
         if get_flag_value(self._file, "remote_object").file != self._file:
-            get_flag_value(self._file, "remote_object")._iofile = self    
-    
+            get_flag_value(self._file, "remote_object")._iofile = self
+
     @property
     def should_keep_local(self):
         return get_flag_value(self._file, "remote_object").keep_local

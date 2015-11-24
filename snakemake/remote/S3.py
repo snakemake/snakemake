@@ -79,7 +79,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def list(self):
-        return self._s3c.list_keys(self.s3_bucket)
+        return [k.name for k in self._s3c.list_keys(self.s3_bucket)]
 
     # === Related methods ===
 
@@ -117,6 +117,18 @@ class S3Helper(object):
         # AWS_ACCESS_KEY_ID
         # AWS_SECRET_ACCESS_KEY
         # Otherwise these values need to be passed in as kwargs
+
+        # allow key_id and secret to be specified with aws_, gs_, or no prefix. 
+        # Standardize to the aws_ prefix expected by boto.
+        if "gs_access_key_id" in kwargs:
+            kwargs["aws_access_key_id"] = kwargs.pop("gs_access_key_id")
+        if "gs_secret_access_key" in kwargs:
+            kwargs["aws_secret_access_key"] = kwargs.pop("gs_secret_access_key")
+        if "access_key_id" in kwargs:
+            kwargs["aws_access_key_id"] = kwargs.pop("access_key_id")
+        if "secret_access_key" in kwargs:
+            kwargs["aws_secret_access_key"] = kwargs.pop("secret_access_key")
+        
         self.conn = boto.connect_s3(*args, **kwargs)
 
     def upload_to_s3(
@@ -227,8 +239,8 @@ class S3Helper(object):
                 destination_path = os.path.join(os.getcwd(), os.path.basename(key))
 
         # if the destination path does not exist
-        if not os.path.exists(os.path.dirname(destination_path)) and make_dest_dirs:
-            os.makedirs(os.path.dirname(destination_path))
+        if make_dest_dirs:
+            os.makedirs(os.path.dirname(destination_path), exist_ok=True)
 
         k.key = key if key else os.path.basename(destination_path)
 

@@ -68,6 +68,7 @@ class Workflow:
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self.debug = debug
+        self._rulecount = 0
 
         global config
         config = dict()
@@ -477,8 +478,10 @@ class Workflow:
         workflow = self
 
         first_rule = self.first_rule
-        code, linemap = parse(snakefile,
-                              overwrite_shellcmd=self.overwrite_shellcmd)
+        code, linemap, rulecount = parse(snakefile,
+                                         overwrite_shellcmd=self.overwrite_shellcmd,
+                                         rulecount=self._rulecount)
+        self._rulecount = rulecount
 
         if print_compilation:
             print(code)
@@ -501,8 +504,7 @@ class Workflow:
 
     def workdir(self, workdir):
         if self.overwrite_workdir is None:
-            if not os.path.exists(workdir):
-                os.makedirs(workdir)
+            os.makedirs(workdir, exist_ok=True)
             self._workdir = workdir
             os.chdir(workdir)
 

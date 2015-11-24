@@ -93,7 +93,7 @@ class JobScheduler:
                                            printshellcmds=printshellcmds,
                                            latency_wait=latency_wait)
         elif cluster or cluster_sync or (drmaa is not None):
-            workers = min(sum(1 for _ in dag.local_needrun_jobs), local_cores)
+            workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)), local_cores)
             self._local_executor = CPUExecutor(
                 workflow, dag, workers,
                 printreason=printreason,
@@ -222,7 +222,7 @@ class JobScheduler:
         except (KeyboardInterrupt, SystemExit):
             logger.info("Terminating processes on user request.")
             self._executor.cancel()
-            with self._lock():
+            with self._lock:
                 running = list(self.running)
             for job in running:
                 job.cleanup()
