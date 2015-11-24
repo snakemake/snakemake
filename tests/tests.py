@@ -42,7 +42,7 @@ def run(path,
         needs_connection=False,
         snakefile="Snakefile",
         subpath=None,
-        check_md5=True, **params):
+        check_md5=True, cores=3, **params):
     """
     Test the Snakefile in path.
     There must be a Snakefile in the path and a subdirectory named
@@ -76,7 +76,7 @@ def run(path,
         call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir),
              shell=True)
         success = snakemake(snakefile,
-                            cores=3,
+                            cores=cores,
                             workdir=tmpdir,
                             stats="stats.txt",
                             snakemakepath=SCRIPTPATH,
@@ -274,7 +274,7 @@ def test_remote():
 
         # only run the remote file test if the dependencies
         # are installed, otherwise do nothing
-        run(dpath("test_remote"))
+        run(dpath("test_remote"), cores=1)
     except ImportError:
         pass
 

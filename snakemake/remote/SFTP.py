@@ -24,7 +24,7 @@ class RemoteProvider(AbstractRemoteProvider):
         super(RemoteProvider, self).__init__(*args, **kwargs)
 
 class RemoteObject(DomainObject):
-    """ This is a class to interact with the AWS S3 object store.
+    """ This is a class to interact with an SFTP server.
     """
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
@@ -62,7 +62,7 @@ class RemoteObject(DomainObject):
                     return sftpc.isfile(self.remote_path)
             return False
         else:
-            raise SFTPFileException("The file cannot be parsed as an s3 path in form 'host:port/path/to/file': %s" % self.file())
+            raise SFTPFileException("The file cannot be parsed as an SFTP path in form 'host:port/path/to/file': %s" % self.file())
 
     def mtime(self):
         if self.exists():
@@ -104,7 +104,7 @@ class RemoteObject(DomainObject):
 
         with self.sftpc() as sftpc:
             def _append_item(file_path):
-                file_path = file_path[1:] if file_path[0] == "/" else file_path
+                file_path = file_path.lstrip("/")
                 file_list.append(file_path)
 
             sftpc.walktree(dirname, fcallback=_append_item, dcallback=_append_item, ucallback=_append_item)

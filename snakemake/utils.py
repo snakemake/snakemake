@@ -73,8 +73,7 @@ def makedirs(dirnames):
     if isinstance(dirnames, str):
         dirnames = [dirnames]
     for dirname in dirnames:
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
+        os.makedirs(dirname, exist_ok=True)
 
 
 def report(text, path,

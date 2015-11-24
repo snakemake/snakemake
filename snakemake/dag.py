@@ -10,6 +10,7 @@ import time
 from collections import defaultdict, Counter
 from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
+from inspect import isfunction, ismethod
 from operator import itemgetter, attrgetter
 
 from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
@@ -307,7 +308,7 @@ class DAG:
 
     def handle_remote(self, job):
         """ Remove local files if they are no longer needed, and upload to S3. """
-        
+
         needed = lambda job_, f: any(
             f in files for j, files in self.depending[job_].items()
             if not self.finished(j) and self.needrun(j) and j != job)
@@ -332,8 +333,8 @@ class DAG:
 
         def expanded_input(job):
             for f, f_ in zip(job.input, job.rule.input):
-                if not type(f_).__name__ == "function":
-                    if type(f_.file).__name__ not in ["str", "function"]:
+                if not isfunction(f_) and not ismethod(f_):
+                    if not isfunction(f_.file) and not ismethod(f_.file):
                         if contains_wildcard(f_):
 
                             expansion = job.expand_dynamic(
@@ -357,7 +358,7 @@ class DAG:
                     yield f
 
         def expanded_dynamic_depending_input_files():
-            for j in self.depending[job]:    
+            for j in self.depending[job]:
                 for f in expanded_input(j):
                     yield f
 
