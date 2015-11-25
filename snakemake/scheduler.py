@@ -296,46 +296,16 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             jobs (list):    list of jobs
         """
         with self._lock:
-            if self.select_by_rule:
-                # solve over the rules instead of jobs (much less, but might miss the best solution)
-                # each rule is an item with as many copies as jobs
-                _jobs = defaultdict(list)
-                for job in jobs:
-                    _jobs[job.rule].append(job)
+            # each job is an item with one copy (0-1 MDKP)
+            n = len(jobs)
+            x = [0] * n  # selected jobs
+            E = set(range(n))  # jobs still free to select
+            u = [1] * n
+            a = list(map(self.job_weight, jobs))  # resource usage of jobs
+            c = list(map(self.job_reward, jobs))  # job rewards
 
-                jobs = _jobs
-
-                # sort the jobs by priority
-                for _jobs in jobs.values():
-                    _jobs.sort(key=self.dag.priority, reverse=True)
-                rules = list(jobs)
-
-                # Step 1: initialization
-                n = len(rules)
-                x = [0] * n  # selected jobs of each rule
-                E = set(range(n))  # rules free to select
-                u = [len(jobs[rule]) for rule in rules]  # number of jobs left
-                a = list(map(self.rule_weight,
-                             rules))  # resource usage of rules
-                c = list(map(partial(self.rule_reward,
-                                     jobs=jobs),
-                             rules))  # matrix of cumulative rewards over jobs
-
-                def calc_reward():
-                    return [([(crit[x_j + y_j] - crit[x_j]) for crit in c_j] if
-                             j in E else [0] * len(c_j))
-                            for j, (c_j, y_j, x_j) in enumerate(zip(c, y, x))]
-            else:
-                # each job is an item with one copy (0-1 MDKP)
-                n = len(jobs)
-                x = [0] * n  # selected jobs
-                E = set(range(n))  # jobs still free to select
-                u = [1] * n
-                a = list(map(self.job_weight, jobs))  # resource usage of jobs
-                c = list(map(self.job_reward, jobs))  # job rewards
-
-                def calc_reward():
-                    return [c_j * y_j for c_j, y_j in zip(c, y)]
+            def calc_reward():
+                return [c_j * y_j for c_j, y_j in zip(c, y)]
 
             b = [self.resources[name]
                  for name in self.workflow.global_resources
@@ -367,12 +337,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 if not E:
                     break
 
-            if self.select_by_rule:
-                # Solution is the list of jobs that was selected from the selected rules
-                solution = list(chain(*[jobs[rules[j]][:x_]
-                                        for j, x_ in enumerate(x)]))
-            else:
-                solution = [job for job, sel in zip(jobs, x) if sel]
+            solution = [job for job, sel in zip(jobs, x) if sel]
             # update resources
             for name, b_i in zip(self.workflow.global_resources, b):
                 self.resources[name] = b_i
@@ -386,38 +351,17 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         return [self.calc_resource(name, res.get(name, 0))
                 for name in self.workflow.global_resources]
 
-    def rule_reward(self, rule, jobs=None):
-        jobs = jobs[rule]
-        return (self.priority_reward(jobs), self.downstream_reward(jobs),
-                cumsum([job.inputsize for job in jobs]))
-
-    def dryrun_rule_reward(self, rule, jobs=None):
-        jobs = jobs[rule]
-        return (self.priority_reward(jobs), self.downstream_reward(jobs),
-                [0] * (len(jobs) + 1))
-
-    def priority_reward(self, jobs):
-        return cumsum(self.dag.priorities(jobs))
-
-    def downstream_reward(self, jobs):
-        return cumsum(self.dag.downstream_sizes(jobs))
-
-    def thread_reward(self, jobs):
-        """ Thread-based reward for jobs. Using this maximizes core
-        saturation, but does not lead to faster computation in general."""
-        return cumsum([job.threads for job in jobs])
-
     def job_weight(self, job):
         res = job.resources_dict
         return [self.calc_resource(name, res.get(name, 0))
                 for name in self.workflow.global_resources]
 
     def job_reward(self, job):
-        return (self.dag.priority(job), self.dag.downstream_size(job),
+        return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job),
                 job.inputsize)
 
     def dryrun_job_reward(self, job):
-        return (self.dag.priority(job), self.dag.downstream_size(job))
+        return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job))
 
     def progress(self):
         """ Display the progress. """
