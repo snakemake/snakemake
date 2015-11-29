@@ -55,10 +55,7 @@ class JobScheduler:
         self.running = set()
         self.failed = set()
         self.finished_jobs = 0
-        self.greediness = greediness
-        self.select_by_rule = False
-        if not self.select_by_rule:
-            self.greediness = 1
+        self.greediness = 1
 
         self.resources = dict(self.workflow.global_resources)
 
@@ -84,7 +81,6 @@ class JobScheduler:
                                             quiet=quiet,
                                             printshellcmds=printshellcmds,
                                             latency_wait=latency_wait)
-            self.rule_reward = self.dryrun_rule_reward
             self.job_reward = self.dryrun_job_reward
         elif touch:
             self._executor = TouchExecutor(workflow, dag,
@@ -117,7 +113,6 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats, )
                 if immediate_submit:
-                    self.rule_reward = self.dryrun_rule_reward
                     self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
                                                     update_dynamic=False,
