@@ -48,6 +48,7 @@ class DAG:
         self._needrun = set()
         self._priority = dict()
         self._downstream_size = dict()
+        self._temp_input_count = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
         self._dynamic = set()
@@ -164,14 +165,8 @@ class DAG:
     def downstream_size(self, job):
         return self._downstream_size[job]
 
-    def _job_values(self, jobs, values):
-        return [values[job] for job in jobs]
-
-    def priorities(self, jobs):
-        return self._job_values(jobs, self._priority)
-
-    def downstream_sizes(self, jobs):
-        return self._job_values(jobs, self._downstream_size)
+    def temp_input_count(self, job):
+        return self._temp_input_count[job]
 
     def noneedrun_finished(self, job):
         """
@@ -284,6 +279,12 @@ class DAG:
                 logger.info("Touching output file {}.".format(f))
                 f.touch_or_create()
 
+    def temp_input(self, job):
+        for job_, files in self.dependencies[job].items():
+            for f in filter(job_.temp_output.__contains__, files):
+                yield f
+
+
     def handle_temp(self, job):
         """ Remove temp files if they are no longer needed. """
         if self.notemp:
@@ -369,7 +370,7 @@ class DAG:
             if not f.exists_remote:
                 f.upload_to_remote()
                 remote_mtime = f.mtime
-                # immediately force local mtime to match remote, 
+                # immediately force local mtime to match remote,
                 # since conversions from S3 headers are not 100% reliable
                 # without this, newness comparisons may fail down the line
                 f.touch(times=(remote_mtime, remote_mtime))
@@ -576,11 +577,16 @@ class DAG:
                 1 for _ in self.bfs(self.depending, job,
                                     stop=self.noneedrun_finished)) - 1
 
+    def update_temp_input_count(self):
+        for job in self.needrun_jobs:
+            self._temp_input_count[job] = sum(1 for _ in self.temp_input(job))
+
     def postprocess(self):
         self.update_needrun()
         self.update_priority()
         self.update_ready()
         self.update_downstream_size()
+        self.update_temp_input_count()
 
     def _ready(self, job):
         return self._finished.issuperset(
