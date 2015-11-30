@@ -315,18 +315,20 @@ class DAG:
             if not self.finished(j) and self.needrun(j) and j != job)
 
         def unneeded_files():
+            putative = lambda f: f.is_remote and not f.protected and not f.should_keep_local
             generated_input = set()
             for job_, files in self.dependencies[job].items():
                 generated_input |= files
-                for f in files:
-                    if f.is_remote and not needed(job_, f) and not f.protected and not f.should_keep_local:
+                for f in filter(putative, files):
+                    if not needed(job_, f):
                         yield f
-            for f in job.expanded_output:
-                if f.is_remote and not needed(job, f) and not f in self.targetfiles and not f.protected and not f.should_keep_local:
-                    yield f
-            for f in job.input:
+            for f in filter(putative, job.output):
+                if not needed(job, f) and not f in self.targetfiles:
+                    for f_ in job.expand_dynamic(f):
+                        yield f
+            for f in filter(putative, job.input):
                 # TODO what about remote inputs that are used by multiple jobs?
-                if f.is_remote and f not in generated_input and not f.should_keep_local:
+                if f not in generated_input:
                     yield f
 
         for f in job.expanded_output:
@@ -339,7 +341,10 @@ class DAG:
                 f.touch(times=(remote_mtime, remote_mtime))
 
                 if not f.exists_remote:
-                    raise RemoteFileException("The file upload was attempted, but it does not exist on remote. Check that your credentials have read AND write permissions.")
+                    raise RemoteFileException(
+                        "The file upload was attempted, but it does not "
+                        "exist on remote. Check that your credentials have "
+                        "read AND write permissions.")
 
         for f in unneeded_files():
             logger.info("Removing local output file: {}".format(f))
