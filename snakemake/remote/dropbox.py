@@ -8,7 +8,7 @@ from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject
-from snakemake.exceptions import DropboxFileException
+from snakemake.exceptions import DropboxFileException, WorkflowError
 import snakemake.io 
 
 try:
