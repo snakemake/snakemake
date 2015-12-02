@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 # module-specific
 from snakemake.remote.S3 import RemoteObject, RemoteProvider as S3RemoteProvider
+from snakemake.exceptions import WorkflowError
 
 try:
     # third-party modules
