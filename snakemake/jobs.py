@@ -130,10 +130,7 @@ class Job:
         """ Iterate over output files while dynamic output is expanded. """
         for f, f_ in zip(self.output, self.rule.output):
             if f in self.dynamic_output:
-                expansion = self.expand_dynamic(
-                    f_,
-                    restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill)
+                expansion = self.expand_dynamic(f_)
                 if not expansion:
                     yield f_
                 for f, _ in expansion:
@@ -159,10 +156,7 @@ class Job:
         combinations = set()
         for f, f_ in zip(self.output, self.rule.output):
             if f in self.dynamic_output:
-                for f, w in self.expand_dynamic(
-                    f_,
-                    restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill):
+                for f, w in self.expand_dynamic(f_):
                     combinations.add(tuple(w.items()))
         wildcards = defaultdict(list)
         for combination in combinations:
@@ -234,10 +228,7 @@ class Job:
         for f, f_ in zip(self.output, self.rule.output):
             if requested is None or f in requested:
                 if f in self.dynamic_output:
-                    if not self.expand_dynamic(
-                        f_,
-                        restriction=self.wildcards,
-                        omit_value=_IOFile.dynamic_fill):
+                    if not self.expand_dynamic(f_):
                         files.add("{} (dynamic)".format(f_))
                 elif not f.exists:
                     files.add(f)
@@ -350,9 +341,7 @@ class Job:
                     self.rule, unexpected_output))
 
         if self.dynamic_output:
-            for f, _ in chain(*map(partial(self.expand_dynamic,
-                                           restriction=self.wildcards,
-                                           omit_value=_IOFile.dynamic_fill),
+            for f, _ in chain(*map(self.expand_dynamic,
                                    self.rule.dynamic_output)):
                 os.remove(f)
         for f, f_ in zip(self.output, self.rule.output):
@@ -486,12 +475,11 @@ class Job:
     def __hash__(self):
         return self._hash
 
-    @staticmethod
-    def expand_dynamic(pattern, restriction=None, omit_value=None):
+    def expand_dynamic(self, pattern):
         """ Expand dynamic files. """
         return list(listfiles(pattern,
-                              restriction=restriction,
-                              omit_value=omit_value))
+                              restriction=self.wildcards,
+                              omit_value=_IOFile.dynamic_fill))
 
 
 class Reason:

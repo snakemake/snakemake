@@ -10,7 +10,7 @@ from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
-from snakemake.exceptions import HTTPFileException
+from snakemake.exceptions import HTTPFileException, WorkflowError
 import snakemake.io
 
 try:

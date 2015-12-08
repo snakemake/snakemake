@@ -515,7 +515,7 @@ def get_argument_parser():
               "resources: gpu=1. If now two rules require 1 of the resource "
               "'gpu' they won't be run in parallel by the scheduler."))
     parser.add_argument(
-        "--config",
+        "--config", "-C",
         nargs="*",
         metavar="KEY=VALUE",
         help=
