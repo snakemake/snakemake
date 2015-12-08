@@ -592,7 +592,8 @@ class DAG:
         "Removes jobs downstream of jobs specified by --omit-from."
         if not self.untilrules and not self.untilfiles:
             return
-        for job in self.downstream_of_until():
+        downstream_jobs = set(self.downstream_of_until())
+        for job in downstream_jobs:
             self.delete_job(job, recursive=False)
             if job in self.targetjobs:
                 self.targetjobs.remove(job)
