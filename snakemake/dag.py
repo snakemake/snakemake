@@ -569,16 +569,11 @@ class DAG:
         "Removes jobs downstream of jobs specified by --omit-from."
         if not self.omitfromrules and not self.omitfromfiles:
             return
-        downstream_jobs = set(self.downstream_of_omitfrom()) # need to cast as list before deleting jobs
+        downstream_jobs = list(self.downstream_of_omitfrom()) # need to cast as list before deleting jobs
         # first, iterate through and update target jobs
         for job in downstream_jobs:
             if job in self.targetjobs:
                 self.targetjobs.remove(job)
-                # for job_ in filter(lambda __job: __job not in downstream_jobs, 
-                #                    self.bfs(self.dependencies, job,
-                #                             stop=lambda __job: __job not in downstream_jobs,
-                #                             include=True)):
-                #     self.targetjobs.add(job_)
         # then, iterate again, this time deleting jobs
         for job in downstream_jobs:
             self.delete_job(job, recursive=False)
@@ -592,7 +587,7 @@ class DAG:
         "Removes jobs downstream of jobs specified by --omit-from."
         if not self.untilrules and not self.untilfiles:
             return
-        downstream_jobs = set(self.downstream_of_until())
+        downstream_jobs = list(self.downstream_of_until())
         for job in downstream_jobs:
             self.delete_job(job, recursive=False)
             if job in self.targetjobs:
