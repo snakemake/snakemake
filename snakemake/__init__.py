@@ -631,8 +631,8 @@ def get_argument_parser():
         "--until", "-U",
         nargs="+",
         metavar="TARGET",
-        help=("Runs the pipeline until it reaches the specified rule or "
-              "filenames. Only runs jobs that are dependencies of the specified "
+        help=("Runs the pipeline until it reaches the specified rules or "
+              "files. Only runs jobs that are dependencies of the specified "
               "rule or files, does not run sibling DAGs. "))
     parser.add_argument(
         "--omit-from", "-O",
