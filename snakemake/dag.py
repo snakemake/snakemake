@@ -39,8 +39,8 @@ class DAG:
                  priorityrules=None,
                  untilfiles=None,
                  untilrules=None,
-                 omitfromfiles=None,
-                 omitfromrules=None,
+                 omitfiles=None,
+                 omitrules=None,
                  ignore_ambiguity=False,
                  force_incomplete=False,
                  ignore_incomplete=False,
@@ -74,8 +74,8 @@ class DAG:
         self.forcefiles = set()
         self.untilrules = set()
         self.untilfiles = set()
-        self.omitfromrules = set()
-        self.omitfromfiles = set()
+        self.omitrules = set()
+        self.omitfiles = set()
         self.updated_subworkflow_files = set()
         if forceall:
             self.forcerules.update(self.rules)
@@ -87,10 +87,10 @@ class DAG:
             self.untilrules.update(set(rule.name for rule in untilrules))
         if untilfiles:
             self.untilfiles.update(untilfiles)
-        if omitfromrules:
-            self.omitfromrules.update(set(rule.name for rule in omitfromrules))
-        if omitfromfiles:
-            self.omitfromfiles.update(omitfromfiles)
+        if omitrules:
+            self.omitrules.update(set(rule.name for rule in omitrules))
+        if omitfiles:
+            self.omitfiles.update(omitfiles)
 
         self.omitforce = set()
 
@@ -112,7 +112,8 @@ class DAG:
             self.targetjobs.add(job)
 
         self.update_needrun()
-        self.delete_until_jobs()
+        self.set_until_jobs()
+        self.delete_omitfrom_jobs()
 
 
     def update_output_index(self):
@@ -548,8 +549,8 @@ class DAG:
 
 
     def in_omitfrom(self, job):
-        return (job.rule.name in self.omitfromrules or
-                not self.omitfromfiles.isdisjoint(job.output))
+        return (job.rule.name in self.omitrules or
+                not self.omitfiles.isdisjoint(job.output))
 
     def until_jobs(self):
         'Returns a generator of jobs specified by untiljobs'
@@ -559,40 +560,27 @@ class DAG:
         'Returns a generator of jobs specified by omitfromjobs'
         return (job for job in self.jobs if self.in_omitfrom(job))
 
-    def downstream_of_until(self):
-        "Returns the jobs downstream of --until rules or files."
-        return filter(lambda job: not self.in_until(job), 
-                      self.bfs(self.depending, *self.until_jobs()))
-
-
-    def delete_omitfrom_jobs(self):
-        "Removes jobs downstream of jobs specified by --omit-from."
-        if not self.omitfromrules and not self.omitfromfiles:
-            return
-        downstream_jobs = list(self.downstream_of_omitfrom()) # need to cast as list before deleting jobs
-        # first, iterate through and update target jobs
-        for job in downstream_jobs:
-            if job in self.targetjobs:
-                self.targetjobs.remove(job)
-        # then, iterate again, this time deleting jobs
-        for job in downstream_jobs:
-            self.delete_job(job, recursive=False)
-
     def downstream_of_omitfrom(self):
         "Returns the downstream of --omit-from rules or files."
         return filter(lambda job: not self.in_omitfrom(job),
                       self.bfs(self.depending, *self.omitfrom_jobs()))
 
-    def delete_until_jobs(self):
+    def delete_omitfrom_jobs(self):
+        "Removes jobs downstream of jobs specified by --omit-from."
+        if not self.omitrules and not self.omitfiles:
+            return
+        downstream_jobs = list(self.downstream_of_omitfrom()) # need to cast as list before deleting jobs
+        for job in downstream_jobs:
+            self.delete_job(job, 
+                            recursive=False, 
+                            add_dependencies=True,
+                            delete_target=True)
+
+    def set_until_jobs(self):
         "Removes jobs downstream of jobs specified by --omit-from."
         if not self.untilrules and not self.untilfiles:
             return
-        downstream_jobs = list(self.downstream_of_until())
-        for job in downstream_jobs:
-            self.delete_job(job, recursive=False)
-            if job in self.targetjobs:
-                self.targetjobs.remove(job)
-
+        self.targetjobs = set(self.until_jobs())
 
     def update_priority(self):
         """ Update job priorities. """
@@ -696,7 +684,15 @@ class DAG:
                         self.replace_job(job_, newjob_)
         return newjob
 
-    def delete_job(self, job, recursive=True):
+    def delete_job(self, job, 
+                   recursive=True,
+                   add_dependencies=False,
+                   delete_target=False):
+        if job in self.targetjobs and delete_target:
+            self.targetjobs.remove(job)
+        if add_dependencies:
+            for _job in self.dependencies[job]:
+                self.targetjobs.add(_job)
         for job_ in self.depending[job]:
             del self.dependencies[job_][job]
         del self.depending[job]

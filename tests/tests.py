@@ -302,13 +302,15 @@ def test_shadow():
 
 def test_until():
     run(dpath("test_until"),
-        until=['leveltwo_first', # rule name
-               'leveltwo_second.txt']) # file name
+        until=["leveltwo_first", # rule name
+               "leveltwo_second.txt", # file name
+               "second_wildcard"]) # wildcard rule
 
 def test_omitfrom():
     run(dpath("test_omitfrom"), 
-        omit_from=['leveltwo_first', # rule name
-                  'leveltwo_second.txt']) # file name
+        omit_from=["leveltwo_first", # rule name
+                   "leveltwo_second.txt", # file name
+                   "second_wildcard"]) # wildcard rule
 
 def test_nonstr_params():
     run(dpath("test_nonstr_params"))

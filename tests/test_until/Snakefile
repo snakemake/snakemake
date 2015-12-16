@@ -1,6 +1,9 @@
 
 rule all: 
-    input: "levelthree.txt", "independent.txt"
+    input:
+        "levelthree.txt",
+        "independent.txt",
+        expand("test{num}.final", num=[1, 2])
 
 rule levelone:
     output: "levelone.txt"
@@ -26,3 +29,26 @@ rule levelthree: # should not be created
 rule independent: # should be created in --omit-from but not --until
     output: "independent.txt"
     shell: "touch {output}"
+
+###### Wildcard Rules #######
+
+rule zeroth_wildcard:
+    output: "test{num}.txt"
+    shell: "touch {output}"
+
+rule first_wildcard:
+    input: 'test{num}.txt'
+    output: 'test{num}.first'
+    shell: 'cp -f {input} {output}'
+
+rule second_wildcard:
+    input: 'test{num}.first'
+    output: 'test{num}.second'
+    shell: 'cp -f {input} {output}'
+
+rule final_wildcard:
+    input: 'test{num}.second'
+    output: 'test{num}.final'
+    shell: 'cp -f {input} {output}'
+
+

@@ -166,6 +166,7 @@ class Workflow:
                 forceall=False,
                 forcerun=None,
                 until=[],
+                omit_from=[],
                 prioritytargets=None,
                 quiet=False,
                 keepgoing=False,
@@ -233,6 +234,8 @@ class Workflow:
             forcerun = list()
         if until is None:
             until = list()
+        if omit_from is None:
+            omit_from = list()
 
         priorityrules = set(rules(prioritytargets))
         priorityfiles = set(files(prioritytargets))
@@ -240,6 +243,8 @@ class Workflow:
         forcefiles = set(files(forcerun))
         untilrules = set(rules(until))
         untilfiles = set(files(until))
+        omitrules = set(rules(omit_from))
+        omitfiles = set(files(omit_from))
         targetrules = set(chain(rules(targets),
                                 filterfalse(Rule.has_wildcards, priorityrules),
                                 filterfalse(Rule.has_wildcards, forcerules),
@@ -273,6 +278,8 @@ class Workflow:
             priorityrules=priorityrules,
             untilfiles=untilfiles,
             untilrules=untilrules,
+            omitfiles=omitfiles,
+            omitrules=omitrules,
             ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
             ignore_incomplete=ignore_incomplete or printdag or printrulegraph,
