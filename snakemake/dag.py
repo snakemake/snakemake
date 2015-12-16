@@ -753,14 +753,12 @@ class DAG:
                 pass
         return dependencies
 
-    def bfs(self, direction, *jobs, stop=lambda job: False, include=False):
+    def bfs(self, direction, *jobs, stop=lambda job: False):
         queue = list(jobs)
         visited = set(queue)
         while queue:
             job = queue.pop(0)
             if stop(job):
-                if include:
-                    yield job
                 # stop criterion reached for this node
                 continue
             yield job
