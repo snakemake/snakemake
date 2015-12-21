@@ -37,6 +37,7 @@ class Workflow:
                  overwrite_config=dict(),
                  overwrite_workdir=None,
                  overwrite_configfile=None,
+                 overwrite_clusterconfig=dict(),
                  config_args=None,
                  debug=False):
         """
@@ -64,6 +65,7 @@ class Workflow:
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config
         self.overwrite_configfile = overwrite_configfile
+        self.overwrite_clusterconfig = overwrite_clusterconfig
         self.config_args = config_args
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
@@ -73,6 +75,10 @@ class Workflow:
         global config
         config = dict()
         config.update(self.overwrite_config)
+
+        global cluster_config
+        cluster_config = dict()
+        cluster_config.update(self.overwrite_clusterconfig)
 
         global rules
         rules = Rules()
@@ -172,7 +178,6 @@ class Workflow:
                 printreason=False,
                 printdag=False,
                 cluster=None,
-                cluster_config=None,
                 cluster_sync=None,
                 jobname=None,
                 immediate_submit=False,
