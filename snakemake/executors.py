@@ -369,7 +369,7 @@ class ClusterExecutor(RealExecutor):
 
         target = job.output if job.output else job.rule.name
         wait_for_files = list(job.local_input) + [self.tmpdir]
-        if job.is_shadow:
+        if job.shadow_dir:
             wait_for_files.append(job.shadow_dir)
         format = partial(str.format,
                          job=job,
