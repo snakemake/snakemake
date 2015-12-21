@@ -581,7 +581,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
                         os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
                         print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
-                                                            jobscript),
+                                                            active_job.jobscript),
                                         self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
             time.sleep(1)
