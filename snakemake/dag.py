@@ -573,8 +573,7 @@ class DAG:
         for job in downstream_jobs:
             self.delete_job(job, 
                             recursive=False, 
-                            add_dependencies=True,
-                            delete_target=True)
+                            add_dependencies=True)
 
     def set_until_jobs(self):
         "Removes jobs downstream of jobs specified by --omit-from."
@@ -686,9 +685,8 @@ class DAG:
 
     def delete_job(self, job, 
                    recursive=True,
-                   add_dependencies=False,
-                   delete_target=False):
-        if job in self.targetjobs and delete_target:
+                   add_dependencies=False):
+        if job in self.targetjobs:
             self.targetjobs.remove(job)
         if add_dependencies:
             for _job in self.dependencies[job]:
@@ -714,6 +712,9 @@ class DAG:
             self._ready_jobs.remove(job)
 
     def replace_job(self, job, newjob):
+        if job in self.targetjobs:
+            self.targetjobs.remove(job)
+            self.targetjobs.add(newjob)
         depending = list(self.depending[job].items())
         if self.finished(job):
             self._finished.add(newjob)
@@ -725,9 +726,6 @@ class DAG:
             if not job_.dynamic_input:
                 self.dependencies[job_][newjob].update(files)
                 self.depending[newjob][job_].update(files)
-        if job in self.targetjobs:
-            self.targetjobs.remove(job)
-            self.targetjobs.add(newjob)
 
     def specialize_rule(self, rule, newrule):
         assert newrule is not None
