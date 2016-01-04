@@ -171,6 +171,8 @@ class Workflow:
                 forcetargets=False,
                 forceall=False,
                 forcerun=None,
+                until=[],
+                omit_from=[],
                 prioritytargets=None,
                 quiet=False,
                 keepgoing=False,
@@ -230,19 +232,29 @@ class Workflow:
         if not targets:
             targets = [self.first_rule
                        ] if self.first_rule is not None else list()
+                       
         if prioritytargets is None:
             prioritytargets = list()
         if forcerun is None:
             forcerun = list()
+        if until is None:
+            until = list()
+        if omit_from is None:
+            omit_from = list()
 
         priorityrules = set(rules(prioritytargets))
         priorityfiles = set(files(prioritytargets))
         forcerules = set(rules(forcerun))
         forcefiles = set(files(forcerun))
+        untilrules = set(rules(until))
+        untilfiles = set(files(until))
+        omitrules = set(rules(omit_from))
+        omitfiles = set(files(omit_from))
         targetrules = set(chain(rules(targets),
                                 filterfalse(Rule.has_wildcards, priorityrules),
-                                filterfalse(Rule.has_wildcards, forcerules)))
-        targetfiles = set(chain(files(targets), priorityfiles, forcefiles))
+                                filterfalse(Rule.has_wildcards, forcerules),
+                                filterfalse(Rule.has_wildcards, untilrules)))
+        targetfiles = set(chain(files(targets), priorityfiles, forcefiles, untilfiles))
         if forcetargets:
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
@@ -269,6 +281,10 @@ class Workflow:
             forcerules=forcerules,
             priorityfiles=priorityfiles,
             priorityrules=priorityrules,
+            untilfiles=untilfiles,
+            untilrules=untilrules,
+            omitfiles=omitfiles,
+            omitrules=omitrules,
             ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
             ignore_incomplete=ignore_incomplete or printdag or printrulegraph,
