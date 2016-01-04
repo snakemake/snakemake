@@ -463,8 +463,9 @@ class Job:
     def __eq__(self, other):
         if other is None:
             return False
-        return self.rule == other.rule and (
+        return (self.rule == other.rule and (
             self.dynamic_output or self.wildcards_dict == other.wildcards_dict)
+                and (self.dynamic_input or self.input == other.input))
 
     def __lt__(self, other):
         return self.rule.__lt__(other.rule)
