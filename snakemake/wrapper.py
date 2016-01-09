@@ -21,5 +21,4 @@ def wrapper(path, input, output, params, wildcards, threads, resources, log, con
     if not (path.endswith("wrapper.py") or path.endswith("wrapper.R")):
         path = os.path.join(path, "wrapper.py")
 
-    print(path)
     script("", path, input, output, params, wildcards, threads, resources, log, config)
