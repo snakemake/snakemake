@@ -14,7 +14,7 @@ def wrapper(path, input, output, params, wildcards, threads, resources, log, con
     """
     # TODO handle requirements.txt
 
-    if not path.startswith("http"):
+    if not path.startswith("http") or not path.startswith("file:"):
         path = "https://bitbucket.org/snakemake/snakemake-wrappers/raw/" + path
     if not (path.endswith("wrapper.py") or path.endswith("wrapper.R")):
         path += "wrapper.py"

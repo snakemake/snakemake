@@ -7,6 +7,7 @@ import inspect
 import os
 import traceback
 from urllib.request import urlopen
+from urllib.error import URLError
 
 from snakemake.utils import format
 from snakemake.logging import logger
