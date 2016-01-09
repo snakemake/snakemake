@@ -9,7 +9,7 @@ from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
-from snakemake.exceptions import FTPFileException
+from snakemake.exceptions import FTPFileException, WorkflowError
 import snakemake.io 
 
 try:

@@ -299,7 +299,7 @@ class ClusterExecutor(RealExecutor):
             'cd {workflow.workdir_init} && '
             '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
             '--force -j{cores} --keep-target-files --keep-shadow '
-            '--wait-for-files {local_input} --latency-wait {latency_wait} '
+            '--wait-for-files {wait_for_files} --latency-wait {latency_wait} '
             '--benchmark-repeats {benchmark_repeats} '
             '{overwrite_workdir} {overwrite_config} --nocolor '
             '--notemp --quiet --no-hooks --nolock {target}')
@@ -368,7 +368,9 @@ class ClusterExecutor(RealExecutor):
                 " ".join(self.workflow.config_args))
 
         target = job.output if job.output else job.rule.name
-        local_input = " ".join(job.local_input)
+        wait_for_files = list(job.local_input) + [self.tmpdir]
+        if job.shadow_dir:
+            wait_for_files.append(job.shadow_dir)
         format = partial(str.format,
                          job=job,
                          overwrite_workdir=overwrite_workdir,
@@ -378,7 +380,8 @@ class ClusterExecutor(RealExecutor):
                          properties=job.json(),
                          latency_wait=self.latency_wait,
                          benchmark_repeats=self.benchmark_repeats,
-                         target=target, local_input=local_input, **kwargs)
+                         target=target, wait_for_files=" ".join(wait_for_files),
+                         **kwargs)
         try:
             exec_job = format(self.exec_job)
             with open(jobscript, "w") as f:
@@ -578,7 +581,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
                         os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
                         print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
-                                                            jobscript),
+                                                            active_job.jobscript),
                                         self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
             time.sleep(1)

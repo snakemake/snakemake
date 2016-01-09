@@ -42,6 +42,8 @@ def snakemake(snakefile,
               forcetargets=False,
               forceall=False,
               forcerun=[],
+              until=[],
+              omit_from=[],
               prioritytargets=[],
               stats=None,
               printreason=False,
@@ -272,6 +274,7 @@ def snakemake(snakefile,
                         overwrite_config=overwrite_config,
                         overwrite_workdir=workdir,
                         overwrite_configfile=configfile,
+                        overwrite_clusterconfig=cluster_config,
                         config_args=config_args,
                         debug=debug)
 
@@ -313,7 +316,6 @@ def snakemake(snakefile,
                                        quiet=quiet,
                                        keepgoing=keepgoing,
                                        cluster=cluster,
-                                       cluster_config=cluster_config,
                                        cluster_sync=cluster_sync,
                                        drmaa=drmaa,
                                        jobname=jobname,
@@ -351,6 +353,8 @@ def snakemake(snakefile,
                     forceall=forceall,
                     forcerun=forcerun,
                     prioritytargets=prioritytargets,
+                    until=until,
+                    omit_from=omit_from,
                     quiet=quiet,
                     keepgoing=keepgoing,
                     printshellcmds=printshellcmds,
@@ -358,7 +362,6 @@ def snakemake(snakefile,
                     printrulegraph=printrulegraph,
                     printdag=printdag,
                     cluster=cluster,
-                    cluster_config=cluster_config,
                     cluster_sync=cluster_sync,
                     jobname=jobname,
                     drmaa=drmaa,
@@ -512,7 +515,7 @@ def get_argument_parser():
               "resources: gpu=1. If now two rules require 1 of the resource "
               "'gpu' they won't be run in parallel by the scheduler."))
     parser.add_argument(
-        "--config",
+        "--config", "-C",
         nargs="*",
         metavar="KEY=VALUE",
         help=
@@ -624,6 +627,21 @@ def get_argument_parser():
         metavar="TARGET",
         help=("Tell the scheduler to assign creation of given targets "
               "(and all their dependencies) highest priority. (EXPERIMENTAL)"))
+    parser.add_argument(
+        "--until", "-U",
+        nargs="+",
+        metavar="TARGET",
+        help=("Runs the pipeline until it reaches the specified rules or "
+              "files. Only runs jobs that are dependencies of the specified "
+              "rule or files, does not run sibling DAGs. "))
+    parser.add_argument(
+        "--omit-from", "-O",
+        nargs="+",
+        metavar="TARGET",
+        help=("Prevent the execution or creation of the given rules or files "
+              "as well as any rules or files that are downstream of these targets "
+              "in the DAG. Also runs jobs in sibling DAGs that are independent of the "
+              "rules or files specified here."))
     parser.add_argument(
         "--allow-ambiguity", "-a",
         action="store_true",
@@ -945,6 +963,8 @@ def main():
                             forceall=args.forceall,
                             forcerun=args.forcerun,
                             prioritytargets=args.prioritize,
+                            until=args.until,
+                            omit_from=args.omit_from,
                             stats=args.stats,
                             nocolor=args.nocolor,
                             quiet=args.quiet,

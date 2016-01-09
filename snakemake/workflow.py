@@ -27,6 +27,7 @@ from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildc
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
+from snakemake.wrapper import wrapper
 
 class Workflow:
     def __init__(self,
@@ -37,6 +38,7 @@ class Workflow:
                  overwrite_config=dict(),
                  overwrite_workdir=None,
                  overwrite_configfile=None,
+                 overwrite_clusterconfig=dict(),
                  config_args=None,
                  debug=False):
         """
@@ -64,6 +66,7 @@ class Workflow:
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config
         self.overwrite_configfile = overwrite_configfile
+        self.overwrite_clusterconfig = overwrite_clusterconfig
         self.config_args = config_args
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
@@ -73,6 +76,10 @@ class Workflow:
         global config
         config = dict()
         config.update(self.overwrite_config)
+
+        global cluster_config
+        cluster_config = dict()
+        cluster_config.update(self.overwrite_clusterconfig)
 
         global rules
         rules = Rules()
@@ -165,6 +172,8 @@ class Workflow:
                 forcetargets=False,
                 forceall=False,
                 forcerun=None,
+                until=[],
+                omit_from=[],
                 prioritytargets=None,
                 quiet=False,
                 keepgoing=False,
@@ -172,7 +181,6 @@ class Workflow:
                 printreason=False,
                 printdag=False,
                 cluster=None,
-                cluster_config=None,
                 cluster_sync=None,
                 jobname=None,
                 immediate_submit=False,
@@ -225,19 +233,29 @@ class Workflow:
         if not targets:
             targets = [self.first_rule
                        ] if self.first_rule is not None else list()
+                       
         if prioritytargets is None:
             prioritytargets = list()
         if forcerun is None:
             forcerun = list()
+        if until is None:
+            until = list()
+        if omit_from is None:
+            omit_from = list()
 
         priorityrules = set(rules(prioritytargets))
         priorityfiles = set(files(prioritytargets))
         forcerules = set(rules(forcerun))
         forcefiles = set(files(forcerun))
+        untilrules = set(rules(until))
+        untilfiles = set(files(until))
+        omitrules = set(rules(omit_from))
+        omitfiles = set(files(omit_from))
         targetrules = set(chain(rules(targets),
                                 filterfalse(Rule.has_wildcards, priorityrules),
-                                filterfalse(Rule.has_wildcards, forcerules)))
-        targetfiles = set(chain(files(targets), priorityfiles, forcefiles))
+                                filterfalse(Rule.has_wildcards, forcerules),
+                                filterfalse(Rule.has_wildcards, untilrules)))
+        targetfiles = set(chain(files(targets), priorityfiles, forcefiles, untilfiles))
         if forcetargets:
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
@@ -264,6 +282,10 @@ class Workflow:
             forcerules=forcerules,
             priorityfiles=priorityfiles,
             priorityrules=priorityrules,
+            untilfiles=untilfiles,
+            untilrules=untilrules,
+            omitfiles=omitfiles,
+            omitrules=omitrules,
             ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
             ignore_incomplete=ignore_incomplete or printdag or printrulegraph,
