@@ -4,6 +4,8 @@ __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 
+import os
+
 from snakemake.script import script
 
 
@@ -15,8 +17,9 @@ def wrapper(path, input, output, params, wildcards, threads, resources, log, con
     # TODO handle requirements.txt
 
     if not path.startswith("http") or not path.startswith("file:"):
-        path = "https://bitbucket.org/snakemake/snakemake-wrappers/raw/" + path
+        path = os.path.join("https://bitbucket.org/snakemake/snakemake-wrappers/raw", path)
     if not (path.endswith("wrapper.py") or path.endswith("wrapper.R")):
-        path += "wrapper.py"
+        path = os.path.join(path, "wrapper.py")
 
+    print(path)
     script("", path, input, output, params, wildcards, threads, resources, log, config)
