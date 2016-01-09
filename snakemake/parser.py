@@ -520,6 +520,15 @@ class Script(Run):
         yield token.string, token
 
 
+class Wrapper(Script):
+    def start(self):
+        for t in super(Script, self).start():
+            yield t
+        yield "\n"
+        yield INDENT * (self.effective_indent + 1)
+        yield 'wrapper('
+
+
 class Rule(GlobalKeywordState):
     subautomata = dict(input=Input,
                        output=Output,
@@ -534,7 +543,8 @@ class Rule(GlobalKeywordState):
                        shadow=Shadow,
                        run=Run,
                        shell=Shell,
-                       script=Script)
+                       script=Script,
+                       wrapper=Wrapper)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,
@@ -582,7 +592,7 @@ class Rule(GlobalKeywordState):
     def block_content(self, token):
         if is_name(token):
             try:
-                if token.string == "run" or token.string == "shell" or token.string == "script":
+                if token.string == "run" or token.string == "shell" or token.string == "script" or token.string == "wrapper":
                     if self.run:
                         raise self.error(
                             "Multiple run or shell keywords in rule {}.".format(

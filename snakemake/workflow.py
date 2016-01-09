@@ -27,6 +27,7 @@ from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildc
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
+from snakemake.wrapper import wrapper
 
 class Workflow:
     def __init__(self,
