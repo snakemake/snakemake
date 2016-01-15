@@ -82,6 +82,7 @@ def script(basedir, path, input, output, params, wildcards, threads, resources,
     Supports Python 3 and R.
     """
     if not path.startswith("http"):
+        path = path.lstrip("file://")
         path = "file://" + os.path.abspath(os.path.join(basedir, path))
     path = format(path, stepout=1)
 
