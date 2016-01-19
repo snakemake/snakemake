@@ -571,8 +571,8 @@ class DAG:
             return
         downstream_jobs = list(self.downstream_of_omitfrom()) # need to cast as list before deleting jobs
         for job in downstream_jobs:
-            self.delete_job(job, 
-                            recursive=False, 
+            self.delete_job(job,
+                            recursive=False,
                             add_dependencies=True)
 
     def set_until_jobs(self):
@@ -683,7 +683,7 @@ class DAG:
                         self.replace_job(job_, newjob_)
         return newjob
 
-    def delete_job(self, job, 
+    def delete_job(self, job,
                    recursive=True,
                    add_dependencies=False):
         if job in self.targetjobs:

@@ -146,9 +146,10 @@ class Job:
     def expanded_shadowed_output(self):
         """ Get the paths of output files, resolving shadow directory. """
         if not self.shadow_dir:
-            return self.expanded_output
-        for f in self.expanded_output:
-            yield os.path.join(self.shadow_dir, f)
+            yield from self.expanded_output
+        else:
+            for f in self.expanded_output:
+                yield os.path.join(self.shadow_dir, f)
 
     @property
     def dynamic_wildcards(self):
