@@ -36,10 +36,11 @@ class Persistence:
         self._input_path = os.path.join(self.path, "input_tracking")
         self._params_path = os.path.join(self.path, "params_tracking")
         self._shellcmd_path = os.path.join(self.path, "shellcmd_tracking")
+        self.shadow_path = os.path.join(self.path, "shadow")
 
         for d in (self._incomplete_path, self._version_path, self._code_path,
                   self._rule_path, self._input_path, self._params_path,
-                  self._shellcmd_path):
+                  self._shellcmd_path, self.shadow_path):
             if not os.path.exists(d):
                 os.mkdir(d)
 
@@ -109,6 +110,11 @@ class Persistence:
         self._delete_record(self._input_path, path)
         self._delete_record(self._params_path, path)
         self._delete_record(self._shellcmd_path, path)
+
+    def cleanup_shadow(self):
+        if os.path.exists(self.shadow_path):
+            shutil.rmtree(self.shadow_path)
+            os.mkdir(self.shadow_path)
 
     def started(self, job):
         for f in job.output:
@@ -209,7 +215,7 @@ class Persistence:
 
     @lru_cache()
     def _params(self, job):
-        return "\n".join(sorted(job.params))
+        return "\n".join(sorted(map(repr, job.params)))
 
     @lru_cache()
     def _output(self, job):

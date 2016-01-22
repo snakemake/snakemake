@@ -3,20 +3,24 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import os
+import shutil
 import textwrap
 import time
 from collections import defaultdict, Counter
 from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
+from inspect import isfunction, ismethod
 from operator import itemgetter, attrgetter
 
-from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files
+from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
 from snakemake.jobs import Job, Reason
 from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException
 from snakemake.exceptions import PeriodicWildcardError
+from snakemake.exceptions import RemoteFileException
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
@@ -33,6 +37,10 @@ class DAG:
                  forcefiles=None,
                  priorityfiles=None,
                  priorityrules=None,
+                 untilfiles=None,
+                 untilrules=None,
+                 omitfiles=None,
+                 omitrules=None,
                  ignore_ambiguity=False,
                  force_incomplete=False,
                  ignore_incomplete=False,
@@ -44,6 +52,7 @@ class DAG:
         self._needrun = set()
         self._priority = dict()
         self._downstream_size = dict()
+        self._temp_input_count = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
         self._dynamic = set()
@@ -63,6 +72,10 @@ class DAG:
 
         self.forcerules = set()
         self.forcefiles = set()
+        self.untilrules = set()
+        self.untilfiles = set()
+        self.omitrules = set()
+        self.omitfiles = set()
         self.updated_subworkflow_files = set()
         if forceall:
             self.forcerules.update(self.rules)
@@ -70,6 +83,15 @@ class DAG:
             self.forcerules.update(forcerules)
         if forcefiles:
             self.forcefiles.update(forcefiles)
+        if untilrules: # keep only the rule names
+            self.untilrules.update(set(rule.name for rule in untilrules))
+        if untilfiles:
+            self.untilfiles.update(untilfiles)
+        if omitrules:
+            self.omitrules.update(set(rule.name for rule in omitrules))
+        if omitfiles:
+            self.omitfiles.update(omitfiles)
+
         self.omitforce = set()
 
         self.force_incomplete = force_incomplete
@@ -90,6 +112,9 @@ class DAG:
             self.targetjobs.add(job)
 
         self.update_needrun()
+        self.set_until_jobs()
+        self.delete_omitfrom_jobs()
+
 
     def update_output_index(self):
         self.output_index = OutputIndex(self.rules)
@@ -160,14 +185,8 @@ class DAG:
     def downstream_size(self, job):
         return self._downstream_size[job]
 
-    def _job_values(self, jobs, values):
-        return [values[job] for job in jobs]
-
-    def priorities(self, jobs):
-        return self._job_values(jobs, self._priority)
-
-    def downstream_sizes(self, jobs):
-        return self._job_values(jobs, self._downstream_size)
+    def temp_input_count(self, job):
+        return self._temp_input_count[job]
 
     def noneedrun_finished(self, job):
         """
@@ -222,7 +241,7 @@ class DAG:
     def check_output(self, job, wait=3):
         """ Raise exception if output files of job are missing. """
         try:
-            wait_for_files(job.expanded_output, latency_wait=wait)
+            wait_for_files(job.expanded_shadowed_output, latency_wait=wait)
         except IOError as e:
             raise MissingOutputException(str(e), rule=job.rule)
 
@@ -237,6 +256,20 @@ class DAG:
                     "archive, e.g. by using 'touch'.".format(
                         ", ".join(job.expanded_output)),
                     rule=job.rule)
+
+    def unshadow_output(self, job):
+        """ Move files from shadow directory to real output paths. """
+        if not job.shadow_dir or not job.expanded_output:
+            return
+        cwd = os.getcwd()
+        for real_output in job.expanded_output:
+            shadow_output = os.path.join(job.shadow_dir, real_output)
+            if os.path.realpath(shadow_output) == os.path.realpath(real_output):
+                continue
+            logger.info("Moving shadow output {} to destination {}".format(
+                shadow_output, real_output))
+            shutil.move(shadow_output, real_output)
+        shutil.rmtree(job.shadow_dir)
 
     def check_periodic_wildcards(self, job):
         """ Raise an exception if a wildcard of the given job appears to be periodic,
@@ -266,6 +299,12 @@ class DAG:
                 logger.info("Touching output file {}.".format(f))
                 f.touch_or_create()
 
+    def temp_input(self, job):
+        for job_, files in self.dependencies[job].items():
+            for f in filter(job_.temp_output.__contains__, files):
+                yield f
+
+
     def handle_temp(self, job):
         """ Remove temp files if they are no longer needed. """
         if self.notemp:
@@ -287,6 +326,52 @@ class DAG:
         for f in unneeded_files():
             logger.info("Removing temporary output file {}.".format(f))
             f.remove()
+
+    def handle_remote(self, job):
+        """ Remove local files if they are no longer needed, and upload to S3. """
+
+        needed = lambda job_, f: any(
+            f in files for j, files in self.depending[job_].items()
+            if not self.finished(j) and self.needrun(j) and j != job)
+
+        def unneeded_files():
+            putative = lambda f: f.is_remote and not f.protected and not f.should_keep_local
+            generated_input = set()
+            for job_, files in self.dependencies[job].items():
+                generated_input |= files
+                for f in filter(putative, files):
+                    if not needed(job_, f):
+                        yield f
+            for f in filter(putative, job.output):
+                if not needed(job, f) and not f in self.targetfiles:
+                    for f_ in job.expand_dynamic(f):
+                        yield f
+            for f in filter(putative, job.input):
+                # TODO what about remote inputs that are used by multiple jobs?
+                if f not in generated_input:
+                    yield f
+
+        for f in job.expanded_output:
+            if f.is_remote and not f.exists_remote:
+                f.upload_to_remote()
+                remote_mtime = f.mtime
+                # immediately force local mtime to match remote,
+                # since conversions from S3 headers are not 100% reliable
+                # without this, newness comparisons may fail down the line
+                f.touch(times=(remote_mtime, remote_mtime))
+
+                if not f.exists_remote:
+                    raise RemoteFileException(
+                        "The file upload was attempted, but it does not "
+                        "exist on remote. Check that your credentials have "
+                        "read AND write permissions.")
+
+        for f in unneeded_files():
+            logger.info("Removing local output file: {}".format(f))
+            f.remove()
+
+        job.rmdir_empty_remote_dirs()
+
 
     def jobid(self, job):
         if job not in self._jobid:
@@ -457,6 +542,45 @@ class DAG:
 
         self._len = len(_needrun)
 
+
+    def in_until(self, job):
+        return (job.rule.name in self.untilrules or
+                not self.untilfiles.isdisjoint(job.output))
+
+
+    def in_omitfrom(self, job):
+        return (job.rule.name in self.omitrules or
+                not self.omitfiles.isdisjoint(job.output))
+
+    def until_jobs(self):
+        'Returns a generator of jobs specified by untiljobs'
+        return (job for job in self.jobs if self.in_until(job))
+
+    def omitfrom_jobs(self):
+        'Returns a generator of jobs specified by omitfromjobs'
+        return (job for job in self.jobs if self.in_omitfrom(job))
+
+    def downstream_of_omitfrom(self):
+        "Returns the downstream of --omit-from rules or files."
+        return filter(lambda job: not self.in_omitfrom(job),
+                      self.bfs(self.depending, *self.omitfrom_jobs()))
+
+    def delete_omitfrom_jobs(self):
+        "Removes jobs downstream of jobs specified by --omit-from."
+        if not self.omitrules and not self.omitfiles:
+            return
+        downstream_jobs = list(self.downstream_of_omitfrom()) # need to cast as list before deleting jobs
+        for job in downstream_jobs:
+            self.delete_job(job,
+                            recursive=False,
+                            add_dependencies=True)
+
+    def set_until_jobs(self):
+        "Removes jobs downstream of jobs specified by --omit-from."
+        if not self.untilrules and not self.untilfiles:
+            return
+        self.targetjobs = set(self.until_jobs())
+
     def update_priority(self):
         """ Update job priorities. """
         prioritized = (lambda job: job.rule in self.priorityrules or
@@ -480,11 +604,16 @@ class DAG:
                 1 for _ in self.bfs(self.depending, job,
                                     stop=self.noneedrun_finished)) - 1
 
+    def update_temp_input_count(self):
+        for job in self.needrun_jobs:
+            self._temp_input_count[job] = sum(1 for _ in self.temp_input(job))
+
     def postprocess(self):
         self.update_needrun()
         self.update_priority()
         self.update_ready()
         self.update_downstream_size()
+        self.update_temp_input_count()
 
     def _ready(self, job):
         return self._finished.issuperset(
@@ -554,7 +683,14 @@ class DAG:
                         self.replace_job(job_, newjob_)
         return newjob
 
-    def delete_job(self, job, recursive=True):
+    def delete_job(self, job,
+                   recursive=True,
+                   add_dependencies=False):
+        if job in self.targetjobs:
+            self.targetjobs.remove(job)
+        if add_dependencies:
+            for _job in self.dependencies[job]:
+                self.targetjobs.add(_job)
         for job_ in self.depending[job]:
             del self.dependencies[job_][job]
         del self.depending[job]
@@ -576,6 +712,9 @@ class DAG:
             self._ready_jobs.remove(job)
 
     def replace_job(self, job, newjob):
+        if job in self.targetjobs:
+            self.targetjobs.remove(job)
+            self.targetjobs.add(newjob)
         depending = list(self.depending[job].items())
         if self.finished(job):
             self._finished.add(newjob)
@@ -587,9 +726,6 @@ class DAG:
             if not job_.dynamic_input:
                 self.dependencies[job_][newjob].update(files)
                 self.depending[newjob][job_].update(files)
-        if job in self.targetjobs:
-            self.targetjobs.remove(job)
-            self.targetjobs.add(newjob)
 
     def specialize_rule(self, rule, newrule):
         assert newrule is not None
@@ -664,6 +800,7 @@ class DAG:
                     yield j
         if post:
             yield job
+
 
     def is_isomorph(self, job1, job2):
         if job1.rule != job2.rule:

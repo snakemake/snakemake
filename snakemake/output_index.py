@@ -16,7 +16,7 @@ class Node:
         self.children = defaultdict(Node)
 
     def __repr__(self):
-        return "({}) -> {}".format(self.rules, dict(self.children))
+        return "({}) -> {}".format(list(map(str, self.rules)), dict(self.children))
 
 
 class OutputIndex:
@@ -27,7 +27,8 @@ class OutputIndex:
             output = list(rule.output)
             if rule.benchmark:
                 output.append(rule.benchmark)
-            for constant_prefix in sorted(map(_IOFile.constant_prefix, output)):
+            for constant_prefix in sorted(map(_IOFile.constant_prefix,
+                                              output)):
                 self.add_output(rule, constant_prefix)
 
     def add_output(self, rule, constant_prefix):

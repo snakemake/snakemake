@@ -8,9 +8,9 @@ import re
 import sys
 import inspect
 import sre_constants
-from collections import defaultdict
+from collections import defaultdict, Iterable
 
-from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist
+from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException
@@ -40,6 +40,7 @@ class Rule:
             self.protected_output = set()
             self.touch_output = set()
             self.subworkflow_input = dict()
+            self.shadow_depth = None
             self.resources = dict(_cores=1, _nodes=1)
             self.priority = 0
             self.version = None
@@ -50,6 +51,7 @@ class Rule:
             self.snakefile = snakefile
             self.run_func = None
             self.shellcmd = None
+            self.script = None
             self.norun = False
         elif len(args) == 1:
             other = args[0]
@@ -67,6 +69,7 @@ class Rule:
             self.protected_output = set(other.protected_output)
             self.touch_output = set(other.touch_output)
             self.subworkflow_input = dict(other.subworkflow_input)
+            self.shadow_depth = other.shadow_depth
             self.resources = other.resources
             self.priority = other.priority
             self.version = other.version
@@ -77,6 +80,7 @@ class Rule:
             self.snakefile = other.snakefile
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
+            self.script = other.script
             self.norun = other.norun
 
     def dynamic_branch(self, wildcards, input=True):
@@ -84,6 +88,22 @@ class Rule:
             return (rule.input, rule.dynamic_input) if input else (
                 rule.output, rule.dynamic_output
             )
+
+        def partially_expand(f, wildcards):
+            """Expand the wildcards in f from the ones present in wildcards
+
+            This is done by replacing all wildcard delimiters by `{{` or `}}`
+            that are not in `wildcards.keys()`.
+            """
+            # perform the partial expansion from f's string representation
+            s = str(f).replace('{', '{{').replace('}', '}}')
+            for key in wildcards.keys():
+                s = s.replace('{{{{{}}}}}'.format(key),
+                              '{{{}}}'.format(key))
+            # build result
+            anno_s = AnnotatedString(s)
+            anno_s.flags = f.flags
+            return IOFile(anno_s, f.rule)
 
         io, dynamic_io = get_io(self)
 
@@ -93,9 +113,15 @@ class Rule:
         expansion = defaultdict(list)
         for i, f in enumerate(io):
             if f in dynamic_io:
+                f = partially_expand(f, wildcards)
                 try:
                     for e in reversed(expand(f, zip, **wildcards)):
-                        expansion[i].append(IOFile(e, rule=branch))
+                        # need to clone the flags so intermediate
+                        # dynamic remote file paths are expanded and
+                        # removed appropriately
+                        ioFile = IOFile(e, rule=branch)
+                        ioFile.clone_flags(f)
+                        expansion[i].append(ioFile)
                 except KeyError:
                     return None
 
@@ -269,7 +295,7 @@ class Rule:
             self._set_params_item(item, name=name)
 
     def _set_params_item(self, item, name=None):
-        if isinstance(item, str) or callable(item):
+        if not_iterable(item) or callable(item):
             self.params.append(item)
             if name:
                 self.params.add_name(name)
@@ -324,38 +350,44 @@ class Rule:
                                          fill_missing=f in self.dynamic_input,
                                          fail_dynamic=self.dynamic_output)
 
+        def concretize_param(p, wildcards):
+            if isinstance(p, str):
+                return apply_wildcards(p, wildcards)
+            return p
+
+        def check_input_function(f):
+            if (not_iterable(f) and not isinstance(f, str)) or not all(isinstance(f_, str) for f_ in f):
+                raise RuleException(
+                    "Input function did not return str or list of str.",
+                    rule=self)
+
+        def check_param_function(f):
+            pass
+
         def _apply_wildcards(newitems, olditems, wildcards, wildcards_obj,
                              concretize=apply_wildcards,
+                             check_function_return=check_input_function,
                              ruleio=None):
             for name, item in olditems.allitems():
                 start = len(newitems)
                 is_iterable = True
+
                 if callable(item):
                     try:
                         item = item(wildcards_obj)
                     except (Exception, BaseException) as e:
                         raise InputFunctionException(e, rule=self)
-                    if not_iterable(item):
-                        item = [item]
-                        is_iterable = False
-                    for item_ in item:
-                        if not isinstance(item_, str):
-                            raise RuleException(
-                                "Input function did not return str or list of str.",
-                                rule=self)
-                        concrete = concretize(item_, wildcards)
-                        newitems.append(concrete)
-                        if ruleio is not None:
-                            ruleio[concrete] = item_
-                else:
-                    if not_iterable(item):
-                        item = [item]
-                        is_iterable = False
-                    for item_ in item:
-                        concrete = concretize(item_, wildcards)
-                        newitems.append(concrete)
-                        if ruleio is not None:
-                            ruleio[concrete] = item_
+                    check_function_return(item)
+
+                if not_iterable(item):
+                    item = [item]
+                    is_iterable = False
+                for item_ in item:
+                    concrete = concretize(item_, wildcards)
+                    newitems.append(concrete)
+                    if ruleio is not None:
+                        ruleio[concrete] = item_
+
                 if name:
                     newitems.set_name(
                         name, start,
@@ -382,7 +414,9 @@ class Rule:
                              ruleio=ruleio)
 
             params = Params()
-            _apply_wildcards(params, self.params, wildcards, wildcards_obj)
+            _apply_wildcards(params, self.params, wildcards, wildcards_obj,
+                             concretize=concretize_param,
+                             check_function_return=check_param_function)
 
             output = OutputFiles(o.apply_wildcards(wildcards)
                                  for o in self.output)

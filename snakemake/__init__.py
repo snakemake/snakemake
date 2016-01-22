@@ -42,6 +42,8 @@ def snakemake(snakefile,
               forcetargets=False,
               forceall=False,
               forcerun=[],
+              until=[],
+              omit_from=[],
               prioritytargets=[],
               stats=None,
               printreason=False,
@@ -81,6 +83,7 @@ def snakemake(snakefile,
               notemp=False,
               nodeps=False,
               keep_target_files=False,
+              keep_shadow=False,
               allowed_rules=None,
               jobscript=None,
               timestamp=False,
@@ -151,6 +154,7 @@ def snakemake(snakefile,
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
         nodeps (bool):              ignore dependencies (default False)
         keep_target_files (bool):   Do not adjust the paths of given target files relative to the working directory.
+        keep_shadow (bool):         Do not delete the shadow directory on snakemake startup.
         allowed_rules (set):        Restrict allowed rules to the given set. If None or empty, all rules are used.
         jobscript (str):            path to a custom shell script template for cluster jobs (default None)
         timestamp (bool):           print time stamps in front of any output (default False)
@@ -270,6 +274,7 @@ def snakemake(snakefile,
                         overwrite_config=overwrite_config,
                         overwrite_workdir=workdir,
                         overwrite_configfile=configfile,
+                        overwrite_clusterconfig=cluster_config,
                         config_args=config_args,
                         debug=debug)
 
@@ -311,7 +316,6 @@ def snakemake(snakefile,
                                        quiet=quiet,
                                        keepgoing=keepgoing,
                                        cluster=cluster,
-                                       cluster_config=cluster_config,
                                        cluster_sync=cluster_sync,
                                        drmaa=drmaa,
                                        jobname=jobname,
@@ -336,7 +340,8 @@ def snakemake(snakefile,
                                        overwrite_shellcmd=overwrite_shellcmd,
                                        config=config,
                                        config_args=config_args,
-                                       keep_logger=True)
+                                       keep_logger=True,
+                                       keep_shadow=True)
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
@@ -348,6 +353,8 @@ def snakemake(snakefile,
                     forceall=forceall,
                     forcerun=forcerun,
                     prioritytargets=prioritytargets,
+                    until=until,
+                    omit_from=omit_from,
                     quiet=quiet,
                     keepgoing=keepgoing,
                     printshellcmds=printshellcmds,
@@ -355,7 +362,6 @@ def snakemake(snakefile,
                     printrulegraph=printrulegraph,
                     printdag=printdag,
                     cluster=cluster,
-                    cluster_config=cluster_config,
                     cluster_sync=cluster_sync,
                     jobname=jobname,
                     drmaa=drmaa,
@@ -380,6 +386,7 @@ def snakemake(snakefile,
                     notemp=notemp,
                     nodeps=nodeps,
                     keep_target_files=keep_target_files,
+                    keep_shadow=keep_shadow,
                     cleanup_metadata=cleanup_metadata,
                     subsnakemake=subsnakemake,
                     updated_files=updated_files,
@@ -446,7 +453,9 @@ def parse_config(args):
             for parser in parsers:
                 try:
                     v = parser(val)
-                    break
+                    # avoid accidental interpretation as function
+                    if not isinstance(v, callable):
+                        break
                 except:
                     pass
             assert v is not None
@@ -506,7 +515,7 @@ def get_argument_parser():
               "resources: gpu=1. If now two rules require 1 of the resource "
               "'gpu' they won't be run in parallel by the scheduler."))
     parser.add_argument(
-        "--config",
+        "--config", "-C",
         nargs="*",
         metavar="KEY=VALUE",
         help=
@@ -618,6 +627,21 @@ def get_argument_parser():
         metavar="TARGET",
         help=("Tell the scheduler to assign creation of given targets "
               "(and all their dependencies) highest priority. (EXPERIMENTAL)"))
+    parser.add_argument(
+        "--until", "-U",
+        nargs="+",
+        metavar="TARGET",
+        help=("Runs the pipeline until it reaches the specified rules or "
+              "files. Only runs jobs that are dependencies of the specified "
+              "rule or files, does not run sibling DAGs. "))
+    parser.add_argument(
+        "--omit-from", "-O",
+        nargs="+",
+        metavar="TARGET",
+        help=("Prevent the execution or creation of the given rules or files "
+              "as well as any rules or files that are downstream of these targets "
+              "in the DAG. Also runs jobs in sibling DAGs that are independent of the "
+              "rules or files specified here."))
     parser.add_argument(
         "--allow-ambiguity", "-a",
         action="store_true",
@@ -788,6 +812,11 @@ def get_argument_parser():
         help=
         "Do not adjust the paths of given target files relative to the working directory.")
     parser.add_argument(
+        "--keep-shadow",
+        action="store_true",
+        help=
+        "Do not delete the shadow directory on snakemake startup.")
+    parser.add_argument(
         "--allowed-rules",
         nargs="+",
         help=
@@ -847,7 +876,8 @@ def main():
     args = parser.parse_args()
 
     if args.bash_completion:
-        print("complete -C snakemake-bash-completion snakemake")
+        cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
+        sys.stdout.buffer.write(cmd)
         sys.exit(0)
 
     snakemakepath = sys.argv[0]
@@ -933,6 +963,8 @@ def main():
                             forceall=args.forceall,
                             forcerun=args.forcerun,
                             prioritytargets=args.prioritize,
+                            until=args.until,
+                            omit_from=args.omit_from,
                             stats=args.stats,
                             nocolor=args.nocolor,
                             quiet=args.quiet,
@@ -970,6 +1002,7 @@ def main():
                             benchmark_repeats=args.benchmark_repeats,
                             wait_for_files=args.wait_for_files,
                             keep_target_files=args.keep_target_files,
+                            keep_shadow=args.keep_shadow,
                             allowed_rules=args.allowed_rules)
 
     if args.profile:
@@ -987,30 +1020,31 @@ def bash_completion(snakefile="Snakefile"):
             "Calculate bash completion for snakemake. This tool shall not be invoked by hand.")
         sys.exit(1)
 
+    def print_candidates(candidates):
+        if candidates:
+            candidates = sorted(set(candidates))
+            ## Use bytes for avoiding '^M' under Windows.
+            sys.stdout.buffer.write(b'\n'.join(s.encode() for s in candidates))
+
     prefix = sys.argv[2]
 
     if prefix.startswith("-"):
-        opts = [action.option_strings[0]
-                for action in get_argument_parser()._actions
-                if action.option_strings and
-                action.option_strings[0].startswith(prefix)]
-        print(*opts, sep="\n")
+        print_candidates(action.option_strings[0]
+                         for action in get_argument_parser()._actions
+                         if action.option_strings and
+                         action.option_strings[0].startswith(prefix))
     else:
         files = glob.glob("{}*".format(prefix))
         if files:
-            print(*files, sep="\n")
+            print_candidates(files)
         elif os.path.exists(snakefile):
             workflow = Workflow(snakefile=snakefile, snakemakepath="snakemake")
             workflow.include(snakefile)
 
-            workflow_files = sorted(set(file
-                                        for file in workflow.concrete_files
-                                        if file.startswith(prefix)))
-            if workflow_files:
-                print(*workflow_files, sep="\n")
-
-            rules = [rule.name for rule in workflow.rules
-                     if rule.name.startswith(prefix)]
-            if rules:
-                print(*rules, sep="\n")
+            print_candidates([file
+                              for file in workflow.concrete_files
+                              if file.startswith(prefix)] +
+                             [rule.name
+                              for rule in workflow.rules
+                              if rule.name.startswith(prefix)])
     sys.exit(0)

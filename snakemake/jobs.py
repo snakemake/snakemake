@@ -7,13 +7,14 @@ import os
 import sys
 import base64
 import json
+import tempfile
 
 from collections import defaultdict
 from itertools import chain
 from functools import partial
 from operator import attrgetter
 
-from snakemake.io import IOFile, Wildcards, Resources, _IOFile
+from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException
 from snakemake.exceptions import UnexpectedOutputException
@@ -47,6 +48,7 @@ class Job:
         }
         self.threads = self.resources_dict["_cores"]
         self.resources = Resources(fromdict=self.resources_dict)
+        self.shadow_dir = None
         self._inputsize = None
 
         self.dynamic_output, self.dynamic_input = set(), set()
@@ -73,6 +75,10 @@ class Job:
         if True or not self.dynamic_output:
             for o in self.output:
                 self._hash ^= o.__hash__()
+
+    @property
+    def is_shadow(self):
+        return self.rule.shadow_depth is not None
 
     @property
     def priority(self):
@@ -124,16 +130,26 @@ class Job:
         """ Iterate over output files while dynamic output is expanded. """
         for f, f_ in zip(self.output, self.rule.output):
             if f in self.dynamic_output:
-                expansion = self.expand_dynamic(
-                    f_,
-                    restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill)
+                expansion = self.expand_dynamic(f_)
                 if not expansion:
                     yield f_
                 for f, _ in expansion:
-                    yield IOFile(f, self.rule)
+                    file_to_yield = IOFile(f, self.rule)
+
+                    file_to_yield.clone_flags(f_)
+
+                    yield file_to_yield
             else:
                 yield f
+
+    @property
+    def expanded_shadowed_output(self):
+        """ Get the paths of output files, resolving shadow directory. """
+        if not self.shadow_dir:
+            yield from self.expanded_output
+        else:
+            for f in self.expanded_output:
+                yield os.path.join(self.shadow_dir, f)
 
     @property
     def dynamic_wildcards(self):
@@ -141,10 +157,7 @@ class Job:
         combinations = set()
         for f, f_ in zip(self.output, self.rule.output):
             if f in self.dynamic_output:
-                for f, w in self.expand_dynamic(
-                    f_,
-                    restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill):
+                for f, w in self.expand_dynamic(f_):
                     combinations.add(tuple(w.items()))
         wildcards = defaultdict(list)
         for combination in combinations:
@@ -158,6 +171,34 @@ class Job:
         # omit file if it comes from a subworkflow
         return set(f for f in self.input
                    if not f.exists and not f in self.subworkflow_input)
+
+
+    @property
+    def existing_remote_input(self):
+        files = set()
+
+        for f in self.input:
+            if f.is_remote:
+                if f.exists_remote:
+                    files.add(f)
+        return files
+
+    @property
+    def existing_remote_output(self):
+        files = set()
+
+        for f in self.remote_output:
+            if f.exists_remote:
+                files.add(f)
+        return files
+
+    @property
+    def missing_remote_input(self):
+        return self.remote_input - self.existing_remote_input
+
+    @property
+    def missing_remote_output(self):
+        return self.remote_output - self.existing_remote_output
 
     @property
     def output_mintime(self):
@@ -188,14 +229,90 @@ class Job:
         for f, f_ in zip(self.output, self.rule.output):
             if requested is None or f in requested:
                 if f in self.dynamic_output:
-                    if not self.expand_dynamic(
-                        f_,
-                        restriction=self.wildcards,
-                        omit_value=_IOFile.dynamic_fill):
+                    if not self.expand_dynamic(f_):
                         files.add("{} (dynamic)".format(f_))
                 elif not f.exists:
                     files.add(f)
         return files
+
+    @property
+    def local_input(self):
+        for f in self.input:
+            if not f.is_remote:
+                yield f
+
+    @property
+    def local_output(self):
+        for f in self.output:
+            if not f.is_remote:
+                yield f
+
+    @property
+    def remote_input(self):
+        for f in self.input:
+            if f.is_remote:
+                yield f
+
+    @property
+    def remote_output(self):
+        for f in self.output:
+            if f.is_remote:
+                yield f
+
+    @property
+    def remote_input_newer_than_local(self):
+        files = set()
+        for f in self.remote_input:
+            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+                files.add(f)
+        return files
+
+    @property
+    def remote_input_older_than_local(self):
+        files = set()
+        for f in self.remote_input:
+            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+                files.add(f)
+        return files
+
+    @property
+    def remote_output_newer_than_local(self):
+        files = set()
+        for f in self.remote_output:
+            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+                files.add(f)
+        return files
+
+    @property
+    def remote_output_older_than_local(self):
+        files = set()
+        for f in self.remote_output:
+            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+                files.add(f)
+        return files
+
+    def transfer_updated_files(self):
+        for f in self.remote_output_older_than_local | self.remote_input_older_than_local:
+            f.upload_to_remote()
+
+        for f in self.remote_output_newer_than_local | self.remote_input_newer_than_local:
+            f.download_from_remote()
+
+    @property
+    def files_to_download(self):
+        toDownload = set()
+
+        for f in self.input:
+            if f.is_remote:
+                if not f.exists_local and f.exists_remote:
+                    toDownload.add(f)
+
+        toDownload = toDownload | self.remote_input_newer_than_local
+        return toDownload
+
+    @property
+    def files_to_upload(self):
+        return self.missing_remote_input & self.remote_input_older_than_local
 
     @property
     def existing_output(self):
@@ -211,6 +328,7 @@ class Job:
         Prepare execution of job.
         This includes creation of directories and deletion of previously
         created dynamic files.
+        Creates a shadow directory for the job if specified.
         """
 
         self.check_protected_output()
@@ -224,27 +342,79 @@ class Job:
                     self.rule, unexpected_output))
 
         if self.dynamic_output:
-            for f, _ in chain(*map(partial(self.expand_dynamic,
-                                           restriction=self.wildcards,
-                                           omit_value=_IOFile.dynamic_fill),
+            for f, _ in chain(*map(self.expand_dynamic,
                                    self.rule.dynamic_output)):
                 os.remove(f)
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
+
+        for f in self.files_to_download:
+            f.download_from_remote()
+
         for f in self.log:
             f.prepare()
         if self.benchmark:
             self.benchmark.prepare()
 
+        if not self.is_shadow:
+            return
+        # Create shadow directory structure
+        self.shadow_dir = tempfile.mkdtemp(
+            dir=self.rule.workflow.persistence.shadow_path)
+        cwd = os.getcwd()
+        # Shallow simply symlink everything in the working directory.
+        if self.rule.shadow_depth == "shallow":
+            for source in os.listdir(cwd):
+                link = os.path.join(self.shadow_dir, source)
+                os.symlink(os.path.abspath(source), link)
+        elif self.rule.shadow_depth == "full":
+            snakemake_dir = os.path.join(cwd, ".snakemake")
+            for dirpath, dirnames, filenames in os.walk(cwd):
+                # Must exclude .snakemake and its children to avoid infinite
+                # loop of symlinks.
+                if os.path.commonprefix([snakemake_dir, dirpath]) == snakemake_dir:
+                    continue
+                for dirname in dirnames:
+                    if dirname == ".snakemake":
+                        continue
+                    relative_source = os.path.relpath(os.path.join(dirpath, dirname))
+                    shadow = os.path.join(self.shadow_dir, relative_source)
+                    os.mkdir(shadow)
+
+                for filename in filenames:
+                    source = os.path.join(dirpath, filename)
+                    relative_source = os.path.relpath(source)
+                    link = os.path.join(self.shadow_dir, relative_source)
+                    os.symlink(source, link)
+
     def cleanup(self):
         """ Cleanup output files. """
         to_remove = [f for f in self.expanded_output if f.exists]
+
+        to_remove.extend([f for f in self.remote_input if f.exists])
+        to_remove.extend([f for f in self.remote_output if f.exists_local])
         if to_remove:
             logger.info("Removing output files of failed job {}"
                         " since they might be corrupted:\n{}".format(
                             self, ", ".join(to_remove)))
             for f in to_remove:
                 f.remove()
+
+            self.rmdir_empty_remote_dirs()
+
+    @property
+    def empty_remote_dirs(self):
+        for f in (set(self.output) | set(self.input)):
+            if f.is_remote:
+                if os.path.exists(os.path.dirname(f)) and not len( os.listdir( os.path.dirname(f))):
+                    yield os.path.dirname(f)
+
+    def rmdir_empty_remote_dirs(self):
+        for d in self.empty_remote_dirs:
+            try:
+                os.removedirs(d)
+            except:
+                pass # it's ok if we can't remove the leaf
 
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """
@@ -294,8 +464,9 @@ class Job:
     def __eq__(self, other):
         if other is None:
             return False
-        return self.rule == other.rule and (
+        return (self.rule == other.rule and (
             self.dynamic_output or self.wildcards_dict == other.wildcards_dict)
+                and (self.dynamic_input or self.input == other.input))
 
     def __lt__(self, other):
         return self.rule.__lt__(other.rule)
@@ -306,12 +477,11 @@ class Job:
     def __hash__(self):
         return self._hash
 
-    @staticmethod
-    def expand_dynamic(pattern, restriction=None, omit_value=None):
+    def expand_dynamic(self, pattern):
         """ Expand dynamic files. """
         return list(listfiles(pattern,
-                              restriction=restriction,
-                              omit_value=omit_value))
+                              restriction=self.wildcards,
+                              omit_value=_IOFile.dynamic_fill))
 
 
 class Reason:

@@ -358,6 +358,10 @@ class Threads(RuleKeywordState):
     pass
 
 
+class Shadow(RuleKeywordState):
+    pass
+
+
 class Resources(RuleKeywordState):
     pass
 
@@ -396,14 +400,15 @@ class Run(RuleKeywordState):
     def start(self):
         yield "@workflow.run"
         yield "\n"
-        yield ("def __{rulename}(input, output, params, wildcards, threads, "
-               "resources, log, version):".format(rulename=self.rulename))
+        yield ("def __rule_{rulename}(input, output, params, wildcards, threads, "
+               "resources, log, version):".format(rulename=self.rulename if self.rulename is not None else self.snakefile.rulecount))
 
     def end(self):
         yield ""
 
     def is_block_end(self, token):
-        return (self.line and self.was_indented and self.indent <= 0) or is_eof(token)
+        return (self.line and self.was_indented and self.indent <= 0
+                ) or is_eof(token)
 
 
 class Shell(Run):
@@ -467,6 +472,63 @@ class Shell(Run):
             yield shellcmd, token
 
 
+class Script(Run):
+    def __init__(self, snakefile, rulename,
+                 base_indent=0,
+                 dedent=0,
+                 root=True):
+        super().__init__(snakefile, rulename,
+                         base_indent=base_indent,
+                         dedent=dedent,
+                         root=root)
+        self.path = list()
+        self.token = None
+
+    def is_block_end(self, token):
+        return (self.line and self.indent <= 0) or is_eof(token)
+
+    def start(self):
+        for t in super().start():
+            yield t
+        yield "\n"
+        yield INDENT * (self.effective_indent + 1)
+        yield "script("
+        yield '"{}"'.format(
+            os.path.abspath(os.path.dirname(self.snakefile.path)))
+        yield ", "
+
+    def end(self):
+        # the end is detected. So we can savely reset the indent to zero here
+        self.indent = 0
+        yield ", input, output, params, wildcards, threads, resources, log, config"
+        yield ")"
+        for t in super().end():
+            yield t
+
+    def decorate_end(self, token):
+        if self.token is None:
+            # no block after script keyword
+            self.error(
+                "Script path must be given as string after the script keyword.",
+                token)
+        for t in self.end():
+            yield t, self.token
+
+    def block_content(self, token):
+        self.token = token
+        self.path.append(token.string)
+        yield token.string, token
+
+
+class Wrapper(Script):
+    def start(self):
+        for t in super(Script, self).start():
+            yield t
+        yield "\n"
+        yield INDENT * (self.effective_indent + 1)
+        yield 'wrapper('
+
+
 class Rule(GlobalKeywordState):
     subautomata = dict(input=Input,
                        output=Output,
@@ -478,8 +540,11 @@ class Rule(GlobalKeywordState):
                        log=Log,
                        message=Message,
                        benchmark=Benchmark,
+                       shadow=Shadow,
                        run=Run,
-                       shell=Shell)
+                       shell=Shell,
+                       script=Script,
+                       wrapper=Wrapper)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,
@@ -487,8 +552,8 @@ class Rule(GlobalKeywordState):
                          dedent=dedent,
                          root=root)
         self.state = self.name
-        self.rulename = None
         self.lineno = None
+        self.rulename = None
         self.run = False
         self.snakefile.rulecount += 1
 
@@ -527,7 +592,7 @@ class Rule(GlobalKeywordState):
     def block_content(self, token):
         if is_name(token):
             try:
-                if token.string == "run" or token.string == "shell":
+                if token.string == "run" or token.string == "shell" or token.string == "script" or token.string == "wrapper":
                     if self.run:
                         raise self.error(
                             "Multiple run or shell keywords in rule {}.".format(
@@ -604,7 +669,7 @@ class Python(TokenAutomaton):
 
 
 class Snakefile:
-    def __init__(self, path):
+    def __init__(self, path, rulecount=0):
         self.path = path
         try:
             self.file = open(self.path, encoding="utf-8")
@@ -616,7 +681,7 @@ class Snakefile:
                 raise WorkflowError("Failed to open {}.".format(path))
 
         self.tokens = tokenize.generate_tokens(self.file.readline)
-        self.rulecount = 0
+        self.rulecount = rulecount
         self.lines = 0
 
     def __next__(self):
@@ -641,9 +706,9 @@ def format_tokens(tokens):
         t_ = t
 
 
-def parse(path, overwrite_shellcmd=None):
+def parse(path, overwrite_shellcmd=None, rulecount=0):
     Shell.overwrite_shellcmd = overwrite_shellcmd
-    with Snakefile(path) as snakefile:
+    with Snakefile(path, rulecount=rulecount) as snakefile:
         automaton = Python(snakefile)
         linemap = dict()
         compilation = list()
@@ -654,6 +719,7 @@ def parse(path, overwrite_shellcmd=None):
             snakefile.lines += t.count("\n")
             compilation.append(t)
         compilation = "".join(format_tokens(compilation))
-        last = max(linemap)
-        linemap[last + 1] = linemap[last]
-        return compilation, linemap
+        if linemap:
+            last = max(linemap)
+            linemap[last + 1] = linemap[last]
+        return compilation, linemap, snakefile.rulecount

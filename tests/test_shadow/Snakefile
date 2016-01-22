@@ -1,0 +1,26 @@
+rule all:
+    input: ["simple_shallow.out", "simple_full.out"]
+
+rule shallow:
+    input: "test.in"
+    output: "simple_shallow.out"
+    shadow: "shallow"
+    shell:
+        """
+        echo 1 > junk.out
+        cat {input} >> {output}
+        echo simple_shallow >> {output}
+        test ! -f more_junk.out
+        """
+
+rule full:
+    input: "test.in"
+    output: "simple_full.out"
+    shadow: "full"
+    shell:
+        """
+        echo 1 > more_junk.out
+        cat {input} > {output}
+        echo simple_full >> {output}
+        test ! -f junk.out
+        """

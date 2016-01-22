@@ -26,7 +26,8 @@ import snakemake.io
 from snakemake.io import protected, temp, temporary, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
-
+from snakemake.script import script
+from snakemake.wrapper import wrapper
 
 class Workflow:
     def __init__(self,
@@ -37,6 +38,7 @@ class Workflow:
                  overwrite_config=dict(),
                  overwrite_workdir=None,
                  overwrite_configfile=None,
+                 overwrite_clusterconfig=dict(),
                  config_args=None,
                  debug=False):
         """
@@ -64,14 +66,20 @@ class Workflow:
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config
         self.overwrite_configfile = overwrite_configfile
+        self.overwrite_clusterconfig = overwrite_clusterconfig
         self.config_args = config_args
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self.debug = debug
+        self._rulecount = 0
 
         global config
         config = dict()
         config.update(self.overwrite_config)
+
+        global cluster_config
+        cluster_config = dict()
+        cluster_config.update(self.overwrite_clusterconfig)
 
         global rules
         rules = Rules()
@@ -164,6 +172,8 @@ class Workflow:
                 forcetargets=False,
                 forceall=False,
                 forcerun=None,
+                until=[],
+                omit_from=[],
                 prioritytargets=None,
                 quiet=False,
                 keepgoing=False,
@@ -171,7 +181,6 @@ class Workflow:
                 printreason=False,
                 printdag=False,
                 cluster=None,
-                cluster_config=None,
                 cluster_sync=None,
                 jobname=None,
                 immediate_submit=False,
@@ -200,6 +209,7 @@ class Workflow:
                 subsnakemake=None,
                 updated_files=None,
                 keep_target_files=False,
+                keep_shadow=False,
                 allowed_rules=None,
                 greediness=1.0,
                 no_hooks=False):
@@ -223,19 +233,29 @@ class Workflow:
         if not targets:
             targets = [self.first_rule
                        ] if self.first_rule is not None else list()
+                       
         if prioritytargets is None:
             prioritytargets = list()
         if forcerun is None:
             forcerun = list()
+        if until is None:
+            until = list()
+        if omit_from is None:
+            omit_from = list()
 
         priorityrules = set(rules(prioritytargets))
         priorityfiles = set(files(prioritytargets))
         forcerules = set(rules(forcerun))
         forcefiles = set(files(forcerun))
+        untilrules = set(rules(until))
+        untilfiles = set(files(until))
+        omitrules = set(rules(omit_from))
+        omitfiles = set(files(omit_from))
         targetrules = set(chain(rules(targets),
                                 filterfalse(Rule.has_wildcards, priorityrules),
-                                filterfalse(Rule.has_wildcards, forcerules)))
-        targetfiles = set(chain(files(targets), priorityfiles, forcefiles))
+                                filterfalse(Rule.has_wildcards, forcerules),
+                                filterfalse(Rule.has_wildcards, untilrules)))
+        targetfiles = set(chain(files(targets), priorityfiles, forcefiles, untilfiles))
         if forcetargets:
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
@@ -262,6 +282,10 @@ class Workflow:
             forcerules=forcerules,
             priorityfiles=priorityfiles,
             priorityrules=priorityrules,
+            untilfiles=untilfiles,
+            untilrules=untilrules,
+            omitfiles=omitfiles,
+            omitrules=omitrules,
             ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
             ignore_incomplete=ignore_incomplete or printdag or printrulegraph,
@@ -386,6 +410,9 @@ class Workflow:
                 print(*items, sep="\n")
             return True
 
+        if not keep_shadow:
+            self.persistence.cleanup_shadow()
+
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
                                  dryrun=dryrun,
@@ -456,7 +483,9 @@ class Workflow:
             if not os.path.isabs(snakefile) and self.included_stack:
                 current_path = os.path.dirname(self.included_stack[-1])
                 snakefile = os.path.join(current_path, snakefile)
-            snakefile = os.path.abspath(snakefile)
+            # Could still be an url if relative import was used
+            if not urllib.parse.urlparse(snakefile).scheme:
+                snakefile = os.path.abspath(snakefile)
         # else it could be an url.
         # at least we don't want to modify the path for clarity.
 
@@ -471,8 +500,10 @@ class Workflow:
         workflow = self
 
         first_rule = self.first_rule
-        code, linemap = parse(snakefile,
-                              overwrite_shellcmd=self.overwrite_shellcmd)
+        code, linemap, rulecount = parse(snakefile,
+                                         overwrite_shellcmd=self.overwrite_shellcmd,
+                                         rulecount=self._rulecount)
+        self._rulecount = rulecount
 
         if print_compilation:
             print(code)
@@ -495,8 +526,7 @@ class Workflow:
 
     def workdir(self, workdir):
         if self.overwrite_workdir is None:
-            if not os.path.exists(workdir):
-                os.makedirs(workdir)
+            os.makedirs(workdir, exist_ok=True)
             self._workdir = workdir
             os.chdir(workdir)
 
@@ -534,6 +564,15 @@ class Workflow:
                     raise RuleException("Threads value has to be an integer.",
                                         rule=rule)
                 rule.resources["_cores"] = ruleinfo.threads
+            if ruleinfo.shadow_depth:
+                if ruleinfo.shadow_depth not in (True, "shallow", "full"):
+                    raise RuleException(
+                        "Shadow must either be 'shallow', 'full', "
+                        "or True (equivalent to 'full')", rule=rule)
+                if ruleinfo.shadow_depth is True:
+                    rule.shadow_depth = 'full'
+                else:
+                    rule.shadow_depth = ruleinfo.shadow_depth
             if ruleinfo.resources:
                 args, resources = ruleinfo.resources
                 if args:
@@ -618,6 +657,13 @@ class Workflow:
 
         return decorate
 
+    def shadow(self, shadow_depth):
+        def decorate(ruleinfo):
+            ruleinfo.shadow_depth = shadow_depth
+            return ruleinfo
+
+        return decorate
+
     def resources(self, *args, **resources):
         def decorate(ruleinfo):
             ruleinfo.resources = (args, resources)
@@ -679,6 +725,7 @@ class RuleInfo:
         self.message = None
         self.benchmark = None
         self.threads = None
+        self.shadow_depth = None
         self.resources = None
         self.priority = None
         self.version = None

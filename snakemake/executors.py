@@ -6,6 +6,7 @@ __license__ = "MIT"
 
 import os
 import sys
+import contextlib
 import time
 import datetime
 import json
@@ -29,8 +30,8 @@ from snakemake.stats import Stats
 from snakemake.utils import format, Unformattable
 from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
-from snakemake.exceptions import format_error, RuleException
-from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError
+from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
+from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError, ImproperShadowException
 from snakemake.futures import ProcessPoolExecutor
 
 
@@ -109,6 +110,8 @@ class AbstractExecutor:
     def finish_job(self, job):
         self.dag.handle_touch(job)
         self.dag.check_output(job, wait=self.latency_wait)
+        self.dag.unshadow_output(job)
+        self.dag.handle_remote(job)
         self.dag.handle_protected(job)
         self.dag.handle_temp(job)
 
@@ -209,6 +212,9 @@ class CPUExecutor(RealExecutor):
             callback=None,
             submit_callback=None,
             error_callback=None):
+        if (job.rule.shadow_depth and
+            type(self) == concurrent.futures.ThreadPoolExecutor):
+            raise ImproperShadowException(job.rule)
         job.prepare()
         super()._run(job)
 
@@ -216,12 +222,13 @@ class CPUExecutor(RealExecutor):
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
 
-        pool = self.threadpool if job.shellcmd is not None else self.pool
+        pool = self.pool if job.shellcmd is None or job.is_shadow else self.threadpool
         future = pool.submit(
             run_wrapper, job.rule.run_func, job.input.plainstrings(),
             job.output.plainstrings(), job.params, job.wildcards, job.threads,
             job.resources, job.log.plainstrings(), job.rule.version, benchmark,
-            self.benchmark_repeats, self.workflow.linemaps, self.workflow.debug)
+            self.benchmark_repeats, self.workflow.linemaps, self.workflow.debug,
+            shadow_dir=job.shadow_dir)
 
         future.add_done_callback(partial(self._callback, job, callback,
                                          error_callback))
@@ -262,7 +269,8 @@ class ClusterExecutor(RealExecutor):
                  printshellcmds=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 cluster_config=None):
+                 cluster_config=None, local_input=None):
+        local_input = local_input or []
         super().__init__(workflow, dag,
                          printreason=printreason,
                          quiet=quiet,
@@ -290,8 +298,8 @@ class ClusterExecutor(RealExecutor):
         self.exec_job = (
             'cd {workflow.workdir_init} && '
             '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
-            '--force -j{cores} --keep-target-files '
-            '--wait-for-files {job.input} --latency-wait {latency_wait} '
+            '--force -j{cores} --keep-target-files --keep-shadow '
+            '--wait-for-files {wait_for_files} --latency-wait {latency_wait} '
             '--benchmark-repeats {benchmark_repeats} '
             '{overwrite_workdir} {overwrite_config} --nocolor '
             '--notemp --quiet --no-hooks --nolock {target}')
@@ -360,6 +368,9 @@ class ClusterExecutor(RealExecutor):
                 " ".join(self.workflow.config_args))
 
         target = job.output if job.output else job.rule.name
+        wait_for_files = list(job.local_input) + [self.tmpdir]
+        if job.shadow_dir:
+            wait_for_files.append(job.shadow_dir)
         format = partial(str.format,
                          job=job,
                          overwrite_workdir=overwrite_workdir,
@@ -369,7 +380,8 @@ class ClusterExecutor(RealExecutor):
                          properties=job.json(),
                          latency_wait=self.latency_wait,
                          benchmark_repeats=self.benchmark_repeats,
-                         target=target, **kwargs)
+                         target=target, wait_for_files=" ".join(wait_for_files),
+                         **kwargs)
         try:
             exec_job = format(self.exec_job)
             with open(jobscript, "w") as f:
@@ -569,7 +581,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
                         os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
                         print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
-                                                            jobscript),
+                                                            active_job.jobscript),
                                         self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
             time.sleep(1)
@@ -692,19 +704,35 @@ class DRMAAExecutor(ClusterExecutor):
             time.sleep(1)
 
 
+@contextlib.contextmanager
+def change_working_directory(directory=None):
+    """ Change working directory in execution context if provided. """
+    if directory:
+        try:
+            saved_directory = os.getcwd()
+            logger.info("Changing to shadow directory: {}".format(directory))
+            os.chdir(directory)
+            yield
+        finally:
+            os.chdir(saved_directory)
+    else:
+        yield
+
+
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
-                version, benchmark, benchmark_repeats, linemaps, debug=False):
+                version, benchmark, benchmark_repeats, linemaps, debug=False,
+                shadow_dir=None):
     """
-    Wrapper around the run method that handles directory creation and
-    output file deletion on error.
+    Wrapper around the run method that handles exceptions and benchmarking.
 
     Arguments
-    run       -- the run method
-    input     -- list of input files
-    output    -- list of output files
-    wildcards -- so far processed wildcards
-    threads   -- usable threads
-    log       -- list of log files
+    run        -- the run method
+    input      -- list of input files
+    output     -- list of output files
+    wildcards  -- so far processed wildcards
+    threads    -- usable threads
+    log        -- list of log files
+    shadow_dir -- optional shadow directory root
     """
     if os.name == "posix" and debug:
         sys.stdin = open('/dev/stdin')
@@ -715,8 +743,9 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
         for i in range(runs):
             w = time.time()
             # execute the actual run method.
-            run(input, output, params, wildcards, threads, resources, log,
-                version)
+            with change_working_directory(shadow_dir):
+                run(input, output, params, wildcards, threads, resources, log,
+                    version)
             w = time.time() - w
             wallclock.append(w)
 
@@ -724,6 +753,7 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
         # re-raise the keyboard interrupt in order to record an error in the scheduler but ignore it
         raise e
     except (Exception, BaseException) as ex:
+        log_verbose_traceback(ex)
         # this ensures that exception can be re-raised in the parent thread
         lineno, file = get_exception_origin(ex, linemaps)
         raise RuleException(format_error(ex, lineno,

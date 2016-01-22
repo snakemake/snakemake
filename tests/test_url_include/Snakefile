@@ -1,6 +1,6 @@
 
 
-include: "https://bitbucket.org/johanneskoester/snakemake/raw/master/tests/test05/Snakefile"
+include: "https://bitbucket.org/snakemake/snakemake/raw/master/tests/test05/Snakefile"
 
 rule:
 	input: "test.predictions"

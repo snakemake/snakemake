@@ -1,0 +1,8 @@
+rule:
+    output:
+        "test.out"
+    params:
+        test=True
+    run:
+        assert params.test is True
+        shell("touch {output}")

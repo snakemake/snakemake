@@ -42,7 +42,7 @@ def run(path,
         needs_connection=False,
         snakefile="Snakefile",
         subpath=None,
-        check_md5=True, **params):
+        check_md5=True, cores=3, **params):
     """
     Test the Snakefile in path.
     There must be a Snakefile in the path and a subdirectory named
@@ -76,7 +76,7 @@ def run(path,
         call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir),
              shell=True)
         success = snakemake(snakefile,
-                            cores=3,
+                            cores=cores,
                             workdir=tmpdir,
                             stats="stats.txt",
                             snakemakepath=SCRIPTPATH,
@@ -266,13 +266,54 @@ def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
+def test_remote():
+    try:
+        import moto
+        import boto
+        import filechunkio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_remote"), cores=1)
+    except ImportError:
+        pass
+
+
 def test_cluster_sync():
     run(dpath("test14"),
         snakefile="Snakefile.nonstandard",
         cluster_sync="./qsub")
 
+
 def test_symlink_temp():
     run(dpath("test_symlink_temp"), shouldfail=True)
+
+
+def test_empty_include():
+    run(dpath("test_empty_include"))
+
+
+def test_script():
+    run(dpath("test_script"))
+
+
+def test_shadow():
+    run(dpath("test_shadow"))
+
+def test_until():
+    run(dpath("test_until"),
+        until=["leveltwo_first", # rule name
+               "leveltwo_second.txt", # file name
+               "second_wildcard"]) # wildcard rule
+
+def test_omitfrom():
+    run(dpath("test_omitfrom"), 
+        omit_from=["leveltwo_first", # rule name
+                   "leveltwo_second.txt", # file name
+                   "second_wildcard"]) # wildcard rule
+
+def test_nonstr_params():
+    run(dpath("test_nonstr_params"))
 
 
 if __name__ == '__main__':

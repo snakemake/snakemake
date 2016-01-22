@@ -55,10 +55,7 @@ class JobScheduler:
         self.running = set()
         self.failed = set()
         self.finished_jobs = 0
-        self.greediness = greediness
-        self.select_by_rule = False
-        if not self.select_by_rule:
-            self.greediness = 1
+        self.greediness = 1
 
         self.resources = dict(self.workflow.global_resources)
 
@@ -84,7 +81,6 @@ class JobScheduler:
                                             quiet=quiet,
                                             printshellcmds=printshellcmds,
                                             latency_wait=latency_wait)
-            self.rule_reward = self.dryrun_rule_reward
             self.job_reward = self.dryrun_job_reward
         elif touch:
             self._executor = TouchExecutor(workflow, dag,
@@ -93,8 +89,7 @@ class JobScheduler:
                                            printshellcmds=printshellcmds,
                                            latency_wait=latency_wait)
         elif cluster or cluster_sync or (drmaa is not None):
-            workers = min(sum(1 for _ in dag.local_needrun_jobs),
-                          local_cores)
+            workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)), local_cores)
             self._local_executor = CPUExecutor(
                 workflow, dag, workers,
                 printreason=printreason,
@@ -118,7 +113,6 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats, )
                 if immediate_submit:
-                    self.rule_reward = self.dryrun_rule_reward
                     self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
                                                     update_dynamic=False,
@@ -140,7 +134,7 @@ class JobScheduler:
             # calculate how many parallel workers the executor shall spawn
             # each job has at least one thread, hence we need to have
             # the minimum of given cores and number of jobs
-            workers = min(cores, len(dag))
+            workers = min(cores, max(1, len(dag)))
             self._executor = CPUExecutor(workflow, dag, workers,
                                          printreason=printreason,
                                          quiet=quiet,
@@ -176,22 +170,30 @@ class JobScheduler:
                 while not self._open_jobs.wait(1):
                     pass
 
+                # obtain needrun and running jobs in a thread-safe way
+                with self._lock:
+                    needrun = list(self.open_jobs)
+                    running = list(self.running)
+                # free the event
                 self._open_jobs.clear()
+
+                # handle errors
                 if not self.keepgoing and self._errors:
                     logger.info("Will exit after finishing "
                                 "currently running jobs.")
-                    if not self.running:
+                    if not running:
                         self._executor.shutdown()
                         logger.error(_ERROR_MSG_FINAL)
                         return False
                     continue
-                if not any(self.open_jobs) and not self.running:
+                # normal shutdown because all jobs have been finished
+                if not needrun and not running:
                     self._executor.shutdown()
                     if self._errors:
                         logger.error(_ERROR_MSG_FINAL)
                     return not self._errors
 
-                needrun = list(self.open_jobs)
+                # continue if no new job needs to be executed
                 if not needrun:
                     continue
 
@@ -200,18 +202,24 @@ class JobScheduler:
                 logger.debug("Ready jobs ({}):\n\t".format(len(needrun)) +
                              "\n\t".join(map(str, needrun)))
 
+                # select jobs by solving knapsack problem
                 run = self.job_selector(needrun)
                 logger.debug("Selected jobs ({}):\n\t".format(len(run)) +
                              "\n\t".join(map(str, run)))
-                self.running.update(run)
+                # update running jobs
+                with self._lock:
+                    self.running.update(run)
                 logger.debug(
                     "Resources after job selection: {}".format(self.resources))
+                # actually run jobs
                 for job in run:
                     self.run(job)
         except (KeyboardInterrupt, SystemExit):
             logger.info("Terminating processes on user request.")
             self._executor.cancel()
-            for job in self.running:
+            with self._lock:
+                running = list(self.running)
+            for job in running:
                 job.cleanup()
             return False
 
@@ -283,46 +291,16 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             jobs (list):    list of jobs
         """
         with self._lock:
-            if self.select_by_rule:
-                # solve over the rules instead of jobs (much less, but might miss the best solution)
-                # each rule is an item with as many copies as jobs
-                _jobs = defaultdict(list)
-                for job in jobs:
-                    _jobs[job.rule].append(job)
+            # each job is an item with one copy (0-1 MDKP)
+            n = len(jobs)
+            x = [0] * n  # selected jobs
+            E = set(range(n))  # jobs still free to select
+            u = [1] * n
+            a = list(map(self.job_weight, jobs))  # resource usage of jobs
+            c = list(map(self.job_reward, jobs))  # job rewards
 
-                jobs = _jobs
-
-                # sort the jobs by priority
-                for _jobs in jobs.values():
-                    _jobs.sort(key=self.dag.priority, reverse=True)
-                rules = list(jobs)
-
-                # Step 1: initialization
-                n = len(rules)
-                x = [0] * n  # selected jobs of each rule
-                E = set(range(n))  # rules free to select
-                u = [len(jobs[rule]) for rule in rules]  # number of jobs left
-                a = list(map(self.rule_weight,
-                             rules))  # resource usage of rules
-                c = list(map(partial(self.rule_reward,
-                                     jobs=jobs),
-                             rules))  # matrix of cumulative rewards over jobs
-
-                def calc_reward():
-                    return [([(crit[x_j + y_j] - crit[x_j]) for crit in c_j] if
-                             j in E else [0] * len(c_j))
-                            for j, (c_j, y_j, x_j) in enumerate(zip(c, y, x))]
-            else:
-                # each job is an item with one copy (0-1 MDKP)
-                n = len(jobs)
-                x = [0] * n  # selected jobs
-                E = set(range(n))  # jobs still free to select
-                u = [1] * n
-                a = list(map(self.job_weight, jobs))  # resource usage of jobs
-                c = list(map(self.job_reward, jobs))  # job rewards
-
-                def calc_reward():
-                    return [c_j * y_j for c_j, y_j in zip(c, y)]
+            def calc_reward():
+                return [c_j * y_j for c_j, y_j in zip(c, y)]
 
             b = [self.resources[name]
                  for name in self.workflow.global_resources
@@ -354,12 +332,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 if not E:
                     break
 
-            if self.select_by_rule:
-                # Solution is the list of jobs that was selected from the selected rules
-                solution = list(chain(*[jobs[rules[j]][:x_]
-                                        for j, x_ in enumerate(x)]))
-            else:
-                solution = [job for job, sel in zip(jobs, x) if sel]
+            solution = [job for job, sel in zip(jobs, x) if sel]
             # update resources
             for name, b_i in zip(self.workflow.global_resources, b):
                 self.resources[name] = b_i
@@ -373,38 +346,17 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         return [self.calc_resource(name, res.get(name, 0))
                 for name in self.workflow.global_resources]
 
-    def rule_reward(self, rule, jobs=None):
-        jobs = jobs[rule]
-        return (self.priority_reward(jobs), self.downstream_reward(jobs),
-                cumsum([job.inputsize for job in jobs]))
-
-    def dryrun_rule_reward(self, rule, jobs=None):
-        jobs = jobs[rule]
-        return (self.priority_reward(jobs), self.downstream_reward(jobs),
-                [0] * (len(jobs) + 1))
-
-    def priority_reward(self, jobs):
-        return cumsum(self.dag.priorities(jobs))
-
-    def downstream_reward(self, jobs):
-        return cumsum(self.dag.downstream_sizes(jobs))
-
-    def thread_reward(self, jobs):
-        """ Thread-based reward for jobs. Using this maximizes core
-        saturation, but does not lead to faster computation in general."""
-        return cumsum([job.threads for job in jobs])
-
     def job_weight(self, job):
         res = job.resources_dict
         return [self.calc_resource(name, res.get(name, 0))
                 for name in self.workflow.global_resources]
 
     def job_reward(self, job):
-        return (self.dag.priority(job), self.dag.downstream_size(job),
+        return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job),
                 job.inputsize)
 
     def dryrun_job_reward(self, job):
-        return (self.dag.priority(job), self.dag.downstream_size(job))
+        return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job))
 
     def progress(self):
         """ Display the progress. """
