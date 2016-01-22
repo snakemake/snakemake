@@ -45,7 +45,7 @@ syn keyword pythonStatement	include workdir onsuccess onerror
 syn keyword pythonStatement	ruleorder localrules configfile
 syn keyword pythonStatement	touch protected temp
 syn keyword pythonStatement	input output params message threads resources
-syn keyword pythonStatement	version run shell benchmark snakefile log
+syn keyword pythonStatement	version run shell benchmark snakefile log script
 syn keyword pythonStatement	rule subworkflow nextgroup=pythonFunction skipwhite
 
 " similar to special def and class treatment from python.vim, except
