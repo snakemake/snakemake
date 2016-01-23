@@ -4,4 +4,4 @@ Snakemake is a workflow management system that aims to reduce the complexity of 
 
 Homepage: http://snakemake.bitbucket.org
 
-Copyright (c) 2015 Johannes Köster <johannes.koester@tu-dortmund.de> (see LICENSE)
+Copyright (c) 2016 Johannes Köster <johannes.koester@tu-dortmund.de> (see LICENSE)
