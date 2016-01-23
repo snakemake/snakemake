@@ -2,7 +2,7 @@
 
 ## [3.5.5] - 2016-01-23
 ### Added
-- New experimental wrapper directive, which allows to refer to re-usable [wrapper scripts](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-wrappers). Wrappers are provided in a central repository at https://bitbucket.org/snakemake/snakemake-wrappers.
+- New experimental wrapper directive, which allows to refer to re-usable [wrapper scripts](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-wrappers). Wrappers are provided in the [Snakemake Wrapper Repository](https://bitbucket.org/snakemake/snakemake-wrappers).
 - David Koppstein implemented two new command line options to constrain the execution of the DAG of job to sub-DAGs (--until and --omit-from).
 ### Changed
 - Fixed various bugs, e.g. with shadow jobs and --latency-wait.
