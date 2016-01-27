@@ -295,19 +295,9 @@ class Rule:
             self._set_params_item(item, name=name)
 
     def _set_params_item(self, item, name=None):
-        if not_iterable(item) or callable(item):
-            self.params.append(item)
-            if name:
-                self.params.add_name(name)
-        else:
-            try:
-                start = len(self.params)
-                for i in item:
-                    self._set_params_item(i)
-                if name:
-                    self.params.set_name(name, start, end=len(self.params))
-            except TypeError:
-                raise SyntaxError("Params have to be specified as strings.")
+        self.params.append(item)
+        if name:
+            self.params.add_name(name)
 
     @property
     def log(self):
