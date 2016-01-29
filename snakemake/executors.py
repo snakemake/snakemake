@@ -393,8 +393,14 @@ class ClusterExecutor(RealExecutor):
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
 
     def cluster_wildcards(self, job):
+        """Return wildcards object for job from cluster_config."""
+
         cluster = self.cluster_config.get("__default__", dict()).copy()
         cluster.update(self.cluster_config.get(job.rule.name, dict()))
+        # Format values with available parameters from the job.
+        for key, value in list(cluster.items()):
+            cluster[key] = job.format_wildcards(value)
+
         return Wildcards(fromdict=cluster)
 
 
