@@ -107,7 +107,7 @@ class _IOFile(str):
     @property
     def protected(self):
         return self.exists_local and not os.access(self.file, os.W_OK)
-    
+
     @property
     @_refer_to_remote
     def mtime(self):
@@ -147,7 +147,7 @@ class _IOFile(str):
             self.remote_object.download()
         else:
             raise RemoteFileException("The file to be downloaded does not seem to exist remotely.")
- 
+
     def upload_to_remote(self):
         if self.is_remote and not self.remote_object.exists():
             logger.info("Uploading to remote: {}".format(self.file))
@@ -357,7 +357,7 @@ def apply_wildcards(pattern, wildcards,
 
 
 def not_iterable(value):
-    return isinstance(value, str) or not isinstance(value, Iterable)
+    return isinstance(value, str) or isinstance(value, dict) or not isinstance(value, Iterable)
 
 
 class AnnotatedString(str):
@@ -507,8 +507,8 @@ def glob_wildcards(pattern, files=None):
     pattern = re.compile(regex(pattern))
 
     if files is None:
-        files = ((os.path.join(dirpath, f) if dirpath != "." else f) 
-                    for dirpath, dirnames, filenames in os.walk(dirname) 
+        files = ((os.path.join(dirpath, f) if dirpath != "." else f)
+                    for dirpath, dirnames, filenames in os.walk(dirname)
                     for f in chain(filenames, dirnames))
 
     for f in files:
