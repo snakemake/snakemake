@@ -680,15 +680,15 @@ class DRMAAExecutor(ClusterExecutor):
                     try:
                         retval = self.session.wait(active_job.jobid,
                                                    drmaa.Session.TIMEOUT_NO_WAIT)
-                    except drmaa.errors.InternalException as e:
+                    except drmaa.errors.ExitTimeoutException as e:
+                        # job still active
+                        self.active_jobs.append(active_job)
+                        continue
+                    except (drmaa.errors.InternalException, Exception) as e:
                         print_exception(WorkflowError("DRMAA Error: {}".format(e)),
                                         self.workflow.linemaps)
                         os.remove(active_job.jobscript)
                         active_job.error_callback(active_job.job)
-                        continue
-                    except drmaa.errors.ExitTimeoutException as e:
-                        # job still active
-                        self.active_jobs.append(active_job)
                         continue
                     # job exited
                     os.remove(active_job.jobscript)
