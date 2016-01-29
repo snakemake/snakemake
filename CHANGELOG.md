@@ -1,5 +1,9 @@
 # Change Log
 
+## [Unreleased]
+### Changed
+- Allow to use rule/job parameters with braces notation in cluster config.
+
 ## [3.5.5] - 2016-01-23
 ### Added
 - New experimental wrapper directive, which allows to refer to re-usable [wrapper scripts](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-wrappers). Wrappers are provided in the [Snakemake Wrapper Repository](https://bitbucket.org/snakemake/snakemake-wrappers).
