@@ -675,7 +675,9 @@ def _load_configfile(configpath):
             try:
                 return yaml.load(f)
             except yaml.YAMLError:
-                raise WorkflowError("Config file is not valid JSON or YAML.")
+                raise WorkflowError("Config file is not valid JSON or YAML. "
+                                    "In case of YAML, make sure to not mix "
+                                    "whitespace and tab indentation.")
     except FileNotFoundError:
         raise WorkflowError("Config file {} not found.".format(configpath))
 
