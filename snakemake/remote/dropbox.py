@@ -89,12 +89,16 @@ class RemoteObject(AbstractRemoteObject):
         # Chunk file into 10MB slices because Dropbox does not accept more than 150MB chunks
         chunksize = 10000000
         with open(self.file(), mode='rb') as f:
+            data = f.read(chunksize)
             # Start upload session
-            res = self._dropboxc.files_upload_session_start(f.read(chunksize))
+            res = self._dropboxc.files_upload_session_start(data)
+            offset = len(data)
 
             # Upload further chunks until file is complete
-            for offset in range(chunksize, size, chunksize):
-                self._dropboxc.files_upload_session_append(f.read(chunksize), res.session_id, offset)
+            while len(data) == chunksize:
+                data = f.read(chunksize)
+                self._dropboxc.files_upload_session_append(data, res.session_id, offset)
+                offset += len(data)
 
             # Finish session and store in the desired path
             self._dropboxc.files_upload_session_finish(
