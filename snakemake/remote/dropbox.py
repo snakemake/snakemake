@@ -14,9 +14,8 @@ import snakemake.io
 try:
     # third-party modules
     import dropbox # The official Dropbox API library
-    from filechunkio import FileChunkIO
 except ImportError as e:
-    raise WorkflowError("The Python 3 packages 'dropbox' and 'filechunkio' "
+    raise WorkflowError("The Python 3 package 'dropbox' "
                         "must be installed to use Dropbox remote() file "
                         "functionality. %s" % e.msg)
 
