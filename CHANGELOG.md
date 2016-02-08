@@ -1,8 +1,11 @@
 # Change Log
 
 ## [Unreleased]
+### Added
+- onstart handler, that allows to add code that shall be only executed before the actual workflow execution (not on dryrun).
 ### Changed
 - Allow to use rule/job parameters with braces notation in cluster config.
+- Show a proper error message in case of recursion errors.
 
 ## [3.5.5] - 2016-01-23
 ### Added
