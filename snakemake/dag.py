@@ -20,7 +20,7 @@ from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException
 from snakemake.exceptions import PeriodicWildcardError
-from snakemake.exceptions import RemoteFileException
+from snakemake.exceptions import RemoteFileException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
@@ -410,6 +410,14 @@ class DAG:
             except (MissingInputException, CyclicGraphException,
                     PeriodicWildcardError) as ex:
                 exceptions.append(ex)
+            except RecursionError as e:
+                raise WorkflowError("Building the DAG exceeds the recursion limit. "
+                                    "This is likely due to a cyclic dependency."
+                                    "E.g. you might have a sequence of rules that "
+                                    "can generate their own input. Try to make "
+                                    "the output files more specific. "
+                                    "A common pattern is to have different prefixes "
+                                    "in the output files of different rules.")
         if producer is None:
             if cycles:
                 job = cycles[0]

@@ -399,7 +399,8 @@ class ClusterExecutor(RealExecutor):
         cluster.update(self.cluster_config.get(job.rule.name, dict()))
         # Format values with available parameters from the job.
         for key, value in list(cluster.items()):
-            cluster[key] = job.format_wildcards(value)
+            if isinstance(value, str):
+                cluster[key] = job.format_wildcards(value)
 
         return Wildcards(fromdict=cluster)
 
