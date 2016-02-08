@@ -417,7 +417,8 @@ class DAG:
                                     "can generate their own input. Try to make "
                                     "the output files more specific. "
                                     "A common pattern is to have different prefixes "
-                                    "in the output files of different rules.")
+                                    "in the output files of different rules."
+                                    + "\nProblematic file pattern: {}".format(file) if file else "")
         if producer is None:
             if cycles:
                 job = cycles[0]
