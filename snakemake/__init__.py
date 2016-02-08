@@ -835,7 +835,7 @@ def get_argument_parser():
     parser.add_argument(
         "--no-hooks",
         action="store_true",
-        help="Do not invoke onsuccess or onerror hooks after execution.")
+        help="Do not invoke onstart, onsuccess or onerror hooks after execution.")
     parser.add_argument(
         "--print-compilation",
         action="store_true",
