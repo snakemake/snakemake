@@ -20,7 +20,7 @@ from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException
 from snakemake.exceptions import PeriodicWildcardError
-from snakemake.exceptions import RemoteFileException
+from snakemake.exceptions import RemoteFileException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
@@ -410,6 +410,15 @@ class DAG:
             except (MissingInputException, CyclicGraphException,
                     PeriodicWildcardError) as ex:
                 exceptions.append(ex)
+            except RecursionError as e:
+                raise WorkflowError("Building the DAG exceeds the recursion limit. "
+                                    "This is likely due to a cyclic dependency."
+                                    "E.g. you might have a sequence of rules that "
+                                    "can generate their own input. Try to make "
+                                    "the output files more specific. "
+                                    "A common pattern is to have different prefixes "
+                                    "in the output files of different rules."
+                                    + "\nProblematic file pattern: {}".format(file) if file else "")
         if producer is None:
             if cycles:
                 job = cycles[0]
@@ -571,8 +580,8 @@ class DAG:
             return
         downstream_jobs = list(self.downstream_of_omitfrom()) # need to cast as list before deleting jobs
         for job in downstream_jobs:
-            self.delete_job(job, 
-                            recursive=False, 
+            self.delete_job(job,
+                            recursive=False,
                             add_dependencies=True)
 
     def set_until_jobs(self):
@@ -683,7 +692,7 @@ class DAG:
                         self.replace_job(job_, newjob_)
         return newjob
 
-    def delete_job(self, job, 
+    def delete_job(self, job,
                    recursive=True,
                    add_dependencies=False):
         if job in self.targetjobs:

@@ -70,6 +70,7 @@ class Workflow:
         self.config_args = config_args
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
+        self._onstart = lambda log: None
         self.debug = debug
         self._rulecount = 0
 
@@ -455,6 +456,9 @@ class Workflow:
         if dryrun and not len(dag):
             logger.info("Nothing to be done.")
 
+        if not dryrun and not no_hooks:
+            self._onstart(logger.get_logfile())
+
         success = scheduler.schedule()
 
         if success:
@@ -517,6 +521,9 @@ class Workflow:
         if not overwrite_first_rule:
             self.first_rule = first_rule
         self.included_stack.pop()
+
+    def onstart(self, func):
+        self._onstart = func
 
     def onsuccess(self, func):
         self._onsuccess = func

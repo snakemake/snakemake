@@ -55,7 +55,7 @@ class shell:
 
         proc = sp.Popen("{} {} {}".format(
                             cls._process_prefix,
-                            cmd,
+                            cmd.rstrip(),
                             cls._process_suffix),
                         bufsize=-1,
                         shell=True,
