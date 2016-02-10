@@ -247,7 +247,7 @@ class DAG:
 
         input_maxtime = job.input_maxtime
         if input_maxtime is not None:
-            output_mintime = job.output_mintime
+            output_mintime = job.output_mintime_local
             if output_mintime is not None and output_mintime < input_maxtime:
                 raise RuleException(
                     "Output files {} are older than input "
