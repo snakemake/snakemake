@@ -240,12 +240,13 @@ class DAG:
 
     def check_output(self, job, wait=3):
         """ Raise exception if output files of job are missing. """
+        input_maxtime = job.input_maxtime
         try:
-            wait_for_files(job.expanded_shadowed_output, latency_wait=wait)
+            wait_for_files(job.expanded_shadowed_output, latency_wait=wait,
+                           newer_than=input_maxtime)
         except IOError as e:
             raise MissingOutputException(str(e), rule=job.rule)
 
-        input_maxtime = job.input_maxtime
         if input_maxtime is not None:
             output_mintime = job.output_mintime_local
             if output_mintime is not None and output_mintime < input_maxtime:
