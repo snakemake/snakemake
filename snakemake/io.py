@@ -272,7 +272,7 @@ _wildcard_regex = re.compile(
 #    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
 
 
-def wait_for_files(files, latency_wait=3, newer_than=0):
+def wait_for_files(files, latency_wait=3, newer_than=None):
     """Wait for given files to be present in filesystem.
        Optionally, disregard older files which may be stale files
        showing up in the NFS cache.
@@ -281,7 +281,7 @@ def wait_for_files(files, latency_wait=3, newer_than=0):
 
     def file_present(f, newer_than):
         try:
-            return lstat(f).st_mtime > newer_than
+            return lstat(f).st_mtime > (newer_than or 0)
         except FileNotFoundError:
             return False
 
@@ -297,7 +297,7 @@ def wait_for_files(files, latency_wait=3, newer_than=0):
             time.sleep(1)
         #At this point, in order to preserve previous behaviour, accept old
         #files.  dag.check_output() will deal with them.
-        missing = get_missing(0)
+        missing = get_missing(None)
         if not missing: return
         raise IOError("Missing files after {} seconds:\n{}".format(
             latency_wait, "\n".join(missing)))
