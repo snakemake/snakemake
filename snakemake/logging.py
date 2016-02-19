@@ -78,6 +78,7 @@ class Logger:
         self.stream_handler = None
         self.printshellcmds = False
         self.printreason = False
+        self.quiet = False
 
     def setup(self):
         # logfile output is done always
