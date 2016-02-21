@@ -79,6 +79,7 @@ class Logger:
         self.printshellcmds = False
         self.printreason = False
         self.quiet = False
+        self.logfile = None
 
     def setup(self):
         # logfile output is done always
@@ -95,7 +96,8 @@ class Logger:
         os.remove(self.logfile)
 
     def get_logfile(self):
-        self.logfile_handler.flush()
+        if self.logfile is not None:
+            self.logfile_handler.flush()
         return self.logfile
 
     def handler(self, msg):
