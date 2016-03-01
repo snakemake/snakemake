@@ -177,7 +177,10 @@ class RuleException(Exception):
 
 
 class InputFunctionException(WorkflowError):
-    pass
+    def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
+        msg += "\nWildcards:\n" + "\n".join(
+            "{}={}".format(name, value) for name, value in wildcards.items())
+        super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
 
 class MissingOutputException(RuleException):
