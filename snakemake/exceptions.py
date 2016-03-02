@@ -111,15 +111,14 @@ def print_exception(ex, linemaps):
 
 class WorkflowError(Exception):
     @staticmethod
-    def format_args(args):
-        for arg in args:
-            if isinstance(arg, str):
-                yield arg
-            else:
-                yield "{}: {}".format(arg.__class__.__name__, str(arg))
+    def format_arg(arg):
+        if isinstance(arg, str):
+            return arg
+        else:
+            return "{}: {}".format(arg.__class__.__name__, str(arg))
 
     def __init__(self, *args, lineno=None, snakefile=None, rule=None):
-        super().__init__("\n".join(self.format_args(args)))
+        super().__init__("\n".join(self.format_arg(arg) for arg in args))
         if rule is not None:
             self.lineno = rule.lineno
             self.snakefile = rule.snakefile
@@ -177,7 +176,10 @@ class RuleException(Exception):
 
 
 class InputFunctionException(WorkflowError):
-    pass
+    def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
+        msg = self.format_arg(msg) + "\nWildcards:\n" + "\n".join(
+            "{}={}".format(name, value) for name, value in wildcards.items())
+        super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
 
 class MissingOutputException(RuleException):

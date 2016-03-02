@@ -215,7 +215,7 @@ class Job:
         existing = [f.mtime_local for f in self.expanded_output if f.exists]
         if self.benchmark and self.benchmark.exists:
             existing.append(self.benchmark.mtime_local)
-        if existing:  
+        if existing:
             return min(existing)
         return None
 

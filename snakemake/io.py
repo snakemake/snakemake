@@ -4,6 +4,7 @@ __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import os
+import shutil
 import re
 import stat
 import time
@@ -178,8 +179,8 @@ class _IOFile(str):
         else:
             lchmod(self.file, mode)
 
-    def remove(self):
-        remove(self.file)
+    def remove(self, remove_non_empty_dir=False):
+        remove(self.file, remove_non_empty_dir=False)
 
     def touch(self, times=None):
         """ times must be 2-tuple: (atime, mtime) """
@@ -297,14 +298,17 @@ def contains_wildcard(path):
     return _wildcard_regex.search(path) is not None
 
 
-def remove(file):
+def remove(file, remove_non_empty_dir=False):
     if os.path.exists(file):
         if os.path.isdir(file):
-            try:
-                os.removedirs(file)
-            except OSError:
-                # ignore non empty directories
-                pass
+            if remove_non_empty_dir:
+                shutil.rmtree(file)
+            else:
+                try:
+                    os.removedirs(file)
+                except OSError:
+                    # ignore non empty directories
+                    pass
         else:
             os.remove(file)
 

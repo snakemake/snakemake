@@ -367,7 +367,7 @@ class Rule:
                     try:
                         item = item(wildcards_obj)
                     except (Exception, BaseException) as e:
-                        raise InputFunctionException(e, rule=self)
+                        raise InputFunctionException(e, rule=self, wildcards=wildcards)
                     check_function_return(item)
 
                 if not_iterable(item) or no_flattening:
