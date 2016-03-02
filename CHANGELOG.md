@@ -6,6 +6,8 @@
 ### Changed
 - Allow to use rule/job parameters with braces notation in cluster config.
 - Show a proper error message in case of recursion errors.
+- Remove non-empty temp dirs.
+- Don't set the process group of Snakemake in order to allow kill signals from parent processes to be propagated.
 
 ## [3.5.5] - 2016-01-23
 ### Added
