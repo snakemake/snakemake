@@ -6,7 +6,6 @@ __license__ = "MIT"
 import os
 import sys
 import base64
-import json
 import tempfile
 
 from collections import defaultdict
@@ -446,7 +445,9 @@ class Job:
         except IndexError as ex:
             raise RuleException("IndexError: " + str(ex), rule=self.rule)
 
-    def properties(self, omit_resources="_cores _nodes".split()):
+    def properties(self,
+                   omit_resources="_cores _nodes".split(),
+                   **aux_properties):
         resources = {
             name: res
             for name, res in self.resources.items()
@@ -460,12 +461,10 @@ class Job:
             "output": self.output,
             "params": params,
             "threads": self.threads,
-            "resources": resources
+            "resources": resources,
         }
+        properties.update(aux_properties)
         return properties
-
-    def json(self):
-        return json.dumps(self.properties())
 
     def __repr__(self):
         return self.rule.name
