@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Added
 - onstart handler, that allows to add code that shall be only executed before the actual workflow execution (not on dryrun).
+- Parameters defined in the cluster config file are now accessible in the job properties under the key "cluster".
 ### Changed
 - Allow to use rule/job parameters with braces notation in cluster config.
 - Show a proper error message in case of recursion errors.
