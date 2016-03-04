@@ -20,7 +20,7 @@ from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException
 from snakemake.exceptions import PeriodicWildcardError
-from snakemake.exceptions import RemoteFileException
+from snakemake.exceptions import RemoteFileException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
@@ -247,7 +247,7 @@ class DAG:
 
         input_maxtime = job.input_maxtime
         if input_maxtime is not None:
-            output_mintime = job.output_mintime
+            output_mintime = job.output_mintime_local
             if output_mintime is not None and output_mintime < input_maxtime:
                 raise RuleException(
                     "Output files {} are older than input "
@@ -325,7 +325,7 @@ class DAG:
 
         for f in unneeded_files():
             logger.info("Removing temporary output file {}.".format(f))
-            f.remove()
+            f.remove(remove_non_empty_dir=True)
 
     def handle_remote(self, job):
         """ Remove local files if they are no longer needed, and upload to S3. """
@@ -410,6 +410,15 @@ class DAG:
             except (MissingInputException, CyclicGraphException,
                     PeriodicWildcardError) as ex:
                 exceptions.append(ex)
+            except RecursionError as e:
+                raise WorkflowError("Building the DAG exceeds the recursion limit. "
+                                    "This is likely due to a cyclic dependency."
+                                    "E.g. you might have a sequence of rules that "
+                                    "can generate their own input. Try to make "
+                                    "the output files more specific. "
+                                    "A common pattern is to have different prefixes "
+                                    "in the output files of different rules."
+                                    + "\nProblematic file pattern: {}".format(file) if file else "")
         if producer is None:
             if cycles:
                 job = cycles[0]

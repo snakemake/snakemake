@@ -130,7 +130,7 @@ def snakemake(snakefile,
         drmaa (str):                if not None use DRMAA for cluster support, str specifies native args passed to the cluster when submitting a job
         jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
-        standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False)
+        standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False) (deprecated)
         ignore_ambiguity (bool):    ignore ambiguous rules and always take the first possible one (default False)
         snakemakepath (str):        path to the snakemake executable (default None)
         lock (bool):                lock the working directory when executing the workflow (default True)
@@ -277,15 +277,6 @@ def snakemake(snakefile,
                         overwrite_clusterconfig=cluster_config,
                         config_args=config_args,
                         debug=debug)
-
-    if standalone:
-        try:
-            # set the process group
-            os.setpgrp()
-        except:
-            # ignore: if it does not work we can still work without it
-            pass
-
     success = True
     try:
         workflow.include(snakefile,
@@ -835,7 +826,7 @@ def get_argument_parser():
     parser.add_argument(
         "--no-hooks",
         action="store_true",
-        help="Do not invoke onsuccess or onerror hooks after execution.")
+        help="Do not invoke onstart, onsuccess or onerror hooks after execution.")
     parser.add_argument(
         "--print-compilation",
         action="store_true",

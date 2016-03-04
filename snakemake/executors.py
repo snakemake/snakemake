@@ -377,7 +377,7 @@ class ClusterExecutor(RealExecutor):
                          overwrite_config=overwrite_config,
                          workflow=self.workflow,
                          cores=self.cores,
-                         properties=job.json(),
+                         properties=json.dumps(job.properties(cluster=self.cluster_params(job))),
                          latency_wait=self.latency_wait,
                          benchmark_repeats=self.benchmark_repeats,
                          target=target, wait_for_files=" ".join(wait_for_files),
@@ -392,16 +392,20 @@ class ClusterExecutor(RealExecutor):
                 "Make sure that your custom jobscript it up to date.".format(e))
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
 
-    def cluster_wildcards(self, job):
+    def cluster_params(self, job):
         """Return wildcards object for job from cluster_config."""
 
         cluster = self.cluster_config.get("__default__", dict()).copy()
         cluster.update(self.cluster_config.get(job.rule.name, dict()))
         # Format values with available parameters from the job.
         for key, value in list(cluster.items()):
-            cluster[key] = job.format_wildcards(value)
+            if isinstance(value, str):
+                cluster[key] = job.format_wildcards(value)
 
-        return Wildcards(fromdict=cluster)
+        return cluster
+
+    def cluster_wildcards(self, job):
+        return Wildcards(fromdict=self.cluster_params(job))
 
 
 GenericClusterJob = namedtuple("GenericClusterJob", "job callback error_callback jobscript jobfinished jobfailed")

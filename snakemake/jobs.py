@@ -6,7 +6,6 @@ __license__ = "MIT"
 import os
 import sys
 import base64
-import json
 import tempfile
 
 from collections import defaultdict
@@ -206,6 +205,15 @@ class Job:
         existing = [f.mtime for f in self.expanded_output if f.exists]
         if self.benchmark and self.benchmark.exists:
             existing.append(self.benchmark.mtime)
+        if existing:
+            return min(existing)
+        return None
+
+    @property
+    def output_mintime_local(self):
+        existing = [f.mtime_local for f in self.expanded_output if f.exists]
+        if self.benchmark and self.benchmark.exists:
+            existing.append(self.benchmark.mtime_local)
         if existing:
             return min(existing)
         return None
@@ -437,7 +445,9 @@ class Job:
         except IndexError as ex:
             raise RuleException("IndexError: " + str(ex), rule=self.rule)
 
-    def properties(self, omit_resources="_cores _nodes".split()):
+    def properties(self,
+                   omit_resources="_cores _nodes".split(),
+                   **aux_properties):
         resources = {
             name: res
             for name, res in self.resources.items()
@@ -451,12 +461,10 @@ class Job:
             "output": self.output,
             "params": params,
             "threads": self.threads,
-            "resources": resources
+            "resources": resources,
         }
+        properties.update(aux_properties)
         return properties
-
-    def json(self):
-        return json.dumps(self.properties())
 
     def __repr__(self):
         return self.rule.name

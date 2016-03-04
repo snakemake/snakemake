@@ -9,14 +9,15 @@ from contextlib import contextmanager
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject
 from snakemake.exceptions import DropboxFileException, WorkflowError
-import snakemake.io 
+import snakemake.io
 
 try:
     # third-party modules
     import dropbox # The official Dropbox API library
 except ImportError as e:
-    raise WorkflowError("The Python 3 package 'dropbox' " + 
-        "must be installed to use Dropbox remote() file functionality. %s" % e.msg)
+    raise WorkflowError("The Python 3 package 'dropbox' "
+                        "must be installed to use Dropbox remote() file "
+                        "functionality. %s" % e.msg)
 
 
 class RemoteProvider(AbstractRemoteProvider):
@@ -47,9 +48,9 @@ class RemoteObject(AbstractRemoteObject):
                 self._dropboxc.users_get_current_account()
             except dropbox.exceptions.AuthError as err:
                     DropboxFileException("ERROR: Invalid Dropbox OAuth access token; try re-generating an access token from the app console on the web.")
-        
+
     # === Implementations of abstract class members ===
-  
+
     def exists(self):
         try:
             metadata = self._dropboxc.files_get_metadata(self.remote_file())
@@ -83,8 +84,26 @@ class RemoteObject(AbstractRemoteObject):
             raise DropboxFileException("The file does not seem to exist remotely: %s" % self.remote_file())
 
     def upload(self, mode=dropbox.files.WriteMode('overwrite')):
-        with open(self.file(),'rb') as f:
-            self._dropboxc.files_upload(f, self.remote_file(), mode=mode)
+        size = os.path.getsize(self.file())
+        # Chunk file into 10MB slices because Dropbox does not accept more than 150MB chunks
+        chunksize = 10000000
+        with open(self.file(), mode='rb') as f:
+            data = f.read(chunksize)
+            # Start upload session
+            res = self._dropboxc.files_upload_session_start(data)
+            offset = len(data)
+
+            # Upload further chunks until file is complete
+            while len(data) == chunksize:
+                data = f.read(chunksize)
+                self._dropboxc.files_upload_session_append(data, res.session_id, offset)
+                offset += len(data)
+
+            # Finish session and store in the desired path
+            self._dropboxc.files_upload_session_finish(
+                f.read(chunksize),
+                dropbox.files.UploadSessionCursor(res.session_id, offset),
+                dropbox.files.CommitInfo(path=self.remote_file(), mode=mode))
 
     def remote_file(self):
         return "/"+self.file() if not self.file().startswith("/") else self.file()

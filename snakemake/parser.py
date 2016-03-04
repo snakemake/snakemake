@@ -437,6 +437,7 @@ class Shell(Run):
     def end(self):
         # the end is detected. So we can savely reset the indent to zero here
         self.indent = 0
+        yield "\n"
         yield ")"
         yield "\n"
         for t in super().start():
@@ -632,6 +633,10 @@ class OnError(DecoratorKeywordState):
     decorator = "onerror"
     args = ["log"]
 
+class OnStart(DecoratorKeywordState):
+    decorator = "onstart"
+    args = ["log"]
+
 
 class Python(TokenAutomaton):
 
@@ -643,7 +648,8 @@ class Python(TokenAutomaton):
                        subworkflow=Subworkflow,
                        localrules=Localrules,
                        onsuccess=OnSuccess,
-                       onerror=OnError)
+                       onerror=OnError,
+                       onstart=OnStart)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,
