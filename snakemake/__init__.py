@@ -742,8 +742,7 @@ def get_argument_parser():
         "jobs the output of which is recognized as incomplete.")
     parser.add_argument("--ignore-incomplete", "--ii",
                         action="store_true",
-                        help="Ignore "
-                        "any incomplete jobs.")
+                        help="Do not check for incomplete output files.")
     parser.add_argument(
         "--list-version-changes", "--lv",
         action="store_true",
