@@ -25,6 +25,9 @@ from snakemake.exceptions import UnexpectedOutputException, InputFunctionExcepti
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 
+# Workaround for Py <3.5 prior to existence of RecursionError
+try: RecursionError
+except NameError: RecursionError = RuntimeError
 
 class DAG:
     def __init__(self, workflow,
