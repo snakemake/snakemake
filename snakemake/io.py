@@ -149,11 +149,9 @@ class _IOFile(str):
             raise RemoteFileException("The file to be downloaded does not seem to exist remotely.")
 
     def upload_to_remote(self):
-        if self.is_remote and not self.remote_object.exists():
+        if self.is_remote:
             logger.info("Uploading to remote: {}".format(self.file))
             self.remote_object.upload()
-        else:
-            raise RemoteFileException("The file to be uploaded does not seem to exist remotely.")
 
     def prepare(self):
         path_until_wildcard = re.split(self.dynamic_fill, self.file)[0]

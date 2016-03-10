@@ -300,13 +300,6 @@ class Job:
                 files.add(f)
         return files
 
-    def transfer_updated_files(self):
-        for f in self.remote_output_older_than_local | self.remote_input_older_than_local:
-            f.upload_to_remote()
-
-        for f in self.remote_output_newer_than_local | self.remote_input_newer_than_local:
-            f.download_from_remote()
-
     @property
     def files_to_download(self):
         toDownload = set()

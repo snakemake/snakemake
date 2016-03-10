@@ -352,7 +352,7 @@ class DAG:
                     yield f
 
         for f in job.expanded_output:
-            if f.is_remote and not f.exists_remote:
+            if f.is_remote:
                 f.upload_to_remote()
                 remote_mtime = f.mtime
                 # immediately force local mtime to match remote,
