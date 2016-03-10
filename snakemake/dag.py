@@ -325,7 +325,7 @@ class DAG:
 
         for f in unneeded_files():
             logger.info("Removing temporary output file {}.".format(f))
-            f.remove()
+            f.remove(remove_non_empty_dir=True)
 
     def handle_remote(self, job):
         """ Remove local files if they are no longer needed, and upload to S3. """

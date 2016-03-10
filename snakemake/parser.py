@@ -437,6 +437,7 @@ class Shell(Run):
     def end(self):
         # the end is detected. So we can savely reset the indent to zero here
         self.indent = 0
+        yield "\n"
         yield ")"
         yield "\n"
         for t in super().start():

@@ -84,7 +84,9 @@ def script(basedir, path, input, output, params, wildcards, threads, resources,
     if not path.startswith("http"):
         if path.startswith("file://"):
             path = path[7:]
-        path = "file://" + os.path.abspath(os.path.join(basedir, path))
+        if not os.path.isabs(path):
+            path = os.path.abspath(os.path.join(basedir, path))
+        path = "file://" + path
     path = format(path, stepout=1)
 
     try:
