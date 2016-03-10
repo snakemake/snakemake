@@ -730,7 +730,7 @@ def get_argument_parser():
                         help="Remove a lock on the working directory.")
     parser.add_argument(
         "--cleanup-metadata", "--cm",
-        nargs="*",
+        nargs="+",
         metavar="FILE",
         help="Cleanup the metadata "
         "of given files. That means that snakemake removes any tracked "
