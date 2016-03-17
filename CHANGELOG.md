@@ -11,6 +11,7 @@
 - Remove non-empty temp dirs.
 - Don't set the process group of Snakemake in order to allow kill signals from parent processes to be propagated.
 - Fixed various corner case bugs.
+- The params directive no longer converts a list ``l`` implicitly to ``" ".join(l)``.
 
 ## [3.5.5] - 2016-01-23
 ### Added
