@@ -43,11 +43,13 @@ class OutputIndex:
 
     def match(self, f):
         node = self.root
+        rules = set()
         for c in f:
             for rule in node.rules:
-                yield rule
+                rules.add(rule)
             node = node.children.get(c, None)
             if node is None:
-                return
+                return rules
         for rule in node.rules:
-            yield rule
+            rules.add(rule)
+        return rules
