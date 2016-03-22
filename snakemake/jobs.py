@@ -329,6 +329,21 @@ class Job:
         if protected:
             raise ProtectedOutputException(self.rule, protected)
 
+    def remove_existing_output(self):
+        """Clean up both dynamic and regular output before rules actually run
+        """
+        if self.dynamic_output:
+            for f, _ in chain(*map(self.expand_dynamic,
+                                   self.rule.dynamic_output)):
+                os.remove(f)
+
+        for f, f_ in zip(self.output, self.rule.output):
+            try:
+                os.remove(f)
+            except FileNotFoundError:
+                #No file == no problem
+                pass
+
     def prepare(self):
         """
         Prepare execution of job.
@@ -347,10 +362,6 @@ class Job:
                 "present when the DAG was created:\n{}".format(
                     self.rule, unexpected_output))
 
-        if self.dynamic_output:
-            for f, _ in chain(*map(self.expand_dynamic,
-                                   self.rule.dynamic_output)):
-                os.remove(f)
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 

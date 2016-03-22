@@ -109,7 +109,7 @@ class AbstractExecutor:
 
     def finish_job(self, job):
         self.dag.handle_touch(job)
-        self.dag.check_output(job, wait=self.latency_wait)
+        self.dag.check_and_touch_output(job, wait=self.latency_wait)
         self.dag.unshadow_output(job)
         self.dag.handle_remote(job)
         self.dag.handle_protected(job)
@@ -169,11 +169,10 @@ class TouchExecutor(RealExecutor):
             error_callback=None):
         super()._run(job)
         try:
-            for f in job.expanded_output:
-                f.touch()
+            #Touching of output files will be done by finish_job
             if job.benchmark:
                 job.benchmark.touch()
-            time.sleep(0.1)
+            #time.sleep(0.1)
             self.finish_job(job)
             callback(job)
         except OSError as ex:
@@ -216,6 +215,7 @@ class CPUExecutor(RealExecutor):
             type(self) == concurrent.futures.ThreadPoolExecutor):
             raise ImproperShadowException(job.rule)
         job.prepare()
+        job.remove_existing_output()
         super()._run(job)
 
         benchmark = None
@@ -332,6 +332,9 @@ class ClusterExecutor(RealExecutor):
         self.shutdown()
 
     def _run(self, job, callback=None, error_callback=None):
+        #Always ensure that old output files are gone before submitting to the
+        #cluster.
+        job.remove_existing_output()
         super()._run(job, callback=callback, error_callback=error_callback)
         logger.shellcmd(job.shellcmd)
 
