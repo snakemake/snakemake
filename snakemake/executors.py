@@ -172,7 +172,7 @@ class TouchExecutor(RealExecutor):
             #Touching of output files will be done by finish_job
             if job.benchmark:
                 job.benchmark.touch()
-            #time.sleep(0.1)
+            time.sleep(0.1)
             self.finish_job(job)
             callback(job)
         except OSError as ex:
