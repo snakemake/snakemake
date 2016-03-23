@@ -11,13 +11,21 @@
 # Setup - touch a fake input file and a fake output file.
 
 shell("touch -d '1 minute ago' output.file")
+shell("mkdir -p output.dir/deleteme")
+shell("touch -d '1 minute ago' output.dir")
 shell("touch input.file")
 
 rule main:
-    input: "output.file"
+    input: "output.file", "output.dir"
 
 rule make_the_file:
     output: "output.file", "foo/output.foo.file"
     input: "input.file"
     # Rule fails if any output.file is already present
     shell: "test ! -e output.file ; test -d foo ; test ! -e foo/* ; touch -d '1 day ago' output.file ; touch foo/output.foo.file"
+
+#Can the output from a rule can be a directory too?
+rule make_the_dir:
+    output: "output.dir"
+    input: "input.file"
+    shell: "ls -l >/tmp/lsl ; test ! -e output.dir ; mkdir output.dir ; touch -d '1 day ago' output.dir/foo2"

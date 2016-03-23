@@ -339,7 +339,7 @@ class Job:
 
         for f, f_ in zip(self.output, self.rule.output):
             try:
-                os.remove(f)
+                f.remove(True)
             except FileNotFoundError:
                 #No file == no problem
                 pass
