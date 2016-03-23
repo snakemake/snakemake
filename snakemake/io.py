@@ -4,6 +4,7 @@ __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import os
+import shutil
 import re
 import stat
 import time
@@ -15,16 +16,24 @@ from snakemake.exceptions import MissingOutputException, WorkflowError, Wildcard
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
 
+
 def lstat(f):
-    return os.stat(f, follow_symlinks=os.stat not in os.supports_follow_symlinks)
+    return os.stat(f,
+                   follow_symlinks=os.stat not in os.supports_follow_symlinks)
 
 
 def lutime(f, times):
-    return os.utime(f, times, follow_symlinks=os.utime not in os.supports_follow_symlinks)
+    return os.utime(
+        f,
+        times,
+        follow_symlinks=os.utime not in os.supports_follow_symlinks)
 
 
 def lchmod(f, mode):
-    return os.chmod(f, mode, follow_symlinks=os.chmod not in os.supports_follow_symlinks)
+    return os.chmod(
+        f,
+        mode,
+        follow_symlinks=os.chmod not in os.supports_follow_symlinks)
 
 
 def IOFile(file, rule=None):
@@ -54,13 +63,16 @@ class _IOFile(str):
             A decorator so that if the file is remote and has a version
             of the same file-related function, call that version instead.
         """
+
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if self.is_remote:
                 self.update_remote_filepath()
-                if hasattr( self.remote_object, func.__name__):
-                    return getattr( self.remote_object, func.__name__)(*args, **kwargs)
+                if hasattr(self.remote_object, func.__name__):
+                    return getattr(self.remote_object, func.__name__)(*args, **
+                                                                      kwargs)
             return func(self, *args, **kwargs)
+
         return wrapper
 
     @property
@@ -107,7 +119,7 @@ class _IOFile(str):
     @property
     def protected(self):
         return self.exists_local and not os.access(self.file, os.W_OK)
-    
+
     @property
     @_refer_to_remote
     def mtime(self):
@@ -136,7 +148,8 @@ class _IOFile(str):
     def check_broken_symlink(self):
         """ Raise WorkflowError if file is a broken symlink. """
         if not self.exists_local and lstat(self.file):
-            raise WorkflowError("File {} seems to be a broken symlink.".format(self.file))
+            raise WorkflowError("File {} seems to be a broken symlink.".format(
+                self.file))
 
     def is_newer(self, time):
         return self.mtime > time
@@ -146,14 +159,13 @@ class _IOFile(str):
             logger.info("Downloading from remote: {}".format(self.file))
             self.remote_object.download()
         else:
-            raise RemoteFileException("The file to be downloaded does not seem to exist remotely.")
- 
+            raise RemoteFileException(
+                "The file to be downloaded does not seem to exist remotely.")
+
     def upload_to_remote(self):
-        if self.is_remote and not self.remote_object.exists():
+        if self.is_remote:
             logger.info("Uploading to remote: {}".format(self.file))
             self.remote_object.upload()
-        else:
-            raise RemoteFileException("The file to be uploaded does not seem to exist remotely.")
 
     def prepare(self):
         path_until_wildcard = re.split(self.dynamic_fill, self.file)[0]
@@ -167,8 +179,8 @@ class _IOFile(str):
                     raise e
 
     def protect(self):
-        mode = (lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~
-                stat.S_IWOTH)
+        mode = (lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP
+                & ~stat.S_IWOTH)
         if os.path.isdir(self.file):
             for root, dirs, files in os.walk(self.file):
                 for d in dirs:
@@ -178,8 +190,8 @@ class _IOFile(str):
         else:
             lchmod(self.file, mode)
 
-    def remove(self):
-        remove(self.file)
+    def remove(self, remove_non_empty_dir=False):
+        remove(self.file, remove_non_empty_dir=False)
 
     def touch(self, times=None):
         """ times must be 2-tuple: (atime, mtime) """
@@ -203,7 +215,8 @@ class _IOFile(str):
             with open(self.file, "w") as f:
                 pass
 
-    def apply_wildcards(self, wildcards,
+    def apply_wildcards(self,
+                        wildcards,
                         fill_missing=False,
                         fail_dynamic=False):
         f = self._file
@@ -213,13 +226,15 @@ class _IOFile(str):
         # this bit ensures flags are transferred over to files after
         # wildcards are applied
 
-        file_with_wildcards_applied = IOFile(apply_wildcards(f, wildcards,
-                                      fill_missing=fill_missing,
-                                      fail_dynamic=fail_dynamic,
-                                      dynamic_fill=self.dynamic_fill),
-                                      rule=self.rule)
+        file_with_wildcards_applied = IOFile(
+            apply_wildcards(f,
+                            wildcards,
+                            fill_missing=fill_missing,
+                            fail_dynamic=fail_dynamic,
+                            dynamic_fill=self.dynamic_fill),
+            rule=self.rule)
 
-        file_with_wildcards_applied.clone_flags( self )
+        file_with_wildcards_applied.clone_flags(self)
 
         return file_with_wildcards_applied
 
@@ -297,14 +312,17 @@ def contains_wildcard(path):
     return _wildcard_regex.search(path) is not None
 
 
-def remove(file):
+def remove(file, remove_non_empty_dir=False):
     if os.path.exists(file):
         if os.path.isdir(file):
-            try:
-                os.removedirs(file)
-            except OSError:
-                # ignore non empty directories
-                pass
+            if remove_non_empty_dir:
+                shutil.rmtree(file)
+            else:
+                try:
+                    os.removedirs(file)
+                except OSError:
+                    # ignore non empty directories
+                    pass
         else:
             os.remove(file)
 
@@ -333,7 +351,8 @@ def regex(filepattern):
     return "".join(f)
 
 
-def apply_wildcards(pattern, wildcards,
+def apply_wildcards(pattern,
+                    wildcards,
                     fill_missing=False,
                     fail_dynamic=False,
                     dynamic_fill=None,
@@ -357,7 +376,8 @@ def apply_wildcards(pattern, wildcards,
 
 
 def not_iterable(value):
-    return isinstance(value, str) or not isinstance(value, Iterable)
+    return isinstance(value, str) or isinstance(value, dict) or not isinstance(
+        value, Iterable)
 
 
 class AnnotatedString(str):
@@ -383,12 +403,14 @@ def is_flagged(value, flag):
         return flag in value.flags and value.flags[flag]
     return False
 
+
 def get_flag_value(value, flag_type):
     if isinstance(value, AnnotatedString):
         if flag_type in value.flags:
             return value.flags[flag_type]
         else:
             return None
+
 
 def temp(value):
     """
@@ -398,8 +420,7 @@ def temp(value):
         raise SyntaxError(
             "Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
-        raise SyntaxError(
-            "Remote and temporary flags are mutually exclusive.")
+        raise SyntaxError("Remote and temporary flags are mutually exclusive.")
     return flag(value, "temp")
 
 
@@ -414,8 +435,7 @@ def protected(value):
         raise SyntaxError(
             "Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
-        raise SyntaxError(
-            "Remote and protected flags are mutually exclusive.")
+        raise SyntaxError("Remote and protected flags are mutually exclusive.")
     return flag(value, "protected")
 
 
@@ -439,6 +459,7 @@ def dynamic(value):
 
 def touch(value):
     return flag(value, "touch")
+
 
 def expand(*args, **wildcards):
     """
@@ -467,8 +488,8 @@ def expand(*args, **wildcards):
 
     try:
         return [filepattern.format(**comb)
-                for comb in map(dict, combinator(*flatten(wildcards))) for
-                filepattern in filepatterns]
+                for comb in map(dict, combinator(*flatten(wildcards)))
+                for filepattern in filepatterns]
     except KeyError as e:
         raise WildcardError("No values given for wildcard {}.".format(e))
 
@@ -507,9 +528,9 @@ def glob_wildcards(pattern, files=None):
     pattern = re.compile(regex(pattern))
 
     if files is None:
-        files = ((os.path.join(dirpath, f) if dirpath != "." else f) 
-                    for dirpath, dirnames, filenames in os.walk(dirname) 
-                    for f in chain(filenames, dirnames))
+        files = ((os.path.join(dirpath, f) if dirpath != "." else f)
+                 for dirpath, dirnames, filenames in os.walk(dirname)
+                 for f in chain(filenames, dirnames))
 
     for f in files:
         match = re.match(pattern, f)
@@ -517,6 +538,7 @@ def glob_wildcards(pattern, files=None):
             for name, value in match.groupdict().items():
                 getattr(wildcards, name).append(value)
     return wildcards
+
 
 # TODO rewrite Namedlist!
 class Namedlist(list):
@@ -675,7 +697,9 @@ def _load_configfile(configpath):
             try:
                 return yaml.load(f)
             except yaml.YAMLError:
-                raise WorkflowError("Config file is not valid JSON or YAML.")
+                raise WorkflowError("Config file is not valid JSON or YAML. "
+                                    "In case of YAML, make sure to not mix "
+                                    "whitespace and tab indentation.")
     except FileNotFoundError:
         raise WorkflowError("Config file {} not found.".format(configpath))
 

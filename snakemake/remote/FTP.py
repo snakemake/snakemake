@@ -9,7 +9,7 @@ from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
-from snakemake.exceptions import FTPFileException
+from snakemake.exceptions import FTPFileException, WorkflowError
 import snakemake.io 
 
 try:
@@ -82,7 +82,11 @@ class RemoteObject(DomainObject):
     def mtime(self):
         if self.exists():
             with self.ftpc() as ftpc:
-                ftpc.synchronize_times()
+                try:
+                    # requires write access
+                    ftpc.synchronize_times()
+                except:
+                    pass
                 return ftpc.path.getmtime(self.remote_path)
         else:
             raise SFTPFileException("The file does not seem to exist remotely: %s" % self.file())
@@ -100,7 +104,11 @@ class RemoteObject(DomainObject):
                 # if the destination path does not exist
                 if make_dest_dirs:
                     os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
-                ftpc.synchronize_times()
+                try:
+                    # requires write access
+                    ftpc.synchronize_times()
+                except:
+                    pass
                 ftpc.download(source=self.remote_path, target=self.local_path)
             else:
                 raise SFTPFileException("The file does not seem to exist remotely: %s" % self.file())

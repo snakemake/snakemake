@@ -28,7 +28,7 @@ class shell:
     @classmethod
     def executable(cls, cmd):
         if os.path.split(cmd)[-1] == "bash":
-            cls._process_prefix = "set -e -o pipefail; "
+            cls._process_prefix = "set -euo pipefail; "
         cls._process_args["executable"] = cmd
 
     @classmethod
@@ -55,7 +55,7 @@ class shell:
 
         proc = sp.Popen("{} {} {}".format(
                             cls._process_prefix,
-                            cmd,
+                            cmd.rstrip(),
                             cls._process_suffix),
                         bufsize=-1,
                         shell=True,

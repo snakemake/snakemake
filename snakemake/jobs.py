@@ -6,7 +6,6 @@ __license__ = "MIT"
 import os
 import sys
 import base64
-import json
 import tempfile
 
 from collections import defaultdict
@@ -43,7 +42,8 @@ class Job:
          self.dependencies) = rule.expand_wildcards(self.wildcards_dict)
 
         self.resources_dict = {
-            name: min(self.rule.workflow.global_resources.get(name, res), res)
+            name: min(
+                self.rule.workflow.global_resources.get(name, res), res)
             for name, res in rule.resources.items()
         }
         self.threads = self.resources_dict["_cores"]
@@ -86,8 +86,8 @@ class Job:
 
     @property
     def b64id(self):
-        return base64.b64encode((self.rule.name + "".join(self.output)
-                                 ).encode("utf-8")).decode("utf-8")
+        return base64.b64encode((self.rule.name + "".join(self.output)).encode(
+            "utf-8")).decode("utf-8")
 
     @property
     def inputsize(self):
@@ -130,10 +130,7 @@ class Job:
         """ Iterate over output files while dynamic output is expanded. """
         for f, f_ in zip(self.output, self.rule.output):
             if f in self.dynamic_output:
-                expansion = self.expand_dynamic(
-                    f_,
-                    restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill)
+                expansion = self.expand_dynamic(f_)
                 if not expansion:
                     yield f_
                 for f, _ in expansion:
@@ -149,9 +146,10 @@ class Job:
     def expanded_shadowed_output(self):
         """ Get the paths of output files, resolving shadow directory. """
         if not self.shadow_dir:
-            return self.expanded_output
-        for f in self.expanded_output:
-            yield os.path.join(self.shadow_dir, f)
+            yield from self.expanded_output
+        else:
+            for f in self.expanded_output:
+                yield os.path.join(self.shadow_dir, f)
 
     @property
     def dynamic_wildcards(self):
@@ -159,10 +157,7 @@ class Job:
         combinations = set()
         for f, f_ in zip(self.output, self.rule.output):
             if f in self.dynamic_output:
-                for f, w in self.expand_dynamic(
-                    f_,
-                    restriction=self.wildcards,
-                    omit_value=_IOFile.dynamic_fill):
+                for f, w in self.expand_dynamic(f_):
                     combinations.add(tuple(w.items()))
         wildcards = defaultdict(list)
         for combination in combinations:
@@ -174,9 +169,9 @@ class Job:
     def missing_input(self):
         """ Return missing input files. """
         # omit file if it comes from a subworkflow
-        return set(f for f in self.input
+        return set(f
+                   for f in self.input
                    if not f.exists and not f in self.subworkflow_input)
-
 
     @property
     def existing_remote_input(self):
@@ -216,6 +211,15 @@ class Job:
         return None
 
     @property
+    def output_mintime_local(self):
+        existing = [f.mtime_local for f in self.expanded_output if f.exists]
+        if self.benchmark and self.benchmark.exists:
+            existing.append(self.benchmark.mtime_local)
+        if existing:
+            return min(existing)
+        return None
+
+    @property
     def input_maxtime(self):
         """ Return newest input file. """
         existing = [f.mtime for f in self.input if f.exists]
@@ -234,10 +238,7 @@ class Job:
         for f, f_ in zip(self.output, self.rule.output):
             if requested is None or f in requested:
                 if f in self.dynamic_output:
-                    if not self.expand_dynamic(
-                        f_,
-                        restriction=self.wildcards,
-                        omit_value=_IOFile.dynamic_fill):
+                    if not self.expand_dynamic(f_):
                         files.add("{} (dynamic)".format(f_))
                 elif not f.exists:
                     files.add(f)
@@ -271,7 +272,8 @@ class Job:
     def remote_input_newer_than_local(self):
         files = set()
         for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                    f.mtime > f.mtime_local):
                 files.add(f)
         return files
 
@@ -279,7 +281,8 @@ class Job:
     def remote_input_older_than_local(self):
         files = set()
         for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                    f.mtime < f.mtime_local):
                 files.add(f)
         return files
 
@@ -287,7 +290,8 @@ class Job:
     def remote_output_newer_than_local(self):
         files = set()
         for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                    f.mtime > f.mtime_local):
                 files.add(f)
         return files
 
@@ -295,16 +299,10 @@ class Job:
     def remote_output_older_than_local(self):
         files = set()
         for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                    f.mtime < f.mtime_local):
                 files.add(f)
         return files
-
-    def transfer_updated_files(self):
-        for f in self.remote_output_older_than_local | self.remote_input_older_than_local:
-            f.upload_to_remote()
-
-        for f in self.remote_output_newer_than_local | self.remote_input_newer_than_local:
-            f.download_from_remote()
 
     @property
     def files_to_download(self):
@@ -350,9 +348,7 @@ class Job:
                     self.rule, unexpected_output))
 
         if self.dynamic_output:
-            for f, _ in chain(*map(partial(self.expand_dynamic,
-                                           restriction=self.wildcards,
-                                           omit_value=_IOFile.dynamic_fill),
+            for f, _ in chain(*map(self.expand_dynamic,
                                    self.rule.dynamic_output)):
                 os.remove(f)
         for f, f_ in zip(self.output, self.rule.output):
@@ -382,12 +378,14 @@ class Job:
             for dirpath, dirnames, filenames in os.walk(cwd):
                 # Must exclude .snakemake and its children to avoid infinite
                 # loop of symlinks.
-                if os.path.commonprefix([snakemake_dir, dirpath]) == snakemake_dir:
+                if os.path.commonprefix([snakemake_dir, dirpath
+                                         ]) == snakemake_dir:
                     continue
                 for dirname in dirnames:
                     if dirname == ".snakemake":
                         continue
-                    relative_source = os.path.relpath(os.path.join(dirpath, dirname))
+                    relative_source = os.path.relpath(os.path.join(dirpath,
+                                                                   dirname))
                     shadow = os.path.join(self.shadow_dir, relative_source)
                     os.mkdir(shadow)
 
@@ -416,7 +414,8 @@ class Job:
     def empty_remote_dirs(self):
         for f in (set(self.output) | set(self.input)):
             if f.is_remote:
-                if os.path.exists(os.path.dirname(f)) and not len( os.listdir( os.path.dirname(f))):
+                if os.path.exists(os.path.dirname(f)) and not len(os.listdir(
+                        os.path.dirname(f))):
                     yield os.path.dirname(f)
 
     def rmdir_empty_remote_dirs(self):
@@ -424,7 +423,7 @@ class Job:
             try:
                 os.removedirs(d)
             except:
-                pass # it's ok if we can't remove the leaf
+                pass  # it's ok if we can't remove the leaf
 
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """
@@ -447,7 +446,9 @@ class Job:
         except IndexError as ex:
             raise RuleException("IndexError: " + str(ex), rule=self.rule)
 
-    def properties(self, omit_resources="_cores _nodes".split()):
+    def properties(self,
+                   omit_resources="_cores _nodes".split(),
+                   **aux_properties):
         resources = {
             name: res
             for name, res in self.resources.items()
@@ -461,12 +462,10 @@ class Job:
             "output": self.output,
             "params": params,
             "threads": self.threads,
-            "resources": resources
+            "resources": resources,
         }
+        properties.update(aux_properties)
         return properties
-
-    def json(self):
-        return json.dumps(self.properties())
 
     def __repr__(self):
         return self.rule.name
@@ -474,8 +473,10 @@ class Job:
     def __eq__(self, other):
         if other is None:
             return False
-        return self.rule == other.rule and (
-            self.dynamic_output or self.wildcards_dict == other.wildcards_dict)
+        return (self.rule == other.rule and
+                (self.dynamic_output or
+                 self.wildcards_dict == other.wildcards_dict) and
+                (self.dynamic_input or self.input == other.input))
 
     def __lt__(self, other):
         return self.rule.__lt__(other.rule)
@@ -486,12 +487,11 @@ class Job:
     def __hash__(self):
         return self._hash
 
-    @staticmethod
-    def expand_dynamic(pattern, restriction=None, omit_value=None):
+    def expand_dynamic(self, pattern):
         """ Expand dynamic files. """
         return list(listfiles(pattern,
-                              restriction=restriction,
-                              omit_value=omit_value))
+                              restriction=self.wildcards,
+                              omit_value=_IOFile.dynamic_fill))
 
 
 class Reason:
@@ -518,15 +518,15 @@ class Reason:
                          "are always executed.")
             else:
                 if self.missing_output:
-                    s.append("Missing output files: {}".format(
-                        ", ".join(self.missing_output)))
+                    s.append("Missing output files: {}".format(", ".join(
+                        self.missing_output)))
                 if self.incomplete_output:
-                    s.append("Incomplete output files: {}".format(
-                        ", ".join(self.incomplete_output)))
+                    s.append("Incomplete output files: {}".format(", ".join(
+                        self.incomplete_output)))
                 updated_input = self.updated_input - self.updated_input_run
                 if updated_input:
-                    s.append("Updated input files: {}".format(
-                        ", ".join(updated_input)))
+                    s.append("Updated input files: {}".format(", ".join(
+                        updated_input)))
                 if self.updated_input_run:
                     s.append("Input files updated by another job: {}".format(
                         ", ".join(self.updated_input_run)))

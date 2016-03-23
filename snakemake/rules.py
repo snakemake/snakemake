@@ -295,19 +295,9 @@ class Rule:
             self._set_params_item(item, name=name)
 
     def _set_params_item(self, item, name=None):
-        if not_iterable(item) or callable(item):
-            self.params.append(item)
-            if name:
-                self.params.add_name(name)
-        else:
-            try:
-                start = len(self.params)
-                for i in item:
-                    self._set_params_item(i)
-                if name:
-                    self.params.set_name(name, start, end=len(self.params))
-            except TypeError:
-                raise SyntaxError("Params have to be specified as strings.")
+        self.params.append(item)
+        if name:
+            self.params.add_name(name)
 
     @property
     def log(self):
@@ -355,38 +345,40 @@ class Rule:
                 return apply_wildcards(p, wildcards)
             return p
 
+        def check_input_function(f):
+            if (not_iterable(f) and not isinstance(f, str)) or not all(isinstance(f_, str) for f_ in f):
+                raise RuleException(
+                    "Input function did not return str or list of str.",
+                    rule=self)
+
+        def check_param_function(f):
+            pass
+
         def _apply_wildcards(newitems, olditems, wildcards, wildcards_obj,
                              concretize=apply_wildcards,
-                             ruleio=None):
+                             check_function_return=check_input_function,
+                             ruleio=None,
+                             no_flattening=False):
             for name, item in olditems.allitems():
                 start = len(newitems)
                 is_iterable = True
+
                 if callable(item):
                     try:
                         item = item(wildcards_obj)
                     except (Exception, BaseException) as e:
-                        raise InputFunctionException(e, rule=self)
-                    if not_iterable(item):
-                        item = [item]
-                        is_iterable = False
-                    for item_ in item:
-                        if not isinstance(item_, str):
-                            raise RuleException(
-                                "Input function did not return str or list of str.",
-                                rule=self)
-                        concrete = concretize(item_, wildcards)
-                        newitems.append(concrete)
-                        if ruleio is not None:
-                            ruleio[concrete] = item_
-                else:
-                    if not_iterable(item):
-                        item = [item]
-                        is_iterable = False
-                    for item_ in item:
-                        concrete = concretize(item_, wildcards)
-                        newitems.append(concrete)
-                        if ruleio is not None:
-                            ruleio[concrete] = item_
+                        raise InputFunctionException(e, rule=self, wildcards=wildcards)
+                    check_function_return(item)
+
+                if not_iterable(item) or no_flattening:
+                    item = [item]
+                    is_iterable = False
+                for item_ in item:
+                    concrete = concretize(item_, wildcards)
+                    newitems.append(concrete)
+                    if ruleio is not None:
+                        ruleio[concrete] = item_
+
                 if name:
                     newitems.set_name(
                         name, start,
@@ -413,7 +405,10 @@ class Rule:
                              ruleio=ruleio)
 
             params = Params()
-            _apply_wildcards(params, self.params, wildcards, wildcards_obj, concretize=concretize_param)
+            _apply_wildcards(params, self.params, wildcards, wildcards_obj,
+                             concretize=concretize_param,
+                             check_function_return=check_param_function,
+                             no_flattening=True)
 
             output = OutputFiles(o.apply_wildcards(wildcards)
                                  for o in self.output)

@@ -6,6 +6,8 @@ __license__ = "MIT"
 import inspect
 import os
 import traceback
+from urllib.request import urlopen
+from urllib.error import URLError
 
 from snakemake.utils import format
 from snakemake.logging import logger
@@ -79,61 +81,70 @@ def script(basedir, path, input, output, params, wildcards, threads, resources,
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
     """
-    path = format(os.path.join(basedir, path), stepout=1)
+    if not path.startswith("http"):
+        if path.startswith("file://"):
+            path = path[7:]
+        if not os.path.isabs(path):
+            path = os.path.abspath(os.path.join(basedir, path))
+        path = "file://" + path
+    path = format(path, stepout=1)
 
-    if path.endswith(".py"):
-        with open(path) as source:
-            try:
-                exec(compile(source.read(), path, "exec"), {
-                    "snakemake": Snakemake(input, output, params, wildcards,
-                                           threads, resources, log, config)
-                })
-            except (Exception, BaseException) as ex:
-                raise WorkflowError("".join(traceback.format_exception(type(ex), ex, ex.__traceback__)))
-    elif path.endswith(".R"):
-        try:
-            import rpy2.robjects as robjects
-        except ImportError:
-            raise ValueError(
-                "Python 3 package rpy2 needs to be installed to use the R function.")
-        with open(path) as source:
-            preamble = """
-            Snakemake <- setClass(
-                "Snakemake",
-                slots = c(
-                    input = "list",
-                    output = "list",
-                    params = "list",
-                    wildcards = "list",
-                    threads = "numeric",
-                    log = "list",
-                    resources = "list",
-                    config = "list"
-                )
-            )
-            snakemake <- Snakemake(
-                input = {},
-                output = {},
-                params = {},
-                wildcards = {},
-                threads = {},
-                log = {},
-                resources = {},
-                config = {}
-            )
-            """.format(REncoder.encode_namedlist(input),
-                       REncoder.encode_namedlist(output),
-                       REncoder.encode_namedlist(params),
-                       REncoder.encode_namedlist(wildcards), threads,
-                       REncoder.encode_namedlist(log),
-                       REncoder.encode_namedlist({
-                           name: value
-                           for name, value in resources.items()
-                           if name != "_cores" and name != "_nodes"
-                       }), REncoder.encode_dict(config))
-            logger.debug(preamble)
-            source = preamble + source.read()
-            robjects.r(source)
-    else:
-        raise ValueError(
-            "Unsupported script: Expecting either Python (.py) or R (.R) script.")
+    try:
+        with urlopen(path) as source:
+            if path.endswith(".py"):
+                try:
+                    exec(compile(source.read().decode(), path, "exec"), {
+                        "snakemake": Snakemake(input, output, params, wildcards,
+                                               threads, resources, log, config)
+                    })
+                except (Exception, BaseException) as ex:
+                    raise WorkflowError("".join(traceback.format_exception(type(ex), ex, ex.__traceback__)))
+            elif path.endswith(".R"):
+                try:
+                    import rpy2.robjects as robjects
+                except ImportError:
+                    raise ValueError(
+                        "Python 3 package rpy2 needs to be installed to use the R function.")
+                with urlopen(path) as source:
+                    preamble = """
+                    Snakemake <- setClass(
+                        "Snakemake",
+                        slots = c(
+                            input = "list",
+                            output = "list",
+                            params = "list",
+                            wildcards = "list",
+                            threads = "numeric",
+                            log = "list",
+                            resources = "list",
+                            config = "list"
+                        )
+                    )
+                    snakemake <- Snakemake(
+                        input = {},
+                        output = {},
+                        params = {},
+                        wildcards = {},
+                        threads = {},
+                        log = {},
+                        resources = {},
+                        config = {}
+                    )
+                    """.format(REncoder.encode_namedlist(input),
+                               REncoder.encode_namedlist(output),
+                               REncoder.encode_namedlist(params),
+                               REncoder.encode_namedlist(wildcards), threads,
+                               REncoder.encode_namedlist(log),
+                               REncoder.encode_namedlist({
+                                   name: value
+                                   for name, value in resources.items()
+                                   if name != "_cores" and name != "_nodes"
+                               }), REncoder.encode_dict(config))
+                    logger.debug(preamble)
+                    source = preamble + source.read().decode()
+                    robjects.r(source)
+            else:
+                raise ValueError(
+                    "Unsupported script: Expecting either Python (.py) or R (.R) script.")
+    except URLError as e:
+        raise WorkflowError(e)
