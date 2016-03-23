@@ -215,7 +215,6 @@ class CPUExecutor(RealExecutor):
             type(self) == concurrent.futures.ThreadPoolExecutor):
             raise ImproperShadowException(job.rule)
         job.prepare()
-        job.remove_existing_output()
         super()._run(job)
 
         benchmark = None

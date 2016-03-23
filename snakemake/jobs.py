@@ -373,6 +373,8 @@ class Job:
         if self.benchmark:
             self.benchmark.prepare()
 
+        self.remove_existing_output()
+
         if not self.is_shadow:
             return
         # Create shadow directory structure
