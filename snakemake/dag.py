@@ -256,8 +256,10 @@ class DAG:
         #so touch them to update timestamps.
         #Note that if the input files somehow have a future date then this will
         #not currently be spotted and the job will always be re-run.
+        #Also, don't touch directories, as we can't guarantee they were removed.
         for f in job.expanded_shadowed_output:
-            os.utime(f)
+            if not os.path.isdir(f):
+                os.utime(f)
 
     def unshadow_output(self, job):
         """ Move files from shadow directory to real output paths. """

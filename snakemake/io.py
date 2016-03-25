@@ -320,9 +320,12 @@ def remove(file, remove_non_empty_dir=False):
             else:
                 try:
                     os.removedirs(file)
-                except OSError:
-                    # ignore non empty directories
-                    pass
+                except OSError as e:
+                    # skip non empty directories
+                    if e.errno == 39:
+                        logger.info("Skipped removing empty directory {}".format(e.filename))
+                    else:
+                        logger.warning(str(e))
         else:
             os.remove(file)
 
