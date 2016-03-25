@@ -25,7 +25,8 @@ rule make_the_file:
     shell: "test ! -e output.file ; test -d foo ; test ! -e foo/* ; touch -d '1 day ago' output.file ; touch foo/output.foo.file"
 
 #Can the output from a rule can be a directory too?
+#Yes, but don't expect non-empty dirs to be deleted.
 rule make_the_dir:
     output: "output.dir"
     input: "input.file"
-    shell: "ls -l >/tmp/lsl ; test ! -e output.dir ; mkdir output.dir ; touch -d '1 day ago' output.dir/foo2"
+    shell: "mkdir -p output.dir ; touch -d '1 day ago' output.dir/foo2"
