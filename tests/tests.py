@@ -48,8 +48,6 @@ def run(path,
     There must be a Snakefile in the path and a subdirectory named
     expected-results.
     """
-    #print("\nTrying to run test in %s" % path, file=sys.stderr)
-
     if needs_connection and not is_connected():
         print("Skipping test because of missing internet connection",
               file=sys.stderr)
