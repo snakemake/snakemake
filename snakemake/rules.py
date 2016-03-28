@@ -371,7 +371,6 @@ class Rule:
                         raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
                 if not_iterable(item) or no_flattening:
-                    check_return_type(item)
                     item = [item]
                     is_iterable = False
                 for item_ in item:
