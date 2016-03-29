@@ -345,18 +345,15 @@ class Rule:
                 return apply_wildcards(p, wildcards)
             return p
 
-        def check_input_function(f):
-            if (not_iterable(f) and not isinstance(f, str)) or not all(isinstance(f_, str) for f_ in f):
+        def check_string_type(f):
+            if not isinstance(f, str):
                 raise RuleException(
                     "Input function did not return str or list of str.",
                     rule=self)
 
-        def check_param_function(f):
-            pass
-
         def _apply_wildcards(newitems, olditems, wildcards, wildcards_obj,
                              concretize=apply_wildcards,
-                             check_function_return=check_input_function,
+                             check_return_type=check_string_type,
                              ruleio=None,
                              no_flattening=False):
             for name, item in olditems.allitems():
@@ -368,12 +365,12 @@ class Rule:
                         item = item(wildcards_obj)
                     except (Exception, BaseException) as e:
                         raise InputFunctionException(e, rule=self, wildcards=wildcards)
-                    check_function_return(item)
 
                 if not_iterable(item) or no_flattening:
                     item = [item]
                     is_iterable = False
                 for item_ in item:
+                    check_return_type(item_)
                     concrete = concretize(item_, wildcards)
                     newitems.append(concrete)
                     if ruleio is not None:
@@ -405,9 +402,11 @@ class Rule:
                              ruleio=ruleio)
 
             params = Params()
+            #When applying wildcards to params, the return type need not be
+            #a string, so the check is disabled.
             _apply_wildcards(params, self.params, wildcards, wildcards_obj,
                              concretize=concretize_param,
-                             check_function_return=check_param_function,
+                             check_return_type=lambda x: None,
                              no_flattening=True)
 
             output = OutputFiles(o.apply_wildcards(wildcards)

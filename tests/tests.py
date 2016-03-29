@@ -316,6 +316,9 @@ def test_nonstr_params():
     run(dpath("test_nonstr_params"))
 
 
+def test_input_generator():
+    run(dpath("test_input_generator"))
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
