@@ -351,10 +351,6 @@ class Rule:
                     "Input function did not return str or list of str.",
                     rule=self)
 
-        def check_param_type(f):
-            #Params need not be strings
-            pass
-
         def _apply_wildcards(newitems, olditems, wildcards, wildcards_obj,
                              concretize=apply_wildcards,
                              check_return_type=check_string_type,
@@ -406,9 +402,11 @@ class Rule:
                              ruleio=ruleio)
 
             params = Params()
+            #When applying wildcards to params, the return type need not be
+            #a string, so the check is disabled.
             _apply_wildcards(params, self.params, wildcards, wildcards_obj,
                              concretize=concretize_param,
-                             check_return_type=check_param_type,
+                             check_return_type=lambda x: None,
                              no_flattening=True)
 
             output = OutputFiles(o.apply_wildcards(wildcards)
