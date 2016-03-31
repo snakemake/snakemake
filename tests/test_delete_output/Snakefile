@@ -14,7 +14,7 @@ shell("touch -d '1 minute ago' output.file")
 shell("touch input.file")
 
 rule main:
-    input: "output.file", "output.dir"
+    input: "output.file"
 
 rule make_the_file:
     output: "output.file", "foo/output.foo.file"
