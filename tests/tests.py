@@ -307,7 +307,7 @@ def test_until():
                "second_wildcard"]) # wildcard rule
 
 def test_omitfrom():
-    run(dpath("test_omitfrom"), 
+    run(dpath("test_omitfrom"),
         omit_from=["leveltwo_first", # rule name
                    "leveltwo_second.txt", # file name
                    "second_wildcard"]) # wildcard rule
@@ -315,6 +315,8 @@ def test_omitfrom():
 def test_nonstr_params():
     run(dpath("test_nonstr_params"))
 
+def test_delete_output():
+    run(dpath("test_delete_output"))
 
 if __name__ == '__main__':
     import nose

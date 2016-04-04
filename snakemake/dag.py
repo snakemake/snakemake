@@ -31,7 +31,6 @@ try:
 except NameError:
     RecursionError = RuntimeError
 
-
 class DAG:
     def __init__(self,
                  workflow,
@@ -245,24 +244,22 @@ class DAG:
                 return True
         return False
 
-    def check_output(self, job, wait=3):
+    def check_and_touch_output(self, job, wait=3):
         """ Raise exception if output files of job are missing. """
         try:
             wait_for_files(job.expanded_shadowed_output, latency_wait=wait)
         except IOError as e:
             raise MissingOutputException(str(e), rule=job.rule)
 
-        input_maxtime = job.input_maxtime
-        if input_maxtime is not None:
-            output_mintime = job.output_mintime_local
-            if output_mintime is not None and output_mintime < input_maxtime:
-                raise RuleException(
-                    "Output files {} are older than input "
-                    "files. Did you extract an archive? Make sure that output "
-                    "files have a more recent modification date than the "
-                    "archive, e.g. by using 'touch'.".format(", ".join(
-                        job.expanded_output)),
-                    rule=job.rule)
+        #It is possible, due to archive expansion or cluster clock skew, that
+        #the files appear older than the input.  But we know they must be new,
+        #so touch them to update timestamps.
+        #Note that if the input files somehow have a future date then this will
+        #not currently be spotted and the job will always be re-run.
+        #Also, don't touch directories, as we can't guarantee they were removed.
+        for f in job.expanded_shadowed_output:
+            if not os.path.isdir(f):
+                os.utime(f)
 
     def unshadow_output(self, job):
         """ Move files from shadow directory to real output paths. """
