@@ -256,6 +256,10 @@ class Ruleorder(GlobalKeywordState):
             self.error('Expected a descending order of rule names, '
                        'e.g. rule1 > rule2 > rule3 ...', token)
 
+
+class GlobalWildcards(GlobalKeywordState):
+    pass
+
 # subworkflows
 
 
@@ -383,6 +387,10 @@ class Message(RuleKeywordState):
 
 
 class Benchmark(RuleKeywordState):
+    pass
+
+
+class Wildcards(RuleKeywordState):
     pass
 
 
@@ -541,6 +549,7 @@ class Rule(GlobalKeywordState):
                        log=Log,
                        message=Message,
                        benchmark=Benchmark,
+                       wildcards=Wildcards,
                        shadow=Shadow,
                        run=Run,
                        shell=Shell,
@@ -649,7 +658,8 @@ class Python(TokenAutomaton):
                        localrules=Localrules,
                        onsuccess=OnSuccess,
                        onerror=OnError,
-                       onstart=OnStart)
+                       onstart=OnStart,
+                       wildcards=GlobalWildcards)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,

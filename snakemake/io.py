@@ -540,6 +540,45 @@ def glob_wildcards(pattern, files=None):
     return wildcards
 
 
+def update_wildcard_constraints(pattern,
+                                wildcards,
+                                globalwildcards,
+                                output=False):
+    """Update wildcard constraints
+
+    Args:
+      pattern (str): pattern on which to update constraints
+      wildcards (dict): dictionary of name:constraint key-value pairs
+      globalwildcards (dict): dictionary of name:constraint key-value pairs
+      output (bool): is pattern output?
+    """
+    newpattern = str(pattern)
+    if not output:
+        # Issue warning if constraint in input; fixes issue #309
+        return pattern
+    examined_names = []
+    for wc in _wildcard_regex.finditer(pattern):
+        name = wc.group('name')
+        if name in examined_names:
+            continue
+        examined_names.extend([name])
+        old_constraint = wc.group('constraint')
+        new_constraint = wildcards.get(name, globalwildcards.get(name, None))
+        if new_constraint is None:
+            continue
+        # Does new_constraint consist of wildcards itself?
+        new_constraint_is_wildcard = True if len(_wildcard_regex.findall(new_constraint)) > 0 else False
+        if old_constraint is None:
+            old = "\\{{\s*{name}\s*\\}}".format(name=name)
+            if new_constraint_is_wildcard:
+                new = "{constraint}".format(constraint=new_constraint)
+            else:
+                new = "{{{name},{constraint}}}".format(name=name, constraint=new_constraint)
+            pattern = re.sub(old, new, pattern, count=1)
+        else:
+            logger.debug("constraint for wildcard '{wc}' already set to '{constraint}' in input/output; not updating wildcard constraint".format(wc=name, constraint=old_constraint))
+    return pattern
+
 # TODO rewrite Namedlist!
 class Namedlist(list):
     """

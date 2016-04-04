@@ -10,7 +10,7 @@ import inspect
 import sre_constants
 from collections import defaultdict, Iterable
 
-from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString
+from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException
@@ -33,6 +33,7 @@ class Rule:
             self._input = InputFiles()
             self._output = OutputFiles()
             self._params = Params()
+            self._wildcards = Wildcards()
             self.dependencies = dict()
             self.dynamic_output = set()
             self.dynamic_input = set()
@@ -62,6 +63,7 @@ class Rule:
             self._input = InputFiles(other._input)
             self._output = OutputFiles(other._output)
             self._params = Params(other._params)
+            self._wildcards = Wildcards(other._wildcards)
             self.dependencies = dict(other.dependencies)
             self.dynamic_output = set(other.dynamic_output)
             self.dynamic_input = set(other.dynamic_input)
@@ -236,6 +238,11 @@ class Rule:
             # add the rule to the dependencies
             if isinstance(item, _IOFile):
                 self.dependencies[item] = item.rule
+            if self.wildcards or self.workflow._wildcards:
+                item = update_wildcard_constraints(item,
+                                                   dict(self.wildcards),
+                                                   self.workflow._wildcards,
+                                                   output)
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
                 if not output:
@@ -298,6 +305,19 @@ class Rule:
         self.params.append(item)
         if name:
             self.params.add_name(name)
+
+    @property
+    def wildcards(self):
+        return self._wildcards
+
+    def set_wildcards(self, **kwwildcards):
+        for name, item in kwwildcards.items():
+            self._set_wildcards_item(item, name=name)
+
+    def _set_wildcards_item(self, item, name=None):
+        self.wildcards.append(item)
+        if name:
+            self.wildcards.add_name(name)
 
     @property
     def log(self):
