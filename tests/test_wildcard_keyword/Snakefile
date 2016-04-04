@@ -1,0 +1,35 @@
+wildcards:
+    foo='globalbar'
+
+rule all:
+    input: "stringbar.txt", "localbar.txt", "globalbar.txt"
+
+
+##: NB: setting output: "{foo}.in" only works for globalwildcard rule
+## since constraints will be set to "globalbar"
+rule infile:
+    output: temp("{foo,(globalbar|localbar|stringbar)}.in")
+    shell: "touch {output}"
+
+
+rule stringwildcard:
+    input: "{foo}.in"
+    output: "{foo,stringbar}.txt"
+    wildcards: foo='localbar'
+    log: "{foo}.log"
+    shell: "echo {input} {output} {log} > {output}; touch {log}"
+        
+        
+rule localwildcard:
+    input: "{foo}.in"
+    output: "{foo}.txt"
+    wildcards: foo="localbar"
+    log: "{foo}.log"
+    shell: "echo {input} {output} {log} > {output}; touch {log}"
+
+
+rule globalwildcard:
+    input: "{foo}.in"
+    output: "{foo}.txt"
+    log: "{foo}.log"
+    shell: "echo {input} {output} {log} > {output}; touch {log}"
