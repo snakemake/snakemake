@@ -567,7 +567,7 @@ def update_wildcard_constraints(pattern,
         if new_constraint is None:
             continue
         # Does new_constraint consist of wildcards itself?
-        new_constraint_is_wildcard = True if len(_wildcard_regex.findall(new_constraint)) > 0 else False
+        new_constraint_is_wildcard = len(_wildcard_regex.findall(new_constraint)) > 0
         if old_constraint is None:
             old = "\\{{\s*{name}\s*\\}}".format(name=name)
             if new_constraint_is_wildcard:
