@@ -33,7 +33,7 @@ class Rule:
             self._input = InputFiles()
             self._output = OutputFiles()
             self._params = Params()
-            self._wildcards = Wildcards()
+            self._wildcards = dict()
             self.dependencies = dict()
             self.dynamic_output = set()
             self.dynamic_input = set()
@@ -63,7 +63,7 @@ class Rule:
             self._input = InputFiles(other._input)
             self._output = OutputFiles(other._output)
             self._params = Params(other._params)
-            self._wildcards = Wildcards(other._wildcards)
+            self._wildcards = dict(other._wildcards)
             self.dependencies = dict(other.dependencies)
             self.dynamic_output = set(other.dynamic_output)
             self.dynamic_input = set(other.dynamic_input)
@@ -240,7 +240,7 @@ class Rule:
                 self.dependencies[item] = item.rule
             if self.wildcards or self.workflow._wildcards:
                 item = update_wildcard_constraints(item,
-                                                   dict(self.wildcards),
+                                                   self.wildcards,
                                                    self.workflow._wildcards,
                                                    output)
             _item = IOFile(item, rule=self)
@@ -311,13 +311,7 @@ class Rule:
         return self._wildcards
 
     def set_wildcards(self, **kwwildcards):
-        for name, item in kwwildcards.items():
-            self._set_wildcards_item(item, name=name)
-
-    def _set_wildcards_item(self, item, name=None):
-        self.wildcards.append(item)
-        if name:
-            self.wildcards.add_name(name)
+        self._wildcards.update(kwwildcards)
 
     @property
     def log(self):
