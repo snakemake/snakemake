@@ -65,11 +65,13 @@ class Persistence:
             for lockfile in self._locks("input"):
                 with open(lockfile) as lock:
                     for f in lock:
+                        f = f.strip()
                         if f in outputfiles:
                             return True
             for lockfile in self._locks("output"):
                 with open(lockfile) as lock:
                     for f in lock:
+                        f = f.strip()
                         if f in outputfiles or f in inputfiles:
                             return True
         return False
