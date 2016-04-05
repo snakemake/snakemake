@@ -1,8 +1,9 @@
 wildcards:
-    foo='globalbar'
+    foo='globalbar',
+    bar='out/{SM,[a-z]+}_{PU,[0-9]+}'
 
 rule all:
-    input: "stringbar.txt", "localbar.txt", "globalbar.txt"
+    input: "stringbar.txt", "localbar.txt", "globalbar.txt", "out/test_1.txt"
 
 
 ##: NB: setting output: "{foo}.in" only works for globalwildcard rule
@@ -33,3 +34,24 @@ rule globalwildcard:
     output: "{foo}.txt"
     log: "{foo}.log"
     shell: "echo {input} {output} {log} > {output}; touch {log}"
+
+
+###
+### Test of additional features
+###
+
+def _save_wildcards(outfile, **kw):
+    """Use wildcards for something, e.g. writing read group information to an alignment"""
+    keys = ["SM", "PU", "PM"]
+    with open(outfile, "w") as fh:
+        fh.write("\n".join(["{k}={v}".format(k=k,v=kw.get(k, None)) for k in keys]))
+        
+
+# Won't work if original rule uses same wildcard for log as for
+# output; all instances of {bar} must be replaced. Is log the *only*
+# keyword that this applies to?
+rule replacewildcard:
+    output: bar = "{bar}.txt"
+    # log: "{bar}.log"
+    run:
+        _save_wildcards(output.bar, **wildcards)
