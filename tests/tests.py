@@ -318,6 +318,9 @@ def test_nonstr_params():
 def test_delete_output():
     run(dpath("test_delete_output"))
 
+def test_input_generator():
+    run(dpath("test_input_generator"))
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)

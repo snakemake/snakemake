@@ -135,9 +135,7 @@ class Job:
                     yield f_
                 for f, _ in expansion:
                     file_to_yield = IOFile(f, self.rule)
-
                     file_to_yield.clone_flags(f_)
-
                     yield file_to_yield
             else:
                 yield f
@@ -149,7 +147,9 @@ class Job:
             yield from self.expanded_output
         else:
             for f in self.expanded_output:
-                yield os.path.join(self.shadow_dir, f)
+                file_to_yield = IOFile(os.path.join(self.shadow_dir, f), self.rule)
+                file_to_yield.clone_flags(f)
+                yield file_to_yield
 
     @property
     def dynamic_wildcards(self):
