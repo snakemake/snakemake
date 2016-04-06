@@ -321,6 +321,9 @@ def test_delete_output():
 def test_input_generator():
     run(dpath("test_input_generator"))
 
+def test_symlink_time_handling():
+    run(dpath("test_symlink_time_handling"))
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
