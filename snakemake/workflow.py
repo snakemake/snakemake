@@ -533,7 +533,7 @@ class Workflow:
         self._onerror = func
 
     def globalwildcards(self, **content):
-        self._wildcards = content
+        self._wildcards.update(content)
 
     def workdir(self, workdir):
         if self.overwrite_workdir is None:
