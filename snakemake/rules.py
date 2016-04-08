@@ -33,7 +33,7 @@ class Rule:
             self._input = InputFiles()
             self._output = OutputFiles()
             self._params = Params()
-            self._wildcards = dict()
+            self._wildcard_constraints = dict()
             self.dependencies = dict()
             self.dynamic_output = set()
             self.dynamic_input = set()
@@ -63,7 +63,7 @@ class Rule:
             self._input = InputFiles(other._input)
             self._output = OutputFiles(other._output)
             self._params = Params(other._params)
-            self._wildcards = dict(other._wildcards)
+            self._wildcard_constraints = dict(other._wildcard_constraints)
             self.dependencies = dict(other.dependencies)
             self.dynamic_output = set(other.dynamic_output)
             self.dynamic_input = set(other.dynamic_input)
@@ -239,10 +239,10 @@ class Rule:
             if isinstance(item, _IOFile):
                 self.dependencies[item] = item.rule
             if output:
-                if self.wildcards or self.workflow._wildcards:
+                if self.wildcard_constraints or self.workflow._wildcard_constraints:
                     item = update_wildcard_constraints(item,
-                                                       self.wildcards,
-                                                       self.workflow._wildcards)
+                                                       self.wildcard_constraints,
+                                                       self.workflow._wildcard_constraints)
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
                 if not output:
@@ -307,11 +307,11 @@ class Rule:
             self.params.add_name(name)
 
     @property
-    def wildcards(self):
-        return self._wildcards
+    def wildcard_constraints(self):
+        return self._wildcard_constraints
 
-    def set_wildcards(self, **kwwildcards):
-        self._wildcards.update(kwwildcards)
+    def set_wildcard_constraints(self, **kwwildcard_constraints):
+        self._wildcard_constraints.update(kwwildcard_constraints)
 
     @property
     def log(self):

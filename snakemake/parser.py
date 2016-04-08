@@ -257,7 +257,7 @@ class Ruleorder(GlobalKeywordState):
                        'e.g. rule1 > rule2 > rule3 ...', token)
 
 
-class GlobalWildcards(GlobalKeywordState):
+class GlobalWildcardConstraints(GlobalKeywordState):
     pass
 
 # subworkflows
@@ -390,7 +390,7 @@ class Benchmark(RuleKeywordState):
     pass
 
 
-class Wildcards(RuleKeywordState):
+class WildcardConstraints(RuleKeywordState):
     pass
 
 
@@ -549,7 +549,7 @@ class Rule(GlobalKeywordState):
                        log=Log,
                        message=Message,
                        benchmark=Benchmark,
-                       wildcards=Wildcards,
+                       wildcardconstraints=WildcardConstraints,
                        shadow=Shadow,
                        run=Run,
                        shell=Shell,
@@ -659,7 +659,7 @@ class Python(TokenAutomaton):
                        onsuccess=OnSuccess,
                        onerror=OnError,
                        onstart=OnStart,
-                       wildcards=GlobalWildcards)
+                       wildcardconstraints=GlobalWildcardConstraints)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,

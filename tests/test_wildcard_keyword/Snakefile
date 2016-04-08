@@ -1,4 +1,4 @@
-wildcards:
+wildcardconstraints:
     foo='globalbar',
     bar='out/{SM,[a-z]+}_{PU,[0-9]+}'
 
@@ -16,7 +16,7 @@ rule infile:
 rule stringwildcard:
     input: "{foo}.in"
     output: "{foo,stringbar}.txt"
-    wildcards: foo='localbar'
+    wildcardconstraints: foo='localbar'
     log: "{foo}.log"
     shell: "echo {input} {output} {log} > {output}; touch {log}"
         
@@ -24,7 +24,7 @@ rule stringwildcard:
 rule localwildcard:
     input: "{foo}.in"
     output: "{foo}.txt"
-    wildcards: foo="localbar"
+    wildcardconstraints: foo="localbar"
     log: "{foo}.log"
     shell: "echo {input} {output} {log} > {output}; touch {log}"
 
