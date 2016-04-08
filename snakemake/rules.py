@@ -238,11 +238,11 @@ class Rule:
             # add the rule to the dependencies
             if isinstance(item, _IOFile):
                 self.dependencies[item] = item.rule
-            if self.wildcards or self.workflow._wildcards:
-                item = update_wildcard_constraints(item,
-                                                   self.wildcards,
-                                                   self.workflow._wildcards,
-                                                   output)
+            if output:
+                if self.wildcards or self.workflow._wildcards:
+                    item = update_wildcard_constraints(item,
+                                                       self.wildcards,
+                                                       self.workflow._wildcards)
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
                 if not output:

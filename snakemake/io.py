@@ -542,18 +542,14 @@ def glob_wildcards(pattern, files=None):
 
 def update_wildcard_constraints(pattern,
                                 wildcards,
-                                globalwildcards,
-                                output=False):
+                                globalwildcards):
     """Update wildcard constraints
 
     Args:
       pattern (str): pattern on which to update constraints
       wildcards (dict): dictionary of name:constraint key-value pairs
       globalwildcards (dict): dictionary of name:constraint key-value pairs
-      output (bool): True if pattern is output, False otherwise
     """
-    if not output:
-        return pattern
     def replace_constraint(match):
         name = match.group("name")
         constraint = match.group("constraint")
@@ -571,10 +567,8 @@ def update_wildcard_constraints(pattern,
             return match.group(0)
     
     examined_names = set()
-    if isinstance(pattern, _IOFile):
-        return IOFile(re.sub(_wildcard_regex, replace_constraint, str(pattern)))
-    else:
-        return re.sub(_wildcard_regex, replace_constraint, pattern)
+    return re.sub(_wildcard_regex, replace_constraint, pattern)
+
 
 
 # TODO rewrite Namedlist!
