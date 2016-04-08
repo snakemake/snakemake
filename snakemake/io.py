@@ -312,6 +312,10 @@ def contains_wildcard(path):
     return _wildcard_regex.search(path) is not None
 
 
+def contains_wildcard_constraints(pattern):
+    return any(set(match.group('constraint') for match in _wildcard_regex.finditer(pattern)))
+
+
 def remove(file, remove_non_empty_dir=False):
     if os.path.exists(file):
         if os.path.isdir(file):

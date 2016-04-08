@@ -10,11 +10,11 @@ import inspect
 import sre_constants
 from collections import defaultdict, Iterable
 
-from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, update_wildcard_constraints
+from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException
-
+from snakemake.logging import logger
 
 class Rule:
     def __init__(self, *args, lineno=None, snakefile=None):
@@ -243,6 +243,9 @@ class Rule:
                     item = update_wildcard_constraints(item,
                                                        self.wildcard_constraints,
                                                        self.workflow._wildcard_constraints)
+            else:
+                if contains_wildcard_constraints(item):
+                    logger.warn("wildcard constraints in inputs are ignored")
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
                 if not output:
