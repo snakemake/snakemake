@@ -1,3 +1,0 @@
-SM=test
-PU=1
-PM=None
