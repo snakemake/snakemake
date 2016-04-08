@@ -550,34 +550,32 @@ def update_wildcard_constraints(pattern,
       pattern (str): pattern on which to update constraints
       wildcards (dict): dictionary of name:constraint key-value pairs
       globalwildcards (dict): dictionary of name:constraint key-value pairs
-      output (bool): is pattern output?
+      output (bool): True if pattern is output, False otherwise
     """
-    newpattern = str(pattern)
     if not output:
-        # Issue warning if constraint in input; fixes issue #309
         return pattern
-    examined_names = []
-    for wc in _wildcard_regex.finditer(pattern):
-        name = wc.group('name')
+    def replace_constraint(match):
+        name = match.group("name")
+        constraint = match.group("constraint")
+        newconstraint = wildcards.get(name, globalwildcards.get(name))
         if name in examined_names:
-            continue
-        examined_names.extend([name])
-        old_constraint = wc.group('constraint')
-        new_constraint = wildcards.get(name, globalwildcards.get(name, None))
-        if new_constraint is None:
-            continue
-        # Does new_constraint consist of wildcards itself?
-        new_constraint_is_wildcard = len(_wildcard_regex.findall(new_constraint)) > 0
-        if old_constraint is None:
-            old = "\\{{\s*{name}\s*\\}}".format(name=name)
-            if new_constraint_is_wildcard:
-                new = "{constraint}".format(constraint=new_constraint)
-            else:
-                new = "{{{name},{constraint}}}".format(name=name, constraint=new_constraint)
-            pattern = re.sub(old, new, pattern, count=1)
+            return match.group(0)
+        examined_names.add(name)
+        # Don't override if constraint already set
+        if not constraint is None:
+            return match.group(0)
+        # Only update if a new constraint has actually been set
+        elif not newconstraint is None:
+            return "{{{},{}}}".format(name, newconstraint)
         else:
-            logger.debug("constraint for wildcard '{wc}' already set to '{constraint}' in input/output; not updating wildcard constraint".format(wc=name, constraint=old_constraint))
-    return pattern
+            return match.group(0)
+    
+    examined_names = set()
+    if isinstance(pattern, _IOFile):
+        return IOFile(re.sub(_wildcard_regex, replace_constraint, str(pattern)))
+    else:
+        return re.sub(_wildcard_regex, replace_constraint, pattern)
+
 
 # TODO rewrite Namedlist!
 class Namedlist(list):
