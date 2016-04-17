@@ -245,7 +245,7 @@ class Rule:
                                                        self.workflow._wildcard_constraints)
             else:
                 if contains_wildcard_constraints(item):
-                    logger.warn("wildcard constraints in inputs are ignored")
+                    logger.warning("wildcard constraints in inputs are ignored")
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
                 if not output:

@@ -545,19 +545,19 @@ def glob_wildcards(pattern, files=None):
 
 
 def update_wildcard_constraints(pattern,
-                                wildcards,
-                                globalwildcards):
+                                wildcardconstraints,
+                                globalwildcardconstraints):
     """Update wildcard constraints
 
     Args:
       pattern (str): pattern on which to update constraints
-      wildcards (dict): dictionary of name:constraint key-value pairs
-      globalwildcards (dict): dictionary of name:constraint key-value pairs
+      wildcardconstraints (dict): dictionary of wildcard:constraint key-value pairs
+      globalwildcardconstraints (dict): dictionary of wildcard:constraint key-value pairs
     """
     def replace_constraint(match):
         name = match.group("name")
         constraint = match.group("constraint")
-        newconstraint = wildcards.get(name, globalwildcards.get(name))
+        newconstraint = wildcardconstraints.get(name, globalwildcardconstraints.get(name))
         if name in examined_names:
             return match.group(0)
         examined_names.add(name)
