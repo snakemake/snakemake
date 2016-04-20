@@ -22,7 +22,7 @@ from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
 from snakemake.io import load_configfile
 from snakemake.shell import shell
-from snakemake.utils import available_cpu_count
+from snakemake.utils import update_config, available_cpu_count
 
 
 def snakemake(snakefile,
@@ -126,7 +126,7 @@ def snakemake(snakefile,
         quiet (bool):               do not print any default job information (default False)
         keepgoing (bool):           keep goind upon errors (default False)
         cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
-        cluster_config (str):       configuration file for cluster options (default None)
+        cluster_config (str,list):  configuration file for cluster options, or list thereof (default None)
         cluster_sync (str):         blocking cluster submission command (like SGE 'qsub -sync y')  (default None)
         drmaa (str):                if not None use DRMAA for cluster support, str specifies native args passed to the cluster when submitting a job
         jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
@@ -218,8 +218,18 @@ def snakemake(snakefile,
     else:
         nodes = sys.maxsize
 
+    if isinstance(cluster_config, str):
+        # Loading configuration from one file is still supported for
+        # backward compatibility
+        cluster_config = [cluster_config]
     if cluster_config:
-        cluster_config = load_configfile(cluster_config)
+        # Load all configuration files
+        configs = [load_configfile(f) for f in cluster_config]
+        # Merge in the order as specified, overriding earlier values with
+        # later ones
+        cluster_config = configs[0]
+        for other in configs[1:]:
+            update_config(cluster_config, other)
     else:
         cluster_config = dict()
 
@@ -682,12 +692,15 @@ def get_argument_parser():
     parser.add_argument(
         "--cluster-config", "-u",
         metavar="FILE",
+        default=[],
+        action="append",
         help=
         ("A JSON or YAML file that defines the wildcards used in 'cluster'"
-         "for specific rules, instead of having them specified in the Snakefile."
+         "for specific rules, instead of having them specified in the Snakefile. "
          "For example, for rule 'job' you may define: "
-         "{ 'job' : { 'time' : '24:00:00' } } "
-         "to specify the time for rule 'job'.\n")),
+         "{ 'job' : { 'time' : '24:00:00' } } to specify the time for rule 'job'. "
+         "You can specify more than one file.  The configuration files are merged "
+         "with later values overriding earlier ones.")),
     parser.add_argument(
         "--immediate-submit", "--is",
         action="store_true",
