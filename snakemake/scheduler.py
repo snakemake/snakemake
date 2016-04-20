@@ -40,6 +40,7 @@ class JobScheduler:
                  printreason=False,
                  printshellcmds=False,
                  keepgoing=False,
+                 max_jobs_per_second=None,
                  latency_wait=3,
                  benchmark_repeats=1,
                  greediness=1.0):
@@ -111,7 +112,8 @@ class JobScheduler:
                     quiet=quiet,
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
-                    benchmark_repeats=benchmark_repeats, )
+                    benchmark_repeats=benchmark_repeats,
+                    max_jobs_per_second=max_jobs_per_second)
                 if immediate_submit:
                     self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
@@ -128,7 +130,8 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
-                    cluster_config=cluster_config, )
+                    cluster_config=cluster_config,
+                    max_jobs_per_second=max_jobs_per_second)
         else:
             # local execution or execution of cluster job
             # calculate how many parallel workers the executor shall spawn
