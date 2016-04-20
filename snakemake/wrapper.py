@@ -19,4 +19,10 @@ def wrapper(path, input, output, params, wildcards, threads, resources, log, con
         path = os.path.join("https://bitbucket.org/snakemake/snakemake-wrappers/raw", path)
     if not (path.endswith("wrapper.py") or path.endswith("wrapper.R")):
         path = os.path.join(path, "wrapper.py")
+    # If threads is a callable then call it with the wildcards to get the
+    # integer value
+    if callable(threads):
+        threads = threads(wildcards)
+        if not isinstance(threads, int):
+            raise ValueError('Callable for "threads" must return int value')
     script("", path, input, output, params, wildcards, threads, resources, log, config)

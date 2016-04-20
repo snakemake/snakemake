@@ -41,11 +41,15 @@ class Job:
          self.ruleio,
          self.dependencies) = rule.expand_wildcards(self.wildcards_dict)
 
-        self.resources_dict = {
-            name: min(
+        self.resources_dict = {}
+        for name, res in rule.resources.items():
+            if callable(res):
+                res = res(self.wildcards)
+                if not isinstance(res, int):
+                    raise ValueError("Callable for resources must return int")
+            self.resources_dict[name] = min(
                 self.rule.workflow.global_resources.get(name, res), res)
-            for name, res in rule.resources.items()
-        }
+
         self.threads = self.resources_dict["_cores"]
         self.resources = Resources(fromdict=self.resources_dict)
         self.shadow_dir = None
@@ -439,6 +443,8 @@ class Job:
                                version=self.rule.version,
                                rule=self.rule.name, ))
         _variables.update(variables)
+        print('string={}'.format(string))
+        print('variables={}'.format(variables))
         try:
             return format(string, **_variables)
         except NameError as ex:

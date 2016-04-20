@@ -567,8 +567,8 @@ class Workflow:
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             if ruleinfo.threads:
-                if not isinstance(ruleinfo.threads, int):
-                    raise RuleException("Threads value has to be an integer.",
+                if not isinstance(ruleinfo.threads, int) and not callable(ruleinfo.threads):
+                    raise RuleException("Threads value has to be an integer or a callable.",
                                         rule=rule)
                 rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.shadow_depth:
@@ -584,10 +584,10 @@ class Workflow:
                 args, resources = ruleinfo.resources
                 if args:
                     raise RuleException("Resources have to be named.")
-                if not all(map(lambda r: isinstance(r, int),
+                if not all(map(lambda r: isinstance(r, int) or callable(r),
                                resources.values())):
                     raise RuleException(
-                        "Resources values have to be integers.",
+                        "Resources values have to be integers or callables",
                         rule=rule)
                 rule.resources.update(resources)
             if ruleinfo.priority:
