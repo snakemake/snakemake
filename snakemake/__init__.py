@@ -9,7 +9,6 @@ import glob
 import argparse
 from argparse import ArgumentError
 import logging as _logging
-import multiprocessing
 import re
 import sys
 import inspect
@@ -23,6 +22,7 @@ from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
 from snakemake.io import load_configfile
 from snakemake.shell import shell
+from snakemake.utils import available_cpu_count
 
 
 def snakemake(snakefile,
@@ -481,7 +481,7 @@ def get_argument_parser():
     parser.add_argument(
         "--cores", "--jobs", "-j",
         action="store",
-        const=multiprocessing.cpu_count(),
+        const=available_cpu_count(),
         nargs="?",
         metavar="N",
         type=int,
@@ -491,7 +491,7 @@ def get_argument_parser():
     parser.add_argument(
         "--local-cores",
         action="store",
-        default=multiprocessing.cpu_count(),
+        default=available_cpu_count(),
         metavar="N",
         type=int,
         help=
