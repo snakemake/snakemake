@@ -1,5 +1,11 @@
 # Change Log
 
+## [3.6.1] - 2016-04-08
+### Changed
+- Work around missing RecursionError in Python < 3.5
+- Improved conversion of numpy and pandas data structures to R scripts.
+- Fixed locking of working directory.
+
 ## [3.6.0] - 2016-03-10
 ### Added
 - onstart handler, that allows to add code that shall be only executed before the actual workflow execution (not on dryrun).

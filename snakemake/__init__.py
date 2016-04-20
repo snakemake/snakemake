@@ -9,7 +9,6 @@ import glob
 import argparse
 from argparse import ArgumentError
 import logging as _logging
-import multiprocessing
 import re
 import sys
 import inspect
@@ -23,6 +22,7 @@ from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
 from snakemake.io import load_configfile
 from snakemake.shell import shell
+from snakemake.utils import available_cpu_count
 
 
 def snakemake(snakefile,
@@ -93,6 +93,7 @@ def snakemake(snakefile,
               updated_files=None,
               log_handler=None,
               keep_logger=False,
+              max_jobs_per_second=None,
               verbose=False):
     """Run snakemake on a given snakefile.
 
@@ -163,6 +164,7 @@ def snakemake(snakefile,
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
         verbose(bool):              show additional debug output (default False)
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
+        max_jobs_per_second:        maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -356,6 +358,7 @@ def snakemake(snakefile,
                     cluster_sync=cluster_sync,
                     jobname=jobname,
                     drmaa=drmaa,
+                    max_jobs_per_second=max_jobs_per_second,
                     printd3dag=printd3dag,
                     immediate_submit=immediate_submit,
                     ignore_ambiguity=ignore_ambiguity,
@@ -478,7 +481,7 @@ def get_argument_parser():
     parser.add_argument(
         "--cores", "--jobs", "-j",
         action="store",
-        const=multiprocessing.cpu_count(),
+        const=available_cpu_count(),
         nargs="?",
         metavar="N",
         type=int,
@@ -488,7 +491,7 @@ def get_argument_parser():
     parser.add_argument(
         "--local-cores",
         action="store",
-        default=multiprocessing.cpu_count(),
+        default=available_cpu_count(),
         metavar="N",
         type=int,
         help=
@@ -811,6 +814,10 @@ def get_argument_parser():
         nargs="+",
         help=
         "Only use given rules. If omitted, all rules in Snakefile are used.")
+    parser.add_argument(
+        "--max-jobs-per-second", default=None, type=float,
+        help=
+        "Maximal number of cluster/drmaa jobs per second, default is no limit")
     parser.add_argument('--timestamp', '-T',
                         action='store_true',
                         help='Add a timestamp to all logging output')
@@ -993,7 +1000,8 @@ def main():
                             wait_for_files=args.wait_for_files,
                             keep_target_files=args.keep_target_files,
                             keep_shadow=args.keep_shadow,
-                            allowed_rules=args.allowed_rules)
+                            allowed_rules=args.allowed_rules,
+                            max_jobs_per_second=args.max_jobs_per_second)
 
     if args.profile:
         with open(args.profile, "w") as out:

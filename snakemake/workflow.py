@@ -212,6 +212,7 @@ class Workflow:
                 keep_target_files=False,
                 keep_shadow=False,
                 allowed_rules=None,
+                max_jobs_per_second=None,
                 greediness=1.0,
                 no_hooks=False):
 
@@ -422,6 +423,7 @@ class Workflow:
                                  cluster_config=cluster_config,
                                  cluster_sync=cluster_sync,
                                  jobname=jobname,
+                                 max_jobs_per_second=max_jobs_per_second,
                                  immediate_submit=immediate_submit,
                                  quiet=quiet,
                                  keepgoing=keepgoing,
