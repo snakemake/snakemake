@@ -151,8 +151,16 @@ class _IOFile(str):
             raise WorkflowError("File {} seems to be a broken symlink.".format(
                 self.file))
 
+    @_refer_to_remote
     def is_newer(self, time):
-        return self.mtime > time
+        """ Returns true of the file is newer than time, or if it is
+            a symlink that points to a file newer than time. """
+        if self.is_remote:
+            #If file is remote but provider does not override the implementation this
+            #is the best we can do.
+            return self.mtime > time
+        else:
+            return os.stat(self, follow_symlinks=True).st_mtime > time or self.mtime > time
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
