@@ -23,11 +23,21 @@ def lstat(f):
 
 
 def lutime(f, times):
-    #lutime() should never modify the target of a symlink
-    return os.utime(
-        f,
-        times,
-        follow_symlinks=False)
+    #On Codeship.com, we have a platform where os.supports_follow_symlink includes stat()
+    #but not utime().  This leads to an anomaly.  An ugly work-around is as follows:
+    if os.utime in os.supports_follow_symlinks:
+        #...utime is well behaved
+        return os.utime(f, times, follow_symlinks=False)
+    elif ( os.stat not in os.supports_follow_symlinks
+           or not os.path.islink(f) ):
+        #...symlinks not an issue here
+        return os.utime(f, times)
+    else:
+        #...problem system => ugly workaround
+        target = os.readlink(f)
+        os.remove(f)
+        os.symlink(target, f)
+        return None
 
 
 def lchmod(f, mode):
