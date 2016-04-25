@@ -24,6 +24,13 @@ shell("touch -h -d '245 minutes ago' input_link")
 
 shell("ln -s input_link output_link")
 shell("touch -h -d '125 minutes ago' output_link")
+
+print("##Various things added to try and understand the Codeship test env", file=sys.stderr)
+shell("uname -a > /dev/stderr 2>&1")
+shell("lsb_release -a > /dev/stderr 2>&1")
+print(repr(os.supports_follow_symlinks), file=sys.stderr)
+print("##", file=sys.stderr)
+
 shell("ls -lR > /dev/stderr")
 
 rule main:

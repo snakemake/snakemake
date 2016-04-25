@@ -23,10 +23,11 @@ def lstat(f):
 
 
 def lutime(f, times):
+    #lutime() should never modify the target of a symlink
     return os.utime(
         f,
         times,
-        follow_symlinks=os.utime not in os.supports_follow_symlinks)
+        follow_symlinks=False)
 
 
 def lchmod(f, mode):
