@@ -443,8 +443,6 @@ class Job:
                                version=self.rule.version,
                                rule=self.rule.name, ))
         _variables.update(variables)
-        print('string={}'.format(string))
-        print('variables={}'.format(variables))
         try:
             return format(string, **_variables)
         except NameError as ex:
