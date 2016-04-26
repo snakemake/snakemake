@@ -90,12 +90,6 @@ def script(basedir, path, input, output, params, wildcards, threads, resources,
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
     """
-    # If threads is a callable then call it with wildcards
-    if callable(threads):
-        threads = threads(wildcards)
-        if not isinstance(threads, int):
-            raise ValueError('Callable for "threads" must return int value')
-
     if not path.startswith("http"):
         if path.startswith("file://"):
             path = path[7:]
