@@ -18,6 +18,7 @@ from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException
 from snakemake.exceptions import UnexpectedOutputException
 from snakemake.logging import logger
+from snakemake.common import DYNAMIC_FILL
 
 
 def jobfiles(jobs, type):
@@ -504,7 +505,7 @@ class Job:
         """ Expand dynamic files. """
         return list(listfiles(pattern,
                               restriction=self.wildcards,
-                              omit_value=_IOFile.dynamic_fill))
+                              omit_value=DYNAMIC_FILL))
 
 
 class Reason:

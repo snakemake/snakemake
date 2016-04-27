@@ -11,6 +11,9 @@ import os
 import json
 from multiprocessing import Lock
 import tempfile
+from functools import partial
+
+from snakemake.common import DYNAMIC_FILL
 
 
 class ColorizingStreamHandler(_logging.StreamHandler):
@@ -171,24 +174,32 @@ class Logger:
 
             yield "{}rule {}:".format("local" if msg["local"] else "",
                                       msg["name"])
-            for item in "input output log".split():
+            for item in ["input", "output", "log"]:
                 fmt = format_item(item, omit=[], valueformat=", ".join)
                 if fmt != None:
                     yield fmt
+
             singleitems = ["benchmark"]
-            if self.printreason:
-                singleitems.append("reason")
             for item in singleitems:
                 fmt = format_item(item, omit=None)
                 if fmt != None:
                     yield fmt
+
+            wildcards = format_wildcards(msg["wildcards"])
+            if wildcards:
+                yield "\twildcards: " + wildcards
+
             for item, omit in zip("priority threads".split(), [0, 1]):
                 fmt = format_item(item, omit=omit)
                 if fmt != None:
                     yield fmt
+
             resources = format_resources(msg["resources"])
             if resources:
                 yield "\tresources: " + resources
+
+            if self.printreason:
+                singleitems.append("reason")
 
         level = msg["level"]
         if level == "info":
@@ -228,10 +239,14 @@ class Logger:
             print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
 
 
-def format_resources(resources, omit_resources="_cores _nodes".split()):
+def format_dict(dict, omit_keys=[], omit_values=[]):
     return ", ".join("{}={}".format(name, value)
-                     for name, value in resources.items()
-                     if name not in omit_resources)
+                     for name, value in dict.items()
+                     if name not in omit_keys and value not in omit_values)
+
+
+format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
+format_wildcards = partial(format_dict, omit_values={DYNAMIC_FILL})
 
 
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
