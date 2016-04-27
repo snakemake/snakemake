@@ -235,7 +235,7 @@ class Workflow:
         if not targets:
             targets = [self.first_rule
                        ] if self.first_rule is not None else list()
-                       
+
         if prioritytargets is None:
             prioritytargets = list()
         if forcerun is None:

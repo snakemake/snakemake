@@ -15,6 +15,7 @@ from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
+from snakemake.common import DYNAMIC_FILL
 
 
 def lstat(f):
@@ -46,8 +47,6 @@ class _IOFile(str):
     """
     A file that is either input or output of a rule.
     """
-
-    dynamic_fill = "__snakemake_dynamic__"
 
     def __new__(cls, file):
         obj = str.__new__(cls, file)
@@ -168,7 +167,7 @@ class _IOFile(str):
             self.remote_object.upload()
 
     def prepare(self):
-        path_until_wildcard = re.split(self.dynamic_fill, self.file)[0]
+        path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
         dir = os.path.dirname(path_until_wildcard)
         if len(dir) > 0 and not os.path.exists(dir):
             try:
@@ -231,7 +230,7 @@ class _IOFile(str):
                             wildcards,
                             fill_missing=fill_missing,
                             fail_dynamic=fail_dynamic,
-                            dynamic_fill=self.dynamic_fill),
+                            dynamic_fill=DYNAMIC_FILL),
             rule=self.rule)
 
         file_with_wildcards_applied.clone_flags(self)
@@ -260,7 +259,7 @@ class _IOFile(str):
         return self.regex().match(target) or None
 
     def format_dynamic(self):
-        return self.replace(self.dynamic_fill, "{*}")
+        return self.replace(DYNAMIC_FILL, "{*}")
 
     def clone_flags(self, other):
         if isinstance(self._file, str):

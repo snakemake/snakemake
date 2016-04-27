@@ -24,6 +24,7 @@ from snakemake.exceptions import RemoteFileException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
+from snakemake.common import DYNAMIC_FILL
 
 # Workaround for Py <3.5 prior to existence of RecursionError
 try:
@@ -936,7 +937,7 @@ class DAG:
 
         def format_wildcard(wildcard):
             name, value = wildcard
-            if _IOFile.dynamic_fill in value:
+            if DYNAMIC_FILL in value:
                 value = "..."
             return "{}: {}".format(name, value)
 

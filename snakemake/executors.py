@@ -93,6 +93,7 @@ class AbstractExecutor:
                                                  job.dynamic_output)),
                         log=list(job.log),
                         benchmark=job.benchmark,
+                        wildcards=job.wildcards_dict,
                         reason=str(self.dag.reason(job)),
                         resources=job.resources_dict,
                         priority="highest"
