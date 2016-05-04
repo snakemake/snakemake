@@ -56,6 +56,10 @@ class RemoteObject(DomainObject):
         for k,v in self.kwargs.items():
             kwargs_to_use[k] = v
 
+        # Check that in case authentication kwargs are provided, they are either ("username", "password") combination
+        # or "auth", but not both.
+        if kwargs_to_use["username"] and kwargs_to_use["password"] and kwargs_to_use["auth"]:
+            raise TypeError("Authentication accepts either username and password or requests.auth object")
         # If "username" and "password" kwargs are provided, use those to construct a tuple for "auth". Neither
         # requests.head() nor requests.get() accept them as-is.
         if kwargs_to_use["username"] and kwargs_to_use["password"]:
