@@ -2,12 +2,13 @@
 
 ## [3.7.0] - Work in Progress
 ### Added
-- The entries in `resources` and the `thread` job attribute can now be callables that must return `int` values.
+- The entries in `resources` and the `threads` job attribute can now be callables that must return `int` values.
 - Multiple `--cluster-config` arguments can be given to the Snakemake command line. Later one override earlier ones.
 - In the API, multiple `cluster_config` paths can be given as a list, alternatively to the previous behaviour of expecting one string for this parameter.
 - When submitting cluster jobs (either through `--cluster` or `--drmaa`), you can now use `--max-jobs-per-second` to limit the number of jobs being submitted (also available through Snakemake API). Some cluster installations have problems with too many jobs per second.
 - Wildcard values are now printed upon job execution in addition to input and output files.
-
+### Changed
+- Fixed a bug with HTTP remote providers.
 
 ## [3.6.1] - 2016-04-08
 ### Changed
