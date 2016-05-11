@@ -11,6 +11,7 @@ import inspect
 import textwrap
 from itertools import chain
 from collections import Mapping
+import multiprocessing
 
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
