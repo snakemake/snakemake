@@ -1,6 +1,6 @@
 # Change Log
 
-## [3.7.0] - Work in Progress
+## [3.7.0] - 2016-05-05
 ### Added
 - The entries in `resources` and the `threads` job attribute can now be callables that must return `int` values.
 - Multiple `--cluster-config` arguments can be given to the Snakemake command line. Later one override earlier ones.
