@@ -238,18 +238,14 @@ class Rule:
                 self.dependencies[item] = item.rule
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
-                if not output:
-                    raise SyntaxError("Only output files may be temporary")
-                self.temp_output.add(_item)
+                if output:
+                    self.temp_output.add(_item)
             if is_flagged(item, "protected"):
-                if not output:
-                    raise SyntaxError("Only output files may be protected")
-                self.protected_output.add(_item)
+                if output:
+                    self.protected_output.add(_item)
             if is_flagged(item, "touch"):
-                if not output:
-                    raise SyntaxError(
-                        "Only output files may be marked for touching.")
-                self.touch_output.add(_item)
+                if output:
+                    self.touch_output.add(_item)
             if is_flagged(item, "dynamic"):
                 if output:
                     self.dynamic_output.add(_item)
