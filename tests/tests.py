@@ -322,7 +322,9 @@ def test_input_generator():
     run(dpath("test_input_generator"))
 
 def test_symlink_time_handling():
-    run(dpath("test_symlink_time_handling"))
+    #See Snakefile for notes on why this fails on some systems
+    if os.utime in os.supports_follow_symlinks:
+        run(dpath("test_symlink_time_handling"))
 
 if __name__ == '__main__':
     import nose

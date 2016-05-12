@@ -1,20 +1,30 @@
-# Snakemake FAQ says that the input/output of a rule can be a symlink, no problem.
-# Need to test that updates to symlinks are recognised and that linking to a file does not
-# cause the target timestamp to be updated no matter what the default symlink
-# following behaviour on the local system.
+# vim: ft=python
+"""Snakemake should work where the input/output of a rule is a symlink, no problem.
+   Here we test that updates to symlinks are recognised and that the timestamps
+   on symlinks are updated properly.
 
-#input_file is a file that is 1 hour old
-#input_link is a link to input file that is 4 hours old
-#output_link is a symlink to input_link that is 2 hours old
+   Unfortunately this does not work on some Python builds where
+   os.supports_follow_symlinks does not include utime().  This includes the Miniconda
+   build used on continuum.io.  Therefore this test is an expected failure on those
+   systems.
 
-#So output_link needs to be re-evaluated since the contents of input_file changed.
+   In practise, the impact of the bug is low - lutime() on a link will just be a no-op
+   and users will see a warning message.  Anyone for whom this is a real problem should
+   install a fully-working version of Python.
+"""
 
-#rule main outputs the time difference between inout and output in hours which
-#can be checked by Nose to ensure output_link gets touched by Snakemake but
-#neither input_file nor input_link are changed.
+"""Description of the test:
 
-# Currently this fails - Snakemake does not see that input_file is newer than
-# output_link.
+   input_file is a file that is 1 hour old
+   input_link is a link to input file that is 4 hours old
+   output_link is a symlink to input_link that is 2 hours old
+
+   So output_link needs to be re-evaluated since the contents of input_file changed.
+
+   rule main outputs the time difference between inout and output in hours which
+   can be checked by Nose to ensure output_link gets touched by Snakemake but
+   neither input_file nor input_link are changed.
+"""
 
 import os
 
