@@ -313,7 +313,7 @@ def contains_wildcard(path):
 
 
 def contains_wildcard_constraints(pattern):
-    return any(set(match.group('constraint') for match in _wildcard_regex.finditer(pattern)))
+    return any(match.group('constraint') for match in _wildcard_regex.finditer(pattern))
 
 
 def remove(file, remove_non_empty_dir=False):
