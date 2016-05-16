@@ -1,0 +1,23 @@
+# Having decided to address bug #300, I need a test.
+#
+# The output should be deleted before the job starts.
+# The output should be deleted on the the head node for cluster jobs.
+# The path for the output should be created (as it already is)
+# The output should be touch'd on the head node to always be new.
+#
+# This test should work without any cluster.  Do I need a special test for
+# the cluster case?  Not sure.
+
+# Setup - touch a fake input file and a fake output file.
+
+shell("touch -d '1 minute ago' output.file")
+shell("touch input.file")
+
+rule main:
+    input: "output.file"
+
+rule make_the_file:
+    output: "output.file", "foo/output.foo.file"
+    input: "input.file"
+    # Rule fails if any output.file is already present
+    shell: "test ! -e output.file ; test -d foo ; test ! -e foo/* ; touch -d '1 day ago' output.file ; touch foo/output.foo.file"

@@ -307,7 +307,7 @@ def test_until():
                "second_wildcard"]) # wildcard rule
 
 def test_omitfrom():
-    run(dpath("test_omitfrom"), 
+    run(dpath("test_omitfrom"),
         omit_from=["leveltwo_first", # rule name
                    "leveltwo_second.txt", # file name
                    "second_wildcard"]) # wildcard rule
@@ -315,9 +315,16 @@ def test_omitfrom():
 def test_nonstr_params():
     run(dpath("test_nonstr_params"))
 
+def test_delete_output():
+    run(dpath("test_delete_output"))
 
 def test_input_generator():
     run(dpath("test_input_generator"))
+
+def test_symlink_time_handling():
+    #See Snakefile for notes on why this fails on some systems
+    if os.utime in os.supports_follow_symlinks:
+        run(dpath("test_symlink_time_handling"))
 
 if __name__ == '__main__':
     import nose

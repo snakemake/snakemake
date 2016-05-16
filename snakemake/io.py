@@ -24,10 +24,19 @@ def lstat(f):
 
 
 def lutime(f, times):
-    return os.utime(
-        f,
-        times,
-        follow_symlinks=os.utime not in os.supports_follow_symlinks)
+    #In some cases, we have a platform where os.supports_follow_symlink includes stat()
+    #but not utime().  This leads to an anomaly.  In any case we never want to touch the
+    #target of a link.
+    if os.utime in os.supports_follow_symlinks:
+        #...utime is well behaved
+        return os.utime(f, times, follow_symlinks=False)
+    elif not os.path.islink(f):
+        #...symlinks not an issue here
+        return os.utime(f, times)
+    else:
+        #...problem system.  Do nothing.
+        logger.error("Unable to set utime on symlink {}.  Your Python build does not support it.".format(f))
+        return None
 
 
 def lchmod(f, mode):
@@ -150,8 +159,16 @@ class _IOFile(str):
             raise WorkflowError("File {} seems to be a broken symlink.".format(
                 self.file))
 
+    @_refer_to_remote
     def is_newer(self, time):
-        return self.mtime > time
+        """ Returns true of the file is newer than time, or if it is
+            a symlink that points to a file newer than time. """
+        if self.is_remote:
+            #If file is remote but provider does not override the implementation this
+            #is the best we can do.
+            return self.mtime > time
+        else:
+            return os.stat(self, follow_symlinks=True).st_mtime > time or self.mtime > time
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
@@ -190,7 +207,7 @@ class _IOFile(str):
             lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
-        remove(self.file, remove_non_empty_dir)
+        remove(self.file, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
         """ times must be 2-tuple: (atime, mtime) """
@@ -319,9 +336,12 @@ def remove(file, remove_non_empty_dir=False):
             else:
                 try:
                     os.removedirs(file)
-                except OSError:
-                    # ignore non empty directories
-                    pass
+                except OSError as e:
+                    # skip non empty directories
+                    if e.errno == 39:
+                        logger.info("Skipped removing empty directory {}".format(e.filename))
+                    else:
+                        logger.warning(str(e))
         else:
             os.remove(file)
 
