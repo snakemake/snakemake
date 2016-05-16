@@ -1,5 +1,9 @@
 # Change Log
 
+## [Unreleased]
+### Changed
+- Snakemake now deletes output files before job exection. Further, it touches output files after job execution. This solves various problems with slow NFS filesystems.
+
 ## [3.7.1] - 2016-05-16
 ### Changed
 - Fixed a missing import of the multiprocessing module.
