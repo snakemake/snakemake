@@ -1,5 +1,9 @@
 # Change Log
 
+## [3.7.1] - 2016-05-16
+### Changed
+- Fixed a missing import of the multiprocessing module.
+
 ## [3.7.0] - 2016-05-05
 ### Added
 - The entries in `resources` and the `threads` job attribute can now be callables that must return `int` values.
