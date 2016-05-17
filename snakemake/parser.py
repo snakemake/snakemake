@@ -260,7 +260,7 @@ class Ruleorder(GlobalKeywordState):
 class GlobalWildcardConstraints(GlobalKeywordState):
     @property
     def keyword(self):
-        return self.__class__.__name__.replace("W", "_W").replace("C", "_C").lower()[len(self.prefix):]
+        return "global_wildcard_constraints"
 
 
 # subworkflows
@@ -396,7 +396,7 @@ class Benchmark(RuleKeywordState):
 class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
-        return self.__class__.__name__.replace("C", "_C").lower()[len(self.prefix):]
+        return "wildcard_constraints"
 
 
 
