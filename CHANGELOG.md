@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Changed
 - Snakemake now deletes output files before job exection. Further, it touches output files after job execution. This solves various problems with slow NFS filesystems.
+- A bug was fixed that caused dynamic output rules to be executed multiple times when forcing their execution with -R.
 
 ## [3.7.1] - 2016-05-16
 ### Changed
