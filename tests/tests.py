@@ -300,11 +300,13 @@ def test_script():
 def test_shadow():
     run(dpath("test_shadow"))
 
+
 def test_until():
     run(dpath("test_until"),
         until=["leveltwo_first", # rule name
                "leveltwo_second.txt", # file name
                "second_wildcard"]) # wildcard rule
+
 
 def test_omitfrom():
     run(dpath("test_omitfrom"),
@@ -312,19 +314,28 @@ def test_omitfrom():
                    "leveltwo_second.txt", # file name
                    "second_wildcard"]) # wildcard rule
 
+
 def test_nonstr_params():
     run(dpath("test_nonstr_params"))
+
 
 def test_delete_output():
     run(dpath("test_delete_output"))
 
+
 def test_input_generator():
     run(dpath("test_input_generator"))
+
 
 def test_symlink_time_handling():
     #See Snakefile for notes on why this fails on some systems
     if os.utime in os.supports_follow_symlinks:
         run(dpath("test_symlink_time_handling"))
+
+
+def test_issue328():
+    run(dpath("test_issue328"), forcerun=["split"])
+
 
 if __name__ == '__main__':
     import nose
