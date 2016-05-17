@@ -278,7 +278,7 @@ def available_cpu_count():
         if m:
             res = bin(int(m.group(1).replace(',', ''), 16)).count('1')
             if res > 0:
-                return res
+                return min(res, multiprocessing.cpu_count())
     except IOError:
         pass
 
