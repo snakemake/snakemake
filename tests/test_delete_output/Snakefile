@@ -10,7 +10,7 @@
 
 # Setup - touch a fake input file and a fake output file.
 
-shell("touch -d '1 minute ago' output.file")
+shell("touch -t 201604010000 output.file")
 shell("touch input.file")
 
 rule main:
@@ -20,4 +20,4 @@ rule make_the_file:
     output: "output.file", "foo/output.foo.file"
     input: "input.file"
     # Rule fails if any output.file is already present
-    shell: "test ! -e output.file ; test -d foo ; test ! -e foo/* ; touch -d '1 day ago' output.file ; touch foo/output.foo.file"
+    shell: "test ! -e output.file ; test -d foo ; test ! -e foo/* ; touch -t 201604010000 output.file ; touch foo/output.foo.file"
