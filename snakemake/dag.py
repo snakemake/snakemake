@@ -260,7 +260,11 @@ class DAG:
         #Also, don't touch directories, as we can't guarantee they were removed.
         for f in job.expanded_shadowed_output:
             if not os.path.isdir(f):
+<<<<<<< HEAD
                 f.touch()
+=======
+                os.utime(f, follow_symlinks=False)
+>>>>>>> c1f0d124b5770ac39d94b4f4bb88429269360d7e
 
     def unshadow_output(self, job):
         """ Move files from shadow directory to real output paths. """
