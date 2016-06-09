@@ -217,8 +217,10 @@ class Logger:
         elif level == "progress" and not self.quiet:
             done = msg["done"]
             total = msg["total"]
-            self.logger.info("{} of {} steps ({:.0%}) done".format(
-                done, total, done / total))
+            p = done / total
+            percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
+            self.logger.info("{} of {} steps ({}) done".format(
+                done, total, percent_fmt))
         elif level == "job_info":
             if not self.quiet:
                 if msg["msg"] is not None:
