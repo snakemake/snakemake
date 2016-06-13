@@ -9,6 +9,7 @@ import re
 import stat
 import time
 import json
+import copy
 import functools
 from itertools import product, chain
 from collections import Iterable, namedtuple
@@ -90,8 +91,9 @@ class _IOFile(str):
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
-        if get_flag_value(self._file, "remote_object").file != self._file:
-            get_flag_value(self._file, "remote_object")._iofile = self
+        remote_object = get_flag_value(self._file, "remote_object")
+        if remote_object._file != self._file:
+            remote_object._iofile = self
 
     @property
     def should_keep_local(self):
@@ -282,7 +284,10 @@ class _IOFile(str):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
         if isinstance(other._file, AnnotatedString):
-            self._file.flags = getattr(other._file, "flags", {})
+            self._file.flags = getattr(other._file, "flags", {}).copy()
+            if "remote_object" in self._file.flags:
+                self._file.flags['remote_object'] = copy.copy(
+                    self._file.flags['remote_object'])
 
     def set_flags(self, flags):
         if isinstance(self._file, str):

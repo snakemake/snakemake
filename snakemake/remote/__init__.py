@@ -73,6 +73,8 @@ class AbstractRemoteObject:
 
     @property
     def _file(self):
+        if self._iofile is None:
+            return None
         return self._iofile._file
     
     def file(self):
