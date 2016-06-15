@@ -39,7 +39,7 @@ class Job:
                                   else Wildcards(fromdict=format_wildcards))
 
         (self.input, self.output, self.params, self.log, self.benchmark,
-         self.ruleio,
+         self.environment_file, self.ruleio,
          self.dependencies) = rule.expand_wildcards(self.wildcards_dict)
 
         self.resources_dict = {}
@@ -93,6 +93,13 @@ class Job:
     def b64id(self):
         return base64.b64encode((self.rule.name + "".join(self.output)).encode(
             "utf-8")).decode("utf-8")
+
+    @property
+    def environment(self):
+        return os.path.join(self.rule.workflow.persistence.environment_path,
+                            os.path.dirname(self.environment_file.rstrip("/")))
+
+
 
     @property
     def inputsize(self):
@@ -412,6 +419,21 @@ class Job:
                     relative_source = os.path.relpath(source)
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
+
+    def create_environment(self):
+        """Create conda environment if specified."""
+        if self.environment_file:
+            logger.info("Creating conda environment.")
+            os.makedirs(os.path.dirname(self.environment), exist_ok=True)
+            try:
+                out = subprocess.check_output(["conda", "env", "create",
+                                               "--file", self.environment_file,
+                                               "--prefix", self.environment,
+                                               "--json"])
+            except subprocess.CalledProcessError as e:
+                raise WorkflowError("Could not create conda environment:\n" +
+                                    json.loads(e.output)["error"],
+                                    rule=self.rule)
 
     def cleanup(self):
         """ Cleanup output files. """

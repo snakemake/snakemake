@@ -53,7 +53,10 @@ class shell:
 
         close_fds = sys.platform != 'win32'
 
-        proc = sp.Popen("{} {} {}".format(
+        env_prefix = "" if environment is None else "source activate {};".format(environment)
+
+        proc = sp.Popen("{} {} {} {}".format(
+                            env_prefix,
                             cls._process_prefix,
                             cmd.rstrip(),
                             cls._process_suffix),

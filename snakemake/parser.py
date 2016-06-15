@@ -386,6 +386,10 @@ class Benchmark(RuleKeywordState):
     pass
 
 
+class Environment(RuleKeywordState):
+    pass
+
+
 class Run(RuleKeywordState):
     def __init__(self, snakefile, rulename,
                  base_indent=0,
@@ -541,6 +545,7 @@ class Rule(GlobalKeywordState):
                        log=Log,
                        message=Message,
                        benchmark=Benchmark,
+                       environment=Environment,
                        shadow=Shadow,
                        run=Run,
                        shell=Shell,

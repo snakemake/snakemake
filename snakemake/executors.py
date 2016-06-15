@@ -216,6 +216,7 @@ class CPUExecutor(RealExecutor):
             type(self) == concurrent.futures.ThreadPoolExecutor):
             raise ImproperShadowException(job.rule)
         job.prepare()
+        job.create_environment()
         super()._run(job)
 
         benchmark = None
@@ -227,8 +228,8 @@ class CPUExecutor(RealExecutor):
             run_wrapper, job.rule.run_func, job.input.plainstrings(),
             job.output.plainstrings(), job.params, job.wildcards, job.threads,
             job.resources, job.log.plainstrings(), job.rule.version, benchmark,
-            self.benchmark_repeats, self.workflow.linemaps, self.workflow.debug,
-            shadow_dir=job.shadow_dir)
+            self.benchmark_repeats, job.environment, self.workflow.linemaps,
+            self.workflow.debug, shadow_dir=job.shadow_dir)
 
         future.add_done_callback(partial(self._callback, job, callback,
                                          error_callback))
@@ -352,6 +353,7 @@ class ClusterExecutor(RealExecutor):
         if self.max_jobs_per_second:
             self._limit_rate()
         job.remove_existing_output()
+        job.create_environment()
         super()._run(job, callback=callback, error_callback=error_callback)
         logger.shellcmd(job.shellcmd)
 
@@ -391,6 +393,8 @@ class ClusterExecutor(RealExecutor):
         wait_for_files = list(job.local_input) + [self.tmpdir]
         if job.shadow_dir:
             wait_for_files.append(job.shadow_dir)
+        if job.environment:
+            wait_for_files.append(job.environment)
         format = partial(str.format,
                          job=job,
                          overwrite_workdir=overwrite_workdir,
@@ -756,7 +760,7 @@ def change_working_directory(directory=None):
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
-                version, benchmark, benchmark_repeats, linemaps, debug=False,
+                version, benchmark, benchmark_repeats, environment, linemaps, debug=False,
                 shadow_dir=None):
     """
     Wrapper around the run method that handles exceptions and benchmarking.

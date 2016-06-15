@@ -1,0 +1,7 @@
+rule a:
+    output:
+        "test.out"
+    environment:
+        "envs/environment.yaml"
+    shell:
+        "samtools --help > {output}"

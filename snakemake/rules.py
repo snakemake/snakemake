@@ -46,6 +46,7 @@ class Rule:
             self.version = None
             self._log = Log()
             self._benchmark = None
+            self._environment = None
             self.wildcard_names = set()
             self.lineno = lineno
             self.snakefile = snakefile
@@ -75,6 +76,7 @@ class Rule:
             self.version = other.version
             self._log = other._log
             self._benchmark = other._benchmark
+            self._environemnt = other._environment
             self.wildcard_names = set(other.wildcard_names)
             self.lineno = other.lineno
             self.snakefile = other.snakefile
@@ -150,7 +152,7 @@ class Rule:
                                          if len(set(values)) == 1)
             # TODO have a look into how to concretize dependencies here
             (branch._input, branch._output, branch._params, branch._log,
-             branch._benchmark, _, branch.dependencies
+             branch._benchmark, branch._environment, _, branch.dependencies
              ) = branch.expand_wildcards(wildcards=non_dynamic_wildcards)
             return branch, non_dynamic_wildcards
         return branch
@@ -168,6 +170,15 @@ class Rule:
     @benchmark.setter
     def benchmark(self, benchmark):
         self._benchmark = IOFile(benchmark, rule=self)
+
+    @property
+    def environment(self):
+        return self._benchmark
+
+    @benchmark.setter
+    def environment(self, environment):
+        self._environment = IOFile(environment, rule=self)
+
 
     @property
     def input(self):
@@ -422,7 +433,9 @@ class Rule:
 
             benchmark = self.benchmark.apply_wildcards(
                 wildcards) if self.benchmark else None
-            return input, output, params, log, benchmark, ruleio, dependencies
+            environment = self.environment.apply_wildcards(
+                wildcards) if self.environment else None
+            return input, output, params, log, benchmark, environment, ruleio, dependencies
         except WildcardError as ex:
             # this can only happen if an input contains an unresolved wildcard.
             raise RuleException(
