@@ -266,8 +266,7 @@ class DAG:
         """ Move files from shadow directory to real output paths. """
         if not job.shadow_dir or not job.expanded_output:
             return
-        cwd = os.getcwd()
-        for real_output in job.expanded_output:
+        for real_output in chain(job.expanded_output, job.log):
             shadow_output = os.path.join(job.shadow_dir, real_output)
             if os.path.realpath(shadow_output) == os.path.realpath(
                     real_output):
@@ -302,6 +301,8 @@ class DAG:
         """ Touches those output files that are marked for touching. """
         for f in job.expanded_output:
             if f in job.touch_output:
+                if job.shadow_dir:
+                    f = job.shadowed_path(f)
                 logger.info("Touching output file {}.".format(f))
                 f.touch_or_create()
 

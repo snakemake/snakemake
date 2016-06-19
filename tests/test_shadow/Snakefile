@@ -1,5 +1,5 @@
 rule all:
-    input: ["simple_shallow.out", "simple_full.out"]
+    input: ["simple_shallow.out", "simple_full.out", "touched.out", "logexists.out", "protected.out"]
 
 rule shallow:
     input: "test.in"
@@ -23,4 +23,29 @@ rule full:
         cat {input} > {output}
         echo simple_full >> {output}
         test ! -f junk.out
+        """
+
+rule log_stat:
+    input: "touched.out"
+    output: touch("logexists.out")
+    shell:
+        """
+        test -f shadow.log
+        """
+
+rule touch:
+    output: touch("touched.out")
+    log: "shadow.log"
+    shadow: "shallow"
+    shell:
+        """
+        echo 1 > {log}
+        """
+
+rule protected:
+    output: protected("protected.out")
+    shadow: "shallow"
+    shell:
+        """
+        touch protected.out
         """

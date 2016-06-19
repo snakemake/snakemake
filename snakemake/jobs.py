@@ -145,6 +145,12 @@ class Job:
             else:
                 yield f
 
+    def shadowed_path(self, f):
+        """ Get the shadowed path of IOFile f. """
+        f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
+        f_.clone_flags(f)
+        return f_
+
     @property
     def expanded_shadowed_output(self):
         """ Get the paths of output files, resolving shadow directory. """
@@ -152,9 +158,7 @@ class Job:
             yield from self.expanded_output
         else:
             for f in self.expanded_output:
-                file_to_yield = IOFile(os.path.join(self.shadow_dir, f), self.rule)
-                file_to_yield.clone_flags(f)
-                yield file_to_yield
+                yield self.shadowed_path(f)
 
     @property
     def dynamic_wildcards(self):
