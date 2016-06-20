@@ -247,8 +247,10 @@ class DAG:
 
     def check_and_touch_output(self, job, wait=3):
         """ Raise exception if output files of job are missing. """
+        expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
         try:
-            wait_for_files(job.expanded_shadowed_output, latency_wait=wait)
+
+            wait_for_files(expanded_output, latency_wait=wait)
         except IOError as e:
             raise MissingOutputException(str(e), rule=job.rule)
 
@@ -258,7 +260,7 @@ class DAG:
         #Note that if the input files somehow have a future date then this will
         #not currently be spotted and the job will always be re-run.
         #Also, don't touch directories, as we can't guarantee they were removed.
-        for f in job.expanded_shadowed_output:
+        for f in expanded_output:
             if not os.path.isdir(f):
                 f.touch()
 
@@ -268,6 +270,14 @@ class DAG:
             return
         for real_output in chain(job.expanded_output, job.log):
             shadow_output = os.path.join(job.shadow_dir, real_output)
+            # Remake absolute symlinks as relative
+            if os.path.islink(shadow_output):
+                dest = os.readlink(shadow_output)
+                if os.path.isabs(dest):
+                    rel_dest = os.path.relpath(dest, job.shadow_dir)
+                    os.remove(shadow_output)
+                    os.symlink(rel_dest, shadow_output)
+
             if os.path.realpath(shadow_output) == os.path.realpath(
                     real_output):
                 continue

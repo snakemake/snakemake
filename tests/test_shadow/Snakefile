@@ -1,5 +1,7 @@
 rule all:
-    input: ["simple_shallow.out", "simple_full.out", "touched.out", "logexists.out", "protected.out"]
+    input: ["simple_shallow.out", "simple_full.out", "absolute_exists.out", "touched.out", "logexists.out", "protected.out"]
+
+shell.executable("/bin/bash")
 
 rule shallow:
     input: "test.in"
@@ -23,6 +25,26 @@ rule full:
         cat {input} > {output}
         echo simple_full >> {output}
         test ! -f junk.out
+        """
+
+rule absolute_link:
+    input: "test.in"
+    output: "absolute.out", "absolute_link.out"
+    shadow: "shallow"
+    shell:
+        """
+        echo 1 > absolute.out
+        DIRNAME=$(perl -e 'use Cwd "abs_path";print abs_path(shift)' .)
+        ln -s $DIRNAME/absolute.out absolute_link.out
+        """
+
+# Snakemake has check_broken_symlink so we just need to test existence
+rule absolute_stat:
+    input: "absolute_link.out"
+    output: touch("absolute_exists.out")
+    shell:
+        """
+        test -f absolute_link.out
         """
 
 rule log_stat:
