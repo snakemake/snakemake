@@ -269,7 +269,7 @@ class DAG:
         if not job.shadow_dir or not job.expanded_output:
             return
         for real_output in chain(job.expanded_output, job.log):
-            shadow_output = os.path.join(job.shadow_dir, real_output)
+            shadow_output = job.shadowed_path(real_output).file
             # Remake absolute symlinks as relative
             if os.path.islink(shadow_output):
                 dest = os.readlink(shadow_output)

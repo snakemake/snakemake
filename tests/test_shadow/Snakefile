@@ -1,5 +1,7 @@
 rule all:
-    input: ["simple_shallow.out", "simple_full.out", "absolute_exists.out", "touched.out", "logexists.out", "protected.out"]
+    input: "simple_shallow.out", "simple_full.out",
+           "absolute_exists.out", "touched.out", "log_exists.out",
+           "protected.out", "benchmark_exists.out"
 
 shell.executable("/bin/bash")
 
@@ -34,7 +36,7 @@ rule absolute_link:
     shell:
         """
         echo 1 > absolute.out
-        DIRNAME=$(perl -e 'use Cwd "abs_path";print abs_path(shift)' .)
+        DIRNAME=$(perl -e 'use Cwd "abs_path"; print abs_path(shift)' .)
         ln -s $DIRNAME/absolute.out absolute_link.out
         """
 
@@ -44,12 +46,12 @@ rule absolute_stat:
     output: touch("absolute_exists.out")
     shell:
         """
-        test -f absolute_link.out
+        test -f {input}
         """
 
 rule log_stat:
     input: "touched.out"
-    output: touch("logexists.out")
+    output: touch("log_exists.out")
     shell:
         """
         test -f shadow.log
@@ -69,5 +71,22 @@ rule protected:
     shadow: "shallow"
     shell:
         """
-        touch protected.out
+        touch {output}
+        """
+
+rule benchmark:
+    output: touch("benchmark.out")
+    benchmark: "benchmark.txt"
+    shadow: "shallow"
+    shell:
+        """
+        touch {output}
+        """
+
+rule benchmark_stat:
+    input: "benchmark.out"
+    output: touch("benchmark_exists.out")
+    shell:
+        """
+        test -f benchmark.txt
         """
