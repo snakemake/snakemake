@@ -311,8 +311,7 @@ class DAG:
         """ Touches those output files that are marked for touching. """
         for f in job.expanded_output:
             if f in job.touch_output:
-                if job.shadow_dir:
-                    f = job.shadowed_path(f)
+                f = job.shadowed_path(f)
                 logger.info("Touching output file {}.".format(f))
                 f.touch_or_create()
 
