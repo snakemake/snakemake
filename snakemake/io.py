@@ -303,9 +303,19 @@ class _IOFile(str):
 
 
 _wildcard_regex = re.compile(
-    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>([^\{\}]+|\{\d+(,\d+)?\})*))?\s*\}")
-
-#    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
+    r"""
+    \{
+        (?=(   # This lookahead assertion emulates an 'atomic group'
+               # which is required for performance
+            \s*(?P<name>\w+)                    # wildcard name
+            (\s*,\s*
+                (?P<constraint>                 # an optional constraint
+                    ([^{}]+ | \{\d+(,\d+)?\})*  # allow curly braces to nest one level
+                )                               # ...  as in '{w,a{3,5}}'
+            )?\s*
+        ))\1
+    \}
+    """, re.VERBOSE)
 
 
 def wait_for_files(files, latency_wait=3):
