@@ -98,7 +98,9 @@ class Job:
 
     @property
     def environment(self):
-        return self.rule.workflow.environments[self.environment_file]
+        if self.environment_file is not None:
+            return self.rule.workflow.environments[self.environment_file]
+        return None
 
     @property
     def inputsize(self):

@@ -14,7 +14,7 @@ class Environments:
         self.environments = dict()
 
     def register(self, env_file):
-        env = os.path.abspath(os.path.join(self.path, env_file))
+        env = os.path.abspath(os.path.join(self.path, env_file.lstrip("/")))
         self.environments[env_file] = env
         if os.path.exists(env):
             shutil.rmtree(env)
