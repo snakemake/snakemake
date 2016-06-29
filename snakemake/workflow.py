@@ -28,6 +28,7 @@ from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.wrapper import wrapper
+from snakemake.environments import Environments
 
 class Workflow:
     def __init__(self,
@@ -73,6 +74,7 @@ class Workflow:
         self._onstart = lambda log: None
         self.debug = debug
         self._rulecount = 0
+        self.environments = Environments()
 
         global config
         config = dict()

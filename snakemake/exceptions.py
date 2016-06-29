@@ -333,3 +333,7 @@ class CreateRuleException(RuleException):
 
 class TerminatedException(Exception):
     pass
+
+
+class CreateEnvironmentException(Exception):
+    pass

@@ -2,6 +2,6 @@ rule a:
     output:
         "test.out"
     environment:
-        "envs/environment.yaml"
+        "envs/samtools.yaml"
     shell:
         "samtools --help > {output}"

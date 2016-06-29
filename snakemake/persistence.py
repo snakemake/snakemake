@@ -36,12 +36,11 @@ class Persistence:
         self._input_path = os.path.join(self.path, "input_tracking")
         self._params_path = os.path.join(self.path, "params_tracking")
         self._shellcmd_path = os.path.join(self.path, "shellcmd_tracking")
-        self.environment_path = os.path.join(self.path, "environments")
         self.shadow_path = os.path.join(self.path, "shadow")
 
         for d in (self._incomplete_path, self._version_path, self._code_path,
                   self._rule_path, self._input_path, self._params_path,
-                  self._shellcmd_path, self._environment_path, self.shadow_path):
+                  self._shellcmd_path, self.shadow_path):
             if not os.path.exists(d):
                 os.mkdir(d)
 

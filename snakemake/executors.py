@@ -785,7 +785,7 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
             # execute the actual run method.
             with change_working_directory(shadow_dir):
                 run(input, output, params, wildcards, threads, resources, log,
-                    version)
+                    version, environment)
             w = time.time() - w
             wallclock.append(w)
 

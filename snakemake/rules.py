@@ -173,9 +173,9 @@ class Rule:
 
     @property
     def environment(self):
-        return self._benchmark
+        return self._environment
 
-    @benchmark.setter
+    @environment.setter
     def environment(self, environment):
         self._environment = IOFile(environment, rule=self)
 

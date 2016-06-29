@@ -7,6 +7,8 @@ import os
 import sys
 import base64
 import tempfile
+import subprocess
+import json
 
 from collections import defaultdict
 from itertools import chain
@@ -16,7 +18,7 @@ from operator import attrgetter
 from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException
-from snakemake.exceptions import UnexpectedOutputException
+from snakemake.exceptions import UnexpectedOutputException, CreateEnvironmentException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
 
@@ -96,10 +98,7 @@ class Job:
 
     @property
     def environment(self):
-        return os.path.join(self.rule.workflow.persistence.environment_path,
-                            os.path.dirname(self.environment_file.rstrip("/")))
-
-
+        return self.rule.workflow.environments[self.environment_file]
 
     @property
     def inputsize(self):
@@ -423,17 +422,10 @@ class Job:
     def create_environment(self):
         """Create conda environment if specified."""
         if self.environment_file:
-            logger.info("Creating conda environment.")
-            os.makedirs(os.path.dirname(self.environment), exist_ok=True)
             try:
-                out = subprocess.check_output(["conda", "env", "create",
-                                               "--file", self.environment_file,
-                                               "--prefix", self.environment,
-                                               "--json"])
-            except subprocess.CalledProcessError as e:
-                raise WorkflowError("Could not create conda environment:\n" +
-                                    json.loads(e.output)["error"],
-                                    rule=self.rule)
+                self.rule.workflow.environments.create(self.environment_file)
+            except CreateEnvironmentException as e:
+                raise WorkflowError(e, rule=self.rule)
 
     def cleanup(self):
         """ Cleanup output files. """

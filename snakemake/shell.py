@@ -7,6 +7,7 @@ import _io
 import sys
 import os
 import subprocess as sp
+import inspect
 
 from snakemake.utils import format
 from snakemake.logging import logger
@@ -46,6 +47,7 @@ class shell:
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
         cmd = format(cmd, *args, stepout=2, **kwargs)
+        context = inspect.currentframe().f_back.f_locals
 
         logger.shellcmd(cmd)
 
@@ -53,6 +55,7 @@ class shell:
 
         close_fds = sys.platform != 'win32'
 
+        environment = context.get("environment", None)
         env_prefix = "" if environment is None else "source activate {};".format(environment)
 
         proc = sp.Popen("{} {} {} {}".format(
