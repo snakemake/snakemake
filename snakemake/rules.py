@@ -76,7 +76,7 @@ class Rule:
             self.version = other.version
             self._log = other._log
             self._benchmark = other._benchmark
-            self._environemnt = other._environment
+            self._environment = other._environment
             self.wildcard_names = set(other.wildcard_names)
             self.lineno = other.lineno
             self.snakefile = other.snakefile
