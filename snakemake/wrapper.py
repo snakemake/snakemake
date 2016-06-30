@@ -9,7 +9,7 @@ import os
 from snakemake.script import script
 
 
-def wrapper(path, input, output, params, wildcards, threads, resources, log, config):
+def wrapper(path, input, output, params, wildcards, threads, resources, log, config, environment):
     """
     Load a wrapper from https://bitbucket.org/snakemake/snakemake-wrappers under
     the given path + wrapper.py and execute it.
