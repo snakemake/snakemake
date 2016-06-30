@@ -506,7 +506,7 @@ class Script(Run):
     def end(self):
         # the end is detected. So we can savely reset the indent to zero here
         self.indent = 0
-        yield ", input, output, params, wildcards, threads, resources, log, config"
+        yield ", input, output, params, wildcards, threads, resources, log, config, environment"
         yield ")"
         for t in super().end():
             yield t
