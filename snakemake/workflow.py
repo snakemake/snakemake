@@ -719,6 +719,20 @@ class Workflow:
 
         return decorate
 
+    def script(self, script):
+        def decorate(ruleinfo):
+            ruleinfo.script = script
+            return ruleinfo
+
+        return decorate
+
+    def wrapper(self, wrapper):
+        def decorate(ruleinfo):
+            ruleinfo.wrapper = wrapper
+            return ruleinfo
+
+        return decorate
+
     def norun(self):
         def decorate(ruleinfo):
             ruleinfo.norun = True
@@ -752,6 +766,8 @@ class RuleInfo:
         self.version = None
         self.log = None
         self.docstring = None
+        self.script = None
+        self.wrapper = None
 
 
 class Subworkflow:

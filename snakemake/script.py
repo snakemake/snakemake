@@ -89,7 +89,7 @@ class Snakemake:
         self.config = config
 
 
-def script(basedir, path, input, output, params, wildcards, threads, resources,
+def script(path, basedir, input, output, params, wildcards, threads, resources,
            log, config, environment):
     """
     Load a script from the given basedir + path and execute it.
