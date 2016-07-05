@@ -686,6 +686,7 @@ class DRMAAExecutor(ClusterExecutor):
             jt = self.session.createJobTemplate()
             jt.remoteCommand = jobscript
             jt.nativeSpecification = drmaa_args
+            jt.jobName = os.path.basename(jobscript)
 
             jobid = self.session.runJob(jt)
         except (drmaa.errors.InternalException,
