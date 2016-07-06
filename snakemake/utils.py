@@ -12,6 +12,8 @@ import textwrap
 from itertools import chain
 from collections import Mapping
 import multiprocessing
+import string
+import shlex
 
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
@@ -147,6 +149,81 @@ def R(code):
         raise ValueError(
             "Python 3 package rpy2 needs to be installed to use the R function.")
     robjects.r(format(textwrap.dedent(code), stepout=2))
+
+
+class SequenceFormatter(string.Formatter):
+    """string.Formatter subclass with special behavior for sequences.
+
+    This class delegates formatting of individual elements to another
+    formatter object. Non-list objects are formatted by calling the
+    delegate formatter's "format_field" method. List-like objects
+    (list, tuple, set, frozenset) are formatted by formatting each
+    element of the list according to the specified format spec using
+    the delegate formatter and then joining the resulting strings with
+    a separator (space by default).
+
+    """
+    def __init__(self, separator=" ", element_formatter=string.Formatter(),
+                 *args, **kwargs):
+        self.separator = separator
+        self.element_formatter = element_formatter
+
+    def format_element(self, elem, format_spec):
+        """Format a single element
+
+        For sequences, this is called once for each element in a
+        sequence. For anything else, it is called on the entire
+        object. It is intended to be overridden in subclases.
+
+        """
+        return self.element_formatter.format_field(elem, format_spec)
+
+    def format_field(self, value, format_spec):
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return self.separator.join(self.format_element(v, format_spec) for v in value)
+        else:
+            return self.format_element(value, format_spec)
+
+
+class QuotedFormatter(string.Formatter):
+    """Subclass of string.Formatter that implements quoting.
+
+    Using this formatter, any field can be quoted after formatting by
+    appending "q" to its format string. By default, shell quoting is
+    performed using "shlex.quote", but you can pass a different
+    quote_func to the constructor. The quote_func simply has to take a
+    string argument and return a new string representing the quoted
+    form of the input string.
+
+    """
+
+    def __init__(self, quote_func=shlex.quote, *args, **kwargs):
+        self.quote_func = quote_func
+        super().__init__(*args, **kwargs)
+
+    def format_field(self, value, format_spec):
+        do_quote = format_spec.endswith("q")
+        if do_quote:
+            format_spec = format_spec[:-1]
+            if not format_spec:
+                format_spec = "s"
+        formatted = super().format_field(value, format_spec)
+        if do_quote:
+            formatted = self.quote_func(formatted)
+        return formatted
+
+
+class QuotedSequenceFormatter(SequenceFormatter):
+    """string.Formatter subclass that shell-quotes while formatting.
+
+    Non-list objects are formatted by calling the normal 'format'
+    function and then shell-quoting the result using 'shlex.quote'.
+    List-like objects are formatted as a space-separated list of their
+    values, formatted as described above.
+    """
+    def __init__(self, separator=" ", quote_func=shlex.quote,
+                 *args, **kwargs):
+        super().__init__(separator, QuotedFormatter(quote_func=quote_func))
 
 
 def format(_pattern, *args, stepout=1, **kwargs):
