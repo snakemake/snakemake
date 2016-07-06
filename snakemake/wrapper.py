@@ -9,14 +9,34 @@ import os
 from snakemake.script import script
 
 
+def is_script(path):
+    return path.endswith("wrapper.py") or path.endswith("wrapper.R")
+
+
+def get_path(path):
+    if not (path.startswith("http") or path.startswith("file:")):
+        path = os.path.join("https://bitbucket.org/snakemake/snakemake-wrappers/raw", path)
+    return path
+
+
+def get_script(path):
+    path = get_path(path)
+    if not is_script(path):
+        path = os.path.join(path, "wrapper.py")
+    return path
+
+
+def get_environment(path):
+    path = get_path(path)
+    if is_script(path):
+        path = os.path.dirname(path)
+    return os.path.join(path, "environment.yaml")
+
+
 def wrapper(path, input, output, params, wildcards, threads, resources, log, config, environment):
     """
     Load a wrapper from https://bitbucket.org/snakemake/snakemake-wrappers under
     the given path + wrapper.py and execute it.
     """
-    # TODO handle requirements.txt
-    if not (path.startswith("http") or path.startswith("file:")):
-        path = os.path.join("https://bitbucket.org/snakemake/snakemake-wrappers/raw", path)
-    if not (path.endswith("wrapper.py") or path.endswith("wrapper.R")):
-        path = os.path.join(path, "wrapper.py")
+    path = get_script(path)
     script("", path, input, output, params, wildcards, threads, resources, log, config)

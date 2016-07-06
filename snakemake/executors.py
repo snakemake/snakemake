@@ -353,7 +353,6 @@ class ClusterExecutor(RealExecutor):
         if self.max_jobs_per_second:
             self._limit_rate()
         job.remove_existing_output()
-        job.create_environment()
         super()._run(job, callback=callback, error_callback=error_callback)
         logger.shellcmd(job.shellcmd)
 

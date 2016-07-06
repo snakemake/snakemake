@@ -28,6 +28,7 @@ from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.wrapper import wrapper
+import snakemake.wrapper
 from snakemake.environments import Environments
 
 class Workflow:
@@ -473,6 +474,8 @@ class Workflow:
                 scheduler.stats.to_json(stats)
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
+                # remove created environments
+                self.environments.cleanup()
             return True
         else:
             if not dryrun and not no_hooks:
@@ -610,6 +613,9 @@ class Workflow:
                 rule.benchmark = ruleinfo.benchmark
             if ruleinfo.environment:
                 rule.environment = ruleinfo.environment
+            if ruleinfo.wrapper:
+                rule.environment = snakemake.wrapper.get_environment(ruleinfo.wrapper)
+                print(rule.environment)
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func

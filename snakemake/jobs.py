@@ -17,7 +17,7 @@ from operator import attrgetter
 
 from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard
 from snakemake.utils import format, listfiles
-from snakemake.exceptions import RuleException, ProtectedOutputException
+from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, CreateEnvironmentException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
