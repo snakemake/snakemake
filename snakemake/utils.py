@@ -233,16 +233,6 @@ def format(_pattern, *args, stepout=1, **kwargs):
     values that are available in the current namespace.
     """
 
-    class SequenceFormatter:
-        def __init__(self, sequence):
-            self._sequence = sequence
-
-        def __getitem__(self, i):
-            return self._sequence[i]
-
-        def __str__(self):
-            return " ".join(self._sequence)
-
     frame = inspect.currentframe().f_back
     while stepout > 1:
         if not frame.f_back:
@@ -254,11 +244,9 @@ def format(_pattern, *args, stepout=1, **kwargs):
     # add local variables from calling rule/function
     variables.update(frame.f_locals)
     variables.update(kwargs)
-    for key, value in list(variables.items()):
-        if type(value) in (list, tuple, set, frozenset):
-            variables[key] = SequenceFormatter(value)
+    fmt = QuotedSequenceFormatter()
     try:
-        return _pattern.format(*args, **variables)
+        return fmt.format(_pattern, *args, **variables)
     except KeyError as ex:
         raise NameError("The name {} is unknown in this context. Please "
                         "make sure that you defined that variable. "
