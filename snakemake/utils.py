@@ -205,8 +205,6 @@ class QuotedFormatter(string.Formatter):
         do_quote = format_spec.endswith("q")
         if do_quote:
             format_spec = format_spec[:-1]
-            if not format_spec:
-                format_spec = "s"
         formatted = super().format_field(value, format_spec)
         if do_quote:
             formatted = self.quote_func(formatted)
