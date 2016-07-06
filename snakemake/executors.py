@@ -297,14 +297,14 @@ class ClusterExecutor(RealExecutor):
             raise WorkflowError(
                 "Defined jobname (\"{}\") has to contain the wildcard {jobid}.")
 
-        self.exec_job = (
-            'cd {workflow.workdir_init} && '
-            '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
-            '--force -j{cores} --keep-target-files --keep-shadow '
-            '--wait-for-files {wait_for_files} --latency-wait {latency_wait} '
-            '--benchmark-repeats {benchmark_repeats} '
-            '{overwrite_workdir} {overwrite_config} --nocolor '
-            '--notemp --quiet --no-hooks --nolock {target}')
+        self.exec_job = '\\\n'.join((
+            'cd {workflow.workdir_init} && ',
+            '{workflow.snakemakepath} --snakefile {workflow.snakefile} ',
+            '--force -j{cores} --keep-target-files --keep-shadow ',
+            '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
+            '--benchmark-repeats {benchmark_repeats} ',
+            '{overwrite_workdir} {overwrite_config} --nocolor ',
+            '--notemp --quiet --no-hooks --nolock {target}'))
 
         if printshellcmds:
             self.exec_job += " --printshellcmds "
@@ -372,39 +372,40 @@ class ClusterExecutor(RealExecutor):
     def spawn_jobscript(self, job, jobscript, **kwargs):
         overwrite_workdir = ""
         if self.workflow.overwrite_workdir:
-            overwrite_workdir = "--directory {} ".format(
-                self.workflow.overwrite_workdir)
-        overwrite_config = ""
+            overwrite_workdir = ("--directory", self.workflow.overwrite_workdir)
+        overwrite_config = []
         if self.workflow.overwrite_configfile:
-            overwrite_config = "--configfile {} ".format(
-                self.workflow.overwrite_configfile)
+            overwrite_config.extend(("--configfile", self.workflow.overwrite_configfile))
         if self.workflow.config_args:
-            overwrite_config += "--config {} ".format(
-                " ".join(self.workflow.config_args))
+            overwrite_config.append("--config")
+            overwrite_config.extend(self.workflow.config_args)
 
         target = job.output if job.output else job.rule.name
         wait_for_files = list(job.local_input) + [self.tmpdir]
         if job.shadow_dir:
             wait_for_files.append(job.shadow_dir)
-        format = partial(str.format,
-                         job=job,
-                         overwrite_workdir=overwrite_workdir,
-                         overwrite_config=overwrite_config,
-                         workflow=self.workflow,
-                         cores=self.cores,
-                         properties=json.dumps(job.properties(cluster=self.cluster_params(job))),
-                         latency_wait=self.latency_wait,
-                         benchmark_repeats=self.benchmark_repeats,
-                         target=target, wait_for_files=" ".join(wait_for_files),
-                         **kwargs)
+        format_kwargs = {
+            'job': job,
+            'overwrite_workdir': overwrite_workdir,
+            'overwrite_config': overwrite_config,
+            'workflow': self.workflow,
+            'cores': self.cores,
+            'properties': json.dumps(job.properties(cluster=self.cluster_params(job))),
+            'latency_wait': self.latency_wait,
+            'benchmark_repeats': self.benchmark_repeats,
+            'target': target,
+            'wait_for_files': wait_for_files,
+        }
+        format_kwargs.update(kwargs)
         try:
-            exec_job = format(self.exec_job)
+            exec_job = format(self.exec_job, _quote_all=True, **format_kwargs)
             with open(jobscript, "w") as f:
-                print(format(self.jobscript, exec_job=exec_job), file=f)
+                # No shell-quoting here, since it was performed above
+                print(str.format(self.jobscript, exec_job=exec_job, **format_kwargs), file=f)
         except KeyError as e:
             raise WorkflowError(
                 "Error formatting jobscript: {} not found\n"
-                "Make sure that your custom jobscript it up to date.".format(e))
+                "Make sure that your custom jobscript is up to date.".format(e))
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
 
     def cluster_params(self, job):
