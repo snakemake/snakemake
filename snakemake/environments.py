@@ -13,6 +13,7 @@ class Environments:
 
     def __init__(self):
         self.path = os.path.abspath(".conda")
+        os.makedirs(self.path, exist_ok=True)
         self.environments = dict()
 
     def register(self, env_file):
@@ -34,13 +35,13 @@ class Environments:
                 remote = urlopen(env_file)
                 with tempfile.NamedTemporaryFile(delete=False) as temp_env_file:
                     temp_env_file.write(remote.read())
-                    env_file = temp_env_file.name
+                    _env_file = temp_env_file.name
             except ValueError:
                 # no download necessary
-                pass
+                _env_file = env_file
             try:
                 out = subprocess.check_output(["conda", "env", "create",
-                                               "--file", env_file,
+                                               "--file", _env_file,
                                                "--prefix", env],
                                                stderr=subprocess.STDOUT)
                 logger.info("Environment for {} created.".format(env_file))
@@ -49,7 +50,7 @@ class Environments:
                     "Could not create conda environment from {}:\n".format(env_file) +
                     e.output.decode())
             if temp_env_file is not None:
-                os.remove(env_file)
+                os.remove(_env_file)
 
     def __getitem__(self, env_file):
         return self.environments[env_file]

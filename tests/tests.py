@@ -10,7 +10,7 @@ from subprocess import call
 from tempfile import mkdtemp
 import hashlib
 import urllib
-from shutil import rmtree
+from shutil import rmtree, which
 
 from snakemake import snakemake
 
@@ -338,7 +338,17 @@ def test_issue328():
 
 
 def test_conda():
-    run(dpath("test_conda"))
+    if conda_available():
+        run(dpath("test_conda"))
+
+
+def test_wrapper():
+    if conda_available():
+        run(dpath("test_wrapper"))
+
+
+def conda_available():
+    return which("conda")
 
 
 if __name__ == '__main__':

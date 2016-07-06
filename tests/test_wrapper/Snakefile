@@ -1,0 +1,9 @@
+rule samtools_view:
+    input:
+        "test.sam"
+    output:
+        "test.bam"
+    params:
+        "-b"
+    wrapper:
+        "664b384/bio/samtools/view"

@@ -39,4 +39,4 @@ def wrapper(path, input, output, params, wildcards, threads, resources, log, con
     the given path + wrapper.py and execute it.
     """
     path = get_script(path)
-    script("", path, input, output, params, wildcards, threads, resources, log, config)
+    script(path, "", input, output, params, wildcards, threads, resources, log, config, environment)
