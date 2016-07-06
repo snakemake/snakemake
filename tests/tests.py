@@ -337,6 +337,10 @@ def test_issue328():
     run(dpath("test_issue328"), forcerun=["split"])
 
 
+def test_conda():
+    run(dpath("test_conda"))
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)

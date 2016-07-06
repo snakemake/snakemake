@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import json
 import tempfile
+from urllib.request import urlopen
 
 from snakemake.exceptions import CreateEnvironmentException
 from snakemake.logging import logger
@@ -15,19 +16,18 @@ class Environments:
         self.environments = dict()
 
     def register(self, env_file):
-        if env_file not in self.environments:
-            self.environments[env_file] = tempfile.mkdtemp(dir=self.path)
+        self.environments[env_file] = os.path.join(tempfile.mkdtemp(dir=self.path), "env")
 
     def cleanup(self):
         for _, envdir in self.environments.items():
-            shutil.rmtree(env, ignore_errors=True)
+            shutil.rmtree(os.path.dirname(envdir), ignore_errors=True)
 
     def create(self, env_file):
         """Create conda environment if specified."""
-        self.register(env_file)
-        env = self[env_file]
-        temp_env_file = None
-        if not os.path.exists(env):
+        if env_file not in self.environments:
+            self.register(env_file)
+            env = self[env_file]
+            temp_env_file = None
             logger.info("Creating conda environment for {}...".format(env_file))
             os.makedirs(os.path.dirname(env), exist_ok=True)
             try:
