@@ -195,6 +195,9 @@ class QuotedFormatter(string.Formatter):
     string argument and return a new string representing the quoted
     form of the input string.
 
+    Note that if an element after formatting is the empty string, it
+    will not be quoted.
+
     """
 
     def __init__(self, quote_func=shlex.quote, *args, **kwargs):
@@ -206,7 +209,7 @@ class QuotedFormatter(string.Formatter):
         if do_quote:
             format_spec = format_spec[:-1]
         formatted = super().format_field(value, format_spec)
-        if do_quote:
+        if do_quote and formatted != '':
             formatted = self.quote_func(formatted)
         return formatted
 
