@@ -186,7 +186,7 @@ class SequenceFormatter(string.Formatter):
 
 
 class QuotedFormatter(string.Formatter):
-    """Subclass of string.Formatter that implements quoting.
+    """Subclass of string.Formatter that supports quoting.
 
     Using this formatter, any field can be quoted after formatting by
     appending "q" to its format string. By default, shell quoting is
@@ -213,20 +213,21 @@ class QuotedFormatter(string.Formatter):
         return formatted
 
 
-class QuotedSequenceFormatter(SequenceFormatter):
-    """string.Formatter subclass that shell-quotes while formatting.
+class AlwaysQuotedFormatter(QuotedFormatter):
+    """Subclass of QuotedFormatter that always quotes.
 
-    Non-list objects are formatted by calling the normal 'format'
-    function and then shell-quoting the result using 'shlex.quote'.
-    List-like objects are formatted as a space-separated list of their
-    values, formatted as described above.
+    Usage is identical to QuotedFormatter, except that it *always*
+    acts like "q" was appended to the format spec.
+
     """
-    def __init__(self, separator=" ", quote_func=shlex.quote,
-                 *args, **kwargs):
-        super().__init__(separator, QuotedFormatter(quote_func=quote_func))
+
+    def format_field(self, value, format_spec):
+        if not format_spec.endswith("q"):
+            format_spec += "q"
+        return super().format_field(value, format_spec)
 
 
-def format(_pattern, *args, stepout=1, **kwargs):
+def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
     """Format a pattern in Snakemake style.
 
     This means that keywords embedded in braces are replaced by any variable
@@ -244,7 +245,11 @@ def format(_pattern, *args, stepout=1, **kwargs):
     # add local variables from calling rule/function
     variables.update(frame.f_locals)
     variables.update(kwargs)
-    fmt = QuotedSequenceFormatter()
+    fmt = SequenceFormatter(separator=" ")
+    if _quote_all:
+        fmt.element_formatter = AlwaysQuotedFormatter()
+    else:
+        fmt.element_formatter = QuotedFormatter()
     try:
         return fmt.format(_pattern, *args, **variables)
     except KeyError as ex:
