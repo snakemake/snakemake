@@ -676,6 +676,9 @@ class Namedlist(list):
     def plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)
 
+    def get(self, key, default_value=None):
+        return self.__dict__.get(key, default_value)
+
     def __getitem__(self, key):
         try:
             return super().__getitem__(key)
