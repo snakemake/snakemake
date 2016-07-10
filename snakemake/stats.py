@@ -1,3 +1,7 @@
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
+__email__ = "koester@jimmy.harvard.edu"
+__license__ = "MIT"
 
 import time
 import csv
@@ -26,10 +30,8 @@ class Stats:
         for job, t in self.starttime.items():
             runtimes[job.rule].append(self.endtime[job] - t)
         for rule, runtimes in runtimes.items():
-            yield (
-                rule,
-                sum(runtimes) / len(runtimes),
-                min(runtimes), max(runtimes))
+            yield (rule, sum(runtimes) / len(runtimes), min(runtimes),
+                   max(runtimes))
 
     @property
     def file_stats(self):
@@ -59,7 +61,9 @@ class Stats:
                 "start-time": start,
                 "stop-time": stop,
                 "duration": duration,
-                "priority": job.priority if job.priority != snakemake.jobs.Job.HIGHEST_PRIORITY else "highest",
+                "priority": job.priority
+                if job.priority != snakemake.jobs.Job.HIGHEST_PRIORITY else
+                "highest",
                 "resources": job.resources_dict
             }
             for f, start, stop, duration, job in self.file_stats
@@ -70,4 +74,5 @@ class Stats:
                 "total_runtime": self.overall_runtime,
                 "rules": rule_stats,
                 "files": file_stats
-            }, f, indent=4)
+            }, f,
+                      indent=4)

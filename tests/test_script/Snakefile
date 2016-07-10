@@ -1,0 +1,19 @@
+
+configfile: "config.yaml"
+
+
+rule:
+    input:
+        "test.in"
+    output:
+        txt="test.out"
+    params:
+        xy=True
+    script:
+        "scripts/test.R"
+
+rule:
+    output:
+        "test.in"
+    script:
+        "scripts/test.py"

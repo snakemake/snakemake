@@ -1,0 +1,16 @@
+# -*- snakemake -*-
+from snakemake.utils import update_config
+
+c = {
+    'cp': {
+        'options': '-f',
+        },
+    }
+
+update_config(config, c)
+
+rule cp:
+    params: options = config['cp']['options']
+    input: '{prefix}.out'
+    output: temporary('{prefix}.out.copy')
+    shell: 'cp {params.options} {input} {output}'

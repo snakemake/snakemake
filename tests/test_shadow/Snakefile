@@ -1,0 +1,92 @@
+rule all:
+    input: "simple_shallow.out", "simple_full.out",
+           "absolute_exists.out", "touched.out", "log_exists.out",
+           "protected.out", "benchmark_exists.out"
+
+shell.executable("/bin/bash")
+
+rule shallow:
+    input: "test.in"
+    output: "simple_shallow.out"
+    shadow: "shallow"
+    shell:
+        """
+        echo 1 > junk.out
+        cat {input} >> {output}
+        echo simple_shallow >> {output}
+        test ! -f more_junk.out
+        """
+
+rule full:
+    input: "test.in"
+    output: "simple_full.out"
+    shadow: "full"
+    shell:
+        """
+        echo 1 > more_junk.out
+        cat {input} > {output}
+        echo simple_full >> {output}
+        test ! -f junk.out
+        """
+
+rule absolute_link:
+    input: "test.in"
+    output: "absolute.out", "absolute_link.out"
+    shadow: "shallow"
+    shell:
+        """
+        echo 1 > absolute.out
+        DIRNAME=$(perl -e 'use Cwd "abs_path"; print abs_path(shift)' .)
+        ln -s $DIRNAME/absolute.out absolute_link.out
+        """
+
+# Snakemake has check_broken_symlink so we just need to test existence
+rule absolute_stat:
+    input: "absolute_link.out"
+    output: touch("absolute_exists.out")
+    shell:
+        """
+        test -f {input}
+        """
+
+rule log_stat:
+    input: "touched.out"
+    output: touch("log_exists.out")
+    shell:
+        """
+        test -f shadow.log
+        """
+
+rule touch:
+    output: touch("touched.out")
+    log: "shadow.log"
+    shadow: "shallow"
+    shell:
+        """
+        echo 1 > {log}
+        """
+
+rule protected:
+    output: protected("protected.out")
+    shadow: "shallow"
+    shell:
+        """
+        touch {output}
+        """
+
+rule benchmark:
+    output: touch("benchmark.out")
+    benchmark: "benchmark.txt"
+    shadow: "shallow"
+    shell:
+        """
+        touch {output}
+        """
+
+rule benchmark_stat:
+    input: "benchmark.out"
+    output: touch("benchmark_exists.out")
+    shell:
+        """
+        test -f benchmark.txt
+        """

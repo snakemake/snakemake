@@ -1,20 +1,22 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Johannes Köster"
+__contributors__ = ["Per Unneberg"]
+__copyright__ = "Copyright 2015, Johannes Köster"
+__email__ = "koester@jimmy.harvard.edu"
+__license__ = "MIT"
 
 import os
 import json
-import io
 import re
-import mimetypes
-import base64
 import inspect
 import textwrap
-import datetime
 from itertools import chain
+from collections import Mapping
+import multiprocessing
 
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
+from snakemake.exceptions import WorkflowError
+import snakemake
 
 
 def linecount(filename):
@@ -52,14 +54,13 @@ def listfiles(pattern, restriction=None, omit_value=None):
     for dirpath, dirnames, filenames in os.walk(dirname):
         for f in chain(filenames, dirnames):
             if dirpath != ".":
-                f = os.path.join(dirpath, f)
+                f = os.path.normpath(os.path.join(dirpath, f))
             match = re.match(pattern, f)
-            if match and len(match.group()) == len(f):
+            if match:
                 wildcards = Namedlist(fromdict=match.groupdict())
                 if restriction is not None:
-                    invalid = any(
-                        omit_value not in v and v != wildcards[k]
-                        for k, v in restriction.items())
+                    invalid = any(omit_value not in v and v != wildcards[k]
+                                  for k, v in restriction.items())
                     if not invalid:
                         yield f, wildcards
                 else:
@@ -73,32 +74,14 @@ def makedirs(dirnames):
     if isinstance(dirnames, str):
         dirnames = [dirnames]
     for dirname in dirnames:
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-
-
-def data_uri(file, defaultenc="utf8"):
-    """Craft a base64 data URI from file with proper encoding and mimetype."""
-    mime, encoding = mimetypes.guess_type(file)
-    if mime is None:
-        mime = "text/plain"
-        logger.info("Could not detect mimetype for {}, assuming "
-                    "text/plain.".format(file))
-    if encoding is None:
-        encoding = defaultenc
-    with open(file, "rb") as f:
-        data = base64.b64encode(f.read())
-    uri = ("data:{mime};charset={charset};filename={filename};base64,{data}"
-           "".format(filename=os.path.basename(file),
-                     mime=mime,
-                     charset=encoding,
-                     data=data.decode()))
-    return uri
+        os.makedirs(dirname, exist_ok=True)
 
 
 def report(text, path,
            stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
-           defaultenc="utf8", template=None, metadata=None, **files):
+           defaultenc="utf8",
+           template=None,
+           metadata=None, **files):
     """Create an HTML report using python docutils.
 
     Attention: This function needs Python docutils to be installed for the
@@ -137,56 +120,16 @@ def report(text, path,
         metadata (str):     E.g. an optional author name or email address.
 
     """
-    outmime, _ = mimetypes.guess_type(path)
-    if outmime != "text/html":
-        raise ValueError("Path to report output has to be an HTML file.")
-    from docutils.core import publish_file
-    definitions = textwrap.dedent("""
-    .. role:: raw-html(raw)
-       :format: html
-
-    """)
-
-    metadata = textwrap.dedent("""
-
-    .. container::
-       :name: metadata
-
-       {metadata} | {date}
-
-    """).format(metadata=metadata, date=datetime.date.today().isoformat())
-
-    text = format(textwrap.dedent(text), stepout=2)
-
-    attachments = [textwrap.dedent("""
-        .. container::
-           :name: attachments
-
-        """)]
-    for name, file in sorted(files.items()):
-        data = data_uri(file)
-        attachments.append(
-            '''
-   .. container::
-      :name: {name}
-
-      [{name}] :raw-html:`<a href="{data}" download="{filename}" draggable="true">{filename}</a>`
-            '''.format(
-                name=name,
-                filename=os.path.basename(file),
-                data=data))
-
-    text = definitions + text + "\n\n" + "\n\n".join(attachments) + metadata
-
-    overrides = dict()
-    if template is not None:
-        overrides["template"] = template
-    if stylesheet is not None:
-        overrides["stylesheet_path"] = stylesheet
-    html = open(path, "w")
-    publish_file(
-        source=io.StringIO(text), destination=html,
-        writer_name="html", settings_overrides=overrides)
+    try:
+        import snakemake.report
+    except ImportError:
+        raise WorkflowError(
+            "Python 3 package docutils needs to be installed to use the report function.")
+    snakemake.report.report(text, path,
+                            stylesheet=stylesheet,
+                            defaultenc=defaultenc,
+                            template=template,
+                            metadata=metadata, **files)
 
 
 def R(code):
@@ -198,16 +141,21 @@ def R(code):
     Args:
         code (str): R code to be executed
     """
-    import rpy2.robjects as robjects
+    try:
+        import rpy2.robjects as robjects
+    except ImportError:
+        raise ValueError(
+            "Python 3 package rpy2 needs to be installed to use the R function.")
     robjects.r(format(textwrap.dedent(code), stepout=2))
 
 
-def format(string, *args, stepout=1, **kwargs):
-    """Format a string in Snakemake style.
+def format(_pattern, *args, stepout=1, **kwargs):
+    """Format a pattern in Snakemake style.
 
     This means that keywords embedded in braces are replaced by any variable
     values that are available in the current namespace.
     """
+
     class SequenceFormatter:
         def __init__(self, sequence):
             self._sequence = sequence
@@ -233,18 +181,16 @@ def format(string, *args, stepout=1, **kwargs):
         if type(value) in (list, tuple, set, frozenset):
             variables[key] = SequenceFormatter(value)
     try:
-        return string.format(*args, **variables)
+        return _pattern.format(*args, **variables)
     except KeyError as ex:
-        raise NameError(
-            "The name {} is unknown in this context. Please"
-            "make sure that you defined that variable. "
-            "Also note that braces not used for variable access "
-            "have to be escaped by repeating them, "
-            "i.e. {{{{print $1}}}}".format(str(ex)))
+        raise NameError("The name {} is unknown in this context. Please "
+                        "make sure that you defined that variable. "
+                        "Also note that braces not used for variable access "
+                        "have to be escaped by repeating them, "
+                        "i.e. {{{{print $1}}}}".format(str(ex)))
 
 
 class Unformattable:
-
     def __init__(self, errormsg="This cannot be used for formatting"):
         self.errormsg = errormsg
 
@@ -252,7 +198,8 @@ class Unformattable:
         raise ValueError(self.errormsg)
 
 
-def read_job_properties(jobscript, prefix="# properties",
+def read_job_properties(jobscript,
+                        prefix="# properties",
                         pattern=re.compile("# properties = (.*)")):
     """Read the job properties defined in a snakemake jobscript.
 
@@ -264,3 +211,75 @@ def read_job_properties(jobscript, prefix="# properties",
         for m in map(pattern.match, jobscript):
             if m:
                 return json.loads(m.group(1))
+
+
+def min_version(version):
+    """Require minimum snakemake version, raise workflow error if not met."""
+    import pkg_resources
+    if pkg_resources.parse_version(
+        snakemake.__version__) < pkg_resources.parse_version(version):
+        raise WorkflowError(
+            "Expecting Snakemake version {} or higher.".format(version))
+
+
+def update_config(config, overwrite_config):
+    """Recursively update dictionary config with overwrite_config.
+
+    See
+    http://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
+    for details.
+
+    Args:
+      config (dict): dictionary to update
+      overwrite_config (dict): dictionary whose items will overwrite those in config
+
+    """
+
+    def _update(d, u):
+        for (key, value) in u.items():
+            if (isinstance(value, Mapping)):
+                d[key] = _update(d.get(key, {}), value)
+            else:
+                d[key] = value
+        return d
+
+    _update(config, overwrite_config)
+
+
+def set_temporary_output(*rules):
+    """Set the output of rules to temporary"""
+    for rule in rules:
+        logger.debug(
+            "setting output of rule '{rule}' to temporary".format(rule=rule))
+        rule.temp_output = set(rule.output)
+
+
+def set_protected_output(*rules):
+    """Set the output of rules to protected"""
+    for rule in rules:
+        logger.debug(
+            "setting output of rule '{rule}' to protected".format(rule=rule))
+        rule.protected_output = set(rule.output)
+
+
+def available_cpu_count():
+    """
+    Return the number of available virtual or physical CPUs on this system.
+    The number of available CPUs can be smaller than the total number of CPUs
+    when the cpuset(7) mechanism is in use, as is the case on some cluster
+    systems.
+
+    Adapted from http://stackoverflow.com/a/1006301/715090
+    """
+    try:
+        with open('/proc/self/status') as f:
+            status = f.read()
+        m = re.search(r'(?m)^Cpus_allowed:\s*(.*)$', status)
+        if m:
+            res = bin(int(m.group(1).replace(',', ''), 16)).count('1')
+            if res > 0:
+                return min(res, multiprocessing.cpu_count())
+    except IOError:
+        pass
+
+    return multiprocessing.cpu_count()

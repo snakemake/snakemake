@@ -1,0 +1,22 @@
+rule all:
+    input: 'a.out', 'b.out'
+
+rule one: #the first rule in the work-flow
+    input: '{sample}'
+    output: temp('1.{sample}')
+    shell: 'touch {output}'
+
+rule two: #this rule simply creates symbol link, following rule one
+    input: '1.{sample}'
+    output: temp('2.{sample}')
+    shell: 'ln -s {input} {output}'
+
+rule three: #this rule simply creates symbol link, following rule two
+    input: '2.{sample}'
+    output: temp('3.{sample}')
+    shell: 'ln -s {input} {output}'
+
+rule four: #this rule creates the final output, following rule three
+    input: '3.{sample}'
+    output: '{sample}.out'
+    shell: 'touch {output}'

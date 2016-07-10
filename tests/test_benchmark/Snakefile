@@ -1,0 +1,11 @@
+
+
+rule all:
+    input:
+        "test.benchmark.txt"
+
+rule:
+    benchmark:
+        "{v}.benchmark.txt"
+    shell:
+        "sleep 1"

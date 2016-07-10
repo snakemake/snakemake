@@ -1,0 +1,32 @@
+
+from snakemake.utils import report
+
+rule report:
+    input:
+        F1=["fig.png", "fig2.png"]
+    output: "report.html"
+    run:
+        report("""
+        ======================
+        Report of some project
+        ======================
+
+
+        Here is an embedded image:
+
+        .. embeddedimage:: {input.F1[0]}
+            :width: 200px
+
+
+        Here is an example embedded figure:
+
+        .. embeddedfigure:: {input.F1[1]}
+
+            Figure title goes here
+
+            Descriptive figure legend goes here
+
+
+        Embedded data F1_.
+
+        """, output[0], **input)
