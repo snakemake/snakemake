@@ -122,15 +122,15 @@ class Snakemake:
         """
         if not self.log:
             return ""
-        return {
+        lookup = {
             (True, True, True): " >> {0} 2>&1",
             (True, False, True): " >> {0}",
             (False, True, True): " 2>> {0}",
             (True, True, False): " > {0} 2>&1",
             (True, False, False): " > {0}",
             (False, True, False): " 2> {0}",
-        }[(stdout, stderr, append)].format(self.log)
-
+        }
+        return lookup[(stdout, stderr, append)].format(self.log)
 
 
 def script(basedir, path, input, output, params, wildcards, threads, resources,
