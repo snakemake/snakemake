@@ -371,9 +371,8 @@ def regex(filepattern):
         if wildcard in wildcards:
             if match.group("constraint"):
                 raise ValueError(
-                    "If multiple wildcards of the same name "
-                    "appear in a string, eventual constraints have to be defined "
-                    "at the first occurence and will be inherited by the others.")
+                    "Constraint regex must be defined only in the first "
+                    "occurence of the wildcard in a string.")
             f.append("(?P={})".format(wildcard))
         else:
             wildcards.add(wildcard)
