@@ -337,6 +337,25 @@ def test_issue328():
     run(dpath("test_issue328"), forcerun=["split"])
 
 
+def test_get_log_none():
+    run(dpath("test_get_log_none"))
+
+
+def test_get_log_both():
+    run(dpath("test_get_log_both"))
+
+
+def test_get_log_stderr():
+    run(dpath("test_get_log_stderr"))
+
+
+def test_get_log_stdout():
+    run(dpath("test_get_log_stdout"))
+
+
+def test_get_log_complex():
+    run(dpath("test_get_log_complex"))
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
