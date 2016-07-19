@@ -13,3 +13,5 @@ dependencies:
   - pysftp
   - requests
   - dropbox
+  - numpy
+  - appdirs
