@@ -370,9 +370,9 @@ class ClusterExecutor(RealExecutor):
                                  cluster=self.cluster_wildcards(job)))
 
     def spawn_jobscript(self, job, jobscript, **kwargs):
-        overwrite_workdir = ""
+        overwrite_workdir = []
         if self.workflow.overwrite_workdir:
-            overwrite_workdir = ("--directory", self.workflow.overwrite_workdir)
+            overwrite_workdir.extend(("--directory", self.workflow.overwrite_workdir))
         overwrite_config = []
         if self.workflow.overwrite_configfile:
             overwrite_config.extend(("--configfile", self.workflow.overwrite_configfile))
