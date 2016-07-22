@@ -13,7 +13,6 @@ import json
 import textwrap
 import stat
 import shutil
-import string
 import threading
 import concurrent.futures
 import subprocess
@@ -400,8 +399,7 @@ class ClusterExecutor(RealExecutor):
         try:
             exec_job = format(self.exec_job, _quote_all=True, **format_kwargs)
             with open(jobscript, "w") as f:
-                # No shell-quoting here, since it was performed above
-                print(str.format(self.jobscript, exec_job=exec_job, **format_kwargs), file=f)
+                print(format(self.jobscript, exec_job=exec_job, **format_kwargs), file=f)
         except KeyError as e:
             raise WorkflowError(
                 "Error formatting jobscript: {} not found\n"
