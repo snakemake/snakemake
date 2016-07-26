@@ -13,7 +13,6 @@ import json
 import textwrap
 import stat
 import shutil
-import random
 import string
 import threading
 import concurrent.futures
@@ -22,6 +21,7 @@ import signal
 from functools import partial
 from itertools import chain
 from collections import namedtuple
+from tempfile import mkdtemp
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -358,12 +358,7 @@ class ClusterExecutor(RealExecutor):
     @property
     def tmpdir(self):
         if self._tmpdir is None:
-            while True:
-                self._tmpdir = ".snakemake/tmp." + "".join(
-                    random.sample(string.ascii_uppercase + string.digits, 6))
-                if not os.path.exists(self._tmpdir):
-                    os.mkdir(self._tmpdir)
-                    break
+            self._tmpdir = mkdtemp(dir=".snakemake", prefix="tmp.")
         return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
