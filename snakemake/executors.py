@@ -383,23 +383,22 @@ class ClusterExecutor(RealExecutor):
         wait_for_files = list(job.local_input) + [self.tmpdir]
         if job.shadow_dir:
             wait_for_files.append(job.shadow_dir)
-        format_kwargs = {
-            'job': job,
-            'overwrite_workdir': overwrite_workdir,
-            'overwrite_config': overwrite_config,
-            'workflow': self.workflow,
-            'cores': self.cores,
-            'properties': json.dumps(job.properties(cluster=self.cluster_params(job))),
-            'latency_wait': self.latency_wait,
-            'benchmark_repeats': self.benchmark_repeats,
-            'target': target,
-            'wait_for_files': wait_for_files,
-        }
-        format_kwargs.update(kwargs)
+        format_p = partial(format,
+                           job=job,
+                           overwrite_workdir=overwrite_workdir,
+                           overwrite_config=overwrite_config,
+                           workflow=self.workflow,
+                           cores=self.cores,
+                           properties=json.dumps(job.properties(cluster=self.cluster_params(job))),
+                           latency_wait=self.latency_wait,
+                           benchmark_repeats=self.benchmark_repeats,
+                           target=target,
+                           wait_for_files=wait_for_files,
+                           **kwargs)
         try:
-            exec_job = format(self.exec_job, _quote_all=True, **format_kwargs)
+            exec_job = format_p(self.exec_job, _quote_all=True)
             with open(jobscript, "w") as f:
-                print(format(self.jobscript, exec_job=exec_job, **format_kwargs), file=f)
+                print(format_p(self.jobscript, exec_job=exec_job), file=f)
         except KeyError as e:
             raise WorkflowError(
                 "Error formatting jobscript: {} not found\n"
