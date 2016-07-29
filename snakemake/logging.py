@@ -180,6 +180,8 @@ class Logger:
                     yield fmt
 
             singleitems = ["benchmark"]
+            if self.printreason:
+                singleitems.append("reason")
             for item in singleitems:
                 fmt = format_item(item, omit=None)
                 if fmt != None:
@@ -197,9 +199,6 @@ class Logger:
             resources = format_resources(msg["resources"])
             if resources:
                 yield "\tresources: " + resources
-
-            if self.printreason:
-                singleitems.append("reason")
 
         level = msg["level"]
         if level == "info":
