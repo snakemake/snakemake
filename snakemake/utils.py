@@ -12,6 +12,8 @@ import textwrap
 from itertools import chain
 from collections import Mapping
 import multiprocessing
+import string
+import shlex
 
 from snakemake.io import regex, Namedlist
 from snakemake.logging import logger
@@ -149,22 +151,89 @@ def R(code):
     robjects.r(format(textwrap.dedent(code), stepout=2))
 
 
-def format(_pattern, *args, stepout=1, **kwargs):
+class SequenceFormatter(string.Formatter):
+    """string.Formatter subclass with special behavior for sequences.
+
+    This class delegates formatting of individual elements to another
+    formatter object. Non-list objects are formatted by calling the
+    delegate formatter's "format_field" method. List-like objects
+    (list, tuple, set, frozenset) are formatted by formatting each
+    element of the list according to the specified format spec using
+    the delegate formatter and then joining the resulting strings with
+    a separator (space by default).
+
+    """
+    def __init__(self, separator=" ", element_formatter=string.Formatter(),
+                 *args, **kwargs):
+        self.separator = separator
+        self.element_formatter = element_formatter
+
+    def format_element(self, elem, format_spec):
+        """Format a single element
+
+        For sequences, this is called once for each element in a
+        sequence. For anything else, it is called on the entire
+        object. It is intended to be overridden in subclases.
+
+        """
+        return self.element_formatter.format_field(elem, format_spec)
+
+    def format_field(self, value, format_spec):
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return self.separator.join(self.format_element(v, format_spec) for v in value)
+        else:
+            return self.format_element(value, format_spec)
+
+
+class QuotedFormatter(string.Formatter):
+    """Subclass of string.Formatter that supports quoting.
+
+    Using this formatter, any field can be quoted after formatting by
+    appending "q" to its format string. By default, shell quoting is
+    performed using "shlex.quote", but you can pass a different
+    quote_func to the constructor. The quote_func simply has to take a
+    string argument and return a new string representing the quoted
+    form of the input string.
+
+    Note that if an element after formatting is the empty string, it
+    will not be quoted.
+
+    """
+
+    def __init__(self, quote_func=shlex.quote, *args, **kwargs):
+        self.quote_func = quote_func
+        super().__init__(*args, **kwargs)
+
+    def format_field(self, value, format_spec):
+        do_quote = format_spec.endswith("q")
+        if do_quote:
+            format_spec = format_spec[:-1]
+        formatted = super().format_field(value, format_spec)
+        if do_quote and formatted != '':
+            formatted = self.quote_func(formatted)
+        return formatted
+
+
+class AlwaysQuotedFormatter(QuotedFormatter):
+    """Subclass of QuotedFormatter that always quotes.
+
+    Usage is identical to QuotedFormatter, except that it *always*
+    acts like "q" was appended to the format spec.
+
+    """
+
+    def format_field(self, value, format_spec):
+        if not format_spec.endswith("q"):
+            format_spec += "q"
+        return super().format_field(value, format_spec)
+
+
+def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
     """Format a pattern in Snakemake style.
 
     This means that keywords embedded in braces are replaced by any variable
     values that are available in the current namespace.
     """
-
-    class SequenceFormatter:
-        def __init__(self, sequence):
-            self._sequence = sequence
-
-        def __getitem__(self, i):
-            return self._sequence[i]
-
-        def __str__(self):
-            return " ".join(self._sequence)
 
     frame = inspect.currentframe().f_back
     while stepout > 1:
@@ -177,11 +246,13 @@ def format(_pattern, *args, stepout=1, **kwargs):
     # add local variables from calling rule/function
     variables.update(frame.f_locals)
     variables.update(kwargs)
-    for key, value in list(variables.items()):
-        if type(value) in (list, tuple, set, frozenset):
-            variables[key] = SequenceFormatter(value)
+    fmt = SequenceFormatter(separator=" ")
+    if _quote_all:
+        fmt.element_formatter = AlwaysQuotedFormatter()
+    else:
+        fmt.element_formatter = QuotedFormatter()
     try:
-        return _pattern.format(*args, **variables)
+        return fmt.format(_pattern, *args, **variables)
     except KeyError as ex:
         raise NameError("The name {} is unknown in this context. Please "
                         "make sure that you defined that variable. "

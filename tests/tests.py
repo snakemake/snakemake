@@ -11,6 +11,7 @@ from tempfile import mkdtemp
 import hashlib
 import urllib
 from shutil import rmtree
+from shlex import quote
 
 from snakemake import snakemake
 
@@ -68,12 +69,13 @@ def run(path,
                 subpath), '{} does not exist'.format(subpath)
             subworkdir = os.path.join(tmpdir, "subworkdir")
             os.mkdir(subworkdir)
-            call('cp `find {} -maxdepth 1 -type f` {}'.format(subpath,
-                                                              subworkdir),
+            call('find {} -maxdepth 1 -type f -print0 | xargs -0 cp -t {}'.format(
+                quote(subpath), quote(subworkdir)),
                  shell=True)
             config['subworkdir'] = subworkdir
 
-        call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir),
+        call('find {} -maxdepth 1 -type f -print0 | xargs -0 cp -t {}'.format(
+            quote(path), quote(tmpdir)),
              shell=True)
         success = snakemake(snakefile,
                             cores=cores,
@@ -355,6 +357,15 @@ def test_get_log_stdout():
 
 def test_get_log_complex():
     run(dpath("test_get_log_complex"))
+
+
+def test_spaces_in_fnames():
+    run(dpath("test_spaces_in_fnames"),
+        # cluster="./qsub",
+        targets=["test bam file realigned.bam"],
+        verbose=True,
+        printshellcmds=True)
+
 
 if __name__ == '__main__':
     import nose
