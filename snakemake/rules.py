@@ -365,18 +365,11 @@ class Rule:
                 return apply_wildcards(p, wildcards)
             return p
 
-        def check_input_function(f):
-            if (not_iterable(f) and not isinstance(f, str)) or not all(
-                    isinstance(f_, str) for f_ in f):
-
         def check_string_type(f):
             if not isinstance(f, str):
                 raise RuleException(
                     "Input function did not return str or list of str.",
                     rule=self)
-
-        def check_param_function(f):
-            pass
 
         def _apply_wildcards(newitems,
                              olditems,
@@ -397,7 +390,6 @@ class Rule:
                         raise InputFunctionException(e,
                                                      rule=self,
                                                      wildcards=wildcards)
-                    check_function_return(item)
 
                 if not_iterable(item) or no_flattening:
                     item = [item]
