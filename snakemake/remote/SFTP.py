@@ -9,13 +9,13 @@ from contextlib import contextmanager
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import SFTPFileException, WorkflowError
-import snakemake.io 
+import snakemake.io
 
 try:
     # third-party modules
     import pysftp
 except ImportError as e:
-    raise WorkflowError("The Python 3 package 'pysftp' " + 
+    raise WorkflowError("The Python 3 package 'pysftp' " +
         "must be installed to use SFTP remote() file functionality. %s" % e.msg)
 
 
@@ -29,11 +29,11 @@ class RemoteObject(DomainObject):
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
-        
+
     # === Implementations of abstract class members ===
 
     @contextmanager #makes this a context manager. after 'yield' is __exit__()
-    def sftpc(self):     
+    def sftpc(self):
         # if args have been provided to remote(), use them over those given to RemoteProvider()
         args_to_use = self.provider.args
         if len(self.args):
@@ -67,10 +67,17 @@ class RemoteObject(DomainObject):
     def mtime(self):
         if self.exists():
             with self.sftpc() as sftpc:
-                attr = sftpc.stat(self.remote_path)
+                #As per local operation, don't follow symlinks when reporting mtime
+                attr = sftpc.lstat(self.remote_path)
                 return int(attr.st_mtime)
         else:
             raise SFTPFileException("The file does not seem to exist remotely: %s" % self.file())
+
+    def is_newer(self, time):
+        """ Returns true of the file is newer than time, or if it is
+            a symlink that points to a file newer than time. """
+        return ( sftp.stat( self.remote_path).st_mtime > time or
+                 sftp.lstat(self.remote_path).st_mtime > time )
 
     def size(self):
         if self.exists():

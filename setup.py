@@ -26,10 +26,17 @@ exec(open("snakemake/version.py").read())
 
 
 class NoseTestCommand(TestCommand):
+    user_options = [
+        ('test-suite=', 's', "Test to run (e.g. test_shadow)")
+    ]
+
     def run_tests(self):
         # Run nose ensuring that argv simulates running nosetests directly
+        argv = ['nosetests']
+        if self.test_suite != 'all':
+            argv.append('tests/tests.py:' + self.test_suite)
         import nose
-        nose.run_exit(argv=['nosetests'])
+        nose.run_exit(argv=argv)
 
 
 setup(
@@ -53,8 +60,9 @@ setup(
          "snakemake-bash-completion = snakemake:bash_completion"]
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
-    tests_require=['rpy2', 'docutils', 'nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6', 
-                     'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8', 'requests>=2.8.1', 'dropbox>=5.2'],
+    tests_require=['pytools', 'rpy2', 'httpretty==0.8.10', 'docutils', 'nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6', 
+                     'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8', 'requests>=2.8.1', 'dropbox>=5.2', 'pyyaml'],
+    test_suite='all',
     cmdclass={'test': NoseTestCommand},
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",

@@ -1,0 +1,17 @@
+channels:
+  - bioconda
+  - r
+dependencies:
+  - rpy2 >=0.7.6
+  - boto
+  - moto
+  - httpretty ==0.8.10
+  - filechunkio
+  - pyyaml
+  - nose
+  - ftputil
+  - pysftp
+  - requests
+  - dropbox
+  - numpy
+  - appdirs

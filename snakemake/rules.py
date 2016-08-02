@@ -255,18 +255,14 @@ class Rule:
                         "wildcard constraints in inputs are ignored")
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
-                if not output:
-                    raise SyntaxError("Only output files may be temporary")
-                self.temp_output.add(_item)
+                if output:
+                    self.temp_output.add(_item)
             if is_flagged(item, "protected"):
-                if not output:
-                    raise SyntaxError("Only output files may be protected")
-                self.protected_output.add(_item)
+                if output:
+                    self.protected_output.add(_item)
             if is_flagged(item, "touch"):
-                if not output:
-                    raise SyntaxError(
-                        "Only output files may be marked for touching.")
-                self.touch_output.add(_item)
+                if output:
+                    self.touch_output.add(_item)
             if is_flagged(item, "dynamic"):
                 if output:
                     self.dynamic_output.add(_item)
@@ -372,6 +368,9 @@ class Rule:
         def check_input_function(f):
             if (not_iterable(f) and not isinstance(f, str)) or not all(
                     isinstance(f_, str) for f_ in f):
+
+        def check_string_type(f):
+            if not isinstance(f, str):
                 raise RuleException(
                     "Input function did not return str or list of str.",
                     rule=self)
@@ -384,7 +383,7 @@ class Rule:
                              wildcards,
                              wildcards_obj,
                              concretize=apply_wildcards,
-                             check_function_return=check_input_function,
+                             check_return_type=check_string_type,
                              ruleio=None,
                              no_flattening=False):
             for name, item in olditems.allitems():
@@ -404,6 +403,7 @@ class Rule:
                     item = [item]
                     is_iterable = False
                 for item_ in item:
+                    check_return_type(item_)
                     concrete = concretize(item_, wildcards)
                     newitems.append(concrete)
                     if ruleio is not None:
@@ -439,12 +439,11 @@ class Rule:
                              ruleio=ruleio)
 
             params = Params()
-            _apply_wildcards(params,
-                             self.params,
-                             wildcards,
-                             wildcards_obj,
+            #When applying wildcards to params, the return type need not be
+            #a string, so the check is disabled.
+            _apply_wildcards(params, self.params, wildcards, wildcards_obj,
                              concretize=concretize_param,
-                             check_function_return=check_param_function,
+                             check_return_type=lambda x: None,
                              no_flattening=True)
 
             output = OutputFiles(o.apply_wildcards(wildcards)
@@ -542,7 +541,7 @@ class Rule:
         return self.name.__hash__()
 
     def __eq__(self, other):
-        return self.name == other.name
+        return self.name == other.name and self.output == other.output
 
 
 class Ruleorder:

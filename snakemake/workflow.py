@@ -213,6 +213,7 @@ class Workflow:
                 keep_target_files=False,
                 keep_shadow=False,
                 allowed_rules=None,
+                max_jobs_per_second=None,
                 greediness=1.0,
                 no_hooks=False):
 
@@ -235,7 +236,7 @@ class Workflow:
         if not targets:
             targets = [self.first_rule
                        ] if self.first_rule is not None else list()
-                       
+
         if prioritytargets is None:
             prioritytargets = list()
         if forcerun is None:
@@ -423,6 +424,7 @@ class Workflow:
                                  cluster_config=cluster_config,
                                  cluster_sync=cluster_sync,
                                  jobname=jobname,
+                                 max_jobs_per_second=max_jobs_per_second,
                                  immediate_submit=immediate_submit,
                                  quiet=quiet,
                                  keepgoing=keepgoing,
@@ -573,8 +575,8 @@ class Workflow:
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             if ruleinfo.threads:
-                if not isinstance(ruleinfo.threads, int):
-                    raise RuleException("Threads value has to be an integer.",
+                if not isinstance(ruleinfo.threads, int) and not callable(ruleinfo.threads):
+                    raise RuleException("Threads value has to be an integer or a callable.",
                                         rule=rule)
                 rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.shadow_depth:
@@ -590,10 +592,10 @@ class Workflow:
                 args, resources = ruleinfo.resources
                 if args:
                     raise RuleException("Resources have to be named.")
-                if not all(map(lambda r: isinstance(r, int),
+                if not all(map(lambda r: isinstance(r, int) or callable(r),
                                resources.values())):
                     raise RuleException(
-                        "Resources values have to be integers.",
+                        "Resources values have to be integers or callables",
                         rule=rule)
                 rule.resources.update(resources)
             if ruleinfo.priority:

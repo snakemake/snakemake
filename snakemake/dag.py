@@ -24,13 +24,13 @@ from snakemake.exceptions import RemoteFileException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
+from snakemake.common import DYNAMIC_FILL
 
 # Workaround for Py <3.5 prior to existence of RecursionError
 try:
     RecursionError
 except NameError:
     RecursionError = RuntimeError
-
 
 class DAG:
     def __init__(self,
@@ -245,32 +245,39 @@ class DAG:
                 return True
         return False
 
-    def check_output(self, job, wait=3):
+    def check_and_touch_output(self, job, wait=3):
         """ Raise exception if output files of job are missing. """
+        expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
         try:
-            wait_for_files(job.expanded_shadowed_output, latency_wait=wait)
+
+            wait_for_files(expanded_output, latency_wait=wait)
         except IOError as e:
             raise MissingOutputException(str(e), rule=job.rule)
 
-        input_maxtime = job.input_maxtime
-        if input_maxtime is not None:
-            output_mintime = job.output_mintime_local
-            if output_mintime is not None and output_mintime < input_maxtime:
-                raise RuleException(
-                    "Output files {} are older than input "
-                    "files. Did you extract an archive? Make sure that output "
-                    "files have a more recent modification date than the "
-                    "archive, e.g. by using 'touch'.".format(", ".join(
-                        job.expanded_output)),
-                    rule=job.rule)
+        #It is possible, due to archive expansion or cluster clock skew, that
+        #the files appear older than the input.  But we know they must be new,
+        #so touch them to update timestamps.
+        #Note that if the input files somehow have a future date then this will
+        #not currently be spotted and the job will always be re-run.
+        #Also, don't touch directories, as we can't guarantee they were removed.
+        for f in expanded_output:
+            if not os.path.isdir(f):
+                f.touch()
 
     def unshadow_output(self, job):
         """ Move files from shadow directory to real output paths. """
         if not job.shadow_dir or not job.expanded_output:
             return
-        cwd = os.getcwd()
-        for real_output in job.expanded_output:
-            shadow_output = os.path.join(job.shadow_dir, real_output)
+        for real_output in chain(job.expanded_output, job.log):
+            shadow_output = job.shadowed_path(real_output).file
+            # Remake absolute symlinks as relative
+            if os.path.islink(shadow_output):
+                dest = os.readlink(shadow_output)
+                if os.path.isabs(dest):
+                    rel_dest = os.path.relpath(dest, job.shadow_dir)
+                    os.remove(shadow_output)
+                    os.symlink(rel_dest, shadow_output)
+
             if os.path.realpath(shadow_output) == os.path.realpath(
                     real_output):
                 continue
@@ -304,6 +311,7 @@ class DAG:
         """ Touches those output files that are marked for touching. """
         for f in job.expanded_output:
             if f in job.touch_output:
+                f = job.shadowed_path(f)
                 logger.info("Touching output file {}.".format(f))
                 f.touch_or_create()
 
@@ -936,7 +944,7 @@ class DAG:
 
         def format_wildcard(wildcard):
             name, value = wildcard
-            if _IOFile.dynamic_fill in value:
+            if DYNAMIC_FILL in value:
                 value = "..."
             return "{}: {}".format(name, value)
 

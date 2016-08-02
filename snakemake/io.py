@@ -9,12 +9,14 @@ import re
 import stat
 import time
 import json
+import copy
 import functools
 from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
+from snakemake.common import DYNAMIC_FILL
 
 
 def lstat(f):
@@ -23,10 +25,19 @@ def lstat(f):
 
 
 def lutime(f, times):
-    return os.utime(
-        f,
-        times,
-        follow_symlinks=os.utime not in os.supports_follow_symlinks)
+    #In some cases, we have a platform where os.supports_follow_symlink includes stat()
+    #but not utime().  This leads to an anomaly.  In any case we never want to touch the
+    #target of a link.
+    if os.utime in os.supports_follow_symlinks:
+        #...utime is well behaved
+        return os.utime(f, times, follow_symlinks=False)
+    elif not os.path.islink(f):
+        #...symlinks not an issue here
+        return os.utime(f, times)
+    else:
+        #...problem system.  Do nothing.
+        logger.warning("Unable to set utime on symlink {}.  Your Python build does not support it.".format(f))
+        return None
 
 
 def lchmod(f, mode):
@@ -46,8 +57,6 @@ class _IOFile(str):
     """
     A file that is either input or output of a rule.
     """
-
-    dynamic_fill = "__snakemake_dynamic__"
 
     def __new__(cls, file):
         obj = str.__new__(cls, file)
@@ -82,8 +91,9 @@ class _IOFile(str):
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
-        if get_flag_value(self._file, "remote_object").file != self._file:
-            get_flag_value(self._file, "remote_object")._iofile = self
+        remote_object = get_flag_value(self._file, "remote_object")
+        if remote_object._file != self._file:
+            remote_object._iofile = self
 
     @property
     def should_keep_local(self):
@@ -151,8 +161,16 @@ class _IOFile(str):
             raise WorkflowError("File {} seems to be a broken symlink.".format(
                 self.file))
 
+    @_refer_to_remote
     def is_newer(self, time):
-        return self.mtime > time
+        """ Returns true of the file is newer than time, or if it is
+            a symlink that points to a file newer than time. """
+        if self.is_remote:
+            #If file is remote but provider does not override the implementation this
+            #is the best we can do.
+            return self.mtime > time
+        else:
+            return os.stat(self, follow_symlinks=True).st_mtime > time or self.mtime > time
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
@@ -168,7 +186,7 @@ class _IOFile(str):
             self.remote_object.upload()
 
     def prepare(self):
-        path_until_wildcard = re.split(self.dynamic_fill, self.file)[0]
+        path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
         dir = os.path.dirname(path_until_wildcard)
         if len(dir) > 0 and not os.path.exists(dir):
             try:
@@ -191,7 +209,7 @@ class _IOFile(str):
             lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
-        remove(self.file, remove_non_empty_dir=False)
+        remove(self.file, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
         """ times must be 2-tuple: (atime, mtime) """
@@ -231,7 +249,7 @@ class _IOFile(str):
                             wildcards,
                             fill_missing=fill_missing,
                             fail_dynamic=fail_dynamic,
-                            dynamic_fill=self.dynamic_fill),
+                            dynamic_fill=DYNAMIC_FILL),
             rule=self.rule)
 
         file_with_wildcards_applied.clone_flags(self)
@@ -260,13 +278,16 @@ class _IOFile(str):
         return self.regex().match(target) or None
 
     def format_dynamic(self):
-        return self.replace(self.dynamic_fill, "{*}")
+        return self.replace(DYNAMIC_FILL, "{*}")
 
     def clone_flags(self, other):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
         if isinstance(other._file, AnnotatedString):
-            self._file.flags = getattr(other._file, "flags", {})
+            self._file.flags = getattr(other._file, "flags", {}).copy()
+            if "remote_object" in self._file.flags:
+                self._file.flags['remote_object'] = copy.copy(
+                    self._file.flags['remote_object'])
 
     def set_flags(self, flags):
         if isinstance(self._file, str):
@@ -282,9 +303,19 @@ class _IOFile(str):
 
 
 _wildcard_regex = re.compile(
-    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>([^\{\}]+|\{\d+(,\d+)?\})*))?\s*\}")
-
-#    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
+    r"""
+    \{
+        (?=(   # This lookahead assertion emulates an 'atomic group'
+               # which is required for performance
+            \s*(?P<name>\w+)                    # wildcard name
+            (\s*,\s*
+                (?P<constraint>                 # an optional constraint
+                    ([^{}]+ | \{\d+(,\d+)?\})*  # allow curly braces to nest one level
+                )                               # ...  as in '{w,a{3,5}}'
+            )?\s*
+        ))\1
+    \}
+    """, re.VERBOSE)
 
 
 def wait_for_files(files, latency_wait=3):
@@ -324,9 +355,12 @@ def remove(file, remove_non_empty_dir=False):
             else:
                 try:
                     os.removedirs(file)
-                except OSError:
-                    # ignore non empty directories
-                    pass
+                except OSError as e:
+                    # skip non empty directories
+                    if e.errno == 39:
+                        logger.info("Skipped removing empty directory {}".format(e.filename))
+                    else:
+                        logger.warning(str(e))
         else:
             os.remove(file)
 
@@ -678,6 +712,9 @@ class Namedlist(list):
 
     def plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)
+
+    def get(self, key, default_value=None):
+        return self.__dict__.get(key, default_value)
 
     def __getitem__(self, key):
         try:

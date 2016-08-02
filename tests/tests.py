@@ -11,6 +11,7 @@ from tempfile import mkdtemp
 import hashlib
 import urllib
 from shutil import rmtree
+from shlex import quote
 
 from snakemake import snakemake
 
@@ -68,12 +69,13 @@ def run(path,
                 subpath), '{} does not exist'.format(subpath)
             subworkdir = os.path.join(tmpdir, "subworkdir")
             os.mkdir(subworkdir)
-            call('cp `find {} -maxdepth 1 -type f` {}'.format(subpath,
-                                                              subworkdir),
+            call('find {} -maxdepth 1 -type f -print0 | xargs -0 cp -t {}'.format(
+                quote(subpath), quote(subworkdir)),
                  shell=True)
             config['subworkdir'] = subworkdir
 
-        call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir),
+        call('find {} -maxdepth 1 -type f -print0 | xargs -0 cp -t {}'.format(
+            quote(path), quote(tmpdir)),
              shell=True)
         success = snakemake(snakefile,
                             cores=cores,
@@ -304,20 +306,69 @@ def test_script():
 def test_shadow():
     run(dpath("test_shadow"))
 
+
 def test_until():
     run(dpath("test_until"),
         until=["leveltwo_first", # rule name
                "leveltwo_second.txt", # file name
                "second_wildcard"]) # wildcard rule
 
+
 def test_omitfrom():
-    run(dpath("test_omitfrom"), 
+    run(dpath("test_omitfrom"),
         omit_from=["leveltwo_first", # rule name
                    "leveltwo_second.txt", # file name
                    "second_wildcard"]) # wildcard rule
 
+
 def test_nonstr_params():
     run(dpath("test_nonstr_params"))
+
+
+def test_delete_output():
+    run(dpath("test_delete_output"))
+
+
+def test_input_generator():
+    run(dpath("test_input_generator"))
+
+
+def test_symlink_time_handling():
+    #See Snakefile for notes on why this fails on some systems
+    if os.utime in os.supports_follow_symlinks:
+        run(dpath("test_symlink_time_handling"))
+
+
+def test_issue328():
+    run(dpath("test_issue328"), forcerun=["split"])
+
+
+def test_get_log_none():
+    run(dpath("test_get_log_none"))
+
+
+def test_get_log_both():
+    run(dpath("test_get_log_both"))
+
+
+def test_get_log_stderr():
+    run(dpath("test_get_log_stderr"))
+
+
+def test_get_log_stdout():
+    run(dpath("test_get_log_stdout"))
+
+
+def test_get_log_complex():
+    run(dpath("test_get_log_complex"))
+
+
+def test_spaces_in_fnames():
+    run(dpath("test_spaces_in_fnames"),
+        # cluster="./qsub",
+        targets=["test bam file realigned.bam"],
+        verbose=True,
+        printshellcmds=True)
 
 
 if __name__ == '__main__':

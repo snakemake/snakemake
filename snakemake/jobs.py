@@ -18,6 +18,7 @@ from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException
 from snakemake.exceptions import UnexpectedOutputException
 from snakemake.logging import logger
+from snakemake.common import DYNAMIC_FILL
 
 
 def jobfiles(jobs, type):
@@ -41,11 +42,15 @@ class Job:
          self.ruleio,
          self.dependencies) = rule.expand_wildcards(self.wildcards_dict)
 
-        self.resources_dict = {
-            name: min(
+        self.resources_dict = {}
+        for name, res in rule.resources.items():
+            if callable(res):
+                res = res(self.wildcards)
+                if not isinstance(res, int):
+                    raise ValueError("Callable for resources must return int")
+            self.resources_dict[name] = min(
                 self.rule.workflow.global_resources.get(name, res), res)
-            for name, res in rule.resources.items()
-        }
+
         self.threads = self.resources_dict["_cores"]
         self.resources = Resources(fromdict=self.resources_dict)
         self.shadow_dir = None
@@ -135,21 +140,18 @@ class Job:
                     yield f_
                 for f, _ in expansion:
                     file_to_yield = IOFile(f, self.rule)
-
                     file_to_yield.clone_flags(f_)
-
                     yield file_to_yield
             else:
                 yield f
 
-    @property
-    def expanded_shadowed_output(self):
-        """ Get the paths of output files, resolving shadow directory. """
+    def shadowed_path(self, f):
+        """ Get the shadowed path of IOFile f. """
         if not self.shadow_dir:
-            yield from self.expanded_output
-        else:
-            for f in self.expanded_output:
-                yield os.path.join(self.shadow_dir, f)
+            return f
+        f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
+        f_.clone_flags(f)
+        return f_
 
     @property
     def dynamic_wildcards(self):
@@ -329,6 +331,21 @@ class Job:
         if protected:
             raise ProtectedOutputException(self.rule, protected)
 
+    def remove_existing_output(self):
+        """Clean up both dynamic and regular output before rules actually run
+        """
+        if self.dynamic_output:
+            for f, _ in chain(*map(self.expand_dynamic,
+                                   self.rule.dynamic_output)):
+                os.remove(f)
+
+        for f, f_ in zip(self.output, self.rule.output):
+            try:
+                f.remove(remove_non_empty_dir=False)
+            except FileNotFoundError:
+                #No file == no problem
+                pass
+
     def prepare(self):
         """
         Prepare execution of job.
@@ -347,10 +364,6 @@ class Job:
                 "present when the DAG was created:\n{}".format(
                     self.rule, unexpected_output))
 
-        if self.dynamic_output:
-            for f, _ in chain(*map(self.expand_dynamic,
-                                   self.rule.dynamic_output)):
-                os.remove(f)
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
@@ -361,6 +374,8 @@ class Job:
             f.prepare()
         if self.benchmark:
             self.benchmark.prepare()
+
+        self.remove_existing_output()
 
         if not self.is_shadow:
             return
@@ -491,7 +506,7 @@ class Job:
         """ Expand dynamic files. """
         return list(listfiles(pattern,
                               restriction=self.wildcards,
-                              omit_value=_IOFile.dynamic_fill))
+                              omit_value=DYNAMIC_FILL))
 
 
 class Reason:

@@ -13,8 +13,6 @@ import json
 import textwrap
 import stat
 import shutil
-import random
-import string
 import threading
 import concurrent.futures
 import subprocess
@@ -22,6 +20,7 @@ import signal
 from functools import partial
 from itertools import chain
 from collections import namedtuple
+from tempfile import mkdtemp
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -93,6 +92,7 @@ class AbstractExecutor:
                                                  job.dynamic_output)),
                         log=list(job.log),
                         benchmark=job.benchmark,
+                        wildcards=job.wildcards_dict,
                         reason=str(self.dag.reason(job)),
                         resources=job.resources_dict,
                         priority="highest"
@@ -109,7 +109,7 @@ class AbstractExecutor:
 
     def finish_job(self, job):
         self.dag.handle_touch(job)
-        self.dag.check_output(job, wait=self.latency_wait)
+        self.dag.check_and_touch_output(job, wait=self.latency_wait)
         self.dag.unshadow_output(job)
         self.dag.handle_remote(job)
         self.dag.handle_protected(job)
@@ -169,8 +169,7 @@ class TouchExecutor(RealExecutor):
             error_callback=None):
         super()._run(job)
         try:
-            for f in job.expanded_output:
-                f.touch()
+            #Touching of output files will be done by finish_job
             if job.benchmark:
                 job.benchmark.touch()
             time.sleep(0.1)
@@ -269,7 +268,9 @@ class ClusterExecutor(RealExecutor):
                  printshellcmds=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 cluster_config=None, local_input=None):
+                 cluster_config=None,
+                 local_input=None,
+                 max_jobs_per_second=None):
         local_input = local_input or []
         super().__init__(workflow, dag,
                          printreason=printreason,
@@ -295,14 +296,14 @@ class ClusterExecutor(RealExecutor):
             raise WorkflowError(
                 "Defined jobname (\"{}\") has to contain the wildcard {jobid}.")
 
-        self.exec_job = (
-            'cd {workflow.workdir_init} && '
-            '{workflow.snakemakepath} --snakefile {workflow.snakefile} '
-            '--force -j{cores} --keep-target-files --keep-shadow '
-            '--wait-for-files {wait_for_files} --latency-wait {latency_wait} '
-            '--benchmark-repeats {benchmark_repeats} '
-            '{overwrite_workdir} {overwrite_config} --nocolor '
-            '--notemp --quiet --no-hooks --nolock {target}')
+        self.exec_job = '\\\n'.join((
+            'cd {workflow.workdir_init} && ',
+            '{workflow.snakemakepath} --snakefile {workflow.snakefile} ',
+            '--force -j{cores} --keep-target-files --keep-shadow ',
+            '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
+            '--benchmark-repeats {benchmark_repeats} ',
+            '{overwrite_workdir} {overwrite_config} --nocolor ',
+            '--notemp --quiet --no-hooks --nolock {target}'))
 
         if printshellcmds:
             self.exec_job += " --printshellcmds "
@@ -314,6 +315,12 @@ class ClusterExecutor(RealExecutor):
         self._tmpdir = None
         self.cores = cores if cores else ""
         self.cluster_config = cluster_config if cluster_config else dict()
+
+        self.max_jobs_per_second = max_jobs_per_second
+        if self.max_jobs_per_second:
+            self.rate_lock = threading.RLock()
+            self.rate_interval = 1 / self.max_jobs_per_second
+            self.rate_last_called = 0
 
         self.active_jobs = list()
         self.lock = threading.Lock()
@@ -331,19 +338,26 @@ class ClusterExecutor(RealExecutor):
     def cancel(self):
         self.shutdown()
 
+    def _limit_rate(self):
+        """Called in ``_run()`` for rate-limiting"""
+        with self.rate_lock:
+            elapsed = time.clock() - self.rate_last_called
+            wait = self.rate_interval - elapsed
+            if wait > 0:
+                time.sleep(wait)
+            self.rate_last_called = time.clock()
+
     def _run(self, job, callback=None, error_callback=None):
+        if self.max_jobs_per_second:
+            self._limit_rate()
+        job.remove_existing_output()
         super()._run(job, callback=callback, error_callback=error_callback)
         logger.shellcmd(job.shellcmd)
 
     @property
     def tmpdir(self):
         if self._tmpdir is None:
-            while True:
-                self._tmpdir = ".snakemake/tmp." + "".join(
-                    random.sample(string.ascii_uppercase + string.digits, 6))
-                if not os.path.exists(self._tmpdir):
-                    os.mkdir(self._tmpdir)
-                    break
+            self._tmpdir = mkdtemp(dir=".snakemake", prefix="tmp.")
         return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
@@ -355,41 +369,40 @@ class ClusterExecutor(RealExecutor):
                                  cluster=self.cluster_wildcards(job)))
 
     def spawn_jobscript(self, job, jobscript, **kwargs):
-        overwrite_workdir = ""
+        overwrite_workdir = []
         if self.workflow.overwrite_workdir:
-            overwrite_workdir = "--directory {} ".format(
-                self.workflow.overwrite_workdir)
-        overwrite_config = ""
+            overwrite_workdir.extend(("--directory", self.workflow.overwrite_workdir))
+        overwrite_config = []
         if self.workflow.overwrite_configfile:
-            overwrite_config = "--configfile {} ".format(
-                self.workflow.overwrite_configfile)
+            overwrite_config.extend(("--configfile", self.workflow.overwrite_configfile))
         if self.workflow.config_args:
-            overwrite_config += "--config {} ".format(
-                " ".join(self.workflow.config_args))
+            overwrite_config.append("--config")
+            overwrite_config.extend(self.workflow.config_args)
 
         target = job.output if job.output else job.rule.name
         wait_for_files = list(job.local_input) + [self.tmpdir]
         if job.shadow_dir:
             wait_for_files.append(job.shadow_dir)
-        format = partial(str.format,
-                         job=job,
-                         overwrite_workdir=overwrite_workdir,
-                         overwrite_config=overwrite_config,
-                         workflow=self.workflow,
-                         cores=self.cores,
-                         properties=json.dumps(job.properties(cluster=self.cluster_params(job))),
-                         latency_wait=self.latency_wait,
-                         benchmark_repeats=self.benchmark_repeats,
-                         target=target, wait_for_files=" ".join(wait_for_files),
-                         **kwargs)
+        format_p = partial(format,
+                           job=job,
+                           overwrite_workdir=overwrite_workdir,
+                           overwrite_config=overwrite_config,
+                           workflow=self.workflow,
+                           cores=self.cores,
+                           properties=json.dumps(job.properties(cluster=self.cluster_params(job))),
+                           latency_wait=self.latency_wait,
+                           benchmark_repeats=self.benchmark_repeats,
+                           target=target,
+                           wait_for_files=wait_for_files,
+                           **kwargs)
         try:
-            exec_job = format(self.exec_job)
+            exec_job = format_p(self.exec_job, _quote_all=True)
             with open(jobscript, "w") as f:
-                print(format(self.jobscript, exec_job=exec_job), file=f)
+                print(format_p(self.jobscript, exec_job=exec_job), file=f)
         except KeyError as e:
             raise WorkflowError(
                 "Error formatting jobscript: {} not found\n"
-                "Make sure that your custom jobscript it up to date.".format(e))
+                "Make sure that your custom jobscript is up to date.".format(e))
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
 
     def cluster_params(self, job):
@@ -420,7 +433,8 @@ class GenericClusterExecutor(ClusterExecutor):
                  quiet=False,
                  printshellcmds=False,
                  latency_wait=3,
-                 benchmark_repeats=1):
+                 benchmark_repeats=1,
+                 max_jobs_per_second=None):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -428,7 +442,8 @@ class GenericClusterExecutor(ClusterExecutor):
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
-                         cluster_config=cluster_config)
+                         cluster_config=cluster_config,
+                         max_jobs_per_second=max_jobs_per_second)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
         self.exec_job += ' && touch "{jobfinished}" || touch "{jobfailed}"'
@@ -525,7 +540,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                  quiet=False,
                  printshellcmds=False,
                  latency_wait=3,
-                 benchmark_repeats=1):
+                 benchmark_repeats=1,
+                 max_jobs_per_second=None):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -533,7 +549,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
-                         cluster_config=cluster_config, )
+                         cluster_config=cluster_config,
+                         max_jobs_per_second=max_jobs_per_second)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
 
@@ -609,7 +626,8 @@ class DRMAAExecutor(ClusterExecutor):
                  drmaa_args="",
                  latency_wait=3,
                  benchmark_repeats=1,
-                 cluster_config=None, ):
+                 cluster_config=None,
+                 max_jobs_per_second=None):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -617,7 +635,8 @@ class DRMAAExecutor(ClusterExecutor):
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
-                         cluster_config=cluster_config, )
+                         cluster_config=cluster_config,
+                         max_jobs_per_second=max_jobs_per_second)
         try:
             import drmaa
         except ImportError:
@@ -634,7 +653,10 @@ class DRMAAExecutor(ClusterExecutor):
     def cancel(self):
         from drmaa.const import JobControlAction
         for jobid in self.submitted:
-            self.session.control(jobid, JobControlAction.TERMINATE)
+            try:
+                self.session.control(jobid, JobControlAction.TERMINATE)
+            except drmaa.errors.InvalidJobException:
+                pass
         self.shutdown()
 
     def run(self, job,
@@ -657,6 +679,7 @@ class DRMAAExecutor(ClusterExecutor):
             jt = self.session.createJobTemplate()
             jt.remoteCommand = jobscript
             jt.nativeSpecification = drmaa_args
+            jt.jobName = os.path.basename(jobscript)
 
             jobid = self.session.runJob(jt)
         except (drmaa.errors.InternalException,

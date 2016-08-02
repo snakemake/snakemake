@@ -1,5 +1,30 @@
 # Change Log
 
+## [Unreleased]
+### Changed
+- Snakemake now deletes output files before job exection. Further, it touches output files after job execution. This solves various problems with slow NFS filesystems.
+- A bug was fixed that caused dynamic output rules to be executed multiple times when forcing their execution with -R.
+
+## [3.7.1] - 2016-05-16
+### Changed
+- Fixed a missing import of the multiprocessing module.
+
+## [3.7.0] - 2016-05-05
+### Added
+- The entries in `resources` and the `threads` job attribute can now be callables that must return `int` values.
+- Multiple `--cluster-config` arguments can be given to the Snakemake command line. Later one override earlier ones.
+- In the API, multiple `cluster_config` paths can be given as a list, alternatively to the previous behaviour of expecting one string for this parameter.
+- When submitting cluster jobs (either through `--cluster` or `--drmaa`), you can now use `--max-jobs-per-second` to limit the number of jobs being submitted (also available through Snakemake API). Some cluster installations have problems with too many jobs per second.
+- Wildcard values are now printed upon job execution in addition to input and output files.
+### Changed
+- Fixed a bug with HTTP remote providers.
+
+## [3.6.1] - 2016-04-08
+### Changed
+- Work around missing RecursionError in Python < 3.5
+- Improved conversion of numpy and pandas data structures to R scripts.
+- Fixed locking of working directory.
+
 ## [3.6.0] - 2016-03-10
 ### Added
 - onstart handler, that allows to add code that shall be only executed before the actual workflow execution (not on dryrun).
