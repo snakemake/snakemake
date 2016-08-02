@@ -16,6 +16,7 @@ from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException
 from snakemake.logging import logger
 
+
 class Rule:
     def __init__(self, *args, lineno=None, snakefile=None):
         """
@@ -88,8 +89,7 @@ class Rule:
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):
             return (rule.input, rule.dynamic_input) if input else (
-                rule.output, rule.dynamic_output
-            )
+                rule.output, rule.dynamic_output)
 
         def partially_expand(f, wildcards):
             """Expand the wildcards in f from the ones present in wildcards
@@ -100,8 +100,7 @@ class Rule:
             # perform the partial expansion from f's string representation
             s = str(f).replace('{', '{{').replace('}', '}}')
             for key in wildcards.keys():
-                s = s.replace('{{{{{}}}}}'.format(key),
-                              '{{{}}}'.format(key))
+                s = s.replace('{{{{{}}}}}'.format(key), '{{{}}}'.format(key))
             # build result
             anno_s = AnnotatedString(s)
             anno_s.flags = f.flags
@@ -152,8 +151,9 @@ class Rule:
                                          if len(set(values)) == 1)
             # TODO have a look into how to concretize dependencies here
             (branch._input, branch._output, branch._params, branch._log,
-             branch._benchmark, _, branch.dependencies
-             ) = branch.expand_wildcards(wildcards=non_dynamic_wildcards)
+             branch._benchmark, _,
+             branch.dependencies) = branch.expand_wildcards(
+                 wildcards=non_dynamic_wildcards)
             return branch, non_dynamic_wildcards
         return branch
 
@@ -218,9 +218,9 @@ class Rule:
             wildcards = item.get_wildcard_names()
             if self.wildcard_names:
                 if self.wildcard_names != wildcards:
-                    raise SyntaxError(
-                        "Not all output files of rule {} "
-                        "contain the same wildcards.".format(self.name))
+                    raise SyntaxError("Not all output files of rule {} "
+                                      "contain the same wildcards.".format(
+                                          self.name))
             else:
                 self.wildcard_names = wildcards
 
@@ -240,12 +240,19 @@ class Rule:
                 self.dependencies[item] = item.rule
             if output:
                 if self.wildcard_constraints or self.workflow._wildcard_constraints:
-                    item = update_wildcard_constraints(item,
-                                                       self.wildcard_constraints,
-                                                       self.workflow._wildcard_constraints)
+                    try:
+                        item = update_wildcard_constraints(
+                            item, self.wildcard_constraints,
+                            self.workflow._wildcard_constraints)
+                    except ValueError as e:
+                        raise IOFileException(
+                            str(e),
+                            snakefile=self.snakefile,
+                            lineno=self.lineno)
             else:
                 if contains_wildcard_constraints(item):
-                    logger.warning("wildcard constraints in inputs are ignored")
+                    logger.warning(
+                        "wildcard constraints in inputs are ignored")
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
                 if not output:
@@ -329,8 +336,8 @@ class Rule:
     def _set_log_item(self, item, name=None):
         if isinstance(item, str) or callable(item):
             self.log.append(IOFile(item,
-                                   rule=self)
-                            if isinstance(item, str) else item)
+                                   rule=self) if isinstance(item, str) else
+                            item)
             if name:
                 self.log.add_name(name)
         else:
@@ -363,7 +370,8 @@ class Rule:
             return p
 
         def check_input_function(f):
-            if (not_iterable(f) and not isinstance(f, str)) or not all(isinstance(f_, str) for f_ in f):
+            if (not_iterable(f) and not isinstance(f, str)) or not all(
+                    isinstance(f_, str) for f_ in f):
                 raise RuleException(
                     "Input function did not return str or list of str.",
                     rule=self)
@@ -371,7 +379,10 @@ class Rule:
         def check_param_function(f):
             pass
 
-        def _apply_wildcards(newitems, olditems, wildcards, wildcards_obj,
+        def _apply_wildcards(newitems,
+                             olditems,
+                             wildcards,
+                             wildcards_obj,
                              concretize=apply_wildcards,
                              check_function_return=check_input_function,
                              ruleio=None,
@@ -384,7 +395,9 @@ class Rule:
                     try:
                         item = item(wildcards_obj)
                     except (Exception, BaseException) as e:
-                        raise InputFunctionException(e, rule=self, wildcards=wildcards)
+                        raise InputFunctionException(e,
+                                                     rule=self,
+                                                     wildcards=wildcards)
                     check_function_return(item)
 
                 if not_iterable(item) or no_flattening:
@@ -398,7 +411,8 @@ class Rule:
 
                 if name:
                     newitems.set_name(
-                        name, start,
+                        name,
+                        start,
                         end=len(newitems) if is_iterable else None)
 
         if wildcards is None:
@@ -417,12 +431,18 @@ class Rule:
         try:
             input = InputFiles()
             wildcards_obj = Wildcards(fromdict=wildcards)
-            _apply_wildcards(input, self.input, wildcards, wildcards_obj,
+            _apply_wildcards(input,
+                             self.input,
+                             wildcards,
+                             wildcards_obj,
                              concretize=concretize_iofile,
                              ruleio=ruleio)
 
             params = Params()
-            _apply_wildcards(params, self.params, wildcards, wildcards_obj,
+            _apply_wildcards(params,
+                             self.params,
+                             wildcards,
+                             wildcards_obj,
                              concretize=concretize_param,
                              check_function_return=check_param_function,
                              no_flattening=True)
@@ -439,7 +459,10 @@ class Rule:
             ruleio.update(dict((f, f_) for f, f_ in zip(output, self.output)))
 
             log = Log()
-            _apply_wildcards(log, self.log, wildcards, wildcards_obj,
+            _apply_wildcards(log,
+                             self.log,
+                             wildcards,
+                             wildcards_obj,
                              concretize=concretize_iofile)
 
             benchmark = self.benchmark.apply_wildcards(

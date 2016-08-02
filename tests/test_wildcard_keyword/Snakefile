@@ -16,7 +16,6 @@ rule infile:
 rule stringwildcard:
     input: "{foo}.in"
     output: "{foo,stringbar}.txt"
-    wildcard_constraints: foo='localbar'
     log: "{foo}.log"
     shell: "echo {input} {output} {log} > {output}; touch {log}"
         
