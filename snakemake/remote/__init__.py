@@ -81,6 +81,10 @@ class AbstractRemoteObject:
         return self._file
 
     @abstractmethod
+    def close(self):
+        pass
+
+    @abstractmethod
     def exists(self):
         pass
 
