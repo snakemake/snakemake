@@ -414,8 +414,7 @@ class Job:
     def close_remote(self):
         for f in (self.input + self.output):
             if f.is_remote:
-                if hasattr(f.remote_object, "close"):
-                    f.remote_object.close()
+                f.remote_object.close()
 
     def cleanup(self):
         """ Cleanup output files. """
