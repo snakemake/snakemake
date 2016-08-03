@@ -633,18 +633,26 @@ class DAG:
         for job in self.needrun_jobs:
             self._temp_input_count[job] = sum(1 for _ in self.temp_input(job))
 
+    def close_remote_objects(self):
+        for job in self.jobs:
+            if not self.needrun(job):
+                job.close_remote()
+
     def postprocess(self):
         self.update_needrun()
         self.update_priority()
         self.update_ready()
         self.update_downstream_size()
         self.update_temp_input_count()
+        self.close_remote_objects()
 
     def _ready(self, job):
         return self._finished.issuperset(filter(self.needrun,
                                                 self.dependencies[job]))
 
     def finish(self, job, update_dynamic=True):
+        job.close_remote()
+
         self._finished.add(job)
         try:
             self._ready_jobs.remove(job)

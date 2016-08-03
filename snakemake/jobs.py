@@ -410,6 +410,12 @@ class Job:
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
 
+
+    def close_remote(self):
+        for f in (self.input + self.output):
+            if f.is_remote:
+                f.remote_object.close()
+
     def cleanup(self):
         """ Cleanup output files. """
         to_remove = [f for f in self.expanded_output if f.exists]
