@@ -367,6 +367,19 @@ def test_spaces_in_fnames():
         printshellcmds=True)
 
 
+def test_static_remote():
+    try:
+        import moto
+        import boto
+        import filechunkio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_static_remote"), cores=1)
+    except ImportError:
+        pass
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
