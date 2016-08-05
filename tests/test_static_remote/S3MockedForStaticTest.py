@@ -56,7 +56,6 @@ def pickled_moto_wrapper(func):
                 with open( moto_context_file, "rb" ) as f:
                     moto_context.backends["global"].buckets = pickle.load( f )
 
-        # logger.info("Calling {} on {} with moto mocking".format(func.__name__, self))
         mocked_function = moto_context(func)
         retval = mocked_function(self, *args, **kwargs)
 
@@ -88,7 +87,7 @@ class RemoteObject(S3RemoteObject):
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
-        bucket_name = 'test-remote-bucket'
+        bucket_name = 'test-static-remote-bucket'
         test_files = ('test.txt', 'out1.txt', 'out2.txt')
 
         conn = boto.connect_s3()
@@ -99,6 +98,8 @@ class RemoteObject(S3RemoteObject):
         s3c = S3Helper()
         for test_file in test_files:
             if not s3c.exists_in_bucket(bucket_name, test_file):
+                logger.debug("Pre-populating remote bucket {} with file {}".format(
+                    bucket_name, test_file))
                 s3c.upload_to_s3(bucket_name, test_file)
 
     def mtime(self):
