@@ -236,6 +236,10 @@ def test_update_config():
     run(dpath("test_update_config"))
 
 
+def test_wildcard_keyword():
+    run(dpath("test_wildcard_keyword"))
+
+
 def test_benchmark():
     run(dpath("test_benchmark"), check_md5=False)
 

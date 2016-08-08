@@ -343,6 +343,10 @@ def contains_wildcard(path):
     return _wildcard_regex.search(path) is not None
 
 
+def contains_wildcard_constraints(pattern):
+    return any(match.group('constraint') for match in _wildcard_regex.finditer(pattern))
+
+
 def remove(file, remove_non_empty_dir=False):
     if os.path.exists(file):
         if os.path.isdir(file):
@@ -572,6 +576,39 @@ def glob_wildcards(pattern, files=None):
             for name, value in match.groupdict().items():
                 getattr(wildcards, name).append(value)
     return wildcards
+
+
+def update_wildcard_constraints(pattern,
+                                wildcard_constraints,
+                                global_wildcard_constraints):
+    """Update wildcard constraints
+
+    Args:
+      pattern (str): pattern on which to update constraints
+      wildcard_constraints (dict): dictionary of wildcard:constraint key-value pairs
+      global_wildcard_constraints (dict): dictionary of wildcard:constraint key-value pairs
+    """
+    def replace_constraint(match):
+        name = match.group("name")
+        constraint = match.group("constraint")
+        newconstraint = wildcard_constraints.get(name, global_wildcard_constraints.get(name))
+        if name in examined_names:
+            return match.group(0)
+        examined_names.add(name)
+        # Don't override if constraint already set
+        if not constraint is None:
+            if name in wildcard_constraints:
+                raise ValueError("Wildcard {} is constrained by both the rule and the file pattern. Consider removing one of the constraints.")
+            return match.group(0)
+        # Only update if a new constraint has actually been set
+        elif not newconstraint is None:
+            return "{{{},{}}}".format(name, newconstraint)
+        else:
+            return match.group(0)
+
+    examined_names = set()
+    return re.sub(_wildcard_regex, replace_constraint, pattern)
+
 
 
 # TODO rewrite Namedlist!
