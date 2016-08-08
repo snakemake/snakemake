@@ -10,10 +10,11 @@ import inspect
 import sre_constants
 from collections import defaultdict, Iterable
 
-from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString
+from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException
+from snakemake.logging import logger
 
 
 class Rule:
@@ -33,6 +34,7 @@ class Rule:
             self._input = InputFiles()
             self._output = OutputFiles()
             self._params = Params()
+            self._wildcard_constraints = dict()
             self.dependencies = dict()
             self.dynamic_output = set()
             self.dynamic_input = set()
@@ -62,6 +64,7 @@ class Rule:
             self._input = InputFiles(other._input)
             self._output = OutputFiles(other._output)
             self._params = Params(other._params)
+            self._wildcard_constraints = dict(other._wildcard_constraints)
             self.dependencies = dict(other.dependencies)
             self.dynamic_output = set(other.dynamic_output)
             self.dynamic_input = set(other.dynamic_input)
@@ -86,8 +89,7 @@ class Rule:
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):
             return (rule.input, rule.dynamic_input) if input else (
-                rule.output, rule.dynamic_output
-            )
+                rule.output, rule.dynamic_output)
 
         def partially_expand(f, wildcards):
             """Expand the wildcards in f from the ones present in wildcards
@@ -98,8 +100,7 @@ class Rule:
             # perform the partial expansion from f's string representation
             s = str(f).replace('{', '{{').replace('}', '}}')
             for key in wildcards.keys():
-                s = s.replace('{{{{{}}}}}'.format(key),
-                              '{{{}}}'.format(key))
+                s = s.replace('{{{{{}}}}}'.format(key), '{{{}}}'.format(key))
             # build result
             anno_s = AnnotatedString(s)
             anno_s.flags = f.flags
@@ -150,8 +151,9 @@ class Rule:
                                          if len(set(values)) == 1)
             # TODO have a look into how to concretize dependencies here
             (branch._input, branch._output, branch._params, branch._log,
-             branch._benchmark, _, branch.dependencies
-             ) = branch.expand_wildcards(wildcards=non_dynamic_wildcards)
+             branch._benchmark, _,
+             branch.dependencies) = branch.expand_wildcards(
+                 wildcards=non_dynamic_wildcards)
             return branch, non_dynamic_wildcards
         return branch
 
@@ -216,9 +218,9 @@ class Rule:
             wildcards = item.get_wildcard_names()
             if self.wildcard_names:
                 if self.wildcard_names != wildcards:
-                    raise SyntaxError(
-                        "Not all output files of rule {} "
-                        "contain the same wildcards.".format(self.name))
+                    raise SyntaxError("Not all output files of rule {} "
+                                      "contain the same wildcards.".format(
+                                          self.name))
             else:
                 self.wildcard_names = wildcards
 
@@ -236,6 +238,21 @@ class Rule:
             # add the rule to the dependencies
             if isinstance(item, _IOFile):
                 self.dependencies[item] = item.rule
+            if output:
+                if self.wildcard_constraints or self.workflow._wildcard_constraints:
+                    try:
+                        item = update_wildcard_constraints(
+                            item, self.wildcard_constraints,
+                            self.workflow._wildcard_constraints)
+                    except ValueError as e:
+                        raise IOFileException(
+                            str(e),
+                            snakefile=self.snakefile,
+                            lineno=self.lineno)
+            else:
+                if contains_wildcard_constraints(item):
+                    logger.warning(
+                        "wildcard constraints in inputs are ignored")
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
                 if output:
@@ -296,6 +313,13 @@ class Rule:
             self.params.add_name(name)
 
     @property
+    def wildcard_constraints(self):
+        return self._wildcard_constraints
+
+    def set_wildcard_constraints(self, **kwwildcard_constraints):
+        self._wildcard_constraints.update(kwwildcard_constraints)
+
+    @property
     def log(self):
         return self._log
 
@@ -308,8 +332,8 @@ class Rule:
     def _set_log_item(self, item, name=None):
         if isinstance(item, str) or callable(item):
             self.log.append(IOFile(item,
-                                   rule=self)
-                            if isinstance(item, str) else item)
+                                   rule=self) if isinstance(item, str) else
+                            item)
             if name:
                 self.log.add_name(name)
         else:
@@ -411,7 +435,10 @@ class Rule:
         try:
             input = InputFiles()
             wildcards_obj = Wildcards(fromdict=wildcards)
-            _apply_wildcards(input, self.input, wildcards, wildcards_obj,
+            _apply_wildcards(input,
+                             self.input,
+                             wildcards,
+                             wildcards_obj,
                              concretize=concretize_iofile,
                              ruleio=ruleio)
 
@@ -435,7 +462,10 @@ class Rule:
             ruleio.update(dict((f, f_) for f, f_ in zip(output, self.output)))
 
             log = Log()
-            _apply_wildcards(log, self.log, wildcards, wildcards_obj,
+            _apply_wildcards(log,
+                             self.log,
+                             wildcards,
+                             wildcards_obj,
                              concretize=concretize_iofile)
 
             benchmark = self.benchmark.apply_wildcards(

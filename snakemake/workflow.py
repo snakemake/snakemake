@@ -71,6 +71,7 @@ class Workflow:
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
+        self._wildcard_constraints = dict()
         self.debug = debug
         self._rulecount = 0
 
@@ -533,6 +534,9 @@ class Workflow:
     def onerror(self, func):
         self._onerror = func
 
+    def global_wildcard_constraints(self, **content):
+        self._wildcard_constraints.update(content)
+
     def workdir(self, workdir):
         if self.overwrite_workdir is None:
             os.makedirs(workdir, exist_ok=True)
@@ -562,6 +566,8 @@ class Workflow:
         rule = self.get_rule(name)
 
         def decorate(ruleinfo):
+            if ruleinfo.wildcard_constraints:
+                rule.set_wildcard_constraints(*ruleinfo.wildcard_constraints[0], **ruleinfo.wildcard_constraints[1])
             if ruleinfo.input:
                 rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
             if ruleinfo.output:
@@ -641,6 +647,13 @@ class Workflow:
     def params(self, *params, **kwparams):
         def decorate(ruleinfo):
             ruleinfo.params = (params, kwparams)
+            return ruleinfo
+
+        return decorate
+
+    def wildcard_constraints(self, *wildcard_constraints, **kwwildcard_constraints):
+        def decorate(ruleinfo):
+            ruleinfo.wildcard_constraints = (wildcard_constraints, kwwildcard_constraints)
             return ruleinfo
 
         return decorate
@@ -733,6 +746,7 @@ class RuleInfo:
         self.params = None
         self.message = None
         self.benchmark = None
+        self.wildcard_constraints = None
         self.threads = None
         self.shadow_depth = None
         self.resources = None
