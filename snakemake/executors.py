@@ -73,9 +73,8 @@ class AbstractExecutor:
         if self.dag.dynamic(job):
             return
 
-        def format_files(job, io, ruleio, dynamicio):
+        def format_files(job, io, dynamicio):
             for f in io:
-                f_ = ruleio[f]
                 if f in dynamicio:
                     yield "{} (dynamic)".format(f.format_dynamic())
                 else:
@@ -86,15 +85,15 @@ class AbstractExecutor:
                         msg=job.message,
                         name=job.rule.name,
                         local=self.workflow.is_local(job.rule),
-                        input=list(format_files(job, job.input, job.ruleio,
+                        input=list(format_files(job, job.input,
                                                 job.dynamic_input)),
-                        output=list(format_files(job, job.output, job.ruleio,
+                        output=list(format_files(job, job.output,
                                                  job.dynamic_output)),
                         log=list(job.log),
                         benchmark=job.benchmark,
                         wildcards=job.wildcards_dict,
                         reason=str(self.dag.reason(job)),
-                        resources=job.resources_dict,
+                        resources=job.resources,
                         priority="highest"
                         if priority == Job.HIGHEST_PRIORITY else priority,
                         threads=job.threads)
