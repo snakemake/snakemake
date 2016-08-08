@@ -322,12 +322,41 @@ class Rule:
             except TypeError:
                 raise SyntaxError("Log files have to be specified as strings.")
 
-    def expand_wildcards(self, wildcards=None):
-        """
-        Expand wildcards depending on the requested output
-        or given wildcards dict.
-        """
+    @staticmethod
+    def _apply_wildcards(newitems, olditems, wildcards,
+                         concretize=apply_wildcards,
+                         check_return_type=check_string_type,
+                         mapping=None,
+                         no_flattening=False,
+                         aux_params=None):
+        if aux_params is None:
+            aux_params = dict()
+        for name, item in olditems.allitems():
+            start = len(newitems)
+            is_iterable = True
 
+            if callable(item):
+                try:
+                    item = item(Wildcards(fromdict=wildcards))
+                except (Exception, BaseException) as e:
+                    raise InputFunctionException(e, rule=self, wildcards=wildcards)
+
+            if not_iterable(item) or no_flattening:
+                item = [item]
+                is_iterable = False
+            for item_ in item:
+                check_return_type(item_)
+                concrete = concretize(item_, wildcards)
+                newitems.append(concrete)
+                if mapping is not None:
+                    mapping[concrete] = item_
+
+            if name:
+                newitems.set_name(
+                    name, start,
+                    end=len(newitems) if is_iterable else None)
+
+    def expand_input(self, wildcards):
         def concretize_iofile(f, wildcards):
             if not isinstance(f, _IOFile):
                 return IOFile(f, rule=self)
@@ -335,6 +364,25 @@ class Rule:
                 return f.apply_wildcards(wildcards,
                                          fill_missing=f in self.dynamic_input,
                                          fail_dynamic=self.dynamic_output)
+
+        input = InputFiles()
+        mapping = dict()
+        self._apply_wildcards(input, self.input, wildcards,
+                              concretize=concretize_iofile,
+                              mapping=mapping)
+        return input, mapping
+
+    def expand_params(self, wildcards):
+
+
+
+    def expand_wildcards(self, wildcards=None):
+        """
+        Expand wildcards depending on the requested output
+        or given wildcards dict.
+        """
+
+
 
         def concretize_param(p, wildcards):
             if isinstance(p, str):
@@ -346,36 +394,6 @@ class Rule:
                 raise RuleException(
                     "Input function did not return str or list of str.",
                     rule=self)
-
-        def _apply_wildcards(newitems, olditems, wildcards, wildcards_obj,
-                             concretize=apply_wildcards,
-                             check_return_type=check_string_type,
-                             ruleio=None,
-                             no_flattening=False):
-            for name, item in olditems.allitems():
-                start = len(newitems)
-                is_iterable = True
-
-                if callable(item):
-                    try:
-                        item = item(wildcards_obj)
-                    except (Exception, BaseException) as e:
-                        raise InputFunctionException(e, rule=self, wildcards=wildcards)
-
-                if not_iterable(item) or no_flattening:
-                    item = [item]
-                    is_iterable = False
-                for item_ in item:
-                    check_return_type(item_)
-                    concrete = concretize(item_, wildcards)
-                    newitems.append(concrete)
-                    if ruleio is not None:
-                        ruleio[concrete] = item_
-
-                if name:
-                    newitems.set_name(
-                        name, start,
-                        end=len(newitems) if is_iterable else None)
 
         if wildcards is None:
             wildcards = dict()
