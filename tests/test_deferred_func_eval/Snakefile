@@ -1,0 +1,11 @@
+
+rule a:
+    input:
+        "test1.in",
+        "test2.in"
+    output:
+        "test.out"
+    params:
+        a=lambda wildcards, input: "+".join(input)
+    shell:
+        "echo {params.a} > {output}"

@@ -384,6 +384,10 @@ def test_static_remote():
         pass
 
 
+def test_deferred_func_eval():
+    run(dpath("test_deferred_func_eval"))
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
