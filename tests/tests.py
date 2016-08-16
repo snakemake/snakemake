@@ -384,6 +384,10 @@ def test_static_remote():
         pass
 
 
+def test_format_params():
+    run(dpath("test_format_params"), check_md5=True)
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
