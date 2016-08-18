@@ -40,7 +40,7 @@ class Job:
 
         self.input, input_mapping, self.dependencies = self.rule.expand_input(self.wildcards_dict)
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
-        # other properties are lazy to save time and be able to use additional parameters
+        # other properties are lazy to be able to use additional parameters and check already existing files
         self._params = None
         self._log = None
         self._benchmark = None
@@ -73,6 +73,14 @@ class Job:
         if True or not self.dynamic_output:
             for o in self.output:
                 self._hash ^= o.__hash__()
+
+    def is_valid(self):
+        """Check if job is valid"""
+        # these properties have to work in dry-run as well. Hence we check them here:
+        resources = self.rule.expand_resources(self.wildcards_dict, self.input)
+        self.rule.expand_params(self.wildcards_dict, self.input, resources)
+        self.rule.expand_benchmark(self.wildcards_dict)
+        self.rule.expand_log(self.wildcards_dict)
 
     @property
     def threads(self):
