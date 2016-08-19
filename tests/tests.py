@@ -388,6 +388,10 @@ def test_deferred_func_eval():
     run(dpath("test_deferred_func_eval"))
 
 
+def test_format_params():
+    run(dpath("test_format_params"), check_md5=True)
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)

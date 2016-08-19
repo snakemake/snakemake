@@ -1,0 +1,5 @@
+rule a:
+    output: "test.out"
+    params: [1, 2, 3]
+    shell:
+        "echo {params[0]} > {output}"

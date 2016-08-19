@@ -106,11 +106,11 @@ class AbstractExecutor:
         logger.error("Error in job {} while creating output file{} {}.".format(
             job, "s" if len(job.output) > 1 else "", ", ".join(job.output)))
 
-    def finish_job(self, job):
+    def finish_job(self, job, upload_remote=True):
         self.dag.handle_touch(job)
         self.dag.check_and_touch_output(job, wait=self.latency_wait)
         self.dag.unshadow_output(job)
-        self.dag.handle_remote(job)
+        self.dag.handle_remote(job, upload=upload_remote)
         self.dag.handle_protected(job)
         self.dag.handle_temp(job)
 
@@ -149,8 +149,8 @@ class RealExecutor(AbstractExecutor):
                 "Please ensure write permissions for the "
                 "directory {}".format(e, self.workflow.persistence.path))
 
-    def finish_job(self, job):
-        super().finish_job(job)
+    def finish_job(self, job, upload_remote=True):
+        super().finish_job(job, upload_remote=upload_remote)
         self.stats.report_job_end(job)
         try:
             self.workflow.persistence.finished(job)
@@ -298,7 +298,7 @@ class ClusterExecutor(RealExecutor):
         self.exec_job = '\\\n'.join((
             'cd {workflow.workdir_init} && ',
             '{workflow.snakemakepath} --snakefile {workflow.snakefile} ',
-            '--force -j{cores} --keep-target-files --keep-shadow ',
+            '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
             '--benchmark-repeats {benchmark_repeats} ',
             '{overwrite_workdir} {overwrite_config} --nocolor ',
@@ -418,6 +418,9 @@ class ClusterExecutor(RealExecutor):
 
     def cluster_wildcards(self, job):
         return Wildcards(fromdict=self.cluster_params(job))
+
+    def finish_job(self, job):
+        super().finish_job(job, upload_remote=False)
 
 
 GenericClusterJob = namedtuple("GenericClusterJob", "job callback error_callback jobscript jobfinished jobfailed")

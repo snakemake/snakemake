@@ -212,6 +212,7 @@ class Workflow:
                 updated_files=None,
                 keep_target_files=False,
                 keep_shadow=False,
+                keep_remote_local=False,
                 allowed_rules=None,
                 max_jobs_per_second=None,
                 greediness=1.0,
@@ -292,7 +293,8 @@ class Workflow:
             ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
             ignore_incomplete=ignore_incomplete or printdag or printrulegraph,
-            notemp=notemp)
+            notemp=notemp,
+            keep_remote_local=keep_remote_local)
 
         self.persistence = Persistence(
             nolock=nolock,
