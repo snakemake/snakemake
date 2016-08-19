@@ -81,6 +81,7 @@ def snakemake(snakefile,
               print_compilation=False,
               debug=False,
               notemp=False,
+              keep_remote_local=False,
               nodeps=False,
               keep_target_files=False,
               keep_shadow=False,
@@ -153,6 +154,7 @@ def snakemake(snakefile,
         print_compilation (bool):   print the compilation of the snakefile (default False)
         debug (bool):               allow to use the debugger within rules
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
+        keep_remote_local (bool):   keep local copies of remote files (default False)
         nodeps (bool):              ignore dependencies (default False)
         keep_target_files (bool):   Do not adjust the paths of given target files relative to the working directory.
         keep_shadow (bool):         Do not delete the shadow directory on snakemake startup.
@@ -335,6 +337,7 @@ def snakemake(snakefile,
                                        benchmark_repeats=benchmark_repeats,
                                        verbose=verbose,
                                        notemp=notemp,
+                                       keep_remote_local=keep_remote_local,
                                        nodeps=nodeps,
                                        jobscript=jobscript,
                                        timestamp=timestamp,
@@ -388,6 +391,7 @@ def snakemake(snakefile,
                     unlock=unlock,
                     resources=resources,
                     notemp=notemp,
+                    keep_remote_local=keep_remote_local,
                     nodeps=nodeps,
                     keep_target_files=keep_target_files,
                     keep_shadow=keep_shadow,
@@ -813,6 +817,10 @@ def get_argument_parser():
         "a part of the workflow, since temp() would lead to deletion of "
         "probably needed files by other parts of the workflow.")
     parser.add_argument(
+        "--keep-remote",
+        action="store_true",
+        help="Keep local copies of remote input files.")
+    parser.add_argument(
         "--keep-target-files",
         action="store_true",
         help=
@@ -1004,6 +1012,7 @@ def main():
                             debug=args.debug,
                             jobscript=args.jobscript,
                             notemp=args.notemp,
+                            keep_remote_local=args.keep_remote,
                             timestamp=args.timestamp,
                             greediness=args.greediness,
                             no_hooks=args.no_hooks,

@@ -51,7 +51,8 @@ class DAG:
                  ignore_ambiguity=False,
                  force_incomplete=False,
                  ignore_incomplete=False,
-                 notemp=False):
+                 notemp=False,
+                 keep_remote_local=False):
 
         self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
@@ -75,6 +76,7 @@ class DAG:
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
         self.notemp = notemp
+        self.keep_remote_local = keep_remote_local
         self._jobid = dict()
 
         self.forcerules = set()
@@ -249,7 +251,6 @@ class DAG:
         """ Raise exception if output files of job are missing. """
         expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
         try:
-
             wait_for_files(expanded_output, latency_wait=wait)
         except IOError as e:
             raise MissingOutputException(str(e), rule=job.rule)
@@ -342,50 +343,53 @@ class DAG:
             logger.info("Removing temporary output file {}.".format(f))
             f.remove(remove_non_empty_dir=True)
 
-    def handle_remote(self, job):
+    def handle_remote(self, job, upload=True):
         """ Remove local files if they are no longer needed, and upload to S3. """
+        if upload:
+            # handle output files
+            for f in job.expanded_output:
+                if f.is_remote:
+                    f.upload_to_remote()
+                    remote_mtime = f.mtime
+                    # immediately force local mtime to match remote,
+                    # since conversions from S3 headers are not 100% reliable
+                    # without this, newness comparisons may fail down the line
+                    f.touch(times=(remote_mtime, remote_mtime))
 
-        needed = lambda job_, f: any(
-            f in files for j, files in self.depending[job_].items()
-            if not self.finished(j) and self.needrun(j) and j != job)
+                    if not f.exists_remote:
+                        raise RemoteFileException(
+                            "The file upload was attempted, but it does not "
+                            "exist on remote. Check that your credentials have "
+                            "read AND write permissions.")
 
-        def unneeded_files():
-            putative = lambda f: f.is_remote and not f.protected and not f.should_keep_local
-            generated_input = set()
-            for job_, files in self.dependencies[job].items():
-                generated_input |= files
-                for f in filter(putative, files):
-                    if not needed(job_, f):
+        if not self.keep_remote_local:
+            # handle input files
+            needed = lambda job_, f: any(
+                f in files for j, files in self.depending[job_].items()
+                if not self.finished(j) and self.needrun(j) and j != job)
+
+            def unneeded_files():
+                putative = lambda f: f.is_remote and not f.protected and not f.should_keep_local
+                generated_input = set()
+                for job_, files in self.dependencies[job].items():
+                    generated_input |= files
+                    for f in filter(putative, files):
+                        if not needed(job_, f):
+                            yield f
+                for f in filter(putative, job.output):
+                    if not needed(job, f) and not f in self.targetfiles:
+                        for f_ in job.expand_dynamic(f):
+                            yield f
+                for f in filter(putative, job.input):
+                    # TODO what about remote inputs that are used by multiple jobs?
+                    if f not in generated_input:
                         yield f
-            for f in filter(putative, job.output):
-                if not needed(job, f) and not f in self.targetfiles:
-                    for f_ in job.expand_dynamic(f):
-                        yield f
-            for f in filter(putative, job.input):
-                # TODO what about remote inputs that are used by multiple jobs?
-                if f not in generated_input:
-                    yield f
 
-        for f in job.expanded_output:
-            if f.is_remote:
-                f.upload_to_remote()
-                remote_mtime = f.mtime
-                # immediately force local mtime to match remote,
-                # since conversions from S3 headers are not 100% reliable
-                # without this, newness comparisons may fail down the line
-                f.touch(times=(remote_mtime, remote_mtime))
+            for f in unneeded_files():
+                logger.info("Removing local output file: {}".format(f))
+                f.remove()
 
-                if not f.exists_remote:
-                    raise RemoteFileException(
-                        "The file upload was attempted, but it does not "
-                        "exist on remote. Check that your credentials have "
-                        "read AND write permissions.")
-
-        for f in unneeded_files():
-            logger.info("Removing local output file: {}".format(f))
-            f.remove()
-
-        job.rmdir_empty_remote_dirs()
+            job.rmdir_empty_remote_dirs()
 
     def jobid(self, job):
         if job not in self._jobid:
