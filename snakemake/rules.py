@@ -11,7 +11,7 @@ import sre_constants
 from collections import defaultdict, Iterable
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
-from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
+from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException
 from snakemake.logging import logger
@@ -150,10 +150,12 @@ class Rule:
                                          for name, values in wildcards.items()
                                          if len(set(values)) == 1)
             # TODO have a look into how to concretize dependencies here
-            (branch._input, branch._output, branch._params, branch._log,
-             branch._benchmark, _,
-             branch.dependencies) = branch.expand_wildcards(
-                 wildcards=non_dynamic_wildcards)
+            branch._input, _, branch.dependencies = branch.expand_input(non_dynamic_wildcards)
+            branch._output, _ = branch.expand_output(non_dynamic_wildcards)
+            branch.resources = dict(branch.expand_resources(non_dynamic_wildcards, branch._input).items())
+            branch._params = branch.expand_params(non_dynamic_wildcards, branch._input, branch.resources)
+            branch._log = branch.expand_log(non_dynamic_wildcards)
+            branch._benchmark = branch.expand_benchmark(non_dynamic_wildcards)
             return branch, non_dynamic_wildcards
         return branch
 
@@ -346,69 +348,7 @@ class Rule:
             except TypeError:
                 raise SyntaxError("Log files have to be specified as strings.")
 
-    def expand_wildcards(self, wildcards=None):
-        """
-        Expand wildcards depending on the requested output
-        or given wildcards dict.
-        """
-
-        def concretize_iofile(f, wildcards):
-            if not isinstance(f, _IOFile):
-                return IOFile(f, rule=self)
-            else:
-                return f.apply_wildcards(wildcards,
-                                         fill_missing=f in self.dynamic_input,
-                                         fail_dynamic=self.dynamic_output)
-
-        def concretize_param(p, wildcards):
-            if isinstance(p, str):
-                return apply_wildcards(p, wildcards)
-            return p
-
-        def check_string_type(f):
-            if not isinstance(f, str):
-                raise RuleException(
-                    "Input function did not return str or list of str.",
-                    rule=self)
-
-        def _apply_wildcards(newitems,
-                             olditems,
-                             wildcards,
-                             wildcards_obj,
-                             concretize=apply_wildcards,
-                             check_return_type=check_string_type,
-                             ruleio=None,
-                             no_flattening=False):
-            for name, item in olditems.allitems():
-                start = len(newitems)
-                is_iterable = True
-
-                if callable(item):
-                    try:
-                        item = item(wildcards_obj)
-                    except (Exception, BaseException) as e:
-                        raise InputFunctionException(e,
-                                                     rule=self,
-                                                     wildcards=wildcards)
-
-                if not_iterable(item) or no_flattening:
-                    item = [item]
-                    is_iterable = False
-                for item_ in item:
-                    check_return_type(item_)
-                    concrete = concretize(item_, wildcards)
-                    newitems.append(concrete)
-                    if ruleio is not None:
-                        ruleio[concrete] = item_
-
-                if name:
-                    newitems.set_name(
-                        name,
-                        start,
-                        end=len(newitems) if is_iterable else None)
-
-        if wildcards is None:
-            wildcards = dict()
+    def check_wildcards(self, wildcards):
         missing_wildcards = self.wildcard_names - set(wildcards.keys())
 
         if missing_wildcards:
@@ -418,54 +358,159 @@ class Rule:
                 lineno=self.lineno,
                 snakefile=self.snakefile)
 
-        ruleio = dict()
-
+    def apply_input_function(self, func, wildcards, **aux_params):
+        sig = inspect.signature(func)
+        _aux_params = {k: v for k, v in aux_params.items() if k in sig.parameters}
         try:
-            input = InputFiles()
-            wildcards_obj = Wildcards(fromdict=wildcards)
-            _apply_wildcards(input,
-                             self.input,
-                             wildcards,
-                             wildcards_obj,
-                             concretize=concretize_iofile,
-                             ruleio=ruleio)
+            value = func(Wildcards(fromdict=wildcards), **_aux_params)
+        except (Exception, BaseException) as e:
+            raise InputFunctionException(e, rule=self, wildcards=wildcards)
+        return value
 
-            params = Params()
+    def _apply_wildcards(self, newitems, olditems, wildcards,
+                         concretize=apply_wildcards,
+                         check_return_type=True,
+                         mapping=None,
+                         no_flattening=False,
+                         aux_params=None):
+        if aux_params is None:
+            aux_params = dict()
+        for name, item in olditems.allitems():
+            start = len(newitems)
+            is_iterable = True
+
+            if callable(item):
+                item = self.apply_input_function(item, wildcards, **aux_params)
+
+            if not_iterable(item) or no_flattening:
+                item = [item]
+                is_iterable = False
+            for item_ in item:
+                if check_return_type and not isinstance(item_, str):
+                    raise WorkflowError("Function did not return str or list "
+                                        "of str.", rule=self)
+                concrete = concretize(item_, wildcards)
+                newitems.append(concrete)
+                if mapping is not None:
+                    mapping[concrete] = item_
+
+            if name:
+                newitems.set_name(
+                    name, start,
+                    end=len(newitems) if is_iterable else None)
+
+    def expand_input(self, wildcards):
+        def concretize_iofile(f, wildcards):
+            if not isinstance(f, _IOFile):
+                return IOFile(f, rule=self)
+            else:
+                return f.apply_wildcards(wildcards,
+                                         fill_missing=f in self.dynamic_input,
+                                         fail_dynamic=self.dynamic_output)
+
+        input = InputFiles()
+        mapping = dict()
+        try:
+            self._apply_wildcards(input, self.input, wildcards,
+                                  concretize=concretize_iofile,
+                                  mapping=mapping)
+        except WildcardError as e:
+            raise WorkflowError(
+                "Wildcards in input files cannot be "
+                "determined from output files:",
+                str(e), rule=self)
+
+        if self.dependencies:
+            dependencies = {
+                f: self.dependencies[f_]
+                for f, f_ in mapping.items() if f_ in self.dependencies
+            }
+            if None in self.dependencies:
+                dependencies[None] = self.dependencies[None]
+        else:
+            dependencies = self.dependencies
+
+        return input, mapping, dependencies
+
+    def expand_params(self, wildcards, input, resources):
+        def concretize_param(p, wildcards):
+            if isinstance(p, str):
+                return apply_wildcards(p, wildcards)
+            return p
+
+        params = Params()
+        try:
             #When applying wildcards to params, the return type need not be
             #a string, so the check is disabled.
-            _apply_wildcards(params, self.params, wildcards, wildcards_obj,
-                             concretize=concretize_param,
-                             check_return_type=lambda x: None,
-                             no_flattening=True)
+            self._apply_wildcards(params, self.params, wildcards,
+                                  concretize=concretize_param,
+                                  check_return_type=False,
+                                  no_flattening=True,
+                                  aux_params={"input": input,
+                                              "resources": resources})
+        except WildcardError as e:
+            raise WorkflowError(
+                "Wildcards in params cannot be "
+                "determined from output files:",
+                str(e), rule=self)
+        return params
 
-            output = OutputFiles(o.apply_wildcards(wildcards)
-                                 for o in self.output)
-            output.take_names(self.output.get_names())
 
-            dependencies = {
-                None if f is None else f.apply_wildcards(wildcards): rule
-                for f, rule in self.dependencies.items()
-            }
+    def expand_output(self, wildcards):
+        output = OutputFiles(o.apply_wildcards(wildcards)
+                             for o in self.output)
+        output.take_names(self.output.get_names())
+        mapping = {f: f_ for f, f_ in zip(output, self.output)}
+        return output, mapping
 
-            ruleio.update(dict((f, f_) for f, f_ in zip(output, self.output)))
 
-            log = Log()
-            _apply_wildcards(log,
-                             self.log,
-                             wildcards,
-                             wildcards_obj,
-                             concretize=concretize_iofile)
+    def expand_log(self, wildcards):
+        def concretize_logfile(f, wildcards):
+            if not isinstance(f, _IOFile):
+                return IOFile(f, rule=self)
+            else:
+                return f.apply_wildcards(wildcards,
+                                         fill_missing=False,
+                                         fail_dynamic=self.dynamic_output)
 
+        log = Log()
+
+        try:
+            self._apply_wildcards(log,
+                                  self.log,
+                                  wildcards,
+                                  concretize=concretize_logfile)
+        except WildcardError as e:
+            raise WorkflowError(
+                "Wildcards in log files cannot be "
+                "determined from output files:",
+                str(e), rule=self)
+        return log
+
+    def expand_benchmark(self, wildcards):
+        try:
             benchmark = self.benchmark.apply_wildcards(
                 wildcards) if self.benchmark else None
-            return input, output, params, log, benchmark, ruleio, dependencies
-        except WildcardError as ex:
-            # this can only happen if an input contains an unresolved wildcard.
-            raise RuleException(
-                "Wildcards in input, params, log or benchmark file of rule {} cannot be "
-                "determined from output files:\n{}".format(self, str(ex)),
-                lineno=self.lineno,
-                snakefile=self.snakefile)
+        except WildcardError as e:
+            raise WorkflowError(
+                "Wildcards in benchmark file cannot be "
+                "determined from output files:",
+                str(e), rule=self)
+        return benchmark
+
+    def expand_resources(self, wildcards, input):
+        resources = dict()
+        for name, res in self.resources.items():
+            if callable(res):
+                res = self.apply_input_function(res,
+                                                wildcards,
+                                                input=input)
+                if not isinstance(res, int):
+                    raise WorkflowError("Resources function did not return int.")
+            res = min(self.workflow.global_resources.get(name, res), res)
+            resources[name] = res
+        resources = Resources(fromdict=resources)
+        return resources
 
     def is_producer(self, requested_output):
         """
@@ -506,6 +551,7 @@ class Rule:
                 if not bestmatch or bestmatchlen > l:
                     bestmatch = match.groupdict()
                     bestmatchlen = l
+        self.check_wildcards(bestmatch)
         return bestmatch
 
     @staticmethod

@@ -413,6 +413,9 @@ def apply_wildcards(pattern,
     return re.sub(_wildcard_regex, format_match, pattern)
 
 
+
+
+
 def not_iterable(value):
     return isinstance(value, str) or isinstance(value, dict) or not isinstance(
         value, Iterable)

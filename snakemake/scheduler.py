@@ -350,7 +350,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 for name in self.workflow.global_resources]
 
     def job_weight(self, job):
-        res = job.resources_dict
+        res = job.resources
         return [self.calc_resource(name, res.get(name, 0))
                 for name in self.workflow.global_resources]
 

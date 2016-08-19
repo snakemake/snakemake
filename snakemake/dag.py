@@ -123,6 +123,9 @@ class DAG:
         self.update_needrun()
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
+        # check if remaining jobs are valid
+        for job in self.jobs:
+            job.is_valid()
 
     def update_output_index(self):
         self.output_index = OutputIndex(self.rules)

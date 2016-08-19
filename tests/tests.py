@@ -384,6 +384,10 @@ def test_static_remote():
         pass
 
 
+def test_deferred_func_eval():
+    run(dpath("test_deferred_func_eval"))
+
+
 def test_format_params():
     run(dpath("test_format_params"), check_md5=True)
 
