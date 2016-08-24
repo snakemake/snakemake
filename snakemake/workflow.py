@@ -347,6 +347,7 @@ class Workflow:
                     if not subsnakemake(subworkflow.snakefile,
                                         workdir=subworkflow.workdir,
                                         targets=subworkflow_targets,
+                                        configfile=subworkflow.configfile,
                                         updated_files=updated):
                         return False
                     dag.updated_subworkflow_files.update(subworkflow.target(f)
@@ -556,8 +557,8 @@ class Workflow:
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
 
-    def subworkflow(self, name, snakefile=None, workdir=None):
-        sw = Subworkflow(self, name, snakefile, workdir)
+    def subworkflow(self, name, snakefile=None, workdir=None, configfile=None):
+        sw = Subworkflow(self, name, snakefile, workdir, configfile)
         self._subworkflows[name] = sw
         self.globals[name] = sw.target
 
@@ -760,11 +761,12 @@ class RuleInfo:
 
 
 class Subworkflow:
-    def __init__(self, workflow, name, snakefile, workdir):
+    def __init__(self, workflow, name, snakefile, workdir, configfile):
         self.workflow = workflow
         self.name = name
         self._snakefile = snakefile
         self._workdir = workdir
+        self.configfile = configfile
 
     @property
     def snakefile(self):
