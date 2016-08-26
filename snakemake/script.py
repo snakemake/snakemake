@@ -83,7 +83,7 @@ class Snakemake:
         self.log = log
         self.config = config
 
-    def get_log(self, stdout=True, stderr=True, append=False):
+    def log_fmt_shell(self, stdout=True, stderr=True, append=False):
         """
         Return a shell redirection string to be used in `shell()` calls
 

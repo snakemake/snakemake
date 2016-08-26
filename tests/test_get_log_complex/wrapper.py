@@ -1,7 +1,7 @@
 from snakemake.shell import shell
-initial_log = snakemake.get_log()
-stdout_log = snakemake.get_log(stderr=False, append=True)
-stderr_log = snakemake.get_log(stdout=False, append=True)
+initial_log = snakemake.log_fmt_shell()
+stdout_log = snakemake.log_fmt_shell(stderr=False, append=True)
+stderr_log = snakemake.log_fmt_shell(stdout=False, append=True)
 shell('''
       cat {snakemake.input} > {snakemake.output}
       echo "should not appear since next line truncates" {initial_log}

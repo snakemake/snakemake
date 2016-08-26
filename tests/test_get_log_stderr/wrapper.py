@@ -1,5 +1,5 @@
 from snakemake.shell import shell
-log = snakemake.get_log(stdout=False, append=True)
+log = snakemake.log_fmt_shell(stdout=False, append=True)
 shell('''
       cat {snakemake.input} > {snakemake.output}
       (>&2 echo "a stderr message") {log}
