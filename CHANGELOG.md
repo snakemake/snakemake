@@ -1,9 +1,18 @@
 # Change Log
 
-## [Unreleased]
+## [3.8.0] - 2016-08-26
+### Added
+- Wildcards can now be constrained by rule and globally via the new `wildcard_constraints` directive (see the [docs](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-wildcards)).
+- Subworkflows now allow to overwrite their config file via the configfile directive in the calling Snakefile.
+- A method `log_fmt_shell` in the snakemake proxy object that is available in scripts and wrappers allows to obtain a formatted string to redirect logging output from STDOUT or STDERR.
+- Functions given to resources can now optionally contain an additional argument `input` that refers to the input files.
+- Functions given to params can now optionally contain additional arguments `input` (see above) and `resources`. The latter refers to the resources.
+- It is now possible to let items in shell commands be automatically quoted (see the [docs](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-rules)). This is usefull when dealing with filenames that contain whitespaces.
 ### Changed
 - Snakemake now deletes output files before job exection. Further, it touches output files after job execution. This solves various problems with slow NFS filesystems.
 - A bug was fixed that caused dynamic output rules to be executed multiple times when forcing their execution with -R.
+- A bug causing double uploads with remote files was fixed. Various additional bug fixes related to remote files.
+- Various minor bug fixes.
 
 ## [3.7.1] - 2016-05-16
 ### Changed
