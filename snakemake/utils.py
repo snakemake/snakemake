@@ -245,6 +245,10 @@ def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
     variables = dict(frame.f_globals)
     # add local variables from calling rule/function
     variables.update(frame.f_locals)
+    if "self" in variables:
+        # self is the first arg of fmt.format as well. Not removing it would
+        # cause a multiple values error on Python <=3.4.2.
+        del variables["self"]
     variables.update(kwargs)
     fmt = SequenceFormatter(separator=" ")
     if _quote_all:
