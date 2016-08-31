@@ -76,8 +76,9 @@ class RemoteObject(DomainObject):
     def is_newer(self, time):
         """ Returns true of the file is newer than time, or if it is
             a symlink that points to a file newer than time. """
-        return ( sftp.stat( self.remote_path).st_mtime > time or
-                 sftp.lstat(self.remote_path).st_mtime > time )
+        with self.sftpc() as sftpc:
+            return ( sftpc.stat( self.remote_path).st_mtime > time or
+                     sftpc.lstat(self.remote_path).st_mtime > time )
 
     def size(self):
         if self.exists():

@@ -1,0 +1,10 @@
+from snakemake.remote.SFTP import RemoteProvider
+SFTP = RemoteProvider(username="demo", password="password")
+
+rule a:
+    input:
+        SFTP.remote("test.rebex.net/readme.txt")
+    output:
+        "readme.txt"
+    shell:
+        "cp {input} {output}"
