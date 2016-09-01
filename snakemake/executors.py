@@ -448,7 +448,7 @@ class GenericClusterExecutor(ClusterExecutor):
                          max_jobs_per_second=max_jobs_per_second)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
-        self.exec_job += ' && touch "{jobfinished}" || touch "{jobfailed}"'
+        self.exec_job += ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
 
     def cancel(self):
         logger.info("Will exit after finishing currently running jobs.")
