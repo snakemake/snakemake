@@ -508,7 +508,8 @@ class Rule:
                 "determined from output files:",
                 str(e), rule=self)
 
-        benchmark.check()
+        if benchmark is not None:
+            benchmark.check()
 
         return benchmark
 
