@@ -430,6 +430,9 @@ class Rule:
         else:
             dependencies = self.dependencies
 
+        for f in input:
+            f.check()
+
         return input, mapping, dependencies
 
     def expand_params(self, wildcards, input, resources):
@@ -461,6 +464,10 @@ class Rule:
                              for o in self.output)
         output.take_names(self.output.get_names())
         mapping = {f: f_ for f, f_ in zip(output, self.output)}
+
+        for f in output:
+            f.check()
+
         return output, mapping
 
 
@@ -485,6 +492,10 @@ class Rule:
                 "Wildcards in log files cannot be "
                 "determined from output files:",
                 str(e), rule=self)
+
+        for f in log:
+            f.check()
+
         return log
 
     def expand_benchmark(self, wildcards):
@@ -496,6 +507,9 @@ class Rule:
                 "Wildcards in benchmark file cannot be "
                 "determined from output files:",
                 str(e), rule=self)
+
+        benchmark.check()
+
         return benchmark
 
     def expand_resources(self, wildcards, input):

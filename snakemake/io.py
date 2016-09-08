@@ -113,6 +113,11 @@ class _IOFile(str):
             raise ValueError("This IOFile is specified as a function and "
                              "may not be used directly.")
 
+    def check(self):
+        if self._file.startswith("./"):
+            logger.warning("File path {} starts with './'. This is redundant "
+                           "and strongly discouraged.".format(self._file))
+
     @property
     @_refer_to_remote
     def exists(self):
