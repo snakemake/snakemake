@@ -624,7 +624,7 @@ def get_argument_parser():
               "output."))
     parser.add_argument(
         "--forcerun", "-R",
-        nargs="+",
+        nargs="*",
         metavar="TARGET",
         help=("Force the re-execution or creation of the given rules or files."
               " Use this option if you changed a rule and want to have all its "
