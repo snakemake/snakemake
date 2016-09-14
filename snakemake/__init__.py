@@ -236,6 +236,7 @@ def snakemake(snakefile,
         cluster_config = dict()
 
     if not keep_logger:
+        use_threads = (os.name != "posix") or (cluster or cluster_sync or (drmaa is not None))
         setup_logger(handler=log_handler,
                      quiet=quiet,
                      printreason=printreason,
@@ -243,7 +244,8 @@ def snakemake(snakefile,
                      nocolor=nocolor,
                      stdout=dryrun,
                      debug=verbose,
-                     timestamp=timestamp)
+                     timestamp=timestamp,
+                     use_threads=use_threads)
 
     if greediness is None:
         greediness = 0.5 if prioritytargets else 1.0
