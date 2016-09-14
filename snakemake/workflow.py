@@ -216,7 +216,8 @@ class Workflow:
                 allowed_rules=None,
                 max_jobs_per_second=None,
                 greediness=1.0,
-                no_hooks=False):
+                no_hooks=False,
+                force_use_threads=False):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -436,7 +437,8 @@ class Workflow:
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
                                  benchmark_repeats=benchmark_repeats,
-                                 greediness=greediness)
+                                 greediness=greediness,
+                                 force_use_threads=force_use_threads)
 
         if not dryrun and not quiet:
             if len(dag):

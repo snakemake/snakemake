@@ -43,7 +43,8 @@ class JobScheduler:
                  max_jobs_per_second=None,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 greediness=1.0):
+                 greediness=1.0,
+                 force_use_threads=False):
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.cluster_config = cluster_config
@@ -62,13 +63,14 @@ class JobScheduler:
 
         # we should also use threads on a cluster, because shared memory /dev/shm may be full
         # which prevents the multiprocessing.Lock() semaphore from being created
-        use_threads = (os.name != "posix") or (cluster or cluster_sync or (drmaa is not None))
+        use_threads = (os.name != "posix") or (force_use_threads)
         if not use_threads:
             self._open_jobs = multiprocessing.Event()
             self._lock = multiprocessing.Lock()
         else:
             self._open_jobs = threading.Event()
             self._lock = threading.Lock()
+
         self._errors = False
         self._finished = False
         self._job_queue = None
