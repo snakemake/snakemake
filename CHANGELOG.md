@@ -1,5 +1,14 @@
 # Change Log
 
+## [3.8.1] - 2016-09-14
+### Changed
+- Snakemake now warns when using relative paths starting with "./".
+- The option -R now also accepts an empty list of arguments.
+- Bug fix when handling benchmark directive.
+- Jobscripts exit with code 1 in case of failure. This should improve the error messages of cluster system.
+- Fixed a bug in SFTP remote provider.
+
+
 ## [3.8.0] - 2016-08-26
 ### Added
 - Wildcards can now be constrained by rule and globally via the new `wildcard_constraints` directive (see the [docs](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-wildcards)).
