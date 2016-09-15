@@ -117,7 +117,8 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
-                    max_jobs_per_second=max_jobs_per_second)
+                    max_jobs_per_second=max_jobs_per_second,
+                    force_use_threads=use_threads)
                 if immediate_submit:
                     self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
@@ -135,7 +136,8 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
                     cluster_config=cluster_config,
-                    max_jobs_per_second=max_jobs_per_second)
+                    max_jobs_per_second=max_jobs_per_second,
+                    force_use_threads=use_threads)
         else:
             # local execution or execution of cluster job
             # calculate how many parallel workers the executor shall spawn

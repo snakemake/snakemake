@@ -269,7 +269,8 @@ class ClusterExecutor(RealExecutor):
                  benchmark_repeats=1,
                  cluster_config=None,
                  local_input=None,
-                 max_jobs_per_second=None):
+                 max_jobs_per_second=None,
+                 force_use_threads=False):
         local_input = local_input or []
         super().__init__(workflow, dag,
                          printreason=printreason,
@@ -306,6 +307,9 @@ class ClusterExecutor(RealExecutor):
 
         if printshellcmds:
             self.exec_job += " --printshellcmds "
+
+        if force_use_threads:
+            self.exec_job += " --force-use-threads "
 
         if not any(dag.dynamic_output_jobs):
             # disable restiction to target rule in case of dynamic rules!
@@ -436,7 +440,8 @@ class GenericClusterExecutor(ClusterExecutor):
                  printshellcmds=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 max_jobs_per_second=None):
+                 max_jobs_per_second=None,
+                 force_use_threads=False):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -445,7 +450,8 @@ class GenericClusterExecutor(ClusterExecutor):
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
-                         max_jobs_per_second=max_jobs_per_second)
+                         max_jobs_per_second=max_jobs_per_second,
+                         force_use_threads=force_use_threads)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
         self.exec_job += ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
@@ -543,7 +549,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                  printshellcmds=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 max_jobs_per_second=None):
+                 max_jobs_per_second=None,
+                 force_use_threads=False):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -552,7 +559,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
-                         max_jobs_per_second=max_jobs_per_second)
+                         max_jobs_per_second=max_jobs_per_second,
+                         force_use_threads=force_use_threads)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
 
@@ -629,7 +637,8 @@ class DRMAAExecutor(ClusterExecutor):
                  latency_wait=3,
                  benchmark_repeats=1,
                  cluster_config=None,
-                 max_jobs_per_second=None):
+                 max_jobs_per_second=None,
+                 force_use_threads=False):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -638,7 +647,8 @@ class DRMAAExecutor(ClusterExecutor):
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
-                         max_jobs_per_second=max_jobs_per_second)
+                         max_jobs_per_second=max_jobs_per_second,
+                         force_use_threads=force_use_threads)
         try:
             import drmaa
         except ImportError:
