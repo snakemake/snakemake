@@ -236,7 +236,8 @@ def snakemake(snakefile,
     else:
         cluster_config = dict()
 
-    use_threads = (os.name != "posix") or force_use_threads
+    # force thread use for any kind of cluster
+    use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa:
     if not keep_logger:
         setup_logger(handler=log_handler,
                      quiet=quiet,

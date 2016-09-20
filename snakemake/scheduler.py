@@ -61,9 +61,9 @@ class JobScheduler:
 
         self.resources = dict(self.workflow.global_resources)
 
-        # we should also use threads on a cluster, because shared memory /dev/shm may be full
+        # we should use threads on a cluster, because shared memory /dev/shm may be full
         # which prevents the multiprocessing.Lock() semaphore from being created
-        use_threads = (os.name != "posix") or (force_use_threads)
+        use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa:
         if not use_threads:
             self._open_jobs = multiprocessing.Event()
             self._lock = multiprocessing.Lock()
@@ -117,8 +117,7 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
-                    max_jobs_per_second=max_jobs_per_second,
-                    force_use_threads=use_threads)
+                    max_jobs_per_second=max_jobs_per_second)
                 if immediate_submit:
                     self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
@@ -136,8 +135,7 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
                     cluster_config=cluster_config,
-                    max_jobs_per_second=max_jobs_per_second,
-                    force_use_threads=use_threads)
+                    max_jobs_per_second=max_jobs_per_second)
         else:
             # local execution or execution of cluster job
             # calculate how many parallel workers the executor shall spawn
