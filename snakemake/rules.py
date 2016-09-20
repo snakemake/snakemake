@@ -1,5 +1,5 @@
-__author__ = "Johannes KÃ¶ster"
-__copyright__ = "Copyright 2015, Johannes KÃ¶ster"
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -13,7 +13,7 @@ from collections import defaultdict, Iterable
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
-from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException
+from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
 
 
