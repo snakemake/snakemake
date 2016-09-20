@@ -307,6 +307,9 @@ class ClusterExecutor(RealExecutor):
         if printshellcmds:
             self.exec_job += " --printshellcmds "
 
+        # force threading.Lock() for cluster jobs
+        self.exec_job += " --force-use-threads "
+
         if not any(dag.dynamic_output_jobs):
             # disable restiction to target rule in case of dynamic rules!
             self.exec_job += " --allowed-rules {job.rule.name} "
