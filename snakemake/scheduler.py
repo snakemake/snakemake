@@ -71,8 +71,6 @@ class JobScheduler:
             self._open_jobs = threading.Event()
             self._lock = threading.Lock()
 
-        print("self._lock", type(self._lock))
-
         self._errors = False
         self._finished = False
         self._job_queue = None
