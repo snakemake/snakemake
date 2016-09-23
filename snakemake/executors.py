@@ -451,6 +451,8 @@ class GenericClusterExecutor(ClusterExecutor):
                          max_jobs_per_second=max_jobs_per_second)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
+        # TODO wrap with watch and touch {jobrunning}
+        # check modification date of {jobrunning} in the wait_for_job method
         self.exec_job += ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
 
     def cancel(self):

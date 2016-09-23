@@ -279,6 +279,7 @@ class JobScheduler:
 
     def _error(self, job):
         """ Clear jobs and stop the workflow. """
+        # TODO count down number of retries in job. If not zero, reschedule instead of failing.
         with self._lock:
             self._errors = True
             self.running.remove(job)

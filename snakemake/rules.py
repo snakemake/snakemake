@@ -436,6 +436,7 @@ class Rule:
         return input, mapping, dependencies
 
     def expand_params(self, wildcards, input, resources):
+        # TODO add output
         def concretize_param(p, wildcards):
             if isinstance(p, str):
                 return apply_wildcards(p, wildcards)
