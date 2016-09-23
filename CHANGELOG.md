@@ -1,5 +1,10 @@
 # Change Log
 
+## [3.8.2] - 2016-09-23
+### Changed
+- Add missing import in rules.py.
+- Use threading only in cluster jobs.
+
 ## [3.8.1] - 2016-09-14
 ### Changed
 - Snakemake now warns when using relative paths starting with "./".
