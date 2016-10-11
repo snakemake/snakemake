@@ -145,7 +145,7 @@ class _IOFile(str):
     @property
     def mtime_local(self):
         # do not follow symlinks for modification time
-        return int(lstat(self.file).st_mtime)
+        return lstat(self.file).st_mtime
 
     @property
     def flags(self):
