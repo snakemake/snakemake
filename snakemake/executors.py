@@ -659,11 +659,12 @@ class DRMAAExecutor(ClusterExecutor):
 
     def cancel(self):
         from drmaa.const import JobControlAction
+        from drmaa.errors import InvalidJobException, InternalException
         for jobid in self.submitted:
             try:
                 self.session.control(jobid, JobControlAction.TERMINATE)
-            except drmaa.errors.InvalidJobException:
-                pass
+            except (InvalidJobException, InternalException):
+                logger.warning("DRMAA could not stop job {}".format(jobid))
         self.shutdown()
 
     def run(self, job,
