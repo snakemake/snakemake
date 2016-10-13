@@ -575,7 +575,7 @@ def glob_wildcards(pattern, files=None):
     pattern = re.compile(regex(pattern))
 
     if files is None:
-        files = ((os.path.join(dirpath, f) if dirpath != "." else f)
+        files = (os.path.normpath(os.path.join(dirpath, f))
                  for dirpath, dirnames, filenames in os.walk(dirname)
                  for f in chain(filenames, dirnames))
 
