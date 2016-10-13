@@ -664,7 +664,7 @@ class DRMAAExecutor(ClusterExecutor):
             try:
                 self.session.control(jobid, JobControlAction.TERMINATE)
             except (InvalidJobException, InternalException):
-                #This is common - logging a warning is liable to confuse the user.
+                #This is common - logging a warning would probably confuse the user.
                 pass
         self.shutdown()
 
