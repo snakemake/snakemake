@@ -83,6 +83,55 @@ class Snakemake:
         self.log = log
         self.config = config
 
+    def log_fmt_shell(self, stdout=True, stderr=True, append=False):
+        """
+        Return a shell redirection string to be used in `shell()` calls
+
+        This function allows scripts and wrappers support optional `log` files
+        specified in the calling rule.  If no `log` was specified, then an
+        empty string "" is returned, regardless of the values of `stdout`,
+        `stderr`, and `append`.
+
+        Parameters
+        ---------
+
+        stdout : bool
+            Send stdout to log
+
+        stderr : bool
+            Send stderr to log
+
+        append : bool
+            Do not overwrite the log file. Useful for sending output of
+            multiple commands to the same log. Note however that the log will
+            not be truncated at the start.
+
+        The following table describes the output:
+
+        -------- -------- -------- ----- -------------
+        stdout   stderr   append   log   return value
+        -------- -------- -------- ----- ------------
+        True     True     True     fn    >> fn 2>&1
+        True     False    True     fn    >> fn
+        False    True     True     fn    2>> fn
+        True     True     False    fn    > fn 2>&1
+        True     False    False    fn    > fn
+        False    True     False    fn    2> fn
+        any      any      any      None  ""
+        -------- -------- -------- ----- -----------
+        """
+        if not self.log:
+            return ""
+        lookup = {
+            (True, True, True): " >> {0} 2>&1",
+            (True, False, True): " >> {0}",
+            (False, True, True): " 2>> {0}",
+            (True, True, False): " > {0} 2>&1",
+            (True, False, False): " > {0}",
+            (False, True, False): " 2> {0}",
+        }
+        return lookup[(stdout, stderr, append)].format(self.log)
+
 
 def script(basedir, path, input, output, params, wildcards, threads, resources,
            log, config):

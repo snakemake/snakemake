@@ -43,7 +43,8 @@ class JobScheduler:
                  max_jobs_per_second=None,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 greediness=1.0):
+                 greediness=1.0,
+                 force_use_threads=False):
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.cluster_config = cluster_config
@@ -60,13 +61,16 @@ class JobScheduler:
 
         self.resources = dict(self.workflow.global_resources)
 
-        use_threads = os.name != "posix"
+        # we should use threads on a cluster, because shared memory /dev/shm may be full
+        # which prevents the multiprocessing.Lock() semaphore from being created
+        use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
         if not use_threads:
             self._open_jobs = multiprocessing.Event()
             self._lock = multiprocessing.Lock()
         else:
             self._open_jobs = threading.Event()
             self._lock = threading.Lock()
+
         self._errors = False
         self._finished = False
         self._job_queue = None
@@ -275,6 +279,7 @@ class JobScheduler:
 
     def _error(self, job):
         """ Clear jobs and stop the workflow. """
+        # TODO count down number of retries in job. If not zero, reschedule instead of failing.
         with self._lock:
             self._errors = True
             self.running.remove(job)
@@ -350,7 +355,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 for name in self.workflow.global_resources]
 
     def job_weight(self, job):
-        res = job.resources_dict
+        res = job.resources
         return [self.calc_resource(name, res.get(name, 0))
                 for name in self.workflow.global_resources]
 

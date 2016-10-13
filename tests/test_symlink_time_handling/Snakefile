@@ -28,12 +28,17 @@
 
 import os
 
-shell("touch -d '65 minutes ago' input_file")
+import time
+def timestr(hr_delta=0):
+    return time.strftime("%Y%m%d%H%M",
+                         time.localtime(time.time() - (hr_delta * 3600)))
+
+shell("touch -t {} input_file".format(timestr(1)))
 shell("ln -s input_file input_link")
-shell("touch -h -d '245 minutes ago' input_link")
+shell("touch -h -t {} input_link".format(timestr(4)))
 
 shell("ln -s input_link output_link")
-shell("touch -h -d '125 minutes ago' output_link")
+shell("touch -h -t {} output_link".format(timestr(2)))
 
 shell("ls -lR > /dev/stderr")
 
@@ -60,4 +65,4 @@ rule make_output:
         #shell("rm -f {output}") - no longer necessary
         shell("ln -s {input} {output}")
         #This next command should be undone by Snakemake which now touches all outpout
-        shell("touch -h -d '8 hours ago' {output}")
+        shell("touch -h -t 201604011600 {output}")

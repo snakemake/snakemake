@@ -1,0 +1,9 @@
+image: continuumio/anaconda
+pipelines:
+  default:
+    - step:
+        script:
+          - conda update -y conda conda-env
+          - conda env create --file environment.yml --name snakemake
+          - source activate snakemake
+          - python setup.py nosetests

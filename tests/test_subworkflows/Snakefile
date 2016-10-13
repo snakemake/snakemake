@@ -2,6 +2,7 @@ import os.path
 
 subworkflow test02:
     workdir: config["subworkdir"]
+    configfile: "subconfig.yaml" # test optional config files
 
 rule:
     input: "test.out"

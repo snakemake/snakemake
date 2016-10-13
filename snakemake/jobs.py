@@ -38,21 +38,14 @@ class Job:
         self._format_wildcards = (self.wildcards if format_wildcards is None
                                   else Wildcards(fromdict=format_wildcards))
 
-        (self.input, self.output, self.params, self.log, self.benchmark,
-         self.ruleio,
-         self.dependencies) = rule.expand_wildcards(self.wildcards_dict)
+        self.input, input_mapping, self.dependencies = self.rule.expand_input(self.wildcards_dict)
+        self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
+        # other properties are lazy to be able to use additional parameters and check already existing files
+        self._params = None
+        self._log = None
+        self._benchmark = None
+        self._resources = None
 
-        self.resources_dict = {}
-        for name, res in rule.resources.items():
-            if callable(res):
-                res = res(self.wildcards)
-                if not isinstance(res, int):
-                    raise ValueError("Callable for resources must return int")
-            self.resources_dict[name] = min(
-                self.rule.workflow.global_resources.get(name, res), res)
-
-        self.threads = self.resources_dict["_cores"]
-        self.resources = Resources(fromdict=self.resources_dict)
         self.shadow_dir = None
         self._inputsize = None
 
@@ -61,7 +54,7 @@ class Job:
         self.touch_output = set()
         self.subworkflow_input = dict()
         for f in self.output:
-            f_ = self.ruleio[f]
+            f_ = output_mapping[f]
             if f_ in self.rule.dynamic_output:
                 self.dynamic_output.add(f)
             if f_ in self.rule.temp_output:
@@ -71,7 +64,7 @@ class Job:
             if f_ in self.rule.touch_output:
                 self.touch_output.add(f)
         for f in self.input:
-            f_ = self.ruleio[f]
+            f_ = input_mapping[f]
             if f_ in self.rule.dynamic_input:
                 self.dynamic_input.add(f)
             if f_ in self.rule.subworkflow_input:
@@ -80,6 +73,45 @@ class Job:
         if True or not self.dynamic_output:
             for o in self.output:
                 self._hash ^= o.__hash__()
+
+    def is_valid(self):
+        """Check if job is valid"""
+        # these properties have to work in dry-run as well. Hence we check them here:
+        resources = self.rule.expand_resources(self.wildcards_dict, self.input)
+        self.rule.expand_params(self.wildcards_dict, self.input, resources)
+        self.rule.expand_benchmark(self.wildcards_dict)
+        self.rule.expand_log(self.wildcards_dict)
+
+    @property
+    def threads(self):
+        return self.resources._cores
+
+    @property
+    def params(self):
+        if self._params is None:
+            self._params = self.rule.expand_params(self.wildcards_dict,
+                                                   self.input,
+                                                   self.resources)
+        return self._params
+
+    @property
+    def log(self):
+        if self._log is None:
+            self._log = self.rule.expand_log(self.wildcards_dict)
+        return self._log
+
+    @property
+    def benchmark(self):
+        if self._benchmark is None:
+            self._benchmark = self.rule.expand_benchmark(self.wildcards_dict)
+        return self._benchmark
+
+    @property
+    def resources(self):
+        if self._resources is None:
+            self._resources = self.rule.expand_resources(self.wildcards_dict,
+                                                         self.input)
+        return self._resources
 
     @property
     def is_shadow(self):
@@ -145,16 +177,13 @@ class Job:
             else:
                 yield f
 
-    @property
-    def expanded_shadowed_output(self):
-        """ Get the paths of output files, resolving shadow directory. """
+    def shadowed_path(self, f):
+        """ Get the shadowed path of IOFile f. """
         if not self.shadow_dir:
-            yield from self.expanded_output
-        else:
-            for f in self.expanded_output:
-                file_to_yield = IOFile(os.path.join(self.shadow_dir, f), self.rule)
-                file_to_yield.clone_flags(f)
-                yield file_to_yield
+            return f
+        f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
+        f_.clone_flags(f)
+        return f_
 
     @property
     def dynamic_wildcards(self):
@@ -412,6 +441,12 @@ class Job:
                     relative_source = os.path.relpath(source)
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
+
+
+    def close_remote(self):
+        for f in (self.input + self.output):
+            if f.is_remote:
+                f.remote_object.close()
 
     def cleanup(self):
         """ Cleanup output files. """

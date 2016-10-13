@@ -9,7 +9,8 @@ import time
 import sys
 import os
 import json
-from multiprocessing import Lock
+import multiprocessing
+import threading
 import tempfile
 from functools import partial
 
@@ -17,7 +18,7 @@ from snakemake.common import DYNAMIC_FILL
 
 
 class ColorizingStreamHandler(_logging.StreamHandler):
-    _output_lock = Lock()
+   
 
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
     RESET_SEQ = "\033[0m"
@@ -32,8 +33,14 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         'ERROR': RED
     }
 
-    def __init__(self, nocolor=False, stream=sys.stderr, timestamp=False):
+    def __init__(self, nocolor=False, stream=sys.stderr, timestamp=False, use_threads=False):
         super().__init__(stream=stream)
+
+        if not use_threads:
+            self._output_lock = multiprocessing.Lock()
+        else:
+            self._output_lock = threading.Lock()
+
         self.nocolor = nocolor or not self.can_color_tty
         self.timestamp = timestamp
 
@@ -180,6 +187,8 @@ class Logger:
                     yield fmt
 
             singleitems = ["benchmark"]
+            if self.printreason:
+                singleitems.append("reason")
             for item in singleitems:
                 fmt = format_item(item, omit=None)
                 if fmt != None:
@@ -198,9 +207,6 @@ class Logger:
             if resources:
                 yield "\tresources: " + resources
 
-            if self.printreason:
-                singleitems.append("reason")
-
         level = msg["level"]
         if level == "info":
             self.logger.warning(msg["msg"])
@@ -217,8 +223,10 @@ class Logger:
         elif level == "progress" and not self.quiet:
             done = msg["done"]
             total = msg["total"]
-            self.logger.info("{} of {} steps ({:.0%}) done".format(
-                done, total, done / total))
+            p = done / total
+            percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
+            self.logger.info("{} of {} steps ({}) done".format(
+                done, total, percent_fmt))
         elif level == "job_info":
             if not self.quiet:
                 if msg["msg"] is not None:
@@ -263,7 +271,8 @@ def setup_logger(handler=None,
                  nocolor=False,
                  stdout=False,
                  debug=False,
-                 timestamp=False):
+                 timestamp=False,
+                 use_threads=False):
     logger.setup()
     if handler is not None:
         # custom log handler
@@ -273,7 +282,8 @@ def setup_logger(handler=None,
         stream_handler = ColorizingStreamHandler(
             nocolor=nocolor,
             stream=sys.stdout if stdout else sys.stderr,
-            timestamp=timestamp)
+            timestamp=timestamp,
+            use_threads=use_threads)
         logger.set_stream_handler(stream_handler)
 
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)

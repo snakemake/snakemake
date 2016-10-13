@@ -256,6 +256,13 @@ class Ruleorder(GlobalKeywordState):
             self.error('Expected a descending order of rule names, '
                        'e.g. rule1 > rule2 > rule3 ...', token)
 
+
+class GlobalWildcardConstraints(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "global_wildcard_constraints"
+
+
 # subworkflows
 
 
@@ -267,10 +274,15 @@ class SubworkflowWorkdir(SubworkflowKeywordState):
     pass
 
 
+class SubworkflowConfigfile(SubworkflowKeywordState):
+    pass
+
+
 class Subworkflow(GlobalKeywordState):
 
     subautomata = dict(snakefile=SubworkflowSnakefile,
-                       workdir=SubworkflowWorkdir)
+                       workdir=SubworkflowWorkdir,
+                       configfile=SubworkflowConfigfile)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,
@@ -384,6 +396,13 @@ class Message(RuleKeywordState):
 
 class Benchmark(RuleKeywordState):
     pass
+
+
+class WildcardConstraints(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "wildcard_constraints"
+
 
 
 class Run(RuleKeywordState):
@@ -541,6 +560,7 @@ class Rule(GlobalKeywordState):
                        log=Log,
                        message=Message,
                        benchmark=Benchmark,
+                       wildcard_constraints=WildcardConstraints,
                        shadow=Shadow,
                        run=Run,
                        shell=Shell,
@@ -649,7 +669,8 @@ class Python(TokenAutomaton):
                        localrules=Localrules,
                        onsuccess=OnSuccess,
                        onerror=OnError,
-                       onstart=OnStart)
+                       onstart=OnStart,
+                       wildcard_constraints=GlobalWildcardConstraints)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,

@@ -9,6 +9,7 @@ import re
 import stat
 import time
 import json
+import copy
 import functools
 from itertools import product, chain
 from collections import Iterable, namedtuple
@@ -90,8 +91,9 @@ class _IOFile(str):
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
-        if get_flag_value(self._file, "remote_object").file != self._file:
-            get_flag_value(self._file, "remote_object")._iofile = self
+        remote_object = get_flag_value(self._file, "remote_object")
+        if remote_object._file != self._file:
+            remote_object._iofile = self
 
     @property
     def should_keep_local(self):
@@ -110,6 +112,13 @@ class _IOFile(str):
         else:
             raise ValueError("This IOFile is specified as a function and "
                              "may not be used directly.")
+
+    def check(self):
+        if self._file.startswith("./"):
+            logger.warning("File path {} starts with './'. This is redundant "
+                           "and strongly discouraged. It can also lead to "
+                           "inconsistent results of the file-matching approach "
+                           "used by Snakemake.".format(self._file))
 
     @property
     @_refer_to_remote
@@ -136,7 +145,7 @@ class _IOFile(str):
     @property
     def mtime_local(self):
         # do not follow symlinks for modification time
-        return int(lstat(self.file).st_mtime)
+        return lstat(self.file).st_mtime
 
     @property
     def flags(self):
@@ -282,7 +291,10 @@ class _IOFile(str):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
         if isinstance(other._file, AnnotatedString):
-            self._file.flags = getattr(other._file, "flags", {})
+            self._file.flags = getattr(other._file, "flags", {}).copy()
+            if "remote_object" in self._file.flags:
+                self._file.flags['remote_object'] = copy.copy(
+                    self._file.flags['remote_object'])
 
     def set_flags(self, flags):
         if isinstance(self._file, str):
@@ -298,9 +310,19 @@ class _IOFile(str):
 
 
 _wildcard_regex = re.compile(
-    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>([^\{\}]+|\{\d+(,\d+)?\})*))?\s*\}")
-
-#    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
+    r"""
+    \{
+        (?=(   # This lookahead assertion emulates an 'atomic group'
+               # which is required for performance
+            \s*(?P<name>\w+)                    # wildcard name
+            (\s*,\s*
+                (?P<constraint>                 # an optional constraint
+                    ([^{}]+ | \{\d+(,\d+)?\})*  # allow curly braces to nest one level
+                )                               # ...  as in '{w,a{3,5}}'
+            )?\s*
+        ))\1
+    \}
+    """, re.VERBOSE)
 
 
 def wait_for_files(files, latency_wait=3):
@@ -326,6 +348,10 @@ def get_wildcard_names(pattern):
 
 def contains_wildcard(path):
     return _wildcard_regex.search(path) is not None
+
+
+def contains_wildcard_constraints(pattern):
+    return any(match.group('constraint') for match in _wildcard_regex.finditer(pattern))
 
 
 def remove(file, remove_non_empty_dir=False):
@@ -356,9 +382,8 @@ def regex(filepattern):
         if wildcard in wildcards:
             if match.group("constraint"):
                 raise ValueError(
-                    "If multiple wildcards of the same name "
-                    "appear in a string, eventual constraints have to be defined "
-                    "at the first occurence and will be inherited by the others.")
+                    "Constraint regex must be defined only in the first "
+                    "occurence of the wildcard in a string.")
             f.append("(?P={})".format(wildcard))
         else:
             wildcards.add(wildcard)
@@ -392,6 +417,9 @@ def apply_wildcards(pattern,
                 raise WildcardError(str(ex))
 
     return re.sub(_wildcard_regex, format_match, pattern)
+
+
+
 
 
 def not_iterable(value):
@@ -559,6 +587,39 @@ def glob_wildcards(pattern, files=None):
     return wildcards
 
 
+def update_wildcard_constraints(pattern,
+                                wildcard_constraints,
+                                global_wildcard_constraints):
+    """Update wildcard constraints
+
+    Args:
+      pattern (str): pattern on which to update constraints
+      wildcard_constraints (dict): dictionary of wildcard:constraint key-value pairs
+      global_wildcard_constraints (dict): dictionary of wildcard:constraint key-value pairs
+    """
+    def replace_constraint(match):
+        name = match.group("name")
+        constraint = match.group("constraint")
+        newconstraint = wildcard_constraints.get(name, global_wildcard_constraints.get(name))
+        if name in examined_names:
+            return match.group(0)
+        examined_names.add(name)
+        # Don't override if constraint already set
+        if not constraint is None:
+            if name in wildcard_constraints:
+                raise ValueError("Wildcard {} is constrained by both the rule and the file pattern. Consider removing one of the constraints.")
+            return match.group(0)
+        # Only update if a new constraint has actually been set
+        elif not newconstraint is None:
+            return "{{{},{}}}".format(name, newconstraint)
+        else:
+            return match.group(0)
+
+    examined_names = set()
+    return re.sub(_wildcard_regex, replace_constraint, pattern)
+
+
+
 # TODO rewrite Namedlist!
 class Namedlist(list):
     """
@@ -660,6 +721,9 @@ class Namedlist(list):
 
     def plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)
+
+    def get(self, key, default_value=None):
+        return self.__dict__.get(key, default_value)
 
     def __getitem__(self, key):
         try:
