@@ -68,6 +68,7 @@ class Workflow:
         self.overwrite_configfile = overwrite_configfile
         self.overwrite_clusterconfig = overwrite_clusterconfig
         self.config_args = config_args
+        self.immediate_submit = None
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
@@ -222,6 +223,7 @@ class Workflow:
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
+        self.immediate_submit = immediate_submit
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
@@ -429,7 +431,6 @@ class Workflow:
                                  cluster_sync=cluster_sync,
                                  jobname=jobname,
                                  max_jobs_per_second=max_jobs_per_second,
-                                 immediate_submit=immediate_submit,
                                  quiet=quiet,
                                  keepgoing=keepgoing,
                                  drmaa=drmaa,
