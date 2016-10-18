@@ -416,8 +416,17 @@ class Job:
             dir=self.rule.workflow.persistence.shadow_path)
         cwd = os.getcwd()
 
-        if self.rule.shadow_depth == "empty":
-            pass # Empty means that no files should be symlinked
+        if self.rule.shadow_depth == "minimal":
+            # Only symlink files which are input or output of the rule
+            # (and only link to top level)
+            for f in [item for sublist in [self.input,self.output,self.log,[self.benchmark]] if sublist is not None for item in sublist]:
+                print(f)
+                # Only link to relative paths below cwd
+                if not os.path.isabs(f):
+                    to_link=f.split(os.path.sep)[0]
+                    if not to_link=="..":
+                        link = os.path.join(self.shadow_dir, to_link)
+                        os.symlink(os.path.abspath(to_link), link)
 
         # Shallow simply symlink everything in the working directory.
         elif self.rule.shadow_depth == "shallow":

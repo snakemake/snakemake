@@ -586,9 +586,9 @@ class Workflow:
                                         rule=rule)
                 rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.shadow_depth:
-                if ruleinfo.shadow_depth not in (True, "shallow", "full", "empty"):
+                if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
                     raise RuleException(
-                        "Shadow must either be 'shallow', 'full', 'empty',"
+                        "Shadow must either be 'shallow', 'full', 'minimal', "
                         "or True (equivalent to 'full')", rule=rule)
                 if ruleinfo.shadow_depth is True:
                     rule.shadow_depth = 'full'
