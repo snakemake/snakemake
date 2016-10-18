@@ -426,18 +426,19 @@ class Job:
             print(self.log)
             print("end log\n")
             print(self.params)
-            print("end log\n")
+            print("end params\n")
             for f in set([item for sublist in [self.input,self.output,self.log,self.params] if sublist is not None for item in sublist]):
                 print(f)
                 # Only link to relative paths below cwd
                 if not os.path.isabs(f):
                     to_link=f.split(os.path.sep)[0]
                     if not to_link=="..":
-                        link = os.path.join(self.shadow_dir, to_link)
+                        link=os.path.join(self.shadow_dir, to_link)
+                        original=os.path.abspath(to_link)
                         # Since only the top level is linked it could be that it
                         # already exists
-                        if not os.path.exists(link):
-                            os.symlink(os.path.abspath(to_link), link)
+                        if not os.path.exists(link) and os.path.exists(original):
+                            os.symlink(original, link)
 
         # Shallow simply symlink everything in the working directory.
         elif self.rule.shadow_depth == "shallow":
