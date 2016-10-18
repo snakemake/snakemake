@@ -244,7 +244,7 @@ def snakemake(snakefile,
                      printreason=printreason,
                      printshellcmds=printshellcmds,
                      nocolor=nocolor,
-                     stdout=dryrun,
+                     stdout=dryrun and not (printdag or printd3dag or printrulegraph),
                      debug=verbose,
                      timestamp=timestamp,
                      use_threads=use_threads)
