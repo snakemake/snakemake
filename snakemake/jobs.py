@@ -415,8 +415,12 @@ class Job:
         self.shadow_dir = tempfile.mkdtemp(
             dir=self.rule.workflow.persistence.shadow_path)
         cwd = os.getcwd()
+
+        if self.rule.shadow_depth == "empty":
+            pass # Empty means that no files should be symlinked
+
         # Shallow simply symlink everything in the working directory.
-        if self.rule.shadow_depth == "shallow":
+        elif self.rule.shadow_depth == "shallow":
             for source in os.listdir(cwd):
                 link = os.path.join(self.shadow_dir, source)
                 os.symlink(os.path.abspath(source), link)
