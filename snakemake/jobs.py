@@ -419,7 +419,7 @@ class Job:
         if self.rule.shadow_depth == "minimal":
             # Only symlink files which are input or output of the rule
             # (and only link to top level)
-            for f in [item for sublist in [self.input,self.output,self.log,[self.benchmark]] if sublist is not None for item in sublist]:
+            for f in set([item for sublist in [self.input,self.output,self.log,[self.benchmark]] if sublist is not None for item in sublist]):
                 print(f)
                 # Only link to relative paths below cwd
                 if not os.path.isabs(f):
