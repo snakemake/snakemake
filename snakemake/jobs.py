@@ -420,13 +420,13 @@ class Job:
             # Only symlink files which are input or output of the rule
             # (and only link to top level)
             print(self.input)
-            print("\n")
+            print("end input\n")
             print(self.output)
-            print("\n")
+            print("end output\n")
             print(self.log)
-            print("\n")
+            print("end log\n")
             print(self.benchmark)
-            print("\n")
+            print("end benchmark\n")
             for f in set([item for sublist in [self.input,self.output,self.log,[self.benchmark]] if sublist is not None for item in sublist]):
                 print(f)
                 # Only link to relative paths below cwd
@@ -434,7 +434,10 @@ class Job:
                     to_link=f.split(os.path.sep)[0]
                     if not to_link=="..":
                         link = os.path.join(self.shadow_dir, to_link)
-                        os.symlink(os.path.abspath(to_link), link)
+                        # Since only the top level is linked it could be that it
+                        # already exists
+                        if not os.path.exists(link):
+                            os.symlink(os.path.abspath(to_link), link)
 
         # Shallow simply symlink everything in the working directory.
         elif self.rule.shadow_depth == "shallow":
