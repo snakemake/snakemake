@@ -425,8 +425,6 @@ class Job:
             print("end output\n")
             print(self.log)
             print("end log\n")
-            print(self.benchmark)
-            print("end benchmark\n")
             for f in set([item for sublist in [self.input,self.output,self.log,[self.benchmark]] if sublist is not None for item in sublist]):
                 print(f)
                 # Only link to relative paths below cwd
