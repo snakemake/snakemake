@@ -88,6 +88,11 @@ class _IOFile(str):
     def is_remote(self):
         return is_flagged(self._file, "remote_object")
 
+    #RASMUS
+    @property
+    def is_ancient(self):
+        return is_flagged(self._file, "ancient")
+
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
@@ -168,11 +173,14 @@ class _IOFile(str):
             raise WorkflowError("File {} seems to be a broken symlink.".format(
                 self.file))
 
+    #RASMUS: Is this only for remote?
     @_refer_to_remote
     def is_newer(self, time):
         """ Returns true of the file is newer than time, or if it is
             a symlink that points to a file newer than time. """
-        if self.is_remote:
+        if self.is_ancient:
+            return False
+        elif self.is_remote:
             #If file is remote but provider does not override the implementation this
             #is the best we can do.
             return self.mtime > time
@@ -457,6 +465,16 @@ def get_flag_value(value, flag_type):
             return value.flags[flag_type]
         else:
             return None
+
+#RASMUS
+def ancient(value):
+    """
+    A flag for an input file that shall be considered ancient; i.e. its timestamp shall have no effect on the DAG generation.
+    """
+    if is_flagged(value, "remote"):
+        raise SyntaxError(
+            "Ancient and remote flags are mutually exclusive.")
+    return flag(value, "ancient")
 
 
 def temp(value):
