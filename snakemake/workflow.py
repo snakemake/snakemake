@@ -23,7 +23,6 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-#RASMUS
 from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config

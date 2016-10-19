@@ -88,7 +88,6 @@ class _IOFile(str):
     def is_remote(self):
         return is_flagged(self._file, "remote_object")
 
-    #RASMUS
     @property
     def is_ancient(self):
         return is_flagged(self._file, "ancient")
@@ -173,7 +172,6 @@ class _IOFile(str):
             raise WorkflowError("File {} seems to be a broken symlink.".format(
                 self.file))
 
-    #RASMUS: Is this only for remote?
     @_refer_to_remote
     def is_newer(self, time):
         """ Returns true of the file is newer than time, or if it is
@@ -466,10 +464,9 @@ def get_flag_value(value, flag_type):
         else:
             return None
 
-#RASMUS
 def ancient(value):
     """
-    A flag for an input file that shall be considered ancient; i.e. its timestamp shall have no effect on the DAG generation.
+    A flag for an input file that shall be considered ancient; i.e. its timestamp shall have no effect on which jobs to run.
     """
     if is_flagged(value, "remote"):
         raise SyntaxError(

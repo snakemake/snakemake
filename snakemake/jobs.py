@@ -49,7 +49,6 @@ class Job:
         self.shadow_dir = None
         self._inputsize = None
 
-        #RASMUS
         self.dynamic_output, self.dynamic_input, self.ancient_input = set(), set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
@@ -254,7 +253,6 @@ class Job:
             return min(existing)
         return None
 
-    #RASMUS: Change here?
     @property
     def input_maxtime(self):
         """ Return newest input file. """
