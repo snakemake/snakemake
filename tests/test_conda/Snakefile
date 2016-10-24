@@ -1,6 +1,10 @@
+rule all:
+    input:
+        expand("test{i}.out", i=range(3))
+
 rule a:
     output:
-        "test.out"
+        "test{i}.out"
     conda:
         "envs/samtools.yaml"
     shell:

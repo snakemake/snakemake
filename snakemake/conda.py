@@ -3,6 +3,7 @@ import subprocess
 import tempfile
 from urllib.request import urlopen
 import hashlib
+import shutil
 
 from snakemake.exceptions import CreateCondaEnvironmentException
 from snakemake.logging import logger
@@ -10,9 +11,11 @@ from snakemake.logging import logger
 
 def create_env(job):
     """ Create conda enviroment for the given job. """
+    if shutil.which("conda") is None:
+        raise CreateCondaEnvironmentException("The 'conda' command is not available in $PATH.")
+
     md5hash = hashlib.md5()
     env_file = job.conda_env_file
-    print(os.path.abspath(env_file))
     if os.path.exists(env_file):
         with open(env_file, 'rb') as f:
             md5hash.update(f.read())
@@ -27,14 +30,16 @@ def create_env(job):
     if not os.path.exists(env_path):
         logger.info("Creating conda environment for {}...".format(job.conda_env_file))
         try:
-            subprocess.run(["conda", "env", "create",
+            out = subprocess.check_output(["conda", "env", "create",
                                            "--file", env_file,
                                            "--prefix", env_path],
-                                           stdout=subprocess.PIPE,
                                            stderr=subprocess.STDOUT)
+            logger.debug(out)
             logger.info("Environment for {} created.".format(job.conda_env_file))
         except subprocess.CalledProcessError as e:
-            raise CreateEnvironmentException(
+            # remove potential partially installed environment
+            shutil.rmtree(env_path, ignore_errors=True)
+            raise CreateCondaEnvironmentException(
                 "Could not create conda environment from {}:\n".format(job.conda_env_file) +
                 e.output.decode())
 

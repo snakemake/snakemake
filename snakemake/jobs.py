@@ -120,6 +120,10 @@ class Job:
 
     @property
     def conda_env_file(self):
+        if not self.rule.workflow.use_conda:
+            # if use_conda is False, ignore conda_env_file definition
+            return None
+
         if self._conda_env_file is None:
             self._conda_env_file = self.rule.expand_conda_env(self.wildcards_dict)
         return self._conda_env_file

@@ -41,7 +41,8 @@ class Workflow:
                  overwrite_configfile=None,
                  overwrite_clusterconfig=dict(),
                  config_args=None,
-                 debug=False):
+                 debug=False,
+                 use_conda=False):
         """
         Create the controller.
         """
@@ -75,6 +76,7 @@ class Workflow:
         self._wildcard_constraints = dict()
         self.debug = debug
         self._rulecount = 0
+        self.use_conda = use_conda
 
         global config
         config = dict()
