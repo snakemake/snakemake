@@ -55,8 +55,8 @@ class shell:
 
         close_fds = sys.platform != 'win32'
 
-        environment = context.get("environment", None)
-        env_prefix = "" if environment is None else "source activate {};".format(environment)
+        conda_env = context.get("conda_env", None)
+        env_prefix = "" if conda_env is None else "source activate {};".format(conda_env)
 
         proc = sp.Popen("{} {} {} {}".format(
                             env_prefix,

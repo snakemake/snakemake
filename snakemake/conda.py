@@ -1,56 +1,45 @@
 import os
-import shutil
 import subprocess
-import json
 import tempfile
 from urllib.request import urlopen
+import hashlib
 
 from snakemake.exceptions import CreateCondaEnvironmentException
 from snakemake.logging import logger
 
 
-class CondaEnvironments:
+def create_env(job):
+    """ Create conda enviroment for the given job. """
+    md5hash = hashlib.md5()
+    env_file = job.conda_env_file
+    print(os.path.abspath(env_file))
+    if os.path.exists(env_file):
+        with open(env_file, 'rb') as f:
+            md5hash.update(f.read())
+    else:
+        content = urlopen(env_file).read()
+        md5hash.update(content)
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(content)
+            env_file = tmp.name
 
-    def __init__(self):
-        self.path = os.path.abspath(".conda")
-        os.makedirs(self.path, exist_ok=True)
-        self.environments = dict()
+    env_path = os.path.join(job.rule.workflow.persistence.conda_env_path, md5hash.hexdigest())
+    if not os.path.exists(env_path):
+        logger.info("Creating conda environment for {}...".format(job.conda_env_file))
+        try:
+            subprocess.run(["conda", "env", "create",
+                                           "--file", env_file,
+                                           "--prefix", env_path],
+                                           stdout=subprocess.PIPE,
+                                           stderr=subprocess.STDOUT)
+            logger.info("Environment for {} created.".format(job.conda_env_file))
+        except subprocess.CalledProcessError as e:
+            raise CreateEnvironmentException(
+                "Could not create conda environment from {}:\n".format(job.conda_env_file) +
+                e.output.decode())
 
-    def register(self, env_file):
-        self.environments[env_file] = os.path.join(tempfile.mkdtemp(dir=self.path), "env")
+    if env_file != job.conda_env_file:
+        # temporary file was created
+        os.remove(env_file)
 
-    def cleanup(self):
-        for _, envdir in self.environments.items():
-            shutil.rmtree(os.path.dirname(envdir), ignore_errors=True)
-
-    def create(self, env_file):
-        """Create conda environment if specified."""
-        if env_file not in self.environments:
-            self.register(env_file)
-            env = self[env_file]
-            temp_env_file = None
-            logger.info("Creating conda environment for {}...".format(env_file))
-            os.makedirs(os.path.dirname(env), exist_ok=True)
-            try:
-                remote = urlopen(env_file)
-                with tempfile.NamedTemporaryFile(delete=False) as temp_env_file:
-                    temp_env_file.write(remote.read())
-                    _env_file = temp_env_file.name
-            except ValueError:
-                # no download necessary
-                _env_file = env_file
-            try:
-                out = subprocess.check_output(["conda", "env", "create",
-                                               "--file", _env_file,
-                                               "--prefix", env],
-                                               stderr=subprocess.STDOUT)
-                logger.info("Environment for {} created.".format(env_file))
-            except subprocess.CalledProcessError as e:
-                raise CreateEnvironmentException(
-                    "Could not create conda environment from {}:\n".format(env_file) +
-                    e.output.decode())
-            if temp_env_file is not None:
-                os.remove(_env_file)
-
-    def __getitem__(self, env_file):
-        return self.environments[env_file]
+    return env_path

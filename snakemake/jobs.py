@@ -21,6 +21,7 @@ from snakemake.exceptions import RuleException, ProtectedOutputException, Workfl
 from snakemake.exceptions import UnexpectedOutputException, CreateCondaEnvironmentException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
+from snakemake import conda
 
 
 def jobfiles(jobs, type):
@@ -48,6 +49,7 @@ class Job:
         self._benchmark = None
         self._resources = None
         self._conda_env_file = None
+        self._conda_env = None
 
         self.shadow_dir = None
         self._inputsize = None
@@ -138,7 +140,9 @@ class Job:
     @property
     def conda_env(self):
         if self.conda_env_file is not None:
-            return self.rule.workflow.conda_envs[self.conda_env_file]
+            if self._conda_env is None:
+                raise ValueError("create_conda_env() must be called before calling conda_env")
+            return self._conda_env
         return None
 
     @property
@@ -459,9 +463,9 @@ class Job:
 
     def create_conda_env(self):
         """Create conda environment if specified."""
-        if self.conda_env:
+        if self.conda_env_file:
             try:
-                self.rule.workflow.conda_envs.create(self.conda_env)
+                self._conda_env = conda.create_env(self)
             except CreateCondaEnvironmentException as e:
                 raise WorkflowError(e, rule=self.rule)
 

@@ -29,7 +29,6 @@ from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.wrapper import wrapper
 import snakemake.wrapper
-from snakemake.conda import CondaEnvironments
 
 class Workflow:
     def __init__(self,
@@ -76,7 +75,6 @@ class Workflow:
         self._wildcard_constraints = dict()
         self.debug = debug
         self._rulecount = 0
-        self.conda_envs = CondaEnvironments()
 
         global config
         config = dict()
@@ -481,8 +479,6 @@ class Workflow:
                 scheduler.stats.to_json(stats)
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
-                # remove created environments
-                self.conda_envs.cleanup()
             return True
         else:
             if not dryrun and not no_hooks:

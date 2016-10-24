@@ -4,4 +4,4 @@ rule a:
     conda:
         "envs/samtools.yaml"
     shell:
-        "samtools --help > {output}"
+        "samtools view -h 2> {output} || true"

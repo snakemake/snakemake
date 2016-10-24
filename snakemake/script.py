@@ -159,11 +159,13 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                                       threads, resources, log, config)
                 snakemake = pickle.dumps(snakemake)
                 preamble = textwrap.dedent("""
-                import pickle
-                snakemake = pickle.loads({})
+                ######## Snakemake header ########
+                import pickle; snakemake = pickle.loads({})
+                ######## Original script #########
                 """).format(snakemake)
             elif path.endswith(".R"):
                 preamble = textwrap.dedent("""
+                ######## Snakemake header ########
                 library(methods)
                 Snakemake <- setClass(
                     "Snakemake",
@@ -188,6 +190,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                     resources = {},
                     config = {}
                 )
+                ######## Original script #########
                 """).format(REncoder.encode_namedlist(input),
                            REncoder.encode_namedlist(output),
                            REncoder.encode_namedlist(params),
