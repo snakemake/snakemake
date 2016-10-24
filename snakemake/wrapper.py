@@ -15,28 +15,29 @@ def is_script(path):
 
 def get_path(path):
     if not (path.startswith("http") or path.startswith("file:")):
-        path = os.path.join("https://bitbucket.org/snakemake/snakemake-wrappers/raw", path)
+        path = "https://bitbucket.org/snakemake/snakemake-wrappers/raw/" + path
     return path
 
 
 def get_script(path):
     path = get_path(path)
     if not is_script(path):
-        path = os.path.join(path, "wrapper.py")
+        path += "/wrapper.py"
     return path
 
 
 def get_conda_env(path):
     path = get_path(path)
     if is_script(path):
+        # TODO rather use dirname equivalent for urls
         path = os.path.dirname(path)
-    return os.path.join(path, "environment.yaml")
+    return path + "environment.yaml"
 
 
-def wrapper(path, input, output, params, wildcards, threads, resources, log, config, environment):
+def wrapper(path, input, output, params, wildcards, threads, resources, log, config, conda_env):
     """
     Load a wrapper from https://bitbucket.org/snakemake/snakemake-wrappers under
     the given path + wrapper.py and execute it.
     """
     path = get_script(path)
-    script(path, "", input, output, params, wildcards, threads, resources, log, config, environment)
+    script(path, "", input, output, params, wildcards, threads, resources, log, config, conda_env)

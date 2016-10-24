@@ -519,7 +519,7 @@ class Script(AbstractCmd):
         yield ', "{}"'.format(
             os.path.abspath(os.path.dirname(self.snakefile.path)))
         # other args
-        yield ", input, output, params, wildcards, threads, resources, log, config, environment"
+        yield ", input, output, params, wildcards, threads, resources, log, config, conda_env"
 
 
 class Wrapper(Script):
@@ -527,7 +527,7 @@ class Wrapper(Script):
     end_func = "wrapper"
 
     def args(self):
-        yield ", input, output, params, wildcards, threads, resources, log, config, environment"
+        yield ", input, output, params, wildcards, threads, resources, log, config, conda_env"
 
 
 class Rule(GlobalKeywordState):

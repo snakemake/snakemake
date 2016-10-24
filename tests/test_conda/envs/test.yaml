@@ -1,5 +1,4 @@
 channels:
-  - r
   - bioconda
 dependencies:
-  - samtools ==1.3
+  - snakemake ==3.8.2

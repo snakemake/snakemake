@@ -139,7 +139,7 @@ class Snakemake:
 
 
 def script(path, basedir, input, output, params, wildcards, threads, resources,
-           log, config, environment):
+           log, config, conda_env):
     """
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
@@ -216,7 +216,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 f.write(source.read())
             if path.endswith(".py"):
                 shell("{python} {f.name}",
-                      python=sys.executable if environment is None else "python")
+                      python=sys.executable if conda_env is None else "python")
             elif path.endswith(".R"):
                 shell("Rscript {f.name}")
             os.remove(f.name)

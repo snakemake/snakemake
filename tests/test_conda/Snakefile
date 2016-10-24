@@ -6,6 +6,6 @@ rule a:
     output:
         "test{i}.out"
     conda:
-        "envs/samtools.yaml"
+        "envs/test.yaml"
     shell:
-        "samtools view -h 2> {output} || true"
+        "snakemake --help > {output}"

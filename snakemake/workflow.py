@@ -629,6 +629,8 @@ class Workflow:
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
+            rule.script = ruleinfo.script
+            rule.wrapper = ruleinfo.wrapper
             ruleinfo.func.__name__ = "__{}".format(name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
             setattr(rules, name, rule)
