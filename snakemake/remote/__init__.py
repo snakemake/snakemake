@@ -6,10 +6,34 @@ __license__ = "MIT"
 # built-ins
 import os, sys, re
 from abc import ABCMeta, abstractmethod
+from wrapt import ObjectProxy
+import copy
 
 # module-specific
 import snakemake.io
 from snakemake.exceptions import RemoteFileException
+
+class StaticRemoteObjectProxy(ObjectProxy):
+    '''Proxy that implements static-ness for remote objects.
+
+    The constructor takes a real RemoteObject and returns a proxy that
+    behaves the same except for the exists() and mtime() methods.
+
+    '''
+    def exists(self):
+        return True
+
+    def mtime(self):
+        return float("-inf")
+
+    def __copy__(self):
+        copied_wrapped = copy.copy(self.__wrapped__)
+        return type(self)(copied_wrapped)
+
+    def __deepcopy__(self):
+        copied_wrapped = copy.deepcopy(self.__wrapped__)
+        return type(self)(copied_wrapped)
+
 
 class AbstractRemoteProvider:
     """ This is an abstract class to be used to derive remote provider classes. These might be used to hold common credentials,
@@ -21,7 +45,7 @@ class AbstractRemoteProvider:
         self.args = args
         self.kwargs = kwargs
 
-    def remote(self, value, *args, keep_local=False, **kwargs):
+    def remote(self, value, *args, keep_local=False, static=False, **kwargs):
         if snakemake.io.is_flagged(value, "temp"):
             raise SyntaxError(
                 "Remote and temporary flags are mutually exclusive.")
@@ -31,6 +55,8 @@ class AbstractRemoteProvider:
 
         provider = sys.modules[self.__module__] # get module of derived class
         remote_object = provider.RemoteObject(*args, keep_local=keep_local, provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs)
+        if static:
+            remote_object = StaticRemoteObjectProxy(remote_object)
 
         return snakemake.io.flag(
                 value, 
@@ -54,6 +80,7 @@ class AbstractRemoteProvider:
     @abstractmethod
     def remote_interface(self):
         pass
+
 
 class AbstractRemoteObject:
     """ This is an abstract class to be used to derive remote object classes for 
@@ -79,6 +106,10 @@ class AbstractRemoteObject:
     
     def file(self):
         return self._file
+
+    @abstractmethod
+    def close(self):
+        pass
 
     @abstractmethod
     def exists(self):

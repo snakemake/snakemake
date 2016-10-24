@@ -1,7 +1,7 @@
 rule a:
     output:
         "test.out"
-    environment:
+    conda:
         "envs/samtools.yaml"
     shell:
         "samtools --help > {output}"

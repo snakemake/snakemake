@@ -26,7 +26,7 @@ def get_script(path):
     return path
 
 
-def get_environment(path):
+def get_conda_env(path):
     path = get_path(path)
     if is_script(path):
         path = os.path.dirname(path)

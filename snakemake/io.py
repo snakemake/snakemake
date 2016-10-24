@@ -113,6 +113,13 @@ class _IOFile(str):
             raise ValueError("This IOFile is specified as a function and "
                              "may not be used directly.")
 
+    def check(self):
+        if self._file.startswith("./"):
+            logger.warning("File path {} starts with './'. This is redundant "
+                           "and strongly discouraged. It can also lead to "
+                           "inconsistent results of the file-matching approach "
+                           "used by Snakemake.".format(self._file))
+
     @property
     @_refer_to_remote
     def exists(self):
@@ -138,7 +145,7 @@ class _IOFile(str):
     @property
     def mtime_local(self):
         # do not follow symlinks for modification time
-        return int(lstat(self.file).st_mtime)
+        return lstat(self.file).st_mtime
 
     @property
     def flags(self):
@@ -343,6 +350,10 @@ def contains_wildcard(path):
     return _wildcard_regex.search(path) is not None
 
 
+def contains_wildcard_constraints(pattern):
+    return any(match.group('constraint') for match in _wildcard_regex.finditer(pattern))
+
+
 def remove(file, remove_non_empty_dir=False):
     if os.path.exists(file):
         if os.path.isdir(file):
@@ -371,9 +382,8 @@ def regex(filepattern):
         if wildcard in wildcards:
             if match.group("constraint"):
                 raise ValueError(
-                    "If multiple wildcards of the same name "
-                    "appear in a string, eventual constraints have to be defined "
-                    "at the first occurence and will be inherited by the others.")
+                    "Constraint regex must be defined only in the first "
+                    "occurence of the wildcard in a string.")
             f.append("(?P={})".format(wildcard))
         else:
             wildcards.add(wildcard)
@@ -407,6 +417,9 @@ def apply_wildcards(pattern,
                 raise WildcardError(str(ex))
 
     return re.sub(_wildcard_regex, format_match, pattern)
+
+
+
 
 
 def not_iterable(value):
@@ -562,7 +575,7 @@ def glob_wildcards(pattern, files=None):
     pattern = re.compile(regex(pattern))
 
     if files is None:
-        files = ((os.path.join(dirpath, f) if dirpath != "." else f)
+        files = (os.path.normpath(os.path.join(dirpath, f))
                  for dirpath, dirnames, filenames in os.walk(dirname)
                  for f in chain(filenames, dirnames))
 
@@ -572,6 +585,39 @@ def glob_wildcards(pattern, files=None):
             for name, value in match.groupdict().items():
                 getattr(wildcards, name).append(value)
     return wildcards
+
+
+def update_wildcard_constraints(pattern,
+                                wildcard_constraints,
+                                global_wildcard_constraints):
+    """Update wildcard constraints
+
+    Args:
+      pattern (str): pattern on which to update constraints
+      wildcard_constraints (dict): dictionary of wildcard:constraint key-value pairs
+      global_wildcard_constraints (dict): dictionary of wildcard:constraint key-value pairs
+    """
+    def replace_constraint(match):
+        name = match.group("name")
+        constraint = match.group("constraint")
+        newconstraint = wildcard_constraints.get(name, global_wildcard_constraints.get(name))
+        if name in examined_names:
+            return match.group(0)
+        examined_names.add(name)
+        # Don't override if constraint already set
+        if not constraint is None:
+            if name in wildcard_constraints:
+                raise ValueError("Wildcard {} is constrained by both the rule and the file pattern. Consider removing one of the constraints.")
+            return match.group(0)
+        # Only update if a new constraint has actually been set
+        elif not newconstraint is None:
+            return "{{{},{}}}".format(name, newconstraint)
+        else:
+            return match.group(0)
+
+    examined_names = set()
+    return re.sub(_wildcard_regex, replace_constraint, pattern)
+
 
 
 # TODO rewrite Namedlist!
@@ -675,6 +721,9 @@ class Namedlist(list):
 
     def plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)
+
+    def get(self, key, default_value=None):
+        return self.__dict__.get(key, default_value)
 
     def __getitem__(self, key):
         try:

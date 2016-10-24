@@ -18,7 +18,7 @@ from operator import attrgetter
 from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
-from snakemake.exceptions import UnexpectedOutputException, CreateEnvironmentException
+from snakemake.exceptions import UnexpectedOutputException, CreateCondaEnvironmentException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
 
@@ -40,21 +40,15 @@ class Job:
         self._format_wildcards = (self.wildcards if format_wildcards is None
                                   else Wildcards(fromdict=format_wildcards))
 
-        (self.input, self.output, self.params, self.log, self.benchmark,
-         self.environment_file, self.ruleio,
-         self.dependencies) = rule.expand_wildcards(self.wildcards_dict)
+        self.input, input_mapping, self.dependencies = self.rule.expand_input(self.wildcards_dict)
+        self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
+        # other properties are lazy to be able to use additional parameters and check already existing files
+        self._params = None
+        self._log = None
+        self._benchmark = None
+        self._resources = None
+        self._conda_env_file = None
 
-        self.resources_dict = {}
-        for name, res in rule.resources.items():
-            if callable(res):
-                res = res(self.wildcards)
-                if not isinstance(res, int):
-                    raise ValueError("Callable for resources must return int")
-            self.resources_dict[name] = min(
-                self.rule.workflow.global_resources.get(name, res), res)
-
-        self.threads = self.resources_dict["_cores"]
-        self.resources = Resources(fromdict=self.resources_dict)
         self.shadow_dir = None
         self._inputsize = None
 
@@ -63,7 +57,7 @@ class Job:
         self.touch_output = set()
         self.subworkflow_input = dict()
         for f in self.output:
-            f_ = self.ruleio[f]
+            f_ = output_mapping[f]
             if f_ in self.rule.dynamic_output:
                 self.dynamic_output.add(f)
             if f_ in self.rule.temp_output:
@@ -73,7 +67,7 @@ class Job:
             if f_ in self.rule.touch_output:
                 self.touch_output.add(f)
         for f in self.input:
-            f_ = self.ruleio[f]
+            f_ = input_mapping[f]
             if f_ in self.rule.dynamic_input:
                 self.dynamic_input.add(f)
             if f_ in self.rule.subworkflow_input:
@@ -82,6 +76,51 @@ class Job:
         if True or not self.dynamic_output:
             for o in self.output:
                 self._hash ^= o.__hash__()
+
+    def is_valid(self):
+        """Check if job is valid"""
+        # these properties have to work in dry-run as well. Hence we check them here:
+        resources = self.rule.expand_resources(self.wildcards_dict, self.input)
+        self.rule.expand_params(self.wildcards_dict, self.input, resources)
+        self.rule.expand_benchmark(self.wildcards_dict)
+        self.rule.expand_log(self.wildcards_dict)
+
+    @property
+    def threads(self):
+        return self.resources._cores
+
+    @property
+    def params(self):
+        if self._params is None:
+            self._params = self.rule.expand_params(self.wildcards_dict,
+                                                   self.input,
+                                                   self.resources)
+        return self._params
+
+    @property
+    def log(self):
+        if self._log is None:
+            self._log = self.rule.expand_log(self.wildcards_dict)
+        return self._log
+
+    @property
+    def benchmark(self):
+        if self._benchmark is None:
+            self._benchmark = self.rule.expand_benchmark(self.wildcards_dict)
+        return self._benchmark
+
+    @property
+    def resources(self):
+        if self._resources is None:
+            self._resources = self.rule.expand_resources(self.wildcards_dict,
+                                                         self.input)
+        return self._resources
+
+    @property
+    def conda_env_file(self):
+        if self._conda_env_file is None:
+            self._conda_env_file = self.rule.expand_conda_env(self.wildcards_dict)
+        return self._conda_env_file
 
     @property
     def is_shadow(self):
@@ -97,9 +136,9 @@ class Job:
             "utf-8")).decode("utf-8")
 
     @property
-    def environment(self):
-        if self.environment_file is not None:
-            return self.rule.workflow.environments[self.environment_file]
+    def conda_env(self):
+        if self.conda_env_file is not None:
+            return self.rule.workflow.conda_envs[self.conda_env_file]
         return None
 
     @property
@@ -418,13 +457,18 @@ class Job:
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
 
-    def create_environment(self):
+    def create_conda_env(self):
         """Create conda environment if specified."""
-        if self.environment_file:
+        if self.conda_env:
             try:
-                self.rule.workflow.environments.create(self.environment_file)
-            except CreateEnvironmentException as e:
+                self.rule.workflow.conda_envs.create(self.conda_env)
+            except CreateCondaEnvironmentException as e:
                 raise WorkflowError(e, rule=self.rule)
+
+    def close_remote(self):
+        for f in (self.input + self.output):
+            if f.is_remote:
+                f.remote_object.close()
 
     def cleanup(self):
         """ Cleanup output files. """

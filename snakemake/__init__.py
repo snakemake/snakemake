@@ -24,7 +24,6 @@ from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
 
-
 def snakemake(snakefile,
               listrules=False,
               list_target_rules=False,
@@ -81,6 +80,7 @@ def snakemake(snakefile,
               print_compilation=False,
               debug=False,
               notemp=False,
+              keep_remote_local=False,
               nodeps=False,
               keep_target_files=False,
               keep_shadow=False,
@@ -94,7 +94,8 @@ def snakemake(snakefile,
               log_handler=None,
               keep_logger=False,
               max_jobs_per_second=None,
-              verbose=False):
+              verbose=False,
+              force_use_threads=False):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -114,7 +115,7 @@ def snakemake(snakefile,
         touch (bool):               only touch all output files if present (default False)
         forcetargets (bool):        force given targets to be re-created (default False)
         forceall (bool):            force all output files to be re-created (default False)
-        forcerun (list):             list of files and rules that shall be re-created/re-executed (default [])
+        forcerun (list):            list of files and rules that shall be re-created/re-executed (default [])
         prioritytargets (list):     list of targets that shall be run with maximum priority (default [])
         stats (str):                path to file that shall contain stats about the workflow execution (default None)
         printreason (bool):         print the reason for the execution of each job (default false)
@@ -153,6 +154,7 @@ def snakemake(snakefile,
         print_compilation (bool):   print the compilation of the snakefile (default False)
         debug (bool):               allow to use the debugger within rules
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
+        keep_remote_local (bool):   keep local copies of remote files (default False)
         nodeps (bool):              ignore dependencies (default False)
         keep_target_files (bool):   Do not adjust the paths of given target files relative to the working directory.
         keep_shadow (bool):         Do not delete the shadow directory on snakemake startup.
@@ -165,6 +167,7 @@ def snakemake(snakefile,
         verbose(bool):              show additional debug output (default False)
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         max_jobs_per_second:        maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
+        force_use_threads:         whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -233,15 +236,18 @@ def snakemake(snakefile,
     else:
         cluster_config = dict()
 
+    # force thread use for any kind of cluster
+    use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
     if not keep_logger:
         setup_logger(handler=log_handler,
                      quiet=quiet,
                      printreason=printreason,
                      printshellcmds=printshellcmds,
                      nocolor=nocolor,
-                     stdout=dryrun,
+                     stdout=dryrun and not (printdag or printd3dag or printrulegraph),
                      debug=verbose,
-                     timestamp=timestamp)
+                     timestamp=timestamp,
+                     use_threads=use_threads)
 
     if greediness is None:
         greediness = 0.5 if prioritytargets else 1.0
@@ -335,6 +341,7 @@ def snakemake(snakefile,
                                        benchmark_repeats=benchmark_repeats,
                                        verbose=verbose,
                                        notemp=notemp,
+                                       keep_remote_local=keep_remote_local,
                                        nodeps=nodeps,
                                        jobscript=jobscript,
                                        timestamp=timestamp,
@@ -344,7 +351,8 @@ def snakemake(snakefile,
                                        config=config,
                                        config_args=config_args,
                                        keep_logger=True,
-                                       keep_shadow=True)
+                                       keep_shadow=True,
+                                       force_use_threads=use_threads)
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
@@ -388,6 +396,7 @@ def snakemake(snakefile,
                     unlock=unlock,
                     resources=resources,
                     notemp=notemp,
+                    keep_remote_local=keep_remote_local,
                     nodeps=nodeps,
                     keep_target_files=keep_target_files,
                     keep_shadow=keep_shadow,
@@ -396,7 +405,8 @@ def snakemake(snakefile,
                     updated_files=updated_files,
                     allowed_rules=allowed_rules,
                     greediness=greediness,
-                    no_hooks=no_hooks)
+                    no_hooks=no_hooks,
+                    force_use_threads=use_threads)
 
     except BrokenPipeError:
         # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
@@ -559,6 +569,11 @@ def get_argument_parser():
         "acyclic graph of jobs in the dot language. Recommended "
         "use on Unix systems: snakemake --dag | dot | display")
     parser.add_argument(
+        "--force-use-threads",
+        dest="force_use_threads",
+        action="store_true",
+        help="Force threads rather than processes. Helpful if shared memory (/dev/shm) is full or unavailable.")
+    parser.add_argument(
         "--rulegraph",
         action="store_true",
         help="Do not execute anything and print the dependency graph "
@@ -620,7 +635,7 @@ def get_argument_parser():
               "output."))
     parser.add_argument(
         "--forcerun", "-R",
-        nargs="+",
+        nargs="*",
         metavar="TARGET",
         help=("Force the re-execution or creation of the given rules or files."
               " Use this option if you changed a rule and want to have all its "
@@ -813,6 +828,10 @@ def get_argument_parser():
         "a part of the workflow, since temp() would lead to deletion of "
         "probably needed files by other parts of the workflow.")
     parser.add_argument(
+        "--keep-remote",
+        action="store_true",
+        help="Keep local copies of remote input files.")
+    parser.add_argument(
         "--keep-target-files",
         action="store_true",
         help=
@@ -1004,6 +1023,7 @@ def main():
                             debug=args.debug,
                             jobscript=args.jobscript,
                             notemp=args.notemp,
+                            keep_remote_local=args.keep_remote,
                             timestamp=args.timestamp,
                             greediness=args.greediness,
                             no_hooks=args.no_hooks,
@@ -1014,7 +1034,8 @@ def main():
                             keep_target_files=args.keep_target_files,
                             keep_shadow=args.keep_shadow,
                             allowed_rules=args.allowed_rules,
-                            max_jobs_per_second=args.max_jobs_per_second)
+                            max_jobs_per_second=args.max_jobs_per_second,
+                            force_use_threads=args.force_use_threads)
 
     if args.profile:
         with open(args.profile, "w") as out:

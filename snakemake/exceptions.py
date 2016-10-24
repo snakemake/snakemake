@@ -335,5 +335,5 @@ class TerminatedException(Exception):
     pass
 
 
-class CreateEnvironmentException(Exception):
+class CreateCondaEnvironmentException(Exception):
     pass

@@ -5,11 +5,11 @@ import json
 import tempfile
 from urllib.request import urlopen
 
-from snakemake.exceptions import CreateEnvironmentException
+from snakemake.exceptions import CreateCondaEnvironmentException
 from snakemake.logging import logger
 
 
-class Environments:
+class CondaEnvironments:
 
     def __init__(self):
         self.path = os.path.abspath(".conda")

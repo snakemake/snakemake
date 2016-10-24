@@ -29,7 +29,7 @@ from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.wrapper import wrapper
 import snakemake.wrapper
-from snakemake.environments import Environments
+from snakemake.conda import CondaEnvironments
 
 class Workflow:
     def __init__(self,
@@ -73,9 +73,10 @@ class Workflow:
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
+        self._wildcard_constraints = dict()
         self.debug = debug
         self._rulecount = 0
-        self.environments = Environments()
+        self.conda_envs = CondaEnvironments()
 
         global config
         config = dict()
@@ -214,10 +215,12 @@ class Workflow:
                 updated_files=None,
                 keep_target_files=False,
                 keep_shadow=False,
+                keep_remote_local=False,
                 allowed_rules=None,
                 max_jobs_per_second=None,
                 greediness=1.0,
-                no_hooks=False):
+                no_hooks=False,
+                force_use_threads=False):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -294,7 +297,8 @@ class Workflow:
             ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
             ignore_incomplete=ignore_incomplete or printdag or printrulegraph,
-            notemp=notemp)
+            notemp=notemp,
+            keep_remote_local=keep_remote_local)
 
         self.persistence = Persistence(
             nolock=nolock,
@@ -347,6 +351,7 @@ class Workflow:
                     if not subsnakemake(subworkflow.snakefile,
                                         workdir=subworkflow.workdir,
                                         targets=subworkflow_targets,
+                                        configfile=subworkflow.configfile,
                                         updated_files=updated):
                         return False
                     dag.updated_subworkflow_files.update(subworkflow.target(f)
@@ -435,7 +440,8 @@ class Workflow:
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
                                  benchmark_repeats=benchmark_repeats,
-                                 greediness=greediness)
+                                 greediness=greediness,
+                                 force_use_threads=force_use_threads)
 
         if not dryrun and not quiet:
             if len(dag):
@@ -450,8 +456,9 @@ class Workflow:
                     logger.resources_info(
                         "Provided resources: " + provided_resources)
                 ignored_resources = format_resource_names(
-                    set(resource for job in dag.needrun_jobs for resource in
-                        job.resources_dict if resource not in resources))
+                    resource for job in dag.needrun_jobs
+                    for resource in job.resources.keys()
+                    if resource not in resources)
                 if ignored_resources:
                     logger.resources_info(
                         "Ignored resources: " + ignored_resources)
@@ -475,7 +482,7 @@ class Workflow:
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
                 # remove created environments
-                self.environments.cleanup()
+                self.conda_envs.cleanup()
             return True
         else:
             if not dryrun and not no_hooks:
@@ -538,6 +545,9 @@ class Workflow:
     def onerror(self, func):
         self._onerror = func
 
+    def global_wildcard_constraints(self, **content):
+        self._wildcard_constraints.update(content)
+
     def workdir(self, workdir):
         if self.overwrite_workdir is None:
             os.makedirs(workdir, exist_ok=True)
@@ -554,8 +564,8 @@ class Workflow:
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
 
-    def subworkflow(self, name, snakefile=None, workdir=None):
-        sw = Subworkflow(self, name, snakefile, workdir)
+    def subworkflow(self, name, snakefile=None, workdir=None, configfile=None):
+        sw = Subworkflow(self, name, snakefile, workdir, configfile)
         self._subworkflows[name] = sw
         self.globals[name] = sw.target
 
@@ -567,6 +577,8 @@ class Workflow:
         rule = self.get_rule(name)
 
         def decorate(ruleinfo):
+            if ruleinfo.wildcard_constraints:
+                rule.set_wildcard_constraints(*ruleinfo.wildcard_constraints[0], **ruleinfo.wildcard_constraints[1])
             if ruleinfo.input:
                 rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
             if ruleinfo.output:
@@ -611,11 +623,10 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
-            if ruleinfo.environment:
-                rule.environment = ruleinfo.environment
+            if ruleinfo.conda_env:
+                rule.conda_env = ruleinfo.conda_env
             if ruleinfo.wrapper:
-                rule.environment = snakemake.wrapper.get_environment(ruleinfo.wrapper)
-                print(rule.environment)
+                rule.conda_env = snakemake.wrapper.get_conda_env(ruleinfo.wrapper)
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
@@ -655,6 +666,13 @@ class Workflow:
 
         return decorate
 
+    def wildcard_constraints(self, *wildcard_constraints, **kwwildcard_constraints):
+        def decorate(ruleinfo):
+            ruleinfo.wildcard_constraints = (wildcard_constraints, kwwildcard_constraints)
+            return ruleinfo
+
+        return decorate
+
     def message(self, message):
         def decorate(ruleinfo):
             ruleinfo.message = message
@@ -669,9 +687,9 @@ class Workflow:
 
         return decorate
 
-    def environment(self, environment):
+    def conda(self, conda_env):
         def decorate(ruleinfo):
-            ruleinfo.environment = environment
+            ruleinfo.conda_env = conda_env
             return ruleinfo
 
         return decorate
@@ -764,7 +782,8 @@ class RuleInfo:
         self.params = None
         self.message = None
         self.benchmark = None
-        self.environment = None
+        self.conda_env = None
+        self.wildcard_constraints = None
         self.threads = None
         self.shadow_depth = None
         self.resources = None
@@ -777,11 +796,12 @@ class RuleInfo:
 
 
 class Subworkflow:
-    def __init__(self, workflow, name, snakefile, workdir):
+    def __init__(self, workflow, name, snakefile, workdir, configfile):
         self.workflow = workflow
         self.name = name
         self._snakefile = snakefile
         self._workdir = workdir
+        self.configfile = configfile
 
     @property
     def snakefile(self):

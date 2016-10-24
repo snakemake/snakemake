@@ -11,6 +11,7 @@ from tempfile import mkdtemp
 import hashlib
 import urllib
 from shutil import rmtree, which
+from shlex import quote
 
 from snakemake import snakemake
 
@@ -68,12 +69,13 @@ def run(path,
                 subpath), '{} does not exist'.format(subpath)
             subworkdir = os.path.join(tmpdir, "subworkdir")
             os.mkdir(subworkdir)
-            call('cp `find {} -maxdepth 1 -type f` {}'.format(subpath,
-                                                              subworkdir),
+            call('find {} -maxdepth 1 -type f -print0 | xargs -0 cp -t {}'.format(
+                quote(subpath), quote(subworkdir)),
                  shell=True)
             config['subworkdir'] = subworkdir
 
-        call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir),
+        call('find {} -maxdepth 1 -type f -print0 | xargs -0 cp -t {}'.format(
+            quote(path), quote(tmpdir)),
              shell=True)
         success = snakemake(snakefile,
                             cores=cores,
@@ -234,6 +236,10 @@ def test_update_config():
     run(dpath("test_update_config"))
 
 
+def test_wildcard_keyword():
+    run(dpath("test_wildcard_keyword"))
+
+
 def test_benchmark():
     run(dpath("test_benchmark"), check_md5=False)
 
@@ -349,6 +355,55 @@ def test_wrapper():
 
 def conda_available():
     return which("conda")
+
+
+def test_get_log_none():
+    run(dpath("test_get_log_none"))
+
+
+def test_get_log_both():
+    run(dpath("test_get_log_both"))
+
+
+def test_get_log_stderr():
+    run(dpath("test_get_log_stderr"))
+
+
+def test_get_log_stdout():
+    run(dpath("test_get_log_stdout"))
+
+
+def test_get_log_complex():
+    run(dpath("test_get_log_complex"))
+
+
+def test_spaces_in_fnames():
+    run(dpath("test_spaces_in_fnames"),
+        # cluster="./qsub",
+        targets=["test bam file realigned.bam"],
+        verbose=True,
+        printshellcmds=True)
+
+
+def test_static_remote():
+    try:
+        import moto
+        import boto
+        import filechunkio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_static_remote"), cores=1)
+    except ImportError:
+        pass
+
+
+def test_deferred_func_eval():
+    run(dpath("test_deferred_func_eval"))
+
+
+def test_format_params():
+    run(dpath("test_format_params"), check_md5=True)
 
 
 if __name__ == '__main__':
