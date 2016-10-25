@@ -115,10 +115,11 @@ class _IOFile(str):
 
     def check(self):
         if self._file.startswith("./"):
-            logger.warning("File path {} starts with './'. This is redundant "
+            logger.warning("Relative file path {} starts with './'. This is redundant "
                            "and strongly discouraged. It can also lead to "
                            "inconsistent results of the file-matching approach "
-                           "used by Snakemake.".format(self._file))
+                           "used by Snakemake. You can simply omit the './' "
+                           "for relative file paths.".format(self._file))
 
     @property
     @_refer_to_remote
