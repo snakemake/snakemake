@@ -621,10 +621,10 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
-            if ruleinfo.conda_env:
-                rule.conda_env = ruleinfo.conda_env
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(ruleinfo.wrapper)
+            if ruleinfo.conda_env:
+                rule.conda_env = ruleinfo.conda_env
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func

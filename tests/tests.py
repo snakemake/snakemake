@@ -345,12 +345,12 @@ def test_issue328():
 
 def test_conda():
     if conda_available():
-        run(dpath("test_conda"))
+        run(dpath("test_conda"), use_conda=True)
 
 
 def test_wrapper():
     if conda_available():
-        run(dpath("test_wrapper"))
+        run(dpath("test_wrapper"), use_conda=True)
 
 
 def conda_available():

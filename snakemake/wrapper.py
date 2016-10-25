@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 
 import os
+import posixpath
 
 from snakemake.script import script
 
@@ -29,9 +30,9 @@ def get_script(path):
 def get_conda_env(path):
     path = get_path(path)
     if is_script(path):
-        # TODO rather use dirname equivalent for urls
-        path = os.path.dirname(path)
-    return path + "environment.yaml"
+        # URLs and posixpaths share the same separator. Hence use posixpath here.
+        path = posixpath.dirname(path)
+    return path + "/environment.yaml"
 
 
 def wrapper(path, input, output, params, wildcards, threads, resources, log, config, conda_env):

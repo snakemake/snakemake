@@ -126,10 +126,6 @@ class Job:
 
         if self._conda_env_file is None:
             self._conda_env_file = self.rule.expand_conda_env(self.wildcards_dict)
-            if self._conda_env_file is None and self.rule.wrapper is not None:
-                # if the rule uses a wrapper, try to retrieve conda env from the wrapper definition
-                self._conda_env_file = wrapper.get_conda_env(self.rule.wrapper)
-
         return self._conda_env_file
 
     @property

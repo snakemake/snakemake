@@ -6,6 +6,6 @@ rule a:
     output:
         "test{i}.out"
     conda:
-        "envs/test.yaml"
+        "test-env.yaml"
     shell:
         "snakemake --help > {output}"
