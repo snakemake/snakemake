@@ -417,20 +417,21 @@ class Job:
         cwd = os.getcwd()
 
         if self.rule.shadow_depth == "minimal":
-            # Only symlink files which are input or output of the rule
-            # (and only link to top level)
-            for f in set([item for sublist in [self.input,self.output,self.log,[self.benchmark]] if sublist is not None for item in sublist]):
-                # Only link to relative paths below cwd
-                if not os.path.isabs(f):
-                    to_link=f.split(os.path.sep)[0]
-                    #TODO: Deal with ./
-                    if not to_link=="..":
-                        link=os.path.join(self.shadow_dir, to_link)
-                        original=os.path.relpath(to_link,link)
-                        # Since only the top level is linked it could be that it
-                        # already exists
-                        if not os.path.exists(link) and os.path.exists(to_link):
-                            os.symlink(original, link)
+            # Re-create the directory structure in the shadow directory
+            for f in set([os.path.split(item)[0] for sublist in [self.input,self.output,self.log,[self.benchmark]] if sublist is not None for item in sublist]):
+                # TODO: Dealt with ./foo
+                if f:
+                    rel_path=os.path.relpath(f)
+                    # Only create subdirectories
+                    if not rel_path.split(os.path.sep)[0]=="..":
+                        os.makedirs(os.path.join(self.shadow_dir, rel_path),exist_ok=True)
+
+            # Symlink the input files
+            for rel_path in set([os.path.relpath(f) for f in self.input]):
+                if not rel_path.split(os.path.sep)[0]=="..":
+                    link=os.path.join(self.shadow_dir, rel_path)
+                    original=os.path.relpath(rel_path,link)
+                    os.symlink(original, link)
 
         # Shallow simply symlink everything in the working directory.
         elif self.rule.shadow_depth == "shallow":
