@@ -436,7 +436,7 @@ class Job:
         elif self.rule.shadow_depth == "shallow":
             for source in os.listdir(cwd):
                 link = os.path.join(self.shadow_dir, source)
-                os.symlink(os.path.relpath(source,link), link)
+                os.symlink(os.path.abspath(source), link)
         elif self.rule.shadow_depth == "full":
             snakemake_dir = os.path.join(cwd, ".snakemake")
             for dirpath, dirnames, filenames in os.walk(cwd):
