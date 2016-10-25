@@ -10,7 +10,7 @@ import inspect
 import sre_constants
 from collections import defaultdict, Iterable
 
-from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, ancient, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
+from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
@@ -68,7 +68,6 @@ class Rule:
             self.dependencies = dict(other.dependencies)
             self.dynamic_output = set(other.dynamic_output)
             self.dynamic_input = set(other.dynamic_input)
-            self.ancient_input = set(other.ancient_input)
             self.temp_output = set(other.temp_output)
             self.protected_output = set(other.protected_output)
             self.touch_output = set(other.touch_output)
