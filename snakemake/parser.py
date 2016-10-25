@@ -423,7 +423,7 @@ class Run(RuleKeywordState):
         yield "@workflow.run"
         yield "\n"
         yield ("def __rule_{rulename}(input, output, params, wildcards, threads, "
-               "resources, log, version, environment):".format(
+               "resources, log, version, conda_env):".format(
                    rulename=self.rulename if self.rulename is not None else self.snakefile.rulecount))
 
     def end(self):

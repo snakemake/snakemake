@@ -4,6 +4,6 @@ rule samtools_view:
     output:
         "test.bam"
     params:
-        "-b"
+        "-S -b"
     wrapper:
         "0.6.0/bio/samtools/view"
