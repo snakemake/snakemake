@@ -419,24 +419,24 @@ class Job:
         if self.rule.shadow_depth == "minimal":
             # Only symlink files which are input or output of the rule
             # (and only link to top level)
-            for f in set([item for sublist in [self.input,self.output,self.log,self.params] if sublist is not None for item in sublist]):
+            for f in set([item for sublist in [self.input,self.output,self.log,[self.benchmark]] if sublist is not None for item in sublist]):
                 # Only link to relative paths below cwd
                 if not os.path.isabs(f):
                     to_link=f.split(os.path.sep)[0]
-                    #TODO: Deal with ./foo
+                    #TODO: Deal with ./
                     if not to_link=="..":
                         link=os.path.join(self.shadow_dir, to_link)
-                        original=os.path.abspath(to_link)
+                        original=os.path.relpath(to_link,link)
                         # Since only the top level is linked it could be that it
                         # already exists
-                        if not os.path.exists(link) and os.path.exists(original):
+                        if not os.path.exists(link) and os.path.exists(to_link):
                             os.symlink(original, link)
 
         # Shallow simply symlink everything in the working directory.
         elif self.rule.shadow_depth == "shallow":
             for source in os.listdir(cwd):
                 link = os.path.join(self.shadow_dir, source)
-                os.symlink(os.path.abspath(source), link)
+                os.symlink(os.path.relpath(source,link), link)
         elif self.rule.shadow_depth == "full":
             snakemake_dir = os.path.join(cwd, ".snakemake")
             for dirpath, dirnames, filenames in os.walk(cwd):
