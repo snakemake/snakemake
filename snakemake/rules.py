@@ -38,7 +38,6 @@ class Rule:
             self.dependencies = dict()
             self.dynamic_output = set()
             self.dynamic_input = set()
-            self.ancient_input = set()
             self.temp_output = set()
             self.protected_output = set()
             self.touch_output = set()
@@ -264,9 +263,6 @@ class Rule:
             if is_flagged(item, "protected"):
                 if output:
                     self.protected_output.add(_item)
-            if is_flagged(item, "ancient"):
-                if input:
-                    self.ancient_input.add(_item)
             if is_flagged(item, "touch"):
                 if output:
                     self.touch_output.add(_item)
