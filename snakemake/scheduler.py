@@ -35,7 +35,6 @@ class JobScheduler:
                  cluster_sync=None,
                  drmaa=None,
                  jobname=None,
-                 immediate_submit=False,
                  quiet=False,
                  printreason=False,
                  printshellcmds=False,
@@ -118,7 +117,7 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
                     max_jobs_per_second=max_jobs_per_second)
-                if immediate_submit:
+                if workflow.immediate_submit:
                     self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
                                                     update_dynamic=False,
