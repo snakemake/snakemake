@@ -49,7 +49,7 @@ class Job:
         self.shadow_dir = None
         self._inputsize = None
 
-        self.dynamic_output, self.dynamic_input, self.ancient_input = set(), set(), set()
+        self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
         self.subworkflow_input = dict()
