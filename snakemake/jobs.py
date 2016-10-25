@@ -418,13 +418,12 @@ class Job:
 
         if self.rule.shadow_depth == "minimal":
             # Re-create the directory structure in the shadow directory
-            for f in set([os.path.split(item)[0] for sublist in [self.input,self.output,self.log,[self.benchmark]] if sublist is not None for item in sublist]):
-                # TODO: Dealt with ./foo
+            for f in set([os.path.dirname(item) for sublist in [self.input,self.output,self.log,[self.benchmark]] if sublist is not None for item in sublist]):
                 if f:
                     rel_path=os.path.relpath(f)
                     # Only create subdirectories
                     if not rel_path.split(os.path.sep)[0]=="..":
-                        os.makedirs(os.path.join(self.shadow_dir, rel_path),exist_ok=True)
+                        os.makedirs(os.path.join(self.shadow_dir, rel_path), exist_ok=True)
 
             # Symlink the input files
             for rel_path in set([os.path.relpath(f) for f in self.input]):
