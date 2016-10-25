@@ -219,7 +219,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 f.write(source.read())
             if path.endswith(".py"):
                 shell("{python} {f.name}",
-                      python=sys.executable if conda_env is None else "python")
+                      python=sys.executable) # always use the same Python as the running process
             elif path.endswith(".R"):
                 shell("Rscript {f.name}")
             os.remove(f.name)
