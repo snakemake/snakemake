@@ -1,7 +1,7 @@
 rule all:
     input: "simple_shallow.out", "simple_full.out",
            "absolute_exists.out", "touched.out", "log_exists.out",
-           "protected.out", "benchmark_exists.out"
+           "protected.out", "benchmark_exists.out", "minimal_ok.out"
 
 shell.executable("/bin/bash")
 
@@ -89,4 +89,28 @@ rule benchmark_stat:
     shell:
         """
         test -f benchmark.txt
+        """
+
+rule minimal:
+    input: "test.in"
+    output: protected("simple_minimal.out")
+    benchmark: "benchmark_minimal.txt"
+    log: "minimal.log"
+    shadow: "minimal"
+    shell:
+        """
+        echo 1 > junk.out
+        cat {input} >> {output}
+        echo simple_minimal >> {output}
+        echo minimal_log > {log}
+        """
+
+rule minimal_ok:
+    input: "simple_minimal.out"
+    output: "minimal_ok.out"
+    shell:
+        """
+        test -f benchmark_minimal.txt
+        test -f minimal.log
+        touch {output}
         """
