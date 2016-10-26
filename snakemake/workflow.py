@@ -28,6 +28,7 @@ from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.wrapper import wrapper
+import snakemake.wrapper
 
 class Workflow:
     def __init__(self,
@@ -40,7 +41,8 @@ class Workflow:
                  overwrite_configfile=None,
                  overwrite_clusterconfig=dict(),
                  config_args=None,
-                 debug=False):
+                 debug=False,
+                 use_conda=False):
         """
         Create the controller.
         """
@@ -75,6 +77,7 @@ class Workflow:
         self._wildcard_constraints = dict()
         self.debug = debug
         self._rulecount = 0
+        self.use_conda = use_conda
 
         global config
         config = dict()
@@ -619,10 +622,16 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
+            if ruleinfo.wrapper:
+                rule.conda_env = snakemake.wrapper.get_conda_env(ruleinfo.wrapper)
+            if ruleinfo.conda_env:
+                rule.conda_env = ruleinfo.conda_env
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
+            rule.script = ruleinfo.script
+            rule.wrapper = ruleinfo.wrapper
             ruleinfo.func.__name__ = "__{}".format(name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
             setattr(rules, name, rule)
@@ -679,6 +688,13 @@ class Workflow:
 
         return decorate
 
+    def conda(self, conda_env):
+        def decorate(ruleinfo):
+            ruleinfo.conda_env = conda_env
+            return ruleinfo
+
+        return decorate
+
     def threads(self, threads):
         def decorate(ruleinfo):
             ruleinfo.threads = threads
@@ -728,6 +744,20 @@ class Workflow:
 
         return decorate
 
+    def script(self, script):
+        def decorate(ruleinfo):
+            ruleinfo.script = script
+            return ruleinfo
+
+        return decorate
+
+    def wrapper(self, wrapper):
+        def decorate(ruleinfo):
+            ruleinfo.wrapper = wrapper
+            return ruleinfo
+
+        return decorate
+
     def norun(self):
         def decorate(ruleinfo):
             ruleinfo.norun = True
@@ -753,6 +783,7 @@ class RuleInfo:
         self.params = None
         self.message = None
         self.benchmark = None
+        self.conda_env = None
         self.wildcard_constraints = None
         self.threads = None
         self.shadow_depth = None
@@ -761,6 +792,8 @@ class RuleInfo:
         self.version = None
         self.log = None
         self.docstring = None
+        self.script = None
+        self.wrapper = None
 
 
 class Subworkflow:

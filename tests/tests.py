@@ -10,7 +10,7 @@ from subprocess import call
 from tempfile import mkdtemp
 import hashlib
 import urllib
-from shutil import rmtree
+from shutil import rmtree, which
 from shlex import quote
 
 from snakemake import snakemake
@@ -341,6 +341,20 @@ def test_symlink_time_handling():
 
 def test_issue328():
     run(dpath("test_issue328"), forcerun=["split"])
+
+
+def test_conda():
+    if conda_available():
+        run(dpath("test_conda"), use_conda=True)
+
+
+def test_wrapper():
+    if conda_available():
+        run(dpath("test_wrapper"), use_conda=True)
+
+
+def conda_available():
+    return which("conda")
 
 
 def test_get_log_none():

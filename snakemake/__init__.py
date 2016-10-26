@@ -95,7 +95,8 @@ def snakemake(snakefile,
               keep_logger=False,
               max_jobs_per_second=None,
               verbose=False,
-              force_use_threads=False):
+              force_use_threads=False,
+              use_conda=False):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -164,10 +165,11 @@ def snakemake(snakefile,
         greediness (float):         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
         overwrite_shellcmd (str):   a shell command that shall be executed instead of those given in the workflow. This is for debugging purposes only.
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
-        verbose(bool):              show additional debug output (default False)
+        verbose (bool):              show additional debug output (default False)
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         max_jobs_per_second:        maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
-        force_use_threads:         whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
+        force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
+        use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -294,7 +296,8 @@ def snakemake(snakefile,
                         overwrite_configfile=configfile,
                         overwrite_clusterconfig=cluster_config,
                         config_args=config_args,
-                        debug=debug)
+                        debug=debug,
+                        use_conda=use_conda)
     success = True
     try:
         workflow.include(snakefile,
@@ -894,6 +897,11 @@ def get_argument_parser():
         "following in your .bashrc (including the accents): "
         "`snakemake --bash-completion` or issue it in an open terminal "
         "session.")
+    parser.add_argument(
+        "--use-conda",
+        action="store_true",
+        help="If defined in the rule, create job specific conda environments. "
+        "If this flag is not set, the conda directive is ignored.")
     parser.add_argument("--version", "-v",
                         action="version",
                         version=__version__)
@@ -1035,7 +1043,8 @@ def main():
                             keep_shadow=args.keep_shadow,
                             allowed_rules=args.allowed_rules,
                             max_jobs_per_second=args.max_jobs_per_second,
-                            force_use_threads=args.force_use_threads)
+                            force_use_threads=args.force_use_threads,
+                            use_conda=args.use_conda)
 
     if args.profile:
         with open(args.profile, "w") as out:

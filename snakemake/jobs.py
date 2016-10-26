@@ -7,6 +7,8 @@ import os
 import sys
 import base64
 import tempfile
+import subprocess
+import json
 
 from collections import defaultdict
 from itertools import chain
@@ -15,10 +17,11 @@ from operator import attrgetter
 
 from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard
 from snakemake.utils import format, listfiles
-from snakemake.exceptions import RuleException, ProtectedOutputException
-from snakemake.exceptions import UnexpectedOutputException
+from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
+from snakemake.exceptions import UnexpectedOutputException, CreateCondaEnvironmentException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
+from snakemake import conda, wrapper
 
 
 def jobfiles(jobs, type):
@@ -45,6 +48,8 @@ class Job:
         self._log = None
         self._benchmark = None
         self._resources = None
+        self._conda_env_file = None
+        self._conda_env = None
 
         self.shadow_dir = None
         self._inputsize = None
@@ -112,6 +117,32 @@ class Job:
             self._resources = self.rule.expand_resources(self.wildcards_dict,
                                                          self.input)
         return self._resources
+
+    @property
+    def conda_env_file(self):
+        if not self.rule.workflow.use_conda:
+            # if use_conda is False, ignore conda_env_file definition
+            return None
+
+        if self._conda_env_file is None:
+            self._conda_env_file = self.rule.expand_conda_env(self.wildcards_dict)
+        return self._conda_env_file
+
+    @property
+    def conda_env(self):
+        if self.conda_env_file:
+            if self._conda_env is None:
+                raise ValueError("create_conda_env() must be called before calling conda_env")
+            return self._conda_env
+        return None
+
+    def create_conda_env(self):
+        """Create conda environment if specified."""
+        if self.conda_env_file:
+            try:
+                self._conda_env = conda.create_env(self)
+            except CreateCondaEnvironmentException as e:
+                raise WorkflowError(e, rule=self.rule)
 
     @property
     def is_shadow(self):
@@ -441,7 +472,6 @@ class Job:
                     relative_source = os.path.relpath(source)
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
-
 
     def close_remote(self):
         for f in (self.input + self.output):

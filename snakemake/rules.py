@@ -48,12 +48,14 @@ class Rule:
             self.version = None
             self._log = Log()
             self._benchmark = None
+            self._conda_env = None
             self.wildcard_names = set()
             self.lineno = lineno
             self.snakefile = snakefile
             self.run_func = None
             self.shellcmd = None
             self.script = None
+            self.wrapper = None
             self.norun = False
         elif len(args) == 1:
             other = args[0]
@@ -78,12 +80,14 @@ class Rule:
             self.version = other.version
             self._log = other._log
             self._benchmark = other._benchmark
+            self._conda_env = other._conda_env
             self.wildcard_names = set(other.wildcard_names)
             self.lineno = other.lineno
             self.snakefile = other.snakefile
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
             self.script = other.script
+            self.wrapper = other.wrapper
             self.norun = other.norun
 
     def dynamic_branch(self, wildcards, input=True):
@@ -156,6 +160,7 @@ class Rule:
             branch._params = branch.expand_params(non_dynamic_wildcards, branch._input, branch.resources)
             branch._log = branch.expand_log(non_dynamic_wildcards)
             branch._benchmark = branch.expand_benchmark(non_dynamic_wildcards)
+            branch._conda_env = branch.expand_conda_env(non_dynamic_wildcards)
             return branch, non_dynamic_wildcards
         return branch
 
@@ -172,6 +177,15 @@ class Rule:
     @benchmark.setter
     def benchmark(self, benchmark):
         self._benchmark = IOFile(benchmark, rule=self)
+
+    @property
+    def conda_env(self):
+        return self._conda_env
+
+    @conda_env.setter
+    def conda_env(self, conda_env):
+        self._conda_env = IOFile(conda_env, rule=self)
+
 
     @property
     def input(self):
@@ -527,6 +541,21 @@ class Rule:
             resources[name] = res
         resources = Resources(fromdict=resources)
         return resources
+
+    def expand_conda_env(self, wildcards):
+        try:
+            conda_env = self.conda_env.apply_wildcards(
+                wildcards) if self.conda_env else None
+        except WildcardError as e:
+            raise WorkflowError(
+                "Wildcards in conda environment file cannot be "
+                "determined from output files:",
+                str(e), rule=self)
+
+        if conda_env is not None:
+            conda_env.check()
+
+        return conda_env
 
     def is_producer(self, requested_output):
         """

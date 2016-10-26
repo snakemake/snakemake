@@ -214,6 +214,7 @@ class CPUExecutor(RealExecutor):
             type(self) == concurrent.futures.ThreadPoolExecutor):
             raise ImproperShadowException(job.rule)
         job.prepare()
+        job.create_conda_env()
         super()._run(job)
 
         benchmark = None
@@ -225,8 +226,8 @@ class CPUExecutor(RealExecutor):
             run_wrapper, job.rule.run_func, job.input.plainstrings(),
             job.output.plainstrings(), job.params, job.wildcards, job.threads,
             job.resources, job.log.plainstrings(), job.rule.version, benchmark,
-            self.benchmark_repeats, self.workflow.linemaps, self.workflow.debug,
-            shadow_dir=job.shadow_dir)
+            self.benchmark_repeats, job.conda_env, self.workflow.linemaps,
+            self.workflow.debug, shadow_dir=job.shadow_dir)
 
         future.add_done_callback(partial(self._callback, job, callback,
                                          error_callback))
@@ -297,12 +298,12 @@ class ClusterExecutor(RealExecutor):
 
         self.exec_job = '\\\n'.join((
             'cd {workflow.workdir_init} && ',
-            '{workflow.snakemakepath} --snakefile {workflow.snakefile} ',
+            '{workflow.snakemakepath} {target} --snakefile {workflow.snakefile} ',
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
             '--benchmark-repeats {benchmark_repeats} ',
             '{overwrite_workdir} {overwrite_config} --nocolor ',
-            '--notemp --quiet --no-hooks --nolock {target}'))
+            '--notemp --quiet --no-hooks --nolock'))
 
         if printshellcmds:
             self.exec_job += " --printshellcmds "
@@ -374,6 +375,7 @@ class ClusterExecutor(RealExecutor):
         overwrite_workdir = []
         if self.workflow.overwrite_workdir:
             overwrite_workdir.extend(("--directory", self.workflow.overwrite_workdir))
+
         overwrite_config = []
         if self.workflow.overwrite_configfile:
             overwrite_config.extend(("--configfile", self.workflow.overwrite_configfile))
@@ -385,18 +387,21 @@ class ClusterExecutor(RealExecutor):
         wait_for_files = list(job.local_input) + [self.tmpdir]
         if job.shadow_dir:
             wait_for_files.append(job.shadow_dir)
+        if job.conda_env:
+            wait_for_files.append(job.conda_env)
+
         format_p = partial(format,
-                           job=job,
-                           overwrite_workdir=overwrite_workdir,
-                           overwrite_config=overwrite_config,
-                           workflow=self.workflow,
-                           cores=self.cores,
-                           properties=json.dumps(job.properties(cluster=self.cluster_params(job))),
-                           latency_wait=self.latency_wait,
-                           benchmark_repeats=self.benchmark_repeats,
-                           target=target,
-                           wait_for_files=wait_for_files,
-                           **kwargs)
+            job=job,
+            overwrite_workdir=overwrite_workdir,
+            overwrite_config=overwrite_config,
+            workflow=self.workflow,
+            cores=self.cores,
+            properties=json.dumps(job.properties(
+                cluster=self.cluster_params(job))),
+            latency_wait=self.latency_wait,
+            benchmark_repeats=self.benchmark_repeats,
+            target=target, wait_for_files=wait_for_files,
+            **kwargs)
         try:
             exec_job = format_p(self.exec_job, _quote_all=True)
             with open(jobscript, "w") as f:
@@ -762,7 +767,7 @@ def change_working_directory(directory=None):
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
-                version, benchmark, benchmark_repeats, linemaps, debug=False,
+                version, benchmark, benchmark_repeats, conda_env, linemaps, debug=False,
                 shadow_dir=None):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -787,7 +792,7 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
             # execute the actual run method.
             with change_working_directory(shadow_dir):
                 run(input, output, params, wildcards, threads, resources, log,
-                    version)
+                    version, conda_env)
             w = time.time() - w
             wallclock.append(w)
 

@@ -5,18 +5,40 @@ __license__ = "MIT"
 
 
 import os
+import posixpath
 
 from snakemake.script import script
 
 
-def wrapper(path, input, output, params, wildcards, threads, resources, log, config):
+def is_script(path):
+    return path.endswith("wrapper.py") or path.endswith("wrapper.R")
+
+
+def get_path(path):
+    if not (path.startswith("http") or path.startswith("file:")):
+        path = "https://bitbucket.org/snakemake/snakemake-wrappers/raw/" + path
+    return path
+
+
+def get_script(path):
+    path = get_path(path)
+    if not is_script(path):
+        path += "/wrapper.py"
+    return path
+
+
+def get_conda_env(path):
+    path = get_path(path)
+    if is_script(path):
+        # URLs and posixpaths share the same separator. Hence use posixpath here.
+        path = posixpath.dirname(path)
+    return path + "/environment.yaml"
+
+
+def wrapper(path, input, output, params, wildcards, threads, resources, log, config, conda_env):
     """
     Load a wrapper from https://bitbucket.org/snakemake/snakemake-wrappers under
     the given path + wrapper.py and execute it.
     """
-    # TODO handle requirements.txt
-    if not (path.startswith("http") or path.startswith("file:")):
-        path = os.path.join("https://bitbucket.org/snakemake/snakemake-wrappers/raw", path)
-    if not (path.endswith("wrapper.py") or path.endswith("wrapper.R")):
-        path = os.path.join(path, "wrapper.py")
-    script("", path, input, output, params, wildcards, threads, resources, log, config)
+    path = get_script(path)
+    script(path, "", input, output, params, wildcards, threads, resources, log, config, conda_env)

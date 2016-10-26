@@ -5,6 +5,10 @@ __license__ = "MIT"
 
 import inspect
 import os
+import tempfile
+import textwrap
+import sys
+import pickle
 import traceback
 import collections
 from urllib.request import urlopen
@@ -13,6 +17,7 @@ from urllib.error import URLError
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
+from snakemake.shell import shell
 
 class REncoder:
     """Encoding Pyton data structures into R."""
@@ -38,8 +43,8 @@ class REncoder:
                     return str(value)
             except ImportError:
                 pass
-            raise ValueError(
-                "Unsupported value for conversion into R: {}".format(value))
+        raise ValueError(
+            "Unsupported value for conversion into R: {}".format(value))
 
     @classmethod
     def encode_list(cls, l):
@@ -133,8 +138,8 @@ class Snakemake:
         return lookup[(stdout, stderr, append)].format(self.log)
 
 
-def script(basedir, path, input, output, params, wildcards, threads, resources,
-           log, config):
+def script(path, basedir, input, output, params, wildcards, threads, resources,
+           log, config, conda_env):
     """
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
@@ -150,59 +155,74 @@ def script(basedir, path, input, output, params, wildcards, threads, resources,
     try:
         with urlopen(path) as source:
             if path.endswith(".py"):
-                try:
-                    exec(compile(source.read().decode(), path, "exec"), {
-                        "snakemake": Snakemake(input, output, params, wildcards,
-                                               threads, resources, log, config)
-                    })
-                except (Exception, BaseException) as ex:
-                    raise WorkflowError("".join(traceback.format_exception(type(ex), ex, ex.__traceback__)))
+                snakemake = Snakemake(input, output, params, wildcards,
+                                      threads, resources, log, config)
+                snakemake = pickle.dumps(snakemake)
+                # obtain search path for current snakemake module
+                # the module is needed for unpickling in the script
+                searchpath = os.path.dirname(os.path.dirname(__file__))
+                preamble = textwrap.dedent("""
+                ######## Snakemake header ########
+                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({})
+                ######## Original script #########
+                """).format(searchpath, snakemake)
             elif path.endswith(".R"):
-                try:
-                    import rpy2.robjects as robjects
-                except ImportError:
-                    raise ValueError(
-                        "Python 3 package rpy2 needs to be installed to use the R function.")
-                with urlopen(path) as source:
-                    preamble = """
-                    Snakemake <- setClass(
-                        "Snakemake",
-                        slots = c(
-                            input = "list",
-                            output = "list",
-                            params = "list",
-                            wildcards = "list",
-                            threads = "numeric",
-                            log = "list",
-                            resources = "list",
-                            config = "list"
-                        )
+                preamble = textwrap.dedent("""
+                ######## Snakemake header ########
+                library(methods)
+                Snakemake <- setClass(
+                    "Snakemake",
+                    slots = c(
+                        input = "list",
+                        output = "list",
+                        params = "list",
+                        wildcards = "list",
+                        threads = "numeric",
+                        log = "list",
+                        resources = "list",
+                        config = "list"
                     )
-                    snakemake <- Snakemake(
-                        input = {},
-                        output = {},
-                        params = {},
-                        wildcards = {},
-                        threads = {},
-                        log = {},
-                        resources = {},
-                        config = {}
-                    )
-                    """.format(REncoder.encode_namedlist(input),
-                               REncoder.encode_namedlist(output),
-                               REncoder.encode_namedlist(params),
-                               REncoder.encode_namedlist(wildcards), threads,
-                               REncoder.encode_namedlist(log),
-                               REncoder.encode_namedlist({
-                                   name: value
-                                   for name, value in resources.items()
-                                   if name != "_cores" and name != "_nodes"
-                               }), REncoder.encode_dict(config))
-                    logger.debug(preamble)
-                    source = preamble + source.read().decode()
-                    robjects.r(source)
+                )
+                snakemake <- Snakemake(
+                    input = {},
+                    output = {},
+                    params = {},
+                    wildcards = {},
+                    threads = {},
+                    log = {},
+                    resources = {},
+                    config = {}
+                )
+                ######## Original script #########
+                """).format(REncoder.encode_namedlist(input),
+                           REncoder.encode_namedlist(output),
+                           REncoder.encode_namedlist(params),
+                           REncoder.encode_namedlist(wildcards), threads,
+                           REncoder.encode_namedlist(log),
+                           REncoder.encode_namedlist({
+                               name: value
+                               for name, value in resources.items()
+                               if name != "_cores" and name != "_nodes"
+                           }), REncoder.encode_dict(config))
             else:
                 raise ValueError(
                     "Unsupported script: Expecting either Python (.py) or R (.R) script.")
+
+            dir = ".snakemake/scripts"
+            os.makedirs(dir, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                suffix="." + os.path.basename(path),
+                prefix="",
+                dir=dir,
+                delete=False) as f:
+                f.write(preamble.encode())
+                f.write(source.read())
+            if path.endswith(".py"):
+                shell("{python} {f.name}",
+                      python=sys.executable) # always use the same Python as the running process
+            elif path.endswith(".R"):
+                shell("Rscript {f.name}")
+            os.remove(f.name)
+
     except URLError as e:
         raise WorkflowError(e)
