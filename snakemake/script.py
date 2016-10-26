@@ -160,12 +160,12 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 snakemake = pickle.dumps(snakemake)
                 # obtain search path for current snakemake module
                 # the module is needed for unpickling in the script
-                searchpath = os.path.dirname(os.path.dirname(__file__))
+                snakemake_path = os.path.dirname(os.path.dirname(__file__))
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
-                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({})
+                import sys; sys.path.insert(0, "{}"); sys.path.extend({}); import pickle; snakemake = pickle.loads({})
                 ######## Original script #########
-                """).format(searchpath, snakemake)
+                """).format(snakemake_path, sys.path, snakemake)
             elif path.endswith(".R"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########

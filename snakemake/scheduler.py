@@ -99,7 +99,7 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                threads=use_threads,
+                use_threads=use_threads,
                 latency_wait=latency_wait,
                 benchmark_repeats=benchmark_repeats)
             self.run = self.run_cluster_or_local
@@ -145,7 +145,7 @@ class JobScheduler:
                                          printreason=printreason,
                                          quiet=quiet,
                                          printshellcmds=printshellcmds,
-                                         threads=use_threads,
+                                         use_threads=use_threads,
                                          latency_wait=latency_wait,
                                          benchmark_repeats=benchmark_repeats, )
         self._open_jobs.set()

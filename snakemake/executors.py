@@ -30,7 +30,7 @@ from snakemake.utils import format, Unformattable
 from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
-from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError, ImproperShadowException
+from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError, ImproperShadowException, SpawnedJobError
 from snakemake.futures import ProcessPoolExecutor
 
 
@@ -160,6 +160,30 @@ class RealExecutor(AbstractExecutor):
                         "directory {}".format(e,
                                               self.workflow.persistence.path))
 
+    def format_job_pattern(self, pattern, job=None, **kwargs):
+        overwrite_workdir = []
+        if self.workflow.overwrite_workdir:
+            overwrite_workdir.extend(("--directory", self.workflow.overwrite_workdir))
+
+        overwrite_config = []
+        if self.workflow.overwrite_configfile:
+            overwrite_config.extend(("--configfile", self.workflow.overwrite_configfile))
+        if self.workflow.config_args:
+            overwrite_config.append("--config")
+            overwrite_config.extend(self.workflow.config_args)
+
+        target = job.output if job.output else job.rule.name
+
+        return format(pattern,
+                      job=job,
+                      overwrite_workdir=overwrite_workdir,
+                      overwrite_config=overwrite_config,
+                      workflow=self.workflow,
+                      cores=self.cores,
+                      benchmark_repeats=self.benchmark_repeats,
+                      target=target,
+                      **kwargs)
+
 
 class TouchExecutor(RealExecutor):
     def run(self, job,
@@ -192,7 +216,7 @@ class CPUExecutor(RealExecutor):
                  printreason=False,
                  quiet=False,
                  printshellcmds=False,
-                 threads=False,
+                 use_threads=False,
                  latency_wait=3,
                  benchmark_repeats=1):
         super().__init__(workflow, dag,
@@ -202,35 +226,50 @@ class CPUExecutor(RealExecutor):
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats)
 
-        self.pool = (concurrent.futures.ThreadPoolExecutor(max_workers=workers)
-                     if threads else ProcessPoolExecutor(max_workers=workers))
-        self.threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
+        self.exec_job = '\\\n'.join((
+            'cd {workflow.workdir_init} && ',
+            '{workflow.snakemakepath} {target} --snakefile {workflow.snakefile} ',
+            '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
+            '--benchmark-repeats {benchmark_repeats} ',
+            '--force-use-threads ',
+            '{overwrite_workdir} {overwrite_config} --nocolor ',
+            '--notemp --quiet --no-hooks --nolock'))
+        self.use_threads = use_threads
+        self.cores = workers
+        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
 
     def run(self, job,
             callback=None,
             submit_callback=None,
             error_callback=None):
-        if (job.rule.shadow_depth and
-            type(self) == concurrent.futures.ThreadPoolExecutor):
-            raise ImproperShadowException(job.rule)
-        job.prepare()
-        job.create_conda_env()
         super()._run(job)
 
-        benchmark = None
-        if job.benchmark is not None:
-            benchmark = str(job.benchmark)
+        if self.use_threads or (not job.is_shadow and (job.is_shell or job.is_norun)):
+            job.prepare()
+            job.create_conda_env()
 
-        pool = self.pool if job.shellcmd is None or job.is_shadow else self.threadpool
-        future = pool.submit(
-            run_wrapper, job.rule.run_func, job.input.plainstrings(),
-            job.output.plainstrings(), job.params, job.wildcards, job.threads,
-            job.resources, job.log.plainstrings(), job.rule.version, benchmark,
-            self.benchmark_repeats, job.conda_env, self.workflow.linemaps,
-            self.workflow.debug, shadow_dir=job.shadow_dir)
+            benchmark = None
+            if job.benchmark is not None:
+                benchmark = str(job.benchmark)
+            future = self.pool.submit(
+                run_wrapper, job.rule.run_func, job.input.plainstrings(),
+                job.output.plainstrings(), job.params, job.wildcards, job.threads,
+                job.resources, job.log.plainstrings(), job.rule.version, benchmark,
+                self.benchmark_repeats, job.conda_env, self.workflow.linemaps,
+                self.workflow.debug, shadow_dir=job.shadow_dir)
+        else:
+            # run directive jobs are spawned into subprocesses
+            future = self.pool.submit(self.spawn_job, job)
 
         future.add_done_callback(partial(self._callback, job, callback,
                                          error_callback))
+
+    def spawn_job(self, job):
+        cmd = self.format_job_pattern(self.exec_job, job=job)
+        try:
+            subprocess.check_call(cmd, shell=True)
+        except subprocess.CalledProcessError:
+            raise SpawnedJobError()
 
     def shutdown(self):
         self.pool.shutdown()
@@ -249,6 +288,11 @@ class CPUExecutor(RealExecutor):
             job.cleanup()
             self.workflow.persistence.cleanup(job)
             # no error callback, just silently ignore the interrupt as the main scheduler is also killed
+        except SpawnedJobError:
+            # don't print error message, this is done by the spawned subprocess
+            job.cleanup()
+            self.workflow.persistence.cleanup(job)
+            error_callback(job)
         except (Exception, BaseException) as ex:
             self.print_job_error(job)
             print_exception(ex, self.workflow.linemaps)
@@ -302,6 +346,7 @@ class ClusterExecutor(RealExecutor):
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
             '--benchmark-repeats {benchmark_repeats} ',
+            '--force-use-threads ',
             '{overwrite_workdir} {overwrite_config} --nocolor ',
             '--notemp --quiet --no-hooks --nolock'))
 
@@ -372,36 +417,19 @@ class ClusterExecutor(RealExecutor):
                                  cluster=self.cluster_wildcards(job)))
 
     def spawn_jobscript(self, job, jobscript, **kwargs):
-        overwrite_workdir = []
-        if self.workflow.overwrite_workdir:
-            overwrite_workdir.extend(("--directory", self.workflow.overwrite_workdir))
-
-        overwrite_config = []
-        if self.workflow.overwrite_configfile:
-            overwrite_config.extend(("--configfile", self.workflow.overwrite_configfile))
-        if self.workflow.config_args:
-            overwrite_config.append("--config")
-            overwrite_config.extend(self.workflow.config_args)
-
-        target = job.output if job.output else job.rule.name
         wait_for_files = list(job.local_input) + [self.tmpdir]
         if job.shadow_dir:
             wait_for_files.append(job.shadow_dir)
         if job.conda_env:
             wait_for_files.append(job.conda_env)
 
-        format_p = partial(format,
-            job=job,
-            overwrite_workdir=overwrite_workdir,
-            overwrite_config=overwrite_config,
-            workflow=self.workflow,
-            cores=self.cores,
-            properties=json.dumps(job.properties(
-                cluster=self.cluster_params(job))),
-            latency_wait=self.latency_wait,
-            benchmark_repeats=self.benchmark_repeats,
-            target=target, wait_for_files=wait_for_files,
-            **kwargs)
+        format_p = partial(self.format_job_pattern,
+                           job=job,
+                           properties=json.dumps(job.properties(
+                               cluster=self.cluster_params(job))),
+                           latency_wait=self.latency_wait,
+                           wait_for_files=wait_for_files,
+                           **kwargs)
         try:
             exec_job = format_p(self.exec_job, _quote_all=True)
             with open(jobscript, "w") as f:
