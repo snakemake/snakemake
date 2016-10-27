@@ -16,6 +16,8 @@ from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
+from copy import deepcopy
+
 from snakemake.common import DYNAMIC_FILL
 
 
@@ -617,7 +619,13 @@ def update_wildcard_constraints(pattern,
             return match.group(0)
 
     examined_names = set()
-    return re.sub(_wildcard_regex, replace_constraint, pattern)
+    updated = re.sub(_wildcard_regex, replace_constraint, pattern)
+
+    # inherit flags
+    if isinstance(pattern, AnnotatedString):
+        updated = AnnotatedString(updated)
+        updated.flags = deepcopy(pattern.flags)
+    return updated
 
 
 

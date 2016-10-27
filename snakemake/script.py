@@ -10,7 +10,9 @@ import textwrap
 import sys
 import pickle
 import traceback
+import subprocess
 import collections
+import re
 from urllib.request import urlopen
 from urllib.error import URLError
 
@@ -18,6 +20,11 @@ from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
+from snakemake.version import MIN_PY_VERSION
+
+
+PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*:")
+
 
 class REncoder:
     """Encoding Pyton data structures into R."""
@@ -160,12 +167,12 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 snakemake = pickle.dumps(snakemake)
                 # obtain search path for current snakemake module
                 # the module is needed for unpickling in the script
-                snakemake_path = os.path.dirname(os.path.dirname(__file__))
+                searchpath = os.path.dirname(os.path.dirname(__file__))
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
-                import sys; sys.path.insert(0, "{}"); sys.path.extend({}); import pickle; snakemake = pickle.loads({})
+                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({})
                 ######## Original script #########
-                """).format(snakemake_path, sys.path, snakemake)
+                """).format(searchpath, sys.path, snakemake)
             elif path.endswith(".R"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
@@ -218,8 +225,17 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 f.write(preamble.encode())
                 f.write(source.read())
             if path.endswith(".py"):
-                shell("{python} {f.name}",
-                      python=sys.executable) # always use the same Python as the running process
+                py_exec = sys.executable
+                if conda_env is not None:
+                    py = os.path.join(conda_env, "bin", "python")
+                    if os.path.exists(py):
+                        out = subprocess.check_output([py, "--version"])
+                        ver = tuple(map(int, PY_VER_RE.match(out).group("ver_min").split(".")))
+                        if not ver >= MIN_PY_VERSION:
+                            raise WorkflowError("Conda environments for scripts need at least Python version {}.{}.".format(*MIN_PY_VERSION))
+                        py_exec = "python"
+                # use the same Python as the running process or the one from the environment
+                shell("{py_exec} {f.name}")
             elif path.endswith(".R"):
                 shell("Rscript {f.name}")
             os.remove(f.name)
