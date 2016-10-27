@@ -59,7 +59,7 @@ def run(path,
     assert os.path.exists(snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir), '{} does not exist'.format(results_dir)
-    tmpdir = mkdtemp()
+    tmpdir = mkdtemp(prefix=".test", dir=os.path.abspath("."))
     try:
         config = {}
         if subpath is not None:
