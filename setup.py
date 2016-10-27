@@ -8,6 +8,10 @@ from setuptools.command.test import test as TestCommand
 import sys
 
 
+# load version info
+exec(open("snakemake/version.py").read())
+
+
 if sys.version_info < (3, 3):
     print("At least Python 3.3 is required.\n", file=sys.stderr)
     exit(1)
@@ -19,10 +23,6 @@ except ImportError:
     print("Please install setuptools before installing snakemake.",
           file=sys.stderr)
     exit(1)
-
-
-# load version info
-exec(open("snakemake/version.py").read())
 
 
 class NoseTestCommand(TestCommand):
@@ -61,7 +61,7 @@ setup(
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
     install_requires=['wrapt',],
-    tests_require=['pytools', 'rpy2', 'httpretty==0.8.10', 'docutils', 'nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6', 
+    tests_require=['pytools', 'rpy2', 'httpretty==0.8.10', 'docutils', 'nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6',
                      'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8', 'requests>=2.8.1', 'dropbox>=5.2', 'pyyaml'],
     test_suite='all',
     cmdclass={'test': NoseTestCommand},
