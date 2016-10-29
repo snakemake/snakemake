@@ -244,7 +244,7 @@ class CPUExecutor(RealExecutor):
             error_callback=None):
         super()._run(job)
 
-        if self.use_threads or (not job.is_shadow and (job.is_shell or job.is_norun)):
+        if self.use_threads or (not job.is_shadow and (job.is_shell or job.is_norun or job.is_script or job.is_wrapper)):
             job.prepare()
             job.create_conda_env()
 
