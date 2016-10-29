@@ -172,7 +172,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 ######## Snakemake header ########
                 import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({})
                 ######## Original script #########
-                """).format(searchpath, sys.path, snakemake)
+                """).format(searchpath, snakemake)
             elif path.endswith(".R"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
@@ -231,9 +231,15 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                     if os.path.exists(py):
                         out = subprocess.check_output([py, "--version"])
                         ver = tuple(map(int, PY_VER_RE.match(out).group("ver_min").split(".")))
-                        if not ver >= MIN_PY_VERSION:
-                            raise WorkflowError("Conda environments for scripts need at least Python version {}.{}.".format(*MIN_PY_VERSION))
-                        py_exec = "python"
+                        if ver >= MIN_PY_VERSION:
+                            # Python version is new enough, make use of environment
+                            # to execute script
+                            py_exec = "python"
+                        else:
+                            logger.info("Conda environment defines Python "
+                                        "version < {}.{}. Using Python of the "
+                                        "master process to execute "
+                                        "script.".format(MIN_PY_VERSION))
                 # use the same Python as the running process or the one from the environment
                 shell("{py_exec} {f.name}")
             elif path.endswith(".R"):
