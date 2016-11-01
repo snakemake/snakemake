@@ -355,7 +355,7 @@ def contains_wildcard_constraints(pattern):
 
 
 def remove(file, remove_non_empty_dir=False):
-    if os.path.isdir(file):
+    if os.path.isdir(file) and not os.path.islink(file):
         if remove_non_empty_dir:
             shutil.rmtree(file)
         else:
@@ -364,12 +364,12 @@ def remove(file, remove_non_empty_dir=False):
             except OSError as e:
                 # skip non empty directories
                 if e.errno == 39:
-                    logger.info("Skipped removing empty directory {}".format(e.filename))
+                    logger.info("Skipped removing non-empty directory {}".format(e.filename))
                 else:
                     logger.warning(str(e))
+    #Remember that dangling symlinks fail the os.path.exists() test, but
+    #we definitely still want to zap them. try/except is the safest way.
     else:
-        #Remember that dangling symlinks fail the os.path.exists() test, but
-        #we definitely still want to zap them. try/except is the safest way.
         try:
             os.remove(file)
         except FileNotFoundError:
