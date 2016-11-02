@@ -164,6 +164,8 @@ def test14():
 def test15():
     run(dpath("test15"))
 
+def test_ancient():
+    run(dpath("test_ancient"), targets=['D'])
 
 def test_report():
     run(dpath("test_report"), check_md5=False)
