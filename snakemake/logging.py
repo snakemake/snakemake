@@ -9,7 +9,6 @@ import time
 import sys
 import os
 import json
-import multiprocessing
 import threading
 import tempfile
 from functools import partial
@@ -18,7 +17,7 @@ from snakemake.common import DYNAMIC_FILL
 
 
 class ColorizingStreamHandler(_logging.StreamHandler):
-   
+
 
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
     RESET_SEQ = "\033[0m"
@@ -36,10 +35,7 @@ class ColorizingStreamHandler(_logging.StreamHandler):
     def __init__(self, nocolor=False, stream=sys.stderr, timestamp=False, use_threads=False):
         super().__init__(stream=stream)
 
-        if not use_threads:
-            self._output_lock = multiprocessing.Lock()
-        else:
-            self._output_lock = threading.Lock()
+        self._output_lock = threading.Lock()
 
         self.nocolor = nocolor or not self.can_color_tty
         self.timestamp = timestamp
@@ -208,7 +204,7 @@ class Logger:
                 yield "\tresources: " + resources
 
         level = msg["level"]
-        if level == "info":
+        if level == "info" and not self.quiet:
             self.logger.warning(msg["msg"])
         if level == "warning":
             self.logger.warning(msg["msg"])
@@ -216,9 +212,9 @@ class Logger:
             self.logger.error(msg["msg"])
         elif level == "debug":
             self.logger.debug(msg["msg"])
-        elif level == "resources_info":
+        elif level == "resources_info" and not self.quiet:
             self.logger.warning(msg["msg"])
-        elif level == "run_info":
+        elif level == "run_info" and not self.quiet:
             self.logger.warning(msg["msg"])
         elif level == "progress" and not self.quiet:
             done = msg["done"]
@@ -227,12 +223,11 @@ class Logger:
             percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
             self.logger.info("{} of {} steps ({}) done".format(
                 done, total, percent_fmt))
-        elif level == "job_info":
-            if not self.quiet:
-                if msg["msg"] is not None:
-                    self.logger.info(msg["msg"])
-                else:
-                    self.logger.info("\n".join(job_info(msg)))
+        elif level == "job_info" and not self.quiet:
+            if msg["msg"] is not None:
+                self.logger.info(msg["msg"])
+            else:
+                self.logger.info("\n".join(job_info(msg)))
         elif level == "shellcmd":
             if self.printshellcmds:
                 self.logger.warning(msg["msg"])

@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 import os, signal
 import threading
-import multiprocessing
 import operator
 from functools import partial
 from collections import defaultdict
@@ -60,15 +59,9 @@ class JobScheduler:
 
         self.resources = dict(self.workflow.global_resources)
 
-        # we should use threads on a cluster, because shared memory /dev/shm may be full
-        # which prevents the multiprocessing.Lock() semaphore from being created
         use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
-        if not use_threads:
-            self._open_jobs = multiprocessing.Event()
-            self._lock = multiprocessing.Lock()
-        else:
-            self._open_jobs = threading.Event()
-            self._lock = threading.Lock()
+        self._open_jobs = threading.Event()
+        self._lock = threading.Lock()
 
         self._errors = False
         self._finished = False
