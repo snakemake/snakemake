@@ -57,6 +57,7 @@ class Rule:
             self.script = None
             self.wrapper = None
             self.norun = False
+            self.is_branched = False
         elif len(args) == 1:
             other = args[0]
             self.name = other.name
@@ -89,6 +90,7 @@ class Rule:
             self.script = other.script
             self.wrapper = other.wrapper
             self.norun = other.norun
+            self.is_branched = True
 
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):

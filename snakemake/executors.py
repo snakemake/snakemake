@@ -265,7 +265,10 @@ class CPUExecutor(RealExecutor):
                                          error_callback))
 
     def spawn_job(self, job):
-        cmd = self.format_job_pattern(self.exec_job, job=job)
+        exec_job = self.exec_job
+        if not job.rule.is_branched:
+            exec_job += " --allowed-rules {}".format(job.rule)
+        cmd = self.format_job_pattern(exec_job, job=job)
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError:
@@ -431,7 +434,8 @@ class ClusterExecutor(RealExecutor):
                            wait_for_files=wait_for_files,
                            **kwargs)
         try:
-            exec_job = format_p(self.exec_job, _quote_all=True)
+            exec_job = self.exec_job
+            exec_job = format_p(exec_job, _quote_all=True)
             with open(jobscript, "w") as f:
                 print(format_p(self.jobscript, exec_job=exec_job), file=f)
         except KeyError as e:
