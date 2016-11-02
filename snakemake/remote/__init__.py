@@ -26,6 +26,9 @@ class StaticRemoteObjectProxy(ObjectProxy):
     def mtime(self):
         return float("-inf")
 
+    def is_newer(self, time):
+        return False
+
     def __copy__(self):
         copied_wrapped = copy.copy(self.__wrapped__)
         return type(self)(copied_wrapped)
@@ -57,7 +60,6 @@ class AbstractRemoteProvider:
         remote_object = provider.RemoteObject(*args, keep_local=keep_local, provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs)
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
-
         return snakemake.io.flag(
                 value, 
                 "remote_object",
