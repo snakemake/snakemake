@@ -15,6 +15,7 @@ from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
+from snakemake.common import Mode
 
 
 class Rule:
@@ -268,7 +269,7 @@ class Rule:
                             snakefile=self.snakefile,
                             lineno=self.lineno)
             else:
-                if contains_wildcard_constraints(item):
+                if contains_wildcard_constraints(item) and self.workflow.mode != Mode.subprocess:
                     logger.warning(
                         "wildcard constraints in inputs are ignored")
             _item = IOFile(item, rule=self)

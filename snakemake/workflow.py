@@ -29,6 +29,7 @@ from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.wrapper import wrapper
 import snakemake.wrapper
+from snakemake.common import Mode
 
 class Workflow:
     def __init__(self,
@@ -42,7 +43,8 @@ class Workflow:
                  overwrite_clusterconfig=dict(),
                  config_args=None,
                  debug=False,
-                 use_conda=False):
+                 use_conda=False,
+                 mode=Mode.default):
         """
         Create the controller.
         """
@@ -78,6 +80,7 @@ class Workflow:
         self.debug = debug
         self._rulecount = 0
         self.use_conda = use_conda
+        self.mode = mode
 
         global config
         config = dict()

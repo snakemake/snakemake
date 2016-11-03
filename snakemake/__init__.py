@@ -23,6 +23,7 @@ from snakemake.version import __version__
 from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
+from snakemake.common import Mode
 
 def snakemake(snakefile,
               listrules=False,
@@ -96,7 +97,8 @@ def snakemake(snakefile,
               max_jobs_per_second=None,
               verbose=False,
               force_use_threads=False,
-              use_conda=False):
+              use_conda=False,
+              mode=Mode.default):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -249,7 +251,8 @@ def snakemake(snakefile,
                      stdout=dryrun and not (printdag or printd3dag or printrulegraph),
                      debug=verbose,
                      timestamp=timestamp,
-                     use_threads=use_threads)
+                     use_threads=use_threads,
+                     mode=mode)
 
     if greediness is None:
         greediness = 0.5 if prioritytargets else 1.0
@@ -297,7 +300,8 @@ def snakemake(snakefile,
                         overwrite_clusterconfig=cluster_config,
                         config_args=config_args,
                         debug=debug,
-                        use_conda=use_conda)
+                        use_conda=use_conda,
+                        mode=mode)
     success = True
     try:
         workflow.include(snakefile,
@@ -891,6 +895,13 @@ def get_argument_parser():
         "Profile Snakemake and write the output to FILE. This requires yappi "
         "to be installed.")
     parser.add_argument(
+        "--mode",
+        choices=[Mode.default, Mode.subprocess, Mode.cluster],
+        default=Mode.default,
+        type=int,
+        help="Set execution mode of Snakemake (internal use only)."
+    )
+    parser.add_argument(
         "--bash-completion",
         action="store_true",
         help="Output code to register bash completion for snakemake. Put the "
@@ -1044,7 +1055,8 @@ def main():
                             allowed_rules=args.allowed_rules,
                             max_jobs_per_second=args.max_jobs_per_second,
                             force_use_threads=args.force_use_threads,
-                            use_conda=args.use_conda)
+                            use_conda=args.use_conda,
+                            mode=args.mode)
 
     if args.profile:
         with open(args.profile, "w") as out:

@@ -14,6 +14,7 @@ import tempfile
 from functools import partial
 
 from snakemake.common import DYNAMIC_FILL
+from snakemake.common import Mode
 
 
 class ColorizingStreamHandler(_logging.StreamHandler):
@@ -32,18 +33,19 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         'ERROR': RED
     }
 
-    def __init__(self, nocolor=False, stream=sys.stderr, timestamp=False, use_threads=False):
+    def __init__(self, nocolor=False, stream=sys.stderr, timestamp=False, use_threads=False, mode=Mode.default):
         super().__init__(stream=stream)
 
         self._output_lock = threading.Lock()
 
-        self.nocolor = nocolor or not self.can_color_tty
+        self.nocolor = nocolor or not self.can_color_tty(mode)
         self.timestamp = timestamp
 
-    @property
-    def can_color_tty(self):
+    def can_color_tty(self, mode):
         if 'TERM' in os.environ and os.environ['TERM'] == 'dumb':
             return False
+        if mode == Mode.subprocess:
+            return True
         return self.is_tty and not platform.system() == 'Windows'
 
     @property
@@ -267,7 +269,8 @@ def setup_logger(handler=None,
                  stdout=False,
                  debug=False,
                  timestamp=False,
-                 use_threads=False):
+                 use_threads=False,
+                 mode=Mode.default):
     logger.setup()
     if handler is not None:
         # custom log handler
@@ -278,7 +281,8 @@ def setup_logger(handler=None,
             nocolor=nocolor,
             stream=sys.stdout if stdout else sys.stderr,
             timestamp=timestamp,
-            use_threads=use_threads)
+            use_threads=use_threads,
+            mode=mode)
         logger.set_stream_handler(stream_handler)
 
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)

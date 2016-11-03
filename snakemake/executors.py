@@ -31,6 +31,7 @@ from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError, ImproperShadowException, SpawnedJobError
+from snakemake.common import Mode
 
 
 class AbstractExecutor:
@@ -231,8 +232,8 @@ class CPUExecutor(RealExecutor):
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--benchmark-repeats {benchmark_repeats} ',
             '--force-use-threads ',
-            '{overwrite_workdir} {overwrite_config} --nocolor ',
-            '--notemp --quiet --no-hooks --nolock'))
+            '{overwrite_workdir} {overwrite_config} ',
+            '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
         self.use_threads = use_threads
         self.cores = workers
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
