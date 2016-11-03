@@ -219,7 +219,11 @@ def test_ruledeps():
 
 
 def test_persistent_dict():
-    run(dpath("test_persistent_dict"))
+    try:
+        import pytools
+        run(dpath("test_persistent_dict"))
+    except ImportError:
+        pass
 
 
 def test_url_include():
@@ -342,7 +346,12 @@ def test_symlink_time_handling():
 
 
 def test_issue328():
-    run(dpath("test_issue328"), forcerun=["split"])
+    try:
+        import pytools
+        run(dpath("test_issue328"), forcerun=["split"])
+    except ImportError:
+        # skip test if import fails
+        pass
 
 
 def test_conda():

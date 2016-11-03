@@ -194,6 +194,22 @@ class Job:
                                 rule=self.rule)
 
     @property
+    def is_shell(self):
+        return self.rule.shellcmd is not None
+
+    @property
+    def is_norun(self):
+        return self.rule.norun
+
+    @property
+    def is_script(self):
+        return self.rule.script is not None
+
+    @property
+    def is_wrapper(self):
+        return self.rule.wrapper is not None
+
+    @property
     def expanded_output(self):
         """ Iterate over output files while dynamic output is expanded. """
         for f, f_ in zip(self.output, self.rule.output):

@@ -337,3 +337,7 @@ class TerminatedException(Exception):
 
 class CreateCondaEnvironmentException(Exception):
     pass
+
+
+class SpawnedJobError(Exception):
+    pass

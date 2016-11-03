@@ -15,6 +15,7 @@ from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
+from snakemake.common import Mode
 
 
 class Rule:
@@ -57,6 +58,7 @@ class Rule:
             self.script = None
             self.wrapper = None
             self.norun = False
+            self.is_branched = False
         elif len(args) == 1:
             other = args[0]
             self.name = other.name
@@ -89,6 +91,7 @@ class Rule:
             self.script = other.script
             self.wrapper = other.wrapper
             self.norun = other.norun
+            self.is_branched = True
 
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):
@@ -266,7 +269,7 @@ class Rule:
                             snakefile=self.snakefile,
                             lineno=self.lineno)
             else:
-                if contains_wildcard_constraints(item):
+                if contains_wildcard_constraints(item) and self.workflow.mode != Mode.subprocess:
                     logger.warning(
                         "wildcard constraints in inputs are ignored")
             _item = IOFile(item, rule=self)

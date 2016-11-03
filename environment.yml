@@ -1,6 +1,8 @@
 channels:
   - bioconda
   - r
+  - anaconda
+  - conda-forge
 dependencies:
   - rpy2 >=0.7.6
   - boto
@@ -15,3 +17,5 @@ dependencies:
   - dropbox
   - numpy
   - appdirs
+  - snakemake
+  - pytools
