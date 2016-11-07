@@ -443,6 +443,8 @@ class Job:
                 "present when the DAG was created:\n{}".format(
                     self.rule, unexpected_output))
 
+        self.remove_existing_output()
+
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
@@ -453,8 +455,6 @@ class Job:
             f.prepare()
         if self.benchmark:
             self.benchmark.prepare()
-
-        self.remove_existing_output()
 
         if not self.is_shadow:
             return
