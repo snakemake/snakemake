@@ -798,6 +798,10 @@ def change_working_directory(directory=None):
         yield
 
 
+class KubernetesExecutor(RealExecutor):
+    pass
+
+
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
                 version, benchmark, benchmark_repeats, conda_env, linemaps, debug=False,
                 shadow_dir=None):
