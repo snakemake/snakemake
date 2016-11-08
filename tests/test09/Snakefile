@@ -1,6 +1,6 @@
 from snakemake import shell
 
-shell.executable("/bin/bash")
+shell.executable("bash")
 
 def fail(input, output):
 	shell("false && cp {input} {output}")

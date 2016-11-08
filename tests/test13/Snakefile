@@ -1,7 +1,6 @@
 from snakemake import shell
 
-shell.executable("/bin/bash")
-
+shell.executable("bash")
 
 rule all:
 	input: 'test.algo1-p7-improved.out'
