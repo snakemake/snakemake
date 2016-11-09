@@ -332,7 +332,7 @@ def test_nonstr_params():
 
 
 def test_delete_output():
-    run(dpath("test_delete_output"))
+    run(dpath("test_delete_output"), cores=1)
 
 
 def test_input_generator():
