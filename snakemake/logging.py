@@ -175,7 +175,7 @@ class Logger:
             def format_item(item, omit=None, valueformat=str):
                 value = msg[item]
                 if value != omit:
-                    return "\t{}: {}".format(item, valueformat(value))
+                    return "    {}: {}".format(item, valueformat(value))
 
             yield "{}rule {}:".format("local" if msg["local"] else "",
                                       msg["name"])
@@ -194,7 +194,7 @@ class Logger:
 
             wildcards = format_wildcards(msg["wildcards"])
             if wildcards:
-                yield "\twildcards: " + wildcards
+                yield "    wildcards: " + wildcards
 
             for item, omit in zip("priority threads".split(), [0, 1]):
                 fmt = format_item(item, omit=omit)
@@ -203,7 +203,7 @@ class Logger:
 
             resources = format_resources(msg["resources"])
             if resources:
-                yield "\tresources: " + resources
+                yield "    resources: " + resources
 
         level = msg["level"]
         if level == "info" and not self.quiet:
@@ -228,8 +228,11 @@ class Logger:
         elif level == "job_info" and not self.quiet:
             if msg["msg"] is not None:
                 self.logger.info(msg["msg"])
+                if self.printreason:
+                    self.logger.info("Reason: {}".format(msg["reason"]))
             else:
                 self.logger.info("\n".join(job_info(msg)))
+            self.logger.info("")
         elif level == "shellcmd":
             if self.printshellcmds:
                 self.logger.warning(msg["msg"])
@@ -239,7 +242,7 @@ class Logger:
         elif level == "rule_info":
             self.logger.info(msg["name"])
             if msg["docstring"]:
-                self.logger.info("\t" + msg["docstring"])
+                self.logger.info("    " + msg["docstring"])
         elif level == "d3dag":
             print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
 
