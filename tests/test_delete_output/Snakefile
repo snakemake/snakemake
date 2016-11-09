@@ -11,16 +11,18 @@
 #
 # TODO - consider adding a cluster-based test for point 2 above.
 
-# Setup - touch a mock input file and an out-of-date output file.
-shell("touch -t 201604010000 output.file")
-shell("touch input.file")
+onstart:
+    # Setup - touch a mock input file and an out-of-date output file.
+    shell("touch -t 201604010000 output.file")
+    shell("touch input.file")
 
-# An empty directory
-shell("mkdir -f output.dir ; touch -ch -t 201604010000 output.dir")
-# A dangling symlink
-shell("ln -s nosuchfile output.link ; touch -ch -t 201604010000 output.link")
-# A symlink to an empty directory
-shell("mkdir -f an_empty_dir; ln -s an_empty_dir output.dirlink ; touch -ch -t 201604010000 an_empty_dir output.dirlink")
+    # An empty directory
+    shell("mkdir -f output.dir ; touch -ch -t 201604010000 output.dir")
+    # A dangling symlink
+    shell("ln -s nosuchfile output.link ; touch -ch -t 201604010000 output.link")
+    # A symlink to an empty directory
+    shell("mkdir -f an_empty_dir; ln -s an_empty_dir output.dirlink ; touch -ch -t 201604010000 an_empty_dir output.dirlink")
+
 
 rule main:
     input: "output.file", "output.dir", "output.link", "output.dirlink"
