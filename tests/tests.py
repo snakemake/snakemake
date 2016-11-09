@@ -417,6 +417,11 @@ def test_format_params():
     run(dpath("test_format_params"), check_md5=True)
 
 
+def test_rule_defined_in_for_loop():
+    # issue 257
+    run(dpath("test_rule_defined_in_for_loop"))
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
