@@ -38,7 +38,7 @@ def lutime(f, times):
         return os.utime(f, times)
     else:
         #...problem system.  Do nothing.
-        logger.warning("Unable to set utime on symlink {}.  Your Python build does not support it.".format(f))
+        logger.warning("Unable to set utime on symlink {}. Your Python build does not support it.".format(f))
         return None
 
 

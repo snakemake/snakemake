@@ -33,15 +33,15 @@ class REncoder:
     def encode_value(cls, value):
         if isinstance(value, str):
             return repr(value)
-        if isinstance(value, collections.Iterable):
-            # convert all iterables to vectors
-            return cls.encode_list(value)
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
             return "TRUE" if value else "FALSE"
         elif isinstance(value, int) or isinstance(value, float):
             return str(value)
+        elif isinstance(value, collections.Iterable):
+            # convert all iterables to vectors
+            return cls.encode_list(value)
         else:
             # Try to convert from numpy if numpy is present
             try:
@@ -72,10 +72,10 @@ class REncoder:
 
     @classmethod
     def encode_namedlist(cls, namedlist):
-        positional = cls.encode_list(namedlist)
+        positional = ", ".join(map(cls.encode_value, namedlist))
         named = cls.encode_items(namedlist.items())
         source = "list("
-        if positional != "c()":
+        if positional:
             source += positional
         if named:
             source += ", " + named
