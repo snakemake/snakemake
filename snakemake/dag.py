@@ -892,6 +892,8 @@ class DAG:
         return new_wildcards
 
     def rule2job(self, targetrule):
+        if targetrule.has_wildcards():
+            raise WorkflowError("Target rules may not contain wildcards. Please specify concrete files or a rule without wildcards.")
         return Job(targetrule, self)
 
     def file2jobs(self, targetfile):
