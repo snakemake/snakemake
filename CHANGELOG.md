@@ -1,5 +1,13 @@
 # Change Log
 
+## [3.9.0] - 2016-11-15
+### Added
+- Ability to define isolated conda environments (YAML) per rule. Environment will be deployed by Snakemake.
+### Changed
+- Fixed hangups when using run directive and a large number of jobs
+- Fixed pickling errors with anonymous rules and run directive.
+- Various small bug fixes
+
 ## [3.8.2] - 2016-09-23
 ### Changed
 - Add missing import in rules.py.
