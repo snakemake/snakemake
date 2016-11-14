@@ -102,6 +102,7 @@ class Logger:
         self.logfile_handler.close()
         os.close(self.logfile_fd)
         os.remove(self.logfile)
+        self.log_handler = [self.text_handler]
 
     def get_logfile(self):
         if self.logfile is not None:

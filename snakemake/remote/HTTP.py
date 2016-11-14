@@ -17,7 +17,7 @@ try:
     # third-party modules
     import requests
 except ImportError as e:
-    raise WorkflowError("The Python 3 package 'requests' " + 
+    raise WorkflowError("The Python 3 package 'requests' " +
         "must be installed to use HTTP(S) remote() file functionality. %s" % e.msg)
 
 class RemoteProvider(AbstractRemoteProvider):
@@ -33,11 +33,11 @@ class RemoteObject(DomainObject):
 
         self.insecure = insecure
         self.additional_request_string = additional_request_string
-        
+
     # === Implementations of abstract class members ===
 
     @contextmanager #makes this a context manager. after 'yield' is __exit__()
-    def httpr(self, verb="GET", stream=False):     
+    def httpr(self, verb="GET", stream=False):
         # if args have been provided to remote(), use them over those given to RemoteProvider()
         args_to_use = self.provider.args
         if len(self.args):
@@ -95,11 +95,11 @@ class RemoteObject(DomainObject):
     def mtime(self):
         if self.exists():
             with self.httpr(verb="HEAD") as httpr:
-                
+
                 file_mtime = self.get_header_item(httpr, "last-modified", default=0)
 
                 modified_tuple = email.utils.parsedate_tz(file_mtime)
-                epochTime = int(email.utils.mktime_tz(modified_tuple))
+                epochTime = email.utils.mktime_tz(modified_tuple)
 
                 return epochTime
         else:
@@ -121,9 +121,9 @@ class RemoteObject(DomainObject):
                 # if the destination path does not exist
                 if make_dest_dirs:
                     os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
-                
+
                     with open(self.local_path, 'wb') as f:
-                        for chunk in httpr.iter_content(chunk_size=1024): 
+                        for chunk in httpr.iter_content(chunk_size=1024):
                             if chunk: # filter out keep-alives
                                 f.write(chunk)
             else:

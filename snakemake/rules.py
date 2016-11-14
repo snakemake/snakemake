@@ -179,7 +179,7 @@ class Rule:
 
     @version.setter
     def version(self, version):
-        if version is not None and "\n" in version:
+        if isinstance(version, str) and "\n" in version:
             raise WorkflowError("Version string may not contain line breaks.", rule=self)
         self._version = version
 
