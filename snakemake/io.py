@@ -8,9 +8,11 @@ import shutil
 import re
 import stat
 import time
+import datetime
 import json
 import copy
 import functools
+import subprocess as sp
 from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException
@@ -32,21 +34,31 @@ def lutime(f, times):
     #target of a link.
     if os.utime in os.supports_follow_symlinks:
         #...utime is well behaved
-        return os.utime(f, times, follow_symlinks=False)
+        os.utime(f, times, follow_symlinks=False)
     elif not os.path.islink(f):
         #...symlinks not an issue here
-        return os.utime(f, times)
+        os.utime(f, times)
     else:
+        try:
+            # try the system command
+            if times:
+                fmt_time = lambda sec: datetime.fromtimestamp(sec).strftime("%Y%m%d%H%M.%S")
+                atime, mtime = times
+                sp.check_call(["touch", "-h", f, "-a", "-t", fmt_time(atime)])
+                sp.check_call(["touch", "-h", f, "-m", "-t", fmt_time(mtime)])
+            else:
+                sp.check_call(["touch", "-h", f])
+        except sp.CalledProcessError:
+            pass
         #...problem system.  Do nothing.
         logger.warning("Unable to set utime on symlink {}. Your Python build does not support it.".format(f))
         return None
 
 
 def lchmod(f, mode):
-    return os.chmod(
-        f,
-        mode,
-        follow_symlinks=os.chmod not in os.supports_follow_symlinks)
+    os.chmod(f,
+             mode,
+             follow_symlinks=os.chmod not in os.supports_follow_symlinks)
 
 
 def IOFile(file, rule=None):
