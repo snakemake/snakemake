@@ -255,9 +255,10 @@ class Rule:
         inoutput = self.output if output else self.input
         if isinstance(item, str):
             # add the rule to the dependencies
-            if isinstance(item, _IOFile):
+            if isinstance(item, _IOFile) and item.rule:
                 self.dependencies[item] = item.rule
             if output:
+                rule = self
                 if self.wildcard_constraints or self.workflow._wildcard_constraints:
                     try:
                         item = update_wildcard_constraints(
@@ -269,10 +270,12 @@ class Rule:
                             snakefile=self.snakefile,
                             lineno=self.lineno)
             else:
+                rule = None
                 if contains_wildcard_constraints(item) and self.workflow.mode != Mode.subprocess:
                     logger.warning(
                         "wildcard constraints in inputs are ignored")
-            _item = IOFile(item, rule=self)
+            # record rule if this is an output file output
+            _item = IOFile(item, rule=rule)
             if is_flagged(item, "temp"):
                 if output:
                     self.temp_output.add(_item)

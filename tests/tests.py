@@ -422,6 +422,10 @@ def test_rule_defined_in_for_loop():
     run(dpath("test_rule_defined_in_for_loop"))
 
 
+def test_issue381():
+    run(dpath("test_issue381"))
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
