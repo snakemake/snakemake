@@ -46,7 +46,7 @@ class Rule:
             self.shadow_depth = None
             self.resources = dict(_cores=1, _nodes=1)
             self.priority = 0
-            self.version = None
+            self._version = None
             self._log = Log()
             self._benchmark = None
             self._conda_env = None
@@ -172,6 +172,16 @@ class Rule:
         Return True if rule contains wildcards.
         """
         return bool(self.wildcard_names)
+
+    @property
+    def version(self):
+        return self._version
+
+    @version.setter
+    def version(self, version):
+        if version is not None and "\n" in version:
+            raise WorkflowError("Version string may not contain line breaks.", rule=self)
+        self._version = version
 
     @property
     def benchmark(self):
