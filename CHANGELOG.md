@@ -2,7 +2,7 @@
 
 ## [3.9.0] - 2016-11-15
 ### Added
-- Ability to define isolated conda environments (YAML) per rule. Environment will be deployed by Snakemake.
+- Ability to define isolated conda software environments (YAML) per rule. Environment will be deployed by Snakemake upon workflow execution.
 - Command line argument --wrapper-prefix in order to overwrite the default URL for looking up wrapper scripts.
 ### Changed
 - --summary now displays the log files correspoding to each output file.
