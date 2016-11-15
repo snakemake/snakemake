@@ -231,7 +231,7 @@ class CPUExecutor(RealExecutor):
             '{workflow.snakemakepath} {target} --snakefile {workflow.snakefile} ',
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--benchmark-repeats {benchmark_repeats} ',
-            '--force-use-threads ',
+            '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
             '{overwrite_workdir} {overwrite_config} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
         self.use_threads = use_threads
@@ -349,7 +349,7 @@ class ClusterExecutor(RealExecutor):
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
             '--benchmark-repeats {benchmark_repeats} ',
-            '--force-use-threads ',
+            '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
             '{overwrite_workdir} {overwrite_config} --nocolor ',
             '--notemp --quiet --no-hooks --nolock'))
 

@@ -98,7 +98,8 @@ def snakemake(snakefile,
               verbose=False,
               force_use_threads=False,
               use_conda=False,
-              mode=Mode.default):
+              mode=Mode.default,
+              wrapper_prefix=None):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -172,6 +173,8 @@ def snakemake(snakefile,
         max_jobs_per_second:        maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
+        mode (snakemake.common.Mode): Execution mode
+        wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -301,7 +304,8 @@ def snakemake(snakefile,
                         config_args=config_args,
                         debug=debug,
                         use_conda=use_conda,
-                        mode=mode)
+                        mode=mode,
+                        wrapper_prefix=wrapper_prefix)
     success = True
     try:
         workflow.include(snakefile,
@@ -913,6 +917,13 @@ def get_argument_parser():
         action="store_true",
         help="If defined in the rule, create job specific conda environments. "
         "If this flag is not set, the conda directive is ignored.")
+    parser.add_argument(
+        "--wrapper-prefix",
+        default="https://bitbucket.org/snakemake/snakemake-wrappers/raw/",
+        help="Prefix for URL created from wrapper directive (default: "
+        "https://bitbucket.org/snakemake/snakemake-wrappers/raw/). Set this to "
+        "a different URL to use your fork or a local clone of the repository."
+    )
     parser.add_argument("--version", "-v",
                         action="version",
                         version=__version__)
@@ -1056,7 +1067,8 @@ def main():
                             max_jobs_per_second=args.max_jobs_per_second,
                             force_use_threads=args.force_use_threads,
                             use_conda=args.use_conda,
-                            mode=args.mode)
+                            mode=args.mode,
+                            wrapper_prefix=args.wrapper_prefix)
 
     if args.profile:
         with open(args.profile, "w") as out:

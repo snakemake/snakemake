@@ -527,7 +527,7 @@ class Wrapper(Script):
     end_func = "wrapper"
 
     def args(self):
-        yield ", input, output, params, wildcards, threads, resources, log, config, conda_env"
+        yield ", input, output, params, wildcards, threads, resources, log, config, conda_env, workflow.wrapper_prefix"
 
 
 class Rule(GlobalKeywordState):
