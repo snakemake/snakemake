@@ -1014,9 +1014,9 @@ class DAG:
 
     def summary(self, detailed=False):
         if detailed:
-            yield "output_file\tdate\trule\tversion\tinput_file(s)\tshellcmd\tstatus\tplan"
+            yield "output_file\tdate\trule\tversion\tlog-file(s)\tinput-file(s)\tshellcmd\tstatus\tplan"
         else:
-            yield "output_file\tdate\trule\tversion\tstatus\tplan"
+            yield "output_file\tdate\trule\tversion\tlog-file(s)\tstatus\tplan"
 
         for job in self.jobs:
             output = job.rule.output if self.dynamic(
@@ -1031,6 +1031,9 @@ class DAG:
                 date = time.ctime(f.mtime) if f.exists else "-"
 
                 pending = "update pending" if self.reason(job) else "no update"
+
+                log = self.workflow.persistence.log(f)
+                log = "-" if log is None else ",".join(log)
 
                 input = self.workflow.persistence.input(f)
                 input = "-" if input is None else ",".join(input)
@@ -1054,10 +1057,10 @@ class DAG:
                 elif self.workflow.persistence.params_changed(job, file=f):
                     status = "params changed"
                 if detailed:
-                    yield "\t".join((f, date, rule, version, input, shellcmd,
+                    yield "\t".join((f, date, rule, version, log, input, shellcmd,
                                      status, pending))
                 else:
-                    yield "\t".join((f, date, rule, version, status, pending))
+                    yield "\t".join((f, date, rule, version, log, status, pending))
 
     def d3dag(self, max_jobs=10000):
         def node(job):
