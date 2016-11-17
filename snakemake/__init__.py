@@ -305,7 +305,8 @@ def snakemake(snakefile,
                         debug=debug,
                         use_conda=use_conda,
                         mode=mode,
-                        wrapper_prefix=wrapper_prefix)
+                        wrapper_prefix=wrapper_prefix,
+                        printshellcmds=printshellcmds)
     success = True
     try:
         workflow.include(snakefile,

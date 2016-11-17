@@ -45,7 +45,8 @@ class Workflow:
                  debug=False,
                  use_conda=False,
                  mode=Mode.default,
-                 wrapper_prefix=None):
+                 wrapper_prefix=None,
+                 printshellcmds=False):
         """
         Create the controller.
         """
@@ -83,6 +84,7 @@ class Workflow:
         self.use_conda = use_conda
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
+        self.printshellcmds = printshellcmds
 
         global config
         config = dict()

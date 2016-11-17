@@ -172,12 +172,17 @@ class RealExecutor(AbstractExecutor):
             overwrite_config.append("--config")
             overwrite_config.extend(self.workflow.config_args)
 
+        printshellcmds = ""
+        if self.workflow.printshellcmds:
+            printshellcmds = "-p"
+
         target = job.output if job.output else job.rule.name
 
         return format(pattern,
                       job=job,
                       overwrite_workdir=overwrite_workdir,
                       overwrite_config=overwrite_config,
+                      printshellcmds=printshellcmds,
                       workflow=self.workflow,
                       cores=self.cores,
                       benchmark_repeats=self.benchmark_repeats,
@@ -232,7 +237,7 @@ class CPUExecutor(RealExecutor):
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--benchmark-repeats {benchmark_repeats} ',
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
-            '{overwrite_workdir} {overwrite_config} ',
+            '{overwrite_workdir} {overwrite_config} {printshellcmds} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
         self.use_threads = use_threads
         self.cores = workers
@@ -350,7 +355,7 @@ class ClusterExecutor(RealExecutor):
             '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
             '--benchmark-repeats {benchmark_repeats} ',
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
-            '{overwrite_workdir} {overwrite_config} --nocolor ',
+            '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
             '--notemp --quiet --no-hooks --nolock'))
 
         if printshellcmds:
