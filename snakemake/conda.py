@@ -26,7 +26,7 @@ def create_env(job):
             tmp.write(content)
             env_file = tmp.name
 
-    env_path = os.path.join(job.rule.workflow.persistence.conda_env_path, md5hash.hexdigest())
+    env_path = os.path.join(job.rule.workflow.persistence.conda_env_path, md5hash.hexdigest()[:8])
     if not os.path.exists(env_path):
         logger.info("Creating conda environment for {}...".format(job.conda_env_file))
         try:
