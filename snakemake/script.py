@@ -231,7 +231,9 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 if conda_env is not None:
                     py = os.path.join(conda_env, "bin", "python")
                     if os.path.exists(py):
-                        out = subprocess.check_output([py, "--version"])
+                        out = subprocess.check_output([py, "--version"],
+                                                      stderr=subprocess.STDOUT,
+                                                      universal_newlines=True)
                         ver = tuple(map(int, PY_VER_RE.match(out).group("ver_min").split(".")))
                         if ver >= MIN_PY_VERSION:
                             # Python version is new enough, make use of environment
