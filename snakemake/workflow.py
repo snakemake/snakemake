@@ -61,6 +61,8 @@ class Workflow:
         self.rule_count = 0
         self.basedir = os.path.dirname(snakefile)
         self.snakefile = os.path.abspath(snakefile)
+        if snakemakepath is None:
+            snakemakepath = "{} -m snakemake".format(sys.executable)
         self.snakemakepath = snakemakepath
         self.included = []
         self.included_stack = []
