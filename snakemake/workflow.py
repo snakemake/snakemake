@@ -495,6 +495,12 @@ class Workflow:
                 self._onerror(logger.get_logfile())
             return False
 
+    @property
+    def current_basedir(self):
+        """Basedir of currently parsed Snakefile."""
+        assert self.included_stack
+        return os.path.abspath(os.path.dirname(self.included_stack[-1]))
+
     def include(self, snakefile,
                 overwrite_first_rule=False,
                 print_compilation=False,
@@ -505,8 +511,7 @@ class Workflow:
         # check if snakefile is a path to the filesystem
         if not urllib.parse.urlparse(snakefile).scheme:
             if not os.path.isabs(snakefile) and self.included_stack:
-                current_path = os.path.dirname(self.included_stack[-1])
-                snakefile = os.path.join(current_path, snakefile)
+                snakefile = os.path.join(self.current_basedir, snakefile)
             # Could still be an url if relative import was used
             if not urllib.parse.urlparse(snakefile).scheme:
                 snakefile = os.path.abspath(snakefile)
@@ -543,18 +548,23 @@ class Workflow:
         self.included_stack.pop()
 
     def onstart(self, func):
+        """Register onstart function."""
         self._onstart = func
 
     def onsuccess(self, func):
+        """Register onsuccess function."""
         self._onsuccess = func
 
     def onerror(self, func):
+        """Register onerror function."""
         self._onerror = func
 
     def global_wildcard_constraints(self, **content):
+        """Register global wildcard constraints."""
         self._wildcard_constraints.update(content)
 
     def workdir(self, workdir):
+        """Register workdir."""
         if self.overwrite_workdir is None:
             os.makedirs(workdir, exist_ok=True)
             self._workdir = workdir
@@ -632,6 +642,8 @@ class Workflow:
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(ruleinfo.wrapper)
             if ruleinfo.conda_env:
+                if not os.path.isabs(ruleinfo.conda_env):
+                    ruleinfo.conda_env = os.path.join(self.current_basedir, ruleinfo.conda_env)
                 rule.conda_env = ruleinfo.conda_env
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
