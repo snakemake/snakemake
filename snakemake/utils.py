@@ -15,7 +15,7 @@ import multiprocessing
 import string
 import shlex
 
-from snakemake.io import regex, Namedlist
+from snakemake.io import regex, Namedlist, Wildcards
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 import snakemake
@@ -179,6 +179,8 @@ class SequenceFormatter(string.Formatter):
         return self.element_formatter.format_field(elem, format_spec)
 
     def format_field(self, value, format_spec):
+        if isinstance(value, Wildcards):
+            return ",".join("{}={}".format(name, value.get(name)) for name in value.keys())
         if isinstance(value, (list, tuple, set, frozenset)):
             return self.separator.join(self.format_element(v, format_spec) for v in value)
         else:

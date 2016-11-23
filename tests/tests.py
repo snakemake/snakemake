@@ -426,6 +426,10 @@ def test_issue381():
     run(dpath("test_issue381"))
 
 
+def test_format_wildcards():
+    run(dpath("test_format_wildcards"))
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
