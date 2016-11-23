@@ -1005,6 +1005,7 @@ def main():
                             listrules=args.list,
                             list_target_rules=args.list_target_rules,
                             cores=args.cores,
+                            local_cores=args.local_cores,
                             nodes=args.cores,
                             resources=resources,
                             config=config,

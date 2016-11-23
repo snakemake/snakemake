@@ -10,14 +10,14 @@ from contextlib import contextmanager
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import FTPFileException, WorkflowError
-import snakemake.io 
+import snakemake.io
 
 try:
     # third-party modules
     import ftputil
     import ftputil.session
 except ImportError as e:
-    raise WorkflowError("The Python 3 package 'ftputil' " + 
+    raise WorkflowError("The Python 3 package 'ftputil' " +
         "must be installed to use SFTP remote() file functionality. %s" % e.msg)
 
 class RemoteProvider(AbstractRemoteProvider):
@@ -40,7 +40,7 @@ class RemoteObject(DomainObject):
     # === Implementations of abstract class members ===
 
     @contextmanager #makes this a context manager. after 'yield' is __exit__()
-    def ftpc(self):     
+    def ftpc(self):
         if not hasattr(self, "conn") or (hasattr(self, "conn") and not isinstance(self.conn, ftputil.FTPHost)):
             # if args have been provided to remote(), use them over those given to RemoteProvider()
             args_to_use = self.provider.args
@@ -128,8 +128,8 @@ class RemoteObject(DomainObject):
         dirname = first_wildcard.replace(self.path_prefix, "")
 
         with self.ftpc() as ftpc:
-            file_list = [(os.path.join(dirpath, f) if dirpath != "." else f) 
-                    for dirpath, dirnames, filenames in ftpc.walk(dirname) 
+            file_list = [(os.path.join(dirpath, f) if dirpath != "." else f)
+                    for dirpath, dirnames, filenames in ftpc.walk(dirname)
                     for f in chain(filenames, dirnames)]
             file_list = [file_path[1:] if file_path[0] == "/" else file_path for file_path in file_list]
 
