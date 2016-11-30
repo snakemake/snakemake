@@ -5,4 +5,5 @@ pipelines:
         script:
           - conda env create --file environment.yml --name snakemake
           - source activate snakemake
+          - pip install -e .
           - python setup.py nosetests
