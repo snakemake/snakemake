@@ -17,5 +17,4 @@ dependencies:
   - dropbox
   - numpy
   - appdirs
-  - snakemake
   - pytools
