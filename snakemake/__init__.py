@@ -138,7 +138,7 @@ def snakemake(snakefile,
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
         standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False) (deprecated)
         ignore_ambiguity (bool):    ignore ambiguous rules and always take the first possible one (default False)
-        snakemakepath (str):        Deprecated parameter whose value is ignored. Do not use.
+        snakemakepath (str):        path to the snakemake executable (default None)
         lock (bool):                lock the working directory when executing the workflow (default True)
         unlock (bool):              just unlock the working directory (default False)
         cleanup_metadata (bool):    just cleanup metadata of output files (default False)
@@ -294,6 +294,7 @@ def snakemake(snakefile,
         workdir = os.path.abspath(workdir)
         os.chdir(workdir)
     workflow = Workflow(snakefile=snakefile,
+                        snakemakepath=snakemakepath,
                         jobscript=jobscript,
                         overwrite_shellcmd=overwrite_shellcmd,
                         overwrite_config=overwrite_config,
@@ -342,6 +343,7 @@ def snakemake(snakefile,
                                        immediate_submit=immediate_submit,
                                        standalone=standalone,
                                        ignore_ambiguity=ignore_ambiguity,
+                                       snakemakepath=snakemakepath,
                                        lock=lock,
                                        unlock=unlock,
                                        cleanup_metadata=cleanup_metadata,
@@ -938,6 +940,8 @@ def main():
         sys.stdout.buffer.write(cmd)
         sys.exit(0)
 
+    snakemakepath = sys.argv[0]
+
     try:
         resources = parse_resources(args)
         config = parse_config(args)
@@ -975,7 +979,8 @@ def main():
 
         _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
 
-        _snakemake = partial(snakemake, os.path.abspath(args.snakefile))
+        _snakemake = partial(snakemake, os.path.abspath(args.snakefile),
+                             snakemakepath=snakemakepath)
         gui.register(_snakemake, args)
         url = "http://127.0.0.1:{}".format(args.gui)
         print("Listening on {}.".format(url), file=sys.stderr)
@@ -1033,6 +1038,7 @@ def main():
                             immediate_submit=args.immediate_submit,
                             standalone=True,
                             ignore_ambiguity=args.allow_ambiguity,
+                            snakemakepath=snakemakepath,
                             lock=not args.nolock,
                             unlock=args.unlock,
                             cleanup_metadata=args.cleanup_metadata,
@@ -1099,7 +1105,7 @@ def bash_completion(snakefile="Snakefile"):
         if files:
             print_candidates(files)
         elif os.path.exists(snakefile):
-            workflow = Workflow(snakefile=snakefile)
+            workflow = Workflow(snakefile=snakefile, snakemakepath="snakemake")
             workflow.include(snakefile)
 
             print_candidates([file

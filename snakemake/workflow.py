@@ -34,6 +34,7 @@ from snakemake.common import Mode
 class Workflow:
     def __init__(self,
                  snakefile=None,
+                 snakemakepath=None,
                  jobscript=None,
                  overwrite_shellcmd=None,
                  overwrite_config=dict(),
@@ -60,6 +61,7 @@ class Workflow:
         self.rule_count = 0
         self.basedir = os.path.dirname(snakefile)
         self.snakefile = os.path.abspath(snakefile)
+        self.snakemakepath = snakemakepath
         self.included = []
         self.included_stack = []
         self.jobscript = jobscript

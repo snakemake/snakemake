@@ -22,6 +22,9 @@ def dpath(path):
     return os.path.realpath(join(os.path.dirname(__file__), path))
 
 
+SCRIPTPATH = dpath("../bin/snakemake")
+
+
 def md5sum(filename):
     data = open(filename, 'rb').read()
     return hashlib.md5(data).hexdigest()
@@ -78,6 +81,7 @@ def run(path,
                             cores=cores,
                             workdir=tmpdir,
                             stats="stats.txt",
+                            snakemakepath=SCRIPTPATH,
                             config=config, **params)
         if shouldfail:
             assert not success, "expected error on execution"

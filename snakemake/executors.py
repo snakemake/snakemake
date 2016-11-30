@@ -233,7 +233,7 @@ class CPUExecutor(RealExecutor):
 
         self.exec_job = '\\\n'.join((
             'cd {workflow.workdir_init} && ',
-            '{sys.executable} -m snakemake {target} --snakefile {workflow.snakefile} ',
+            '{workflow.snakemakepath} {target} --snakefile {workflow.snakefile} ',
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--benchmark-repeats {benchmark_repeats} ',
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
@@ -330,6 +330,9 @@ class ClusterExecutor(RealExecutor):
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats)
+        if workflow.snakemakepath is None:
+            raise ValueError("Cluster executor needs to know the path "
+                             "to the snakemake binary.")
 
         jobscript = workflow.jobscript
         if jobscript is None:
@@ -347,7 +350,7 @@ class ClusterExecutor(RealExecutor):
 
         self.exec_job = '\\\n'.join((
             'cd {workflow.workdir_init} && ',
-            '{sys.executable} -m snakemake {target} --snakefile {workflow.snakefile} ',
+            '{workflow.snakemakepath} {target} --snakefile {workflow.snakefile} ',
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
             '--benchmark-repeats {benchmark_repeats} ',
