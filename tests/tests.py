@@ -69,12 +69,12 @@ def run(path,
                 subpath), '{} does not exist'.format(subpath)
             subworkdir = os.path.join(tmpdir, "subworkdir")
             os.mkdir(subworkdir)
-            call('find {} -maxdepth 1 -type f -print0 | xargs -0 cp -t {}'.format(
+            call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
                 quote(subpath), quote(subworkdir)),
                  shell=True)
             config['subworkdir'] = subworkdir
 
-        call('find {} -maxdepth 1 -type f -print0 | xargs -0 cp -t {}'.format(
+        call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
             quote(path), quote(tmpdir)),
              shell=True)
         success = snakemake(snakefile,
