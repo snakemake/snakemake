@@ -18,3 +18,4 @@ dependencies:
   - numpy
   - appdirs
   - pytools
+  - docutils
