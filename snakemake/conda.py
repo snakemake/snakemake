@@ -15,7 +15,7 @@ def create_env(job):
     if shutil.which("conda") is None:
         raise CreateCondaEnvironmentException("The 'conda' command is not available in $PATH.")
     try:
-        version = subprocess.check_output(["conda", "--version"]).decode().split()[1]
+        version = subprocess.check_output(["conda", "--version"], stderr=subprocess.STDOUT).decode().split()[1]
         if StrictVersion(version) < StrictVersion("4.2"):
             raise CreateCondaEnvironmentException(
                 "Conda must be version 4.2 or later."
