@@ -4,6 +4,7 @@ import tempfile
 from urllib.request import urlopen
 import hashlib
 import shutil
+from distutils.version import StrictVersion
 
 from snakemake.exceptions import CreateCondaEnvironmentException
 from snakemake.logging import logger
@@ -13,6 +14,16 @@ def create_env(job):
     """ Create conda enviroment for the given job. """
     if shutil.which("conda") is None:
         raise CreateCondaEnvironmentException("The 'conda' command is not available in $PATH.")
+    try:
+        version = subprocess.check_output(["conda", "--version"]).decode().split()[1]
+        if StrictVersion(version) < StrictVersion("4.2"):
+            raise CreateCondaEnvironmentException(
+                "Conda must be version 4.2 or later."
+            )
+    except subprocess.CalledProcessError as e:
+        raise CreateCondaEnvironmentException(
+            "Unable to check conda version:\n" + e.output.decode()
+        )
 
     md5hash = hashlib.md5()
     env_file = job.conda_env_file
