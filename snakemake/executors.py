@@ -273,7 +273,7 @@ class CPUExecutor(RealExecutor):
         exec_job = self.exec_job
         if not job.rule.is_branched:
             exec_job += " --allowed-rules {}".format(job.rule)
-        cmd = self.format_job_pattern(exec_job, job=job)
+        cmd = self.format_job_pattern(exec_job, job=job, _quote_all=True)
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError:
