@@ -8,7 +8,7 @@ build:
         conda env create --file environment.yml --name snakemake
         source activate snakemake
 
-    - pip-install
+    - pip-install:
         requirements_file: ""
 
     - script:
