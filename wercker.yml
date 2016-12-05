@@ -1,4 +1,4 @@
-box: continuumio/anaconda
+box: quay.io/snakemake/snakemake:master
 
 build:
   steps:
