@@ -432,6 +432,10 @@ def test_format_wildcards():
     run(dpath("test_format_wildcards"))
 
 
+def test_with_parentheses():
+    run(dpath("test (with parentheses)"))
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
