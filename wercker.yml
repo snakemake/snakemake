@@ -3,12 +3,6 @@ box: quay.io/snakemake/snakemake:master
 build:
   steps:
     - script:
-      name: setup conda
-      code: |
-        conda env create --file environment.yml --name snakemake
-        source activate snakemake
-
-    - script:
         name: pip
         code: |
           pip install -e .
