@@ -1,4 +1,7 @@
-box: quay.io/snakemake/snakemake:master
+box: 
+  id: quay.io/snakemake/snakemake
+  tag: master
+  registry: quay.io
 
 build:
   steps:
