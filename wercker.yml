@@ -3,7 +3,6 @@ build:
     id: quay.io/snakemake/snakemake
     tag: master
     registry: quay.io
-    cmd: /bin/sh
 
   steps:
     - script:

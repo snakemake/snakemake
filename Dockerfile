@@ -5,4 +5,3 @@ RUN apt-get upgrade -y
 RUN conda update conda
 RUN conda env update --name root --file /tmp/repo/environment.yml
 RUN pip install /tmp/repo
-ENTRYPOINT ["/bin/bash"]
