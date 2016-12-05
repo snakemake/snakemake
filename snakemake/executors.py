@@ -249,7 +249,10 @@ class CPUExecutor(RealExecutor):
             error_callback=None):
         super()._run(job)
 
-        if self.use_threads or (not job.is_shadow and (job.is_shell or job.is_norun or job.is_script or job.is_wrapper)):
+        if job.rule.container is not None:
+            # execute Snakemake in container
+            future = self.pool.submit(self.spawn_container_job, job)
+        elif self.use_threads or (not job.is_shadow and (job.is_shell or job.is_norun or job.is_script or job.is_wrapper)):
             job.prepare()
             job.create_conda_env()
 
@@ -269,11 +272,23 @@ class CPUExecutor(RealExecutor):
         future.add_done_callback(partial(self._callback, job, callback,
                                          error_callback))
 
-    def spawn_job(self, job):
+    def get_spawn_cmd(self, job):
         exec_job = self.exec_job
         if not job.rule.is_branched:
             exec_job += " --allowed-rules {}".format(job.rule)
         cmd = self.format_job_pattern(exec_job, job=job)
+        return cmd
+
+    def spawn_job(self, job):
+        cmd = self.get_spawn_cmd(job)
+        try:
+            subprocess.check_call(cmd, shell=True)
+        except subprocess.CalledProcessError:
+            raise SpawnedJobError()
+
+    def spawn_container_job(self, job):
+        cmd = self.get_spawn_cmd(job)
+        
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError:

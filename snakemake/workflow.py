@@ -643,6 +643,8 @@ class Workflow:
                 if not os.path.isabs(ruleinfo.conda_env):
                     ruleinfo.conda_env = os.path.join(self.current_basedir, ruleinfo.conda_env)
                 rule.conda_env = ruleinfo.conda_env
+            if ruleinfo.container:
+                rule.container = ruleinfo.container
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
@@ -708,6 +710,13 @@ class Workflow:
     def conda(self, conda_env):
         def decorate(ruleinfo):
             ruleinfo.conda_env = conda_env
+            return ruleinfo
+
+        return decorate
+
+    def container(self, container):
+        def decorate(ruleinfo):
+            ruleinfo.container = container
             return ruleinfo
 
         return decorate
@@ -801,6 +810,7 @@ class RuleInfo:
         self.message = None
         self.benchmark = None
         self.conda_env = None
+        self.container = None
         self.wildcard_constraints = None
         self.threads = None
         self.shadow_depth = None
