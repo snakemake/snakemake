@@ -1,0 +1,16 @@
+box: continuumio/anaconda
+
+build:
+  steps:
+    - script:
+      name: setup conda
+      code: |
+        conda env create --file environment.yml --name snakemake
+        source activate snakemake
+
+    - pip-install
+
+    - script:
+        name: run tests
+        code: |
+          python setup.py nosetests
