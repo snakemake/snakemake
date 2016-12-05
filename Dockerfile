@@ -1,7 +1,7 @@
 FROM continuumio/anaconda
 MAINTAINER Johannes Köster <johannes.koester@tu-dortmund.de>
-ADD environment.yml /tmp/environment.yml
+ADD . /tmp/repo
 RUN conda update conda-env
-RUN conda env update --name root --file /tmp/environment.yml
-RUN conda install -c bioconda snakemake
+RUN conda env update --name root --file /tmp/repo/environment.yml
+RUN pip install /tmp/repo
 ENTRYPOINT ["/bin/bash"]
