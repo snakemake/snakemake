@@ -1,4 +1,4 @@
-FROM continuumio/anaconda
+FROM continuumio/miniconda3
 MAINTAINER Johannes Köster <johannes.koester@tu-dortmund.de>
 ADD . /tmp/repo
 RUN conda update conda
