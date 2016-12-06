@@ -1,0 +1,59 @@
+# See bug #300. This tests that output files really are cleaned up
+# before running a rule, and touched afterwards.
+#
+# The output should be deleted before the job starts.
+# (The output should be deleted on the the head node for cluster jobs.)
+# The path to the output should be created
+# The output should be touch'd on the head node to always be new.
+#
+# Additionally this should work for directories, symlinks and symlinks
+# to directories.
+#
+# TODO - consider adding a cluster-based test for point 2 above.
+
+
+# Setup - touch a mock input file and an out-of-date output file.
+shell("touch -t 201604010000 output.file")
+shell("touch input.file")
+
+# An empty directory
+shell("mkdir -p output.dir ; touch -ch -t 201604010000 output.dir")
+# A dangling symlink
+shell("ln -fs nosuchfile output.link ; touch -ch -t 201604010000 output.link")
+# A symlink to an empty directory
+shell("mkdir -p an_empty_dir; ln -fs an_empty_dir output.dirlink ; touch -ch -t 201604010000 an_empty_dir output.dirlink")
+
+
+rule main:
+    input: "output.file", "output.dir", "output.link", "output.dirlink"
+
+rule make_the_file:
+    output: "output.file", "foo/output.foo.file"
+    input: "input.file"
+    # Rule fails if any output.file is already present
+    run:
+        shell("test ! -e output.file")
+        shell("test -d foo")
+        shell("test ! -e foo/*")
+        shell("touch -t 201604010000 output.file")
+        shell("touch foo/output.foo.file")
+
+rule make_the_dir:
+    output: "output.dir"
+    input: "input.file"
+    #mkdir fails if the dir is already present
+    run:
+        shell("mkdir output.dir")
+        shell("touch output.dir/foo")
+
+rule make_the_links:
+    output: "output.link", "output.dirlink"
+    input: "input.file"
+    # Both links should be gone, but an_empty_dir should not have been removed
+    # as it's not a direct target of the rule.
+    run:
+        shell("touch arealfile")
+        shell("ln -s arealfile output.link")
+        shell("test -d an_empty_dir")
+        shell("mkdir empty_dir2")
+        shell("ln -s empty_dir2 output.dirlink")

@@ -6,8 +6,9 @@ __license__ = "MIT"
 import os
 import sys
 import base64
-import json
 import tempfile
+import subprocess
+import json
 
 from collections import defaultdict
 from itertools import chain
@@ -16,9 +17,11 @@ from operator import attrgetter
 
 from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard
 from snakemake.utils import format, listfiles
-from snakemake.exceptions import RuleException, ProtectedOutputException
-from snakemake.exceptions import UnexpectedOutputException
+from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
+from snakemake.exceptions import UnexpectedOutputException, CreateCondaEnvironmentException
 from snakemake.logging import logger
+from snakemake.common import DYNAMIC_FILL
+from snakemake import conda, wrapper
 
 
 def jobfiles(jobs, type):
@@ -38,16 +41,16 @@ class Job:
         self._format_wildcards = (self.wildcards if format_wildcards is None
                                   else Wildcards(fromdict=format_wildcards))
 
-        (self.input, self.output, self.params, self.log, self.benchmark,
-         self.ruleio,
-         self.dependencies) = rule.expand_wildcards(self.wildcards_dict)
+        self.input, input_mapping, self.dependencies = self.rule.expand_input(self.wildcards_dict)
+        self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
+        # other properties are lazy to be able to use additional parameters and check already existing files
+        self._params = None
+        self._log = None
+        self._benchmark = None
+        self._resources = None
+        self._conda_env_file = None
+        self._conda_env = None
 
-        self.resources_dict = {
-            name: min(self.rule.workflow.global_resources.get(name, res), res)
-            for name, res in rule.resources.items()
-        }
-        self.threads = self.resources_dict["_cores"]
-        self.resources = Resources(fromdict=self.resources_dict)
         self.shadow_dir = None
         self._inputsize = None
 
@@ -56,7 +59,7 @@ class Job:
         self.touch_output = set()
         self.subworkflow_input = dict()
         for f in self.output:
-            f_ = self.ruleio[f]
+            f_ = output_mapping[f]
             if f_ in self.rule.dynamic_output:
                 self.dynamic_output.add(f)
             if f_ in self.rule.temp_output:
@@ -66,7 +69,7 @@ class Job:
             if f_ in self.rule.touch_output:
                 self.touch_output.add(f)
         for f in self.input:
-            f_ = self.ruleio[f]
+            f_ = input_mapping[f]
             if f_ in self.rule.dynamic_input:
                 self.dynamic_input.add(f)
             if f_ in self.rule.subworkflow_input:
@@ -75,6 +78,71 @@ class Job:
         if True or not self.dynamic_output:
             for o in self.output:
                 self._hash ^= o.__hash__()
+
+    def is_valid(self):
+        """Check if job is valid"""
+        # these properties have to work in dry-run as well. Hence we check them here:
+        resources = self.rule.expand_resources(self.wildcards_dict, self.input)
+        self.rule.expand_params(self.wildcards_dict, self.input, resources)
+        self.rule.expand_benchmark(self.wildcards_dict)
+        self.rule.expand_log(self.wildcards_dict)
+
+    @property
+    def threads(self):
+        return self.resources._cores
+
+    @property
+    def params(self):
+        if self._params is None:
+            self._params = self.rule.expand_params(self.wildcards_dict,
+                                                   self.input,
+                                                   self.resources)
+        return self._params
+
+    @property
+    def log(self):
+        if self._log is None:
+            self._log = self.rule.expand_log(self.wildcards_dict)
+        return self._log
+
+    @property
+    def benchmark(self):
+        if self._benchmark is None:
+            self._benchmark = self.rule.expand_benchmark(self.wildcards_dict)
+        return self._benchmark
+
+    @property
+    def resources(self):
+        if self._resources is None:
+            self._resources = self.rule.expand_resources(self.wildcards_dict,
+                                                         self.input)
+        return self._resources
+
+    @property
+    def conda_env_file(self):
+        if not self.rule.workflow.use_conda:
+            # if use_conda is False, ignore conda_env_file definition
+            return None
+
+        if self._conda_env_file is None:
+            self._conda_env_file = self.rule.expand_conda_env(self.wildcards_dict)
+        return self._conda_env_file
+
+    @property
+    def conda_env(self):
+        if self.conda_env_file:
+            if self._conda_env is None:
+                raise ValueError("create_conda_env() must be called before calling conda_env")
+            return self._conda_env
+        return None
+
+    def create_conda_env(self):
+        """Create conda environment if specified."""
+        if self.conda_env_file:
+            try:
+                self._conda_env = conda.create_env(self)
+            except CreateCondaEnvironmentException as e:
+                raise WorkflowError(e, rule=self.rule)
 
     @property
     def is_shadow(self):
@@ -86,8 +154,8 @@ class Job:
 
     @property
     def b64id(self):
-        return base64.b64encode((self.rule.name + "".join(self.output)
-                                 ).encode("utf-8")).decode("utf-8")
+        return base64.b64encode((self.rule.name + "".join(self.output)).encode(
+            "utf-8")).decode("utf-8")
 
     @property
     def inputsize(self):
@@ -126,6 +194,22 @@ class Job:
                                 rule=self.rule)
 
     @property
+    def is_shell(self):
+        return self.rule.shellcmd is not None
+
+    @property
+    def is_norun(self):
+        return self.rule.norun
+
+    @property
+    def is_script(self):
+        return self.rule.script is not None
+
+    @property
+    def is_wrapper(self):
+        return self.rule.wrapper is not None
+
+    @property
     def expanded_output(self):
         """ Iterate over output files while dynamic output is expanded. """
         for f, f_ in zip(self.output, self.rule.output):
@@ -135,21 +219,18 @@ class Job:
                     yield f_
                 for f, _ in expansion:
                     file_to_yield = IOFile(f, self.rule)
-
                     file_to_yield.clone_flags(f_)
-
                     yield file_to_yield
             else:
                 yield f
 
-    @property
-    def expanded_shadowed_output(self):
-        """ Get the paths of output files, resolving shadow directory. """
+    def shadowed_path(self, f):
+        """ Get the shadowed path of IOFile f. """
         if not self.shadow_dir:
-            yield from self.expanded_output
-        else:
-            for f in self.expanded_output:
-                yield os.path.join(self.shadow_dir, f)
+            return f
+        f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
+        f_.clone_flags(f)
+        return f_
 
     @property
     def dynamic_wildcards(self):
@@ -169,9 +250,9 @@ class Job:
     def missing_input(self):
         """ Return missing input files. """
         # omit file if it comes from a subworkflow
-        return set(f for f in self.input
+        return set(f
+                   for f in self.input
                    if not f.exists and not f in self.subworkflow_input)
-
 
     @property
     def existing_remote_input(self):
@@ -206,6 +287,15 @@ class Job:
         existing = [f.mtime for f in self.expanded_output if f.exists]
         if self.benchmark and self.benchmark.exists:
             existing.append(self.benchmark.mtime)
+        if existing:
+            return min(existing)
+        return None
+
+    @property
+    def output_mintime_local(self):
+        existing = [f.mtime_local for f in self.expanded_output if f.exists]
+        if self.benchmark and self.benchmark.exists:
+            existing.append(self.benchmark.mtime_local)
         if existing:
             return min(existing)
         return None
@@ -263,7 +353,8 @@ class Job:
     def remote_input_newer_than_local(self):
         files = set()
         for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                    f.mtime > f.mtime_local):
                 files.add(f)
         return files
 
@@ -271,7 +362,8 @@ class Job:
     def remote_input_older_than_local(self):
         files = set()
         for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                    f.mtime < f.mtime_local):
                 files.add(f)
         return files
 
@@ -279,7 +371,8 @@ class Job:
     def remote_output_newer_than_local(self):
         files = set()
         for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                    f.mtime > f.mtime_local):
                 files.add(f)
         return files
 
@@ -287,16 +380,10 @@ class Job:
     def remote_output_older_than_local(self):
         files = set()
         for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                    f.mtime < f.mtime_local):
                 files.add(f)
         return files
-
-    def transfer_updated_files(self):
-        for f in self.remote_output_older_than_local | self.remote_input_older_than_local:
-            f.upload_to_remote()
-
-        for f in self.remote_output_newer_than_local | self.remote_input_newer_than_local:
-            f.download_from_remote()
 
     @property
     def files_to_download(self):
@@ -323,6 +410,21 @@ class Job:
         if protected:
             raise ProtectedOutputException(self.rule, protected)
 
+    def remove_existing_output(self):
+        """Clean up both dynamic and regular output before rules actually run
+        """
+        if self.dynamic_output:
+            for f, _ in chain(*map(self.expand_dynamic,
+                                   self.rule.dynamic_output)):
+                os.remove(f)
+
+        for f, f_ in zip(self.output, self.rule.output):
+            try:
+                f.remove(remove_non_empty_dir=False)
+            except FileNotFoundError:
+                #No file == no problem
+                pass
+
     def prepare(self):
         """
         Prepare execution of job.
@@ -341,10 +443,8 @@ class Job:
                 "present when the DAG was created:\n{}".format(
                     self.rule, unexpected_output))
 
-        if self.dynamic_output:
-            for f, _ in chain(*map(self.expand_dynamic,
-                                   self.rule.dynamic_output)):
-                os.remove(f)
+        self.remove_existing_output()
+
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
@@ -372,12 +472,14 @@ class Job:
             for dirpath, dirnames, filenames in os.walk(cwd):
                 # Must exclude .snakemake and its children to avoid infinite
                 # loop of symlinks.
-                if os.path.commonprefix([snakemake_dir, dirpath]) == snakemake_dir:
+                if os.path.commonprefix([snakemake_dir, dirpath
+                                         ]) == snakemake_dir:
                     continue
                 for dirname in dirnames:
                     if dirname == ".snakemake":
                         continue
-                    relative_source = os.path.relpath(os.path.join(dirpath, dirname))
+                    relative_source = os.path.relpath(os.path.join(dirpath,
+                                                                   dirname))
                     shadow = os.path.join(self.shadow_dir, relative_source)
                     os.mkdir(shadow)
 
@@ -386,6 +488,11 @@ class Job:
                     relative_source = os.path.relpath(source)
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
+
+    def close_remote(self):
+        for f in (self.input + self.output):
+            if f.is_remote:
+                f.remote_object.close()
 
     def cleanup(self):
         """ Cleanup output files. """
@@ -406,7 +513,8 @@ class Job:
     def empty_remote_dirs(self):
         for f in (set(self.output) | set(self.input)):
             if f.is_remote:
-                if os.path.exists(os.path.dirname(f)) and not len( os.listdir( os.path.dirname(f))):
+                if os.path.exists(os.path.dirname(f)) and not len(os.listdir(
+                        os.path.dirname(f))):
                     yield os.path.dirname(f)
 
     def rmdir_empty_remote_dirs(self):
@@ -414,7 +522,7 @@ class Job:
             try:
                 os.removedirs(d)
             except:
-                pass # it's ok if we can't remove the leaf
+                pass  # it's ok if we can't remove the leaf
 
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """
@@ -437,7 +545,9 @@ class Job:
         except IndexError as ex:
             raise RuleException("IndexError: " + str(ex), rule=self.rule)
 
-    def properties(self, omit_resources="_cores _nodes".split()):
+    def properties(self,
+                   omit_resources="_cores _nodes".split(),
+                   **aux_properties):
         resources = {
             name: res
             for name, res in self.resources.items()
@@ -451,12 +561,10 @@ class Job:
             "output": self.output,
             "params": params,
             "threads": self.threads,
-            "resources": resources
+            "resources": resources,
         }
+        properties.update(aux_properties)
         return properties
-
-    def json(self):
-        return json.dumps(self.properties())
 
     def __repr__(self):
         return self.rule.name
@@ -464,9 +572,10 @@ class Job:
     def __eq__(self, other):
         if other is None:
             return False
-        return (self.rule == other.rule and (
-            self.dynamic_output or self.wildcards_dict == other.wildcards_dict)
-                and (self.dynamic_input or self.input == other.input))
+        return (self.rule == other.rule and
+                (self.dynamic_output or
+                 self.wildcards_dict == other.wildcards_dict) and
+                (self.dynamic_input or self.input == other.input))
 
     def __lt__(self, other):
         return self.rule.__lt__(other.rule)
@@ -481,7 +590,7 @@ class Job:
         """ Expand dynamic files. """
         return list(listfiles(pattern,
                               restriction=self.wildcards,
-                              omit_value=_IOFile.dynamic_fill))
+                              omit_value=DYNAMIC_FILL))
 
 
 class Reason:
@@ -508,15 +617,15 @@ class Reason:
                          "are always executed.")
             else:
                 if self.missing_output:
-                    s.append("Missing output files: {}".format(
-                        ", ".join(self.missing_output)))
+                    s.append("Missing output files: {}".format(", ".join(
+                        self.missing_output)))
                 if self.incomplete_output:
-                    s.append("Incomplete output files: {}".format(
-                        ", ".join(self.incomplete_output)))
+                    s.append("Incomplete output files: {}".format(", ".join(
+                        self.incomplete_output)))
                 updated_input = self.updated_input - self.updated_input_run
                 if updated_input:
-                    s.append("Updated input files: {}".format(
-                        ", ".join(updated_input)))
+                    s.append("Updated input files: {}".format(", ".join(
+                        updated_input)))
                 if self.updated_input_run:
                     s.append("Input files updated by another job: {}".format(
                         ", ".join(self.updated_input_run)))

@@ -1,0 +1,21 @@
+
+rule all:
+    input:
+        "b.out"
+
+rule a:
+    input:
+        "a.in"
+    output:
+        "a.out"
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        rules.a.input
+    output:
+        "b.out"
+    shell:
+        "touch {output}"

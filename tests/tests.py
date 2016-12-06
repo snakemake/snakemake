@@ -10,18 +10,22 @@ from subprocess import call
 from tempfile import mkdtemp
 import hashlib
 import urllib
-from shutil import rmtree
+from shutil import rmtree, which
+from shlex import quote
 
 from snakemake import snakemake
+
+
+if not which("snakemake"):
+    raise Exception("snakemake not in PATH. For testing, install snakemake with "
+                    "'pip install -e .'. You should do this in a separate environment "
+                    "(via conda or virtualenv).")
 
 
 def dpath(path):
     """get path to a data file (relative to the directory this
 	test lives in)"""
     return os.path.realpath(join(os.path.dirname(__file__), path))
-
-
-SCRIPTPATH = dpath("../bin/snakemake")
 
 
 def md5sum(filename):
@@ -58,7 +62,7 @@ def run(path,
     assert os.path.exists(snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir), '{} does not exist'.format(results_dir)
-    tmpdir = mkdtemp()
+    tmpdir = mkdtemp(prefix=".test", dir=os.path.abspath("."))
     try:
         config = {}
         if subpath is not None:
@@ -68,18 +72,18 @@ def run(path,
                 subpath), '{} does not exist'.format(subpath)
             subworkdir = os.path.join(tmpdir, "subworkdir")
             os.mkdir(subworkdir)
-            call('cp `find {} -maxdepth 1 -type f` {}'.format(subpath,
-                                                              subworkdir),
+            call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
+                quote(subpath), quote(subworkdir)),
                  shell=True)
             config['subworkdir'] = subworkdir
 
-        call('cp `find {} -maxdepth 1 -type f` {}'.format(path, tmpdir),
+        call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
+            quote(path), quote(tmpdir)),
              shell=True)
         success = snakemake(snakefile,
                             cores=cores,
                             workdir=tmpdir,
                             stats="stats.txt",
-                            snakemakepath=SCRIPTPATH,
                             config=config, **params)
         if shouldfail:
             assert not success, "expected error on execution"
@@ -162,6 +166,8 @@ def test14():
 def test15():
     run(dpath("test15"))
 
+def test_ancient():
+    run(dpath("test_ancient"), targets=['D'])
 
 def test_report():
     run(dpath("test_report"), check_md5=False)
@@ -215,7 +221,11 @@ def test_ruledeps():
 
 
 def test_persistent_dict():
-    run(dpath("test_persistent_dict"))
+    try:
+        import pytools
+        run(dpath("test_persistent_dict"))
+    except ImportError:
+        pass
 
 
 def test_url_include():
@@ -232,6 +242,10 @@ def test_config():
 
 def test_update_config():
     run(dpath("test_update_config"))
+
+
+def test_wildcard_keyword():
+    run(dpath("test_wildcard_keyword"))
 
 
 def test_benchmark():
@@ -300,20 +314,126 @@ def test_script():
 def test_shadow():
     run(dpath("test_shadow"))
 
+
 def test_until():
     run(dpath("test_until"),
         until=["leveltwo_first", # rule name
                "leveltwo_second.txt", # file name
                "second_wildcard"]) # wildcard rule
 
+
 def test_omitfrom():
-    run(dpath("test_omitfrom"), 
+    run(dpath("test_omitfrom"),
         omit_from=["leveltwo_first", # rule name
                    "leveltwo_second.txt", # file name
                    "second_wildcard"]) # wildcard rule
 
+
 def test_nonstr_params():
     run(dpath("test_nonstr_params"))
+
+
+def test_delete_output():
+    run(dpath("test_delete_output"), cores=1)
+
+
+def test_input_generator():
+    run(dpath("test_input_generator"))
+
+
+def test_symlink_time_handling():
+    #See Snakefile for notes on why this fails on some systems
+    if os.utime in os.supports_follow_symlinks:
+        run(dpath("test_symlink_time_handling"))
+
+
+def test_issue328():
+    try:
+        import pytools
+        run(dpath("test_issue328"), forcerun=["split"])
+    except ImportError:
+        # skip test if import fails
+        pass
+
+
+def test_conda():
+    if conda_available():
+        run(dpath("test_conda"), use_conda=True)
+
+
+def test_wrapper():
+    if conda_available():
+        run(dpath("test_wrapper"), use_conda=True)
+
+
+def conda_available():
+    return which("conda")
+
+
+def test_get_log_none():
+    run(dpath("test_get_log_none"))
+
+
+def test_get_log_both():
+    run(dpath("test_get_log_both"))
+
+
+def test_get_log_stderr():
+    run(dpath("test_get_log_stderr"))
+
+
+def test_get_log_stdout():
+    run(dpath("test_get_log_stdout"))
+
+
+def test_get_log_complex():
+    run(dpath("test_get_log_complex"))
+
+
+def test_spaces_in_fnames():
+    run(dpath("test_spaces_in_fnames"),
+        # cluster="./qsub",
+        targets=["test bam file realigned.bam"],
+        verbose=True,
+        printshellcmds=True)
+
+
+def test_static_remote():
+    try:
+        import moto
+        import boto
+        import filechunkio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_static_remote"), cores=1)
+    except ImportError:
+        pass
+
+
+def test_deferred_func_eval():
+    run(dpath("test_deferred_func_eval"))
+
+
+def test_format_params():
+    run(dpath("test_format_params"), check_md5=True)
+
+
+def test_rule_defined_in_for_loop():
+    # issue 257
+    run(dpath("test_rule_defined_in_for_loop"))
+
+
+def test_issue381():
+    run(dpath("test_issue381"))
+
+
+def test_format_wildcards():
+    run(dpath("test_format_wildcards"))
+
+
+def test_with_parentheses():
+    run(dpath("test (with parentheses)"))
 
 
 if __name__ == '__main__':

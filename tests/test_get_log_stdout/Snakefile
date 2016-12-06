@@ -1,0 +1,6 @@
+rule:
+    input: "test.in"
+    output: "test.out"
+    log: "test.log"
+    wrapper:
+        'file://wrapper.py'
