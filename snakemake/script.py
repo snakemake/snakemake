@@ -243,7 +243,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                             logger.info("Conda environment defines Python "
                                         "version < {}.{}. Using Python of the "
                                         "master process to execute "
-                                        "script.".format(MIN_PY_VERSION))
+                                        "script.".format(*MIN_PY_VERSION))
                 # use the same Python as the running process or the one from the environment
                 shell("{py_exec} {f.name}")
             elif path.endswith(".R"):
