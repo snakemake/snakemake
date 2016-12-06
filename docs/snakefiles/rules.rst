@@ -4,8 +4,6 @@
 Rules
 =====
 
-.. contents::
-
 Most importantly, a rule can consist of a name (the name is optional and can be left out, creating an anonymous rule), input files, output files, and a shell command to generate the output from the input, i.e.
 
 
@@ -117,6 +115,9 @@ Finally, you can also define global wildcard constraints that apply for all rule
 
 See the `Python documentation on regular expressions <http://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
 
+
+.. _snakefiles-threads:
+
 Threads
 -------
 
@@ -134,6 +135,35 @@ Snakemake can alter the number of cores available based on command line options.
 In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``). On a cluster node, Snakemake always uses as many cores as available on that node. Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node.
 
 Starting from version 3.7, threads can also be a callable that returns an ``int`` value.
+
+
+.. _snakefiles-resources:
+
+Resources
+---------
+
+In addition to threads, a rule can use arbitrary user-defined resources by specifying them with the resources-keyword:
+
+.. code-block:: python
+
+    rule:
+        input:     ...
+        output:    ...
+        resources: gpu=1
+        shell: "..."
+
+If limits for the resources are given via the command line, e.g.
+
+.. code-block:: console
+
+    $ snakemake --resources gpu=2
+
+the scheduler will ensure that the given resources are not exceeded by running jobs.
+If no limits are given, the resources are ignored.
+Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
+Resources must be ``int`` values.
+
+Starting from version 3.7, resources can also be callables that return ``int`` values.
 
 Messages
 --------
@@ -248,64 +278,6 @@ To debug R scripts, you can save the workspace with ``save.image()``, and invoke
 It is best practice to wrap the actual code into a separate function. This increases the portability if the code shall be invoked outside of Snakemake or from a different rule.
 
 
-Wrappers
---------
-
-With Snakemake 3.5.5, the wrapper directive is introduced (experimental). This directive allows to have re-usable wrapper scripts around e.g. command line tools. In contrast to modularization strategies like ``include`` or subworkflows, the wrapper directive allows to re-wire the DAG of jobs. For example
-
-.. code-block:: python
-
-    rule samtools_sort:
-        input:
-            "mapped/{sample}.bam"
-        output:
-            "mapped/{sample}.sorted.bam"
-        params:
-            "-m 4G"
-        threads: 8
-        wrapper:
-            "0.0.8/bio/samtools_sort"
-
-
-Refers to the wrapper ``"0.0.8/bio/samtools_sort"`` to create the output from the input. Snakemake will automatically download the wrapper from the [Snakemake Wrapper Repository](https://bitbucket.org/snakemake/snakemake-wrappers). Thereby, 0.0.8 can be replaced with the git version tag you want to use, or a commit id (see [here](https://bitbucket.org/snakemake/snakemake-wrappers/commits/)). This ensures reproducibility since changes in the wrapper implementation won't be propagated automatically to your workflow. Alternatively, e.g., for development, the wrapper directive can also point to full URLs, including URLs to local files with ``file://``. Examples for each wrapper can be found in the READMEs located in the wrapper subdirectories at the [Snakemake Wrapper Repository](https://bitbucket.org/snakemake/snakemake-wrappers).
-
-The [Snakemake Wrapper Repository](https://bitbucket.org/snakemake/snakemake-wrappers) is meant as a collaborative project and pull requests are very welcome.
-
-
-Integrated package management
------------------------------
-
-With Snakemake 3.9.0 it is possible to define isolated software environments per rule. Upon execution of a workflow, the [Conda package manager](http://conda.pydata.org) is used to obtain and deploy the defined software packages in the specified versions. Packages will be installed into your working directory, without requiring any admin/root priviledges.
-Given that conda is available on your system (see [here](http://conda.pydata.org/miniconda.html)), to use the Conda integration, add the `--use-conda` flag to your workflow execution command, e.g. `snakemake --cores 8 --use-conda`.
-When `--use-conda` is activated, Snakemake will automatically create software environments for any used wrapper (see above).
-Further, you can manually define environments via the `conda` directive, e.g.:
-
-.. code-block:: python
-
-    rule NAME:
-        input:
-            "table.txt"
-        output:
-            "plots/myplot.pdf"
-        conda:
-            "envs/ggplot.yaml"
-        script:
-            "scripts/plot-stuff.R"
-
-with the following `environment definition <http://conda.pydata.org/docs/using/envs.html#create-environment-file-by-hand>`_:
-
-
-.. code-block:: yaml
-
-    channels:
-     - r
-    dependencies:
-     - r=3.3.1
-     - r-ggplot2=2.1.0
-
-Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
-Note that you need to clean up environments manually for now. However, they are lightweight and consist only of symlinks to your central conda installation.
-
 Protected and Temporary Files
 -----------------------------
 
@@ -367,6 +339,196 @@ Sometimes it is necessary to enforce some rule execution order without real file
 With the ``touch`` flag, Snakemake touches (i.e. creates or updates) the file ``mytask.done`` after ``mycommand`` has finished successfully.
 
 
+.. _snakefiles-job_properties:
+
+Job Properties
+--------------
+
+When executing a workflow on a cluster using the ``--cluster`` parameter (see below), Snakemake creates a job script for each job to execute.
+This script is then invoked using the provided cluster submission command (e.g. ``qsub``).
+Sometimes you want to provide a custom wrapper for the cluster submission command that decides about additional parameters.
+As this might be based on properties of the job, Snakemake stores the job properties (e.g. rule name, threads, input files, params etc.) as JSON inside the job script.
+For convenience, there exists a parser function ``snakemake.utils.read_job_properties`` that can be used to access the properties.
+The following shows an example job submission wrapper:
+
+.. code-block:: python
+
+    #!/usr/bin/env python3
+    import os
+    import sys
+
+    from snakemake.utils import read_job_properties
+
+    jobscript = sys.argv[1]
+    job_properties = read_job_properties(jobscript)
+
+    # do something useful with the threads
+    threads = job_properties[threads]
+
+    # access property defined in the cluster configuration file (Snakemake >=3.6.0)
+    job_properties["cluster"]["time"]
+
+    os.system("qsub -t {threads} {script}".format(threads=threads, script=jobscript))
+
+
+.. _snakefiles-dynamic_files:
+
+Dynamic Files
+-------------
+
+Since version 1.2.3, Snakemake provides experimental support for dynamic files.
+Dynamic files can be used whenever one has a rule, for which the number of output files is unknown before the rule was executed.
+This is useful for example with cetain clustering algorithms:
+
+.. code-block:: python
+
+    rule cluster:
+        input: "afile.csv"
+        output: dynamic("{clusterid}.cluster.csv")
+        run: ...
+
+Now the results of the rule can be used in Snakemake although it does not know how many files will be present before executing the rule `cluster`, e.g. by:
+
+
+.. code-block:: python
+
+    rule all:
+        input: dynamic("{clusterid}.cluster.plot.pdf")
+
+    rule plot:
+        input: "{clusterid}.cluster.csv"
+        output: "{clusterid}.cluster.plot.pdf"
+        run: ...
+
+Here, Snakemake determines the input files for the rule `all` after the rule `cluster` was executed, and then dynamically inserts jobs of the rule `plot` into the DAG to create the desired plots.
+
+.. note:
+
+    Note that dynamic file support is still experimental.
+    Especially, using more than one wildcard within dynamic files can introduce various problems.
+    Before using dynamic files, think about alternative, static solutions, where you know beforehand how many output files your rule will produce.
+    In four years and hundreds of workflows, I needed dynamic files only once.
+
+
+.. _snakefiles-depend_version:
+
+Depend on a Minimum Snakemake Version
+-------------------------------------
+
+From Snakemake 3.2 on, if your workflow depends on a minimum Snakemake version, you can easily ensure that at least this version is installed via
+
+.. code-block:: python
+
+    from snakemake.utils import min_version
+
+    min_version("3.2")
+
+given that your minimum required version of Snakemake is 3.2. The statement will raise a WorkflowError (and therefore abort the workflow execution) if the version is not met.
+
+.. _snakefiles-input_functions:
+
+Functions as Input Files
+------------------------
+
+Instead of specifying strings or lists of strings as input files, snakemake can also make use of functions that return single **or** lists of input files:
+
+.. code-block:: python
+
+    def myfunc(wildcards):
+        return [... a list of input files depending on given wildcards ...]
+
+    rule:
+        input: myfunc
+        output: "someoutput.{somewildcard}.txt"
+        shell: "..."
+
+The function has to accept a single argument that will be the wildcards object generated from the application of the rule to create some requested output files.
+By this, rules can have entirely different input files (both in form and number) depending on the inferred wildcards. E.g. you can assign input files that appear in entirely different parts of your filesystem based on some wildcard value and a dictionary that maps the wildcard value to file paths.
+
+Note that the function will be executed when the rule is evaluated and before the workflow actually starts to execute. Further note that using a function as input overrides the default mechanism of replacing wildcards with their values inferred from the output files. You have to take care of that yourself with the given wildcards object.
+
+Finally, when implementing the input function, it is best practice to make sure that it can properly handle all possible wildcard values your rule can have.
+In particular, input files should not be combined with very general rules that can be applied to create almost any file: Snakemake will try to apply the rule, and will report the exceptions of your input function as errors.
+
+
+.. _snakefiles-version_tracking:
+
+Version Tracking
+----------------
+
+Rules can specify a version that is tracked by Snakemake together with the output files. When the version changes snakemake informs you when using the flag ``--summary`` or ``--list-version-changes``.
+The version can be specified by the version directive, which takes a string:
+
+.. code-block:: python
+
+    rule:
+        input:   ...
+        output:  ...
+        version: "1.0"
+        shell:   ...
+
+The version can of course also be filled with the output of a shell command, e.g.:
+
+.. code-block:: python
+
+    SOMECOMMAND_VERSION = subprocess.check_output("somecommand --version", shell=True)
+
+    rule:
+        version: SOMECOMMAND_VERSION
+
+Alternatively, you might want to use file modification times in case of local scripts:
+
+.. code-block:: python
+
+    SOMECOMMAND_VERSION = str(os.path.getmtime("path/to/somescript"))
+
+    rule:
+        version: SOMECOMMAND_VERSION
+
+A re-run can be automated by invoking Snakemake as follows:
+
+.. code-block:: console
+
+    $ snakemake -R `snakemake --list-version-changes`
+
+
+.. _snakefiles-code_tracking:
+
+Code Tracking
+-------------
+
+Snakemake tracks the code that was used to create your files.
+In combination with ``--summary`` or ``--list-code-changes`` this can be used to see what files may need a re-run because the implementation changed.
+Re-run can be automated by invoking Snakemake as follows:
+
+.. code-block:: console
+
+    $ snakemake -R `snakemake --list-code-changes`
+
+
+.. _snakefiles-job_lifetime_handlers:
+
+Onstart, onsuccess and onerror handlers
+---------------------------------------
+
+Sometimes, it is necessary to specify code that shall be executed when the workflow execution is finished (e.g. cleanup, or notification of the user).
+With Snakemake 3.2.1, this is possible via the ``onsuccess`` and ``onerror`` keywords:
+
+.. code-block:: python
+
+    onsuccess:
+        print("Workflow finished, no error")
+
+    onerror:
+        print("An error occurred")
+        shell("mail -s "an error occurred" youremail@provider.com < {log}")
+
+The ``onsuccess`` handler is executed if the workflow finished without error. Else, the ``onerror`` handler is executed.
+In both handlers, you have access to the variable ``log``, which contains the path to a logfile with the complete Snakemake output.
+Snakemake 3.6.0 adds an ````onstart```` handler, that will be executed before the workflow starts.
+Note that dry-runs do not trigger any of the handlers.
+
+
 Rule dependencies
 -----------------
 
@@ -386,6 +548,7 @@ From verion 2.4.8 on, rules can also refer to the output of other rules in the S
 
 Importantly, be aware that referring to rule a here requires that rule a was defined above rule b in the file, since the object has to be known already.
 This feature also allows to resolve dependencies that are ambiguous when using filenames.
+
 
 Handling Ambiguous Rules
 ------------------------
@@ -456,3 +619,75 @@ benchmarks the CPU and wall clock time of the command ``somecommand`` for the gi
 For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark txt file (which will contain a tab-separated table of run times). Per default, Snakemake executes the job once, generating one run time.
 With ``snakemake --benchmark-repeats``, this number can be changed to e.g. generate timings for two or three runs.
 The resulting txt file can be used as input for other rules, just like any other output file.
+
+
+.. _snakefiles-reports:
+
+Reports
+-------
+
+The ``report`` function provides an easy mechanism to write reports containing your results. A report is written in [reStructuredText](http://docutils.sourceforge.net/rst.html) and compiled to HTML. The function allows you to embed your generated tables and plots into the HTML file. By referencing the files from your text, you can easily provide a semantical connection between them. For using this function, you need to have the [doctutils](https://pypi.python.org/pypi/docutils) package installed.
+
+
+.. code-block:: python
+
+    from snakemake.utils import report
+
+    SOMECONSTANT = 42
+
+    rule report:
+        input:  F1="someplot.pdf",
+                T1="sometable.txt"
+        output: html="report.html"
+        run:
+            report("""
+            =======================
+            The title of the report
+            =======================
+
+            Write your report here, explaining your results. Don't fear to use math 
+            it will be rendered correctly in any browser using MathJAX,
+            e.g. inline :math:`\sum_{{j \in E}} t_j \leq I`,
+            or even properly separated:
+
+            .. math::
+
+                |cq_{{0ctrl}}^i - cq_{{nt}}^i| > 0.5
+
+            Include your files using their keyword name and an underscore: F1_, T1_.
+
+            Access your global and local variables like within shell commands, e.g. {SOMECONSTANT}.
+            """, output.html, metadata="Johannes Köster (johannes.koester@uni-due.de)", **input)
+
+The optional metadata argument allows to provide arbitrary additional information to the report, e.g. the author name.
+The unpacked input files (``**input``) in the report function generates a list of keyword args, that can be referenced inside the document with the mentioned underscore notation. The files will be embedded into the HTML file using `data URLs <http://en.wikipedia.org/wiki/Data_URI_scheme>`_, thus making the report fully portable and not dependent on your local filesystem structure.
+
+
+.. _snakefiles-r_scripting:
+
+Scripting with R
+----------------
+
+The ``R`` function allows you to use R code in your rules. It relies on `rpy2 <https://pypi.python.org/pypi/rpy2>`_:
+
+.. code-block:: python
+
+    from snakemake.utils import R
+
+    SOMECONSTANT = 42
+
+    rule:
+        input:  ...
+        output: ...
+        run:
+            R("""
+            # write your R code here
+            # Access any global or local variables from the Snakefile with the braces notation
+            sqrt({SOMECONSTANT});
+            # be sure to mask braces used in R control flow by doubling them:
+            if(TRUE) {{
+                # do something
+            }}
+            """)
+
+If you compiled your Python installation from source, make sure that Python was build with sqlite support, which is needed for rpy2.

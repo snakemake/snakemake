@@ -19,10 +19,14 @@ Welcome to Snakemake's documentation!
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg?style=flat-square
     :target: http://stackoverflow.com/questions/tagged/snakemake
 
-Snakemake is a workflow management system that aims to reduce the complexity of creating workflows by providing a fast and comfortable execution environment, together with a clean and modern specification language in python style.
+Snakemake is a MIT-licensed workflow management system that aims to reduce the complexity of creating workflows by providing a fast and comfortable execution environment, together with a clean and modern specification language in python style.
 Snakemake workflows are essentially Python scripts extended by declarative code to define **rules**.
 Rules describe how to create **output files** from **input files**.
 
+
+.. _manual-quick_example:
+
+-------------
 Quick Example
 -------------
 
@@ -42,9 +46,6 @@ Quick Example
             "somecommand {input} {output}"
 
 
-Features
---------
-
 * Similar to GNU Make, you specify targets in terms of a pseudo rule at the top.
 * For each target and intermediate file, you create rules that define how they are created from from input files.
 * Snakemake determines the rule dependencies by matching file names.
@@ -52,6 +53,40 @@ Features
 * Rules can either use shell commands, plain Python code or external Python or R scripts to create output files from input files.
 * Snakemake workflows can be executed on workstations and clusters without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
 * Snakemake can use Amazon S3, Google Storage, Dropbox, FTP, SFTP to access input or output files and further access input files via HTTP and HTTPS.
+
+--------
+Citation
+--------
+
+`Köster, Johannes and Rahmann, Sven. "Snakemake - A scalable bioinformatics workflow engine". Bioinformatics 2012. <http://bioinformatics.oxfordjournals.org/content/28/19/2520>`_
+
+See `project_info-citations` for more information.
+
+
+----------------
+Related Projects
+----------------
+
+`Snakemake Workflow Repository <https://bitbucket.org/snakemake/snakemake-workflows>`_
+    This repository provides a collection of high quality modularized and re-usable rules and workflows.
+    The provided code should also serve as a best-practices of how to build production ready workflows with Snakemake.
+    Everybody is invited to contribute.
+
+`Snakemake Wrappers Repository <https://bitbucket.org/snakemake/snakemake-wrappers>`_
+    The Snakemake Wrapper Repository is a collection of reusable wrappers that allow to quickly use popular command line tools from Snakemake rules and workflows.
+
+`Bioconda <https://bioconda.github.io/>`_
+    Bioconda can be used from Snakemake for creating completely reproducible workflows by pin pointing the used software version and providing binaries.
+
+.. _main-support:
+
+-------
+Support
+-------
+
+* In case of questions, please post on `stack overflow <http://stackoverflow.com/questions/tagged/snakemake>`_.
+* To discuss with other Snakemake users, you can use the `mailing list <https://groups.google.com/forum/#!forum/snakemake>`_.
+* For bugs and feature requests, please use the `issue tracker <https://bitbucket.org/snakemake/snakemake/issues>`_.
 
 
 .. toctree::
@@ -62,6 +97,7 @@ Features
 
    getting_started/installation
    getting_started/examples
+   getting_started/executable
 
 
 .. toctree::
@@ -82,37 +118,12 @@ Features
     :maxdepth: 1
 
     snakefiles/writing_snakefiles
-    snakefiles/grammar
     snakefiles/rules
-    snakefiles/remote_files
-    snakefiles/targets
     snakefiles/configuration
-    snakefiles/cluster_configuration
-    snakefiles/lifetime_handlers
-    snakefiles/includes
-    snakefiles/sub_workflows
-    snakefiles/resources
-    snakefiles/utils
+    snakefiles/modularization
     snakefiles/reports
+    snakefiles/remote_files
     snakefiles/r_scripting
-    snakefiles/job_properties
-    snakefiles/depend_version
-    snakefiles/dynamic_files
-    snakefiles/input_functions
-    snakefiles/tracking
-    snakefiles/wrappers
-
-
-.. toctree::
-    :caption: User Manual
-    :name: user-manual
-    :hidden:
-    :maxdepth: 1
-
-    user_manual/invocation
-    user_manual/bash_completion
-    user_manual/visualization
-    user_manual/all_options
 
 
 .. toctree::
@@ -131,20 +142,10 @@ Features
     :hidden:
     :maxdepth: 1
 
-    project_info/support
+    project_info/citations
+    project_info/more_resources
     project_info/faq
     project_info/contributing
     project_info/authors
     project_info/history
     project_info/license
-
-
-.. toctree::
-    :caption: Citing, Citations, etc.
-    :hidden:
-
-    cit_art_etc/citations
-    cit_art_etc/citing
-    cit_art_etc/talks_posters
-    cit_art_etc/workflow_repo
-    cit_art_etc/external_resources
