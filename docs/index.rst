@@ -61,7 +61,6 @@ Features
    :maxdepth: 1
 
    getting_started/installation
-   getting_started/getting_started
    getting_started/examples
 
 
@@ -71,6 +70,10 @@ Features
    :hidden:
    :maxdepth: 1
 
+   tutorial/welcome
+   tutorial/basics
+   tutorial/advanced
+   tutorial/additional_features
 
 .. toctree::
     :caption: Snakefile's
