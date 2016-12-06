@@ -435,6 +435,7 @@ def snakemake(snakefile,
 
 
 def parse_resources(args):
+    """Parse resources from args."""
     resources = dict()
     if args.resources is not None:
         valid = re.compile("[a-zA-Z_]\w*$")
@@ -460,6 +461,7 @@ def parse_resources(args):
 
 
 def parse_config(args):
+    """Parse config from args."""
     parsers = [int, float, eval, str]
     config = dict()
     if args.config is not None:
@@ -488,6 +490,7 @@ def parse_config(args):
 
 
 def get_argument_parser():
+    """Generate and return argument parser."""
     parser = argparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
         "environment for GNU Make-like workflows.")
@@ -930,6 +933,7 @@ def get_argument_parser():
 
 
 def main():
+    """Main entry point."""
     parser = get_argument_parser()
     args = parser.parse_args()
 
@@ -1076,6 +1080,7 @@ def main():
 
 
 def bash_completion(snakefile="Snakefile"):
+    """Entry point for bash completion."""
     if not len(sys.argv) >= 2:
         print(
             "Calculate bash completion for snakemake. This tool shall not be invoked by hand.")
