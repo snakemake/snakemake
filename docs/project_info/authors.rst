@@ -31,7 +31,7 @@ Contributors
 - Karl Gutwin
 - Kemal Eren
 - Kostis Anagnostopoulos
-- kyleabeauchamp
+- Kyle A. Beauchamp
 - Kyle Meyer
 - Lance Parsons
 - Manuel Holtgrewe
