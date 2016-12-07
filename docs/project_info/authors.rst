@@ -17,7 +17,7 @@ Contributors
 - Andreas WILM
 - Anthony Underwood
 - Christopher Tomkins-Tinch
-- daler
+- Ryan Dale
 - David Alexander
 - David Koppstein
 - Elias Kuthe
