@@ -17,7 +17,7 @@ Contributors
 - Andreas WILM
 - Anthony Underwood
 - Christopher Tomkins-Tinch
-- daler
+- Ryan Dale
 - David Alexander
 - David Koppstein
 - Elias Kuthe
@@ -31,7 +31,7 @@ Contributors
 - Karl Gutwin
 - Kemal Eren
 - Kostis Anagnostopoulos
-- kyleabeauchamp
+- Kyle A. Beauchamp
 - Kyle Meyer
 - Lance Parsons
 - Manuel Holtgrewe

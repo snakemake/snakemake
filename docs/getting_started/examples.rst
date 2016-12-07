@@ -25,25 +25,25 @@ It assumes that mapped RNA-Seq data for four samples 101-104 is given as bam fil
     # path to track and reference
     TRACK   = 'hg19.gtf'
     REF     = 'hg19.fa'
-    
-    
+
+
     # sample names and classes
     CLASS1  = '101 102'.split()
     CLASS2  = '103 104'.split()
     SAMPLES = CLASS1 + CLASS2
-    
-    
+
+
     # path to bam files
     CLASS1_BAM = expand('mapped/{sample}.bam', sample=CLASS1)
     CLASS2_BAM = expand('mapped/{sample}.bam', sample=CLASS2)
-    
-    
+
+
     rule all:
         input:
             'diffexp/isoform_exp.diff',
             'assembly/comparison'
-    
-    
+
+
     rule assembly:
         input:
             'mapped/{sample}.bam'
@@ -54,8 +54,8 @@ It assumes that mapped RNA-Seq data for four samples 101-104 is given as bam fil
         shell:
             'cufflinks --num-threads {threads} -o {output.dir} '
             '--frag-bias-correct {REF} {input}'
-    
-    
+
+
     rule compose_merge:
         input:
             expand('assembly/{sample}/transcripts.gtf', sample=SAMPLES)
@@ -64,8 +64,8 @@ It assumes that mapped RNA-Seq data for four samples 101-104 is given as bam fil
         run:
             with open(output.txt, 'w') as out:
                 print(*input, sep="\n", file=out)
-    
-    
+
+
     rule merge_assemblies:
         input:
             'assembly/assemblies.txt'
@@ -73,8 +73,8 @@ It assumes that mapped RNA-Seq data for four samples 101-104 is given as bam fil
             'assembly/merged/merged.gtf', dir='assembly/merged'
         shell:
             'cuffmerge -o {output.dir} -s {REF} {input}'
-    
-    
+
+
     rule compare_assemblies:
         input:
             'assembly/merged/merged.gtf'
@@ -83,8 +83,8 @@ It assumes that mapped RNA-Seq data for four samples 101-104 is given as bam fil
             dir='assembly/comparison'
         shell:
             'cuffcompare -o {output.dir}all -s {REF} -r {TRACK} {input}'
-    
-    
+
+
     rule diffexp:
         input:
             class1=CLASS1_BAM,
@@ -118,27 +118,27 @@ The following example Makefile was adapted from http://www.cs.colby.edu/maxwell/
     IDIR=../include
     ODIR=obj
     LDIR=../lib
-    
+
     LIBS=-lm
-    
+
     CC=gcc
     CFLAGS=-I$(IDIR)
-    
+
     _HEADERS = hello.h
     HEADERS = $(patsubst %,$(IDIR)/%,$(_HEADERS))
-    
+
     _OBJS = hello.o hellofunc.o
     OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
-    
+
     # build the executable from the object files
     hello: $(OBJS)
             $(CC) -o $@ $^ $(CFLAGS)
-    
+
     # compile a single .c file to an .o file
     $(ODIR)/%.o: %.c $(HEADERS)
             $(CC) -c -o $@ $< $(CFLAGS)
-    
-    
+
+
     # clean up temporary files
     .PHONY: clean
     clean:
@@ -149,24 +149,24 @@ A Snakefile can be easily written as
 .. code-block:: python
 
     from os.path import join
-    
+
     IDIR = '../include'
     ODIR = 'obj'
     LDIR = '../lib'
-    
+
     LIBS = '-lm'
-    
+
     CC = 'gcc'
     CFLAGS = '-I' + IDIR
-    
-    
+
+
     _HEADERS = ['hello.h']
     HEADERS = [join(IDIR, hfile) for hfile in _HEADERS]
-    
+
     _OBJS = ['hello.o', 'hellofunc.o']
     OBJS = [join(ODIR, ofile) for ofile in _OBJS]
-    
-    
+
+
     rule hello:
         """build the executable from the object files"""
         output:
@@ -175,7 +175,7 @@ A Snakefile can be easily written as
             OBJS
         shell:
             "{CC} -o {output} {input} {CFLAGS} {LIBS}"
-    
+
     rule c_to_o:
         """compile a single .c file to an .o file"""
         output:
@@ -184,7 +184,7 @@ A Snakefile can be easily written as
             '{name}.c', HEADERS
         shell:
             "{CC} -c -o {output} {input} {CFLAGS}"
-    
+
     rule clean:
         """clean up temporary files"""
         shell:
@@ -207,7 +207,7 @@ We first provide a snakefile `tex.rules` that contains rules that can be shared 
 .. code-block:: python
 
     ruleorder:  tex2pdf_with_bib > tex2pdf_without_bib
-    
+
     rule tex2pdf_with_bib:
         input:
             '{name}.tex',
@@ -221,7 +221,7 @@ We first provide a snakefile `tex.rules` that contains rules that can be shared 
             pdflatex {wildcards.name}
             pdflatex {wildcards.name}
             """
-    
+
     rule tex2pdf_without_bib:
         input:
             '{name}.tex'
@@ -232,7 +232,7 @@ We first provide a snakefile `tex.rules` that contains rules that can be shared 
             pdflatex {wildcards.name}
             pdflatex {wildcards.name}
             """
-    
+
     rule texclean:
         shell:
             "rm -f  *.log *.aux *.bbl *.blg *.synctex.gz"
@@ -250,14 +250,14 @@ Assuming that the above file is saved as ``tex.rules``, the actual documents are
     TEXS = [doc+".tex" for doc in DOCUMENTS]
     PDFS = [doc+".pdf" for doc in DOCUMENTS]
     FIGURES = ['fig1.pdf']
-    
+
     include:
         'tex.smrules'
-    
+
     rule all:
         input:
             PDFS
-    
+
     rule zipit:
         output:
             'upload.zip'
@@ -265,7 +265,7 @@ Assuming that the above file is saved as ``tex.rules``, the actual documents are
             TEXS, FIGURES, PDFS
         shell:
             'zip -T {output} {input}'
-    
+
     rule pdfclean:
         shell:
             "rm -f  {PDFS}"
@@ -278,8 +278,6 @@ Build all PDFs:
     $ snakemake
 
 Create a ZIP-File for online submissions:
-
-#!bash
 
 .. code-block:: console
 

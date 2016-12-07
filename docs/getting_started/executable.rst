@@ -4,7 +4,9 @@
 The ``snakemake`` Executable
 ============================
 
-This part of the documentation describes the ``snakemake`` executable.
+This part of the documentation describes the ``snakemake`` executable.  Snakemake
+is primarily a command-line tool, so the ``snakemake`` executable is the primary way
+to execute, debug, and visualize workflows.
 
 .. user_manual-snakemake_options:
 
@@ -123,6 +125,8 @@ Of course the visual appearance can be modified by providing further command lin
 -----------
 All Options
 -----------
+
+All command line options can be printed by calling ``snakemake -h``.  
 
 .. code-block:: text
 
