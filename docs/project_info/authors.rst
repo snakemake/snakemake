@@ -4,22 +4,29 @@
 Credits
 =======
 
-In alphabetical order
 
 Development Lead
 ----------------
 
-- Johannes Koester
+- Johannes Köster
+
+Development Team
+----------------
+
+- Christopher Tomkins-Tinch
+- David Koppstein
+- Tim Booth
+- Christian Arnold
 
 Contributors
 ------------
 
-- Andreas WILM
+In alphabetical order
+
+- Andreas Wilm
 - Anthony Underwood
-- Christopher Tomkins-Tinch
-- daler
+- Ryan Dale
 - David Alexander
-- David Koppstein
 - Elias Kuthe
 - Elmar Pruesse
 - Hyeshik Chang
@@ -31,7 +38,7 @@ Contributors
 - Karl Gutwin
 - Kemal Eren
 - Kostis Anagnostopoulos
-- kyleabeauchamp
+- Kyle A. Beauchamp
 - Kyle Meyer
 - Lance Parsons
 - Manuel Holtgrewe
@@ -46,6 +53,5 @@ Contributors
 - Ryan Dale
 - Sean Davis
 - Simon Ye
-- Tim Booth
 - Tobias Marschall
 - Willem Ligtenberg

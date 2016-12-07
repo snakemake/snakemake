@@ -60,8 +60,7 @@ Citation
 
 `Köster, Johannes and Rahmann, Sven. "Snakemake - A scalable bioinformatics workflow engine". Bioinformatics 2012. <http://bioinformatics.oxfordjournals.org/content/28/19/2520>`_
 
-See `project_info-citations` for more information.
-
+See :doc:`Citations <project_info/citations>` for more information.
 
 ----------------
 Related Projects
