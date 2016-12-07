@@ -11,15 +11,21 @@ Development Lead
 
 - Johannes Koester
 
+Development Team
+----------------
+
+- Christian Arnold
+- Christopher Tomkins-Tinch
+- David Koppstein
+- Tim Booth
+
 Contributors
 ------------
 
-- Andreas WILM
+- Andreas Wilm
 - Anthony Underwood
-- Christopher Tomkins-Tinch
 - Ryan Dale
 - David Alexander
-- David Koppstein
 - Elias Kuthe
 - Elmar Pruesse
 - Hyeshik Chang
@@ -46,6 +52,5 @@ Contributors
 - Ryan Dale
 - Sean Davis
 - Simon Ye
-- Tim Booth
 - Tobias Marschall
 - Willem Ligtenberg
