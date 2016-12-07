@@ -31,7 +31,11 @@ def create_env(job):
         with open(env_file, 'rb') as f:
             md5hash.update(f.read())
     else:
-        content = urlopen(env_file).read()
+        if env_file.startswith('file://'):
+            with open(env_file.lstrip('file://'), 'rb') as handle:
+                    content = handle.read()
+        else:
+            content = urlopen(env_file).read()
         md5hash.update(content)
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp.write(content)
