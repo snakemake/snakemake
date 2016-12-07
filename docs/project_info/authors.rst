@@ -4,23 +4,24 @@
 Credits
 =======
 
-In alphabetical order
 
 Development Lead
 ----------------
 
-- Johannes Koester
+- Johannes Köster
 
 Development Team
 ----------------
 
-- Christian Arnold
 - Christopher Tomkins-Tinch
 - David Koppstein
 - Tim Booth
+- Christian Arnold
 
 Contributors
 ------------
+
+In alphabetical order
 
 - Andreas Wilm
 - Anthony Underwood
