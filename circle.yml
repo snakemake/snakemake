@@ -8,4 +8,4 @@ dependencies:
 
 test:
   override:
-    - docker run -v `pwd`:/snakemake "cd /snakemake; pip install -e .; python setup.py nosetests" 
+    - docker run -v `pwd`:/snakemake quay.io/snakemake/snakemake:master /bin/bash -e -c "cd /snakemake; pip install -e .; python setup.py nosetests" 
