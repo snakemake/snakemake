@@ -13,8 +13,11 @@ Welcome to Snakemake's documentation!
 .. image:: https://img.shields.io/pypi/v/snakemake.svg?style=flat-square
     :target: https://pypi.python.org/pypi/snakemake
 
-.. image:: https://img.shields.io/docker/pulls/johanneskoester/snakemake.svg?style=flat-square
-    :target: https://hub.docker.com/r/johanneskoester/snakemake/
+.. image:: https://quay.io/repository/snakemake/snakemake/status
+       :target: https://quay.io/repository/snakemake/snakemake
+
+.. image:: https://img.shields.io/circleci/project/bitbucket/snakemake/snakemake.svg
+    :target: https://circleci.com/bb/snakemake/snakemake/tree/master
 
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg?style=flat-square
     :target: http://stackoverflow.com/questions/tagged/snakemake
