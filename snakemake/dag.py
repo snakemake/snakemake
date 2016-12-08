@@ -852,7 +852,23 @@ class DAG:
                     visited.add(job_)
 
     def dfs(self, direction, *jobs, stop=lambda job: False, post=True):
+        """Perform depth-first traversal of the DAG."""
         visited = set()
+
+        def _dfs(job):
+            """Inner function for DFS traversal."""
+            if stop(job):
+                return
+            if not post:
+                yield job
+            for job_ in direction[job]:
+                if not job_ in visited:
+                    visited.add(job_)
+                    for j in _dfs(job_):
+                        yield j
+            if post:
+                yield job
+
         for job in jobs:
             for job_ in self._dfs(direction,
                                   job,
@@ -861,60 +877,9 @@ class DAG:
                                   post=post):
                 yield job_
 
-    def _dfs(self, direction, job, visited, stop, post):
-        if stop(job):
-            return
-        if not post:
-            yield job
-        for job_ in direction[job]:
-            if not job_ in visited:
-                visited.add(job_)
-                for j in self._dfs(direction, job_, visited, stop, post):
-                    yield j
-        if post:
-            yield job
-
-    def is_isomorph(self, job1, job2):
-        if job1.rule != job2.rule:
-            return False
-        rule = lambda job: job.rule.name
-        queue1, queue2 = [job1], [job2]
-        visited1, visited2 = set(queue1), set(queue2)
-        while queue1 and queue2:
-            job1, job2 = queue1.pop(0), queue2.pop(0)
-            deps1 = sorted(self.dependencies[job1], key=rule)
-            deps2 = sorted(self.dependencies[job2], key=rule)
-            for job1_, job2_ in zip(deps1, deps2):
-                if job1_.rule != job2_.rule:
-                    return False
-                if not job1_ in visited1 and not job2_ in visited2:
-                    queue1.append(job1_)
-                    visited1.add(job1_)
-                    queue2.append(job2_)
-                    visited2.add(job2_)
-                elif not (job1_ in visited1 and job2_ in visited2):
-                    return False
-        return True
-
-    def all_longest_paths(self, *jobs):
-        paths = defaultdict(list)
-
-        def all_longest_paths(_jobs):
-            for job in _jobs:
-                if job in paths:
-                    continue
-                deps = self.dependencies[job]
-                if not deps:
-                    paths[job].append([job])
-                    continue
-                all_longest_paths(deps)
-                for _job in deps:
-                    paths[job].extend(path + [job] for path in paths[_job])
-
-        all_longest_paths(jobs)
-        return chain(*(paths[job] for job in jobs))
-
     def new_wildcards(self, job):
+        """Return wildcards that are newly introduced in this job,
+        compared to its ancestors."""
         new_wildcards = set(job.wildcards.items())
         for job_ in self.dependencies[job]:
             if not new_wildcards:
@@ -924,6 +889,7 @@ class DAG:
         return new_wildcards
 
     def rule2job(self, targetrule):
+        """Generate a new job from a given rule."""
         if targetrule.has_wildcards():
             raise WorkflowError("Target rules may not contain wildcards. Please specify concrete files or a rule without wildcards.")
         return Job(targetrule, self)
