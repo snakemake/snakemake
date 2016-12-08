@@ -4,13 +4,13 @@
 Welcome to Snakemake's documentation!
 =====================================
 
-.. image:: https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat-square
+.. image:: https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg
     :target: https://bioconda.github.io/recipes/snakemake/README.html
 
-.. image:: https://img.shields.io/pypi/pyversions/snakemake.svg?style=flat-square
+.. image:: https://img.shields.io/pypi/pyversions/snakemake.svg
     :target: https://www.python.org
 
-.. image:: https://img.shields.io/pypi/v/snakemake.svg?style=flat-square
+.. image:: https://img.shields.io/pypi/v/snakemake.svg
     :target: https://pypi.python.org/pypi/snakemake
 
 .. image:: https://quay.io/repository/snakemake/snakemake/status
@@ -19,7 +19,7 @@ Welcome to Snakemake's documentation!
 .. image:: https://img.shields.io/circleci/project/bitbucket/snakemake/snakemake.svg
     :target: https://circleci.com/bb/snakemake/snakemake/tree/master
 
-.. image:: https://img.shields.io/badge/stack-overflow-orange.svg?style=flat-square
+.. image:: https://img.shields.io/badge/stack-overflow-orange.svg
     :target: http://stackoverflow.com/questions/tagged/snakemake
 
 Snakemake is a MIT-licensed workflow management system that aims to reduce the complexity of creating workflows by providing a fast and comfortable execution environment, together with a clean and modern specification language in python style.
