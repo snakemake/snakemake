@@ -1,0 +1,14 @@
+machine:
+  services:
+    - docker
+
+dependencies:
+  # Note, we used to use the naive caching of docker images, but found that it was quicker
+  #   # just to pull each time. #rollondockercaching
+  override:
+    - docker pull quay.io/snakemake/snakemake:master
+
+test:
+  override:
+    - pip install -e .
+    - python setup.py nosetests
