@@ -32,7 +32,7 @@ def create_env(job):
             md5hash.update(f.read())
     else:
         if env_file.startswith('file://'):
-            with open(env_file.lstrip('file://'), 'rb') as handle:
+            with open(env_file.replace('file://', ''), 'rb') as handle:
                     content = handle.read()
         else:
             content = urlopen(env_file).read()
