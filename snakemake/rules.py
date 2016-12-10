@@ -50,6 +50,7 @@ class Rule:
             self._log = Log()
             self._benchmark = None
             self._conda_env = None
+            self.group = None
             self.wildcard_names = set()
             self.lineno = lineno
             self.snakefile = snakefile
@@ -83,6 +84,7 @@ class Rule:
             self._log = other._log
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
+            self.group = other.group
             self.wildcard_names = set(other.wildcard_names)
             self.lineno = other.lineno
             self.snakefile = other.snakefile
@@ -198,7 +200,6 @@ class Rule:
     @conda_env.setter
     def conda_env(self, conda_env):
         self._conda_env = IOFile(conda_env, rule=self)
-
 
     @property
     def input(self):

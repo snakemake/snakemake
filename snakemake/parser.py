@@ -402,6 +402,10 @@ class Conda(RuleKeywordState):
     pass
 
 
+class Group(RuleKeywordState):
+    pass
+
+
 class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
@@ -542,6 +546,7 @@ class Rule(GlobalKeywordState):
                        message=Message,
                        benchmark=Benchmark,
                        conda=Conda,
+                       group=Group,
                        wildcard_constraints=WildcardConstraints,
                        shadow=Shadow,
                        run=Run,

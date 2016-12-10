@@ -712,6 +712,13 @@ class Workflow:
 
         return decorate
 
+    def group(self, group):
+        def decorate(ruleinfo):
+            ruleinfo.group = group
+            return ruleinfo
+
+        return decorate
+
     def threads(self, threads):
         def decorate(ruleinfo):
             ruleinfo.threads = threads
@@ -801,6 +808,7 @@ class RuleInfo:
         self.message = None
         self.benchmark = None
         self.conda_env = None
+        self.group = None
         self.wildcard_constraints = None
         self.threads = None
         self.shadow_depth = None
