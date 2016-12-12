@@ -66,6 +66,8 @@ he quick fix for virtualenv is to temporarily deactivate the check for unbound v
 
 For more details on bash strict mode, see the `here <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_.
 
+.. _glob-wildcards:
+
 How do I run my rule on all files of a certain directory?
 ---------------------------------------------------------
 
@@ -83,12 +85,12 @@ In Snakemake, similar to GNU Make, the workflow is determined from the top, i.e.
     # a general rule using wildcards that does the work
     rule:
         input:  "thedir/{id}.fastq"
-        output: "otherdir/{id}.bam
+        output: "otherdir/{id}.bam"
         shell:  "..."
 
 Snakemake will then go down the line and determine which files it needs from your initial directory.
 
-In order to infer the IDs from present files, version 2.4.8 of Snakemake provides the `glob_wildcards` function, e.g.
+In order to infer the IDs from present files, Snakemake provides the ``glob_wildcards`` function, e.g.
 
 .. code-block:: python
 
