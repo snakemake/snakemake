@@ -20,16 +20,12 @@ Tutorial Setup
 .. _Graphviz: http://www.graphviz.org
 .. _RestructuredText: http://docutils.sourceforge.net/rst.html
 .. _data URI: https://developer.mozilla.org/en-US/docs/Web/HTTP/data_URIs
-.. _Documentation: http://snakemake.readthedocs.io/en/latest
 .. _JSON: http://json.org
 .. _YAML: http://yaml.org
 .. _DRMAA: http://www.drmaa.org
-.. _FAQ: http://snakemake.readthedocs.io/en/latest/project_info/faq.html
 .. _rpy2: http://rpy.sourceforge.net
 .. _R: https://www.r-project.org
 .. _Rscript: https://stat.ethz.ch/R-manual/R-devel/library/utils/html/Rscript.html
-.. _cluster configuration: http://snakemake.readthedocs.io/en/latest/snakefiles/configuration.html#cluster-configuration
-.. _script section in the Documentation: http://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#external-scripts
 .. _PyYAML: http://pyyaml.org
 .. _Docutils: http://docutils.sourceforge.net
 .. _Bioconda: https://bioconda.github.io
@@ -84,18 +80,18 @@ Then, create a reasonable new directory you want to share with your Linux VM, e.
 Open a command line prompt, and change into that directory.
 Here, you create a 64-bit Ubuntu Linux environment with
 
-.. code:: bash
+.. code:: console
 
-    vagrant init hashicorp/precise64
-    vagrant up
+    > vagrant init hashicorp/precise64
+    > vagrant up
 
 If you decide to use a 32-bit image, you will need to download the 32-bit version of Miniconda in the next step.
 The contents of the ``vagrant-linux`` folder will be shared with the virtual machine that is set up by vagrant.
 You can log into the virtual machine via
 
-.. code:: bash
+.. code:: console
 
-    vagrant ssh
+    > vagrant ssh
 
 If this command tells you to install an SSH client, you can follow the instructions in this Blogpost_.
 Now, you can follow the steps of our tutorial from within your Linux VM.
@@ -107,17 +103,17 @@ Step 1: Installing Miniconda 3
 First, please **open a terminal** or make sure you are logged into your Vagrant Linux VM.
 Assuming that you have a 64-bit system, on Linux, download and install Miniconda 3 with
 
-.. code:: bash
+.. code:: console
 
-    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-    bash Miniconda3-latest-Linux-x86_64.sh
+    $ wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    $ bash Miniconda3-latest-Linux-x86_64.sh
 
 On MacOS X, download and install with
 
-.. code:: bash
+.. code:: console
 
-    curl https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o Miniconda3-latest-MacOSX-x86_64.sh
-    bash Miniconda3-latest-MacOSX-x86_64.sh
+    $ curl https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o Miniconda3-latest-MacOSX-x86_64.sh
+    $ bash Miniconda3-latest-MacOSX-x86_64.sh
 
 For a 32-bit system, URLs and file names are analogous but without the ``_64``.
 When you are asked the question
@@ -139,10 +135,10 @@ If you use a Vagrant Linux VM from Windows as described above, change to a direc
 In this directory, we will later create an example workflow that illustrates the Snakemake syntax and execution environment.
 First, we clone a git repository with example data:
 
-.. code:: bash
+.. code:: console
 
-    git clone https://bitbucket.org/snakemake/snakemake-tutorial.git
-    cd snakemake-tutorial
+    $ git clone https://bitbucket.org/snakemake/snakemake-tutorial.git
+    $ cd snakemake-tutorial
 
 This will create a ``data`` folder and a ``requirements.txt`` file in the directory ``snakemake-tutorial``.
 
@@ -151,9 +147,9 @@ Step 3: Creating an environment with the required software
 
 The ``requirements.txt`` file can be used to install all required software into an isolated Conda environment with the name ``snakemake-tutorial`` via
 
-.. code:: bash
+.. code:: console
 
-    conda create -n snakemake-tutorial -c bioconda --file requirements.txt
+    $ conda create -n snakemake-tutorial -c bioconda --file requirements.txt
 
 Note that the arguments after the ``-c`` flags define software channels that shall be used in addition to the main ``conda`` repository.
 Here, we use the Bioconda_ channel, which contains a growing collection of bioinformatics software packaged for Conda.
@@ -163,22 +159,22 @@ Step 4: Activating the environment
 
 To activate the ``snakemake-tutorial`` environment, execute
 
-.. code:: bash
+.. code:: console
 
-    source activate snakemake-tutorial
+    $ source activate snakemake-tutorial
 
 Now you can use the installed tools.
 Execute
 
-.. code:: bash
+.. code:: console
 
-    snakemake --help
+    $ snakemake --help
 
 to test this and get information about the command-line interface of Snakemake.
 To exit the environment, you can execute
 
-.. code:: bash
+.. code:: console
 
-    source deactivate
+    $ source deactivate
 
 but **don't do that now**, since we finally want to start working with Snakemake :-).
