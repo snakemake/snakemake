@@ -217,6 +217,8 @@ The ``params`` keyword allows you to specify additional parameters depending on 
 
 Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefiles-input_functions`)
 
+.. _snakefiles-external_scripts:
+
 External scripts
 ----------------
 

@@ -1,7 +1,7 @@
 .. user_manual-snakemake_executable:
 
 ============================
-The ``snakemake`` Executable
+Executing Workflows
 ============================
 
 This part of the documentation describes the ``snakemake`` executable.  Snakemake
@@ -20,9 +20,9 @@ If called without parameters, i.e.
 
     $ snakemake
 
-Snakemake tries to execute the workflow specified in a file called ``Snakefile`` in the same directory (instead, the snakefile can be given via the parameter ``-s``).
+Snakemake tries to execute the workflow specified in a file called ``Snakefile`` in the same directory (instead, the Snakefile can be given via the parameter ``-s``).
 
-By issueing
+By issuing
 
 .. code-block:: console
 
@@ -37,25 +37,25 @@ Further, the reason for each rule execution can be printed via
 
     $ snakemake -n -r
 
-Importantly, snakemake can automatically determine which parts of the workflow can be run in parallel.
+Importantly, Snakemake can automatically determine which parts of the workflow can be run in parallel.
 By specifying the number of available cores, i.e.
 
 .. code-block:: console
 
     $ snakemake -j 4
 
-one can tell snakemake to use up to 4 cores and solve a binary knapsack problem to optimize the scheduling of jobs.
+one can tell Snakemake to use up to 4 cores and solve a binary knapsack problem to optimize the scheduling of jobs.
 If the number is omitted (i.e., only ``-j`` is given), the number of used cores is determined as the number of available CPU cores in the machine.
 
-Finally, snakemake can make use of cluster engines that support shell scripts and have access to a common filesystem, (e.g. the Sun Grid Engine).
-In this case, snakemake simply needs to be given a submit command that accepts a shell script as first positional argument:
+Finally, Snakemake can make use of cluster engines that support shell scripts and have access to a common filesystem, (e.g. the Sun Grid Engine).
+In this case, Snakemake simply needs to be given a submit command that accepts a shell script as first positional argument:
 
 .. code-block:: console
 
     $ snakemake --cluster qsub -j 32
 
 
-Here, -j denotes the number of jobs submitted being submitted to the cluster at the same time (here 32).
+Here, ``-j`` denotes the number of jobs submitted being submitted to the cluster at the same time (here 32).
 The cluster command can be decorated with job specific information, e.g.
 
 .. code-block:: console
@@ -80,8 +80,8 @@ and forward it to the cluster scheduler:
     $ snakemake --cluster "qsub --runtime {params.runtime}"
 
 If your cluster system supports `DRMAA <http://www.drmaa.org/>`_, Snakemake can make use of that to increase the control over jobs.
-E.g. jobs can be cancelled upon pressing Ctrl+C, which is not possible with the generic ``--cluster`` support.
-With DRMAA, no ``qsub`` command need to be provided, but system specific arguments can still be given as a string, e.g.
+E.g. jobs can be cancelled upon pressing ``Ctrl+C``, which is not possible with the generic ``--cluster`` support.
+With DRMAA, no ``qsub`` command needs to be provided, but system specific arguments can still be given as a string, e.g.
 
 .. code-block:: console
 

@@ -71,7 +71,7 @@ For more details on bash strict mode, see the `here <http://redsymbol.net/articl
 How do I run my rule on all files of a certain directory?
 ---------------------------------------------------------
 
-In Snakemake, similar to GNU Make, the workflow is determined from the top, i.e. from the target files. Imagine you have a directory with files `1.fastq, 2.fastq, 3.fastq, ...`, and you want to produce files `1.bam, 2.bam, 3.bam, ...` you should specify these as target files, using the ids `1,2,3,...`. You could end up with at least two rules like this (or any number of intermediate steps):
+In Snakemake, similar to GNU Make, the workflow is determined from the top, i.e. from the target files. Imagine you have a directory with files ``1.fastq, 2.fastq, 3.fastq, ...``, and you want to produce files ``1.bam, 2.bam, 3.bam, ...`` you should specify these as target files, using the ids ``1,2,3,...``. You could end up with at least two rules like this (or any number of intermediate steps):
 
 
 .. code-block:: python
@@ -96,7 +96,7 @@ In order to infer the IDs from present files, Snakemake provides the ``glob_wild
 
     IDS, = glob_wildcards("thedir/{id}.fastq")
 
-The function matches the given pattern against the files present in the filesystem and thereby infers the values for all wildcards in the pattern. A named tuple that contains a list of values for each wildcard is returned. Here, this named tuple has only one item, that is the list of values for the wildcard `{id}`.
+The function matches the given pattern against the files present in the filesystem and thereby infers the values for all wildcards in the pattern. A named tuple that contains a list of values for each wildcard is returned. Here, this named tuple has only one item, that is the list of values for the wildcard ``{id}``.
 
 Snakemake complains about a cyclic dependency or a PeriodicWildcardError. What can I do?
 ----------------------------------------------------------------------------------------
@@ -143,14 +143,14 @@ two things may happen.
 
 2. If the file ``a.tar.gz`` is not present and cannot be created by any other rule than rule ``a``, Snakemake will try to run rule ``a`` again, with ``{sample}=a.tar.gz``. This would infinitely go on recursively. Snakemake detects this case and produces a ``PeriodicWildcardError``.
 
-In summary, PeriodicWildcardErrors hint to a problem where a rule or a set of rules can be applied to create its own input. If you are lucky, Snakemake can be smart and avoid the error by stopping the recursion if a file exists in the filesystem. Importantly, however, bugs upstream of that rule can manifest as PeriodicWildcardError, although in reality just a file is missing or named differently.
+In summary, ``PeriodicWildcardErrors`` hint to a problem where a rule or a set of rules can be applied to create its own input. If you are lucky, Snakemake can be smart and avoid the error by stopping the recursion if a file exists in the filesystem. Importantly, however, bugs upstream of that rule can manifest as ``PeriodicWildcardError``, although in reality just a file is missing or named differently.
 In such cases, it is best to restrict the wildcard of the output file(s), or follow the general rule of putting output files of different rules into unique subfolders of your working directory. This way, you can discover the true source of your error.
 
 
 Is it possible to pass variable values to the workflow via the command line?
 ----------------------------------------------------------------------------
 
-Yes, this is possible since version 3.1. Have a look at [this](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-configuration) Section in the Documentation.
+Yes, this is possible. Have a look at :ref:`snakefiles_configuration`.
 Previously it was necessary to use environment variables like so:
 E.g. write
 
@@ -167,7 +167,7 @@ and have in the Snakefile some Python code that reads this environment variable,
 I get a NameError with my shell command. Are braces unsupported?
 ----------------------------------------------------------------
 
-You can use the entire Python [format minilanguage](http://docs.python.org/3/library/string.html#formatspec) in shell commands. Braces in shell commands that are not intended to insert variable values thus have to be escaped by doubling them:
+You can use the entire Python `format minilanguage <http://docs.python.org/3/library/string.html#formatspec>`_ in shell commands. Braces in shell commands that are not intended to insert variable values thus have to be escaped by doubling them:
 
 
 .. code-block:: python
@@ -180,7 +180,7 @@ Here the double braces are escapes, i.e. there will remain single braces in the 
 How do I incorporate files that do not follow a consistent naming scheme?
 -------------------------------------------------------------------------
 
-The best solution is to have a dictionary that translates a sample id to the inconsistently named files and use a function (see the section "functions as input files" in the [documentation](Documentation)) to provide an input file like this:
+The best solution is to have a dictionary that translates a sample id to the inconsistently named files and use a function (see :ref:`snakefiles-input_functions`) to provide an input file like this:
 
 .. code-block:: python
 
@@ -195,7 +195,7 @@ The best solution is to have a dictionary that translates a sample id to the inc
 How do I force Snakemake to rerun all jobs from the rule I just edited?
 -----------------------------------------------------------------------
 
-This can be done by invoking Snakemake with the `--forcerules` or `-R` flag, followed by the rules that should be re-executed:
+This can be done by invoking Snakemake with the ``--forcerules`` or ``-R`` flag, followed by the rules that should be re-executed:
 
 .. code-block:: console
 
@@ -253,7 +253,7 @@ Here is an example where you want to merge N files together, but if N == 1 a sym
             else:
                 shell("ln -sr {input} {output}")
 
-Do be careful with symlinks in combination with [temporary output files](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-protected-and-temporary-files).
+Do be careful with symlinks in combination with :ref:`tutorial_temp-and-protected-files`.
 When the original file is deleted, this can cause various errors once the symlink does not point to a valid file any more.
 
 If you get a message like ``Unable to set utime on symlink .... Your Python build does not support it.`` this means that Snakemake is unable to properly adjust the modification time of the symlink.
@@ -274,7 +274,7 @@ On unix, you can make use of the commonly pre-installed `mail` command:
     snakemake 2> snakemake.log
     mail -s "snakemake finished" youremail@provider.com < snakemake.log
 
-In case your administrator does not provide you with a proper configuration of the sendmail framework, you can configure `mail` to work e.g. via Gmail (see `here <http://www.cyberciti.biz/tips/linux-use-gmail-as-a-smarthost.html>`_.
+In case your administrator does not provide you with a proper configuration of the sendmail framework, you can configure `mail` to work e.g. via Gmail (see `here <http://www.cyberciti.biz/tips/linux-use-gmail-as-a-smarthost.html>`_).
 
 I want to pass variables between rules. Is that possible?
 ---------------------------------------------------------
@@ -402,3 +402,13 @@ and
     $ snakemake -n -R `snakemake --list-code-changes`
 
 Again, the list commands in backticks return the list of output files with changes, which are fed into ``-R`` to trigger a re-run.
+
+How do I remove all files created by snakemake, i.e. like ``make clean``
+------------------------------------------------------------------------
+
+To remove all files created by snakemake as output files to start from scratch, you can use
+
+.. code-block:: console
+
+    rm $(snakemake --summary | tail -n+2 | cut -f1)
+
