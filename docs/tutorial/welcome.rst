@@ -62,7 +62,7 @@ Requirements
 To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.3
-* Snakemake_ 3.4.2
+* Snakemake_ 3.9.0
 * BWA_ 0.7.12
 * SAMtools_ 1.3.1
 * BCFtools_ 1.3.1
