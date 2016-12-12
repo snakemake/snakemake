@@ -13,7 +13,6 @@ from collections import defaultdict, Iterable
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
-from snakemake.io import check_named_list_dupes
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import Mode
@@ -61,6 +60,7 @@ class Rule:
             self.wrapper = None
             self.norun = False
             self.is_branched = False
+            self.restart_times = 0
         elif len(args) == 1:
             other = args[0]
             self.name = other.name
@@ -94,6 +94,7 @@ class Rule:
             self.wrapper = other.wrapper
             self.norun = other.norun
             self.is_branched = True
+            self.restart_times = other.restart_times
 
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):

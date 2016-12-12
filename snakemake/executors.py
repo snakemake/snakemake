@@ -533,10 +533,10 @@ class GenericClusterExecutor(ClusterExecutor):
                                                    jobscript=jobscript),
                 shell=True).decode().split("\n")
         except subprocess.CalledProcessError as ex:
-            raise WorkflowError(
-                "Error executing jobscript (exit code {}):\n{}".format(
-                    ex.returncode, ex.output.decode()),
-                rule=job.rule)
+            logger.error("Error submitting jobscript (exit code {}):\n{}".format(
+                    ex.returncode, ex.output.decode()))
+            error_callback(job)
+            return
         if ext_jobid and ext_jobid[0]:
             ext_jobid = ext_jobid[0]
             self.external_jobid.update((f, ext_jobid) for f in job.output)

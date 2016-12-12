@@ -130,8 +130,7 @@ class Workflow:
         if self.is_rule(name):
             raise CreateRuleException(
                 "The name {} is already used by another rule".format(name))
-        rule = Rule(name, self, lineno=lineno, snakefile=snakefile,
-                    restart_times=self.restart_times)
+        rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
         self._rules[rule.name] = rule
         self.rule_count += 1
         if not self.first_rule:
@@ -654,6 +653,8 @@ class Workflow:
             rule.shellcmd = ruleinfo.shellcmd
             rule.script = ruleinfo.script
             rule.wrapper = ruleinfo.wrapper
+            rule.restart_times=self.restart_times
+
             ruleinfo.func.__name__ = "__{}".format(name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
             setattr(rules, name, rule)
