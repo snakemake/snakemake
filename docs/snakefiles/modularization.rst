@@ -22,11 +22,11 @@ Includes
 
 Another Snakefile with all its rules can be included into the current:
 
-.. code-block:
+.. code-block:: python
 
     include: "path/to/other/snakefile"
 
-The default target rule (often called the "all"-rule), won't be affected by the include.
+The default target rule (often called the ``all``-rule), won't be affected by the include.
 I.e. it will always be the first rule in your Snakefile, no matter how many includes you have above your first rule.
 From version 3.2 on, includes are relative to the directory of the Snakefile in which they occur.
 For example, if above Snakefile resides in the directory ``my/dir``, then Snakemake will search for the include at ``my/dir/path/to/other/snakefile``, regardless of the working directory.
@@ -35,7 +35,7 @@ For example, if above Snakefile resides in the directory ``my/dir``, then Snakem
 .. _snakefiles-sub_workflows:
 
 -------------
-Sub Workflows
+Sub-Workflows
 -------------
 
 In addition to including rules of another workflow, Snakemake allows to depend on the output of other workflows as sub-workflows.
@@ -90,8 +90,8 @@ For example
             "0.0.8/bio/samtools_sort"
 
 Refers to the wrapper ``"0.0.8/bio/samtools_sort"`` to create the output from the input.
-Snakemake will automatically download the wrapper from the [Snakemake Wrapper Repository](https://bitbucket.org/snakemake/snakemake-wrappers).
-Thereby, 0.0.8 can be replaced with the git version tag you want to use, or a commit id (see [here](https://bitbucket.org/snakemake/snakemake-wrappers/commits/)).
+Snakemake will automatically download the wrapper from the `Snakemake Wrapper Repository <https://bitbucket.org/snakemake/snakemake-wrappers>`_.
+Thereby, 0.0.8 can be replaced with the git version tag you want to use, or a commit id (see `here <https://bitbucket.org/snakemake/snakemake-wrappers/commits>`_).
 This ensures reproducibility since changes in the wrapper implementation won't be propagated automatically to your workflow.
 Alternatively, e.g., for development, the wrapper directive can also point to full URLs, including URLs to local files with ``file://``.
 Examples for each wrapper can be found in the READMEs located in the wrapper subdirectories at the `Snakemake Wrapper Repository <https://bitbucket.org/snakemake/snakemake-wrappers>`_.
@@ -106,8 +106,8 @@ Integrated Package Management
 -----------------------------
 
 With Snakemake 3.9.0 it is possible to define isolated software environments per rule.
-Upon execution of a workflow, the [Conda package manager](http://conda.pydata.org) is used to obtain and deploy the defined software packages in the specified versions. Packages will be installed into your working directory, without requiring any admin/root priviledges.
-Given that conda is available on your system (see [here](http://conda.pydata.org/miniconda.html)), to use the Conda integration, add the `--use-conda` flag to your workflow execution command, e.g. `snakemake --cores 8 --use-conda`.
+Upon execution of a workflow, the `Conda package manager <http://conda.pydata.org>`_ is used to obtain and deploy the defined software packages in the specified versions. Packages will be installed into your working directory, without requiring any admin/root priviledges.
+Given that conda is available on your system (see `Miniconda <http://conda.pydata.org/miniconda.html>`_), to use the Conda integration, add the `--use-conda` flag to your workflow execution command, e.g. `snakemake --cores 8 --use-conda`.
 When `--use-conda` is activated, Snakemake will automatically create software environments for any used wrapper (see above).
 Further, you can manually define environments via the `conda` directive, e.g.:
 
