@@ -8,7 +8,6 @@ __license__ = "MIT"
 from setuptools.command.test import test as TestCommand
 import sys
 
-
 # load version info
 exec(open("snakemake/version.py").read())
 
