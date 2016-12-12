@@ -402,3 +402,13 @@ and
     $ snakemake -n -R `snakemake --list-code-changes`
 
 Again, the list commands in backticks return the list of output files with changes, which are fed into ``-R`` to trigger a re-run.
+
+How do I remove all files created by snakemake, i.e. like ``make clean``
+------------------------------------------------------------------------
+
+To remove all files created by snakemake as output files to start from scratch, you can use
+
+.. code-block:: console
+
+    rm $(snakemake --summary | tail -n+2 | cut -f1)
+
