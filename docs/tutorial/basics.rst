@@ -220,7 +220,7 @@ we create a **visualization of the DAG** using the ``dot`` command provided by G
 For the given target files, Snakemake specifies the DAG in the dot language and pipes it into the ``dot`` command, which renders the definition into SVG format.
 The rendered DAG is piped into the file ``dag.svg`` and will look similar to this:
 
-.. image::workflow/dag_index.png
+.. image:: workflow/dag_index.png
    :align: center
 
 The DAG contains a node for each job and edges representing the dependencies.
@@ -302,7 +302,7 @@ Exercise
 
 * obtain the updated DAG of jobs for the target file ``calls/all.vcf``, it should look like this:
 
-.. image::workflow/dag_call.png
+.. image:: workflow/dag_call.png
    :align: center
 
 Step 6: Writing a report
