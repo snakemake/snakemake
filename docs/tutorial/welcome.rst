@@ -130,29 +130,27 @@ We will later use Conda_ to create an isolated environment with all required sof
 Step 2: Preparing a working directory
 :::::::::::::::::::::::::::::::::::::
 
-First, change to a reasonable place where you want your tutorial code to be.
-If you use a Vagrant Linux VM from Windows as described above, change to a directory under ``/vagrant/``, so that the contents are shared with your host system (you can then edit all files from within Windows with an editor that supports Unix line breaks).
+First, **create a new directory** ``snakemake-tutorial`` at a reasonable place and change into that directory in your terminal.
+If you use a Vagrant Linux VM from Windows as described above, create that directory under ``/vagrant/``, so that the contents are shared with your host system (you can then edit all files from within Windows with an editor that supports Unix line breaks).
+Then, **change to the newly created directory**.
 In this directory, we will later create an example workflow that illustrates the Snakemake syntax and execution environment.
-First, we clone a git repository with example data:
+First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ git clone https://bitbucket.org/snakemake/snakemake-tutorial.git
-    $ cd snakemake-tutorial
+    $ wget https://bitbucket.org/snakemake/snakemake-tutorial/get/v3.9.0.tar.bz2
+    $ tar -xf v3.9.0.tar.bz2 --strip 1
 
-This will create a ``data`` folder and a ``requirements.txt`` file in the directory ``snakemake-tutorial``.
+This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
 
 Step 3: Creating an environment with the required software
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-The ``requirements.txt`` file can be used to install all required software into an isolated Conda environment with the name ``snakemake-tutorial`` via
+The ``environment.yaml`` file can be used to install all required software into an isolated Conda environment with the name ``snakemake-tutorial`` via
 
 .. code:: console
 
-    $ conda create -n snakemake-tutorial -c bioconda --file requirements.txt
-
-Note that the arguments after the ``-c`` flags define software channels that shall be used in addition to the main ``conda`` repository.
-Here, we use the Bioconda_ channel, which contains a growing collection of bioinformatics software packaged for Conda.
+    $ conda env create --name snakemake-tutorial --file environment.yaml
 
 Step 4: Activating the environment
 ::::::::::::::::::::::::::::::::::

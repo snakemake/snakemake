@@ -262,11 +262,10 @@ would create the product of all elements of ``SAMPLES`` and the list ``[0, 1]``,
 
     ["sorted_reads/A.0.bam", "sorted_reads/A.1.bam", "sorted_reads/B.0.bam", "sorted_reads/B.1.bam"]
 
-For more information, see the :ref:`manual-main`.
 Here, we use only the simple case of ``expand``.
 We first let Snakemake know which samples we want to consider.
 Remember that Snakemake works top-down, it does not automatically infer this from, e.g., the fastq files in the data folder.
-Remember that Snakefiles are in principle Python code enhanced by some declarative statements to define workflows.
+Also remember that Snakefiles are in principle Python code enhanced by some declarative statements to define workflows.
 Hence, we can define the list of samples ad-hoc in plain Python at the top of the Snakefile:
 
 .. code:: python

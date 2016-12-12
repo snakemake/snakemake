@@ -158,7 +158,7 @@ Input functions are evaluated once the wildcard values of a job are determined.
 Exercise
 ........
 
-* In the ``data/samples`` folder, there is an additional sample ``C.fastq``. Add that sample to the config file and see how Snakemake wants to recompute the part of the workflow belonging to the new sample.
+* In the ``data/samples`` folder, there is an additional sample ``C.fastq``. Add that sample to the config file and see how Snakemake wants to recompute the part of the workflow belonging to the new sample, when invoking with ``snakemake -n --reason --forcerun bcftools_call``.
 
 
 Step 4: Rule parameters
