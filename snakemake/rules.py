@@ -13,6 +13,7 @@ from collections import defaultdict, Iterable
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
 from snakemake.io import apply_wildcards, is_flagged, not_iterable
+from snakemake.io import check_named_list_dupes
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import Mode
@@ -92,6 +93,8 @@ class Rule:
             self.wrapper = other.wrapper
             self.norun = other.norun
             self.is_branched = True
+        # Check output file name list for duplicates
+        check_named_list_dupes(self.name, "output", self._output)
 
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):
@@ -231,6 +234,8 @@ class Rule:
         """
         Add a list of output files. Recursive lists are flattened.
 
+        After creating the output files, they are checked for duplicates.
+
         Arguments
         output -- the list of output files
         """
@@ -252,6 +257,8 @@ class Rule:
                                           self.name))
             else:
                 self.wildcard_names = wildcards
+        # Check output file name list for duplicates
+        check_named_list_dupes(self.name, "output", self._output)
 
     def _set_inoutput_item(self, item, output=False, name=None):
         """
@@ -498,6 +505,9 @@ class Rule:
 
         for f in output:
             f.check()
+
+        # Note that we do not need to check for duplicate file names after
+        # expansion as all output patterns have contain all wildcards anyway.
 
         return output, mapping
 
