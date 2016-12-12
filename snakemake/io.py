@@ -816,10 +816,11 @@ def check_named_list_dupes(rule_name, lst_name, lst):
     seen = dict()
     idx = None
     for name, value in lst.allitems():
-        if name is None and idx is None:
-            idx = 0
-        elif name is None and idx is not None:
-            idx += 1
+        if name is None:
+            if idx is None:
+                idx = 0
+            else:
+                idx += 1
         if value in seen:
             tpl = (
                 "Duplicate {lst_name} pattern in rule {rule_name}. First two "
