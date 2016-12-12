@@ -20,3 +20,7 @@ dependencies:
   - appdirs
   - pytools
   - docutils
+  - sphinx
+  - pip:
+    - sphinxcontrib-napoleon
+    - sphinx_rtd_theme
