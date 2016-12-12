@@ -15,7 +15,7 @@ from itertools import chain
 from functools import partial
 from operator import attrgetter
 
-from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard
+from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard, lstat
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, CreateCondaEnvironmentException
@@ -86,6 +86,17 @@ class Job:
         self.rule.expand_params(self.wildcards_dict, self.input, resources)
         self.rule.expand_benchmark(self.wildcards_dict)
         self.rule.expand_log(self.wildcards_dict)
+
+    def outputs_older_than_script(self):
+        """return output that's older than script, i.e. script has changed"""
+        if not self.is_script:
+            return
+        assert os.path.exists(self.rule.script)# to make sure lstat works
+        script_mtime = lstat(self.rule.script).st_mtime
+        for f in self.expanded_output:
+            if f.exists:
+                if not f.is_newer(script_mtime):
+                    yield f
 
     @property
     def threads(self):
