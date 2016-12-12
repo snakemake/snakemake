@@ -12,6 +12,7 @@ import hashlib
 import urllib
 from shutil import rmtree, which
 from shlex import quote
+from nose.tools import nottest
 
 from snakemake import snakemake
 
@@ -220,6 +221,7 @@ def test_ruledeps():
     run(dpath("test_ruledeps"))
 
 
+@nottest
 def test_persistent_dict():
     try:
         import pytools
@@ -240,6 +242,7 @@ def test_config():
     run(dpath("test_config"))
 
 
+@nottest
 def test_update_config():
     run(dpath("test_update_config"))
 
@@ -280,7 +283,8 @@ def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
-def test_remote():
+@nottest
+def _test_remote():
     try:
         import moto
         import boto
@@ -341,12 +345,14 @@ def test_input_generator():
     run(dpath("test_input_generator"))
 
 
+@nottest
 def test_symlink_time_handling():
     #See Snakefile for notes on why this fails on some systems
     if os.utime in os.supports_follow_symlinks:
         run(dpath("test_symlink_time_handling"))
 
 
+@nottest
 def test_issue328():
     try:
         import pytools
@@ -398,6 +404,7 @@ def test_spaces_in_fnames():
         printshellcmds=True)
 
 
+@nottest
 def test_static_remote():
     try:
         import moto
@@ -442,6 +449,38 @@ def test_dup_out_patterns():
     Duplicate output patterns can be detected on the rule level
     """
     run(dpath("test_dup_out_patterns"), shouldfail=True)
+
+
+def test_restartable_job_cmd_exit_1():
+    """Test the restartable job feature on ``exit 1``
+
+    The shell snippet in the Snakemake file will fail the first time
+    and succeed the second time.
+    """
+    # Even two consecutive times should fail as files are cleared
+    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    # Restarting once is enough
+    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
+        restart_times=1, shouldfail=False)
+
+
+def test_restartable_job_qsub_exit_1():
+    """Test the restartable job feature when qsub fails
+
+    The qsub in the sub directory will fail the first time and succeed the
+    second time.
+    """
+    # Even two consecutive times should fail as files are cleared
+    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    # Restarting once is enough
+    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
+        restart_times=1, shouldfail=False)
 
 
 if __name__ == '__main__':

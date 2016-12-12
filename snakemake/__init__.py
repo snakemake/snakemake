@@ -95,6 +95,7 @@ def snakemake(snakefile,
               log_handler=None,
               keep_logger=False,
               max_jobs_per_second=None,
+              restart_times=0,
               verbose=False,
               force_use_threads=False,
               use_conda=False,
@@ -168,8 +169,9 @@ def snakemake(snakefile,
         greediness (float):         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
         overwrite_shellcmd (str):   a shell command that shall be executed instead of those given in the workflow. This is for debugging purposes only.
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
-        verbose (bool):              show additional debug output (default False)
-        max_jobs_per_second:        maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
+        verbose (bool):             show additional debug output (default False)
+        max_jobs_per_second (int):  maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
+        restart_times (int):        number of times to restart failing jobs (default 1)
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
         mode (snakemake.common.Mode): Execution mode
@@ -305,7 +307,8 @@ def snakemake(snakefile,
                         use_conda=use_conda,
                         mode=mode,
                         wrapper_prefix=wrapper_prefix,
-                        printshellcmds=printshellcmds)
+                        printshellcmds=printshellcmds,
+                        restart_times=restart_times)
     success = True
     try:
         workflow.include(snakefile,
@@ -863,6 +866,10 @@ def get_argument_parser():
         "--max-jobs-per-second", default=None, type=float,
         help=
         "Maximal number of cluster/drmaa jobs per second, default is no limit")
+    parser.add_argument(
+        "--restart-times", default=0, type=int,
+        help=
+        "Number of times to restart failing jobs (defaults to 0).")
     parser.add_argument('--timestamp', '-T',
                         action='store_true',
                         help='Add a timestamp to all logging output')
@@ -1065,6 +1072,7 @@ def main():
                             keep_shadow=args.keep_shadow,
                             allowed_rules=args.allowed_rules,
                             max_jobs_per_second=args.max_jobs_per_second,
+                            restart_times=args.restart_times,
                             force_use_threads=args.force_use_threads,
                             use_conda=args.use_conda,
                             mode=args.mode,

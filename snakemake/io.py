@@ -809,32 +809,6 @@ class Log(Namedlist):
     pass
 
 
-def check_named_list_dupes(rule_name, lst_name, lst):
-    """Check ``Namedlist`` for duplicate entries and raise a ``WorkflowError``
-    on problems.
-    """
-    seen = dict()
-    idx = None
-    for name, value in lst.allitems():
-        if name is None:
-            if idx is None:
-                idx = 0
-            else:
-                idx += 1
-        if value in seen:
-            tpl = (
-                "Duplicate {lst_name} pattern in rule {rule_name}. First two "
-                "duplicate for entries {first} and {second}")
-            vals = {
-                'first': seen[value],
-                'lst_name': lst_name,
-                'rule_name': rule_name,
-                'second': name or idx,
-            }
-            raise WorkflowError(tpl.format(**vals))
-        seen[value] = name or idx
-
-
 def _load_configfile(configpath):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
     try:

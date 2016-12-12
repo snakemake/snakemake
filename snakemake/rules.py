@@ -20,7 +20,8 @@ from snakemake.common import Mode
 
 
 class Rule:
-    def __init__(self, *args, lineno=None, snakefile=None):
+    def __init__(self, *args, lineno=None, snakefile=None,
+                 restart_times=0):
         """
         Create a rule
 
@@ -93,8 +94,6 @@ class Rule:
             self.wrapper = other.wrapper
             self.norun = other.norun
             self.is_branched = True
-        # Check output file name list for duplicates
-        check_named_list_dupes(self.name, "output", self._output)
 
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):
@@ -258,7 +257,26 @@ class Rule:
             else:
                 self.wildcard_names = wildcards
         # Check output file name list for duplicates
-        check_named_list_dupes(self.name, "output", self._output)
+        self.check_output_duplicates()
+
+    def check_output_duplicates(self):
+        """Check ``Namedlist`` for duplicate entries and raise a ``WorkflowError``
+        on problems.
+        """
+        seen = dict()
+        idx = None
+        for name, value in self.output.allitems():
+            if name is None:
+                if idx is None:
+                    idx = 0
+                else:
+                    idx += 1
+            if value in seen:
+                raise WorkflowError(
+                    "Duplicate output file pattern in rule {}. First two "
+                    "duplicate for entries {} and {}".format(
+                        self.name, seen[value], name or idx))
+            seen[value] = name or idx
 
     def _set_inoutput_item(self, item, output=False, name=None):
         """
