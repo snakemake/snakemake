@@ -131,26 +131,34 @@ All command line options can be printed by calling ``snakemake -h``.
 .. code-block:: text
 
     usage: snakemake [-h] [--snakefile FILE] [--gui [PORT]] [--cores [N]]
-                     [--resources [NAME=INT [NAME=INT ...]]]
-                     [--config [KEY=VALUE [KEY=VALUE ...]]] [--list]
-                     [--list-target-rules] [--directory DIR] [--dryrun]
-                     [--printshellcmds] [--dag] [--rulegraph] [--d3dag]
-                     [--summary] [--detailed-summary] [--touch] [--keep-going]
-                     [--force] [--forceall] [--forcerun TARGET [TARGET ...]]
-                     [--prioritize TARGET [TARGET ...]] [--allow-ambiguity]
-                     [--cluster CMD] [--drmaa [ARGS]] [--immediate-submit]
+                     [--local-cores N] [--resources [NAME=INT [NAME=INT ...]]]
+                     [--config [KEY=VALUE [KEY=VALUE ...]]] [--configfile FILE]
+                     [--list] [--list-target-rules] [--directory DIR] [--dryrun]
+                     [--printshellcmds] [--dag] [--force-use-threads]
+                     [--rulegraph] [--d3dag] [--summary] [--detailed-summary]
+                     [--touch] [--keep-going] [--force] [--forceall]
+                     [--forcerun [TARGET [TARGET ...]]]
+                     [--prioritize TARGET [TARGET ...]]
+                     [--until TARGET [TARGET ...]]
+                     [--omit-from TARGET [TARGET ...]] [--allow-ambiguity]
+                     [--cluster CMD | --cluster-sync CMD | --drmaa [ARGS]]
+                     [--cluster-config FILE] [--immediate-submit]
                      [--jobscript SCRIPT] [--jobname NAME] [--reason]
                      [--stats FILE] [--nocolor] [--quiet] [--nolock] [--unlock]
-                     [--cleanup-metadata [FILE [FILE ...]]] [--rerun-incomplete]
+                     [--cleanup-metadata FILE [FILE ...]] [--rerun-incomplete]
                      [--ignore-incomplete] [--list-version-changes]
                      [--list-code-changes] [--list-input-changes]
                      [--list-params-changes] [--latency-wait SECONDS]
                      [--wait-for-files [FILE [FILE ...]]] [--benchmark-repeats N]
-                     [--notemp] [--keep-target-files]
+                     [--notemp] [--keep-remote] [--keep-target-files]
+                     [--keep-shadow]
                      [--allowed-rules ALLOWED_RULES [ALLOWED_RULES ...]]
-                     [--timestamp] [--greedyness GREEDYNESS] [--print-compilation]
-                     [--overwrite-shellcmd OVERWRITE_SHELLCMD] [--debug]
-                     [--profile FILE] [--bash-completion] [--version]
+                     [--max-jobs-per-second MAX_JOBS_PER_SECOND] [--timestamp]
+                     [--greediness GREEDINESS] [--no-hooks] [--print-compilation]
+                     [--overwrite-shellcmd OVERWRITE_SHELLCMD] [--verbose]
+                     [--debug] [--profile FILE] [--mode {0,1,2}]
+                     [--bash-completion] [--use-conda]
+                     [--wrapper-prefix WRAPPER_PREFIX] [--version]
                      [target [target ...]]
 
     Snakemake is a Python based language and execution environment for GNU Make-
@@ -170,6 +178,10 @@ All command line options can be printed by calling ``snakemake -h``.
                             Use at most N cores in parallel (default: 1). If N is
                             omitted, the limit is set to the number of available
                             cores.
+      --local-cores N       In cluster mode, use at most N cores of the host
+                            machine in parallel (default: number of CPU cores of
+                            the host). The cores are used to execute local rules.
+                            This option is ignored when not in cluster mode.
       --resources [NAME=INT [NAME=INT ...]], --res [NAME=INT [NAME=INT ...]]
                             Define additional resources that shall constrain the
                             scheduling analogously to threads (see above). A
@@ -178,11 +190,15 @@ All command line options can be printed by calling ``snakemake -h``.
                             defining the resource keyword, e.g. resources: gpu=1.
                             If now two rules require 1 of the resource 'gpu' they
                             won't be run in parallel by the scheduler.
-      --config [KEY=VALUE [KEY=VALUE ...]]
+      --config [KEY=VALUE [KEY=VALUE ...]], -C [KEY=VALUE [KEY=VALUE ...]]
                             Set or overwrite values in the workflow config object.
                             The workflow config object is accessible as variable
                             config inside the workflow. Default values can be set
                             by providing a JSON file (see Documentation).
+      --configfile FILE     Specify or overwrite the config file of the workflow
+                            (see the docs). Values specified in JSON or YAML
+                            format are available in the global config dictionary
+                            inside the workflow.
       --list, -l            Show availiable rules in given Snakefile.
       --list-target-rules, --lt
                             Show available target rules in given Snakefile.
@@ -194,6 +210,8 @@ All command line options can be printed by calling ``snakemake -h``.
       --dag                 Do not execute anything and print the directed acyclic
                             graph of jobs in the dot language. Recommended use on
                             Unix systems: snakemake --dag | dot | display
+      --force-use-threads   Force threads rather than processes. Helpful if shared
+                            memory (/dev/shm) is full or unavailable.
       --rulegraph           Do not execute anything and print the dependency graph
                             of rules in the dot language. This will be less
                             crowded than above DAG of jobs, but also show less
@@ -201,8 +219,8 @@ All command line options can be printed by calling ``snakemake -h``.
                             hence the displayed graph will be cyclic if a rule
                             appears in several steps of the workflow. Use this if
                             above option leads to a DAG that is too large.
-                            Recommended use on Unix systems: snakemake --ruledag |
-                            dot | display
+                            Recommended use on Unix systems: snakemake --rulegraph
+                            | dot | display
       --d3dag               Print the DAG in D3.js compatible JSON format.
       --summary, -S         Print a summary of all files created by the workflow.
                             The has the following columns: filename, modification
@@ -238,7 +256,7 @@ All command line options can be printed by calling ``snakemake -h``.
       --forceall, -F        Force the execution of the selected (or the first)
                             rule and all rules it is dependent on regardless of
                             already created output.
-      --forcerun TARGET [TARGET ...], -R TARGET [TARGET ...]
+      --forcerun [TARGET [TARGET ...]], -R [TARGET [TARGET ...]]
                             Force the re-execution or creation of the given rules
                             or files. Use this option if you changed a rule and
                             want to have all its output in your workflow updated.
@@ -246,6 +264,16 @@ All command line options can be printed by calling ``snakemake -h``.
                             Tell the scheduler to assign creation of given targets
                             (and all their dependencies) highest priority.
                             (EXPERIMENTAL)
+      --until TARGET [TARGET ...], -U TARGET [TARGET ...]
+                            Runs the pipeline until it reaches the specified rules
+                            or files. Only runs jobs that are dependencies of the
+                            specified rule or files, does not run sibling DAGs.
+      --omit-from TARGET [TARGET ...], -O TARGET [TARGET ...]
+                            Prevent the execution or creation of the given rules
+                            or files as well as any rules or files that are
+                            downstream of these targets in the DAG. Also runs jobs
+                            in sibling DAGs that are independent of the rules or
+                            files specified here.
       --allow-ambiguity, -a
                             Don't check for ambiguous rules and simply use the
                             first if several can produce the same file. This
@@ -261,6 +289,10 @@ All command line options can be printed by calling ``snakemake -h``.
                             wildcards, log, threads and dependencies (see the
                             argument below)), e.g.: $ snakemake --cluster 'qsub
                             -pe threaded {threads}'.
+      --cluster-sync CMD    cluster submission command will block, returning the
+                            remote exitstatus upon remote termination (for
+                            example, this should be usedif the cluster command is
+                            'qsub -sync y' (SGE)
       --drmaa [ARGS]        Execute snakemake on a cluster accessed via DRMAA,
                             Snakemake compiles jobs into scripts that are
                             submitted to the cluster with the given command, once
@@ -271,6 +303,14 @@ All command line options can be printed by calling ``snakemake -h``.
                             dependencies, e.g.: --drmaa ' -pe threaded {threads}'.
                             Note that ARGS must be given in quotes and with a
                             leading whitespace.
+      --cluster-config FILE, -u FILE
+                            A JSON or YAML file that defines the wildcards used in
+                            'cluster'for specific rules, instead of having them
+                            specified in the Snakefile. For example, for rule
+                            'job' you may define: { 'job' : { 'time' : '24:00:00'
+                            } } to specify the time for rule 'job'. You can
+                            specify more than one file. The configuration files
+                            are merged with later values overriding earlier ones.
       --immediate-submit, --is
                             Immediately submit all jobs to the cluster instead of
                             waiting for present input files. This will fail,
@@ -286,7 +326,7 @@ All command line options can be printed by calling ``snakemake -h``.
                             in the installation directory.
       --jobname NAME, --jn NAME
                             Provide a custom name for the jobscript that is
-                            submitted to the cluster (see --cluster).NAME is
+                            submitted to the cluster (see --cluster). NAME is
                             "snakejob.{rulename}.{jobid}.sh" per default. The
                             wildcard {jobid} has to be present in the name.
       --reason, -r          Print the reason for each executed rule.
@@ -296,7 +336,7 @@ All command line options can be printed by calling ``snakemake -h``.
       --quiet, -q           Do not output any progress or rule information.
       --nolock              Do not lock the working directory
       --unlock              Remove a lock on the working directory.
-      --cleanup-metadata [FILE [FILE ...]], --cm [FILE [FILE ...]]
+      --cleanup-metadata FILE [FILE ...], --cm FILE [FILE ...]
                             Cleanup the metadata of given files. That means that
                             snakemake removes any tracked version info, and any
                             marks that files are incomplete.
@@ -304,7 +344,7 @@ All command line options can be printed by calling ``snakemake -h``.
                             Re-run all jobs the output of which is recognized as
                             incomplete.
       --ignore-incomplete, --ii
-                            Ignore any incomplete jobs.
+                            Do not check for incomplete output files.
       --list-version-changes, --lv
                             List all output files that have been created with a
                             different version (as determined by the version
@@ -337,31 +377,49 @@ All command line options can be printed by calling ``snakemake -h``.
                             running only a part of the workflow, since temp()
                             would lead to deletion of probably needed files by
                             other parts of the workflow.
+      --keep-remote         Keep local copies of remote input files.
       --keep-target-files   Do not adjust the paths of given target files relative
                             to the working directory.
+      --keep-shadow         Do not delete the shadow directory on snakemake
+                            startup.
       --allowed-rules ALLOWED_RULES [ALLOWED_RULES ...]
                             Only use given rules. If omitted, all rules in
                             Snakefile are used.
+      --max-jobs-per-second MAX_JOBS_PER_SECOND
+                            Maximal number of cluster/drmaa jobs per second,
+                            default is no limit
       --timestamp, -T       Add a timestamp to all logging output
-      --greedyness GREEDYNESS
-                            Set the greedyness of scheduling. This value between 0
+      --greediness GREEDINESS
+                            Set the greediness of scheduling. This value between 0
                             and 1 determines how careful jobs are selected for
                             execution. The default value (1.0) provides the best
                             speed and still acceptable scheduling quality.
+      --no-hooks            Do not invoke onstart, onsuccess or onerror hooks
+                            after execution.
       --print-compilation   Print the python representation of the workflow.
       --overwrite-shellcmd OVERWRITE_SHELLCMD
                             Provide a shell command that shall be executed instead
                             of those given in the workflow. This is for debugging
                             purposes only.
-      --debug               Print debugging output.
+      --verbose             Print debugging output.
+      --debug               Allow to debug rules with e.g. PDB. This flag allows
+                            to set breakpoints in run blocks.
       --profile FILE        Profile Snakemake and write the output to FILE. This
                             requires yappi to be installed.
+      --mode {0,1,2}        Set execution mode of Snakemake (internal use only).
       --bash-completion     Output code to register bash completion for snakemake.
                             Put the following in your .bashrc (including the
                             accents): `snakemake --bash-completion` or issue it in
                             an open terminal session.
+      --use-conda           If defined in the rule, create job specific conda
+                            environments. If this flag is not set, the conda
+                            directive is ignored.
+      --wrapper-prefix WRAPPER_PREFIX
+                            Prefix for URL created from wrapper directive
+                            (default: https://bitbucket.org/snakemake/snakemake-
+                            wrappers/raw/). Set this to a different URL to use
+                            your fork or a local clone of the repository.
       --version, -v         show program's version number and exit
-
 
 .. _getting_started-bash_completion:
 
