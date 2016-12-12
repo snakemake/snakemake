@@ -429,11 +429,19 @@ def test_issue381():
 
 
 def test_format_wildcards():
-    run(dpath("test_format_wildcards"))
+    run(dpath("test_format_wildcards"), shouldfail=True)
 
 
 def test_with_parentheses():
     run(dpath("test (with parentheses)"))
+
+
+def test_dup_out_patterns():
+    """Duplicate output patterns should emit an error
+
+    Duplicate output patterns can be detected on the rule level
+    """
+    run(dpath("test_dup_out_patterns"), shouldfail=True)
 
 
 if __name__ == '__main__':

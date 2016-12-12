@@ -169,12 +169,12 @@ def snakemake(snakefile,
         overwrite_shellcmd (str):   a shell command that shall be executed instead of those given in the workflow. This is for debugging purposes only.
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
         verbose (bool):              show additional debug output (default False)
-        log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         max_jobs_per_second:        maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
         mode (snakemake.common.Mode): Execution mode
         wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
+        log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
