@@ -134,17 +134,17 @@ We will later use Conda_ to create an isolated enviroment with all required soft
 Step 2: Preparing a working directory
 :::::::::::::::::::::::::::::::::::::
 
-First, **create a new directory** ``snakemake-tutorial`` at a reasonable place and **change into that directory** in your terminal.
-If you use a Vagrant Linux VM from Windows as described above, create the directory under ``/vagrant/``, so that the contents are shared with your host system (you can then edit all files from within Windows with an editor that supports Unix line breaks).
+First, change to a reasonable place where you want your tutorial code to be.
+If you use a Vagrant Linux VM from Windows as described above, change to a directory under ``/vagrant/``, so that the contents are shared with your host system (you can then edit all files from within Windows with an editor that supports Unix line breaks).
 In this directory, we will later create an example workflow that illustrates the Snakemake syntax and execution environment.
-First, we download some example data on which the workflow shall be executed:
+First, we clone a git repository with example data:
 
 .. code:: bash
 
-    wget https://bitbucket.org/snakemake/snakemake/downloads/snakemake-tutorial-data.tar.gz
-    tar -xf snakemake-tutorial-data.tar.gz
+    git clone https://bitbucket.org/snakemake/snakemake-tutorial.git
+    cd snakemake-tutorial
 
-This will create a ``data`` folder and a ``requirements.txt`` file in the working directory.
+This will create a ``data`` folder and a ``requirements.txt`` file in the directory ``snakemake-tutorial``.
 
 Step 3: Creating an environment with the required software
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
