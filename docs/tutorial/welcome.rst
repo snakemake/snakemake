@@ -138,8 +138,8 @@ First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ wget https://bitbucket.org/snakemake/snakemake-tutorial/get/v3.9.0.tar.bz2
-    $ tar -xf v3.9.0.tar.bz2 --strip 1
+    $ wget https://bitbucket.org/snakemake/snakemake-tutorial/get/v3.9.0-1.tar.bz2
+    $ tar -xf v3.9.0-1.tar.bz2 --strip 1
 
 This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
 
