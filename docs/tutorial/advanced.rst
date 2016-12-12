@@ -19,16 +19,12 @@ Advanced: Decorating the example workflow
 .. _Graphviz: http://www.graphviz.org
 .. _RestructuredText: http://docutils.sourceforge.net/rst.html
 .. _data URI: https://developer.mozilla.org/en-US/docs/Web/HTTP/data_URIs
-.. _Documentation: https://bitbucket.org/snakemake/snakemake/wiki/Documentation
 .. _JSON: http://json.org
 .. _YAML: http://yaml.org
 .. _DRMAA: http://www.drmaa.org
-.. _FAQ: https://bitbucket.org/snakemake/snakemake/wiki/FAQ
 .. _rpy2: http://rpy.sourceforge.net
 .. _R: https://www.r-project.org
 .. _Rscript: https://stat.ethz.ch/R-manual/R-devel/library/utils/html/Rscript.html
-.. _cluster configuration: https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-cluster-configuration
-.. _script section in the Documentation: https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-external-scripts
 .. _PyYAML: http://pyyaml.org
 .. _Docutils: http://docutils.sourceforge.net
 .. _Bioconda: https://bioconda.github.io
@@ -46,7 +42,7 @@ For some tools, it is advisable to use more than one thread in order to speed up
 **Snakemake can be made aware of the threads a rule needs** with the ``threads`` directive.
 In our example workflow, it makes sense to use multiple threads for the rule ``bwa_map``:
 
-.. code:: bash
+.. code:: python
 
     rule bwa_map:
         input:
@@ -66,9 +62,9 @@ In particular, the scheduler ensures that the sum of the threads of all running 
 This number can be given with the ``--cores`` command line argument (per default, Snakemake uses only 1 CPU core).
 For example
 
-.. code:: bash
+.. code:: console
 
-    snakemake --cores 10
+    $ snakemake --cores 10
 
 would execute the workflow with 10 cores.
 Since the rule ``bwa_map`` needs 8 threads, only one job of the rule can run at a time, and the Snakemake scheduler will try to saturate the remaining cores with other jobs like, e.g., ``samtools_sort``.
@@ -76,7 +72,7 @@ The threads directive in a rule is interpreted as a maximum: when **less cores t
 
 Apart from the very common thread resource, Snakemake provides a ``resources`` directive that can be used to **specify arbitrary resources**, e.g., memory usage or auxiliary computing devices like GPUs.
 Similar to threads, these can be considered by the scheduler when an available amount of that resource is given with the command line argument ``--resources``.
-Details can be found in the Snakemake Documentation_.
+Details can be found in the Snakemake :ref:`manual-main`.
 
 Exercise
 ........
@@ -92,7 +88,7 @@ For this purpose, Snakemake provides a config file mechanism.
 Config files can be written in JSON_ or YAML_, and loaded with the ``configfile`` directive.
 In our example workflow, we add the line
 
-.. code:: bash
+.. code:: python
 
     configfile: "config.yaml"
 
@@ -108,7 +104,7 @@ In our case, it makes sense to specify the samples in ``config.yaml`` as
 
 Now, we can remove the statement defining ``SAMPLES`` from the Snakefile and change the rule ``bcftools_call`` to
 
-.. code:: bash
+.. code:: python
 
     rule bcftools_call:
         input:
@@ -140,7 +136,7 @@ Instead, we need to defer the determination of input files to the DAG phase.
 This can be achieved by specifying an **input function** instead of a string as inside of the input directive.
 For the rule ``bwa_map`` this works as follows:
 
-.. code:: bash
+.. code:: python
 
     rule bwa_map:
         input:
@@ -155,7 +151,7 @@ For the rule ``bwa_map`` this works as follows:
 Here, we use an anonymous function, also called **lambda expression**.
 Any normal function would work as well.
 Input functions take as **single argument** a ``wildcards`` object, that allows to access the wildcards values via attributes (here ``wildcards.sample``).
-They **return a string or a list of strings**, that are interpeted as paths to input files (here, we return the path that is stored for the sample in the config file).
+They **return a string or a list of strings**, that are interpreted as paths to input files (here, we return the path that is stored for the sample in the config file).
 Input functions are evaluated once the wildcard values of a job are determined.
 
 
@@ -174,7 +170,7 @@ For this, Snakemake allows to **define arbitrary parameters** for rules with the
 In our workflow, it is reasonable to annotate aligned reads with so-called read groups, that contain metadata like the sample name.
 We modify the rule ``bwa_map`` accordingly:
 
-.. code:: bash
+.. code:: python
 
     rule bwa_map:
         input:
@@ -204,7 +200,7 @@ For this purpose, Snakemake allows to **specify log files** for rules.
 Log files are defined via the ``log`` directive and handled similarly to output files, but they are not subject of rule matching and are not cleaned up when a job fails.
 We modify our rule ``bwa_map`` as follows:
 
-.. code:: bash
+.. code:: python
 
     rule bwa_map:
         input:
@@ -244,7 +240,7 @@ Hence, the resulting BAM files need a lot of disk space and their creation takes
 Snakemake allows to **mark output files as temporary**, such that they are deleted once every consuming job has been executed, in order to save disk space.
 We use this mechanism for the output file of the rule ``bwa_map``:
 
-.. code:: bash
+.. code:: python
 
     rule bwa_map:
         input:
@@ -265,7 +261,7 @@ This results in the deletion of the BAM file once the corresponding ``samtools_s
 Since the creation of BAM files via read mapping and sorting is computationally expensive, it is reasonable to **protect** the final BAM file **from accidental deletion or modification**.
 We modify the rule ``samtools_sort`` by marking it's output file as ``protected``:
 
-.. code:: bash
+.. code:: python
 
     rule samtools_sort:
         input:
@@ -290,7 +286,7 @@ Summary
 
 The final version of our workflow looks like this:
 
-.. code:: bash
+.. code:: python
 
     configfile: "config.yaml"
 

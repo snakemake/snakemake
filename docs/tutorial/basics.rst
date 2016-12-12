@@ -19,16 +19,12 @@ Basics: An example workflow
 .. _Graphviz: http://www.graphviz.org
 .. _RestructuredText: http://docutils.sourceforge.net/rst.html
 .. _data URI: https://developer.mozilla.org/en-US/docs/Web/HTTP/data_URIs
-.. _Documentation: https://bitbucket.org/snakemake/snakemake/wiki/Documentation
 .. _JSON: http://json.org
 .. _YAML: http://yaml.org
 .. _DRMAA: http://www.drmaa.org
-.. _FAQ: https://bitbucket.org/snakemake/snakemake/wiki/FAQ
 .. _rpy2: http://rpy.sourceforge.net
 .. _R: https://www.r-project.org
 .. _Rscript: https://stat.ethz.ch/R-manual/R-devel/library/utils/html/Rscript.html
-.. _cluster configuration: https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-cluster-configuration
-.. _script section in the Documentation: https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-external-scripts
 .. _PyYAML: http://pyyaml.org
 .. _Docutils: http://docutils.sourceforge.net
 .. _Bioconda: https://bioconda.github.io
@@ -58,7 +54,7 @@ In the working directory, **create a new file** called ``Snakefile`` with an edi
 We propose to use the Atom_ editor, since it provides out-of-the-box syntax highlighting for Snakemake.
 In the Snakefile, define the following rule:
 
-.. code:: bash
+.. code:: python
 
     rule bwa_map:
         input:
@@ -84,13 +80,13 @@ When a workflow is executed, Snakemake tries to generate given **target** files.
 Target files can be specified via the command line.
 By executing
 
-.. code:: bash
+.. code:: console
 
-    snakemake -np mapped_reads/A.bam
+    $ snakemake -np mapped_reads/A.bam
 
 in the working directory containing the Snakefile, we tell Snakemake to generate the target file ``mapped_reads/A.bam``.
 Since we used the ``-n`` (or ``--dryrun``) flag, Snakemake will only show the execution plan instead of actually perform the steps.
-The ``-p`` flag instructs Snakemake to also print the resulting shell command for illustation.
+The ``-p`` flag instructs Snakemake to also print the resulting shell command for illustration.
 To generate the target files, **Snakemake applies the rules given in the Snakefile in a top-down way**.
 The application of a rule to generate a set of output files is called **job**.
 For each input file of a job, Snakemake again (i.e. recursively) determines rules that can be applied to generate it.
@@ -98,9 +94,9 @@ This yields a directed acyclic graph (DAG) of jobs where the edges represent dep
 So far, we only have a single rule, and the DAG of jobs consists of a single node.
 Nevertheless, we can **execute our workflow** with
 
-.. code:: bash
+.. code:: console
 
-    snakemake mapped_reads/A.bam
+    $ snakemake mapped_reads/A.bam
 
 Note that, after completion of above command, Snakemake will not try to create ``mapped_reads/A.bam`` again, because it is already present in the file system.
 Snakemake **only re-runs jobs if one of the input files is newer than one of the output files or one of the input files will be updated by another job**.
@@ -112,7 +108,7 @@ Obviously, the rule will only work for a single sample with reads in the file ``
 However, Snakemake allows to **generalize rules by using named wildcards**.
 Simply replace the ``A`` in the second input file and in the output file with the wildcard ``{sample}``, leading to
 
-.. code:: bash
+.. code:: python
 
     rule bwa_map:
         input:
@@ -123,28 +119,28 @@ Simply replace the ``A`` in the second input file and in the output file with th
         shell:
             "bwa mem {input} | samtools view -Sb - > {output}"
 
-When Snakemake determines that this rule can be applied to generate a target file by replacing the wildcard ``{sample}`` in the output file with an appropriate value, it will propagate that value to all occurences of ``{sample}`` in the input files and thereby determine the necessary input for the resulting job.
+When Snakemake determines that this rule can be applied to generate a target file by replacing the wildcard ``{sample}`` in the output file with an appropriate value, it will propagate that value to all occurrences of ``{sample}`` in the input files and thereby determine the necessary input for the resulting job.
 Note that you can have multiple wildcards in your file paths, however, to avoid conflicts with other jobs of the same rule, **all output files** of a rule have to **contain exactly the same wildcards**.
 
 When executing
 
-.. code:: bash
+.. code:: console
 
-    snakemake -np mapped_reads/B.bam
+    $ snakemake -np mapped_reads/B.bam
 
 Snakemake will determine that the rule ``bwa_map`` can be applied to generate the target file by replacing the wildcard ``{sample}`` with the value ``B``.
 In the output of the dry-run, you will see how the wildcard value is propagated to the input files and all filenames in the shell command.
 You can also **specify multiple targets**, e.g.:
 
-.. code:: bash
+.. code:: console
 
-    snakemake -np mapped_reads/A.bam mapped_reads/B.bam
+    $ snakemake -np mapped_reads/A.bam mapped_reads/B.bam
 
 Some Bash_ magic can make this particularly handy. For example, you can alternatively compose our multiple targets in a single pass via
 
-.. code:: bash
+.. code:: console
 
-    snakemake -np mapped_reads/{A,B}.bam
+    $ snakemake -np mapped_reads/{A,B}.bam
 
 Note that this is not a special Snakemake syntax. Bash is just expanding the given path into two, one for each element of the set ``{A,B}``.
 
@@ -153,15 +149,15 @@ This is because you already executed the workflow before (see the previous step)
 You can update the file modification date of the input file
 ``data/samples/A.fastq`` via
 
-.. code:: bash
+.. code:: console
 
-    touch data/samples/A.fastq
+    $ touch data/samples/A.fastq
 
 and see how Snakemake wants to re-run the job to create the file ``mapped_reads/A.bam`` by executing
 
-.. code:: bash
+.. code:: console
 
-    snakemake -np mapped_reads/A.bam mapped_reads/B.bam
+    $ snakemake -np mapped_reads/A.bam mapped_reads/B.bam
 
 
 Step 3: Sorting read alignments
@@ -171,7 +167,7 @@ For later steps, we need the read alignments in the BAM files to be sorted.
 This can be achieved with the ``samtools`` command.
 We add the following rule beneath the ``bwa_map`` rule:
 
-.. code:: bash
+.. code:: python
 
     rule samtools_sort:
         input:
@@ -190,9 +186,9 @@ Snakemake allows to access wildcards in the shell command via the ``wildcards`` 
 
 When issuing
 
-.. code:: bash
+.. code:: console
 
-    snakemake -np sorted_reads/B.bam
+    $ snakemake -np sorted_reads/B.bam
 
 you will see how Snakemake wants to run first the rule ``bwa_map`` and then the rule ``samtools_sort`` to create the desired target file:
 as mentioned before, the dependencies are resolved automatically by matching file names.
@@ -203,7 +199,7 @@ Step 4: Indexing read alignments and visualizing the DAG of jobs
 Next, we need to index the sorted read alignments for random access.
 This can be done with the following rule:
 
-.. code:: bash
+.. code:: python
 
     rule samtools_index:
         input:
@@ -216,9 +212,9 @@ This can be done with the following rule:
 Having three steps already, it is a good time to take a closer look at the resulting DAG of jobs.
 By executing
 
-.. code:: bash
+.. code:: console
 
-    snakemake --dag sorted_reads/{A,B}.bam.bai | dot -Tsvg > dag.svg
+    $ snakemake --dag sorted_reads/{A,B}.bam.bai | dot -Tsvg > dag.svg
 
 we create a **visualization of the DAG** using the ``dot`` command provided by Graphviz_.
 For the given target files, Snakemake specifies the DAG in the dot language and pipes it into the ``dot`` command, which renders the definition into SVG format.
@@ -243,44 +239,44 @@ The next step in our workflow will aggregate the aligned reads from all samples 
 Snakemake provides a **helper function for collecting input files**.
 With
 
-.. code:: bash
+.. code:: python
 
     expand("sorted_reads/{sample}.bam", sample=SAMPLES)
 
 we obtain a list of files where the given pattern ``"sorted_reads/{sample}.bam"`` was formatted with the values in the given list of samples ``SAMPLES``, i.e.
 
-.. code:: bash
+.. code:: python
 
     ["sorted_reads/A.bam", "sorted_reads/B.bam"]
 
 The function is particularly useful when the pattern contains multiple wildcards.
 For example,
 
-.. code:: bash
+.. code:: python
 
     expand("sorted_reads/{sample}.{replicate}.bam", sample=SAMPLES, replicate=[0, 1])
 
 would create the product of all elements of ``SAMPLES`` and the list ``[0, 1]``, yielding
 
-.. code:: bash
+.. code:: python
 
     ["sorted_reads/A.0.bam", "sorted_reads/A.1.bam", "sorted_reads/B.0.bam", "sorted_reads/B.1.bam"]
 
-For more information, see the Documentation_.
+For more information, see the :ref:`manual-main`.
 Here, we use only the simple case of ``expand``.
 We first let Snakemake know which samples we want to consider.
 Remember that Snakemake works top-down, it does not automatically infer this from, e.g., the fastq files in the data folder.
 Remember that Snakefiles are in principle Python code enhanced by some declarative statements to define workflows.
 Hence, we can define the list of samples ad-hoc in plain Python at the top of the Snakefile:
 
-.. code:: bash
+.. code:: python
 
     SAMPLES = ["A", "B"]
 
 Later, we will learn about more sophisticated ways like **config files**.
 Now, we can add the following rule to our Snakefile:
 
-.. code:: bash
+.. code:: python
 
     rule bcftools_call:
         input:
@@ -316,7 +312,7 @@ Although Snakemake workflows are already self-documenting to a certain degree, i
 With Snakemake, such reports can be composed easily with the built-in ``report`` function.
 It is best practice to create reports in a separate rule that takes all desired results as input files and provides a **single HTML file as output**.
 
-.. code:: bash
+.. code:: python
 
     rule report:
         input:
@@ -357,13 +353,13 @@ Hence, reports can be used to semantically connect and explain the obtained resu
 
 When having many result files, it is sometimes handy to define the names already in the list of input files and unpack these into keyword arguments as follows:
 
-.. code:: bash
+.. code:: python
 
     report("""...""", output[0], **input)
 
 Further, you can add meta data in the form of any string that will be displayed in the footer of the report, e.g.
 
-.. code:: bash
+.. code:: python
 
     report("""...""", output[0], metadata="Author: Johannes Köster (koester@jimmy.harvard.edu)", **input)
 
@@ -379,7 +375,7 @@ Hence, it is best practice to have a rule ``all`` at the top of the workflow whi
 
 Here, this means that we add a rule
 
-.. code:: bash
+.. code:: python
 
     rule all:
         input:
@@ -388,9 +384,9 @@ Here, this means that we add a rule
 to the top of our workflow.
 When executing Snakemake with
 
-.. code:: bash
+.. code:: console
 
-    snakemake -n
+    $ snakemake -n
 
 the execution plan for creating the file ``report.html`` which contains and summarizes all our results will be shown.
 Note that, apart from Snakemake considering the first rule of the workflow as default target, **the appearance of rules in the Snakefile is arbitrary and does not influence the DAG of jobs**.
@@ -408,7 +404,7 @@ Summary
 
 In total, the resulting workflow looks like this:
 
-.. code:: bash
+.. code:: console
 
     SAMPLES = ["A", "B"]
 

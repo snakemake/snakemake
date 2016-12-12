@@ -11,7 +11,7 @@ You can use one of the following ways for installing Snakemake.
 Global Installation
 ===================
 
-With a working Python 3 setup, installation of Snakemake can be performed by issueing
+With a working Python 3 setup, installation of Snakemake can be performed by issuing
 
 .. code-block:: console
 
@@ -34,7 +34,7 @@ To create an installation in a virtual environment, use the following commands:
 .. code-block:: console
 
     $ virtualenv -p python3 .venv
-    $ source . .venv/bin/activate
+    $ source .venv/bin/activate
     $ pip install snakemake
 
 
@@ -64,7 +64,7 @@ Note that this will install the development version and as you are installing fr
     $ git clone https://bitbucket.org/snakemake/snakemake.git
     $ cd snakemake
     $ virtualenv -p python3 .venv
-    $ source . .venv/bin/activate
-    $ python setup install
+    $ source .venv/bin/activate
+    $ python setup.py install
 
-You can also use ``python setup develop`` to create a "development installation" in which no files are copied but a link is created and changes in the source code are immediately visible in your ``snakemake`` commands.
+You can also use ``python setup.py develop`` to create a "development installation" in which no files are copied but a link is created and changes in the source code are immediately visible in your ``snakemake`` commands.
