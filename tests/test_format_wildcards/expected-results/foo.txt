@@ -1,1 +1,1 @@
-test=foo
+a test=foo

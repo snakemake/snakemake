@@ -87,7 +87,7 @@ class REncoder:
 
 class Snakemake:
     def __init__(self, input, output, params, wildcards, threads, resources,
-                 log, config):
+                 log, config, rulename):
         self.input = input
         self.output = output
         self.params = params
@@ -96,6 +96,7 @@ class Snakemake:
         self.resources = resources
         self.log = log
         self.config = config
+        self.rule = rulename
 
     def log_fmt_shell(self, stdout=True, stderr=True, append=False):
         """
@@ -148,7 +149,7 @@ class Snakemake:
 
 
 def script(path, basedir, input, output, params, wildcards, threads, resources,
-           log, config, conda_env):
+           log, config, rulename, conda_env):
     """
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
@@ -165,7 +166,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
         with urlopen(path) as source:
             if path.endswith(".py"):
                 snakemake = Snakemake(input, output, params, wildcards,
-                                      threads, resources, log, config)
+                                      threads, resources, log, config, rulename)
                 snakemake = pickle.dumps(snakemake)
                 # obtain search path for current snakemake module
                 # the module is needed for unpickling in the script
@@ -189,7 +190,8 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                         threads = "numeric",
                         log = "list",
                         resources = "list",
-                        config = "list"
+                        config = "list",
+                        rule = "character"
                     )
                 )
                 snakemake <- Snakemake(
@@ -200,7 +202,8 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                     threads = {},
                     log = {},
                     resources = {},
-                    config = {}
+                    config = {},
+                    rule = {}
                 )
                 ######## Original script #########
                 """).format(REncoder.encode_namedlist(input),
@@ -212,7 +215,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                                name: value
                                for name, value in resources.items()
                                if name != "_cores" and name != "_nodes"
-                           }), REncoder.encode_dict(config))
+                           }), REncoder.encode_dict(config), REncoder.encode_value(rulename))
             else:
                 raise ValueError(
                     "Unsupported script: Expecting either Python (.py) or R (.R) script.")
