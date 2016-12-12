@@ -90,7 +90,7 @@ class Job:
     def outputs_older_than_script(self):
         """return output that's older than script, i.e. script has changed"""
         if not self.is_script:
-            return iter([])# clumsy?
+            return
         assert os.path.exists(self.rule.script)# to make sure lstat works
         script_mtime = lstat(self.rule.script).st_mtime
         for f in self.expanded_output:
