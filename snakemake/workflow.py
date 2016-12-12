@@ -413,7 +413,7 @@ class Workflow:
         elif list_code_changes:
             items = list(chain(*map(self.persistence.code_changed, dag.jobs)))
             for j in dag.jobs:
-                items.extend(j.has_changed_script())
+                items.extend(list(j.has_changed_script()))
             if items:
                 print(*items, sep="\n")
             return True

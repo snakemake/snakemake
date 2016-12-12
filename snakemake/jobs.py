@@ -90,15 +90,13 @@ class Job:
     def has_changed_script(self):
         """return output that's older than script, i.e. script has changed"""
         if not self.is_script:
-            return []
-        outdated = []
+            return
         for f in self.expanded_output:
             if f.exists:
                 # assuming script is local. borrowed from io.py
                 script_mtime = lstat(self.rule.script).st_mtime
                 if f.mtime < script_mtime:
-                    outdated.append(f)
-        return outdated
+                    yield f
 
     @property
     def threads(self):
