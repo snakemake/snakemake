@@ -4,3 +4,4 @@ tail -n1 $1 >> qsub.log
 # simulate printing of job id by a random number
 echo $RANDOM
 sh $1
+exit 0
