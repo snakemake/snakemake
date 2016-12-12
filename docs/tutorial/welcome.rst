@@ -20,16 +20,16 @@ Tutorial Setup
 .. _Graphviz: http://www.graphviz.org
 .. _RestructuredText: http://docutils.sourceforge.net/rst.html
 .. _data URI: https://developer.mozilla.org/en-US/docs/Web/HTTP/data_URIs
-.. _Documentation: https://bitbucket.org/snakemake/snakemake/wiki/Documentation
+.. _Documentation: http://snakemake.readthedocs.io/en/latest
 .. _JSON: http://json.org
 .. _YAML: http://yaml.org
 .. _DRMAA: http://www.drmaa.org
-.. _FAQ: https://bitbucket.org/snakemake/snakemake/wiki/FAQ
+.. _FAQ: http://snakemake.readthedocs.io/en/latest/project_info/faq.html
 .. _rpy2: http://rpy.sourceforge.net
 .. _R: https://www.r-project.org
 .. _Rscript: https://stat.ethz.ch/R-manual/R-devel/library/utils/html/Rscript.html
-.. _cluster configuration: https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-cluster-configuration
-.. _script section in the Documentation: https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-external-scripts
+.. _cluster configuration: http://snakemake.readthedocs.io/en/latest/snakefiles/configuration.html#cluster-configuration
+.. _script section in the Documentation: http://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#external-scripts
 .. _PyYAML: http://pyyaml.org
 .. _Docutils: http://docutils.sourceforge.net
 .. _Bioconda: https://bioconda.github.io
@@ -129,7 +129,7 @@ When you are asked the question
 answer with **yes**.
 Along with a minimal Python 3 environment, Miniconda contains the package manager Conda_.
 After opening a **new terminal**, you can use the new ``conda`` command to install software packages and create isolated environments to, e.g., use different versions of the same package.
-We will later use Conda_ to create an isolated enviroment with all required software for this tutorial.
+We will later use Conda_ to create an isolated environment with all required software for this tutorial.
 
 Step 2: Preparing a working directory
 :::::::::::::::::::::::::::::::::::::
@@ -149,7 +149,7 @@ This will create a ``data`` folder and a ``requirements.txt`` file in the direct
 Step 3: Creating an environment with the required software
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-The ``requirements.txt`` file can be used to install all required software into an isolated conda environment with the name ``snakemake-tutorial`` via
+The ``requirements.txt`` file can be used to install all required software into an isolated Conda environment with the name ``snakemake-tutorial`` via
 
 .. code:: bash
 
@@ -161,7 +161,7 @@ Here, we use the Bioconda_ channel, which contains a growing collection of bioin
 Step 4: Activating the environment
 ::::::::::::::::::::::::::::::::::
 
-To activate the ``snakemake-tutorial`` enviroment, execute
+To activate the ``snakemake-tutorial`` environment, execute
 
 .. code:: bash
 

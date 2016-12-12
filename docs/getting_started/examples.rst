@@ -12,7 +12,7 @@ We follow the convention to use different subdirectories for different intermedi
 Cufflinks
 =========
 
-`Cufflinks <http://cufflinks.cbcb.umd.edu/index.html>`_ is a tool to assemble transcripts, calculate abundance conduct a differential expression analyses on RNA-Seq data. This example shows how to create a typical cufflinks workflow with snakemake.
+`Cufflinks <http://cole-trapnell-lab.github.io/cufflinks/>`_ is a tool to assemble transcripts, calculate abundance and conduct a differential expression analysis on RNA-Seq data. This example shows how to create a typical Cufflinks workflow with Snakemake.
 It assumes that mapped RNA-Seq data for four samples 101-104 is given as bam files.
 
 * For each sample, transcripts are assembled with ``cufflinks`` (rule ``assembly``).
@@ -99,7 +99,7 @@ It assumes that mapped RNA-Seq data for four samples 101-104 is given as bam fil
         shell:
             'cuffdiff --num-threads {threads} {gtf} {params.class1} {params.class2}'
 
-The execution plan of snakemake for this workflow can be visualized with the following DAG.
+The execution plan of Snakemake for this workflow can be visualized with the following DAG.
 
 .. image:: img/cufflinks-dag.png
     :alt: Cufflinks Workflow DAG
@@ -190,7 +190,7 @@ A Snakefile can be easily written as
         shell:
             "rm -f   *~  core  {IDIR}/*~"
 
-As can be seen, the shell calls become more readable, e.g. ``"{CC} -c -o {output} {input} {CFLAGS}"`` instead of ``$(CC) -c -o $@ $< $(CFLAGS)``. Further, snakemake automatically deletes ``.o``-files when they are not needed anymore since they are marked as ``temp``.
+As can be seen, the shell calls become more readable, e.g. ``"{CC} -c -o {output} {input} {CFLAGS}"`` instead of ``$(CC) -c -o $@ $< $(CFLAGS)``. Further, Snakemake automatically deletes ``.o``-files when they are not needed anymore since they are marked as ``temp``.
 
 .. image:: img/c-dag.png
     :alt: C Workflow DAG
@@ -199,10 +199,10 @@ As can be seen, the shell calls become more readable, e.g. ``"{CC} -c -o {output
 Building a Paper with LaTeX
 ===========================
 
-Building a scientific paper can be automated by snakemake as well.
+Building a scientific paper can be automated by Snakemake as well.
 Apart from compiling LaTeX code and invoking BibTeX, we provide a special rule to zip the needed files for online submission.
 
-We first provide a snakefile `tex.rules` that contains rules that can be shared for any latex build task:
+We first provide a Snakefile ``tex.rules`` that contains rules that can be shared for any latex build task:
 
 .. code-block:: python
 
@@ -242,7 +242,7 @@ Assuming that both ``paper.tex`` and ``paper.bib`` exist, an ambiguity arises: B
 This would lead to an ``AmbiguousRuleException``, but since we have specified an explicit rule order in the file, it is clear that in this case the rule ``tex2pdf_with_bib`` is to be preferred.
 If the ``paper.bib`` file does not exist, that rule is not even applicable, and the only option is to execute rule ``tex2pdf_without_bib``.
 
-Assuming that the above file is saved as ``tex.rules``, the actual documents are then built from a specific snakefile that includes these common rules:
+Assuming that the above file is saved as ``tex.rules``, the actual documents are then built from a specific Snakefile that includes these common rules:
 
 .. code-block:: python
 
@@ -277,7 +277,7 @@ Build all PDFs:
 
     $ snakemake
 
-Create a ZIP-File for online submissions:
+Create a zip-file for online submissions:
 
 .. code-block:: console
 
