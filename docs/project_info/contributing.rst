@@ -113,3 +113,34 @@ For the documentation, please adhere to the following guidelines:
 
     Heading 6
     :::::::::
+
+.. _doc_setup:
+
+-------------------
+Documentation Setup
+-------------------
+
+For building the documentation, you have to install the Python program Sphinx.
+This is best done in a virtual environment.
+The following assumes you have a working Python 3 setup.
+
+Use the following steps for installing Sphinx and the dependencies for building the Snakemake documentation:
+
+.. code-block:: console
+
+    $ git clone git@bitbucket.org:snakemake/snakemake.git
+    $ cd snakemake/docs
+    $ virtualenv -p python3 .venv
+    $ source .venv/bin/activate
+    $ pip install --upgrade -r requirements.txt
+
+Use the following for building the documentation.
+The first two lines is only required for loading the virtualenv.
+Afterwards, you can always use ``make html`` for building.
+
+.. code-block:: console
+
+    $ cd snakemake/docs
+    $ source .venv/bin/activate
+    $ make html  # rebuild for changed files only
+    $ make clean && make html  # force rebuild

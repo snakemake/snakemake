@@ -260,8 +260,9 @@ class CPUExecutor(RealExecutor):
                 run_wrapper, job.rule.run_func, job.input.plainstrings(),
                 job.output.plainstrings(), job.params, job.wildcards, job.threads,
                 job.resources, job.log.plainstrings(), job.rule.version, benchmark,
-                self.benchmark_repeats, job.conda_env, self.workflow.linemaps,
-                self.workflow.debug, shadow_dir=job.shadow_dir)
+                self.benchmark_repeats, job.rule.name, job.conda_env,
+                self.workflow.linemaps, self.workflow.debug,
+                shadow_dir=job.shadow_dir)
         else:
             # run directive jobs are spawned into subprocesses
             future = self.pool.submit(self.spawn_job, job)
@@ -801,7 +802,7 @@ def change_working_directory(directory=None):
 
 
 def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
-                version, benchmark, benchmark_repeats, conda_env, linemaps, debug=False,
+                version, benchmark, benchmark_repeats, rule, conda_env, linemaps, debug=False,
                 shadow_dir=None):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -813,6 +814,7 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
     wildcards  -- so far processed wildcards
     threads    -- usable threads
     log        -- list of log files
+    rule (str) -- rule name
     shadow_dir -- optional shadow directory root
     """
     if os.name == "posix" and debug:
@@ -826,7 +828,7 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
             # execute the actual run method.
             with change_working_directory(shadow_dir):
                 run(input, output, params, wildcards, threads, resources, log,
-                    version, conda_env)
+                    version, rule, conda_env)
             w = time.time() - w
             wallclock.append(w)
 

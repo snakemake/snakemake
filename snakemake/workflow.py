@@ -412,6 +412,8 @@ class Workflow:
             return True
         elif list_code_changes:
             items = list(chain(*map(self.persistence.code_changed, dag.jobs)))
+            for j in dag.jobs:
+                items.extend(list(j.outputs_older_than_script()))
             if items:
                 print(*items, sep="\n")
             return True

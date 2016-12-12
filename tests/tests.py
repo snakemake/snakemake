@@ -429,7 +429,7 @@ def test_issue381():
 
 
 def test_format_wildcards():
-    run(dpath("test_format_wildcards"), shouldfail=True)
+    run(dpath("test_format_wildcards"))
 
 
 def test_with_parentheses():
