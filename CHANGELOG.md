@@ -1,14 +1,75 @@
 # Change Log
 
-## [Unreleased]
+## [3.9.0] - 2016-11-15
+### Added
+- Ability to define isolated conda software environments (YAML) per rule. Environment will be deployed by Snakemake upon workflow execution.
+- Command line argument --wrapper-prefix in order to overwrite the default URL for looking up wrapper scripts.
+### Changed
+- --summary now displays the log files correspoding to each output file.
+- Fixed hangups when using run directive and a large number of jobs
+- Fixed pickling errors with anonymous rules and run directive.
+- Various small bug fixes
+
+## [3.8.2] - 2016-09-23
+### Changed
+- Add missing import in rules.py.
+- Use threading only in cluster jobs.
+
+## [3.8.1] - 2016-09-14
+### Changed
+- Snakemake now warns when using relative paths starting with "./".
+- The option -R now also accepts an empty list of arguments.
+- Bug fix when handling benchmark directive.
+- Jobscripts exit with code 1 in case of failure. This should improve the error messages of cluster system.
+- Fixed a bug in SFTP remote provider.
+
+
+## [3.8.0] - 2016-08-26
+### Added
+- Wildcards can now be constrained by rule and globally via the new `wildcard_constraints` directive (see the [docs](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-wildcards)).
+- Subworkflows now allow to overwrite their config file via the configfile directive in the calling Snakefile.
+- A method `log_fmt_shell` in the snakemake proxy object that is available in scripts and wrappers allows to obtain a formatted string to redirect logging output from STDOUT or STDERR.
+- Functions given to resources can now optionally contain an additional argument `input` that refers to the input files.
+- Functions given to params can now optionally contain additional arguments `input` (see above) and `resources`. The latter refers to the resources.
+- It is now possible to let items in shell commands be automatically quoted (see the [docs](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-rules)). This is usefull when dealing with filenames that contain whitespaces.
+### Changed
+- Snakemake now deletes output files before job exection. Further, it touches output files after job execution. This solves various problems with slow NFS filesystems.
+- A bug was fixed that caused dynamic output rules to be executed multiple times when forcing their execution with -R.
+- A bug causing double uploads with remote files was fixed. Various additional bug fixes related to remote files.
+- Various minor bug fixes.
+
+## [3.7.1] - 2016-05-16
+### Changed
+- Fixed a missing import of the multiprocessing module.
+
+## [3.7.0] - 2016-05-05
+### Added
+- The entries in `resources` and the `threads` job attribute can now be callables that must return `int` values.
+- Multiple `--cluster-config` arguments can be given to the Snakemake command line. Later one override earlier ones.
+- In the API, multiple `cluster_config` paths can be given as a list, alternatively to the previous behaviour of expecting one string for this parameter.
+- When submitting cluster jobs (either through `--cluster` or `--drmaa`), you can now use `--max-jobs-per-second` to limit the number of jobs being submitted (also available through Snakemake API). Some cluster installations have problems with too many jobs per second.
+- Wildcard values are now printed upon job execution in addition to input and output files.
+### Changed
+- Fixed a bug with HTTP remote providers.
+
+## [3.6.1] - 2016-04-08
+### Changed
+- Work around missing RecursionError in Python < 3.5
+- Improved conversion of numpy and pandas data structures to R scripts.
+- Fixed locking of working directory.
+
+## [3.6.0] - 2016-03-10
 ### Added
 - onstart handler, that allows to add code that shall be only executed before the actual workflow execution (not on dryrun).
 - Parameters defined in the cluster config file are now accessible in the job properties under the key "cluster".
+- The wrapper directive can be considered stable.
 ### Changed
 - Allow to use rule/job parameters with braces notation in cluster config.
 - Show a proper error message in case of recursion errors.
 - Remove non-empty temp dirs.
 - Don't set the process group of Snakemake in order to allow kill signals from parent processes to be propagated.
+- Fixed various corner case bugs.
+- The params directive no longer converts a list ``l`` implicitly to ``" ".join(l)``.
 
 ## [3.5.5] - 2016-01-23
 ### Added

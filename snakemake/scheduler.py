@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 import os, signal
 import threading
-import multiprocessing
 import operator
 from functools import partial
 from collections import defaultdict
@@ -35,14 +34,15 @@ class JobScheduler:
                  cluster_sync=None,
                  drmaa=None,
                  jobname=None,
-                 immediate_submit=False,
                  quiet=False,
                  printreason=False,
                  printshellcmds=False,
                  keepgoing=False,
+                 max_jobs_per_second=None,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 greediness=1.0):
+                 greediness=1.0,
+                 force_use_threads=False):
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.cluster_config = cluster_config
@@ -59,13 +59,10 @@ class JobScheduler:
 
         self.resources = dict(self.workflow.global_resources)
 
-        use_threads = os.name != "posix"
-        if not use_threads:
-            self._open_jobs = multiprocessing.Event()
-            self._lock = multiprocessing.Lock()
-        else:
-            self._open_jobs = threading.Event()
-            self._lock = threading.Lock()
+        use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
+        self._open_jobs = threading.Event()
+        self._lock = threading.Lock()
+
         self._errors = False
         self._finished = False
         self._job_queue = None
@@ -95,7 +92,7 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                threads=use_threads,
+                use_threads=use_threads,
                 latency_wait=latency_wait,
                 benchmark_repeats=benchmark_repeats)
             self.run = self.run_cluster_or_local
@@ -111,8 +108,9 @@ class JobScheduler:
                     quiet=quiet,
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
-                    benchmark_repeats=benchmark_repeats, )
-                if immediate_submit:
+                    benchmark_repeats=benchmark_repeats,
+                    max_jobs_per_second=max_jobs_per_second)
+                if workflow.immediate_submit:
                     self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
                                                     update_dynamic=False,
@@ -128,7 +126,8 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
-                    cluster_config=cluster_config, )
+                    cluster_config=cluster_config,
+                    max_jobs_per_second=max_jobs_per_second)
         else:
             # local execution or execution of cluster job
             # calculate how many parallel workers the executor shall spawn
@@ -139,7 +138,7 @@ class JobScheduler:
                                          printreason=printreason,
                                          quiet=quiet,
                                          printshellcmds=printshellcmds,
-                                         threads=use_threads,
+                                         use_threads=use_threads,
                                          latency_wait=latency_wait,
                                          benchmark_repeats=benchmark_repeats, )
         self._open_jobs.set()
@@ -272,6 +271,7 @@ class JobScheduler:
 
     def _error(self, job):
         """ Clear jobs and stop the workflow. """
+        # TODO count down number of retries in job. If not zero, reschedule instead of failing.
         with self._lock:
             self._errors = True
             self.running.remove(job)
@@ -347,7 +347,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 for name in self.workflow.global_resources]
 
     def job_weight(self, job):
-        res = job.resources_dict
+        res = job.resources
         return [self.calc_resource(name, res.get(name, 0))
                 for name in self.workflow.global_resources]
 

@@ -1,0 +1,21 @@
+rule indelrealigner:
+    input: bam="{base}.bam",intervals="{base}.intervals",bai='{base}.bam.bai'
+    output: bam=temp("{base} realigned.bam")
+    params: batch="-q ccr -l nodes=1:gpfs"
+    threads: 1
+    shell: "touch {output:q}"
+
+rule realignertargetcreator:
+    input: "{base}.bam", "{base}.bam.bai"
+    output: temp("{base}.intervals")
+    params: batch="-q ccr -l nodes=1:gpfs"
+    threads: 32
+    shell: "touch {output:q}"
+
+
+rule indexbam:
+    threads: 1
+    input: '{base}.bam'
+    output: temp('{base}.bam.bai')
+    params: batch="-q ccr -l nodes=1:gpfs"
+    shell: 'touch {output:q}'

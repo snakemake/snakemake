@@ -333,3 +333,11 @@ class CreateRuleException(RuleException):
 
 class TerminatedException(Exception):
     pass
+
+
+class CreateCondaEnvironmentException(Exception):
+    pass
+
+
+class SpawnedJobError(Exception):
+    pass

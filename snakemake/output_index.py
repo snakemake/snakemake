@@ -20,6 +20,14 @@ class Node:
 
 
 class OutputIndex:
+    """The output file index is a prefix tree
+    over the constant prefixes (i.e. the prefix until the first wildcard
+    occurs) of all output files of the rules. Instead of having to match
+    all rules against a particular target file, we walk through the tree and
+    only match a relevant subset. This also means that it is desirable to have
+    unique prefixes per rule.
+    TODO this could be ported to a C/Rust/Cython module to gain further speedups.
+    """
     def __init__(self, rules):
         self.root = Node()
 
@@ -43,11 +51,13 @@ class OutputIndex:
 
     def match(self, f):
         node = self.root
+        rules = set()
         for c in f:
             for rule in node.rules:
-                yield rule
+                rules.add(rule)
             node = node.children.get(c, None)
             if node is None:
-                return
+                return rules
         for rule in node.rules:
-            yield rule
+            rules.add(rule)
+        return rules

@@ -9,12 +9,16 @@ import time
 import sys
 import os
 import json
-from multiprocessing import Lock
+import threading
 import tempfile
+from functools import partial
+
+from snakemake.common import DYNAMIC_FILL
+from snakemake.common import Mode
 
 
 class ColorizingStreamHandler(_logging.StreamHandler):
-    _output_lock = Lock()
+
 
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
     RESET_SEQ = "\033[0m"
@@ -29,15 +33,19 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         'ERROR': RED
     }
 
-    def __init__(self, nocolor=False, stream=sys.stderr, timestamp=False):
+    def __init__(self, nocolor=False, stream=sys.stderr, timestamp=False, use_threads=False, mode=Mode.default):
         super().__init__(stream=stream)
-        self.nocolor = nocolor or not self.can_color_tty
+
+        self._output_lock = threading.Lock()
+
+        self.nocolor = nocolor or not self.can_color_tty(mode)
         self.timestamp = timestamp
 
-    @property
-    def can_color_tty(self):
+    def can_color_tty(self, mode):
         if 'TERM' in os.environ and os.environ['TERM'] == 'dumb':
             return False
+        if mode == Mode.subprocess:
+            return True
         return self.is_tty and not platform.system() == 'Windows'
 
     @property
@@ -94,6 +102,7 @@ class Logger:
         self.logfile_handler.close()
         os.close(self.logfile_fd)
         os.remove(self.logfile)
+        self.log_handler = [self.text_handler]
 
     def get_logfile(self):
         if self.logfile is not None:
@@ -167,14 +176,15 @@ class Logger:
             def format_item(item, omit=None, valueformat=str):
                 value = msg[item]
                 if value != omit:
-                    return "\t{}: {}".format(item, valueformat(value))
+                    return "    {}: {}".format(item, valueformat(value))
 
             yield "{}rule {}:".format("local" if msg["local"] else "",
                                       msg["name"])
-            for item in "input output log".split():
+            for item in ["input", "output", "log"]:
                 fmt = format_item(item, omit=[], valueformat=", ".join)
                 if fmt != None:
                     yield fmt
+
             singleitems = ["benchmark"]
             if self.printreason:
                 singleitems.append("reason")
@@ -182,16 +192,22 @@ class Logger:
                 fmt = format_item(item, omit=None)
                 if fmt != None:
                     yield fmt
+
+            wildcards = format_wildcards(msg["wildcards"])
+            if wildcards:
+                yield "    wildcards: " + wildcards
+
             for item, omit in zip("priority threads".split(), [0, 1]):
                 fmt = format_item(item, omit=omit)
                 if fmt != None:
                     yield fmt
+
             resources = format_resources(msg["resources"])
             if resources:
-                yield "\tresources: " + resources
+                yield "    resources: " + resources
 
         level = msg["level"]
-        if level == "info":
+        if level == "info" and not self.quiet:
             self.logger.warning(msg["msg"])
         if level == "warning":
             self.logger.warning(msg["msg"])
@@ -199,21 +215,25 @@ class Logger:
             self.logger.error(msg["msg"])
         elif level == "debug":
             self.logger.debug(msg["msg"])
-        elif level == "resources_info":
+        elif level == "resources_info" and not self.quiet:
             self.logger.warning(msg["msg"])
-        elif level == "run_info":
+        elif level == "run_info" and not self.quiet:
             self.logger.warning(msg["msg"])
         elif level == "progress" and not self.quiet:
             done = msg["done"]
             total = msg["total"]
-            self.logger.info("{} of {} steps ({:.0%}) done".format(
-                done, total, done / total))
-        elif level == "job_info":
-            if not self.quiet:
-                if msg["msg"] is not None:
-                    self.logger.info(msg["msg"])
-                else:
-                    self.logger.info("\n".join(job_info(msg)))
+            p = done / total
+            percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
+            self.logger.info("{} of {} steps ({}) done".format(
+                done, total, percent_fmt))
+        elif level == "job_info" and not self.quiet:
+            if msg["msg"] is not None:
+                self.logger.info(msg["msg"])
+                if self.printreason:
+                    self.logger.info("Reason: {}".format(msg["reason"]))
+            else:
+                self.logger.info("\n".join(job_info(msg)))
+            self.logger.info("")
         elif level == "shellcmd":
             if self.printshellcmds:
                 self.logger.warning(msg["msg"])
@@ -223,15 +243,19 @@ class Logger:
         elif level == "rule_info":
             self.logger.info(msg["name"])
             if msg["docstring"]:
-                self.logger.info("\t" + msg["docstring"])
+                self.logger.info("    " + msg["docstring"])
         elif level == "d3dag":
             print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
 
 
-def format_resources(resources, omit_resources="_cores _nodes".split()):
+def format_dict(dict, omit_keys=[], omit_values=[]):
     return ", ".join("{}={}".format(name, value)
-                     for name, value in resources.items()
-                     if name not in omit_resources)
+                     for name, value in dict.items()
+                     if name not in omit_keys and value not in omit_values)
+
+
+format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
+format_wildcards = partial(format_dict, omit_values={DYNAMIC_FILL})
 
 
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
@@ -248,7 +272,9 @@ def setup_logger(handler=None,
                  nocolor=False,
                  stdout=False,
                  debug=False,
-                 timestamp=False):
+                 timestamp=False,
+                 use_threads=False,
+                 mode=Mode.default):
     logger.setup()
     if handler is not None:
         # custom log handler
@@ -258,7 +284,9 @@ def setup_logger(handler=None,
         stream_handler = ColorizingStreamHandler(
             nocolor=nocolor,
             stream=sys.stdout if stdout else sys.stderr,
-            timestamp=timestamp)
+            timestamp=timestamp,
+            use_threads=use_threads,
+            mode=mode)
         logger.set_stream_handler(stream_handler)
 
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)

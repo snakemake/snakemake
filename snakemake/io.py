@@ -8,24 +8,57 @@ import shutil
 import re
 import stat
 import time
+import datetime
 import json
+import copy
 import functools
+import subprocess as sp
 from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
+from copy import deepcopy
+
+from snakemake.common import DYNAMIC_FILL
+
 
 def lstat(f):
-    return os.stat(f, follow_symlinks=os.stat not in os.supports_follow_symlinks)
+    return os.stat(f,
+                   follow_symlinks=os.stat not in os.supports_follow_symlinks)
 
 
 def lutime(f, times):
-    return os.utime(f, times, follow_symlinks=os.utime not in os.supports_follow_symlinks)
+    #In some cases, we have a platform where os.supports_follow_symlink includes stat()
+    #but not utime().  This leads to an anomaly.  In any case we never want to touch the
+    #target of a link.
+    if os.utime in os.supports_follow_symlinks:
+        #...utime is well behaved
+        os.utime(f, times, follow_symlinks=False)
+    elif not os.path.islink(f):
+        #...symlinks not an issue here
+        os.utime(f, times)
+    else:
+        try:
+            # try the system command
+            if times:
+                fmt_time = lambda sec: datetime.fromtimestamp(sec).strftime("%Y%m%d%H%M.%S")
+                atime, mtime = times
+                sp.check_call(["touch", "-h", f, "-a", "-t", fmt_time(atime)])
+                sp.check_call(["touch", "-h", f, "-m", "-t", fmt_time(mtime)])
+            else:
+                sp.check_call(["touch", "-h", f])
+        except sp.CalledProcessError:
+            pass
+        #...problem system.  Do nothing.
+        logger.warning("Unable to set utime on symlink {}. Your Python build does not support it.".format(f))
+        return None
 
 
 def lchmod(f, mode):
-    return os.chmod(f, mode, follow_symlinks=os.chmod not in os.supports_follow_symlinks)
+    os.chmod(f,
+             mode,
+             follow_symlinks=os.chmod not in os.supports_follow_symlinks)
 
 
 def IOFile(file, rule=None):
@@ -38,8 +71,6 @@ class _IOFile(str):
     """
     A file that is either input or output of a rule.
     """
-
-    dynamic_fill = "__snakemake_dynamic__"
 
     def __new__(cls, file):
         obj = str.__new__(cls, file)
@@ -55,24 +86,32 @@ class _IOFile(str):
             A decorator so that if the file is remote and has a version
             of the same file-related function, call that version instead.
         """
+
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if self.is_remote:
                 self.update_remote_filepath()
-                if hasattr( self.remote_object, func.__name__):
-                    return getattr( self.remote_object, func.__name__)(*args, **kwargs)
+                if hasattr(self.remote_object, func.__name__):
+                    return getattr(self.remote_object, func.__name__)(*args, **
+                                                                      kwargs)
             return func(self, *args, **kwargs)
+
         return wrapper
 
     @property
     def is_remote(self):
         return is_flagged(self._file, "remote_object")
 
+    @property
+    def is_ancient(self):
+        return is_flagged(self._file, "ancient")
+
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
-        if get_flag_value(self._file, "remote_object").file != self._file:
-            get_flag_value(self._file, "remote_object")._iofile = self
+        remote_object = get_flag_value(self._file, "remote_object")
+        if remote_object._file != self._file:
+            remote_object._iofile = self
 
     @property
     def should_keep_local(self):
@@ -91,6 +130,20 @@ class _IOFile(str):
         else:
             raise ValueError("This IOFile is specified as a function and "
                              "may not be used directly.")
+
+    def check(self):
+        if self._file.startswith("./"):
+            logger.warning("Relative file path '{}' starts with './'. This is redundant "
+                           "and strongly discouraged. It can also lead to "
+                           "inconsistent results of the file-matching approach "
+                           "used by Snakemake. You can simply omit the './' "
+                           "for relative file paths.".format(self._file))
+        if self._file.startswith(" "):
+            logger.warning("File path '{}' starts with whitespace. This is likely unintended.")
+        if self._file.endswith(" "):
+            logger.warning("File path '{}' ends with whitespace. This is likely unintended.")
+        if "\n" in self._file:
+            logger.warning("File path '{}' contains line break. This is likely unintended.")
 
     @property
     @_refer_to_remote
@@ -117,7 +170,7 @@ class _IOFile(str):
     @property
     def mtime_local(self):
         # do not follow symlinks for modification time
-        return int(lstat(self.file).st_mtime)
+        return lstat(self.file).st_mtime
 
     @property
     def flags(self):
@@ -137,27 +190,37 @@ class _IOFile(str):
     def check_broken_symlink(self):
         """ Raise WorkflowError if file is a broken symlink. """
         if not self.exists_local and lstat(self.file):
-            raise WorkflowError("File {} seems to be a broken symlink.".format(self.file))
+            raise WorkflowError("File {} seems to be a broken symlink.".format(
+                self.file))
 
+    @_refer_to_remote
     def is_newer(self, time):
-        return self.mtime > time
+        """ Returns true of the file is newer than time, or if it is
+            a symlink that points to a file newer than time. """
+        if self.is_ancient:
+            return False
+        elif self.is_remote:
+            #If file is remote but provider does not override the implementation this
+            #is the best we can do.
+            return self.mtime > time
+        else:
+            return os.stat(self, follow_symlinks=True).st_mtime > time or self.mtime > time
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
             logger.info("Downloading from remote: {}".format(self.file))
             self.remote_object.download()
         else:
-            raise RemoteFileException("The file to be downloaded does not seem to exist remotely.")
+            raise RemoteFileException(
+                "The file to be downloaded does not seem to exist remotely.")
 
     def upload_to_remote(self):
-        if self.is_remote and not self.remote_object.exists():
+        if self.is_remote:
             logger.info("Uploading to remote: {}".format(self.file))
             self.remote_object.upload()
-        else:
-            raise RemoteFileException("The file to be uploaded does not seem to exist remotely.")
 
     def prepare(self):
-        path_until_wildcard = re.split(self.dynamic_fill, self.file)[0]
+        path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
         dir = os.path.dirname(path_until_wildcard)
         if len(dir) > 0 and not os.path.exists(dir):
             try:
@@ -168,8 +231,8 @@ class _IOFile(str):
                     raise e
 
     def protect(self):
-        mode = (lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~
-                stat.S_IWOTH)
+        mode = (lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP
+                & ~stat.S_IWOTH)
         if os.path.isdir(self.file):
             for root, dirs, files in os.walk(self.file):
                 for d in dirs:
@@ -180,7 +243,7 @@ class _IOFile(str):
             lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
-        remove(self.file, remove_non_empty_dir=False)
+        remove(self.file, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
         """ times must be 2-tuple: (atime, mtime) """
@@ -204,7 +267,8 @@ class _IOFile(str):
             with open(self.file, "w") as f:
                 pass
 
-    def apply_wildcards(self, wildcards,
+    def apply_wildcards(self,
+                        wildcards,
                         fill_missing=False,
                         fail_dynamic=False):
         f = self._file
@@ -214,13 +278,15 @@ class _IOFile(str):
         # this bit ensures flags are transferred over to files after
         # wildcards are applied
 
-        file_with_wildcards_applied = IOFile(apply_wildcards(f, wildcards,
-                                      fill_missing=fill_missing,
-                                      fail_dynamic=fail_dynamic,
-                                      dynamic_fill=self.dynamic_fill),
-                                      rule=self.rule)
+        file_with_wildcards_applied = IOFile(
+            apply_wildcards(f,
+                            wildcards,
+                            fill_missing=fill_missing,
+                            fail_dynamic=fail_dynamic,
+                            dynamic_fill=DYNAMIC_FILL),
+            rule=self.rule)
 
-        file_with_wildcards_applied.clone_flags( self )
+        file_with_wildcards_applied.clone_flags(self)
 
         return file_with_wildcards_applied
 
@@ -246,13 +312,16 @@ class _IOFile(str):
         return self.regex().match(target) or None
 
     def format_dynamic(self):
-        return self.replace(self.dynamic_fill, "{*}")
+        return self.replace(DYNAMIC_FILL, "{*}")
 
     def clone_flags(self, other):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
         if isinstance(other._file, AnnotatedString):
-            self._file.flags = getattr(other._file, "flags", {})
+            self._file.flags = getattr(other._file, "flags", {}).copy()
+            if "remote_object" in self._file.flags:
+                self._file.flags['remote_object'] = copy.copy(
+                    self._file.flags['remote_object'])
 
     def set_flags(self, flags):
         if isinstance(self._file, str):
@@ -268,9 +337,19 @@ class _IOFile(str):
 
 
 _wildcard_regex = re.compile(
-    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>([^\{\}]+|\{\d+(,\d+)?\})*))?\s*\}")
-
-#    "\{\s*(?P<name>\w+?)(\s*,\s*(?P<constraint>[^\}]*))?\s*\}")
+    r"""
+    \{
+        (?=(   # This lookahead assertion emulates an 'atomic group'
+               # which is required for performance
+            \s*(?P<name>\w+)                    # wildcard name
+            (\s*,\s*
+                (?P<constraint>                 # an optional constraint
+                    ([^{}]+ | \{\d+(,\d+)?\})*  # allow curly braces to nest one level
+                )                               # ...  as in '{w,a{3,5}}'
+            )?\s*
+        ))\1
+    \}
+    """, re.VERBOSE)
 
 
 def wait_for_files(files, latency_wait=3):
@@ -298,19 +377,30 @@ def contains_wildcard(path):
     return _wildcard_regex.search(path) is not None
 
 
+def contains_wildcard_constraints(pattern):
+    return any(match.group('constraint') for match in _wildcard_regex.finditer(pattern))
+
+
 def remove(file, remove_non_empty_dir=False):
-    if os.path.exists(file):
-        if os.path.isdir(file):
-            if remove_non_empty_dir:
-                shutil.rmtree(file)
-            else:
-                try:
-                    os.removedirs(file)
-                except OSError:
-                    # ignore non empty directories
-                    pass
+    if os.path.isdir(file) and not os.path.islink(file):
+        if remove_non_empty_dir:
+            shutil.rmtree(file)
         else:
+            try:
+                os.removedirs(file)
+            except OSError as e:
+                # skip non empty directories
+                if e.errno == 39:
+                    logger.info("Skipped removing non-empty directory {}".format(e.filename))
+                else:
+                    logger.warning(str(e))
+    #Remember that dangling symlinks fail the os.path.exists() test, but
+    #we definitely still want to zap them. try/except is the safest way.
+    else:
+        try:
             os.remove(file)
+        except FileNotFoundError:
+            pass
 
 
 def regex(filepattern):
@@ -323,9 +413,8 @@ def regex(filepattern):
         if wildcard in wildcards:
             if match.group("constraint"):
                 raise ValueError(
-                    "If multiple wildcards of the same name "
-                    "appear in a string, eventual constraints have to be defined "
-                    "at the first occurence and will be inherited by the others.")
+                    "Constraint regex must be defined only in the first "
+                    "occurence of the wildcard in a string.")
             f.append("(?P={})".format(wildcard))
         else:
             wildcards.add(wildcard)
@@ -337,7 +426,8 @@ def regex(filepattern):
     return "".join(f)
 
 
-def apply_wildcards(pattern, wildcards,
+def apply_wildcards(pattern,
+                    wildcards,
                     fill_missing=False,
                     fail_dynamic=False,
                     dynamic_fill=None,
@@ -360,8 +450,12 @@ def apply_wildcards(pattern, wildcards,
     return re.sub(_wildcard_regex, format_match, pattern)
 
 
+
+
+
 def not_iterable(value):
-    return isinstance(value, str) or isinstance(value, dict) or not isinstance(value, Iterable)
+    return isinstance(value, str) or isinstance(value, dict) or not isinstance(
+        value, Iterable)
 
 
 class AnnotatedString(str):
@@ -387,12 +481,23 @@ def is_flagged(value, flag):
         return flag in value.flags and value.flags[flag]
     return False
 
+
 def get_flag_value(value, flag_type):
     if isinstance(value, AnnotatedString):
         if flag_type in value.flags:
             return value.flags[flag_type]
         else:
             return None
+
+def ancient(value):
+    """
+    A flag for an input file that shall be considered ancient; i.e. its timestamp shall have no effect on which jobs to run.
+    """
+    if is_flagged(value, "remote"):
+        raise SyntaxError(
+            "Ancient and remote flags are mutually exclusive.")
+    return flag(value, "ancient")
+
 
 def temp(value):
     """
@@ -402,8 +507,7 @@ def temp(value):
         raise SyntaxError(
             "Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
-        raise SyntaxError(
-            "Remote and temporary flags are mutually exclusive.")
+        raise SyntaxError("Remote and temporary flags are mutually exclusive.")
     return flag(value, "temp")
 
 
@@ -418,8 +522,7 @@ def protected(value):
         raise SyntaxError(
             "Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
-        raise SyntaxError(
-            "Remote and protected flags are mutually exclusive.")
+        raise SyntaxError("Remote and protected flags are mutually exclusive.")
     return flag(value, "protected")
 
 
@@ -443,6 +546,7 @@ def dynamic(value):
 
 def touch(value):
     return flag(value, "touch")
+
 
 def expand(*args, **wildcards):
     """
@@ -471,8 +575,8 @@ def expand(*args, **wildcards):
 
     try:
         return [filepattern.format(**comb)
-                for comb in map(dict, combinator(*flatten(wildcards))) for
-                filepattern in filepatterns]
+                for comb in map(dict, combinator(*flatten(wildcards)))
+                for filepattern in filepatterns]
     except KeyError as e:
         raise WildcardError("No values given for wildcard {}.".format(e))
 
@@ -511,9 +615,9 @@ def glob_wildcards(pattern, files=None):
     pattern = re.compile(regex(pattern))
 
     if files is None:
-        files = ((os.path.join(dirpath, f) if dirpath != "." else f)
-                    for dirpath, dirnames, filenames in os.walk(dirname)
-                    for f in chain(filenames, dirnames))
+        files = (os.path.normpath(os.path.join(dirpath, f))
+                 for dirpath, dirnames, filenames in os.walk(dirname)
+                 for f in chain(filenames, dirnames))
 
     for f in files:
         match = re.match(pattern, f)
@@ -521,6 +625,46 @@ def glob_wildcards(pattern, files=None):
             for name, value in match.groupdict().items():
                 getattr(wildcards, name).append(value)
     return wildcards
+
+
+def update_wildcard_constraints(pattern,
+                                wildcard_constraints,
+                                global_wildcard_constraints):
+    """Update wildcard constraints
+
+    Args:
+      pattern (str): pattern on which to update constraints
+      wildcard_constraints (dict): dictionary of wildcard:constraint key-value pairs
+      global_wildcard_constraints (dict): dictionary of wildcard:constraint key-value pairs
+    """
+    def replace_constraint(match):
+        name = match.group("name")
+        constraint = match.group("constraint")
+        newconstraint = wildcard_constraints.get(name, global_wildcard_constraints.get(name))
+        if name in examined_names:
+            return match.group(0)
+        examined_names.add(name)
+        # Don't override if constraint already set
+        if not constraint is None:
+            if name in wildcard_constraints:
+                raise ValueError("Wildcard {} is constrained by both the rule and the file pattern. Consider removing one of the constraints.")
+            return match.group(0)
+        # Only update if a new constraint has actually been set
+        elif not newconstraint is None:
+            return "{{{},{}}}".format(name, newconstraint)
+        else:
+            return match.group(0)
+
+    examined_names = set()
+    updated = re.sub(_wildcard_regex, replace_constraint, pattern)
+
+    # inherit flags
+    if isinstance(pattern, AnnotatedString):
+        updated = AnnotatedString(updated)
+        updated.flags = deepcopy(pattern.flags)
+    return updated
+
+
 
 # TODO rewrite Namedlist!
 class Namedlist(list):
@@ -623,6 +767,9 @@ class Namedlist(list):
 
     def plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)
+
+    def get(self, key, default_value=None):
+        return self.__dict__.get(key, default_value)
 
     def __getitem__(self, key):
         try:

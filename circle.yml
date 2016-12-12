@@ -1,0 +1,11 @@
+machine:
+  services:
+    - docker
+
+dependencies:
+  override:
+    - docker pull quay.io/snakemake/snakemake:master
+
+test:
+  override:
+    - docker run -v `pwd`:/snakemake -w /snakemake quay.io/snakemake/snakemake:master /bin/bash -e -c "pip install -e .; python setup.py nosetests" 

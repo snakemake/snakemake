@@ -1,0 +1,22 @@
+import os
+
+
+def get_mem_gb(wildcards, input):
+    size = 0
+    if os.path.exists(input[0]):
+        size = int(os.path.getsize(input[0]) / (1024 ** 3))
+    return max(size, 1)
+
+
+rule a:
+    input:
+        "test1.in",
+        "test2.in"
+    output:
+        "test.out"
+    params:
+        a=lambda wildcards, input, resources: "+".join(input)
+    resources:
+        mem_gb=get_mem_gb
+    shell:
+        "echo {params.a} > {output}"

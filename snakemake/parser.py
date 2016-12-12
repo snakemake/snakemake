@@ -256,6 +256,13 @@ class Ruleorder(GlobalKeywordState):
             self.error('Expected a descending order of rule names, '
                        'e.g. rule1 > rule2 > rule3 ...', token)
 
+
+class GlobalWildcardConstraints(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "global_wildcard_constraints"
+
+
 # subworkflows
 
 
@@ -267,10 +274,15 @@ class SubworkflowWorkdir(SubworkflowKeywordState):
     pass
 
 
+class SubworkflowConfigfile(SubworkflowKeywordState):
+    pass
+
+
 class Subworkflow(GlobalKeywordState):
 
     subautomata = dict(snakefile=SubworkflowSnakefile,
-                       workdir=SubworkflowWorkdir)
+                       workdir=SubworkflowWorkdir,
+                       configfile=SubworkflowConfigfile)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,
@@ -386,6 +398,16 @@ class Benchmark(RuleKeywordState):
     pass
 
 
+class Conda(RuleKeywordState):
+    pass
+
+
+class WildcardConstraints(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "wildcard_constraints"
+
+
 class Run(RuleKeywordState):
     def __init__(self, snakefile, rulename,
                  base_indent=0,
@@ -401,7 +423,8 @@ class Run(RuleKeywordState):
         yield "@workflow.run"
         yield "\n"
         yield ("def __rule_{rulename}(input, output, params, wildcards, threads, "
-               "resources, log, version):".format(rulename=self.rulename if self.rulename is not None else self.snakefile.rulecount))
+               "resources, log, version, conda_env):".format(
+                   rulename=self.rulename if self.rulename is not None else self.snakefile.rulecount))
 
     def end(self):
         yield ""
@@ -411,9 +434,11 @@ class Run(RuleKeywordState):
                 ) or is_eof(token)
 
 
-class Shell(Run):
+class AbstractCmd(Run):
 
-    overwrite_shellcmd = None
+    overwrite_cmd = None
+    start_func = None
+    end_func = None
 
     def __init__(self, snakefile, rulename,
                  base_indent=0,
@@ -423,16 +448,21 @@ class Shell(Run):
                          base_indent=base_indent,
                          dedent=dedent,
                          root=root)
-        self.shellcmd = list()
+        self.cmd = list()
         self.token = None
-        if self.overwrite_shellcmd is not None:
+        if self.overwrite_cmd is not None:
             self.block_content = self.overwrite_block_content
 
     def is_block_end(self, token):
         return (self.line and self.indent <= 0) or is_eof(token)
 
     def start(self):
-        yield "@workflow.shellcmd("
+        if self.start_func is not None:
+            yield self.start_func
+            yield "("
+
+    def args(self):
+        yield from []
 
     def end(self):
         # the end is detected. So we can savely reset the indent to zero here
@@ -444,8 +474,10 @@ class Shell(Run):
             yield t
         yield "\n"
         yield INDENT * (self.effective_indent + 1)
-        yield "shell("
-        yield "\n".join(self.shellcmd)
+        yield self.end_func
+        yield "("
+        yield "\n".join(self.cmd)
+        yield from self.args()
         yield "\n"
         yield ")"
         for t in super().end():
@@ -455,79 +487,47 @@ class Shell(Run):
         if self.token is None:
             # no block after shell keyword
             self.error(
-                "Shell command must be given as string after the shell keyword.",
+                "Command must be given as string after the shell keyword.",
                 token)
         for t in self.end():
             yield t, self.token
 
     def block_content(self, token):
         self.token = token
-        self.shellcmd.append(token.string)
+        self.cmd.append(token.string)
         yield token.string, token
 
     def overwrite_block_content(self, token):
         if self.token is None:
             self.token = token
-            shellcmd = '"{}"'.format(self.overwrite_shellcmd)
-            self.shellcmd.append(shellcmd)
-            yield shellcmd, token
+            cmd = '"{}"'.format(self.overwrite_cmd)
+            self.cmd.append(cmd)
+            yield cmd, token
 
 
-class Script(Run):
-    def __init__(self, snakefile, rulename,
-                 base_indent=0,
-                 dedent=0,
-                 root=True):
-        super().__init__(snakefile, rulename,
-                         base_indent=base_indent,
-                         dedent=dedent,
-                         root=root)
-        self.path = list()
-        self.token = None
+class Shell(AbstractCmd):
+    start_func = "@workflow.shellcmd"
+    end_func = "shell"
 
-    def is_block_end(self, token):
-        return (self.line and self.indent <= 0) or is_eof(token)
 
-    def start(self):
-        for t in super().start():
-            yield t
-        yield "\n"
-        yield INDENT * (self.effective_indent + 1)
-        yield "script("
-        yield '"{}"'.format(
+class Script(AbstractCmd):
+    start_func = "@workflow.script"
+    end_func = "script"
+
+    def args(self):
+        # basedir
+        yield ', "{}"'.format(
             os.path.abspath(os.path.dirname(self.snakefile.path)))
-        yield ", "
-
-    def end(self):
-        # the end is detected. So we can savely reset the indent to zero here
-        self.indent = 0
-        yield ", input, output, params, wildcards, threads, resources, log, config"
-        yield ")"
-        for t in super().end():
-            yield t
-
-    def decorate_end(self, token):
-        if self.token is None:
-            # no block after script keyword
-            self.error(
-                "Script path must be given as string after the script keyword.",
-                token)
-        for t in self.end():
-            yield t, self.token
-
-    def block_content(self, token):
-        self.token = token
-        self.path.append(token.string)
-        yield token.string, token
+        # other args
+        yield ", input, output, params, wildcards, threads, resources, log, config, conda_env"
 
 
 class Wrapper(Script):
-    def start(self):
-        for t in super(Script, self).start():
-            yield t
-        yield "\n"
-        yield INDENT * (self.effective_indent + 1)
-        yield 'wrapper('
+    start_func = "@workflow.wrapper"
+    end_func = "wrapper"
+
+    def args(self):
+        yield ", input, output, params, wildcards, threads, resources, log, config, conda_env, workflow.wrapper_prefix"
 
 
 class Rule(GlobalKeywordState):
@@ -541,6 +541,8 @@ class Rule(GlobalKeywordState):
                        log=Log,
                        message=Message,
                        benchmark=Benchmark,
+                       conda=Conda,
+                       wildcard_constraints=WildcardConstraints,
                        shadow=Shadow,
                        run=Run,
                        shell=Shell,
@@ -649,7 +651,8 @@ class Python(TokenAutomaton):
                        localrules=Localrules,
                        onsuccess=OnSuccess,
                        onerror=OnError,
-                       onstart=OnStart)
+                       onstart=OnStart,
+                       wildcard_constraints=GlobalWildcardConstraints)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,
@@ -713,7 +716,7 @@ def format_tokens(tokens):
 
 
 def parse(path, overwrite_shellcmd=None, rulecount=0):
-    Shell.overwrite_shellcmd = overwrite_shellcmd
+    Shell.overwrite_cmd = overwrite_shellcmd
     with Snakefile(path, rulecount=rulecount) as snakefile:
         automaton = Python(snakefile)
         linemap = dict()
