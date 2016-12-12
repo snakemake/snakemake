@@ -90,12 +90,12 @@ class Job:
     def has_changed_script(self):
         """return output that's older than script, i.e. script has changed"""
         if not self.is_script:
-            return
+            return iter([])# clumsy?
         for f in self.expanded_output:
             if f.exists:
                 # assuming script is local. borrowed from io.py
                 script_mtime = lstat(self.rule.script).st_mtime
-                if f.mtime < script_mtime:
+                if not f.is_newer(script_mtime):
                     yield f
 
     @property
