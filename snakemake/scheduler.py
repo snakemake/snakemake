@@ -270,16 +270,29 @@ class JobScheduler:
                 self._open_jobs.set()
 
     def _error(self, job):
-        """ Clear jobs and stop the workflow. """
-        # TODO count down number of retries in job. If not zero, reschedule instead of failing.
+        """Clear jobs and stop the workflow.
+
+        If Snakemake is configured to restart jobs then the job might have
+        "restart_times" left and we just decrement and let the scheduler
+        try to run the job again.
+        """
         with self._lock:
-            self._errors = True
             self.running.remove(job)
-            self.failed.add(job)
             self._free_resources(job)
-            if self.keepgoing:
-                logger.info("Job failed, going on with independent jobs.")
             self._open_jobs.set()
+            if job.restart_times > 0:
+                msg = (
+                    ("Trying to restart job for rule {} with "
+                     "wildcards {}").format(
+                         job.rule.name, job.wildcards_dict))
+                logger.info(msg
+                    )
+                job.restart_times -= 1
+            else:
+                self._errors = True
+                self.failed.add(job)
+                if self.keepgoing:
+                    logger.info("Job failed, going on with independent jobs.")
 
     def job_selector(self, jobs):
         """

@@ -1,0 +1,11 @@
+#!/bin/bash
+echo `date` >> qsub.log
+tail -n1 $1 >> qsub.log
+# ensure to fail on the first submission
+if [[ ! -f ".first" ]]; then
+    touch .first
+    exit 1
+fi
+# simulate printing of job id by a random number
+echo $RANDOM
+sh $1

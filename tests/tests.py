@@ -12,6 +12,7 @@ import hashlib
 import urllib
 from shutil import rmtree, which
 from shlex import quote
+from nose.tools import nottest
 
 from snakemake import snakemake
 
@@ -442,6 +443,38 @@ def test_dup_out_patterns():
     Duplicate output patterns can be detected on the rule level
     """
     run(dpath("test_dup_out_patterns"), shouldfail=True)
+
+
+def test_restartable_job_cmd_exit_1():
+    """Test the restartable job feature on ``exit 1``
+
+    The shell snippet in the Snakemake file will fail the first time
+    and succeed the second time.
+    """
+    # Even two consecutive times should fail as files are cleared
+    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    # Restarting once is enough
+    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
+        restart_times=1, shouldfail=False)
+
+
+def test_restartable_job_qsub_exit_1():
+    """Test the restartable job feature when qsub fails
+
+    The qsub in the sub directory will fail the first time and succeed the
+    second time.
+    """
+    # Even two consecutive times should fail as files are cleared
+    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    # Restarting once is enough
+    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
+        restart_times=1, shouldfail=False)
 
 
 if __name__ == '__main__':

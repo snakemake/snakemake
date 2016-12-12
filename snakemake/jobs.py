@@ -54,6 +54,8 @@ class Job:
         self.shadow_dir = None
         self._inputsize = None
 
+        self.restart_times = self.rule.restart_times
+
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()

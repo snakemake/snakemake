@@ -45,7 +45,8 @@ class Workflow:
                  use_conda=False,
                  mode=Mode.default,
                  wrapper_prefix=None,
-                 printshellcmds=False):
+                 printshellcmds=False,
+                 restart_times=None):
         """
         Create the controller.
         """
@@ -83,6 +84,7 @@ class Workflow:
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
+        self.restart_times = restart_times
 
         global config
         config = dict()
@@ -128,7 +130,8 @@ class Workflow:
         if self.is_rule(name):
             raise CreateRuleException(
                 "The name {} is already used by another rule".format(name))
-        rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
+        rule = Rule(name, self, lineno=lineno, snakefile=snakefile,
+                    restart_times=self.restart_times)
         self._rules[rule.name] = rule
         self.rule_count += 1
         if not self.first_rule:

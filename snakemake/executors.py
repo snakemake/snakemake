@@ -323,7 +323,8 @@ class ClusterExecutor(RealExecutor):
                  benchmark_repeats=1,
                  cluster_config=None,
                  local_input=None,
-                 max_jobs_per_second=None):
+                 max_jobs_per_second=None,
+                 restart_times=None):
         local_input = local_input or []
         super().__init__(workflow, dag,
                          printreason=printreason,
@@ -371,6 +372,7 @@ class ClusterExecutor(RealExecutor):
         self.cluster_config = cluster_config if cluster_config else dict()
 
         self.max_jobs_per_second = max_jobs_per_second
+        self.restart_times = restart_times
         if self.max_jobs_per_second:
             self.rate_lock = threading.RLock()
             self.rate_interval = 1 / self.max_jobs_per_second
@@ -479,7 +481,8 @@ class GenericClusterExecutor(ClusterExecutor):
                  printshellcmds=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 max_jobs_per_second=None):
+                 max_jobs_per_second=None,
+                 restart_times=0):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -488,7 +491,8 @@ class GenericClusterExecutor(ClusterExecutor):
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
-                         max_jobs_per_second=max_jobs_per_second)
+                         max_jobs_per_second=max_jobs_per_second,
+                         restart_times=restart_times)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
         # TODO wrap with watch and touch {jobrunning}
@@ -588,7 +592,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                  printshellcmds=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 max_jobs_per_second=None):
+                 max_jobs_per_second=None,
+                 restart_times=0):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -597,7 +602,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
-                         max_jobs_per_second=max_jobs_per_second)
+                         max_jobs_per_second=max_jobs_per_second,
+                         restart_times=restart_times)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
 
@@ -674,7 +680,8 @@ class DRMAAExecutor(ClusterExecutor):
                  latency_wait=3,
                  benchmark_repeats=1,
                  cluster_config=None,
-                 max_jobs_per_second=None):
+                 max_jobs_per_second=None,
+                 restart_times=0):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -683,7 +690,8 @@ class DRMAAExecutor(ClusterExecutor):
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
-                         max_jobs_per_second=max_jobs_per_second)
+                         max_jobs_per_second=max_jobs_per_second,
+                         restart_times=restart_times)
         try:
             import drmaa
         except ImportError:
