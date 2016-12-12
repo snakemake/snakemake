@@ -232,6 +232,8 @@ Exercise
 * Time to re-run the whole workflow (remember the command line flags to force re-execution). See how log files are created for variant calling and read mapping.
 * The ability to track the provenance of each generated result is an important step towards reproducible analyses. Apart from the ``report`` functionality discussed before, Snakemake can summarize various provenance information for all output files of the workflow. The flag ``--summary`` prints a table associating each output file with the rule used to generate it, the creation date and optionally the version of the tool used for creation is provided. Further, the table informs about updated input files and changes to the source code of the rule after creation of the output file. Invoke Snakemake with ``--summary`` to examine the information for our example.
 
+.. _tutorial_temp-and-protected-files:
+
 Step 6: Temporary and protected files
 :::::::::::::::::::::::::::::::::::::
 
