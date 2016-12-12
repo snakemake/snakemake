@@ -221,7 +221,6 @@ def test_ruledeps():
     run(dpath("test_ruledeps"))
 
 
-@nottest
 def test_persistent_dict():
     try:
         import pytools
@@ -242,7 +241,6 @@ def test_config():
     run(dpath("test_config"))
 
 
-@nottest
 def test_update_config():
     run(dpath("test_update_config"))
 
@@ -283,8 +281,7 @@ def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
-@nottest
-def _test_remote():
+def test_remote():
     try:
         import moto
         import boto
@@ -345,14 +342,12 @@ def test_input_generator():
     run(dpath("test_input_generator"))
 
 
-@nottest
 def test_symlink_time_handling():
     #See Snakefile for notes on why this fails on some systems
     if os.utime in os.supports_follow_symlinks:
         run(dpath("test_symlink_time_handling"))
 
 
-@nottest
 def test_issue328():
     try:
         import pytools
@@ -404,7 +399,6 @@ def test_spaces_in_fnames():
         printshellcmds=True)
 
 
-@nottest
 def test_static_remote():
     try:
         import moto
