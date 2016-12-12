@@ -87,14 +87,14 @@ class Job:
         self.rule.expand_benchmark(self.wildcards_dict)
         self.rule.expand_log(self.wildcards_dict)
 
-    def has_changed_script(self):
+    def outputs_older_than_script(self):
         """return output that's older than script, i.e. script has changed"""
         if not self.is_script:
             return iter([])# clumsy?
+        assert os.path.exists(self.rule.script)# to make sure lstat works
+        script_mtime = lstat(self.rule.script).st_mtime
         for f in self.expanded_output:
             if f.exists:
-                # assuming script is local. borrowed from io.py
-                script_mtime = lstat(self.rule.script).st_mtime
                 if not f.is_newer(script_mtime):
                     yield f
 
