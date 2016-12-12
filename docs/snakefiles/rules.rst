@@ -550,6 +550,7 @@ From verion 2.4.8 on, rules can also refer to the output of other rules in the S
 Importantly, be aware that referring to rule a here requires that rule a was defined above rule b in the file, since the object has to be known already.
 This feature also allows to resolve dependencies that are ambiguous when using filenames.
 
+.. _snakefiles-ambiguous-rules:
 
 Handling Ambiguous Rules
 ------------------------
