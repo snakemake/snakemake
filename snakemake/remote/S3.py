@@ -73,9 +73,9 @@ class RemoteObject(AbstractRemoteObject):
 
     def upload(self):
         if self.size() > 10 * 1024 * 1024: # S3 complains if multipart uploads are <10MB
-            self._s3c.upload_to_s3_multipart(self.s3_bucket, self.file(), self.s3_key, encrypt_key=self.encrypt_key)
+            self._s3c.upload_to_s3_multipart(self.s3_bucket, self.file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
         else:
-            self._s3c.upload_to_s3(self.s3_bucket, self.file(), self.s3_key, encrypt_key=self.encrypt_key)
+            self._s3c.upload_to_s3(self.s3_bucket, self.file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
 
     @property
     def list(self):
