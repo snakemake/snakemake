@@ -265,6 +265,8 @@ Per default, each rule has a priority of 0. Any rule that specifies a higher pri
 Furthermore, the ``--prioritize`` or ``-P`` command line flag allows to specify files (or rules) that shall be created with highest priority during the workflow execution. This means that the scheduler will assign the specified target and all its dependencies highest priority, such that the target is finished as soon as possible.
 The ``--dryrun`` or ``-n`` option allows you to see the scheduling plan including the assigned priorities.
 
+
+
 Log-Files
 ---------
 
