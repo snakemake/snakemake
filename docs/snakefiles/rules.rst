@@ -163,7 +163,8 @@ If no limits are given, the resources are ignored.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
 Resources must be ``int`` values.
 
-Starting from version 3.7, resources can also be callables that return ``int`` values.
+Resources can also be callables that return ``int`` values.
+The signature of the callable should be ``callable(wildcards, [input])`` (input is an optional parameter).
 
 Messages
 --------
