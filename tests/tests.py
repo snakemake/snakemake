@@ -476,6 +476,9 @@ def test_restartable_job_qsub_exit_1():
     run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
         restart_times=1, shouldfail=False)
 
+def test_threads():
+    run(dpath("test_threads"), cores=20)
+
 
 if __name__ == '__main__':
     import nose

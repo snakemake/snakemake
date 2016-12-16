@@ -223,7 +223,8 @@ class CPUExecutor(RealExecutor):
                  printshellcmds=False,
                  use_threads=False,
                  latency_wait=3,
-                 benchmark_repeats=1):
+                 benchmark_repeats=1,
+                 cores=1):
         super().__init__(workflow, dag,
                          printreason=printreason,
                          quiet=quiet,
@@ -240,7 +241,7 @@ class CPUExecutor(RealExecutor):
             '{overwrite_workdir} {overwrite_config} {printshellcmds} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
         self.use_threads = use_threads
-        self.cores = workers
+        self.cores = cores
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
 
     def run(self, job,

@@ -94,7 +94,8 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 use_threads=use_threads,
                 latency_wait=latency_wait,
-                benchmark_repeats=benchmark_repeats)
+                benchmark_repeats=benchmark_repeats,
+                cores=local_cores)
             self.run = self.run_cluster_or_local
             if cluster or cluster_sync:
                 constructor = SynchronousClusterExecutor if cluster_sync \
@@ -140,7 +141,8 @@ class JobScheduler:
                                          printshellcmds=printshellcmds,
                                          use_threads=use_threads,
                                          latency_wait=latency_wait,
-                                         benchmark_repeats=benchmark_repeats, )
+                                         benchmark_repeats=benchmark_repeats,
+                                         cores=cores)
         self._open_jobs.set()
 
     @property
