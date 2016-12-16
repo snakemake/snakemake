@@ -96,3 +96,16 @@ Here ``__default__`` is a special object that specifies default parameters, thes
 .. code-block:: console
 
     $ snakemake -j 999 --cluster-config cluster.json --cluster "sbatch -A {cluster.account} -p {cluster.partition} -n {cluster.n}  -t {cluster.time}"
+
+
+---------------------------
+Configure Working Directory
+---------------------------
+
+All paths in the snakefile are interpreted relative to the directory snakemake is executed in. This behaviour can be overridden by specifying a workdir in the snakefile:
+
+.. code-block:: python
+
+    workdir: "path/to/workdir"
+
+Usually, it is preferred to only set the working directory via the command line, because above directive limits the portability of Snakemake workflows.

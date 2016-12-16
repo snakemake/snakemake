@@ -246,6 +246,25 @@ When executing snakemake, a short summary for each running rule is given to the 
         message: "Executing somecommand with {threads} threads on the following files {input}."
         shell: "somecommand --threads {threads} {input} {output}"
 
+Priorities
+----------
+
+Snakemake allows rules to specify numeric priorities:
+
+
+.. code-block:: python
+
+    rule:
+      input: ...
+      output: ...
+      priority: 50
+      shell: ...
+
+Per default, each rule has a priority of 0. Any rule that specifies a higher priority, will be preferred by the scheduler over all rules that are ready to execute at the same time without having at least the same priority.
+
+Furthermore, the ``--prioritize`` or ``-P`` command line flag allows to specify files (or rules) that shall be created with highest priority during the workflow execution. This means that the scheduler will assign the specified target and all its dependencies highest priority, such that the target is finished as soon as possible.
+The ``--dryrun`` or ``-n`` option allows you to see the scheduling plan including the assigned priorities.
+
 Log-Files
 ---------
 

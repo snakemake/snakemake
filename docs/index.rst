@@ -132,6 +132,7 @@ Support
     snakefiles/modularization
     snakefiles/remote_files
     snakefiles/utils
+    snakefiles/deployment
 
 
 .. toctree::
