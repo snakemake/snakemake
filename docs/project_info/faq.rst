@@ -411,4 +411,3 @@ To remove all files created by snakemake as output files to start from scratch, 
 .. code-block:: console
 
     rm $(snakemake --summary | tail -n+2 | cut -f1)
-
