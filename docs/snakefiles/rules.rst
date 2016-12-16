@@ -116,6 +116,71 @@ Finally, you can also define global wildcard constraints that apply for all rule
 See the `Python documentation on regular expressions <http://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
 
 
+.. _snakefiles-targets:
+
+Targets
+-------
+
+By default snakemake executes the first rule in the snakefile. This gives rise to pseudo-rules at the beginning of the file that can be used to define build-targets similar to GNU Make:
+
+.. code-block:: python
+
+    rule all:
+      input: ["{dataset}/file.A.txt".format(dataset=dataset) for dataset in DATASETS]
+
+
+Here, for each dataset in a python list ``DATASETS`` defined before, the file ``{dataset}/file.A.txt`` is requested. In this example, Snakemake recognizes automatically that these can be created by multiple applications of the rule ``complex_conversion`` shown above.
+
+Above expression can be simplified to the following:
+
+.. code-block:: python
+
+    rule all:
+      input: expand("{dataset}/file.A.txt", dataset=DATASETS)
+
+
+The ``expand`` function thereby allows also to combine different variables, e.g.
+
+.. code-block:: python
+
+    rule all:
+      input: expand("{dataset}/file.A.{ext}", dataset=DATASETS, ext=PLOTFORMATS)
+
+If now ``PLOTFORMATS=["pdf", "png"]`` contains a list of desired output formats then expand will automatically combine any dataset with any of these extensions.
+
+Further, the first argument can also be a list of strings. In that case, the transformation is applied to all elements of the list. E.g.
+
+.. code-block:: python
+
+    expand(["{dataset}/plot1.{ext}", "{dataset}/plot2.{ext}"], dataset=DATASETS, ext=PLOTFORMATS)
+
+leads to
+
+.. code-block:: python
+
+    ["ds1/plot1.pdf", "ds1/plot2.pdf", "ds2/plot1.pdf", "ds2/plot2.pdf", "ds1/plot1.png", "ds1/plot2.png", "ds2/plot1.png", "ds2/plot2.png"]
+
+Per default, ``expand`` uses the python itertools function ``product`` that yields all combinations of the provided wildcard values. However by inserting a second positional argument this can be replaced by any combinatoric function, e.g. ``zip``:
+
+.. code-block:: python
+
+    expand("{dataset}/plot1.{ext} {dataset}/plot2.{ext}".split(), zip, dataset=DATASETS, ext=PLOTFORMATS)
+
+leads to
+
+.. code-block:: python
+
+    ["ds1/plot1.pdf", "ds1/plot2.pdf", "ds2/plot1.png", "ds2/plot2.png"]
+
+You can also mask a wildcard expression in expand such that it will be kept, e.g.
+
+.. code-block:: python
+
+    expand("{{dataset}}/plot1.{ext}", ext=PLOTFORMATS)
+
+will create strings with all values for ext but starting with ``"{dataset}"``.
+
+
 .. _snakefiles-threads:
 
 Threads
@@ -412,21 +477,6 @@ Here, Snakemake determines the input files for the rule `all` after the rule `cl
     In four years and hundreds of workflows, I needed dynamic files only once.
 
 
-.. _snakefiles-depend_version:
-
-Depend on a Minimum Snakemake Version
--------------------------------------
-
-From Snakemake 3.2 on, if your workflow depends on a minimum Snakemake version, you can easily ensure that at least this version is installed via
-
-.. code-block:: python
-
-    from snakemake.utils import min_version
-
-    min_version("3.2")
-
-given that your minimum required version of Snakemake is 3.2. The statement will raise a WorkflowError (and therefore abort the workflow execution) if the version is not met.
-
 .. _snakefiles-input_functions:
 
 Functions as Input Files
@@ -580,7 +630,7 @@ such that similar to GNU Make always the first matching rule is used. Here, a wa
 Local Rules
 -----------
 
-When working in a cluster environment, not all rules need to become a job that has to be submitted (e.g. downloading some file, or a target-rule like `all`, see below in section Targets).
+When working in a cluster environment, not all rules need to become a job that has to be submitted (e.g. downloading some file, or a target-rule like `all`, see :ref:`snakefiles-targets`).
 The keyword `localrules` allows to mark a rule as local, so that it is not submitted to the cluster and instead executed on the host node:
 
 .. code-block:: python
@@ -622,78 +672,3 @@ benchmarks the CPU and wall clock time of the command ``somecommand`` for the gi
 For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark txt file (which will contain a tab-separated table of run times). Per default, Snakemake executes the job once, generating one run time.
 With ``snakemake --benchmark-repeats``, this number can be changed to e.g. generate timings for two or three runs.
 The resulting txt file can be used as input for other rules, just like any other output file.
-
-
-.. _snakefiles-reports:
-
-Reports
--------
-
-The ``report`` function provides an easy mechanism to write reports containing your results. A report is written in reStructuredText_ and compiled to HTML. The function allows you to embed your generated tables and plots into the HTML file. By referencing the files from your text, you can easily provide a semantical connection between them. For using this function, you need to have the docutils_ package installed.
-
-.. _reStructuredText: http://docutils.sourceforge.net/rst.html
-
-.. _docutils: https://pypi.python.org/pypi/docutils
-
-.. code-block:: python
-
-    from snakemake.utils import report
-
-    SOMECONSTANT = 42
-
-    rule report:
-        input:  F1="someplot.pdf",
-                T1="sometable.txt"
-        output: html="report.html"
-        run:
-            report("""
-            =======================
-            The title of the report
-            =======================
-
-            Write your report here, explaining your results. Don't fear to use math 
-            it will be rendered correctly in any browser using MathJAX,
-            e.g. inline :math:`\sum_{{j \in E}} t_j \leq I`,
-            or even properly separated:
-
-            .. math::
-
-                |cq_{{0ctrl}}^i - cq_{{nt}}^i| > 0.5
-
-            Include your files using their keyword name and an underscore: F1_, T1_.
-
-            Access your global and local variables like within shell commands, e.g. {SOMECONSTANT}.
-            """, output.html, metadata="Johannes Köster (johannes.koester@uni-due.de)", **input)
-
-The optional metadata argument allows to provide arbitrary additional information to the report, e.g. the author name.
-The unpacked input files (``**input``) in the report function generates a list of keyword args, that can be referenced inside the document with the mentioned underscore notation. The files will be embedded into the HTML file using `data URLs <http://en.wikipedia.org/wiki/Data_URI_scheme>`_, thus making the report fully portable and not dependent on your local filesystem structure.
-
-
-.. _snakefiles-r_scripting:
-
-Scripting with R
-----------------
-
-The ``R`` function allows you to use R code in your rules. It relies on `rpy2 <https://pypi.python.org/pypi/rpy2>`_:
-
-.. code-block:: python
-
-    from snakemake.utils import R
-
-    SOMECONSTANT = 42
-
-    rule:
-        input:  ...
-        output: ...
-        run:
-            R("""
-            # write your R code here
-            # Access any global or local variables from the Snakefile with the braces notation
-            sqrt({SOMECONSTANT});
-            # be sure to mask braces used in R control flow by doubling them:
-            if(TRUE) {{
-                # do something
-            }}
-            """)
-
-If you compiled your Python installation from source, make sure that Python was build with sqlite support, which is needed for rpy2.

@@ -1,8 +1,8 @@
 .. project_info-history:
 
-=======
-History
-=======
+==========
+Change Log
+==========
 
 .. literalinclude:: ../../CHANGELOG.md
     :language: text

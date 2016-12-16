@@ -92,14 +92,13 @@ Support
 
 
 .. toctree::
-   :caption: Installation & Getting Started
-   :name: getting-started
+   :caption: Installation
+   :name: installation
    :hidden:
    :maxdepth: 1
 
    getting_started/installation
    getting_started/examples
-   getting_started/executable
 
 
 .. toctree::
@@ -114,7 +113,15 @@ Support
    tutorial/additional_features
 
 .. toctree::
-    :caption: Snakefile's
+  :caption: Executing workflows
+  :name: execution
+  :hidden:
+  :maxdepth: 1
+
+  executable.rst
+
+.. toctree::
+    :caption: Defining workflows
     :name: snakefiles
     :hidden:
     :maxdepth: 1
@@ -123,9 +130,8 @@ Support
     snakefiles/rules
     snakefiles/configuration
     snakefiles/modularization
-    snakefiles/reports
     snakefiles/remote_files
-    snakefiles/r_scripting
+    snakefiles/utils
 
 
 .. toctree::
