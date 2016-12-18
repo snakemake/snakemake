@@ -61,6 +61,52 @@ If you are proposing a feature:
 * Keep the scope as narrow as possible, to make it easier to implement.
 * Remember that this is a volunteer-driven project, and that contributions are welcome :)
 
+-----------------------
+Pull Request Guidelines
+-----------------------
+
+To update the documentation, fix bugs or add new features you need to create a Pull Request
+. A PR is a change you make to your local copy of the code for us to review and potentially integrate into the code base.
+
+To create a Pull Request you need to do these steps:
+
+1. Create a Bitbucket account.
+2. Fork the repository (see the left sidebar on the main Bitbucket Snakemake page).
+3. Clone your fork (go to your copy of the repository at :code:`https://bitbucket.org/<your_username>/snakemake` and click clone. This gives you the command you need to paste into your shell).
+4. Go to the snakemake folder with :code:`cd snakemake`.
+5. Create a new branch with :code:`git checkout -b <descriptive_branch_name>`.
+6. Make your changes to the code or documentation.
+7. Run :code:`git add .` to add all the changed files to the commit (to see what files will be added you can run :code:`git add . --dry-run`).
+8. To commit the added files use :code:`git commit`. (This will open a command line editor to write a commit message. These should have a descriptive 80 line header, followed by an empty line, and then a description of what you did and why. To use your command line text editor of choice use (for example) :code:`export GIT_EDITOR=vim` before running :code:`git commit`).
+9. Now you can push your changes to your Bitbucket copy of Snakemake by running :code:`git push origin <descriptive_branch_name>`.
+10. If you now go to the webpage for your Bitbucket copy of Snakemake you should see a link in the sidebar called "Create Pull Request".
+11. Now you need to choose your PR from the menu and click the "Create pull request" button. Be sure to change the pull request target branch to <descriptive_branch_name>!
+
+If you want to create more pull requests, first run :code:`git checkout master` and then start at step 5. with a new branch name.
+
+Feel free to ask questions about this if you want to contribute to Snakemake :)
+
+------------------
+Testing Guidelines
+------------------
+
+To ensure that you do not introduce bugs into Snakemake, you should test your code thouroughly.
+
+To have integration tests run automatically when commiting code changes to bitbucket, you need to sign up on wercker.com and register a user.
+
+The easiest way to run your development version of Snakemake is perhaps to go to the folder containing your local copy of Snakemake and call 
+
+.. code-block:: bash
+
+    conda env create -f environment.yml -n snakemake-testing
+    pip install -e .
+    source activate snakemake-testing 
+
+This will make your development version of Snakemake the one called when running snakemake. You do not need to run this command after each time you make code changes.
+
+From the base snakemake folder you call :code:`python setup.py nosetest` to run all the tests. (If it complains that you do not have nose installed, which is the testing framework we use, you can simply install it by running :code:`pip install nose`.)
+
+If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
 
 .. project_info-doc_guidelines:
 
