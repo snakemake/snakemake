@@ -49,13 +49,31 @@ Quick Example
             "somecommand {input} {output}"
 
 
-* Similar to GNU Make, you specify targets in terms of a pseudo rule at the top.
-* For each target and intermediate file, you create rules that define how they are created from from input files.
+* Similar to GNU Make, you specify targets in terms of a pseudo-rule at the top.
+* For each target and intermediate file, you create rules that define how they are created from input files.
 * Snakemake determines the rule dependencies by matching file names.
 * Input and output files can contain multiple named wildcards.
 * Rules can either use shell commands, plain Python code or external Python or R scripts to create output files from input files.
 * Snakemake workflows can be executed on workstations and clusters without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
-* Snakemake can use Amazon S3, Google Storage, Dropbox, FTP, SFTP to access input or output files and further access input files via HTTP and HTTPS.
+* Snakemake can use Amazon S3, Google Storage, Dropbox, FTP and SFTP to access input or output files and further access input files via HTTP and HTTPS.
+
+.. _main-getting-started:
+
+---------------
+Getting started
+---------------
+
+To get started, consider the :ref:`tutorial <tutorial-welcome>`, the `introductory slides <http://slides.com/johanneskoester/deck-1>`_, and the :ref:`FAQ <project_info-faq>`.
+
+.. _main-support:
+
+-------
+Support
+-------
+
+* In case of questions, please post on `stack overflow <http://stackoverflow.com/questions/tagged/snakemake>`_.
+* To discuss with other Snakemake users, you can use the `mailing list <https://groups.google.com/forum/#!forum/snakemake>`_.
+* For bugs and feature requests, please use the `issue tracker <https://bitbucket.org/snakemake/snakemake/issues>`_.
 
 --------
 Citation
@@ -69,26 +87,16 @@ See :doc:`Citations <project_info/citations>` for more information.
 Related Projects
 ----------------
 
+`Snakemake Wrappers Repository <https://snakemake-wrappers.readthedocs.org>`_
+    The Snakemake Wrapper Repository is a collection of reusable wrappers that allow to quickly use popular command line tools from Snakemake rules and workflows.
+
 `Snakemake Workflow Repository <https://bitbucket.org/snakemake/snakemake-workflows>`_
     This repository provides a collection of high quality modularized and re-usable rules and workflows.
     The provided code should also serve as a best-practices of how to build production ready workflows with Snakemake.
     Everybody is invited to contribute.
 
-`Snakemake Wrappers Repository <https://bitbucket.org/snakemake/snakemake-wrappers>`_
-    The Snakemake Wrapper Repository is a collection of reusable wrappers that allow to quickly use popular command line tools from Snakemake rules and workflows.
-
 `Bioconda <https://bioconda.github.io/>`_
     Bioconda can be used from Snakemake for creating completely reproducible workflows by pin pointing the used software version and providing binaries.
-
-.. _main-support:
-
--------
-Support
--------
-
-* In case of questions, please post on `stack overflow <http://stackoverflow.com/questions/tagged/snakemake>`_.
-* To discuss with other Snakemake users, you can use the `mailing list <https://groups.google.com/forum/#!forum/snakemake>`_.
-* For bugs and feature requests, please use the `issue tracker <https://bitbucket.org/snakemake/snakemake/issues>`_.
 
 
 .. toctree::
