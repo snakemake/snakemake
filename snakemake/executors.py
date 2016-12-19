@@ -240,6 +240,10 @@ class CPUExecutor(RealExecutor):
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
             '{overwrite_workdir} {overwrite_config} {printshellcmds} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
+
+        if self.workflow.use_conda:
+            self.exec_job += " --use-conda "
+
         self.use_threads = use_threads
         self.cores = cores
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
@@ -275,8 +279,6 @@ class CPUExecutor(RealExecutor):
         exec_job = self.exec_job
         if not job.rule.is_branched:
             exec_job += " --allowed-rules {}".format(job.rule)
-        if self.workflow.use_conda:
-            exec_job += " --use-conda"
         cmd = self.format_job_pattern(exec_job, job=job, _quote_all=True)
         try:
             subprocess.check_call(cmd, shell=True)
@@ -362,6 +364,8 @@ class ClusterExecutor(RealExecutor):
 
         if printshellcmds:
             self.exec_job += " --printshellcmds "
+        if self.workflow.use_conda:
+            self.exec_job += " --use-conda "
 
         # force threading.Lock() for cluster jobs
         self.exec_job += " --force-use-threads "
@@ -431,7 +435,7 @@ class ClusterExecutor(RealExecutor):
         wait_for_files = list(job.local_input) + [self.tmpdir]
         if job.shadow_dir:
             wait_for_files.append(job.shadow_dir)
-        if job.conda_env:
+        if self.workflow.use_conda and job.conda_env:
             wait_for_files.append(job.conda_env)
 
         format_p = partial(self.format_job_pattern,
@@ -441,8 +445,8 @@ class ClusterExecutor(RealExecutor):
                            latency_wait=self.latency_wait,
                            wait_for_files=wait_for_files,
                            **kwargs)
+        exec_job = self.exec_job
         try:
-            exec_job = self.exec_job
             exec_job = format_p(exec_job, _quote_all=True)
             with open(jobscript, "w") as f:
                 print(format_p(self.jobscript, exec_job=exec_job), file=f)
