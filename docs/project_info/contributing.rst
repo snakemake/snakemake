@@ -1,4 +1,4 @@
-.. project_info-contributing:
+.. _project_info-contributing:
 
 ============
 Contributing
@@ -94,13 +94,13 @@ To ensure that you do not introduce bugs into Snakemake, you should test your co
 
 To have integration tests run automatically when commiting code changes to bitbucket, you need to sign up on wercker.com and register a user.
 
-The easiest way to run your development version of Snakemake is perhaps to go to the folder containing your local copy of Snakemake and call 
+The easiest way to run your development version of Snakemake is perhaps to go to the folder containing your local copy of Snakemake and call
 
 .. code-block:: bash
 
     conda env create -f environment.yml -n snakemake-testing
     pip install -e .
-    source activate snakemake-testing 
+    source activate snakemake-testing
 
 This will make your development version of Snakemake the one called when running snakemake. You do not need to run this command after each time you make code changes.
 
