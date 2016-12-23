@@ -1,5 +1,15 @@
 # Change Log
 
+## [3.9.1] - 2016-12-23
+### Added
+- Jobs can be restarted upon failure (--restart-times). 
+### Changed
+- The docs have been restructured and improved. Now available under snakemake.readthedocs.org.
+- Changes in scripts show up with --list-code-changes.
+- Duplicate output files now cause an error.
+- Various bug fixes.
+
+
 ## [3.9.0] - 2016-11-15
 ### Added
 - Ability to define isolated conda software environments (YAML) per rule. Environment will be deployed by Snakemake upon workflow execution.
