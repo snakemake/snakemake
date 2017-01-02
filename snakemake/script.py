@@ -220,11 +220,18 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 raise ValueError(
                     "Unsupported script: Expecting either Python (.py) or R (.R) script.")
 
-            dir = ".snakemake/scripts"
-            os.makedirs(dir, exist_ok=True)
+            if path.startswith("file://"):
+                # in case of local path, use the same directory
+                dir = os.path.dirname(path)[7:]
+                prefix = ".snakemake."
+            else:
+                dir = ".snakemake/scripts"
+                prefix = ""
+                os.makedirs(dir, exist_ok=True)
+
             with tempfile.NamedTemporaryFile(
                 suffix="." + os.path.basename(path),
-                prefix="",
+                prefix=prefix,
                 dir=dir,
                 delete=False) as f:
                 f.write(preamble.encode())
