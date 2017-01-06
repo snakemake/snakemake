@@ -12,7 +12,7 @@ from collections import defaultdict, Iterable
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
-from snakemake.io import apply_wildcards, is_flagged, not_iterable
+from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import Mode
@@ -415,6 +415,8 @@ class Rule:
                 snakefile=self.snakefile)
 
     def apply_input_function(self, func, wildcards, **aux_params):
+        if isinstance(func, _IOFile):
+            func = func._file.callable
         sig = inspect.signature(func)
         _aux_params = {k: v for k, v in aux_params.items() if k in sig.parameters}
         try:
@@ -434,26 +436,47 @@ class Rule:
         for name, item in olditems.allitems():
             start = len(newitems)
             is_iterable = True
+            is_unpack = is_flagged(item, "unpack")
 
-            if callable(item):
+            if is_callable(item):
                 item = self.apply_input_function(item, wildcards, **aux_params)
 
-            if not_iterable(item) or no_flattening:
-                item = [item]
-                is_iterable = False
-            for item_ in item:
-                if check_return_type and not isinstance(item_, str):
-                    raise WorkflowError("Function did not return str or list "
-                                        "of str.", rule=self)
-                concrete = concretize(item_, wildcards)
-                newitems.append(concrete)
-                if mapping is not None:
-                    mapping[concrete] = item_
+            if is_unpack:
+                # Sanity checks before interpreting unpack()
+                if not isinstance(item, (list, dict)):
+                    raise WorkflowError(
+                        "Can only use unpack() on list and dict", rule=self)
+                if name:
+                    raise WorkflowError(
+                        "Cannot combine named input file with unpack()",
+                        rule=self)
+                # Allow streamlined code with/without unpack
+                if isinstance(item, list):
+                    pairs = list(zip([None] * len(item), item))
+                else:
+                    assert isinstance(item, dict)
+                    pairs = list(item.items())
+            else:
+                pairs = [(name, item)]
 
-            if name:
-                newitems.set_name(
-                    name, start,
-                    end=len(newitems) if is_iterable else None)
+            for name, item in pairs:
+                if not_iterable(item) or no_flattening:
+                    item = [item]
+                    is_iterable = False
+                for item_ in item:
+                    if check_return_type and not isinstance(item_, str):
+                        raise WorkflowError("Function did not return str or list "
+                                            "of str.", rule=self)
+                    concrete = concretize(item_, wildcards)
+                    newitems.append(concrete)
+                    if mapping is not None:
+                        mapping[concrete] = item_
+
+                if name:
+                    newitems.set_name(
+                        name, start,
+                        end=len(newitems) if is_iterable else None)
+                    start = len(newitems)
 
     def expand_input(self, wildcards):
         def concretize_iofile(f, wildcards):

@@ -523,6 +523,47 @@ Note that the function will be executed when the rule is evaluated and before th
 Finally, when implementing the input function, it is best practice to make sure that it can properly handle all possible wildcard values your rule can have.
 In particular, input files should not be combined with very general rules that can be applied to create almost any file: Snakemake will try to apply the rule, and will report the exceptions of your input function as errors.
 
+.. _snakefiles-unpack:
+
+Input Functions and ``unpack()``
+--------------------------------
+
+In some cases, you might want to have your input functions return named input files.
+This can be done by having them return ``dict()`` objects with the names as the dict keys and the file names as the dict values and using the ``unpack()`` keyword.
+
+.. code-block:: python
+
+    def myfunc(wildcards):
+        return { 'foo': '{wildcards.token}.txt'.format(wildcards=wildcards)
+
+    rule:
+        input: unpack(myfunc)
+        output: "someoutput.{token}.txt"
+        shell: "..."
+
+Note that ``unpack()`` only necessary for input functions returning ``dict``.
+While it also works for ``list``, remember that lists (and nested lists) of strings are automatically flattened.
+
+Also note that if you do not pass in a *function* into the input list but you directly *call a function* then you don't use ``unpack()`` either.
+Here, you can simply use Python's double-star (``**``) operator for unpacking the parameters.
+
+Note that as Snakefiles are translated into Python for execution, the same rules as for using the `star and double-star unpacking Python operators <https://docs.python.org/3/tutorial/controlflow.html#unpacking-argument-lists>`_ apply.
+These restrictions do not apply when using ``unpack()``.
+
+.. code-block:: python
+
+    def myfunc1():
+        return ['foo.txt']
+
+    def myfunc2():
+        return {'foo': 'nowildcards.txt'}
+
+    rule:
+        input:
+            *myfunc1(),
+            **myfunc2(),
+        output: "..."
+        shell: "..."
 
 .. _snakefiles-version_tracking:
 
