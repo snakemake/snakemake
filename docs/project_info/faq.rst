@@ -248,8 +248,8 @@ Here is an example where you want to merge N files together, but if N == 1 a sym
         output: "{foo}/all_merged.txt"
         input: my_input_func  # some function that yields 1 or more files to merge
         run:
-            if len(output) > 1:
-                shell("cat {input} | sort > {out}")
+            if len(input) > 1:
+                shell("cat {input} | sort > {output}")
             else:
                 shell("ln -sr {input} {output}")
 
