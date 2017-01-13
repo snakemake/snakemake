@@ -939,10 +939,10 @@ def get_argument_parser():
     return parser
 
 
-def main():
+def main(argv=None):
     """Main entry point."""
     parser = get_argument_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
