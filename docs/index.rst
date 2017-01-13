@@ -63,7 +63,7 @@ Quick Example
 Getting started
 ---------------
 
-To get started, consider the :ref:`tutorial <tutorial-welcome>`, the `introductory slides <http://slides.com/johanneskoester/deck-1>`_, and the :ref:`FAQ <project_info-faq>`.
+To get started, consider the :ref:`tutorial <tutorial-welcome>`, the `introductory slides <http://slides.com/johanneskoester/snakemake-tutorial-2016>`_, and the :ref:`FAQ <project_info-faq>`.
 
 .. _main-support:
 
