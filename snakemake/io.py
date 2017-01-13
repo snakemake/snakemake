@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import collections
 import os
 import shutil
 import re
@@ -821,7 +822,7 @@ def _load_configfile(configpath):
     try:
         with open(configpath) as f:
             try:
-                return json.load(f)
+                return json.load(f, object_pairs_hook=collections.OrderedDict)
             except ValueError:
                 f.seek(0)  # try again
             try:
@@ -831,7 +832,17 @@ def _load_configfile(configpath):
                                     "has not been installed. Please install "
                                     "PyYAML to use YAML config files.")
             try:
-                return yaml.load(f)
+                # From http://stackoverflow.com/a/21912744/84349
+                class OrderedLoader(yaml.Loader):
+                    pass
+                def construct_mapping(loader, node):
+                    loader.flatten_mapping(node)
+                    return collections.OrderedDict(
+                        loader.construct_pairs(node))
+                OrderedLoader.add_constructor(
+                    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+                    construct_mapping)
+                return yaml.load(f, OrderedLoader)
             except yaml.YAMLError:
                 raise WorkflowError("Config file is not valid JSON or YAML. "
                                     "In case of YAML, make sure to not mix "
