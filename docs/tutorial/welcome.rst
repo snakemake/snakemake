@@ -32,7 +32,7 @@ Tutorial Setup
 .. _Vagrant: https://www.vagrantup.com
 .. _Vagrant Documentation: https://docs.vagrantup.com
 .. _Blogpost: http://blog.osteel.me/posts/2015/01/25/how-to-use-vagrant-on-windows.html
-.. _slides: http://slides.com/johanneskoester/deck-1
+.. _slides: http://slides.com/johanneskoester/snakemake-tutorial-2016
 
 This tutorial introduces the text-based workflow system Snakemake_.
 Snakemake follows the `GNU Make`_ paradigm: workflows are defined in terms of rules that define how to create output files from input files.
