@@ -191,6 +191,14 @@ def test_conditional():
         targets="test.out test.0.out test.1.out test.2.out".split())
 
 
+def test_unpack_dict():
+    run(dpath("test_unpack_dict"))
+
+
+def test_unpack_list():
+    run(dpath("test_unpack_list"))
+
+
 def test_shell():
     run(dpath("test_shell"))
 

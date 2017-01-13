@@ -75,6 +75,8 @@ class _IOFile(str):
     def __new__(cls, file):
         obj = str.__new__(cls, file)
         obj._is_function = isfunction(file) or ismethod(file)
+        obj._is_function = obj._is_function or (
+            isinstance(file, AnnotatedString) and bool(file.callable))
         obj._file = file
         obj.rule = None
         obj._regex = None
@@ -450,17 +452,20 @@ def apply_wildcards(pattern,
     return re.sub(_wildcard_regex, format_match, pattern)
 
 
-
-
-
 def not_iterable(value):
     return isinstance(value, str) or isinstance(value, dict) or not isinstance(
         value, Iterable)
 
 
+def is_callable(value):
+    return (callable(value) or
+            (isinstance(value, _IOFile) and value._is_function))
+
+
 class AnnotatedString(str):
     def __init__(self, value):
         self.flags = dict()
+        self.callable = value if is_callable(value) else None
 
 
 def flag(value, flag_type, flag_value=True):
@@ -547,6 +552,8 @@ def dynamic(value):
 def touch(value):
     return flag(value, "touch")
 
+def unpack(value):
+    return flag(value, "unpack")
 
 def expand(*args, **wildcards):
     """
