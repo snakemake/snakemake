@@ -452,10 +452,10 @@ class Rule:
                         rule=self)
                 # Allow streamlined code with/without unpack
                 if isinstance(item, list):
-                    pairs = list(zip([None] * len(item), item))
+                    pairs = zip([None] * len(item), item)
                 else:
                     assert isinstance(item, dict)
-                    pairs = list(item.items())
+                    pairs = item.items()
             else:
                 pairs = [(name, item)]
 
