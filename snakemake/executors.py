@@ -571,8 +571,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         os.remove(active_job.jobfailed)
                         os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
-                        print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
-                                                            active_job.jobscript),
+                        print_exception(ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                                         self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
                     else:
@@ -667,8 +666,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
                         # job failed
                         os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
-                        print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
-                                                            active_job.jobscript),
+                        print_exception(ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                                         self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
             time.sleep(1)
@@ -752,7 +750,7 @@ class DRMAAExecutor(ClusterExecutor):
                             self.workflow.linemaps)
             error_callback(job)
             return
-        logger.info("Submitted DRMAA job (jobid {})".format(jobid))
+        logger.info("Submitted DRMAA job {} with external jobid {}.".format(self.dag.jobid(job), jobid))
         self.submitted.append(jobid)
         self.session.deleteJobTemplate(jt)
 
@@ -795,7 +793,7 @@ class DRMAAExecutor(ClusterExecutor):
                     else:
                         self.print_job_error(active_job.job)
                         print_exception(
-                            ClusterJobException(active_job.job, self.dag.jobid(active_job.job), active_job.jobscript),
+                            ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                             self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
             time.sleep(1)
