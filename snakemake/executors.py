@@ -256,7 +256,10 @@ class CPUExecutor(RealExecutor):
 
         if self.use_threads or (not job.is_shadow and (job.is_shell or job.is_norun or job.is_script or job.is_wrapper)):
             job.prepare()
-            job.create_conda_env()
+            conda_env = None
+            if self.workflow.use_conda:
+                job.create_conda_env()
+                conda_env = job.conda_env
 
             benchmark = None
             if job.benchmark is not None:
@@ -265,7 +268,7 @@ class CPUExecutor(RealExecutor):
                 run_wrapper, job.rule.run_func, job.input.plainstrings(),
                 job.output.plainstrings(), job.params, job.wildcards, job.threads,
                 job.resources, job.log.plainstrings(), job.rule.version, benchmark,
-                self.benchmark_repeats, job.rule.name, job.conda_env,
+                self.benchmark_repeats, job.rule.name, conda_env,
                 self.workflow.linemaps, self.workflow.debug,
                 shadow_dir=job.shadow_dir)
         else:

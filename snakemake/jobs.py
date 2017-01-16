@@ -133,10 +133,6 @@ class Job:
 
     @property
     def conda_env_file(self):
-        if not self.rule.workflow.use_conda:
-            # if use_conda is False, ignore conda_env_file definition
-            return None
-
         if self._conda_env_file is None:
             self._conda_env_file = self.rule.expand_conda_env(self.wildcards_dict)
         return self._conda_env_file
@@ -156,6 +152,13 @@ class Job:
                 self._conda_env = conda.create_env(self)
             except CreateCondaEnvironmentException as e:
                 raise WorkflowError(e, rule=self.rule)
+
+    def archive_conda_env(self):
+        """Archive a conda environment into a custom local channel."""
+        if self.conda_env_file:
+            self.create_conda_env()
+            return conda.archive_env(self)
+        return None
 
     @property
     def is_shadow(self):
