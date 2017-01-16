@@ -1118,12 +1118,15 @@ class DAG:
                             add(f)
 
                 logger.info("Archiving conda environments...")
+                envs = set()
                 for job in self.jobs:
-                    # conda envs
                     if job.conda_env_file:
+                        job.create_conda_env()
                         env_archive = job.archive_conda_env()
-                        if env_archive:
-                            add(env_archive)
+                        envs.add(env_archive)
+                for env in envs:
+                    add(env)
+
         except (Exception, BaseException) as e:
             os.remove(path)
             raise e

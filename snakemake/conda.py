@@ -7,6 +7,7 @@ import hashlib
 import shutil
 from distutils.version import StrictVersion
 import json
+from glob import glob
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
@@ -30,11 +31,9 @@ def archive_env(job):
         return env_archive
 
     try:
-
-        logger.info("Exporting conda environment {}...".format(job.conda_env_file))
-
         # Download
-        logger.info("Downloading packages for conda environment...")
+        logger.info("Downloading packages for conda environment {}...".format(job.conda_env_file))
+        os.makedirs(env_archive, exist_ok=True)
         try:
             out = subprocess.check_output(["conda", "list", "--explicit",
                 "--prefix", job.conda_env],
@@ -49,36 +48,7 @@ def archive_env(job):
                 logger.info(pkg_url)
                 parsed = urlparse(pkg_url)
                 pkg_name = os.path.basename(parsed.path)
-                arch = os.path.basename(os.path.dirname(parsed.path))
-                arch_dir = os.path.join(env_archive, arch)
-                os.makedirs(arch_dir, exist_ok=True)
-                urlretrieve(pkg_url, os.path.join(arch_dir, pkg_name))
-
-        # Index
-        try:
-            out = subprocess.check_output(["conda", "index", arch_dir],
-                                          stderr=subprocess.STDOUT)
-            logger.debug(out.decode())
-        except subprocess.CalledProcessError as e:
-            raise WorkflowError("Error creating conda channel index:\n" +
-                                e.output.decode())
-
-        # Env file
-        try:
-            pkgs = subprocess.check_output(["conda", "list", "--json",
-                "--prefix", job.conda_env])
-        except subprocess.CalledProcessError as e:
-            raise WorkflowError("Error reading package data.")
-
-        pkgs = json.loads(pkgs.decode())
-        with open(os.path.join(env_archive, "environment.yaml"), "w") as out:
-            env = {
-                "channels": ["file://{}".format(os.path.relpath(env_archive))],
-                "dependencies": [
-                    pkg["dist_name"] for pkg in pkgs
-                ]
-            }
-            out.write(yaml.dump(env))
+                urlretrieve(pkg_url, os.path.join(env_archive, pkg_name))
     except (Exception, BaseException) as e:
         shutil.rmtree(env_archive)
         raise e
@@ -134,21 +104,24 @@ def create_env(job):
             env_file = tmp.name
             tmp_file = tmp.name
     env_hash = get_env_hash(env_file)
-
-    # Check if env archive exists. Use that if present.
-    env_archive = get_env_archive(job, env_hash)
-    if os.path.exists(env_archive):
-        env_file = os.path.join(env_archive, "environment.yaml")
-
-    # Create environment if not already present.
     env_path = get_env_path(job, env_hash)
+    # Create environment if not already present.
     if not os.path.exists(env_path):
         logger.info("Creating conda environment {}...".format(job.conda_env_file))
+        # Check if env archive exists. Use that if present.
+        env_archive = get_env_archive(job, env_hash)
         try:
-            out = subprocess.check_output(["conda", "env", "create",
-                                           "--file", env_file,
-                                           "--prefix", env_path],
-                                           stderr=subprocess.STDOUT)
+            if os.path.exists(env_archive):
+                # install packages manually from env archive
+                out = subprocess.check_output(["conda", "create", "--prefix", env_path] +
+                    glob(os.path.join(env_archive, "*.tar.bz2")),
+                    stderr=subprocess.STDOUT
+                )
+            else:
+                out = subprocess.check_output(["conda", "env", "create",
+                                               "--file", env_file,
+                                               "--prefix", env_path],
+                                               stderr=subprocess.STDOUT)
             logger.debug(out.decode())
             logger.info("Environment for {} created.".format(job.conda_env_file))
         except subprocess.CalledProcessError as e:
