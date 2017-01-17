@@ -1,13 +1,83 @@
 import os
 import subprocess
 import tempfile
-from urllib.request import urlopen
+from urllib.request import urlopen, urlretrieve
+from urllib.parse import urlparse
 import hashlib
 import shutil
 from distutils.version import StrictVersion
+import json
+from glob import glob
 
-from snakemake.exceptions import CreateCondaEnvironmentException
+from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
+
+
+def get_env_archive(job, env_hash):
+    """Get path to archived environment derived from given environment file."""
+    return os.path.join(job.rule.workflow.persistence.conda_env_archive_path, env_hash)
+
+
+def archive_env(job):
+    """Create self-contained archive of environment."""
+    try:
+        import yaml
+    except ImportError:
+        raise WorkflowError("Error importing PyYAML. "
+            "Please install PyYAML to archive workflows.")
+
+    env_archive = get_env_archive(job, get_env_hash(job.conda_env_file))
+    if os.path.exists(env_archive):
+        return env_archive
+
+    try:
+        # Download
+        logger.info("Downloading packages for conda environment {}...".format(job.conda_env_file))
+        os.makedirs(env_archive, exist_ok=True)
+        try:
+            out = subprocess.check_output(["conda", "list", "--explicit",
+                "--prefix", job.conda_env],
+                stderr=subprocess.STDOUT)
+            logger.debug(out.decode())
+        except subprocess.CalledProcessError as e:
+            raise WorkflowError("Error exporting conda packages:\n" +
+                                e.output.decode())
+        for l in out.decode().split("\n"):
+            if l and not l.startswith("#") and not l.startswith("@"):
+                pkg_url = l
+                logger.info(pkg_url)
+                parsed = urlparse(pkg_url)
+                pkg_name = os.path.basename(parsed.path)
+                urlretrieve(pkg_url, os.path.join(env_archive, pkg_name))
+    except (Exception, BaseException) as e:
+        shutil.rmtree(env_archive)
+        raise e
+    return env_archive
+
+
+def is_remote_env_file(env_file):
+    return urlparse(env_file).scheme
+
+
+def get_env_hash(env_file):
+    md5hash = hashlib.md5()
+    if is_remote_env_file(env_file):
+        md5hash.update(urlopen(env_file).read())
+    else:
+        with open(env_file, 'rb') as f:
+            md5hash.update(f.read())
+    return md5hash.hexdigest()
+
+
+def get_env_path(job, env_hash):
+    """Return environment path from hash.
+    First tries full hash, if it does not exist, (8-prefix) is used as
+    default."""
+    for h in [env_hash, env_hash[:8]]:
+        path = os.path.join(job.rule.workflow.persistence.conda_env_path, h)
+        if os.path.exists(path):
+            return path
+    return path
 
 
 def create_env(job):
@@ -25,31 +95,34 @@ def create_env(job):
             "Unable to check conda version:\n" + e.output.decode()
         )
 
-    md5hash = hashlib.md5()
+    # Read env file and create hash.
     env_file = job.conda_env_file
-    if os.path.exists(env_file):
-        with open(env_file, 'rb') as f:
-            md5hash.update(f.read())
-    else:
-        if env_file.startswith('file://'):
-            with open(env_file.replace('file://', ''), 'rb') as handle:
-                    content = handle.read()
-        else:
-            content = urlopen(env_file).read()
-        md5hash.update(content)
+    tmp_file = None
+    if is_remote_env_file(env_file):
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp.write(content)
+            tmp.write(urlopen(env_file).read())
             env_file = tmp.name
-
-    env_path = os.path.join(job.rule.workflow.persistence.conda_env_path, md5hash.hexdigest()[:8])
+            tmp_file = tmp.name
+    env_hash = get_env_hash(env_file)
+    env_path = get_env_path(job, env_hash)
+    # Create environment if not already present.
     if not os.path.exists(env_path):
-        logger.info("Creating conda environment for {}...".format(job.conda_env_file))
+        logger.info("Creating conda environment {}...".format(job.conda_env_file))
+        # Check if env archive exists. Use that if present.
+        env_archive = get_env_archive(job, env_hash)
         try:
-            out = subprocess.check_output(["conda", "env", "create",
-                                           "--file", env_file,
-                                           "--prefix", env_path],
-                                           stderr=subprocess.STDOUT)
-            logger.debug(out)
+            if os.path.exists(env_archive):
+                # install packages manually from env archive
+                out = subprocess.check_output(["conda", "create", "--prefix", env_path] +
+                    glob(os.path.join(env_archive, "*.tar.bz2")),
+                    stderr=subprocess.STDOUT
+                )
+            else:
+                out = subprocess.check_output(["conda", "env", "create",
+                                               "--file", env_file,
+                                               "--prefix", env_path],
+                                               stderr=subprocess.STDOUT)
+            logger.debug(out.decode())
             logger.info("Environment for {} created.".format(job.conda_env_file))
         except subprocess.CalledProcessError as e:
             # remove potential partially installed environment
@@ -58,8 +131,8 @@ def create_env(job):
                 "Could not create conda environment from {}:\n".format(job.conda_env_file) +
                 e.output.decode())
 
-    if env_file != job.conda_env_file:
+    if tmp_file:
         # temporary file was created
-        os.remove(env_file)
+        os.remove(tmp_file)
 
     return env_path

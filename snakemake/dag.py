@@ -7,11 +7,14 @@ import os
 import shutil
 import textwrap
 import time
+import tarfile
 from collections import defaultdict, Counter
 from itertools import chain, combinations, filterfalse, product, groupby
 from functools import partial, lru_cache
 from inspect import isfunction, ismethod
 from operator import itemgetter, attrgetter
+from pathlib import Path
+import subprocess
 
 from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
 from snakemake.jobs import Job, Reason
@@ -25,6 +28,7 @@ from snakemake.exceptions import UnexpectedOutputException, InputFunctionExcepti
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.common import DYNAMIC_FILL
+from snakemake import conda
 
 # Workaround for Py <3.5 prior to existence of RecursionError
 try:
@@ -1062,6 +1066,71 @@ class DAG:
                                      status, pending))
                 else:
                     yield "\t".join((f, date, rule, version, log, status, pending))
+
+    def archive(self, path):
+        """Archives workflow such that it can be re-run on a different system.
+
+        Archiving includes git versioned files (i.e. Snakefiles, config files, ...),
+        ancestral input files and conda environments.
+        """
+        if path.endswith(".tar"):
+            mode = "x"
+        elif path.endswith("tar.bz2"):
+            mode = "x:bz2"
+        elif path.endswith("tar.xz"):
+            mode = "x:xz"
+        elif path.endswith("tar.gz"):
+            mode = "x:xz"
+        else:
+            raise WorkflowError("Unsupported archive format "
+                                "(supported: .tar, .tar.gz, .tar.bz2, .tar.xz)")
+        if os.path.exists(path):
+            raise WorkflowError("Archive already exists:\n" + path)
+
+        try:
+            workdir = Path(os.path.abspath(os.getcwd()))
+            with tarfile.open(path, mode=mode, dereference=True) as archive:
+
+                def add(path):
+                    if workdir not in Path(os.path.abspath(path)).parents:
+                        logger.warning("Path {} cannot be archived: "
+                                       "not within working directory.".format(path))
+                    else:
+                        archive.add(os.path.relpath(path))
+
+                logger.info("Archiving files under version control...")
+                try:
+                    out = subprocess.check_output(["git", "ls-files", "."])
+                    for f in out.decode().split("\n"):
+                        if f:
+                            logger.info(f)
+                            add(f)
+                except subprocess.CalledProcessError as e:
+                    raise WorkflowError("Error executing git.")
+
+                logger.info("Archiving external input files...")
+                for job in self.jobs:
+                    # input files
+                    for f in job.input:
+                        if not any(f in files for files in self.dependencies[job].values()):
+                            # this is an input file that is not created by any job
+                            logger.info(f)
+                            add(f)
+
+                logger.info("Archiving conda environments...")
+                envs = set()
+                for job in self.jobs:
+                    if job.conda_env_file:
+                        job.create_conda_env()
+                        env_archive = job.archive_conda_env()
+                        envs.add(env_archive)
+                for env in envs:
+                    add(env)
+
+        except (Exception, BaseException) as e:
+            os.remove(path)
+            raise e
+
 
     def d3dag(self, max_jobs=10000):
         def node(job):

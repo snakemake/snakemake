@@ -39,10 +39,12 @@ class Persistence:
         self._shellcmd_path = os.path.join(self.path, "shellcmd_tracking")
         self.shadow_path = os.path.join(self.path, "shadow")
         self.conda_env_path = os.path.join(self.path, "conda")
+        self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
 
         for d in (self._incomplete_path, self._version_path, self._code_path,
                   self._rule_path, self._input_path, self._log_path, self._params_path,
-                  self._shellcmd_path, self.shadow_path, self.conda_env_path):
+                  self._shellcmd_path, self.shadow_path, self.conda_env_path,
+                  self.conda_env_archive_path):
             if not os.path.exists(d):
                 os.mkdir(d)
 
