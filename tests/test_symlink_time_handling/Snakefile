@@ -27,20 +27,22 @@
 """
 
 import os
-
 import time
-def timestr(hr_delta=0):
-    return time.strftime("%Y%m%d%H%M",
-                         time.localtime(time.time() - (hr_delta * 3600)))
 
-shell("touch -t {} input_file".format(timestr(1)))
-shell("ln -s input_file input_link")
-shell("touch -h -t {} input_link".format(timestr(4)))
+#Slightly crude way to stop this running twice
+if not os.path.exists("input_file"):
+    def timestr(hr_delta=0):
+        return time.strftime("%Y%m%d%H%M",
+                             time.localtime(time.time() - (hr_delta * 3600) - 5))
 
-shell("ln -s input_link output_link")
-shell("touch -h -t {} output_link".format(timestr(2)))
+    shell("touch -t {} input_file".format(timestr(1)))
+    shell("ln -s input_file input_link")
+    shell("touch -h -t {} input_link".format(timestr(4)))
 
-shell("ls -lR > /dev/stderr")
+    shell("ln -s input_link output_link")
+    shell("touch -h -t {} output_link".format(timestr(2)))
+
+    shell("ls -lR > /dev/stderr")
 
 rule main:
     output: "time_diff.txt"
