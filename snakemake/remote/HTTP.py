@@ -87,6 +87,9 @@ class RemoteObject(DomainObject):
     def exists(self):
         if self._matched_address:
             with self.httpr(verb="HEAD") as httpr:
+                # if a file redirect was found
+                if httpr.status_code in range(300,308):
+                    raise HTTPFileException("The file specified appears to have been moved (HTTP %s), check the URL or try adding 'allow_redirects=True' to the remote() file object: %s" % (httpr.status_code, httpr.url))
                 return httpr.status_code == requests.codes.ok
             return False
         else:
