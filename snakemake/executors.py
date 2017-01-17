@@ -475,7 +475,7 @@ class ClusterExecutor(RealExecutor):
         super().finish_job(job, upload_remote=False)
 
 
-GenericClusterJob = namedtuple("GenericClusterJob", "job callback error_callback jobscript jobfinished jobfailed")
+GenericClusterJob = namedtuple("GenericClusterJob", "job jobid callback error_callback jobscript jobfinished jobfailed")
 
 
 class GenericClusterExecutor(ClusterExecutor):
@@ -552,7 +552,7 @@ class GenericClusterExecutor(ClusterExecutor):
 
         submit_callback(job)
         with self.lock:
-            self.active_jobs.append(GenericClusterJob(job, callback, error_callback, jobscript, jobfinished, jobfailed))
+            self.active_jobs.append(GenericClusterJob(job, ext_jobid, callback, error_callback, jobscript, jobfinished, jobfailed))
 
     def _wait_for_jobs(self):
         while True:
@@ -579,7 +579,7 @@ class GenericClusterExecutor(ClusterExecutor):
             time.sleep(1)
 
 
-SynchronousClusterJob = namedtuple("SynchronousClusterJob", "job callback error_callback jobscript process")
+SynchronousClusterJob = namedtuple("SynchronousClusterJob", "job jobid callback error_callback jobscript process")
 
 
 class SynchronousClusterExecutor(ClusterExecutor):
@@ -643,7 +643,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
         submit_callback(job)
 
         with self.lock:
-            self.active_jobs.append(SynchronousClusterJob(job, callback, error_callback, jobscript, process))
+            self.active_jobs.append(SynchronousClusterJob(job, process.pid, callback, error_callback, jobscript, process))
 
     def _wait_for_jobs(self):
         while True:
