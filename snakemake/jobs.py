@@ -585,6 +585,7 @@ class Job:
             "params": params,
             "threads": self.threads,
             "resources": resources,
+            "jobid": self.dag.jobid(self)
         }
         properties.update(aux_properties)
         return properties
