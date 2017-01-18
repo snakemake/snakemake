@@ -32,3 +32,4 @@ External Resources
 * `Sandwiches with Snakemake <https://github.com/leipzig/SandwichesWithSnakemake>`_
 * `A visualization of the past years of Snakemake development <http://youtu.be/bq3vXrWw1yk>`_
 * `Japanese version of the Snakemake tutorial <https://github.com/joemphilips/Translate_Snakemake_Tutorial>`_
+* `Basic <http://bioinfo-fr.net/snakemake-pour-les-nuls>`_ and `advanced <http://bioinfo-fr.net/snakemake-aller-plus-loin-avec-la-parallelisation>`_ french Snakemake tutorial.
