@@ -88,6 +88,7 @@ class Logger:
         self.printreason = False
         self.quiet = False
         self.logfile = None
+        self.last_msg_was_job_info = False
 
     def setup(self):
         # logfile output is done always
@@ -185,7 +186,7 @@ class Logger:
                 if fmt != None:
                     yield fmt
 
-            singleitems = ["benchmark"]
+            singleitems = ["jobid", "benchmark"]
             if self.printreason:
                 singleitems.append("reason")
             for item in singleitems:
@@ -207,26 +208,9 @@ class Logger:
                 yield "    resources: " + resources
 
         level = msg["level"]
-        if level == "info" and not self.quiet:
-            self.logger.warning(msg["msg"])
-        if level == "warning":
-            self.logger.warning(msg["msg"])
-        elif level == "error":
-            self.logger.error(msg["msg"])
-        elif level == "debug":
-            self.logger.debug(msg["msg"])
-        elif level == "resources_info" and not self.quiet:
-            self.logger.warning(msg["msg"])
-        elif level == "run_info" and not self.quiet:
-            self.logger.warning(msg["msg"])
-        elif level == "progress" and not self.quiet:
-            done = msg["done"]
-            total = msg["total"]
-            p = done / total
-            percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
-            self.logger.info("{} of {} steps ({}) done".format(
-                done, total, percent_fmt))
-        elif level == "job_info" and not self.quiet:
+        if level == "job_info" and not self.quiet:
+            if not self.last_msg_was_job_info:
+                self.logger.info("")
             if msg["msg"] is not None:
                 self.logger.info(msg["msg"])
                 if self.printreason:
@@ -234,18 +218,42 @@ class Logger:
             else:
                 self.logger.info("\n".join(job_info(msg)))
             self.logger.info("")
-        elif level == "shellcmd":
-            if self.printshellcmds:
+
+            self.last_msg_was_job_info = True
+        else:
+            if level == "info" and not self.quiet:
                 self.logger.warning(msg["msg"])
-        elif level == "job_finished":
-            # do not display this on the console for now
-            pass
-        elif level == "rule_info":
-            self.logger.info(msg["name"])
-            if msg["docstring"]:
-                self.logger.info("    " + msg["docstring"])
-        elif level == "d3dag":
-            print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
+            if level == "warning":
+                self.logger.warning(msg["msg"])
+            elif level == "error":
+                self.logger.error(msg["msg"])
+            elif level == "debug":
+                self.logger.debug(msg["msg"])
+            elif level == "resources_info" and not self.quiet:
+                self.logger.warning(msg["msg"])
+            elif level == "run_info" and not self.quiet:
+                self.logger.warning(msg["msg"])
+            elif level == "progress" and not self.quiet:
+                done = msg["done"]
+                total = msg["total"]
+                p = done / total
+                percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
+                self.logger.info("{} of {} steps ({}) done".format(
+                    done, total, percent_fmt))
+            elif level == "shellcmd":
+                if self.printshellcmds:
+                    self.logger.warning(msg["msg"])
+            elif level == "job_finished" and not self.quiet:
+                self.logger.info("Finished job {}.".format(msg["jobid"]))
+                pass
+            elif level == "rule_info":
+                self.logger.info(msg["name"])
+                if msg["docstring"]:
+                    self.logger.info("    " + msg["docstring"])
+            elif level == "d3dag":
+                print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
+
+            self.last_msg_was_job_info = False
 
 
 def format_dict(dict, omit_keys=[], omit_values=[]):
