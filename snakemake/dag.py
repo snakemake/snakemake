@@ -125,12 +125,24 @@ class DAG:
             job = self.update(self.file2jobs(file), file=file)
             self.targetjobs.add(job)
 
+        self.cleanup()
+
         self.update_needrun()
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
         # check if remaining jobs are valid
         for job in self.jobs:
             job.is_valid()
+
+    def cleanup(self):
+        final_jobs = set(self.jobs)
+        todelete = [job for job in self.dependencies if job not in final_jobs]
+        for job in todelete:
+            del self.dependencies[job]
+            try:
+                del self.depending[job]
+            except KeyError:
+                pass
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -484,12 +496,13 @@ class DAG:
         exceptions = dict()
         for file, jobs in potential_dependencies:
             try:
-                producer[file] = self.update(
+                selected_job = self.update(
                     jobs,
                     file=file,
                     visited=visited,
                     skip_until_dynamic=skip_until_dynamic or file in
                     job.dynamic_input)
+                producer[file] = selected_job
             except (MissingInputException, CyclicGraphException,
                     PeriodicWildcardError) as ex:
                 if file in missing_input:

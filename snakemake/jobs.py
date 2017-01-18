@@ -20,7 +20,7 @@ from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, CreateCondaEnvironmentException
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL
+from snakemake.common import DYNAMIC_FILL, lazy_property
 from snakemake import conda, wrapper
 
 
@@ -30,6 +30,14 @@ def jobfiles(jobs, type):
 
 class Job:
     HIGHEST_PRIORITY = sys.maxsize
+
+    __slots__ = ["rule", "dag", "targetfile", "wildcards_dict", "wildcards",
+                 "_format_wildcards", "input", "dependencies", "output",
+                 "_params", "_log", "_benchmark", "_resources",
+                 "_conda_env_file", "_conda_env", "shadow_dir", "_inputsize",
+                 "restart_times", "dynamic_output", "dynamic_input",
+                 "temp_output", "protected_output", "touch_output",
+                 "subworkflow_input", "_hash"]
 
     def __init__(self, rule, dag, targetfile=None, format_wildcards=None):
         self.rule = rule
@@ -77,9 +85,8 @@ class Job:
             if f_ in self.rule.subworkflow_input:
                 self.subworkflow_input[f] = self.rule.subworkflow_input[f_]
         self._hash = self.rule.__hash__()
-        if True or not self.dynamic_output:
-            for o in self.output:
-                self._hash ^= o.__hash__()
+        for o in self.output:
+            self._hash ^= o.__hash__()
 
     def is_valid(self):
         """Check if job is valid"""
@@ -610,15 +617,35 @@ class Job:
 
 
 class Reason:
+
+    __slots__ = ["_updated_input", "_updated_input_run", "_missing_output",
+                 "_incomplete_output", "forced", "noio", "nooutput", "derived"]
+
     def __init__(self):
-        self.updated_input = set()
-        self.updated_input_run = set()
-        self.missing_output = set()
-        self.incomplete_output = set()
+        self._updated_input = None
+        self._updated_input_run = None
+        self._missing_output = None
+        self._incomplete_output = None
         self.forced = False
         self.noio = False
         self.nooutput = False
         self.derived = True
+
+    @lazy_property
+    def updated_input(self):
+        return set()
+
+    @lazy_property
+    def updated_input_run(self):
+        return set()
+
+    @lazy_property
+    def missing_output(self):
+        return set()
+
+    @lazy_property
+    def incomplete_output(self):
+        return set()
 
     def __str__(self):
         s = list()
@@ -632,17 +659,17 @@ class Reason:
                 s.append("Rules with a run or shell declaration but no output "
                          "are always executed.")
             else:
-                if self.missing_output:
+                if self._missing_output:
                     s.append("Missing output files: {}".format(", ".join(
                         self.missing_output)))
-                if self.incomplete_output:
+                if self._incomplete_output:
                     s.append("Incomplete output files: {}".format(", ".join(
                         self.incomplete_output)))
-                updated_input = self.updated_input - self.updated_input_run
-                if updated_input:
+                if self._updated_input:
+                    updated_input = self.updated_input - self.updated_input_run
                     s.append("Updated input files: {}".format(", ".join(
                         updated_input)))
-                if self.updated_input_run:
+                if self._updated_input_run:
                     s.append("Input files updated by another job: {}".format(
                         ", ".join(self.updated_input_run)))
         s = "; ".join(s)

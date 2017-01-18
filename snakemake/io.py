@@ -73,6 +73,8 @@ class _IOFile(str):
     A file that is either input or output of a rule.
     """
 
+    __slots__ = ["_is_function", "_file", "rule", "_regex"]
+
     def __new__(cls, file):
         obj = str.__new__(cls, file)
         obj._is_function = isfunction(file) or ismethod(file)
