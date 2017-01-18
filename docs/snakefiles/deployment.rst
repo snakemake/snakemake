@@ -93,7 +93,7 @@ With Snakemake 3.10.0 it is possible to archive a workflow into a
 
     snakemake --archive my-workflow.tar.gz
 
-If above layout it followed, this will archive any code and config files that
+If above layout is followed, this will archive any code and config files that
 is under git version control. Further, all input files will be included into the
 archive. Finally, the software packages of each defined conda environment are included.
 This results in a self-contained workflow archive that can be re-executed on a
