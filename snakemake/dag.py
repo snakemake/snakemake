@@ -292,7 +292,9 @@ class DAG:
         try:
             wait_for_files(expanded_output, latency_wait=wait)
         except IOError as e:
-            raise MissingOutputException(str(e), rule=job.rule)
+            raise MissingOutputException(str(e) + "\nThis might be due to "
+            "filesystem latency. If that is the case, consider to increase the "
+            "wait time with --latency-wait.", rule=job.rule)
 
         #It is possible, due to archive expansion or cluster clock skew, that
         #the files appear older than the input.  But we know they must be new,

@@ -1,8 +1,20 @@
 # Change Log
 
+## [3.10.0] - 2017-01-18
+### Added
+- Workflows can now be archived to a tarball with `snakemake --archive my-workflow.tar.gz`. The archive contains all input files, source code versioned with git and all software packages that are defined via conda environments. Hence, the archive allows to fully reproduce a workflow on a different machine. Such an archive can be uploaded to Zenodo, such that your workflow is secured in a self-contained, executable way for the future.
+### Changed
+- Improved logging.
+- Reduced memory footprint.
+- Added a flag to automatically unpack the output of input functions.
+- Improved handling of HTTP redirects with remote files.
+- Improved exception handling with DRMAA.
+- Scripts referred by the script directive can now use locally defined external python modules.
+
+
 ## [3.9.1] - 2016-12-23
 ### Added
-- Jobs can be restarted upon failure (--restart-times). 
+- Jobs can be restarted upon failure (--restart-times).
 ### Changed
 - The docs have been restructured and improved. Now available under snakemake.readthedocs.org.
 - Changes in scripts show up with --list-code-changes.
