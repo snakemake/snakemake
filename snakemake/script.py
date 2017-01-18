@@ -157,6 +157,8 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
     if not path.startswith("http"):
         if path.startswith("file://"):
             path = path[7:]
+        elif path.startswith("file:"):
+            path = path[5:]
         if not os.path.isabs(path):
             path = os.path.abspath(os.path.join(basedir, path))
         path = "file://" + path
