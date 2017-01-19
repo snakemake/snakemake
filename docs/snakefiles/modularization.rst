@@ -93,7 +93,7 @@ Refers to the wrapper ``"0.0.8/bio/samtools_sort"`` to create the output from th
 Snakemake will automatically download the wrapper from the `Snakemake Wrapper Repository <https://bitbucket.org/snakemake/snakemake-wrappers>`_.
 Thereby, 0.0.8 can be replaced with the git version tag you want to use, or a commit id (see `here <https://bitbucket.org/snakemake/snakemake-wrappers/commits>`_).
 This ensures reproducibility since changes in the wrapper implementation won't be propagated automatically to your workflow.
-Alternatively, e.g., for development, the wrapper directive can also point to full URLs, including URLs to local files with ``file://``.
+Alternatively, e.g., for development, the wrapper directive can also point to full URLs, including URLs to local files with absolute paths ``file://`` or relative paths ``file:``.
 Examples for each wrapper can be found in the READMEs located in the wrapper subdirectories at the `Snakemake Wrapper Repository <https://bitbucket.org/snakemake/snakemake-wrappers>`_.
 
 The `Snakemake Wrapper Repository <https://bitbucket.org/snakemake/snakemake-wrappers>`_ is meant as a collaborative project and pull requests are very welcome.
