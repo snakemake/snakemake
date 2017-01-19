@@ -589,7 +589,8 @@ class Workflow:
     def subworkflow(self, name, snakefile=None, workdir=None, configfile=None):
         # Take absolute path of config file, because it is relative to current
         # workdir, which could be changed for the subworkflow.
-        configfile = os.path.abspath(configfile)
+        if configfile:
+            configfile = os.path.abspath(configfile)
         sw = Subworkflow(self, name, snakefile, workdir, configfile)
         self._subworkflows[name] = sw
         self.globals[name] = sw.target
