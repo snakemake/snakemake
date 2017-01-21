@@ -262,9 +262,8 @@ class JobScheduler:
 
             self.dag.finish(job, update_dynamic=update_dynamic)
 
-            logger.job_finished(jobid=self.dag.jobid(job))
-
             if print_progress:
+                logger.job_finished(jobid=self.dag.jobid(job))
                 self.progress()
 
             if any(self.open_jobs) or not self.running:
