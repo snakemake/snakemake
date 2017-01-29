@@ -25,6 +25,8 @@ def archive_env(job):
     except ImportError:
         raise WorkflowError("Error importing PyYAML. "
             "Please install PyYAML to archive workflows.")
+    # importing requests locally because it interferes with instantiating conda environments
+    import requests
 
     env_archive = get_env_archive(job, get_env_hash(job.conda_env_file))
     if os.path.exists(env_archive):
@@ -48,7 +50,8 @@ def archive_env(job):
                 logger.info(pkg_url)
                 parsed = urlparse(pkg_url)
                 pkg_name = os.path.basename(parsed.path)
-                urlretrieve(pkg_url, os.path.join(env_archive, pkg_name))
+                with open(os.path.join(env_archive, pkg_name), "wb") as copy:
+                    copy.write(requests.get(pkg_url).content)
     except (Exception, BaseException) as e:
         shutil.rmtree(env_archive)
         raise e
@@ -113,7 +116,7 @@ def create_env(job):
         try:
             if os.path.exists(env_archive):
                 # install packages manually from env archive
-                out = subprocess.check_output(["conda", "create", "--prefix", env_path] +
+                out = subprocess.check_output(["conda", "create", "--copy", "--prefix", env_path] +
                     glob(os.path.join(env_archive, "*.tar.bz2")),
                     stderr=subprocess.STDOUT
                 )

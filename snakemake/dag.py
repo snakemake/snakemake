@@ -1110,20 +1110,24 @@ class DAG:
         try:
             workdir = Path(os.path.abspath(os.getcwd()))
             with tarfile.open(path, mode=mode, dereference=True) as archive:
+                archived = set()
 
                 def add(path):
                     if workdir not in Path(os.path.abspath(path)).parents:
                         logger.warning("Path {} cannot be archived: "
                                        "not within working directory.".format(path))
                     else:
-                        archive.add(os.path.relpath(path))
+                        f = os.path.relpath(path)
+                        if f not in archived:
+                            archive.add(f)
+                            archived.add(f)
+                            logger.info("archived " + f)
 
                 logger.info("Archiving files under version control...")
                 try:
                     out = subprocess.check_output(["git", "ls-files", "."])
                     for f in out.decode().split("\n"):
                         if f:
-                            logger.info(f)
                             add(f)
                 except subprocess.CalledProcessError as e:
                     raise WorkflowError("Error executing git.")
@@ -1134,7 +1138,6 @@ class DAG:
                     for f in job.input:
                         if not any(f in files for files in self.dependencies[job].values()):
                             # this is an input file that is not created by any job
-                            logger.info(f)
                             add(f)
 
                 logger.info("Archiving conda environments...")
