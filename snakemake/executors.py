@@ -258,7 +258,6 @@ class CPUExecutor(RealExecutor):
             job.prepare()
             conda_env = None
             if self.workflow.use_conda:
-                job.create_conda_env()
                 conda_env = job.conda_env
 
             benchmark = None
