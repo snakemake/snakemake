@@ -150,6 +150,10 @@ class DAG:
             except KeyError:
                 pass
 
+    def create_conda_envs(self):
+        for job in self.needrun_jobs:
+            job.create_conda_env()
+
     def update_output_index(self):
         """Update the OutputIndex."""
         self.output_index = OutputIndex(self.rules)
