@@ -13,6 +13,7 @@ from collections import OrderedDict
 from itertools import filterfalse, chain
 from functools import partial
 from operator import attrgetter
+import copy
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder
@@ -87,12 +88,10 @@ class Workflow:
         self.restart_times = restart_times
 
         global config
-        config = dict()
-        config.update(self.overwrite_config)
+        config = copy.deepcopy(self.overwrite_config)
 
         global cluster_config
-        cluster_config = dict()
-        cluster_config.update(self.overwrite_clusterconfig)
+        cluster_config = copy.deepcopy(self.overwrite_clusterconfig)
 
         global rules
         rules = Rules()
