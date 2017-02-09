@@ -472,13 +472,13 @@ class Workflow:
                 if provided_resources:
                     logger.resources_info(
                         "Provided resources: " + provided_resources)
-                ignored_resources = format_resource_names(
+                unlimited_resources = format_resource_names(set(
                     resource for job in dag.needrun_jobs
                     for resource in job.resources.keys()
-                    if resource not in resources)
-                if ignored_resources:
+                    if resource not in resources))
+                if unlimited_resources:
                     logger.resources_info(
-                        "Ignored resources: " + ignored_resources)
+                        "Unlimited resources: " + unlimited_resources)
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")

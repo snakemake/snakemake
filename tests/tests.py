@@ -7,7 +7,7 @@ import sys
 import os
 from os.path import join
 from subprocess import call
-from tempfile import mkdtemp
+import tempfile
 import hashlib
 import urllib
 from shutil import rmtree, which
@@ -63,8 +63,7 @@ def run(path,
     assert os.path.exists(snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir), '{} does not exist'.format(results_dir)
-    tmpdir = mkdtemp(prefix=".test", dir=os.path.abspath("."))
-    try:
+    with tempfile.TemporaryDirectory(prefix=".test", dir=os.path.abspath(".")) as tmpdir:
         config = {}
         if subpath is not None:
             # set up a working directory for the subworkflow and pass it in `config`
@@ -104,8 +103,6 @@ def run(path,
                     assert md5sum(targetfile) == md5sum(
                         expectedfile), 'wrong result produced for file "{}"'.format(
                             resultfile)
-    finally:
-        rmtree(tmpdir)
 
 
 def test01():
