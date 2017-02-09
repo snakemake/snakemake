@@ -18,5 +18,5 @@ rule b:
         "test{i}.out2"
     conda:
         "test-env.yaml"
-    run:
-        shell("snakemake --help > {output}")
+    shell:
+        "snakemake --help > {output}"
