@@ -655,6 +655,9 @@ class Workflow:
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(ruleinfo.wrapper)
             if ruleinfo.conda_env:
+                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
+                    raise RuleException("Conda environments are only allowed "
+                        "with shell, script or wrapper directives (not with run).", rule=rule)
                 if not os.path.isabs(ruleinfo.conda_env):
                     ruleinfo.conda_env = os.path.join(self.current_basedir, ruleinfo.conda_env)
                 rule.conda_env = ruleinfo.conda_env
