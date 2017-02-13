@@ -163,7 +163,7 @@ class Rule:
             branch._input, _, branch.dependencies = branch.expand_input(non_dynamic_wildcards)
             branch._output, _ = branch.expand_output(non_dynamic_wildcards)
             branch.resources = dict(branch.expand_resources(non_dynamic_wildcards, branch._input).items())
-            branch._params = branch.expand_params(non_dynamic_wildcards, branch._input, branch.resources)
+            branch._params = branch.expand_params(non_dynamic_wildcards, branch._input, branch._output, branch.resources)
             branch._log = branch.expand_log(non_dynamic_wildcards)
             branch._benchmark = branch.expand_benchmark(non_dynamic_wildcards)
             branch._conda_env = branch.expand_conda_env(non_dynamic_wildcards)
@@ -514,8 +514,7 @@ class Rule:
 
         return input, mapping, dependencies
 
-    def expand_params(self, wildcards, input, resources):
-        # TODO add output
+    def expand_params(self, wildcards, input, output, resources):
         def concretize_param(p, wildcards):
             if isinstance(p, str):
                 return apply_wildcards(p, wildcards)
@@ -530,7 +529,8 @@ class Rule:
                                   check_return_type=False,
                                   no_flattening=True,
                                   aux_params={"input": input,
-                                              "resources": resources})
+                                              "resources": resources,
+                                              "output": output})
         except WildcardError as e:
             raise WorkflowError(
                 "Wildcards in params cannot be "
