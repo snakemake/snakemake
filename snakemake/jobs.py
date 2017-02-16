@@ -148,6 +148,7 @@ class Job:
     @property
     def conda_env(self):
         if self.conda_env_file:
+            logger.debug("Accessing conda environment {}.".format(self._conda_env))
             if self._conda_env is None:
                 raise ValueError("create_conda_env() must be called before calling conda_env")
             return self._conda_env
@@ -158,6 +159,7 @@ class Job:
         if self.conda_env_file:
             try:
                 self._conda_env = conda.create_env(self)
+                logger.debug("Conda environment {} created.".format(self._conda_env))
             except CreateCondaEnvironmentException as e:
                 raise WorkflowError(e, rule=self.rule)
 
