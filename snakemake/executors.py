@@ -478,7 +478,7 @@ class ClusterExecutor(RealExecutor):
         super().finish_job(job, upload_remote=False)
 
 
-GenericClusterJob = namedtuple("GenericClusterJob", "job callback error_callback jobscript jobfinished jobfailed")
+GenericClusterJob = namedtuple("GenericClusterJob", "job jobid callback error_callback jobscript jobfinished jobfailed")
 
 
 class GenericClusterExecutor(ClusterExecutor):
@@ -555,7 +555,7 @@ class GenericClusterExecutor(ClusterExecutor):
 
         submit_callback(job)
         with self.lock:
-            self.active_jobs.append(GenericClusterJob(job, callback, error_callback, jobscript, jobfinished, jobfailed))
+            self.active_jobs.append(GenericClusterJob(job, ext_jobid, callback, error_callback, jobscript, jobfinished, jobfailed))
 
     def _wait_for_jobs(self):
         while True:
@@ -574,8 +574,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         os.remove(active_job.jobfailed)
                         os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
-                        print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
-                                                            active_job.jobscript),
+                        print_exception(ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                                         self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
                     else:
@@ -583,7 +582,7 @@ class GenericClusterExecutor(ClusterExecutor):
             time.sleep(1)
 
 
-SynchronousClusterJob = namedtuple("SynchronousClusterJob", "job callback error_callback jobscript process")
+SynchronousClusterJob = namedtuple("SynchronousClusterJob", "job jobid callback error_callback jobscript process")
 
 
 class SynchronousClusterExecutor(ClusterExecutor):
@@ -647,7 +646,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
         submit_callback(job)
 
         with self.lock:
-            self.active_jobs.append(SynchronousClusterJob(job, callback, error_callback, jobscript, process))
+            self.active_jobs.append(SynchronousClusterJob(job, process.pid, callback, error_callback, jobscript, process))
 
     def _wait_for_jobs(self):
         while True:
@@ -670,8 +669,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
                         # job failed
                         os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
-                        print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
-                                                            active_job.jobscript),
+                        print_exception(ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                                         self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
             time.sleep(1)
@@ -755,7 +753,7 @@ class DRMAAExecutor(ClusterExecutor):
                             self.workflow.linemaps)
             error_callback(job)
             return
-        logger.info("Submitted DRMAA job (jobid {})".format(jobid))
+        logger.info("Submitted DRMAA job {} with external jobid {}.".format(self.dag.jobid(job), jobid))
         self.submitted.append(jobid)
         self.session.deleteJobTemplate(jt)
 
@@ -798,7 +796,7 @@ class DRMAAExecutor(ClusterExecutor):
                     else:
                         self.print_job_error(active_job.job)
                         print_exception(
-                            ClusterJobException(active_job.job, self.dag.jobid(active_job.job), active_job.jobscript),
+                            ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                             self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
             time.sleep(1)
