@@ -286,6 +286,7 @@ def snakemake(snakefile,
     overwrite_config = dict()
     if configfile:
         overwrite_config.update(load_configfile(configfile))
+        configfile = os.path.abspath(configfile)
     if config:
         overwrite_config.update(config)
 

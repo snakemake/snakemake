@@ -73,6 +73,8 @@ class _IOFile(str):
     A file that is either input or output of a rule.
     """
 
+    __slots__ = ["_is_function", "_file", "rule", "_regex"]
+
     def __new__(cls, file):
         obj = str.__new__(cls, file)
         obj._is_function = isfunction(file) or ismethod(file)
@@ -766,7 +768,7 @@ class Namedlist(list):
         add = len(items) - 1
         for name, (i, j) in self._names.items():
             if i > index:
-                self._names[name] = (i + add, j + add)
+                self._names[name] = (i + add, None if j is None else j + add)
             elif i == index:
                 self.set_name(name, i, end=i + len(items))
 

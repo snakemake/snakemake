@@ -79,3 +79,37 @@ with the following `environment definition <http://conda.pydata.org/docs/using/e
 
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
 Note that you need to clean up environments manually for now. However, they are lightweight and consist only of symlinks to your central conda installation.
+
+
+--------------------------------------
+Sustainable and reproducible archiving
+--------------------------------------
+
+With Snakemake 3.10.0 it is possible to archive a workflow into a
+`tarball <https://en.wikipedia.org/wiki/Tar_(computing)>`_
+(`.tar`, `.tar.gz`, `.tar.bz2`, `.tar.xz`), via
+
+.. code-block:: bash
+
+    snakemake --archive my-workflow.tar.gz
+
+If above layout is followed, this will archive any code and config files that
+is under git version control. Further, all input files will be included into the
+archive. Finally, the software packages of each defined conda environment are included.
+This results in a self-contained workflow archive that can be re-executed on a
+vanilla machine that only has Conda and Snakemake installed via
+
+.. code-block:: bash
+
+    tar -xf my-workflow.tar.gz
+    snakemake -n
+
+Note that the archive is platform specific. For example, if created on Linux, it will
+run on any Linux newer than the minimum version that has been supported by the used
+Conda packages at the time of archiving (e.g. CentOS 6).
+
+A useful pattern when publishing data analyses is to create such an archive,
+upload it to `Zenodo <https://zenodo.org/>`_ and thereby obtain a
+`DOI <https://en.wikipedia.org/wiki/Digital_object_identifier>`_.
+Then, the DOI can be cited in manuscripts, and readers are able to download
+and reproduce the data analysis at any time in the future.

@@ -23,7 +23,7 @@ def get_path(path, prefix=None):
 
 
 def get_script(path, prefix=None):
-    path = get_path(path)
+    path = get_path(path, prefix=prefix)
     if not is_script(path):
         path += "/wrapper.py"
     return path

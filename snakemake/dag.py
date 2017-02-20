@@ -125,12 +125,34 @@ class DAG:
             job = self.update(self.file2jobs(file), file=file)
             self.targetjobs.add(job)
 
+        self.cleanup()
+
         self.update_needrun()
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
+        self.update_jobids()
         # check if remaining jobs are valid
-        for job in self.jobs:
+        for i, job in enumerate(self.jobs):
             job.is_valid()
+
+    def update_jobids(self):
+        for job in self.jobs:
+            if job not in self._jobid:
+                self._jobid[job] = len(self._jobid)
+
+    def cleanup(self):
+        final_jobs = set(self.jobs)
+        todelete = [job for job in self.dependencies if job not in final_jobs]
+        for job in todelete:
+            del self.dependencies[job]
+            try:
+                del self.depending[job]
+            except KeyError:
+                pass
+
+    def create_conda_envs(self):
+        for job in self.needrun_jobs:
+            job.create_conda_env()
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -274,7 +296,9 @@ class DAG:
         try:
             wait_for_files(expanded_output, latency_wait=wait)
         except IOError as e:
-            raise MissingOutputException(str(e), rule=job.rule)
+            raise MissingOutputException(str(e) + "\nThis might be due to "
+            "filesystem latency. If that is the case, consider to increase the "
+            "wait time with --latency-wait.", rule=job.rule)
 
         #It is possible, due to archive expansion or cluster clock skew, that
         #the files appear older than the input.  But we know they must be new,
@@ -411,8 +435,6 @@ class DAG:
 
     def jobid(self, job):
         """Return job id of given job."""
-        if job not in self._jobid:
-            self._jobid[job] = len(self._jobid)
         return self._jobid[job]
 
     def update(self, jobs, file=None, visited=None, skip_until_dynamic=False):
@@ -484,12 +506,13 @@ class DAG:
         exceptions = dict()
         for file, jobs in potential_dependencies:
             try:
-                producer[file] = self.update(
+                selected_job = self.update(
                     jobs,
                     file=file,
                     visited=visited,
                     skip_until_dynamic=skip_until_dynamic or file in
                     job.dynamic_input)
+                producer[file] = selected_job
             except (MissingInputException, CyclicGraphException,
                     PeriodicWildcardError) as ex:
                 if file in missing_input:
@@ -669,6 +692,7 @@ class DAG:
     def postprocess(self):
         """Postprocess the DAG. This has to be invoked after any change to the
         DAG topology."""
+        self.update_jobids()
         self.update_needrun()
         self.update_priority()
         self.update_ready()
@@ -1090,20 +1114,24 @@ class DAG:
         try:
             workdir = Path(os.path.abspath(os.getcwd()))
             with tarfile.open(path, mode=mode, dereference=True) as archive:
+                archived = set()
 
                 def add(path):
                     if workdir not in Path(os.path.abspath(path)).parents:
                         logger.warning("Path {} cannot be archived: "
                                        "not within working directory.".format(path))
                     else:
-                        archive.add(os.path.relpath(path))
+                        f = os.path.relpath(path)
+                        if f not in archived:
+                            archive.add(f)
+                            archived.add(f)
+                            logger.info("archived " + f)
 
                 logger.info("Archiving files under version control...")
                 try:
                     out = subprocess.check_output(["git", "ls-files", "."])
                     for f in out.decode().split("\n"):
                         if f:
-                            logger.info(f)
                             add(f)
                 except subprocess.CalledProcessError as e:
                     raise WorkflowError("Error executing git.")
@@ -1114,7 +1142,6 @@ class DAG:
                     for f in job.input:
                         if not any(f in files for files in self.dependencies[job].values()):
                             # this is an input file that is not created by any job
-                            logger.info(f)
                             add(f)
 
                 logger.info("Archiving conda environments...")
