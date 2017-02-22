@@ -13,7 +13,7 @@ import traceback
 import subprocess
 import collections
 import re
-from urllib.request import urlopen
+from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
 from snakemake.utils import format
@@ -163,9 +163,13 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
             path = os.path.abspath(os.path.join(basedir, path))
         path = "file://" + path
     path = format(path, stepout=1)
-
+    if path.startswith("file://"):
+        sourceurl = "file:"+pathname2url(path[7:])
+    else:
+        sourceurl = path
+    
     try:
-        with urlopen(path) as source:
+        with urlopen(sourceurl) as source:
             if path.endswith(".py"):
                 snakemake = Snakemake(input, output, params, wildcards,
                                       threads, resources, log, config, rulename)
