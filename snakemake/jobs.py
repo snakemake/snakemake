@@ -31,7 +31,7 @@ def jobfiles(jobs, type):
 class Job:
     HIGHEST_PRIORITY = sys.maxsize
 
-    __slots__ = ["rule", "dag", "targetfile", "wildcards_dict", "wildcards",
+    __slots__ = ["rule", "dag", "wildcards_dict", "wildcards",
                  "_format_wildcards", "input", "dependencies", "output",
                  "_params", "_log", "_benchmark", "_resources",
                  "_conda_env_file", "_conda_env", "shadow_dir", "_inputsize",
@@ -39,12 +39,11 @@ class Job:
                  "temp_output", "protected_output", "touch_output",
                  "subworkflow_input", "_hash"]
 
-    def __init__(self, rule, dag, targetfile=None, format_wildcards=None):
+    def __init__(self, rule, dag, wildcards_dict=None, format_wildcards=None):
         self.rule = rule
         self.dag = dag
-        self.targetfile = targetfile
 
-        self.wildcards_dict = self.rule.get_wildcards(targetfile)
+        self.wildcards_dict = wildcards_dict
         self.wildcards = Wildcards(fromdict=self.wildcards_dict)
         self._format_wildcards = (self.wildcards if format_wildcards is None
                                   else Wildcards(fromdict=format_wildcards))
