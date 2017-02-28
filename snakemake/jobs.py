@@ -83,6 +83,8 @@ class Job:
                 self.dynamic_input.add(f)
             if f_ in self.rule.subworkflow_input:
                 self.subworkflow_input[f] = self.rule.subworkflow_input[f_]
+            elif "subworkflow" in f.flags:
+                self.subworkflow_input[f] = f.flags["subworkflow"]
         self._hash = self.rule.__hash__()
         for o in self.output:
             self._hash ^= o.__hash__()
