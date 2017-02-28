@@ -1,5 +1,13 @@
 # Change Log
 
+## [3.10.2] - 2017-02-28
+### Changed
+- Improved config file handling and merging.
+- Output files can be referred in params functions (i.e. lambda wildcards, output: ...)
+- Improved conda-environment creation.
+- Jobs are cached, leading to reduced memory footprint.
+- Fixed subworkflow handling in input functions.
+
 ## [3.10.0] - 2017-01-18
 ### Added
 - Workflows can now be archived to a tarball with `snakemake --archive my-workflow.tar.gz`. The archive contains all input files, source code versioned with git and all software packages that are defined via conda environments. Hence, the archive allows to fully reproduce a workflow on a different machine. Such an archive can be uploaded to Zenodo, such that your workflow is secured in a self-contained, executable way for the future.
