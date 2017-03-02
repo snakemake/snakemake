@@ -153,6 +153,7 @@ class DAG:
                 pass
 
     def create_conda_envs(self):
+        conda.check_conda()
         for job in self.needrun_jobs:
             job.create_conda_env()
 
