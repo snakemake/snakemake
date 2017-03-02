@@ -23,7 +23,7 @@ from snakemake.shell import shell
 from snakemake.version import MIN_PY_VERSION
 
 
-PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*:")
+PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 
@@ -167,7 +167,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
         sourceurl = "file:"+pathname2url(path[7:])
     else:
         sourceurl = path
-    
+
     try:
         with urlopen(sourceurl) as source:
             if path.endswith(".py"):
