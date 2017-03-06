@@ -109,8 +109,8 @@ For cluster systems using LSF/BSUB, a cluster config may look like this:
             "memory"    : 20000,
             "resources" : "\"select[mem>20000] rusage[mem=20000] span[hosts=1]\"",
             "name"      : "JOBNAME.{rule}.{wildcards}",
-            "output"    : "ROOT_DIR/{rule}.{wildcards}.out",
-            "error"     : "ROOT_DIR/{rule}.{wildcards}.err"
+            "output"    : "logs/cluster/{rule}.{wildcards}.out",
+            "error"     : "logs/cluster/{rule}.{wildcards}.err"
         },
 
 
@@ -121,7 +121,7 @@ For cluster systems using LSF/BSUB, a cluster config may look like this:
         }
     }
 
-The advantage of this setup is that it is already pretty general by exploiting the wildcard possibilities that Snakemake provides via {rule} and {wildcards}. So job names, output and error files all have reasonable and trackable default names, only the directies (ROOT_DIR) and job names (JOBNAME) have to adjusted accordingly.
+The advantage of this setup is that it is already pretty general by exploiting the wildcard possibilities that Snakemake provides via {rule} and {wildcards}. So job names, output and error files all have reasonable and trackable default names, only the directies (*logs/cluster*) and job names (*JOBNAME*) have to adjusted accordingly.
 If a rule named *bamCoverage* is executed with the wildcard *basename* = *sample1*, for example, the output and error files will be bamCoverage.basename=sample1.out and bamCoverage.basename=sample1.err, respectively.
 
 
