@@ -295,14 +295,34 @@ Sometimes you may want to define certain parameters separately from the rule bod
 .. code-block:: python
 
     rule:
-        input:  ...
-        params: prefix="somedir/{sample}"
-        output: "somedir/{sample}.csv"
-        shell:  "somecommand -o {params.prefix}"
+        input:
+            ...
+        params:
+            prefix="somedir/{sample}"
+        output:
+            "somedir/{sample}.csv"
+        shell:
+            "somecommand -o {params.prefix}"
 
 The ``params`` keyword allows you to specify additional parameters depending on the wildcards values. This allows you to circumvent the need to use ``run:`` and python code for non-standard commands like in the above case. Here, the command ``somecommand`` expects the prefix of the output file instead of the actual one. The ``params`` keyword helps here since you cannot simply add the prefix as an output file (as the file won't be created, Snakemake would throw an error after execution of the rule).
 
-Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefiles-input_functions`)
+Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefiles-input_functions`), e.g. you can write
+
+.. code-block:: python
+
+    rule:
+        input:
+            ...
+        params:
+            prefix=lambda wildcards, output: output[0][:-4]
+        output:
+            "somedir/{sample}.csv"
+        shell:
+            "somecommand -o {params.prefix}"
+
+to get the same effect as above. Note that in contrast to the ``input`` directive, the
+``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, and ``resources``.
+Here, this allows you to derive the prefix name from the output file.
 
 .. _snakefiles-external_scripts:
 
@@ -516,6 +536,7 @@ Instead of specifying strings or lists of strings as input files, snakemake can 
         shell: "..."
 
 The function has to accept a single argument that will be the wildcards object generated from the application of the rule to create some requested output files.
+Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
 By this, rules can have entirely different input files (both in form and number) depending on the inferred wildcards. E.g. you can assign input files that appear in entirely different parts of your filesystem based on some wildcard value and a dictionary that maps the wildcard value to file paths.
 
 Note that the function will be executed when the rule is evaluated and before the workflow actually starts to execute. Further note that using a function as input overrides the default mechanism of replacing wildcards with their values inferred from the output files. You have to take care of that yourself with the given wildcards object.
