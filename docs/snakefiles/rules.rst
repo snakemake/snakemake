@@ -295,11 +295,12 @@ For programs that do not have an explicit ``log`` parameter, you may always use 
 Note that it is also supported to have multiple (named) log files being specified:
 
 .. code-block:: python
+
     rule abc:
         input: "input.txt"
         output: "output.txt"
         log: log1="logs/abc.log", log2="logs/xyz.log"
-        shell: "somecommand --log {log.log1} METRICS_FILE={log.log2} {input} {output}"
+        shell: "somecommand METRICS_FILE={log.log2} {input} {output} 2> {log.log1}"
         
 
 .. code-block:: python
