@@ -291,6 +291,17 @@ Each rule can specify a log file where information about the execution is writte
 
 The variable ``log`` can be used inside a shell command to tell the used tool to which file to write the logging information. Of course the log file can use the same wildcards as input and output files, e.g.
 
+For programs that do not have an explicit ``log`` parameter, you may always use ``2> {log}`` to redirect standard output to a file (here, the ``log`` file) in Linux-based systems.
+Note that it is also supported to have multiple (named) log files being specified:
+
+.. code-block:: python
+    rule abc:
+        input: "input.txt"
+        output: "output.txt"
+        log: log1="logs/abc.log", log2="logs/xyz.log"
+        shell: "somecommand --log {log.log1} METRICS_FILE={log.log2} {input} {output}"
+        
+
 .. code-block:: python
 
     log: "logs/abc.{dataset}.log"
