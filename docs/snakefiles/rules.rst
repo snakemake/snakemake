@@ -605,6 +605,11 @@ A re-run can be automated by invoking Snakemake as follows:
 
     $ snakemake -R `snakemake --list-version-changes`
 
+With the availability of the ``conda`` directive (see :ref:`integrated_package_management`)
+the ``version`` directive has become **obsolete** in favor of defining isolated
+software environments that can be automatically deployed via the conda package
+manager.
+
 
 .. _snakefiles-code_tracking:
 
