@@ -82,9 +82,7 @@ def get_env_path(job, env_hash):
             return path
     return path
 
-
-def create_env(job):
-    """ Create conda enviroment for the given job. """
+def check_conda():
     if shutil.which("conda") is None:
         raise CreateCondaEnvironmentException("The 'conda' command is not available in $PATH.")
     try:
@@ -98,10 +96,14 @@ def create_env(job):
             "Unable to check conda version:\n" + e.output.decode()
         )
 
+def create_env(job):
+    """ Create conda enviroment for the given job. """
+
     # Read env file and create hash.
     env_file = job.conda_env_file
     tmp_file = None
-    if is_remote_env_file(env_file):
+    is_remote = is_remote_env_file(env_file)
+    if is_remote and is_remote != 'file':
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp.write(urlopen(env_file).read())
             env_file = tmp.name
