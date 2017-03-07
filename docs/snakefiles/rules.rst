@@ -255,7 +255,7 @@ When executing snakemake, a short summary for each running rule is given to the 
         message: "Executing somecommand with {threads} threads on the following files {input}."
         shell: "somecommand --threads {threads} {input} {output}"
 
-Note that access to wildcards is also possible via the variable ``wildcards`` (e..g, ``{wildcards.sample}``), which is the same as with shell commands. It is important to have a namespace around wildcards in order to avoid clashes with other variable names.
+Note that access to wildcards is also possible via the variable ``wildcards`` (e.g, ``{wildcards.sample}``), which is the same as with shell commands. It is important to have a namespace around wildcards in order to avoid clashes with other variable names.
 
 Priorities
 ----------
@@ -293,6 +293,11 @@ Each rule can specify a log file where information about the execution is writte
 
 The variable ``log`` can be used inside a shell command to tell the used tool to which file to write the logging information. Of course the log file can use the same wildcards as input and output files, e.g.
 
+.. code-block:: python
+
+    log: "logs/abc.{dataset}.log"
+
+
 For programs that do not have an explicit ``log`` parameter, you may always use ``2> {log}`` to redirect standard output to a file (here, the ``log`` file) in Linux-based systems.
 Note that it is also supported to have multiple (named) log files being specified:
 
@@ -305,9 +310,7 @@ Note that it is also supported to have multiple (named) log files being specifie
         shell: "somecommand --log {log.log1} METRICS_FILE={log.log2} {input} {output}"
 
 
-.. code-block:: python
 
-    log: "logs/abc.{dataset}.log"
 
 Non-file parameters for rules
 -----------------------------
@@ -328,8 +331,10 @@ Sometimes you may want to define certain parameters separately from the rule bod
             "somecommand -o {params.prefix}"
 
 The ``params`` keyword allows you to specify additional parameters depending on the wildcards values. This allows you to circumvent the need to use ``run:`` and python code for non-standard commands like in the above case.
-Furthermore, for enhanced readability and clarity, the ``params`` section is also an excellent place to name and assign parameters and variables for your subsequent command
 Here, the command ``somecommand`` expects the prefix of the output file instead of the actual one. The ``params`` keyword helps here since you cannot simply add the prefix as an output file (as the file won't be created, Snakemake would throw an error after execution of the rule).
+
+Furthermore, for enhanced readability and clarity, the ``params`` section is also an excellent place to name and assign parameters and variables for your subsequent command.
+
 
 Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefiles-input_functions`), e.g. you can write
 
