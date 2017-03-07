@@ -49,6 +49,8 @@ Further, this combination of python and shell commands, allows to iterate over t
 
 Note that shell commands in Snakemake use the bash shell in `strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_ by default.
 
+.. _snakefiles-wildcards:
+
 Wildcards
 ---------
 
@@ -295,6 +297,7 @@ For programs that do not have an explicit ``log`` parameter, you may always use 
 Note that it is also supported to have multiple (named) log files being specified:
 
 .. code-block:: python
+
     rule abc:
         input: "input.txt"
         output: "output.txt"
