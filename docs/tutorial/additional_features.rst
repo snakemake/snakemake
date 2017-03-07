@@ -241,6 +241,7 @@ Snakemake uses regular expressions to match output files to input files and dete
 Sometimes it is useful to constrain the values a wildcard can have.
 This can be achieved by adding a regular expression that describes the set of allowed wildcard values.
 For example, the wildcard ``sample`` in the output file ``"sorted_reads/{sample}.bam"`` can be constrained to only allow alphanumeric sample names as ``"sorted_reads/{sample,[A-Za-z0-9]+}.bam"``.
+Constrains may be defined per rule or globally using the ``wildcard_constraints`` keyword, as demonstrated in :ref:`snakefiles-wildcards`.
 This mechanism helps to solve two kinds of ambiguity.
 
 * It can help to avoid ambiguous rules, i.e. two or more rules that can be applied to generate the same output file. Other ways of handling ambiguous rules are described in the Section :ref:`snakefiles-ambiguous-rules`.
