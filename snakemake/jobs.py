@@ -93,7 +93,7 @@ class Job:
         """Check if job is valid"""
         # these properties have to work in dry-run as well. Hence we check them here:
         resources = self.rule.expand_resources(self.wildcards_dict, self.input)
-        self.rule.expand_params(self.wildcards_dict, self.input, self.output, resources, self.threads)
+        self.rule.expand_params(self.wildcards_dict, self.input, self.output, resources)
         self.rule.expand_benchmark(self.wildcards_dict)
         self.rule.expand_log(self.wildcards_dict)
 
@@ -118,8 +118,7 @@ class Job:
             self._params = self.rule.expand_params(self.wildcards_dict,
                                                    self.input,
                                                    self.output,
-                                                   self.resources,
-                                                   self.threads)
+                                                   self.resources)
         return self._params
 
     @property
