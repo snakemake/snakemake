@@ -30,7 +30,7 @@ Requirements
 To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.3
-* Snakemake_ 3.9.0
+* Snakemake_ 3.11.0
 * BWA_ 0.7.12
 * SAMtools_ 1.3.1
 * BCFtools_ 1.3.1
@@ -110,8 +110,8 @@ First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ wget https://bitbucket.org/snakemake/snakemake-tutorial/get/v3.9.0-1.tar.bz2
-    $ tar -xf v3.9.0-1.tar.bz2 --strip 1
+    $ wget https://bitbucket.org/snakemake/snakemake-tutorial/get/v3.11.0.tar.bz2
+    $ tar -xf v3.11.0.tar.bz2 --strip 1
 
 This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
 
