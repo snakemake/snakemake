@@ -196,8 +196,13 @@ We modify the rule ``bwa_map`` accordingly:
         shell:
             "bwa mem -R '{params.rg}' -t {threads} {input} | samtools view -Sb - > {output}"
 
-Similar to input and output files, ``params`` can be accessed from the shell command.
-Moreover, the ``params`` directive can also take functions like in Step 3 to defer initialization to the DAG phase.
+.. sidebar:: Note
+
+  The ``params`` directive can also take functions like in Step 3 to defer
+  initialization to the DAG phase. In contrast to input functions, these can
+  optionally take additional arguments ``input``, ``output``, ``threads``, and ``resources``.
+
+Similar to input and output files, ``params`` can be accessed from the shell command or the Python based ``run`` block (see :ref:`tutorial-report`).
 
 Exercise
 ........
@@ -223,14 +228,17 @@ We modify our rule ``bwa_map`` as follows:
         params:
             rg="@RG\tID:{sample}\tSM:{sample}"
         log:
-            "logs/bwa_map/{sample}.log"
+            "logs/bwa_mem/{sample}.log"
         threads: 8
         shell:
             "(bwa mem -R '{params.rg}' -t {threads} {input} | "
             "samtools view -Sb - > {output}) 2> {log}"
 
+.. sidebar:: Note
+
+  It is best practice to store all log files in a subdirectory ``logs/``, prefixed by the rule or tool name.
+
 The shell command is modified to collect STDERR output of both ``bwa`` and ``samtools`` and pipe it into the file referred by ``{log}``.
-It is best practice to store all log files in a ``logs`` subdirectory, prefixed by the rule or tool name.
 Log files must contain exactly the same wildcards as the output files to avoid clashes.
 
 Exercise
@@ -263,7 +271,7 @@ We use this mechanism for the output file of the rule ``bwa_map``:
         params:
             rg="@RG\tID:{sample}\tSM:{sample}"
         log:
-            "logs/bwa_map/{sample}.log"
+            "logs/bwa_mem/{sample}.log"
         threads: 8
         shell:
             "(bwa mem -R '{params.rg}' -t {threads} {input} | "
@@ -317,7 +325,7 @@ The final version of our workflow looks like this:
         params:
             rg="@RG\tID:{sample}\tSM:{sample}"
         log:
-            "logs/bwa_map/{sample}.log"
+            "logs/bwa_mem/{sample}.log"
         threads: 8
         shell:
             "(bwa mem -R '{params.rg}' -t {threads} {input} | "

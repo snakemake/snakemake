@@ -361,6 +361,9 @@ Exercise
 .. image:: workflow/dag_call.png
    :align: center
 
+
+.. _tutorial-report:
+
 Step 6: Writing a report
 ::::::::::::::::::::::::
 
