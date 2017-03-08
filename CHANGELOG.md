@@ -1,5 +1,15 @@
 # Change Log
 
+
+## [3.11.0] - 2017-03-08
+### Added
+- Param functions can now also refer to threads.
+### Changed
+- Improved tutorial and docs.
+- Made conda integration more robust.
+- None is converted to NULL in R scripts.
+
+
 ## [3.10.2] - 2017-02-28
 ### Changed
 - Improved config file handling and merging.

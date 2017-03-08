@@ -351,7 +351,7 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
             "somecommand -o {params.prefix}"
 
 to get the same effect as above. Note that in contrast to the ``input`` directive, the
-``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, and ``resources``.
+``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, ``threads``, and ``resources``.
 Here, this allows you to derive the prefix name from the output file.
 
 
