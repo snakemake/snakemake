@@ -33,7 +33,9 @@ class REncoder:
 
     @classmethod
     def encode_value(cls, value):
-        if isinstance(value, str):
+        if value is None:
+            return "NULL"
+        elif isinstance(value, str):
             return repr(value)
         elif isinstance(value, dict):
             return cls.encode_dict(value)
