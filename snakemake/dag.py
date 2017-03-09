@@ -293,24 +293,25 @@ class DAG:
                 return True
         return False
 
-    def check_and_touch_output(self, job, wait=3):
+    def check_and_touch_output(self, job, wait=3, ignore_missing_output=False):
         """ Raise exception if output files of job are missing. """
         expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
-        try:
-            wait_for_files(expanded_output, latency_wait=wait)
-        except IOError as e:
-            raise MissingOutputException(str(e) + "\nThis might be due to "
-            "filesystem latency. If that is the case, consider to increase the "
-            "wait time with --latency-wait.", rule=job.rule)
+        if ignore_missing_output is False:
+            try:
+                wait_for_files(expanded_output, latency_wait=wait)
+            except IOError as e:
+                raise MissingOutputException(str(e), rule=job.rule)
 
         #It is possible, due to archive expansion or cluster clock skew, that
         #the files appear older than the input.  But we know they must be new,
-        #so touch them to update timestamps.
+        #so touch them to update timestamps. This also serves to touch outputs
+        #when using the --touch flag.
         #Note that if the input files somehow have a future date then this will
         #not currently be spotted and the job will always be re-run.
         #Also, don't touch directories, as we can't guarantee they were removed.
         for f in expanded_output:
-            if not os.path.isdir(f):
+            #This will neither create missing files nor touch directories
+            if os.path.isfile(f):
                 f.touch()
 
     def unshadow_output(self, job):

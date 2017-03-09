@@ -106,9 +106,9 @@ class AbstractExecutor:
         logger.error("Error in job {} while creating output file{} {}.".format(
             job, "s" if len(job.output) > 1 else "", ", ".join(job.output)))
 
-    def finish_job(self, job, upload_remote=True):
+    def finish_job(self, job, upload_remote=True, ignore_missing_output=False):
         self.dag.handle_touch(job)
-        self.dag.check_and_touch_output(job, wait=self.latency_wait)
+        self.dag.check_and_touch_output(job, wait=self.latency_wait, ignore_missing_output=ignore_missing_output)
         self.dag.unshadow_output(job)
         self.dag.handle_remote(job, upload=upload_remote)
         self.dag.handle_protected(job)
@@ -149,8 +149,8 @@ class RealExecutor(AbstractExecutor):
                 "Please ensure write permissions for the "
                 "directory {}".format(e, self.workflow.persistence.path))
 
-    def finish_job(self, job, upload_remote=True):
-        super().finish_job(job, upload_remote=upload_remote)
+    def finish_job(self, job, upload_remote=True, ignore_missing_output=False):
+        super().finish_job(job, upload_remote=upload_remote, ignore_missing_output=ignore_missing_output)
         self.stats.report_job_end(job)
         try:
             self.workflow.persistence.finished(job)
@@ -201,7 +201,7 @@ class TouchExecutor(RealExecutor):
             if job.benchmark:
                 job.benchmark.touch()
             time.sleep(0.1)
-            self.finish_job(job)
+            self.finish_job(job, ignore_missing_output=True)
             callback(job)
         except OSError as ex:
             print_exception(ex, self.workflow.linemaps)
