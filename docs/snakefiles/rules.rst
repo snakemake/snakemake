@@ -575,6 +575,35 @@ Note that the function will be executed when the rule is evaluated and before th
 Finally, when implementing the input function, it is best practice to make sure that it can properly handle all possible wildcard values your rule can have.
 In particular, input files should not be combined with very general rules that can be applied to create almost any file: Snakemake will try to apply the rule, and will report the exceptions of your input function as errors.
 
+
+Consider the following illustrary example that demonstrates when an input function might be necessary:
+Say you need a rule that needs multiple replicate samples of a particular individual as input, along with other wildcards reflecting different analysis types. 
+In addition, individuals may have different number of replicates so that the exact files cannot be hard-coded in the rule. 
+This can be achieved in the following way by defining an additional function (simply put it above the rule) that creates a list of files according to the specific wildcard assignments of the rule:
+
+.. code-block:: python
+
+  def generateInputFiles (wildcards):
+      return expand('{dir}/{samples}.final.{analysisType}.{peakType}Peak', dir = PEAKCALLING_dir, samples = getSampleBasenamesForIndividual(wildcards.individual), analysisType = wildcards.analysisType, peakType = wildcards.peakType)
+
+Then, the ``input`` section of the rule can simply be written as follows (note that the function is implicitly called with the ``wildcards`` object of the rule):
+
+.. code-block:: python
+
+  rule poolPeaksReplicateSamples:
+      input: peakfiles = generateInputFiles
+
+
+Note that the following attempt using a ``lambda expression`` does not work in this case due to the failed automatic replacement of ``{{...}}`` within ``expand``:
+
+.. code-block:: python
+
+  rule poolPeaksReplicateSamples:
+      input:
+          NOT_WORKING = lambda wildcards: expand('{dir}/{samples}.final.{{analysisType}}.{{peakType}}Peak', dir = PEAKCALLING_dir, samples = getSampleBasenamesForIndividual(wildcards.individual)) # WRONG; DOES NOT WORK
+
+
+
 .. _snakefiles-unpack:
 
 Input Functions and ``unpack()``
