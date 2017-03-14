@@ -11,6 +11,7 @@ from glob import glob
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
+from snakemake.common import strip_prefix
 
 
 def get_env_archive(job, env_hash):
@@ -103,11 +104,18 @@ def create_env(job):
     env_file = job.conda_env_file
     tmp_file = None
     is_remote = is_remote_env_file(env_file)
-    if is_remote and is_remote != 'file':
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp.write(urlopen(env_file).read())
-            env_file = tmp.name
-            tmp_file = tmp.name
+
+    if is_remote:
+        # download remote file
+        if is_remote != 'file':
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp.write(urlopen(env_file).read())
+                env_file = tmp.name
+                tmp_file = tmp.name
+        else:
+            # turn local file url into plain path
+            env_file = strip_prefix("file:")
+
     env_hash = get_env_hash(env_file)
     env_path = get_env_path(job, env_hash)
     # Create environment if not already present.

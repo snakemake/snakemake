@@ -33,3 +33,9 @@ class lazy_property(property):
         value = self.method(instance)
         setattr(instance, self.cached, value)
         return value
+
+
+def strip_prefix(text, prefix):
+    if text.startswith(prefix):
+        return text[len(prefix):]
+    return text
