@@ -50,6 +50,7 @@ class JobScheduler:
         self.dag = dag
         self.workflow = workflow
         self.dryrun = dryrun
+        self.touch = touch
         self.quiet = quiet
         self.keepgoing = keepgoing
         self.running = set()
@@ -367,7 +368,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
     def job_reward(self, job):
         return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job),
-                job.inputsize)
+                0 if self.touch else job.inputsize)
 
     def dryrun_job_reward(self, job):
         return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job))
