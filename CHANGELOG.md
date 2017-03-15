@@ -1,5 +1,11 @@
 # Change Log
 
+## [3.11.2] - 2017-03-15
+### Changed
+- Fixed fix handling of local URIs with the wrapper directive.
+
+
+
 ## [3.11.1] - 2017-03-14
 ### Changed
 - --touch ignores missing files

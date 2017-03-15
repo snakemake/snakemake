@@ -114,7 +114,7 @@ def create_env(job):
                 tmp_file = tmp.name
         else:
             # turn local file url into plain path
-            env_file = strip_prefix("file:")
+            env_file = strip_prefix(env_file, "file:")
 
     env_hash = get_env_hash(env_file)
     env_path = get_env_path(job, env_hash)
