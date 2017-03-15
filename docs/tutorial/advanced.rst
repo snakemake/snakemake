@@ -3,8 +3,8 @@
 Advanced: Decorating the example workflow
 -----------------------------------------
 
-.. _Snakemake: http://snakemake.bitbucket.org
-.. _Snakemake homepage: http://snakemake.bitbucket.org
+.. _Snakemake: https://snakemake.bitbucket.io
+.. _Snakemake homepage: https://snakemake.bitbucket.io
 .. _GNU Make: https://www.gnu.org/software/make
 .. _Python: http://www.python.org
 .. _BWA: http://bio-bwa.sourceforge.net
