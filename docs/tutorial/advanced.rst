@@ -3,8 +3,8 @@
 Advanced: Decorating the example workflow
 -----------------------------------------
 
-.. _Snakemake: http://snakemake.bitbucket.org
-.. _Snakemake homepage: http://snakemake.bitbucket.org
+.. _Snakemake: https://snakemake.bitbucket.io
+.. _Snakemake homepage: https://snakemake.bitbucket.io
 .. _GNU Make: https://www.gnu.org/software/make
 .. _Python: http://www.python.org
 .. _BWA: http://bio-bwa.sourceforge.net
@@ -66,13 +66,15 @@ For example
 
     $ snakemake --cores 10
 
+
+.. sidebar:: Note
+
+  Apart from the very common thread resource, Snakemake provides a ``resources`` directive that can be used to **specify arbitrary resources**, e.g., memory usage or auxiliary computing devices like GPUs.
+  Similar to threads, these can be considered by the scheduler when an available amount of that resource is given with the command line argument ``--resources`` (see :ref:`snakefiles-resources`).
+
 would execute the workflow with 10 cores.
 Since the rule ``bwa_map`` needs 8 threads, only one job of the rule can run at a time, and the Snakemake scheduler will try to saturate the remaining cores with other jobs like, e.g., ``samtools_sort``.
 The threads directive in a rule is interpreted as a maximum: when **less cores than threads** are provided, the number of threads a rule uses will be **reduced to the number of given cores**.
-
-Apart from the very common thread resource, Snakemake provides a ``resources`` directive that can be used to **specify arbitrary resources**, e.g., memory usage or auxiliary computing devices like GPUs.
-Similar to threads, these can be considered by the scheduler when an available amount of that resource is given with the command line argument ``--resources``.
-Details can be found in the Snakemake :ref:`manual-main`.
 
 Exercise
 ........
@@ -148,10 +150,21 @@ For the rule ``bwa_map`` this works as follows:
         shell:
             "bwa mem -t {threads} {input} | samtools view -Sb - > {output}"
 
-Here, we use an anonymous function, also called **lambda expression**.
+.. sidebar:: Note
+
+  Snakemake does not automatically rerun jobs when new input files are added as
+  in the excercise below. However, you can get a list of output files that
+  are affected by such changes with ``snakemake --list-input-changes``.
+  To trigger a rerun, some bash magic helps:
+
+  .. code:: console
+
+    snakemake -n --forcerun $(snakemake --list-input-changes)
+
+Here, we use an anonymous function, also called `lambda expression <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_.
 Any normal function would work as well.
 Input functions take as **single argument** a ``wildcards`` object, that allows to access the wildcards values via attributes (here ``wildcards.sample``).
-They **return a string or a list of strings**, that are interpreted as paths to input files (here, we return the path that is stored for the sample in the config file).
+They have to **return a string or a list of strings**, that are interpreted as paths to input files (here, we return the path that is stored for the sample in the config file).
 Input functions are evaluated once the wildcard values of a job are determined.
 
 
@@ -159,7 +172,6 @@ Exercise
 ........
 
 * In the ``data/samples`` folder, there is an additional sample ``C.fastq``. Add that sample to the config file and see how Snakemake wants to recompute the part of the workflow belonging to the new sample, when invoking with ``snakemake -n --reason --forcerun bcftools_call``.
-
 
 Step 4: Rule parameters
 :::::::::::::::::::::::
@@ -184,8 +196,13 @@ We modify the rule ``bwa_map`` accordingly:
         shell:
             "bwa mem -R '{params.rg}' -t {threads} {input} | samtools view -Sb - > {output}"
 
-Similar to input and output files, ``params`` can be accessed from the shell command.
-Moreover, the ``params`` directive can also take functions like in Step 3 to defer initialization to the DAG phase.
+.. sidebar:: Note
+
+  The ``params`` directive can also take functions like in Step 3 to defer
+  initialization to the DAG phase. In contrast to input functions, these can
+  optionally take additional arguments ``input``, ``output``, ``threads``, and ``resources``.
+
+Similar to input and output files, ``params`` can be accessed from the shell command or the Python based ``run`` block (see :ref:`tutorial-report`).
 
 Exercise
 ........
@@ -211,14 +228,17 @@ We modify our rule ``bwa_map`` as follows:
         params:
             rg="@RG\tID:{sample}\tSM:{sample}"
         log:
-            "logs/bwa_map/{sample}.log"
+            "logs/bwa_mem/{sample}.log"
         threads: 8
         shell:
             "(bwa mem -R '{params.rg}' -t {threads} {input} | "
             "samtools view -Sb - > {output}) 2> {log}"
 
+.. sidebar:: Note
+
+  It is best practice to store all log files in a subdirectory ``logs/``, prefixed by the rule or tool name.
+
 The shell command is modified to collect STDERR output of both ``bwa`` and ``samtools`` and pipe it into the file referred by ``{log}``.
-It is best practice to store all log files in a ``logs`` subdirectory, prefixed by the rule or tool name.
 Log files must contain exactly the same wildcards as the output files to avoid clashes.
 
 Exercise
@@ -251,7 +271,7 @@ We use this mechanism for the output file of the rule ``bwa_map``:
         params:
             rg="@RG\tID:{sample}\tSM:{sample}"
         log:
-            "logs/bwa_map/{sample}.log"
+            "logs/bwa_mem/{sample}.log"
         threads: 8
         shell:
             "(bwa mem -R '{params.rg}' -t {threads} {input} | "
@@ -305,7 +325,7 @@ The final version of our workflow looks like this:
         params:
             rg="@RG\tID:{sample}\tSM:{sample}"
         log:
-            "logs/bwa_map/{sample}.log"
+            "logs/bwa_mem/{sample}.log"
         threads: 8
         shell:
             "(bwa mem -R '{params.rg}' -t {threads} {input} | "

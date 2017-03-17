@@ -83,6 +83,7 @@ class DAG:
         self.notemp = notemp
         self.keep_remote_local = keep_remote_local
         self._jobid = dict()
+        self.job_cache = dict()
 
         self.forcerules = set()
         self.forcefiles = set()
@@ -141,6 +142,7 @@ class DAG:
                 self._jobid[job] = len(self._jobid)
 
     def cleanup(self):
+        self.job_cache.clear()
         final_jobs = set(self.jobs)
         todelete = [job for job in self.dependencies if job not in final_jobs]
         for job in todelete:
@@ -151,6 +153,7 @@ class DAG:
                 pass
 
     def create_conda_envs(self):
+        conda.check_conda()
         for job in self.needrun_jobs:
             job.create_conda_env()
 
@@ -290,24 +293,27 @@ class DAG:
                 return True
         return False
 
-    def check_and_touch_output(self, job, wait=3):
+    def check_and_touch_output(self, job, wait=3, ignore_missing_output=False):
         """ Raise exception if output files of job are missing. """
         expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
-        try:
-            wait_for_files(expanded_output, latency_wait=wait)
-        except IOError as e:
-            raise MissingOutputException(str(e) + "\nThis might be due to "
-            "filesystem latency. If that is the case, consider to increase the "
-            "wait time with --latency-wait.", rule=job.rule)
+        if ignore_missing_output is False:
+            try:
+                wait_for_files(expanded_output, latency_wait=wait)
+            except IOError as e:
+                raise MissingOutputException(str(e) + "\nThis might be due to "
+                "filesystem latency. If that is the case, consider to increase the "
+                "wait time with --latency-wait.", rule=job.rule)
 
         #It is possible, due to archive expansion or cluster clock skew, that
         #the files appear older than the input.  But we know they must be new,
-        #so touch them to update timestamps.
+        #so touch them to update timestamps. This also serves to touch outputs
+        #when using the --touch flag.
         #Note that if the input files somehow have a future date then this will
         #not currently be spotted and the job will always be re-run.
         #Also, don't touch directories, as we can't guarantee they were removed.
         for f in expanded_output:
-            if not os.path.isdir(f):
+            #This will neither create missing files nor touch directories
+            if os.path.isfile(f):
                 f.touch()
 
     def unshadow_output(self, job):
@@ -735,6 +741,19 @@ class DAG:
                 # add finished jobs to len as they are not counted after new postprocess
                 self._len += len(self._finished)
 
+    def new_job(self, rule, targetfile=None, format_wildcards=None):
+        """Create new job for given rule and (optional) targetfile.
+        This will reuse existing jobs with the same wildcards."""
+        key = (rule, targetfile)
+        if key in self.job_cache:
+            assert targetfile is not None
+            return self.job_cache[key]
+        wildcards_dict = rule.get_wildcards(targetfile)
+        job = Job(rule, self, wildcards_dict=wildcards_dict, format_wildcards=format_wildcards)
+        for f in job.output:
+            self.job_cache[(rule, f)] = job
+        return job
+
     def update_dynamic(self, job):
         """Update the DAG by evaluating the output of the given job that
         contains dynamic output files."""
@@ -751,7 +770,7 @@ class DAG:
         self.specialize_rule(job.rule, newrule)
 
         # no targetfile needed for job
-        newjob = Job(newrule, self, format_wildcards=non_dynamic_wildcards)
+        newjob = self.new_job(newrule, format_wildcards=non_dynamic_wildcards)
         self.replace_job(job, newjob)
         for job_ in depending:
             if job_.dynamic_input:
@@ -760,9 +779,8 @@ class DAG:
                     self.specialize_rule(job_.rule, newrule_)
                     if not self.dynamic(job_):
                         logger.debug("Updating job {}.".format(job_))
-                        newjob_ = Job(newrule_,
-                                      self,
-                                      targetfile=job_.targetfile)
+                        newjob_ = self.new_job(newrule_,
+                                      targetfile=job_.output[0] if job_.output else None)
 
                         unexpected_output = self.reason(
                             job_).missing_output.intersection(
@@ -839,7 +857,7 @@ class DAG:
                 continue
             try:
                 if file in job.dependencies:
-                    jobs = [Job(job.dependencies[file], self, targetfile=file)]
+                    jobs = [self.new_job(job.dependencies[file], targetfile=file)]
                 else:
                     jobs = file2jobs(file)
                 dependencies[file].extend(jobs)
@@ -920,7 +938,7 @@ class DAG:
         """Generate a new job from a given rule."""
         if targetrule.has_wildcards():
             raise WorkflowError("Target rules may not contain wildcards. Please specify concrete files or a rule without wildcards.")
-        return Job(targetrule, self)
+        return self.new_job(targetrule)
 
     def file2jobs(self, targetfile):
         rules = self.output_index.match(targetfile)
@@ -929,7 +947,7 @@ class DAG:
         for rule in rules:
             if rule.is_producer(targetfile):
                 try:
-                    jobs.append(Job(rule, self, targetfile=targetfile))
+                    jobs.append(self.new_job(rule, targetfile=targetfile))
                 except InputFunctionException as e:
                     exceptions.append(e)
         if not jobs:

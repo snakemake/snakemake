@@ -7,7 +7,12 @@ subworkflow test02:
 rule:
     input: "test.out"
 
+
+def test_in(wildcards):
+    return test02("test.out")
+
+
 rule:
-    input: test02("test.out")
+    input: test_in
     output: "test.out"
     shell: "cp {input} {output}"

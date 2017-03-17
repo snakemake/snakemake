@@ -63,7 +63,7 @@ Quick Example
 Getting started
 ---------------
 
-To get started, consider the :ref:`tutorial <tutorial-welcome>`, the `introductory slides <http://slides.com/johanneskoester/snakemake-tutorial-2016>`_, and the :ref:`FAQ <project_info-faq>`.
+To get started, consider the :ref:`tutorial`, the `introductory slides <http://slides.com/johanneskoester/snakemake-tutorial-2016>`_, and the :ref:`FAQ <project_info-faq>`.
 
 .. _main-support:
 
@@ -138,25 +138,15 @@ Please consider to add your own.
 
 
 .. toctree::
-   :caption: Installation
-   :name: installation
+   :caption: Getting started
+   :name: getting_started
    :hidden:
    :maxdepth: 1
 
    getting_started/installation
    getting_started/examples
+   tutorial/tutorial
 
-
-.. toctree::
-   :caption: Tutorial
-   :name: tutorial
-   :hidden:
-   :maxdepth: 1
-
-   tutorial/welcome
-   tutorial/basics
-   tutorial/advanced
-   tutorial/additional_features
 
 .. toctree::
   :caption: Executing workflows
@@ -164,7 +154,7 @@ Please consider to add your own.
   :hidden:
   :maxdepth: 1
 
-  executable.rst
+  executable
 
 .. toctree::
     :caption: Defining workflows

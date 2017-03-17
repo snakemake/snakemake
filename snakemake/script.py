@@ -13,7 +13,7 @@ import traceback
 import subprocess
 import collections
 import re
-from urllib.request import urlopen
+from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
 from snakemake.utils import format
@@ -23,7 +23,7 @@ from snakemake.shell import shell
 from snakemake.version import MIN_PY_VERSION
 
 
-PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*:")
+PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 
@@ -33,7 +33,9 @@ class REncoder:
 
     @classmethod
     def encode_value(cls, value):
-        if isinstance(value, str):
+        if value is None:
+            return "NULL"
+        elif isinstance(value, str):
             return repr(value)
         elif isinstance(value, dict):
             return cls.encode_dict(value)
@@ -163,9 +165,13 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
             path = os.path.abspath(os.path.join(basedir, path))
         path = "file://" + path
     path = format(path, stepout=1)
+    if path.startswith("file://"):
+        sourceurl = "file:"+pathname2url(path[7:])
+    else:
+        sourceurl = path
 
     try:
-        with urlopen(path) as source:
+        with urlopen(sourceurl) as source:
             if path.endswith(".py"):
                 snakemake = Snakemake(input, output, params, wildcards,
                                       threads, resources, log, config, rulename)

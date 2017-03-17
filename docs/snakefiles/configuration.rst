@@ -102,6 +102,34 @@ Here ``__default__`` is a special object that specifies default parameters, thes
     $ snakemake -j 999 --cluster-config cluster.json --cluster "sbatch -A {cluster.account} -p {cluster.partition} -n {cluster.n}  -t {cluster.time}"
 
 
+For cluster systems using LSF/BSUB, a cluster config may look like this:
+
+.. code-block:: json
+
+    {
+        "__default__" :
+        {
+            "queue"     : "medium_priority",
+            "nCPUs"     : "16",
+            "memory"    : 20000,
+            "resources" : "\"select[mem>20000] rusage[mem=20000] span[hosts=1]\"",
+            "name"      : "JOBNAME.{rule}.{wildcards}",
+            "output"    : "logs/cluster/{rule}.{wildcards}.out",
+            "error"     : "logs/cluster/{rule}.{wildcards}.err"
+        },
+
+
+        "trimming_PE" :
+        {
+            "memory"    : 30000,
+            "resources" : "\"select[mem>30000] rusage[mem=30000] span[hosts=1]\"",
+        }
+    }
+
+The advantage of this setup is that it is already pretty general by exploiting the wildcard possibilities that Snakemake provides via ``{rule}`` and ``{wildcards}``. So job names, output and error files all have reasonable and trackable default names, only the directies (``logs/cluster``) and job names (``JOBNAME``) have to adjusted accordingly.
+If a rule named ``bamCoverage`` is executed with the wildcard ``basename = sample1``, for example, the output and error files will be ``bamCoverage.basename=sample1.out`` and ``bamCoverage.basename=sample1.err``, respectively.
+
+
 ---------------------------
 Configure Working Directory
 ---------------------------
