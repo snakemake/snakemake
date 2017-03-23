@@ -296,6 +296,9 @@ class DAG:
     def check_and_touch_output(self, job, wait=3, ignore_missing_output=False):
         """ Raise exception if output files of job are missing. """
         expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
+        if job.benchmark:
+            expanded_output.append(job.benchmark)
+
         if ignore_missing_output is False:
             try:
                 wait_for_files(expanded_output, latency_wait=wait)

@@ -8,7 +8,6 @@ import sys
 import base64
 import tempfile
 import subprocess
-import json
 
 from collections import defaultdict
 from itertools import chain

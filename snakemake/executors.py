@@ -198,8 +198,6 @@ class TouchExecutor(RealExecutor):
         super()._run(job)
         try:
             #Touching of output files will be done by finish_job
-            if job.benchmark:
-                job.benchmark.touch()
             time.sleep(0.1)
             self.finish_job(job, ignore_missing_output=True)
             callback(job)
