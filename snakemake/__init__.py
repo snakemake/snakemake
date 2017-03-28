@@ -223,6 +223,7 @@ def snakemake(snakefile,
         bool:   True if workflow execution was successful.
 
     """
+    assert not immediate_submit or (immediate_submit and notemp), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
 
     if updated_files is None:
         updated_files = list()
@@ -992,6 +993,13 @@ def main(argv=None):
     if args.profile:
         import yappi
         yappi.start()
+
+    if args.immediate_submit and not args.notemp:
+        print(
+            "Error: --immediate-submit has to be combined with --notemp, "
+            "because temp file handling is not supported in this mode.",
+            file=sys.stderr)
+        sys.exit(1)
 
     if args.gui is not None:
         try:
