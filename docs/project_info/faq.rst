@@ -411,3 +411,12 @@ To remove all files created by snakemake as output files to start from scratch, 
 .. code-block:: console
 
     rm $(snakemake --summary | tail -n+2 | cut -f1)
+
+
+Why can't I use the conda directive with a run block?
+-----------------------------------------------------
+
+The run block of a rule (see :ref:`snakefiles-rules`) has access to anything defined in the Snakefile, outside of the rule.
+Hence, it has to share the conda environment with the main Snakemake process.
+To avoid confusion we therefore disallow the conda directive together with the run block.
+It is recommended to use the script directive instead (see :ref:`snakefiles-external_scripts`).
