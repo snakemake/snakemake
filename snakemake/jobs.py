@@ -586,6 +586,7 @@ class Job:
             "input": self.input,
             "output": self.output,
             "params": params,
+            "log": self.log,
             "threads": self.threads,
             "resources": resources,
             "jobid": self.dag.jobid(self)
