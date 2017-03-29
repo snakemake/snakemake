@@ -369,7 +369,8 @@ def snakemake(snakefile,
                                        config_args=config_args,
                                        keep_logger=True,
                                        keep_shadow=True,
-                                       force_use_threads=use_threads)
+                                       force_use_threads=use_threads,
+                                       use_conda=use_conda)
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
