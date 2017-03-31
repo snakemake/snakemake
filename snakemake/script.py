@@ -224,9 +224,49 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                                for name, value in resources.items()
                                if name != "_cores" and name != "_nodes"
                            }), REncoder.encode_dict(config), REncoder.encode_value(rulename))
+            elif path.endswith(".Rmd"):
+                preamble = textwrap.dedent("""
+                ######## Snakemake header ########
+                library(methods)
+                Snakemake <- setClass(
+                    "Snakemake",
+                    slots = c(
+                        input = "list",
+                        output = "list",
+                        params = "list",
+                        wildcards = "list",
+                        threads = "numeric",
+                        log = "list",
+                        resources = "list",
+                        config = "list",
+                        rule = "character"
+                    )
+                )
+                snakemake <- Snakemake(
+                    input = {},
+                    output = {},
+                    params = {},
+                    wildcards = {},
+                    threads = {},
+                    log = {},
+                    resources = {},
+                    config = {},
+                    rule = {}
+                )
+                ######## Original script #########
+                """).format(REncoder.encode_namedlist(input),
+                           REncoder.encode_namedlist(output),
+                           REncoder.encode_namedlist(params),
+                           REncoder.encode_namedlist(wildcards), threads,
+                           REncoder.encode_namedlist(log),
+                           REncoder.encode_namedlist({
+                               name: value
+                               for name, value in resources.items()
+                               if name != "_cores" and name != "_nodes"
+                           }), REncoder.encode_dict(config), REncoder.encode_value(rulename))
             else:
                 raise ValueError(
-                    "Unsupported script: Expecting either Python (.py) or R (.R) script.")
+                    "Unsupported script: Expecting either Python (.py), R (.R) or RMarkdown (.Rmd) script.")
 
             if path.startswith("file://"):
                 # in case of local path, use the same directory
@@ -237,13 +277,14 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 prefix = ""
                 os.makedirs(dir, exist_ok=True)
 
-            with tempfile.NamedTemporaryFile(
-                suffix="." + os.path.basename(path),
-                prefix=prefix,
-                dir=dir,
-                delete=False) as f:
-                f.write(preamble.encode())
-                f.write(source.read())
+            if not path.endswith(".Rmd"):
+                with tempfile.NamedTemporaryFile(
+                    suffix="." + os.path.basename(path),
+                    prefix=prefix,
+                    dir=dir,
+                    delete=False) as f:
+                    f.write(preamble.encode())
+                    f.write(source.read())
             if path.endswith(".py"):
                 py_exec = sys.executable
                 if conda_env is not None:
@@ -266,6 +307,25 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 shell("{py_exec} {f.name}")
             elif path.endswith(".R"):
                 shell("Rscript {f.name}")
+            elif path.endswith(".Rmd"):
+                with tempfile.NamedTemporaryFile(
+                    suffix="." + os.path.basename(path),
+                    prefix=prefix,
+                    dir=dir,
+                    delete=False) as f:
+                    # Insert Snakemake object after the RMarkdown header
+                    code = source.read().decode()
+                    pos = code.rfind("---")
+                    f.write(str.encode(code[:pos+3]))
+                    preamble = """
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+%s
+```
+""" % preamble
+                    f.write(preamble.encode())
+                    f.write(str.encode(code[pos+3:]))
+                output_file = os.path.join(basedir,output[0])
+                shell("""Rscript -e 'rmarkdown::render("{f.name}", output_file="{output_file}", quiet=TRUE)'""")
             os.remove(f.name)
 
     except URLError as e:
