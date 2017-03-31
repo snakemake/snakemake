@@ -73,9 +73,9 @@ class RemoteObject(AbstractRemoteObject):
 
     def upload(self):
         if self.size() > 10 * 1024 * 1024: # S3 complains if multipart uploads are <10MB
-            self._s3c.upload_to_s3_multipart(self.s3_bucket, self.file(), self.s3_key)
+            self._s3c.upload_to_s3_multipart(self.s3_bucket, self.file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
         else:
-            self._s3c.upload_to_s3(self.s3_bucket, self.file(), self.s3_key)
+            self._s3c.upload_to_s3(self.s3_bucket, self.file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
 
     @property
     def list(self):
@@ -140,7 +140,8 @@ class S3Helper(object):
             relative_start_dir=None,
             replace=False,
             reduced_redundancy=False,
-            headers=None):
+            headers=None,
+            encrypt_key=False):
         """ Upload a file to S3
 
             This function uploads a file to an AWS S3 bucket.
@@ -189,7 +190,8 @@ class S3Helper(object):
                 file_path,
                 replace=replace,
                 reduced_redundancy=reduced_redundancy,
-                headers=headers)
+                headers=headers,
+                encrypt_key=encrypt_key)
             if bytes_written:
                 return k.key
             else:
@@ -285,7 +287,8 @@ class S3Helper(object):
             replace=False,
             reduced_redundancy=False,
             headers=None,
-            parallel_processes=4):
+            parallel_processes=4,
+            encrypt_key=False):
         """ Upload a file to S3
 
             This function uploads a file to an AWS S3 bucket.
@@ -329,7 +332,7 @@ class S3Helper(object):
             else:
                 path_key = os.path.basename(file_path)
 
-        mp = b.initiate_multipart_upload(path_key, headers=headers)
+        mp = b.initiate_multipart_upload(path_key, headers=headers, encrypt_key=encrypt_key)
 
         source_size = os.stat(file_path).st_size
 

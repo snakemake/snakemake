@@ -111,15 +111,14 @@ def print_exception(ex, linemaps):
 
 class WorkflowError(Exception):
     @staticmethod
-    def format_args(args):
-        for arg in args:
-            if isinstance(arg, str):
-                yield arg
-            else:
-                yield "{}: {}".format(arg.__class__.__name__, str(arg))
+    def format_arg(arg):
+        if isinstance(arg, str):
+            return arg
+        else:
+            return "{}: {}".format(arg.__class__.__name__, str(arg))
 
     def __init__(self, *args, lineno=None, snakefile=None, rule=None):
-        super().__init__("\n".join(self.format_args(args)))
+        super().__init__("\n".join(self.format_arg(arg) for arg in args))
         if rule is not None:
             self.lineno = rule.lineno
             self.snakefile = rule.snakefile
@@ -177,7 +176,10 @@ class RuleException(Exception):
 
 
 class InputFunctionException(WorkflowError):
-    pass
+    def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
+        msg = self.format_arg(msg) + "\nWildcards:\n" + "\n".join(
+            "{}={}".format(name, value) for name, value in wildcards.items())
+        super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
 
 class MissingOutputException(RuleException):
@@ -316,13 +318,13 @@ class DropboxFileException(RuleException):
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
 class ClusterJobException(RuleException):
-    def __init__(self, job, jobid, jobscript):
+    def __init__(self, job_info, jobid):
         super().__init__(
-            "Error executing rule {} on cluster (jobid: {}, jobscript: {}). "
-            "For detailed error see the cluster log.".format(job.rule.name,
-                                                             jobid, jobscript),
-            lineno=job.rule.lineno,
-            snakefile=job.rule.snakefile)
+            "Error executing rule {} on cluster (jobid: {}, external: {}, jobscript: {}). "
+            "For detailed error see the cluster log.".format(job_info.job.rule.name,
+                                                             jobid, job_info.jobid, job_info.jobscript),
+            lineno=job_info.job.rule.lineno,
+            snakefile=job_info.job.rule.snakefile)
 
 
 class CreateRuleException(RuleException):
@@ -330,4 +332,12 @@ class CreateRuleException(RuleException):
 
 
 class TerminatedException(Exception):
+    pass
+
+
+class CreateCondaEnvironmentException(Exception):
+    pass
+
+
+class SpawnedJobError(Exception):
     pass

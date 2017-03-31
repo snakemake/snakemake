@@ -1,11 +1,16 @@
+# -*- coding: UTF-8 -*-
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-
 from setuptools.command.test import test as TestCommand
 import sys
+
+
+# load version info
+exec(open("snakemake/version.py").read())
 
 
 if sys.version_info < (3, 3):
@@ -21,15 +26,18 @@ except ImportError:
     exit(1)
 
 
-# load version info
-exec(open("snakemake/version.py").read())
-
-
 class NoseTestCommand(TestCommand):
+    user_options = [
+        ('test-suite=', 's', "Test to run (e.g. test_shadow)")
+    ]
+
     def run_tests(self):
         # Run nose ensuring that argv simulates running nosetests directly
+        argv = ['nosetests']
+        if self.test_suite != 'all':
+            argv.append('tests/tests.py:' + self.test_suite)
         import nose
-        nose.run_exit(argv=['nosetests'])
+        nose.run_exit(argv=argv)
 
 
 setup(
@@ -45,7 +53,7 @@ setup(
     'code to define rules. Rules describe how to create output files from input files.',
     zip_safe=False,
     license='MIT',
-    url='http://snakemake.bitbucket.org',
+    url='http://snakemake.bitbucket.io',
     packages=['snakemake', 'snakemake.remote'],
     entry_points={
         "console_scripts":
@@ -53,8 +61,10 @@ setup(
          "snakemake-bash-completion = snakemake:bash_completion"]
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
-    tests_require=['rpy2', 'docutils', 'nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6', 
-                     'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8', 'requests>=2.8.1', 'dropbox>=3.38'],
+    install_requires=['wrapt', 'requests'],
+    tests_require=['pytools', 'rpy2', 'httpretty==0.8.10', 'docutils', 'nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6',
+                     'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8', 'requests>=2.8.1', 'dropbox>=5.2', 'pyyaml'],
+    test_suite='all',
     cmdclass={'test': NoseTestCommand},
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",

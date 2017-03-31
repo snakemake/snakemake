@@ -1,7 +1,7 @@
 " Vim syntax file
 " Language:	Snakemake (extended from python.vim)
 " Maintainer:	Jay Hesselberth (jay.hesselberth@gmail.com)
-" Last Change:	2015 Jul 1 
+" Last Change:	2016 Jan 23
 "
 " Usage
 "
@@ -43,15 +43,15 @@ source $VIMRUNTIME/syntax/python.vim
 
 syn keyword pythonStatement	include workdir onsuccess onerror
 syn keyword pythonStatement	ruleorder localrules configfile
-syn keyword pythonStatement	touch protected temp
+syn keyword pythonStatement	touch protected temp wrapper
 syn keyword pythonStatement	input output params message threads resources
-syn keyword pythonStatement	version run shell benchmark snakefile log
+syn keyword pythonStatement	version run shell benchmark snakefile log script
 syn keyword pythonStatement	rule subworkflow nextgroup=pythonFunction skipwhite
 
 " similar to special def and class treatment from python.vim, except
 " parenthetical part of def and class
 syn match   pythonFunction
-      \ "\%(\%(rule\s\|subworkflow\s\)\s*\)\@<=\h*" contained
+      \ "\%(\%(rule\s\|subworkflow\s\)\s*\)\@<=\h\w*" contained
 
 syn sync match pythonSync grouphere NONE "^\s*\%(rule\|subworkflow\)\s\+\h\w*\s*"
 

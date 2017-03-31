@@ -1,0 +1,33 @@
+# What if an input function returns a generator rather than a list?
+# Pythonically, generators are preferred to lists.
+
+#This always worked fine:
+def input_func1(wildcards):
+    return [ "%s.%d.in" % (wildcards.base, n) for n in range(1,4) ]
+
+#This fails:
+def input_func2(wildcards):
+    return ( "%s.%d.in" % (wildcards.base, n) for n in range(1,4) )
+
+#As does this
+def input_func3(wildcards):
+    for n in range(1,4):
+        yield "%s.%d.in" % (wildcards.base, n)
+
+rule main:
+    input: "foo.out1", "foo.out2", "foo.out3"
+
+rule test1:
+    output: "{base}.out1"
+    input: input_func1
+    shell: "cat {input} > {output}"
+
+rule test2:
+    output: "{base}.out2"
+    input: input_func2
+    shell: "cat {input} > {output}"
+
+rule test3:
+    output: "{base}.out3"
+    input: input_func3
+    shell: "cat {input} > {output}"

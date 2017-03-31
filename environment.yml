@@ -1,0 +1,26 @@
+channels:
+  - bioconda
+  - r
+  - anaconda
+  - conda-forge
+dependencies:
+  - python >=3.3
+  - rpy2 >=0.7.6
+  - boto
+  - moto
+  - httpretty ==0.8.10
+  - filechunkio
+  - pyyaml
+  - nose
+  - ftputil
+  - pysftp
+  - requests
+  - dropbox
+  - numpy
+  - appdirs
+  - pytools
+  - docutils
+  - sphinx
+  - pip:
+    - sphinxcontrib-napoleon
+    - sphinx_rtd_theme

@@ -1,0 +1,12 @@
+rule default:
+    input:
+        "out.txt"
+
+rule my_rule:
+    output:
+        "{name}.txt",
+        "{name}.txt",
+    shell:
+        r"""
+        touch {output}
+        """

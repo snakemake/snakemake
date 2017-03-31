@@ -1,0 +1,5 @@
+rule:
+    input: "test.in"
+    output: "test.out"
+    wrapper:
+        'file:wrapper.py'

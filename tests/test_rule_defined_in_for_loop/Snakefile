@@ -1,0 +1,12 @@
+rule all:
+  input: 'iteration-02.txt'
+
+
+for i in range(2, 4):
+  rule:
+    output:
+      fasta='iteration-{nr:02d}.txt'.format(nr=i)
+    input:
+      fasta='iteration-{nr:02d}.txt'.format(nr=i-1)
+    run:
+      shell("cp -p {input.fasta} {output.fasta}")

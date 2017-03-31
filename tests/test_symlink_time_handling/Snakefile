@@ -1,0 +1,70 @@
+# vim: ft=python
+"""Snakemake should work where the input/output of a rule is a symlink, no problem.
+   Here we test that updates to symlinks are recognised and that the timestamps
+   on symlinks are updated properly.
+
+   Unfortunately this does not work on some Python builds where
+   os.supports_follow_symlinks does not include utime().  This includes the Miniconda
+   build used on continuum.io.  Therefore this test is an expected failure on those
+   systems.
+
+   In practise, the impact of the bug is low - lutime() on a link will just be a no-op
+   and users will see a warning message.  Anyone for whom this is a real problem should
+   install a fully-working version of Python.
+"""
+
+"""Description of the test:
+
+   input_file is a file that is 1 hour old
+   input_link is a link to input file that is 4 hours old
+   output_link is a symlink to input_link that is 2 hours old
+
+   So output_link needs to be re-evaluated since the contents of input_file changed.
+
+   rule main outputs the time difference between inout and output in hours which
+   can be checked by Nose to ensure output_link gets touched by Snakemake but
+   neither input_file nor input_link are changed.
+"""
+
+import os
+import time
+
+#Slightly crude way to stop this running twice
+if not os.path.exists("input_file"):
+    def timestr(hr_delta=0):
+        return time.strftime("%Y%m%d%H%M",
+                             time.localtime(time.time() - (hr_delta * 3600) - 5))
+
+    shell("touch -t {} input_file".format(timestr(1)))
+    shell("ln -s input_file input_link")
+    shell("touch -h -t {} input_link".format(timestr(4)))
+
+    shell("ln -s input_link output_link")
+    shell("touch -h -t {} output_link".format(timestr(2)))
+
+    shell("ls -lR > /dev/stderr")
+
+rule main:
+    output: "time_diff.txt"
+    input: "output_link"
+    run:
+        time_diff1 = int( (
+            os.stat("output_link", follow_symlinks=False).st_mtime -
+            os.stat("input_link", follow_symlinks=False).st_mtime
+        ) / (60*60) )
+        time_diff2 = int( (
+            os.stat("output_link", follow_symlinks=False).st_mtime -
+            os.stat("input_file", follow_symlinks=False).st_mtime
+        ) / (60*60) )
+        # I expect the result "4 1"
+        shell("ls -lR > /dev/stderr")
+        shell("echo {time_diff1} {time_diff2} | tee time_diff.txt 2>&1")
+
+rule make_output:
+    output: "output_link"
+    input: "input_link"
+    run:
+        #shell("rm -f {output}") - no longer necessary
+        shell("ln -s {input} {output}")
+        #This next command should be undone by Snakemake which now touches all outpout
+        shell("touch -h -t 201604011600 {output}")
