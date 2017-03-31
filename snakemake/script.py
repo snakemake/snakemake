@@ -184,47 +184,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({})
                 ######## Original script #########
                 """).format(searchpath, snakemake)
-            elif path.endswith(".R"):
-                preamble = textwrap.dedent("""
-                ######## Snakemake header ########
-                library(methods)
-                Snakemake <- setClass(
-                    "Snakemake",
-                    slots = c(
-                        input = "list",
-                        output = "list",
-                        params = "list",
-                        wildcards = "list",
-                        threads = "numeric",
-                        log = "list",
-                        resources = "list",
-                        config = "list",
-                        rule = "character"
-                    )
-                )
-                snakemake <- Snakemake(
-                    input = {},
-                    output = {},
-                    params = {},
-                    wildcards = {},
-                    threads = {},
-                    log = {},
-                    resources = {},
-                    config = {},
-                    rule = {}
-                )
-                ######## Original script #########
-                """).format(REncoder.encode_namedlist(input),
-                           REncoder.encode_namedlist(output),
-                           REncoder.encode_namedlist(params),
-                           REncoder.encode_namedlist(wildcards), threads,
-                           REncoder.encode_namedlist(log),
-                           REncoder.encode_namedlist({
-                               name: value
-                               for name, value in resources.items()
-                               if name != "_cores" and name != "_nodes"
-                           }), REncoder.encode_dict(config), REncoder.encode_value(rulename))
-            elif path.endswith(".Rmd"):
+            elif path.endswith(".R") or path.endswith(".Rmd"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
                 library(methods)
