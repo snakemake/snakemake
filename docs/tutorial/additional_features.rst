@@ -64,7 +64,7 @@ We activate benchmarking for the rule ``bwa_map``:
 
 The ``benchmark`` directive takes a string that points to the file where benchmarking results shall be stored.
 Similar to output files, the path can contain wildcards (it must be the same wildcards as in the output files).
-When a job derived from the rule is executed, Snakemake will measure the wall clock time and store it in the file in tab-delimited format.
+When a job derived from the rule is executed, Snakemake will measure the wall clock time and memory usage (in MiB) and store it in the file in tab-delimited format.
 With the command line flag ``--benchmark-repeats``, Snakemake can be instructed to perform repetitive measurements by executing benchmark jobs multiple times.
 The repeated measurements occur as subsequent lines in the tab-delimited benchmark file.
 

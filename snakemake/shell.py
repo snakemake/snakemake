@@ -11,6 +11,7 @@ import inspect
 
 from snakemake.utils import format
 from snakemake.logging import logger
+from snakemake.benchmark import benchmarked
 
 __author__ = "Johannes Köster"
 
@@ -43,7 +44,8 @@ class shell:
     def __new__(cls, cmd, *args,
                 async=False,
                 iterable=False,
-                read=False, **kwargs):
+                read=False, bench_record=None,
+                **kwargs):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
         cmd = format(cmd, *args, stepout=2, **kwargs)
@@ -75,7 +77,9 @@ class shell:
             ret = proc.stdout.read()
         elif async:
             return proc
-        retcode = proc.wait()
+        # Note: benchmarking does not work in case of async=True
+        with benchmarked(proc.pid, bench_record):
+            retcode = proc.wait()
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
         return ret

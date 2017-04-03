@@ -803,6 +803,13 @@ With the `benchmark` keyword, a rule can be declared to store a benchmark of its
             "somecommand {input} {output}"
 
 benchmarks the CPU and wall clock time of the command ``somecommand`` for the given output and input files.
-For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark txt file (which will contain a tab-separated table of run times). Per default, Snakemake executes the job once, generating one run time.
+For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark txt file (which will contain a tab-separated table of run times and memory usage in MiB).
+Per default, Snakemake executes the job once, generating one run time.
 With ``snakemake --benchmark-repeats``, this number can be changed to e.g. generate timings for two or three runs.
 The resulting txt file can be used as input for other rules, just like any other output file.
+
+.. note::
+
+    Note that benchmarking is only possible in a reliable fashion for subprocesses (thus for tasks run through the ``shell``, ``script``, and ``wrapper`` directive).
+    In the ``run`` block, the variable ``bench_record`` is available that you can pass to ``shell()`` as ``bench_record=bench_record``.
+    When using ``shell(..., bench_record=bench_record)``, the maximum of all measurements of all ``shell()`` calls will be used but the running time of the rule execution including any Python code.
