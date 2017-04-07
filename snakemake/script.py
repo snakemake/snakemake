@@ -237,14 +237,27 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 prefix = ""
                 os.makedirs(dir, exist_ok=True)
 
-            if not path.endswith(".Rmd"):
-                with tempfile.NamedTemporaryFile(
-                    suffix="." + os.path.basename(path),
-                    prefix=prefix,
-                    dir=dir,
-                    delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                suffix="." + os.path.basename(path),
+                prefix=prefix,
+                dir=dir,
+                delete=False) as f:
+                if not path.endswith(".Rmd"):
                     f.write(preamble.encode())
                     f.write(source.read())
+                else:
+                    # Insert Snakemake object after the RMarkdown header
+                    code = source.read().decode()
+                    pos = code.rfind("---")
+                    f.write(str.encode(code[:pos+3]))
+                    preamble = textwrap.dedent("""
+                        ```{r, echo=FALSE, message=FALSE, warning=FALSE}
+                        %s
+                        ```
+                        """ % preamble)
+                    f.write(preamble.encode())
+                    f.write(str.encode(code[pos+3:]))
+
             if path.endswith(".py"):
                 py_exec = sys.executable
                 if conda_env is not None:
@@ -268,24 +281,10 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
             elif path.endswith(".R"):
                 shell("Rscript {f.name}")
             elif path.endswith(".Rmd"):
-                with tempfile.NamedTemporaryFile(
-                    suffix="." + os.path.basename(path),
-                    prefix=prefix,
-                    dir=dir,
-                    delete=False) as f:
-                    # Insert Snakemake object after the RMarkdown header
-                    code = source.read().decode()
-                    pos = code.rfind("---")
-                    f.write(str.encode(code[:pos+3]))
-                    preamble = """
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-%s
-```
-""" % preamble
-                    f.write(preamble.encode())
-                    f.write(str.encode(code[pos+3:]))
-                output_file = os.path.join(basedir,output[0])
-                shell("""Rscript -e 'rmarkdown::render("{f.name}", output_file="{output_file}", quiet=TRUE)'""")
+                if len(output) != 1:
+                    raise WorkflowError("RMarkdown scripts (.Rmd) may only have a single output file.")
+                out = os.path.abspath(output[0])
+                shell("""Rscript -e 'rmarkdown::render("{f.name}", output_file="{out}", quiet=TRUE)'""")
             os.remove(f.name)
 
     except URLError as e:
