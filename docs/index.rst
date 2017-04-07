@@ -16,8 +16,8 @@ Welcome to Snakemake's documentation!
 .. image:: https://quay.io/repository/snakemake/snakemake/status
        :target: https://quay.io/repository/snakemake/snakemake
 
-.. image:: https://img.shields.io/circleci/project/bitbucket/snakemake/snakemake.svg
-    :target: https://circleci.com/bb/snakemake/snakemake/tree/master
+.. image:: https://app.wercker.com/status/5b4faec0485e3b6ed5497f3e8e551b34/s/master
+    :target: https://app.wercker.com/project/byKey/5b4faec0485e3b6ed5497f3e8e551b34
 
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
     :target: http://stackoverflow.com/questions/tagged/snakemake
