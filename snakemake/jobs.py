@@ -585,6 +585,7 @@ class Job:
             "local": self.dag.workflow.is_local(self.rule),
             "input": self.input,
             "output": self.output,
+            "wildcards": self.wildcards,
             "params": params,
             "log": self.log,
             "threads": self.threads,
