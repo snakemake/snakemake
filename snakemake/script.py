@@ -184,7 +184,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({})
                 ######## Original script #########
                 """).format(searchpath, snakemake)
-            elif path.endswith(".R"):
+            elif path.endswith(".R") or path.endswith(".Rmd"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
                 library(methods)
@@ -226,7 +226,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                            }), REncoder.encode_dict(config), REncoder.encode_value(rulename))
             else:
                 raise ValueError(
-                    "Unsupported script: Expecting either Python (.py) or R (.R) script.")
+                    "Unsupported script: Expecting either Python (.py), R (.R) or RMarkdown (.Rmd) script.")
 
             if path.startswith("file://"):
                 # in case of local path, use the same directory
@@ -242,8 +242,22 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 prefix=prefix,
                 dir=dir,
                 delete=False) as f:
-                f.write(preamble.encode())
-                f.write(source.read())
+                if not path.endswith(".Rmd"):
+                    f.write(preamble.encode())
+                    f.write(source.read())
+                else:
+                    # Insert Snakemake object after the RMarkdown header
+                    code = source.read().decode()
+                    pos = code.rfind("---")
+                    f.write(str.encode(code[:pos+3]))
+                    preamble = textwrap.dedent("""
+                        ```{r, echo=FALSE, message=FALSE, warning=FALSE}
+                        %s
+                        ```
+                        """ % preamble)
+                    f.write(preamble.encode())
+                    f.write(str.encode(code[pos+3:]))
+
             if path.endswith(".py"):
                 py_exec = sys.executable
                 if conda_env is not None:
@@ -266,6 +280,11 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 shell("{py_exec} {f.name}")
             elif path.endswith(".R"):
                 shell("Rscript {f.name}")
+            elif path.endswith(".Rmd"):
+                if len(output) != 1:
+                    raise WorkflowError("RMarkdown scripts (.Rmd) may only have a single output file.")
+                out = os.path.abspath(output[0])
+                shell("""Rscript -e 'rmarkdown::render("{f.name}", output_file="{out}", quiet=TRUE)'""")
             os.remove(f.name)
 
     except URLError as e:

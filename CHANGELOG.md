@@ -1,5 +1,9 @@
 # Change Log
 
+## Unreleased
+### Added
+- support for RMarkdown (.Rmd) in script directives.
+
 ## [3.11.2] - 2017-03-15
 ### Changed
 - Fixed fix handling of local URIs with the wrapper directive.
