@@ -3,6 +3,7 @@ channels:
   - r
   - anaconda
   - conda-forge
+  - bokeh
 dependencies:
   - python >=3.3
   - rpy2 >=0.7.6
@@ -23,6 +24,5 @@ dependencies:
   - sphinx
   - pandoc
   - r-rmarkdown
-  - pip:
-    - sphinxcontrib-napoleon
-    - sphinx_rtd_theme
+  - sphinxcontrib-napoleon
+  - sphinx_rtd_theme
