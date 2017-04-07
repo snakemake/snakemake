@@ -1,3 +1,5 @@
+[![wercker status](https://app.wercker.com/status/5b4faec0485e3b6ed5497f3e8e551b34/s/master "wercker status")](https://app.wercker.com/project/byKey/5b4faec0485e3b6ed5497f3e8e551b34)
+
 # Snakemake - a pythonic workflow system
 
 Snakemake is a workflow management system that aims to reduce the complexity of creating workflows 
