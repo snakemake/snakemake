@@ -5,6 +5,6 @@ by providing a fast and comfortable execution environment, together with a clean
 specification language in Python style. Snakemake workflows are essentially Python scripts extended 
 by declarative code to define rules. Rules describe how to create output files from input files.
 
-Homepage: http://snakemake.bitbucket.org
+Homepage: http://snakemake.bitbucket.io
 
-Copyright (c) 2012-2017 Johannes Köster <johannes.koester@protonmail.com> (see LICENSE)
+Copyright (c) 2012-2017 Johannes KÃ¶ster <johannes.koester@protonmail.com> (see LICENSE)
