@@ -3,35 +3,16 @@ __copyright__ = "Copyright 2017, Chris Burr"
 __email__ = "christopher.burr@cern.ch"
 __license__ = "MIT"
 
-# built-ins
 import os
-from os.path import abspath, basename, dirname
-import re
-import http.client
-import email.utils
-# from itertools import product, chain
-from contextlib import contextmanager
+from os.path import abspath, basename, dirname, normpath, isdir
 
-# module-specific
-from snakemake.remote import AbstractRemoteProvider, DomainObject
-from snakemake.exceptions import HTTPFileException, WorkflowError
-import snakemake.io
-
-import math
-import email.utils
-from time import mktime
-import datetime
-import functools
-import concurrent.futures
-
-# module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
-from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, XROOTDFileException
+from snakemake.exceptions import WorkflowError, XROOTDFileException
 
 try:
     # third-party modules
     from XRootD import client
-    from XRootD.client.flags import DirListFlags, OpenFlags, MkDirFlags, QueryCode
+    from XRootD.client.flags import DirListFlags, QueryCode
 except ImportError as e:
     raise WorkflowError(
         "The Python 3 package 'XRootD' must be installed to use XROOTD "
@@ -60,6 +41,12 @@ class RemoteObject(AbstractRemoteObject):
             self._xrd = provider.remote_interface()
         else:
             self._xrd = XROOTDHelper(*args, **kwargs)
+
+    @property
+    def _file(self):
+        if self._iofile is None:
+            return None
+        return normpath('./'+self._iofile._file)
 
     # === Implementations of abstract class members ===
 
@@ -97,7 +84,7 @@ class XROOTDHelper(object):
         self._client = client.FileSystem(self._connection_string)
 
     def exists(self, filename):
-        status, _ = self._client.query(QueryCode.CHECKSUM, filename)
+        status, _ = self._client.query(QueryCode.CHECKSUM, '/'+filename)
         if status.ok:
             return True
         elif status.errno == 3011:
@@ -106,8 +93,7 @@ class XROOTDHelper(object):
             raise NotImplementedError('Got status object: '+repr(status))
 
     def _get_statinfo(self, filename):
-        dirlist = self.list_directory(filename)
-        matches = [f for f in dirlist.dirlist if f.name == basename(filename)]
+        matches = [f for f in self.list_directory('/'+filename) if f.name == basename(filename)]
         assert len(matches) == 1
         return matches[0].statinfo
 
@@ -121,20 +107,23 @@ class XROOTDHelper(object):
 
     def _copy(self, source, destination):
         process = client.CopyProcess()
-        process.add_job(self._connection_string+source, abspath(destination))
+        process.add_job(source, destination)
         process.prepare()
         status, returns = process.run()
-        if not status.ok and returns[0]['status'].ok:
+        if not status.ok or not returns[0]['status'].ok:
             raise XROOTDFileException('Error copying from '+source+' to '+destination)
 
     def download(self, source, destination):
+        dest_dir = abspath(dirname(destination))
+        if not isdir(dest_dir):
+            os.makedirs(dest_dir)
         self._copy(self._connection_string+source, abspath(destination))
 
     def upload(self, source, destination):
         self._copy(abspath(destination), self._connection_string+source)
 
     def list_directory(self, filename):
-        status, dirlist = self._client.dirlist(dirname(filename), DirListFlags.STAT)
+        status, dirlist = self._client.dirlist(dirname('/'+filename), DirListFlags.STAT)
         if not status.ok:
             raise XROOTDFileException('Error getting timestamp for '+filename, status, dirlist)
         return dirlist.dirlist

@@ -1,0 +1,16 @@
+import os
+from snakemake.remote.XROOTD import RemoteProvider as XROOTDRemoteProvider
+
+XROOTD = XROOTDRemoteProvider(url='eoslhcb.cern.ch')
+
+rule all:
+    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root", keep_local=False)
+
+rule split:
+    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_update.root", keep_local=False)
+    output: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root", keep_local=False)
+    shell:
+        'cp {input[0]} {output[0]}'
+
+# TODO try removing leading slash on /eos/...
+# TODO try keep local True and False
