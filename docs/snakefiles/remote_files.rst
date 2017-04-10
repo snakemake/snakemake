@@ -88,6 +88,13 @@ If you wish to have a rule to simply download a file to a local copy, you can do
         run:
             shell("cp {output[0]} ./")
 
+In some cases the rule can use the data directly on the remote provider, in these cases ``use_remote=True`` can be set to avoid downloading/uploading data unnecessarily. The default for ``use_remote`` and ``keep_local`` can be configured by setting these properties on the remote provider object:
+
+.. code-block:: python
+
+    from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
+    S3 = S3RemoteProvider(access_key_id="MYACCESSKEY", secret_access_key="MYSECRET", keep_local=True, use_remote=True)
+
 The remote provider also supports a new ``glob_wildcards()`` (see :ref:`glob-wildcards`) which acts the same as the local version of ``glob_wildcards()``, but for remote files:
 
 .. code-block:: python
