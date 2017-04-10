@@ -123,6 +123,10 @@ class _IOFile(str):
         return get_flag_value(self._file, "remote_object").keep_local
 
     @property
+    def should_use_remote(self):
+        return get_flag_value(self._file, "remote_object").use_remote
+
+    @property
     def remote_object(self):
         self.update_remote_filepath()
         return get_flag_value(self._file, "remote_object")
@@ -213,8 +217,9 @@ class _IOFile(str):
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
-            logger.info("Downloading from remote: {}".format(self.file))
-            self.remote_object.download()
+            if not self.should_use_remote:
+                logger.info("Downloading from remote: {}".format(self.file))
+                self.remote_object.download()
         else:
             raise RemoteFileException(
                 "The file to be downloaded does not seem to exist remotely.")
@@ -360,7 +365,7 @@ _wildcard_regex = re.compile(
 def wait_for_files(files, latency_wait=3):
     """Wait for given files to be present in filesystem."""
     files = list(files)
-    get_missing = lambda: [f for f in files if not os.path.exists(f)]
+    get_missing = lambda: [f for f in files if not [os.path.exists(f), f.exists_remote][f.is_remote and f.should_use_remote]]
     missing = get_missing()
     if missing:
         logger.info("Waiting at most {} seconds for missing files.".format(

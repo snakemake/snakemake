@@ -399,7 +399,7 @@ class DAG:
         if upload:
             # handle output files
             for f in job.expanded_output:
-                if f.is_remote:
+                if f.is_remote and not f.should_use_remote:
                     f.upload_to_remote()
                     remote_mtime = f.mtime
                     # immediately force local mtime to match remote,
@@ -437,8 +437,9 @@ class DAG:
                         yield f
 
             for f in unneeded_files():
-                logger.info("Removing local output file: {}".format(f))
-                f.remove()
+                if f.exists_local:
+                    logger.info("Removing local output file: {}".format(f))
+                    f.remove()
 
             job.rmdir_empty_remote_dirs()
 

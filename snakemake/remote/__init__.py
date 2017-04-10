@@ -48,7 +48,7 @@ class AbstractRemoteProvider:
         self.args = args
         self.kwargs = kwargs
 
-    def remote(self, value, *args, keep_local=False, static=False, **kwargs):
+    def remote(self, value, *args, keep_local=False, use_remote=False, static=False, **kwargs):
         if snakemake.io.is_flagged(value, "temp"):
             raise SyntaxError(
                 "Remote and temporary flags are mutually exclusive.")
@@ -57,7 +57,7 @@ class AbstractRemoteProvider:
                 "Remote and protected flags are mutually exclusive.")
 
         provider = sys.modules[self.__module__] # get module of derived class
-        remote_object = provider.RemoteObject(*args, keep_local=keep_local, provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs)
+        remote_object = provider.RemoteObject(*args, keep_local=keep_local, use_remote=use_remote, provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs)
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
         return snakemake.io.flag(
@@ -91,13 +91,14 @@ class AbstractRemoteObject:
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, *args, keep_local=False, provider=None, **kwargs):
+    def __init__(self, *args, keep_local=False, use_remote=False, provider=None, **kwargs):
         # self._iofile must be set before the remote object can be used, in io.py or elsewhere
         self._iofile = None
         self.args = args
         self.kwargs = kwargs
 
         self.keep_local = keep_local
+        self.use_remote = use_remote
         self.provider = provider
 
     @property
@@ -142,7 +143,7 @@ class AbstractRemoteObject:
         pass
 
     @abstractmethod
-    def remote(self, value, keep_local=False):
+    def remote(self, value, keep_local=False, use_remote=False):
         pass
 
 class DomainObject(AbstractRemoteObject):
