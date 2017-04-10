@@ -17,6 +17,6 @@ except ImportError as e:
         "need to be installed to use S3 remote() file functionality. %s" % e.msg)
 
 class RemoteProvider(S3RemoteProvider):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, use_remote=False, **kwargs):
         kwargs["host"] = "storage.googleapis.com"
-        super(RemoteProvider, self).__init__(*args, **kwargs)
+        super(RemoteProvider, self).__init__(*args, use_remote=use_remote, **kwargs)

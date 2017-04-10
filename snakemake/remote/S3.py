@@ -28,8 +28,8 @@ except ImportError as e:
         "need to be installed to use S3 remote() file functionality. %s" % e.msg)
 
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, **kwargs):
-        super(RemoteProvider, self).__init__(*args, **kwargs)
+    def __init__(self, *args, use_remote=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, use_remote=use_remote, **kwargs)
 
         self._s3c = S3Helper(*args, **kwargs)
     

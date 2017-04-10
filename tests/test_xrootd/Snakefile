@@ -1,14 +1,14 @@
 import os
 from snakemake.remote.XROOTD import RemoteProvider as XROOTDRemoteProvider
 
-XROOTD = XROOTDRemoteProvider(url='eoslhcb.cern.ch')
+XROOTD = XROOTDRemoteProvider(url='eoslhcb.cern.ch', use_remote=True)
 
 rule all:
-    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root", use_remote=True)
+    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root")
 
 rule split:
-    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_update.root", use_remote=True)
-    output: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root", use_remote=True)
+    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_update.root")
+    output: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root")
     shell:
         'xrdcp root://eoslhcb.cern.ch//{input[0]} root://eoslhcb.cern.ch//{output[0]}'
 
