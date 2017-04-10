@@ -4,13 +4,14 @@ from snakemake.remote.XROOTD import RemoteProvider as XROOTDRemoteProvider
 XROOTD = XROOTDRemoteProvider(url='eoslhcb.cern.ch')
 
 rule all:
-    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root", keep_local=False)
+    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root", use_remote=True)
 
 rule split:
-    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_update.root", keep_local=False)
-    output: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root", keep_local=False)
+    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_update.root", use_remote=True)
+    output: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root", use_remote=True)
     shell:
-        'cp {input[0]} {output[0]}'
+        'xrdcp root://eoslhcb.cern.ch//{input[0]} root://eoslhcb.cern.ch//{output[0]}'
 
 # TODO try removing leading slash on /eos/...
 # TODO try keep local True and False
+# TODO Set default of use_remote as a provider property

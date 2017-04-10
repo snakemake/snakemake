@@ -12,7 +12,7 @@ from snakemake.exceptions import WorkflowError, XROOTDFileException
 try:
     # third-party modules
     from XRootD import client
-    from XRootD.client.flags import DirListFlags, QueryCode
+    from XRootD.client.flags import DirListFlags, MkDirFlags
 except ImportError as e:
     raise WorkflowError(
         "The Python 3 package 'XRootD' must be installed to use XROOTD "
@@ -31,11 +31,11 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with the AWS S3 object store.
+    """ This is a class to interact with XROOTD servers.
     """
 
-    def __init__(self, *args, keep_local=False, provider=None, **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+    def __init__(self, *args, keep_local=False, use_remote=False, provider=None, **kwargs):
+        super(RemoteObject, self).__init__(*args, keep_local=keep_local, use_remote=use_remote, provider=provider, **kwargs)
 
         if provider:
             self._xrd = provider.remote_interface()
@@ -84,13 +84,7 @@ class XROOTDHelper(object):
         self._client = client.FileSystem(self._connection_string)
 
     def exists(self, filename):
-        status, _ = self._client.query(QueryCode.CHECKSUM, '/'+filename)
-        if status.ok:
-            return True
-        elif status.errno == 3011:
-            return False
-        else:
-            raise NotImplementedError('Got status object: '+repr(status))
+        return basename(filename) in [f.name for f in self.list_directory(dirname(filename)+'/')]
 
     def _get_statinfo(self, filename):
         matches = [f for f in self.list_directory('/'+filename) if f.name == basename(filename)]
@@ -111,7 +105,7 @@ class XROOTDHelper(object):
         process.prepare()
         status, returns = process.run()
         if not status.ok or not returns[0]['status'].ok:
-            raise XROOTDFileException('Error copying from '+source+' to '+destination)
+            raise XROOTDFileException('Error copying from '+source+' to '+destination, repr(status), repr(returns))
 
     def download(self, source, destination):
         dest_dir = abspath(dirname(destination))
@@ -119,8 +113,18 @@ class XROOTDHelper(object):
             os.makedirs(dest_dir)
         self._copy(self._connection_string+source, abspath(destination))
 
+    def makedirs(self, dirname):
+        status, _ = self._client.mkdir('/'+dirname+'/', MkDirFlags.MAKEPATH)
+        if not status.ok:
+            print('*'*100, repr(status))
+            raise XROOTDFileException('Failed to create directory /'+dirname, repr(status))
+
     def upload(self, source, destination):
-        self._copy(abspath(destination), self._connection_string+source)
+        dest_dir = normpath(dirname(destination))
+        # TODO Make this more like isdir
+        if not self.exists(dest_dir):
+            self.makedirs(dest_dir)
+        self._copy(abspath(source), self._connection_string+destination)
 
     def list_directory(self, filename):
         status, dirlist = self._client.dirlist(dirname('/'+filename), DirListFlags.STAT)
