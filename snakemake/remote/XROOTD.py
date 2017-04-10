@@ -134,7 +134,7 @@ class XROOTDHelper(object):
         self._copy(abspath(destination), self._connection_string+source)
 
     def list_directory(self, filename):
-        status, dirlist = self.client.dirlist(dirname(filename), DirListFlags.STAT)
+        status, dirlist = self._client.dirlist(dirname(filename), DirListFlags.STAT)
         if not status.ok:
             raise XROOTDFileException('Error getting timestamp for '+filename, status, dirlist)
         return dirlist.dirlist
