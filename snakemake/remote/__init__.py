@@ -44,18 +44,21 @@ class AbstractRemoteProvider:
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, *args, use_remote=False, **kwargs):
+    def __init__(self, *args, keep_local=False, use_remote=False, **kwargs):
         self.args = args
         self.use_remote = use_remote
+        self.keep_local = keep_local
         self.kwargs = kwargs
 
-    def remote(self, value, *args, keep_local=False, use_remote=None, static=False, **kwargs):
+    def remote(self, value, *args, keep_local=None, use_remote=None, static=False, **kwargs):
         if snakemake.io.is_flagged(value, "temp"):
             raise SyntaxError(
                 "Remote and temporary flags are mutually exclusive.")
         if snakemake.io.is_flagged(value, "protected"):
             raise SyntaxError(
                 "Remote and protected flags are mutually exclusive.")
+        if keep_local is None:
+            keep_local = self.keep_local
         if use_remote is None:
             use_remote = self.use_remote
 
