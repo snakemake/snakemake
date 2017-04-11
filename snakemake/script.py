@@ -1,5 +1,5 @@
-__author__ = "Johannes KÃ¶ster"
-__copyright__ = "Copyright 2015, Johannes KÃ¶ster"
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -284,7 +284,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 if len(output) != 1:
                     raise WorkflowError("RMarkdown scripts (.Rmd) may only have a single output file.")
                 out = os.path.abspath(output[0])
-                shell("""Rscript -e 'rmarkdown::render("{f.name}", output_file="{out}", quiet=TRUE)'""")
+                shell("""Rscript -e 'rmarkdown::render("{f.name}", output_file="{out}", quiet=TRUE, params = list(rmd="{f.name}"))'""")
             os.remove(f.name)
 
     except URLError as e:
