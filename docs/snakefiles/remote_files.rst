@@ -399,14 +399,17 @@ Snakemake can be used with `XRootD <http://xrootd.org/>` backed storage provided
     from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
 
     XRootD = XRootDRemoteProvider(use_remote=True)
+    file_numbers = XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
 
     rule all:
         input:
-            XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
+            XRootD.remote(expand("local_data/mclasseventv2_D0_{n}.root", n=file_numbers))
 
     rule make_data:
-        output:
+        input:
             XRootD.remote("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
+        output:
+            'local_data/mclasseventv2_D0_{n}.root'
 
 Remote cross-provider transfers
 ===============================
