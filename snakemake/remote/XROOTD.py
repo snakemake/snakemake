@@ -4,34 +4,68 @@ __email__ = "christopher.burr@cern.ch"
 __license__ = "MIT"
 
 import os
-from os.path import abspath, basename, dirname, normpath, isdir
+from os.path import abspath, join, normpath
+import re
 
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
-from snakemake.exceptions import WorkflowError, XROOTDFileException
+from snakemake.exceptions import WorkflowError, XRootDFileException
 
 try:
-    # third-party modules
     from XRootD import client
-    from XRootD.client.flags import DirListFlags, MkDirFlags
+    from XRootD.client.flags import DirListFlags, MkDirFlags, StatInfoFlags
 except ImportError as e:
     raise WorkflowError(
-        "The Python 3 package 'XRootD' must be installed to use XROOTD "
+        "The Python 3 package 'XRootD' must be installed to use XRootD "
         "remote() file functionality. %s" % e.msg
     )
+
+
+def parse_url(url):
+    match = re.search('(?P<domain>(?:root://)?[A-Za-z0-9:\_\-\.]+\:?/)(?P<path>/.+)', url)
+    if match is None:
+        return None
+
+    domain = match.group('domain')
+    # Check if the protocol has been removed
+    if not domain.startswith('root://'):
+        domain = 'root://'+domain
+
+    dirname, filename = os.path.split(match.group('path'))
+    # We need a trailing / to keep XRootD happy
+    dirname += '/'
+    return domain, dirname, filename
 
 
 class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, use_remote=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, use_remote=use_remote, **kwargs)
 
-        self._xrd = XROOTDHelper(*args, **kwargs)
+        self._xrd = XRootDHelper(*args, **kwargs)
 
     def remote_interface(self):
         return self._xrd
 
+    def remote(self, value, *args, use_remote=None, **kwargs):
+        if use_remote is None:
+            use_remote = self.use_remote
+
+        def _strip_url(url):
+            if not url.startswith('root://') and parse_url(url):
+                raise XRootDFileException('Invalid xrootd url: '+url)
+            domain, dirname, filename = parse_url(url)
+            # Strip the prefix if we're not using the remote file
+            to_strip = '' if self.use_remote else 'root://'
+            return domain[len(to_strip):] + dirname + filename
+
+        if isinstance(value, str):
+            value = _strip_url(value)
+        else:
+            value = [_strip_url(v) for v in value]
+        return super(RemoteProvider, self).remote(*args, value, *args, **kwargs)
+
 
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with XROOTD servers.
+    """ This is a class to interact with XRootD servers.
     """
 
     def __init__(self, *args, keep_local=False, use_remote=False, provider=None, **kwargs):
@@ -40,13 +74,11 @@ class RemoteObject(AbstractRemoteObject):
         if provider:
             self._xrd = provider.remote_interface()
         else:
-            self._xrd = XROOTDHelper(*args, **kwargs)
+            self._xrd = XRootDHelper(*args, **kwargs)
 
-    @property
-    def _file(self):
-        if self._iofile is None:
-            return None
-        return normpath('./'+self._iofile._file)
+    def remote_file(self):
+        domain, dirname, filename = parse_url(self.file())
+        return "/"+self.file() if not self.file().startswith("/") else self.file()
 
     # === Implementations of abstract class members ===
 
@@ -57,7 +89,7 @@ class RemoteObject(AbstractRemoteObject):
         if self.exists():
             return self._xrd.file_last_modified(self.file())
         else:
-            raise XROOTDFileException("The file does not seem to exist remotely: %s" % self.file())
+            raise XRootDFileException("The file does not seem to exist remotely: %s" % self.file())
 
     def size(self):
         if self.exists():
@@ -67,27 +99,51 @@ class RemoteObject(AbstractRemoteObject):
             return self._iofile.size_local
 
     def download(self):
-        self._xrd.download(self.file(), './'+self.file())
+        self._xrd.copy(self.remote_file(), self.file())
 
     def upload(self):
-        self._xrd.upload('./'+self.file(), self.file())
+        self._xrd.copy(self.file(), self.remote_file())
+
+    @property
+    def name(self):
+        return self.file()
 
     @property
     def list(self):
-        return [f.name for f in self._xrd.list_directory(self.file())]
+        dirname = os.path.dirname(self._iofile.constant_prefix())+'/'
+        files = list(self._xrd.list_directory_recursive(dirname))
+        # Strip the prefix if we're not using the remote file
+        to_strip = '' if self.use_remote else 'root://'
+        return [normpath(f[len(to_strip):]) for f in files]
 
 
-class XROOTDHelper(object):
+class XRootDHelper(object):
 
-    def __init__(self, url, port=1094):
-        self._connection_string = 'root://{url}:{port}//'.format(url=url, port=port)
-        self._client = client.FileSystem(self._connection_string)
+    def __init__(self):
+        self._clients = {}
 
-    def exists(self, filename):
-        return basename(filename) in [f.name for f in self.list_directory(dirname(filename)+'/')]
+    def get_client(self, domain):
+        try:
+            return self._clients[domain]
+        except KeyError:
+            self._clients[domain] = client.FileSystem(domain)
+            return self._clients[domain]
 
-    def _get_statinfo(self, filename):
-        matches = [f for f in self.list_directory('/'+filename) if f.name == basename(filename)]
+    def exists(self, url):
+        domain, dirname, filename = parse_url(url)
+        status, dirlist = self.get_client(domain).dirlist(dirname)
+        if not status.ok:
+            if status.errno == 3011:
+                return False
+            else:
+                raise XRootDFileException(
+                    'Error listing directory '+dirname+' on domain '+domain+
+                    '\n'+repr(status)+'\n'+repr(dirlist))
+        return filename in [f.name for f in dirlist.dirlist]
+
+    def _get_statinfo(self, url):
+        domain, dirname, filename = parse_url(url)
+        matches = [f for f in self.list_directory(domain, dirname) if f.name == filename]
         assert len(matches) == 1
         return matches[0].statinfo
 
@@ -99,35 +155,48 @@ class XROOTDHelper(object):
         # TODO Check this is in the right format (currently bytes)
         return self._get_statinfo(filename).size
 
-    def _copy(self, source, destination):
+    def copy(self, source, destination):
+        # Prepare the source path for XRootD
+        if not parse_url(source):
+            source = abspath(source)
+        # Prepare the destination path for XRootD
+        if parse_url(destination):
+            domain, dirname, filename = parse_url(destination)
+            self.makedirs(domain, dirname)
+        else:
+            destination = abspath(destination)
+        # Perform the copy operation
         process = client.CopyProcess()
         process.add_job(source, destination)
         process.prepare()
         status, returns = process.run()
         if not status.ok or not returns[0]['status'].ok:
-            raise XROOTDFileException('Error copying from '+source+' to '+destination, repr(status), repr(returns))
+            raise XRootDFileException('Error copying from '+source+' to '+destination, repr(status), repr(returns))
 
-    def download(self, source, destination):
-        dest_dir = abspath(dirname(destination))
-        if not isdir(dest_dir):
-            os.makedirs(dest_dir)
-        self._copy(self._connection_string+source, abspath(destination))
-
-    def makedirs(self, dirname):
-        status, _ = self._client.mkdir('/'+dirname+'/', MkDirFlags.MAKEPATH)
+    def makedirs(self, domain, dirname):
+        assert dirname.endswith('/')
+        status, _ = self.get_client(domain).mkdir(dirname, MkDirFlags.MAKEPATH)
         if not status.ok:
-            print('*'*100, repr(status))
-            raise XROOTDFileException('Failed to create directory /'+dirname, repr(status))
+            raise XRootDFileException('Failed to create directory '+dirname, repr(status))
 
-    def upload(self, source, destination):
-        dest_dir = normpath(dirname(destination))
-        # TODO Make this more like isdir
-        if not self.exists(dest_dir):
-            self.makedirs(dest_dir)
-        self._copy(abspath(source), self._connection_string+destination)
-
-    def list_directory(self, filename):
-        status, dirlist = self._client.dirlist(dirname('/'+filename), DirListFlags.STAT)
+    def list_directory(self, domain, dirname):
+        status, dirlist = self.get_client(domain).dirlist(dirname, DirListFlags.STAT)
         if not status.ok:
-            raise XROOTDFileException('Error getting timestamp for '+filename, status, dirlist)
+            raise XRootDFileException(
+                'Error listing directory '+dirname+' on domain '+domain+
+                '\n'+repr(status)+'\n'+repr(dirlist)
+            )
         return dirlist.dirlist
+
+    def list_directory_recursive(self, start_url):
+        assert start_url.endswith('/')
+        domain, dirname, filename = parse_url(start_url)
+        assert not filename
+        filename = join(dirname, filename)
+        for f in self.list_directory(domain, dirname):
+            if f.statinfo.flags & StatInfoFlags.IS_DIR:
+                for _f_name in self.list_directory_recursive(self, domain+dirname+f.name+'/'):
+                    yield _f_name
+            else:
+                # Only yield files as directories don't have timestamps on eos
+                yield domain+dirname+f.name

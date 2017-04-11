@@ -1,17 +1,23 @@
-import os
-from snakemake.remote.XROOTD import RemoteProvider as XROOTDRemoteProvider
+from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
 
-XROOTD = XROOTDRemoteProvider(url='eoslhcb.cern.ch', use_remote=True)
+XRootD = XRootDRemoteProvider(use_remote=True)
+
+remote_path = 'root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/'
+local_path = 'root://eoslhcb.cern.ch//eos/lhcb/user/c/cburr/snakemake_testing/'
+my_files, = XRootD.glob_wildcards(remote_path+"D0lifetime/2014/mclasseventv2_D0_{n}.root")
 
 rule all:
-    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root")
+    input:
+        XRootD.remote(expand(local_path+"mclasseventv2_D0_{n}.root", n=my_files))
 
 rule split:
-    input: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_update.root")
-    output: XROOTD.remote("eos/lhcb/user/c/cburr/test_eos_recreate_2.root")
+    input:
+        XRootD.remote(remote_path+"D0lifetime/2014/mclasseventv2_D0_{n}.root")
+    output:
+        XRootD.remote(local_path+"mclasseventv2_D0_{n}.root")
     shell:
-        'xrdcp root://eoslhcb.cern.ch//{input[0]} root://eoslhcb.cern.ch//{output[0]}'
+        'xrdcp {input[0]} {output[0]}'
 
-# TODO try removing leading slash on /eos/...
-# TODO try keep local True and False
-# TODO Set default of use_remote as a provider property
+# TODO Can we delete remote files? Probably need to in the case of using `use_remote`
+# since they might be corrupted
+# TODO Make it quieter if we try to list a directory that doesn't exist

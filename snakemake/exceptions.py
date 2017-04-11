@@ -317,7 +317,7 @@ class DropboxFileException(RuleException):
     def __init__(self, msg, lineno=None, snakefile=None):
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
-class XROOTDFileException(RuleException):
+class XRootDFileException(RuleException):
     def __init__(self, msg, lineno=None, snakefile=None):
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
