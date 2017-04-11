@@ -525,7 +525,10 @@ class Job:
         to_remove = [f for f in self.expanded_output if f.exists]
 
         to_remove.extend([f for f in self.remote_input if f.exists_local])
-        to_remove.extend([f for f in self.remote_output if [f.exists_local, f.exists_remote][f.is_remote and f.should_use_remote]])
+        to_remove.extend([
+            f for f in self.remote_output
+            if (f.exists_remote if (f.is_remote and f.should_use_remote) else f.exists_local)
+        ])
         if to_remove:
             logger.info("Removing output files of failed job {}"
                         " since they might be corrupted:\n{}".format(

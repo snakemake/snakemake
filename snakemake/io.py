@@ -365,7 +365,10 @@ _wildcard_regex = re.compile(
 def wait_for_files(files, latency_wait=3):
     """Wait for given files to be present in filesystem."""
     files = list(files)
-    get_missing = lambda: [f for f in files if not [os.path.exists(f), f.exists_remote][f.is_remote and f.should_use_remote]]
+    get_missing = lambda: [
+        f for f in files
+        if not (f.exists_remote if f.is_remote and f.should_use_remote else os.path.exists(f))
+    ]
     missing = get_missing()
     if missing:
         logger.info("Waiting at most {} seconds for missing files.".format(
@@ -395,12 +398,12 @@ def remove(file, remove_non_empty_dir=False):
     if file.is_remote and file.should_use_remote:
         if file.exists_remote:
             file.remote_object.remove()
-    elif os.path.isdir(file.file) and not os.path.islink(file.file):
+    elif os.path.isdir(file) and not os.path.islink(file):
         if remove_non_empty_dir:
-            shutil.rmtree(file.file)
+            shutil.rmtree(file)
         else:
             try:
-                os.removedirs(file.file)
+                os.removedirs(file)
             except OSError as e:
                 # skip non empty directories
                 if e.errno == 39:
@@ -411,7 +414,7 @@ def remove(file, remove_non_empty_dir=False):
     #we definitely still want to zap them. try/except is the safest way.
     else:
         try:
-            os.remove(file.file)
+            os.remove(file)
         except FileNotFoundError:
             pass
 
