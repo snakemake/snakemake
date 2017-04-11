@@ -392,7 +392,7 @@ def contains_wildcard_constraints(pattern):
 
 
 def remove(file, remove_non_empty_dir=False):
-    if file.should_use_remote:
+    if file.is_remote and file.should_use_remote:
         if file.exists_remote:
             file.remote_object.remove()
     elif os.path.isdir(file.file) and not os.path.islink(file.file):
