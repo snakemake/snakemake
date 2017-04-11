@@ -88,7 +88,7 @@ If you wish to have a rule to simply download a file to a local copy, you can do
         run:
             shell("cp {output[0]} ./")
 
-In some cases the rule can use the data directly on the remote provider, in these cases ``use_remote=True`` can be set to avoid downloading/uploading data unnecessarily. The default for ``use_remote`` and ``keep_local`` can be configured by setting these properties on the remote provider object:
+In some cases the rule can use the data directly on the remote provider, in these cases ``use_remote=True`` can be set to avoid downloading/uploading data unnecessarily. Additionally, if the backend supports it, any potentially corrupt output files will be removed from the remote. The default for ``use_remote`` and ``keep_local`` can be configured by setting these properties on the remote provider object:
 
 .. code-block:: python
 
@@ -389,6 +389,24 @@ Using the Dropbox provider is straightforward:
 
 Note that Dropbox paths are case-insensitive.
 
+XRootD
+=======
+
+Snakemake can be used with `XRootD <http://xrootd.org/>` backed storage provided the python bindings are installed. This is typically most useful when combined with the ``use_remote`` flag to minimise local storage requirements. ``glob_wildcards()`` is supported:
+
+.. code-block:: python
+
+    from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
+
+    XRootD = XRootDRemoteProvider(use_remote=True)
+
+    rule all:
+        input:
+            XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
+
+    rule make_data:
+        output:
+            XRootD.remote("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
 
 Remote cross-provider transfers
 ===============================
