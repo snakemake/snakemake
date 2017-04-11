@@ -411,6 +411,8 @@ This is typically most useful when combined with the ``use_remote`` flag to mini
             XRootD.remote("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
         output:
             'local_data/mclasseventv2_D0_{n}.root'
+        shell:
+            'xrdcp {input[0]} {output[0]}'
 
 Remote cross-provider transfers
 ===============================
