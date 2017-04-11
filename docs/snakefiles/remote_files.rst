@@ -392,7 +392,8 @@ Note that Dropbox paths are case-insensitive.
 XRootD
 =======
 
-Snakemake can be used with `XRootD <http://xrootd.org/>` backed storage provided the python bindings are installed. This is typically most useful when combined with the ``use_remote`` flag to minimise local storage requirements. ``glob_wildcards()`` is supported:
+Snakemake can be used with `XRootD <http://xrootd.org/>` backed storage provided the python bindings are installed.
+This is typically most useful when combined with the ``use_remote`` flag to minimise local storage requirements. ``glob_wildcards()`` is supported:
 
 .. code-block:: python
 

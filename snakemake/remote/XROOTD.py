@@ -95,7 +95,6 @@ class RemoteObject(AbstractRemoteObject):
         if self.exists():
             return self._xrd.file_size(self.file())
         else:
-            # TODO What is this????
             return self._iofile.size_local
 
     def download(self):
@@ -151,11 +150,9 @@ class XRootDHelper(object):
         return matches[0].statinfo
 
     def file_last_modified(self, filename):
-        # TODO Check this is in the right format
         return self._get_statinfo(filename).modtime
 
     def file_size(self, filename):
-        # TODO Check this is in the right format (currently bytes)
         return self._get_statinfo(filename).size
 
     def copy(self, source, destination):

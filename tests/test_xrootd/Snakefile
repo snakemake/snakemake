@@ -3,21 +3,16 @@ from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
 XRootD = XRootDRemoteProvider(use_remote=True)
 
 remote_path = 'root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/'
-local_path = 'root://eoslhcb.cern.ch//eos/lhcb/user/c/cburr/snakemake_testing/'
-my_files, = XRootD.glob_wildcards(remote_path+"D0lifetime/2014/mclasseventv2_D0_{n}.root")
+my_files, = XRootD.glob_wildcards(remote_path+'D0lifetime/2014/mclasseventv2_D0_{n}.root')
 
 rule all:
     input:
-        XRootD.remote(expand(local_path+"mclasseventv2_D0_{n}.root", n=my_files))
+        XRootD.remote(expand('output/mclasseventv2_D0_{n}.root', n=my_files))
 
 rule split:
     input:
-        XRootD.remote(remote_path+"D0lifetime/2014/mclasseventv2_D0_{n}.root")
+        XRootD.remote(remote_path+'D0lifetime/2014/mclasseventv2_D0_{n}.root')
     output:
-        XRootD.remote(local_path+"mclasseventv2_D0_{n}.root")
+        XRootD.remote('output/mclasseventv2_D0_{n}.root')
     shell:
         'xrdcp {input[0]} {output[0]}'
-
-# TODO Can we delete remote files? Probably need to in the case of using `use_remote`
-# since they might be corrupted
-# TODO Make it quieter if we try to list a directory that doesn't exist
