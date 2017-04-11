@@ -86,6 +86,7 @@ class Logger:
         self.stream_handler = None
         self.printshellcmds = False
         self.printreason = False
+        self.debug_dag = False
         self.quiet = False
         self.logfile = None
         self.last_msg_was_job_info = False
@@ -147,6 +148,9 @@ class Logger:
     def job_info(self, **msg):
         msg["level"] = "job_info"
         self.handler(msg)
+
+    def dag_debug(self, msg):
+        self.handler(dict(level="dag_debug", **msg))
 
     def shellcmd(self, msg):
         if msg is not None:
@@ -252,6 +256,14 @@ class Logger:
                     self.logger.info("    " + msg["docstring"])
             elif level == "d3dag":
                 print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
+            elif level == "dag_debug":
+                if self.debug_dag:
+                    job = msg["job"]
+                    self.logger.warning(
+                        "{status} job {name}\n\twildcards: {wc}".format(
+                            status=msg["status"],
+                            name=job.rule.name,
+                            wc=format_wildcards(job.wildcards)))
 
             self.last_msg_was_job_info = False
 
@@ -277,6 +289,7 @@ def setup_logger(handler=None,
                  quiet=False,
                  printshellcmds=False,
                  printreason=False,
+                 debug_dag=False,
                  nocolor=False,
                  stdout=False,
                  debug=False,
@@ -301,3 +314,4 @@ def setup_logger(handler=None,
     logger.quiet = quiet
     logger.printshellcmds = printshellcmds
     logger.printreason = printreason
+    logger.debug_dag = debug_dag

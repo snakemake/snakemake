@@ -455,7 +455,9 @@ class DAG:
         jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
         cycles = list()
 
+
         for job in jobs:
+            logger.dag_debug(dict(status="candidate", job=job))
             if file in job.input:
                 cycles.append(job)
                 continue
@@ -495,6 +497,9 @@ class DAG:
                 raise CyclicGraphException(job.rule, file, rule=job.rule)
             if exceptions:
                 raise exceptions[0]
+        
+        logger.dag_debug(dict(status="selected", job=job))
+
         return producer
 
     def update_(self, job, visited=None, skip_until_dynamic=False):
