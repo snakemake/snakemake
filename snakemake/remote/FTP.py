@@ -21,8 +21,8 @@ except ImportError as e:
         "must be installed to use SFTP remote() file functionality. %s" % e.msg)
 
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, use_remote=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, use_remote=use_remote, **kwargs)
+    def __init__(self, *args, stay_on_remote=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
 
 class RemoteObject(DomainObject):
     """ This is a class to interact with an FTP server.

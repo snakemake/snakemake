@@ -44,13 +44,13 @@ class AbstractRemoteProvider:
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, *args, keep_local=False, use_remote=False, **kwargs):
+    def __init__(self, *args, keep_local=False, stay_on_remote=False, **kwargs):
         self.args = args
-        self.use_remote = use_remote
+        self.stay_on_remote = stay_on_remote
         self.keep_local = keep_local
         self.kwargs = kwargs
 
-    def remote(self, value, *args, keep_local=None, use_remote=None, static=False, **kwargs):
+    def remote(self, value, *args, keep_local=None, stay_on_remote=None, static=False, **kwargs):
         if snakemake.io.is_flagged(value, "temp"):
             raise SyntaxError(
                 "Remote and temporary flags are mutually exclusive.")
@@ -59,11 +59,11 @@ class AbstractRemoteProvider:
                 "Remote and protected flags are mutually exclusive.")
         if keep_local is None:
             keep_local = self.keep_local
-        if use_remote is None:
-            use_remote = self.use_remote
+        if stay_on_remote is None:
+            stay_on_remote = self.stay_on_remote
 
         provider = sys.modules[self.__module__] # get module of derived class
-        remote_object = provider.RemoteObject(*args, keep_local=keep_local, use_remote=use_remote, provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs)
+        remote_object = provider.RemoteObject(*args, keep_local=keep_local, stay_on_remote=stay_on_remote, provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs)
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
         return snakemake.io.flag(
@@ -97,14 +97,14 @@ class AbstractRemoteObject:
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, *args, keep_local=False, use_remote=False, provider=None, **kwargs):
+    def __init__(self, *args, keep_local=False, stay_on_remote=False, provider=None, **kwargs):
         # self._iofile must be set before the remote object can be used, in io.py or elsewhere
         self._iofile = None
         self.args = args
         self.kwargs = kwargs
 
         self.keep_local = keep_local
-        self.use_remote = use_remote
+        self.stay_on_remote = stay_on_remote
         self.provider = provider
 
     @property
@@ -149,7 +149,7 @@ class AbstractRemoteObject:
         pass
 
     @abstractmethod
-    def remote(self, value, keep_local=False, use_remote=False):
+    def remote(self, value, keep_local=False, stay_on_remote=False):
         pass
 
     @abstractmethod

@@ -123,8 +123,8 @@ class _IOFile(str):
         return get_flag_value(self._file, "remote_object").keep_local
 
     @property
-    def should_use_remote(self):
-        return get_flag_value(self._file, "remote_object").use_remote
+    def should_stay_on_remote(self):
+        return get_flag_value(self._file, "remote_object").stay_on_remote
 
     @property
     def remote_object(self):
@@ -217,7 +217,7 @@ class _IOFile(str):
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
-            if not self.should_use_remote:
+            if not self.should_stay_on_remote:
                 logger.info("Downloading from remote: {}".format(self.file))
                 self.remote_object.download()
         else:
@@ -367,7 +367,7 @@ def wait_for_files(files, latency_wait=3):
     files = list(files)
     get_missing = lambda: [
         f for f in files
-        if not (f.exists_remote if f.is_remote and f.should_use_remote else os.path.exists(f))
+        if not (f.exists_remote if f.is_remote and f.should_stay_on_remote else os.path.exists(f))
     ]
     missing = get_missing()
     if missing:
@@ -395,7 +395,7 @@ def contains_wildcard_constraints(pattern):
 
 
 def remove(file, remove_non_empty_dir=False):
-    if file.is_remote and file.should_use_remote:
+    if file.is_remote and file.should_stay_on_remote:
         if file.exists_remote:
             file.remote_object.remove()
     elif os.path.isdir(file) and not os.path.islink(file):

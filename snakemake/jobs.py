@@ -527,7 +527,7 @@ class Job:
         to_remove.extend([f for f in self.remote_input if f.exists_local])
         to_remove.extend([
             f for f in self.remote_output
-            if (f.exists_remote if (f.is_remote and f.should_use_remote) else f.exists_local)
+            if (f.exists_remote if (f.is_remote and f.should_stay_on_remote) else f.exists_local)
         ])
         if to_remove:
             logger.info("Removing output files of failed job {}"
@@ -541,7 +541,7 @@ class Job:
     @property
     def empty_remote_dirs(self):
         for f in (set(self.output) | set(self.input)):
-            if f.is_remote and not f.should_use_remote:
+            if f.is_remote and not f.should_stay_on_remote:
                 if os.path.exists(os.path.dirname(f)) and not len(os.listdir(
                         os.path.dirname(f))):
                     yield os.path.dirname(f)

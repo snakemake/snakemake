@@ -37,24 +37,24 @@ def parse_url(url):
 
 
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, use_remote=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, use_remote=use_remote, **kwargs)
+    def __init__(self, *args, stay_on_remote=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
 
         self._xrd = XRootDHelper(*args, **kwargs)
 
     def remote_interface(self):
         return self._xrd
 
-    def remote(self, value, *args, use_remote=None, **kwargs):
-        if use_remote is None:
-            use_remote = self.use_remote
+    def remote(self, value, *args, stay_on_remote=None, **kwargs):
+        if stay_on_remote is None:
+            stay_on_remote = self.stay_on_remote
 
         def _strip_url(url):
             if not url.startswith('root://') and parse_url(url):
                 raise XRootDFileException('Invalid xrootd url: '+url)
             domain, dirname, filename = parse_url(url)
             # Strip the prefix if we're not using the remote file
-            to_strip = '' if self.use_remote else 'root://'
+            to_strip = '' if self.stay_on_remote else 'root://'
             return domain[len(to_strip):] + dirname + filename
 
         if isinstance(value, str):
@@ -68,8 +68,8 @@ class RemoteObject(AbstractRemoteObject):
     """ This is a class to interact with XRootD servers.
     """
 
-    def __init__(self, *args, keep_local=False, use_remote=False, provider=None, **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, use_remote=use_remote, provider=provider, **kwargs)
+    def __init__(self, *args, keep_local=False, stay_on_remote=False, provider=None, **kwargs):
+        super(RemoteObject, self).__init__(*args, keep_local=keep_local, stay_on_remote=stay_on_remote, provider=provider, **kwargs)
 
         if provider:
             self._xrd = provider.remote_interface()
@@ -112,7 +112,7 @@ class RemoteObject(AbstractRemoteObject):
         dirname = os.path.dirname(self._iofile.constant_prefix())+'/'
         files = list(self._xrd.list_directory_recursive(dirname))
         # Strip the prefix if we're not using the remote file
-        to_strip = '' if self.use_remote else 'root://'
+        to_strip = '' if self.stay_on_remote else 'root://'
         return [normpath(f[len(to_strip):]) for f in files]
 
     def remove(self):

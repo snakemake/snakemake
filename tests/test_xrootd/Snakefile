@@ -1,6 +1,6 @@
 from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
 
-XRootD = XRootDRemoteProvider(use_remote=True)
+XRootD = XRootDRemoteProvider(stay_on_remote=True)
 
 remote_path = 'root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/'
 my_files, = XRootD.glob_wildcards(remote_path+'D0lifetime/2014/mclasseventv2_D0_{n}.root')

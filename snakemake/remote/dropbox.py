@@ -21,8 +21,8 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, use_remote=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, use_remote=use_remote, **kwargs)
+    def __init__(self, *args, stay_on_remote=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
 
         self._dropboxc = dropbox.Dropbox(*args, **kwargs)
         try:

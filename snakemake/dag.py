@@ -399,7 +399,7 @@ class DAG:
         if upload:
             # handle output files
             for f in job.expanded_output:
-                if f.is_remote and not f.should_use_remote:
+                if f.is_remote and not f.should_stay_on_remote:
                     f.upload_to_remote()
                     remote_mtime = f.mtime
                     # immediately force local mtime to match remote,

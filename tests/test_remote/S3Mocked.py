@@ -83,8 +83,8 @@ class RemoteObject(S3RemoteObject):
         test file to the moto-simulated bucket at the start.
     """
 
-    def __init__(self, *args, keep_local=False, provider=None, **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+    def __init__(self, *args, keep_local=False, stay_on_remote=False, provider=None, **kwargs):
+        super(RemoteObject, self).__init__(*args, keep_local=keep_local, stay_on_remote=False, provider=provider, **kwargs)
 
         bucket_name = 'test-remote-bucket'
         test_file = "test.txt"
