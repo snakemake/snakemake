@@ -152,6 +152,11 @@ class AbstractRemoteObject:
     def remote(self, value, keep_local=False, use_remote=False):
         pass
 
+    @abstractmethod
+    def remove(self):
+        raise NotImplementedError("Removal of files is unavailable for this remote")
+
+
 class DomainObject(AbstractRemoteObject):
     """This is a mixin related to parsing components
         out of a location path specified as

@@ -253,7 +253,7 @@ class _IOFile(str):
             lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
-        remove(self.file, remove_non_empty_dir=remove_non_empty_dir)
+        remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
         """ times must be 2-tuple: (atime, mtime) """
@@ -392,12 +392,15 @@ def contains_wildcard_constraints(pattern):
 
 
 def remove(file, remove_non_empty_dir=False):
-    if os.path.isdir(file) and not os.path.islink(file):
+    if file.should_use_remote:
+        if file.exists_remote:
+            file.remote_object.remove()
+    elif os.path.isdir(file.file) and not os.path.islink(file.file):
         if remove_non_empty_dir:
-            shutil.rmtree(file)
+            shutil.rmtree(file.file)
         else:
             try:
-                os.removedirs(file)
+                os.removedirs(file.file)
             except OSError as e:
                 # skip non empty directories
                 if e.errno == 39:
@@ -408,7 +411,7 @@ def remove(file, remove_non_empty_dir=False):
     #we definitely still want to zap them. try/except is the safest way.
     else:
         try:
-            os.remove(file)
+            os.remove(file.file)
         except FileNotFoundError:
             pass
 

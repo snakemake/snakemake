@@ -116,6 +116,9 @@ class RemoteObject(AbstractRemoteObject):
         to_strip = '' if self.use_remote else 'root://'
         return [normpath(f[len(to_strip):]) for f in files]
 
+    def remove(self):
+        self._xrd.remove(self.remote_file())
+
 
 class XRootDHelper(object):
 
@@ -198,5 +201,13 @@ class XRootDHelper(object):
                 for _f_name in self.list_directory_recursive(self, domain+dirname+f.name+'/'):
                     yield _f_name
             else:
-                # Only yield files as directories don't have timestamps on eos
+                # Only yield files as directories don't have timestamps on XRootD
                 yield domain+dirname+f.name
+
+    def remove(self, url):
+        domain, dirname, filename = parse_url(url)
+        filename = join(dirname, filename)
+        status, _ = self.get_client(domain).rm(filename)
+        if not status.ok:
+            raise XRootDFileException(
+                'Failed to remove file '+filename+' from remote '+domain+'\n'+repr(status))
