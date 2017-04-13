@@ -366,8 +366,8 @@ def wait_for_files(files, latency_wait=3):
     """Wait for given files to be present in filesystem."""
     files = list(files)
     get_missing = lambda: [
-        f for f in files
-        if not (f.exists_remote if f.is_remote and f.should_stay_on_remote else os.path.exists(f))
+        f for f in files if not
+        (f.exists_remote if (isinstance(f, _IOFile) and f.is_remote and f.should_stay_on_remote) else os.path.exists(f))
     ]
     missing = get_missing()
     if missing:
