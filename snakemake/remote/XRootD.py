@@ -24,7 +24,7 @@ class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, stay_on_remote=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
 
-        self._xrd = XRootDHelper(*args, **kwargs)
+        self._xrd = XRootDHelper()
 
     def remote_interface(self):
         return self._xrd
@@ -49,22 +49,22 @@ class RemoteObject(AbstractRemoteObject):
         if provider:
             self._xrd = provider.remote_interface()
         else:
-            self._xrd = XRootDHelper(*args, **kwargs)
+            self._xrd = XRootDHelper()
 
     # === Implementations of abstract class members ===
 
     def exists(self):
-        return self._xrd.exists(self.file())
+        return self._xrd.exists(self.remote_file())
 
     def mtime(self):
         if self.exists():
-            return self._xrd.file_last_modified(self.file())
+            return self._xrd.file_last_modified(self.remote_file())
         else:
-            raise XRootDFileException("The file does not seem to exist remotely: %s" % self.file())
+            raise XRootDFileException("The file does not seem to exist remotely: %s" % self.remote_file())
 
     def size(self):
         if self.exists():
-            return self._xrd.file_size(self.file())
+            return self._xrd.file_size(self.remote_file())
         else:
             return self._iofile.size_local
 
@@ -78,7 +78,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def name(self):
-        return self.file()
+        return self.local_file()
 
     @property
     def list(self):
@@ -143,11 +143,14 @@ class XRootDHelper(object):
         if not self._parse_url(source):
             source = abspath(source)
         # Prepare the destination path for XRootD
+        assert os.path.basename(source) == os.path.basename(destination)
         if self._parse_url(destination):
             domain, dirname, filename = self._parse_url(destination)
             self.makedirs(domain, dirname)
         else:
             destination = abspath(destination)
+            if not os.path.isdir(os.path.dirname(destination)):
+                os.makedirs(os.path.dirname(destination))
         # Perform the copy operation
         process = client.CopyProcess()
         process.add_job(source, destination)
@@ -157,6 +160,7 @@ class XRootDHelper(object):
             raise XRootDFileException('Error copying from '+source+' to '+destination, repr(status), repr(returns))
 
     def makedirs(self, domain, dirname):
+        print('Making directories', domain, dirname)
         assert dirname.endswith('/')
         status, _ = self.get_client(domain).mkdir(dirname, MkDirFlags.MAKEPATH)
         if not status.ok:

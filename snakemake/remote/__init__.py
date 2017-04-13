@@ -74,15 +74,22 @@ class AbstractRemoteProvider:
                 protocol = protocol
             else:
                 protocol = self.default_protocol
-            return protocol+value
+            return protocol, value
 
         if isinstance(value, str):
-            value = _set_protocol(value)
+            protocol, value = _set_protocol(value)
+            value = protocol+value if stay_on_remote else value
         else:
-            value = [_set_protocol(v) for v in value]
+            protocol, value = list(zip(*[_set_protocol(v) for v in value]))
+            if len(set(protocol)) != 1:
+                raise SyntaxError('A single protocol must be used per RemoteObject')
+            value = [protocol+v if stay_on_remote else value for v in value]
 
         provider = sys.modules[self.__module__]  # get module of derived class
-        remote_object = provider.RemoteObject(*args, keep_local=keep_local, stay_on_remote=stay_on_remote, provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs)
+        remote_object = provider.RemoteObject(
+            *args, protocol=protocol, keep_local=keep_local, stay_on_remote=stay_on_remote,
+            provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs
+        )
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
         return snakemake.io.flag(value, "remote_object", remote_object)
@@ -101,15 +108,15 @@ class AbstractRemoteProvider:
 
         return snakemake.io.glob_wildcards(pattern, files=key_list)
 
-    @property
+    @abstractmethod
     def default_protocol(self):
         """The protocol that is prepended to the path when no protocol is specified."""
-        return ''
+        pass
 
-    @property
+    @abstractmethod
     def available_protocols(self):
         """List of valid protocols for this remote provider."""
-        return ['']
+        pass
 
     @abstractmethod
     def remote_interface(self):
@@ -123,7 +130,8 @@ class AbstractRemoteObject:
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, *args, keep_local=False, stay_on_remote=False, provider=None, **kwargs):
+    def __init__(self, *args, protocol=None, keep_local=False, stay_on_remote=False, provider=None, **kwargs):
+        assert protocol is not None
         # self._iofile must be set before the remote object can be used, in io.py or elsewhere
         self._iofile = None
         self.args = args
@@ -132,6 +140,7 @@ class AbstractRemoteObject:
         self.keep_local = keep_local
         self.stay_on_remote = stay_on_remote
         self.provider = provider
+        self.protocol = protocol
 
     @property
     def _file(self):
@@ -140,24 +149,16 @@ class AbstractRemoteObject:
         return self._iofile._file
 
     def file(self):
-        if self.stay_on_remote:
-            return self.remote_file()
-        else:
-            return self.local_file()
-
-    def local_file(self):
-        return self._file[len(self.protocol):]
-
-    def remote_file(self):
         return self._file
 
-    @property
-    def protocol(self):
-        for protocol in self.provider.available_protocols:
-            if self._file.startswith(protocol):
-                return protocol
-        raise RuntimeError('The self._file should always contain a valid protocol',
-                           self._file, self.provider.available_protocols)
+    def local_file(self):
+        if self.stay_on_remote:
+            return self._file[len(self.protocol):]
+        else:
+            return self._file
+
+    def remote_file(self):
+        return self.protocol+self.local_file()
 
     @abstractmethod
     def close(self):

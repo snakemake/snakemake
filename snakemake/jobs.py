@@ -547,6 +547,8 @@ class Job:
                     yield os.path.dirname(f)
 
     def rmdir_empty_remote_dirs(self):
+        # TODO Avoid race conditions here
+        return
         for d in self.empty_remote_dirs:
             try:
                 os.removedirs(d)
