@@ -4,19 +4,16 @@ __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
 # built-ins
-import os, re, sys
+import os
+import re
 import math
-import time
 import email.utils
-from time import mktime
-import datetime
 import functools
 import concurrent.futures
 
 # module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
-from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, S3FileException
-import snakemake.io 
+from snakemake.exceptions import WorkflowError, S3FileException
 
 try:
     # third-party modules
@@ -24,17 +21,19 @@ try:
     from boto.s3.key import Key
     from filechunkio import FileChunkIO
 except ImportError as e:
-    raise WorkflowError("The Python 3 packages 'boto' and 'filechunkio' " + 
+    raise WorkflowError("The Python 3 packages 'boto' and 'filechunkio' " +
         "need to be installed to use S3 remote() file functionality. %s" % e.msg)
+
 
 class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, stay_on_remote=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
 
         self._s3c = S3Helper(*args, **kwargs)
-    
+
     def remote_interface(self):
         return self._s3c
+
 
 class RemoteObject(AbstractRemoteObject):
     """ This is a class to interact with the AWS S3 object store.
@@ -110,6 +109,7 @@ class RemoteObject(AbstractRemoteObject):
             raise S3FileException("The file to be downloaded cannot be parsed as an s3 path in form 'bucket/key': %s" %
                                   self.file())
 
+
 class S3Helper(object):
 
     def __init__(self, *args, **kwargs):
@@ -118,7 +118,7 @@ class S3Helper(object):
         # AWS_SECRET_ACCESS_KEY
         # Otherwise these values need to be passed in as kwargs
 
-        # allow key_id and secret to be specified with aws_, gs_, or no prefix. 
+        # allow key_id and secret to be specified with aws_, gs_, or no prefix.
         # Standardize to the aws_ prefix expected by boto.
         if "gs_access_key_id" in kwargs:
             kwargs["aws_access_key_id"] = kwargs.pop("gs_access_key_id")
@@ -128,7 +128,7 @@ class S3Helper(object):
             kwargs["aws_access_key_id"] = kwargs.pop("access_key_id")
         if "secret_access_key" in kwargs:
             kwargs["aws_secret_access_key"] = kwargs.pop("secret_access_key")
-        
+
         self.conn = boto.connect_s3(*args, **kwargs)
 
     def upload_to_s3(

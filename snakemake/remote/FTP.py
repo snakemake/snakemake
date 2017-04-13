@@ -3,14 +3,14 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, re, ftplib
-from itertools import product, chain
+import os
+import ftplib
+from itertools import chain
 from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import FTPFileException, WorkflowError
-import snakemake.io
 
 try:
     # third-party modules
@@ -20,9 +20,11 @@ except ImportError as e:
     raise WorkflowError("The Python 3 package 'ftputil' " +
         "must be installed to use SFTP remote() file functionality. %s" % e.msg)
 
+
 class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, stay_on_remote=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+
 
 class RemoteObject(DomainObject):
     """ This is a class to interact with an FTP server.

@@ -3,15 +3,13 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, re, http.client
+import os
 import email.utils
-#from itertools import product, chain
 from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import HTTPFileException, WorkflowError
-import snakemake.io
 
 try:
     # third-party modules
@@ -20,9 +18,11 @@ except ImportError as e:
     raise WorkflowError("The Python 3 package 'requests' " +
         "must be installed to use HTTP(S) remote() file functionality. %s" % e.msg)
 
+
 class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, stay_on_remote=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+
 
 class RemoteObject(DomainObject):
     """ This is a class to interact with an HTTP server.

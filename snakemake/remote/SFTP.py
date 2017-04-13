@@ -3,13 +3,12 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, re
+import os
 from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import SFTPFileException, WorkflowError
-import snakemake.io
 
 try:
     # third-party modules
@@ -22,6 +21,7 @@ except ImportError as e:
 class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, stay_on_remote=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+
 
 class RemoteObject(DomainObject):
     """ This is a class to interact with an SFTP server.

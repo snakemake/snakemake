@@ -3,17 +3,15 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, re
-from contextlib import contextmanager
+import os
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject
 from snakemake.exceptions import DropboxFileException, WorkflowError
-import snakemake.io
 
 try:
     # third-party modules
-    import dropbox # The official Dropbox API library
+    import dropbox  # The official Dropbox API library
 except ImportError as e:
     raise WorkflowError("The Python 3 package 'dropbox' "
                         "must be installed to use Dropbox remote() file "
@@ -32,6 +30,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
     def remote_interface(self):
         return self._dropboxc
+
 
 class RemoteObject(AbstractRemoteObject):
     """ This is a class to interact with the AWS S3 object store.
@@ -84,7 +83,6 @@ class RemoteObject(AbstractRemoteObject):
             raise DropboxFileException("The file does not seem to exist remotely: %s" % self.remote_file())
 
     def upload(self, mode=dropbox.files.WriteMode('overwrite')):
-        size = os.path.getsize(self.file())
         # Chunk file into 10MB slices because Dropbox does not accept more than 150MB chunks
         chunksize = 10000000
         with open(self.file(), mode='rb') as f:

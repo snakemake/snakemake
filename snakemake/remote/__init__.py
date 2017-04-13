@@ -4,14 +4,16 @@ __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
 # built-ins
-import os, sys, re
+import os
+import sys
+import re
 from abc import ABCMeta, abstractmethod
 from wrapt import ObjectProxy
 import copy
 
 # module-specific
 import snakemake.io
-from snakemake.exceptions import RemoteFileException
+
 
 class StaticRemoteObjectProxy(ObjectProxy):
     '''Proxy that implements static-ness for remote objects.
@@ -67,7 +69,7 @@ class AbstractRemoteProvider:
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
         return snakemake.io.flag(
-                value, 
+                value,
                 "remote_object",
                 remote_object
             )
@@ -75,13 +77,13 @@ class AbstractRemoteProvider:
     def glob_wildcards(self, pattern, *args, **kwargs):
         args   = self.args if not args else args
         kwargs = self.kwargs if not kwargs else kwargs
-        
+
         referenceObj = snakemake.io.IOFile(self.remote(pattern, *args, **kwargs))
 
         pattern = "./"+ referenceObj.remote_object.name
         pattern = os.path.normpath(pattern)
 
-        key_list = [k for k in referenceObj.remote_object.list] 
+        key_list = [k for k in referenceObj.remote_object.list]
 
         return snakemake.io.glob_wildcards(pattern, files=key_list)
 
@@ -91,8 +93,8 @@ class AbstractRemoteProvider:
 
 
 class AbstractRemoteObject:
-    """ This is an abstract class to be used to derive remote object classes for 
-        different cloud storage providers. For example, there could be classes for interacting with 
+    """ This is an abstract class to be used to derive remote object classes for
+        different cloud storage providers. For example, there could be classes for interacting with
         Amazon AWS S3 and Google Cloud Storage, both derived from this common base class.
     """
     __metaclass__ = ABCMeta
@@ -112,7 +114,7 @@ class AbstractRemoteObject:
         if self._iofile is None:
             return None
         return self._iofile._file
-    
+
     def file(self):
         return self._file
 
@@ -172,7 +174,7 @@ class DomainObject(AbstractRemoteObject):
     @property
     def name(self):
         return self.path_remainder
-    
+
     @property
     def protocol(self):
         if self._matched_address:
@@ -186,12 +188,12 @@ class DomainObject(AbstractRemoteObject):
     @property
     def port(self):
         return self._matched_address.group("port")
-    
+
     @property
     def path_prefix(self):
         # this is the domain and port, however specified before the path remainder
         return self._iofile._file[:self._iofile._file.index(self.path_remainder)]
-    
+
     @property
     def path_remainder(self):
         if self._matched_address:
