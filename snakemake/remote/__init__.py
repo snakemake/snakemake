@@ -64,28 +64,52 @@ class AbstractRemoteProvider:
         if stay_on_remote is None:
             stay_on_remote = self.stay_on_remote
 
-        provider = sys.modules[self.__module__] # get module of derived class
+        def _set_protocol(value):
+            """Adds the default protocol to `value` if it doesn't already have one"""
+            for protocol in self.available_protocols:
+                if value.startswith(protocol):
+                    break
+            if value.startswith(protocol):
+                value = value[len(protocol):]
+                protocol = protocol
+            else:
+                protocol = self.default_protocol
+            return protocol+value
+
+        if isinstance(value, str):
+            value = _set_protocol(value)
+        else:
+            value = [_set_protocol(v) for v in value]
+
+        provider = sys.modules[self.__module__]  # get module of derived class
         remote_object = provider.RemoteObject(*args, keep_local=keep_local, stay_on_remote=stay_on_remote, provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs)
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
-        return snakemake.io.flag(
-                value,
-                "remote_object",
-                remote_object
-            )
+        return snakemake.io.flag(value, "remote_object", remote_object)
 
     def glob_wildcards(self, pattern, *args, **kwargs):
-        args   = self.args if not args else args
+        args = self.args if not args else args
         kwargs = self.kwargs if not kwargs else kwargs
 
         referenceObj = snakemake.io.IOFile(self.remote(pattern, *args, **kwargs))
 
-        pattern = "./"+ referenceObj.remote_object.name
-        pattern = os.path.normpath(pattern)
+        if not referenceObj.remote_object.stay_on_remote:
+            pattern = "./" + referenceObj.remote_object.name
+            pattern = os.path.normpath(pattern)
 
         key_list = [k for k in referenceObj.remote_object.list]
 
         return snakemake.io.glob_wildcards(pattern, files=key_list)
+
+    @property
+    def default_protocol(self):
+        """The protocol that is prepended to the path when no protocol is specified."""
+        return ''
+
+    @property
+    def available_protocols(self):
+        """List of valid protocols for this remote provider."""
+        return ['']
 
     @abstractmethod
     def remote_interface(self):
@@ -116,7 +140,18 @@ class AbstractRemoteObject:
         return self._iofile._file
 
     def file(self):
-        return self._file
+        if self.stay_on_remote:
+            return self._file
+        else:
+            return self._file[len(self.protocol):]
+
+    @property
+    def protocol(self):
+        for protocol in self.provider.available_protocols:
+            if self._file.startswith(protocol):
+                return protocol
+        raise RuntimeError('The self._file should always contain a valid protocol',
+                           self._file, self.provider.available_protocols)
 
     @abstractmethod
     def close(self):
