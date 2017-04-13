@@ -22,6 +22,16 @@ class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, stay_on_remote=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
 
+    @property
+    def default_protocol(self):
+        """The protocol that is prepended to the path when no protocol is specified."""
+        return 'sftp://'
+
+    @property
+    def available_protocols(self):
+        """List of valid protocols for this remote provider."""
+        return ['ssh://', 'sftp://']
+
 
 class RemoteObject(DomainObject):
     """ This is a class to interact with an SFTP server.
@@ -62,7 +72,7 @@ class RemoteObject(DomainObject):
                     return sftpc.isfile(self.remote_path)
             return False
         else:
-            raise SFTPFileException("The file cannot be parsed as an SFTP path in form 'host:port/path/to/file': %s" % self.file())
+            raise SFTPFileException("The file cannot be parsed as an SFTP path in form 'host:port/path/to/file': %s" % self.local_file())
 
     def mtime(self):
         if self.exists():
@@ -71,7 +81,7 @@ class RemoteObject(DomainObject):
                 attr = sftpc.lstat(self.remote_path)
                 return int(attr.st_mtime)
         else:
-            raise SFTPFileException("The file does not seem to exist remotely: %s" % self.file())
+            raise SFTPFileException("The file does not seem to exist remotely: %s" % self.local_file())
 
     def is_newer(self, time):
         """ Returns true of the file is newer than time, or if it is
@@ -97,7 +107,7 @@ class RemoteObject(DomainObject):
 
                 sftpc.get(remotepath=self.remote_path, localpath=self.local_path, preserve_mtime=True)
             else:
-                raise SFTPFileException("The file does not seem to exist remotely: %s" % self.file())
+                raise SFTPFileException("The file does not seem to exist remotely: %s" % self.local_file())
 
     def upload(self):
         with self.sftpc() as sftpc:

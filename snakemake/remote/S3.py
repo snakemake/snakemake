@@ -34,6 +34,16 @@ class RemoteProvider(AbstractRemoteProvider):
     def remote_interface(self):
         return self._s3c
 
+    @property
+    def default_protocol(self):
+        """The protocol that is prepended to the path when no protocol is specified."""
+        return 's3://'
+
+    @property
+    def available_protocols(self):
+        """List of valid protocols for this remote provider."""
+        return ['s3://']
+
 
 class RemoteObject(AbstractRemoteObject):
     """ This is a class to interact with the AWS S3 object store.
@@ -53,13 +63,13 @@ class RemoteObject(AbstractRemoteObject):
         if self._matched_s3_path:
             return self._s3c.exists_in_bucket(self.s3_bucket, self.s3_key)
         else:
-            raise S3FileException("The file cannot be parsed as an s3 path in form 'bucket/key': %s" % self.file())
+            raise S3FileException("The file cannot be parsed as an s3 path in form 'bucket/key': %s" % self.local_file())
 
     def mtime(self):
         if self.exists():
             return self._s3c.key_last_modified(self.s3_bucket, self.s3_key)
         else:
-            raise S3FileException("The file does not seem to exist remotely: %s" % self.file())
+            raise S3FileException("The file does not seem to exist remotely: %s" % self.local_file())
 
     def size(self):
         if self.exists():
@@ -68,13 +78,13 @@ class RemoteObject(AbstractRemoteObject):
             return self._iofile.size_local
 
     def download(self):
-        self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.file())
+        self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.local_file())
 
     def upload(self):
         if self.size() > 10 * 1024 * 1024: # S3 complains if multipart uploads are <10MB
-            self._s3c.upload_to_s3_multipart(self.s3_bucket, self.file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
+            self._s3c.upload_to_s3_multipart(self.s3_bucket, self.local_file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
         else:
-            self._s3c.upload_to_s3(self.s3_bucket, self.file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
+            self._s3c.upload_to_s3(self.s3_bucket, self.local_file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
 
     @property
     def list(self):
@@ -84,7 +94,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def _matched_s3_path(self):
-        return re.search("(?P<bucket>[^/]*)/(?P<key>.*)", self.file())
+        return re.search("(?P<bucket>[^/]*)/(?P<key>.*)", self.local_file())
 
     @property
     def s3_bucket(self):
@@ -107,7 +117,7 @@ class RemoteObject(AbstractRemoteObject):
                 self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.file, create_stub_only=True)
         else:
             raise S3FileException("The file to be downloaded cannot be parsed as an s3 path in form 'bucket/key': %s" %
-                                  self.file())
+                                  self.local_file())
 
 
 class S3Helper(object):

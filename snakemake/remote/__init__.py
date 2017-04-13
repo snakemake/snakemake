@@ -141,9 +141,15 @@ class AbstractRemoteObject:
 
     def file(self):
         if self.stay_on_remote:
-            return self._file
+            return self.remote_file()
         else:
-            return self._file[len(self.protocol):]
+            return self.local_file()
+
+    def local_file(self):
+        return self._file[len(self.protocol):]
+
+    def remote_file(self):
+        return self._file
 
     @property
     def protocol(self):
@@ -204,16 +210,11 @@ class DomainObject(AbstractRemoteObject):
 
     @property
     def _matched_address(self):
-        return re.search("^(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$", self._iofile._file)
+        return re.search("^(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$", self.local_file())
 
     @property
     def name(self):
         return self.path_remainder
-
-    @property
-    def protocol(self):
-        if self._matched_address:
-            return self._matched_address.group("protocol")
 
     @property
     def host(self):
