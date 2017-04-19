@@ -151,7 +151,7 @@ class Snakemake:
 
 
 def script(path, basedir, input, output, params, wildcards, threads, resources,
-           log, config, rulename, conda_env):
+           log, config, rulename, conda_env, bench_record):
     """
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
@@ -277,14 +277,16 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                                         "master process to execute "
                                         "script.".format(*MIN_PY_VERSION))
                 # use the same Python as the running process or the one from the environment
-                shell("{py_exec} {f.name}")
+                shell("{py_exec} {f.name}", bench_record=bench_record)
             elif path.endswith(".R"):
-                shell("Rscript {f.name}")
+                shell("Rscript {f.name}", bench_record=bench_record)
             elif path.endswith(".Rmd"):
                 if len(output) != 1:
                     raise WorkflowError("RMarkdown scripts (.Rmd) may only have a single output file.")
                 out = os.path.abspath(output[0])
                 shell("""Rscript -e 'rmarkdown::render("{f.name}", output_file="{out}", quiet=TRUE, params = list(rmd="{f.name}"))'""")
+                shell("""Rscript -e 'rmarkdown::render("{f.name}", output_file="{out}", quiet=TRUE), params = list(rmd="{f.name}"))'""",
+                    bench_record=bench_record)
             os.remove(f.name)
 
     except URLError as e:

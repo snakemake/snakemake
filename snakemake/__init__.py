@@ -252,13 +252,17 @@ def snakemake(snakefile,
     # force thread use for any kind of cluster
     use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
     if not keep_logger:
+        stdout = (
+            (dryrun and not (printdag or printd3dag or printrulegraph)) or
+            listrules or list_target_rules or list_resources
+        )
         setup_logger(handler=log_handler,
                      quiet=quiet,
                      printreason=printreason,
                      printshellcmds=printshellcmds,
                      debug_dag=debug_dag,
                      nocolor=nocolor,
-                     stdout=dryrun and not (printdag or printd3dag or printrulegraph),
+                     stdout=stdout,
                      debug=verbose,
                      timestamp=timestamp,
                      use_threads=use_threads,
