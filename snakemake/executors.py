@@ -841,15 +841,15 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
         from snakemake.benchmark import BenchmarkRecord, benchmarked, write_benchmark_records
 
     try:
-        if benchmark:
-            bench_records = []
-            for i in range(benchmark_repeats):
-                # Determine whether to benchmark this process or do not
-                # benchmarking at all.  We benchmark this process unless the
-                # execution is done through the ``shell:``, ``script:``, or
-                # ``wrapper:`` stanza.
-                is_sub = job_rule.shellcmd or job_rule.script or job_rule.wrapper
-                with change_working_directory(shadow_dir):
+        with change_working_directory(shadow_dir):
+            if benchmark:
+                bench_records = []
+                for i in range(benchmark_repeats):
+                    # Determine whether to benchmark this process or do not
+                    # benchmarking at all.  We benchmark this process unless the
+                    # execution is done through the ``shell:``, ``script:``, or
+                    # ``wrapper:`` stanza.
+                    is_sub = job_rule.shellcmd or job_rule.script or job_rule.wrapper
                     if is_sub:
                         # The benchmarking through ``benchmarked()`` is started
                         # in the execution of the shell fragment, script, wrapper
@@ -864,11 +864,11 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                         with benchmarked() as bench_record:
                             run(input, output, params, wildcards, threads, resources,
                                 log, version, rule, conda_env, bench_record)
-                # Store benchmark record for this iteration
-                bench_records.append(bench_record)
-        else:
-            run(input, output, params, wildcards, threads, resources,
-                log, version, rule, conda_env, None)
+                    # Store benchmark record for this iteration
+                    bench_records.append(bench_record)
+            else:
+                run(input, output, params, wildcards, threads, resources,
+                    log, version, rule, conda_env, None)
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it
