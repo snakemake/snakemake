@@ -262,10 +262,10 @@ class CPUExecutor(RealExecutor):
             if job.benchmark is not None:
                 benchmark = str(job.benchmark)
             future = self.pool.submit(
-                run_wrapper, job.rule.run_func, job.input.plainstrings(),
+                run_wrapper, job.rule, job.input.plainstrings(),
                 job.output.plainstrings(), job.params, job.wildcards, job.threads,
-                job.resources, job.log.plainstrings(), job.rule.version, benchmark,
-                self.benchmark_repeats, job.rule.name, conda_env,
+                job.resources, job.log.plainstrings(), benchmark,
+                self.benchmark_repeats, conda_env,
                 self.workflow.linemaps, self.workflow.debug,
                 shadow_dir=job.shadow_dir)
         else:
@@ -814,39 +814,64 @@ def change_working_directory(directory=None):
         yield
 
 
-def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
-                version, benchmark, benchmark_repeats, rule, conda_env, linemaps, debug=False,
+def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, log,
+                benchmark, benchmark_repeats, conda_env, linemaps, debug=False,
                 shadow_dir=None):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
 
     Arguments
-    run        -- the run method
+    job_rule   -- the ``job.rule`` member
     input      -- list of input files
     output     -- list of output files
     wildcards  -- so far processed wildcards
     threads    -- usable threads
     log        -- list of log files
-    rule (str) -- rule name
     shadow_dir -- optional shadow directory root
     """
+    # get shortcuts to job_rule members
+    run = job_rule.run_func
+    version = job_rule.version
+    rule = job_rule.name
+
     if os.name == "posix" and debug:
         sys.stdin = open('/dev/stdin')
 
-    try:
-        runs = 1 if benchmark is None else benchmark_repeats
-        wallclock = []
-        for i in range(runs):
-            w = time.time()
-            # execute the actual run method.
-            with change_working_directory(shadow_dir):
-                run(input, output, params, wildcards, threads, resources, log,
-                    version, rule, conda_env)
-            w = time.time() - w
-            wallclock.append(w)
+    if benchmark is not None:
+        from snakemake.benchmark import BenchmarkRecord, benchmarked, write_benchmark_records
 
+    try:
+        if benchmark:
+            bench_records = []
+            for i in range(benchmark_repeats):
+                # Determine whether to benchmark this process or do not
+                # benchmarking at all.  We benchmark this process unless the
+                # execution is done through the ``shell:``, ``script:``, or
+                # ``wrapper:`` stanza.
+                is_sub = job_rule.shellcmd or job_rule.script or job_rule.wrapper
+                with change_working_directory(shadow_dir):
+                    if is_sub:
+                        # The benchmarking through ``benchmarked()`` is started
+                        # in the execution of the shell fragment, script, wrapper
+                        # etc, as the child PID is available there.
+                        bench_record = BenchmarkRecord()
+                        run(input, output, params, wildcards, threads, resources,
+                            log, version, rule, conda_env, bench_record)
+                    else:
+                        # The benchmarking is started here as we have a run section
+                        # and the generated Python function is executed in this
+                        # process' thread.
+                        with benchmarked() as bench_record:
+                            run(input, output, params, wildcards, threads, resources,
+                                log, version, rule, conda_env, bench_record)
+                # Store benchmark record for this iteration
+                bench_records.append(bench_record)
+        else:
+            run(input, output, params, wildcards, threads, resources,
+                log, version, rule, conda_env, None)
     except (KeyboardInterrupt, SystemExit) as e:
-        # re-raise the keyboard interrupt in order to record an error in the scheduler but ignore it
+        # Re-raise the keyboard interrupt in order to record an error in the
+        # scheduler but ignore it
         raise e
     except (Exception, BaseException) as ex:
         log_verbose_traceback(ex)
@@ -859,9 +884,6 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
 
     if benchmark is not None:
         try:
-            with open(benchmark, "w") as f:
-                print("s", "h:m:s", sep="\t", file=f)
-                for t in wallclock:
-                    print(t, str(datetime.timedelta(seconds=t)), sep="\t", file=f)
+            write_benchmark_records(bench_records, benchmark)
         except (Exception, BaseException) as ex:
             raise WorkflowError(ex)

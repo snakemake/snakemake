@@ -22,3 +22,4 @@ dependencies:
   - docutils
   - pandoc
   - r-rmarkdown
+  - psutil
