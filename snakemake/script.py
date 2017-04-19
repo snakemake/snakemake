@@ -21,7 +21,6 @@ from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.version import MIN_PY_VERSION
-from snakemake.benchmark import benchmarked
 
 
 PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")

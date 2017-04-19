@@ -32,7 +32,6 @@ from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError, ImproperShadowException, SpawnedJobError
 from snakemake.common import Mode
-from snakemake.benchmark import BenchmarkRecord, benchmarked, write_benchmark_records
 
 
 class AbstractExecutor:
@@ -838,32 +837,38 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
     if os.name == "posix" and debug:
         sys.stdin = open('/dev/stdin')
 
+    if benchmark is not None:
+        from snakemake.benchmark import BenchmarkRecord, benchmarked, write_benchmark_records
+
     try:
-        runs = 1 if benchmark is None else benchmark_repeats
-        bench_records = []
-        for i in range(runs):
-            # Determine whether to benchmark this process or do not
-            # benchmarking at all.  We benchmark this process unless the
-            # execution is done through the ``shell:``, ``script:``, or
-            # ``wrapper:`` stanza.
-            is_sub = job_rule.shellcmd or job_rule.script or job_rule.wrapper
-            with change_working_directory(shadow_dir):
-                if is_sub:
-                    # The benchmarking through ``benchmarked()`` is started
-                    # in the execution of the shell fragment, script, wrapper
-                    # etc, as the child PID is available there.
-                    bench_record = BenchmarkRecord()
-                    run(input, output, params, wildcards, threads, resources,
-                        log, version, rule, conda_env, bench_record)
-                else:
-                    # The benchmarking is started here as we have a run section
-                    # and the generated Python function is executed in this
-                    # process' thread.
-                    with benchmarked() as bench_record:
+        if benchmark:
+            bench_records = []
+            for i in range(benchmark_repeats):
+                # Determine whether to benchmark this process or do not
+                # benchmarking at all.  We benchmark this process unless the
+                # execution is done through the ``shell:``, ``script:``, or
+                # ``wrapper:`` stanza.
+                is_sub = job_rule.shellcmd or job_rule.script or job_rule.wrapper
+                with change_working_directory(shadow_dir):
+                    if is_sub:
+                        # The benchmarking through ``benchmarked()`` is started
+                        # in the execution of the shell fragment, script, wrapper
+                        # etc, as the child PID is available there.
+                        bench_record = BenchmarkRecord()
                         run(input, output, params, wildcards, threads, resources,
                             log, version, rule, conda_env, bench_record)
-            # Store benchmark record for this iteration
-            bench_records.append(bench_record)
+                    else:
+                        # The benchmarking is started here as we have a run section
+                        # and the generated Python function is executed in this
+                        # process' thread.
+                        with benchmarked() as bench_record:
+                            run(input, output, params, wildcards, threads, resources,
+                                log, version, rule, conda_env, bench_record)
+                # Store benchmark record for this iteration
+                bench_records.append(bench_record)
+        else:
+            run(input, output, params, wildcards, threads, resources,
+                log, version, rule, conda_env, None)
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it

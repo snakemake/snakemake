@@ -32,4 +32,4 @@ rule bench_run_shell:
     benchmark:
         "test.benchmark_run_shell.txt"
     run:
-        shell("sleep 1", bench_record=bench_record)
+        shell("sleep 1")

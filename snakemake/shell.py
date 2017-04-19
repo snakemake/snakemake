@@ -11,7 +11,7 @@ import inspect
 
 from snakemake.utils import format
 from snakemake.logging import logger
-from snakemake.benchmark import benchmarked
+
 
 __author__ = "Johannes Köster"
 
@@ -77,8 +77,12 @@ class shell:
             ret = proc.stdout.read()
         elif async:
             return proc
-        # Note: benchmarking does not work in case of async=True
-        with benchmarked(proc.pid, bench_record):
+        if bench_record is not None:
+            from snakemake.benchmark import benchmarked
+            # Note: benchmarking does not work in case of async=True
+            with benchmarked(proc.pid, bench_record):
+                retcode = proc.wait()
+        else:
             retcode = proc.wait()
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
