@@ -682,6 +682,7 @@ class DRMAAExecutor(ClusterExecutor):
                  quiet=False,
                  printshellcmds=False,
                  drmaa_args="",
+                 drmaa_log_dir=None,
                  latency_wait=3,
                  benchmark_repeats=1,
                  cluster_config=None,
@@ -707,6 +708,7 @@ class DRMAAExecutor(ClusterExecutor):
             raise WorkflowError("Error loading drmaa support:\n{}".format(e))
         self.session = drmaa.Session()
         self.drmaa_args = drmaa_args
+        self.drmaa_log_dir = drmaa_log_dir
         self.session.initialize()
         self.submitted = list()
 
@@ -737,10 +739,20 @@ class DRMAAExecutor(ClusterExecutor):
             raise WorkflowError(str(e), rule=job.rule)
 
         import drmaa
+
+        drmaa_log_dir = os.path.expanduser(self.drmaa_log_dir)
+        if not os.path.isabs(drmaa_log_dir):
+            if self.workflow.overwrite_workdir:
+                drmaa_log_dir = os.path.join(self.workflow.overwrite_workdir, drmaa_log_dir)
+            else:
+                drmaa_log_dir = os.path.abspath(drmaa_log_dir)
+
         try:
             jt = self.session.createJobTemplate()
             jt.remoteCommand = jobscript
             jt.nativeSpecification = drmaa_args
+            jt.outputPath = ":" + drmaa_log_dir
+            jt.errorPath = ":" + drmaa_log_dir
             jt.jobName = os.path.basename(jobscript)
 
             jobid = self.session.runJob(jt)

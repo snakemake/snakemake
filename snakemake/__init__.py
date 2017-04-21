@@ -59,6 +59,7 @@ def snakemake(snakefile,
               cluster_config=None,
               cluster_sync=None,
               drmaa=None,
+              drmaa_log_dir=".drmaa",
               jobname="snakejob.{rulename}.{jobid}.sh",
               immediate_submit=False,
               standalone=False,
@@ -137,6 +138,7 @@ def snakemake(snakefile,
         cluster_config (str,list):  configuration file for cluster options, or list thereof (default None)
         cluster_sync (str):         blocking cluster submission command (like SGE 'qsub -sync y')  (default None)
         drmaa (str):                if not None use DRMAA for cluster support, str specifies native args passed to the cluster when submitting a job
+        drmaa_log_dir (str):        the path to stdout and stderr output of DRMAA jobs (default '.drmaa' in snakemake's working directory)
         jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
         standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False) (deprecated)
@@ -352,6 +354,7 @@ def snakemake(snakefile,
                                        cluster=cluster,
                                        cluster_sync=cluster_sync,
                                        drmaa=drmaa,
+                                       drmaa_log_dir=drmaa_log_dir,
                                        jobname=jobname,
                                        immediate_submit=immediate_submit,
                                        standalone=standalone,
@@ -401,6 +404,7 @@ def snakemake(snakefile,
                     cluster_sync=cluster_sync,
                     jobname=jobname,
                     drmaa=drmaa,
+                    drmaa_log_dir=drmaa_log_dir,
                     max_jobs_per_second=max_jobs_per_second,
                     printd3dag=printd3dag,
                     immediate_submit=immediate_submit,
@@ -753,6 +757,15 @@ def get_argument_parser():
         "with a leading whitespace.")
 
     parser.add_argument(
+        "--drmaa-log-dir",
+        metavar="DIR",
+        action="store",
+        default=".drmaa",
+        help="Specify where stdout and stderr files of DRMAA jobs are written. "
+        "May be given as a relative path, in which case Snakemake will use "
+        "its working directory as the origin (default: .drmaa)")
+
+    parser.add_argument(
         "--cluster-config", "-u",
         metavar="FILE",
         default=[],
@@ -1080,6 +1093,7 @@ def main(argv=None):
                             cluster_config=args.cluster_config,
                             cluster_sync=args.cluster_sync,
                             drmaa=args.drmaa,
+                            drmaa_log_dir=args.drmaa_log_dir,
                             jobname=args.jobname,
                             immediate_submit=args.immediate_submit,
                             standalone=True,

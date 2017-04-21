@@ -33,6 +33,7 @@ class JobScheduler:
                  cluster_config=None,
                  cluster_sync=None,
                  drmaa=None,
+                 drmaa_log_dir=None,
                  jobname=None,
                  quiet=False,
                  printreason=False,
@@ -122,6 +123,7 @@ class JobScheduler:
                 self._executor = DRMAAExecutor(
                     workflow, dag, None,
                     drmaa_args=drmaa,
+                    drmaa_log_dir=drmaa_log_dir,
                     jobname=jobname,
                     printreason=printreason,
                     quiet=quiet,
