@@ -360,9 +360,6 @@ Here, this allows you to derive the prefix name from the output file.
 External scripts
 ----------------
 
-Python
-~~~~~~
-
 A rule can also point to an external script instead of a shell command or inline Python code, e.g.
 
 .. code-block:: python
@@ -379,9 +376,6 @@ A rule can also point to an external script instead of a shell command or inline
 
 The script path is always relative to the Snakefile (in contrast to the input and output file paths, which are relative to the working directory).
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
-
-R
-~
 
 Apart from Python scripts, this mechanism also allows you to integrate R_ and R Markdown_ scripts with Snakemake, e.g.
 
@@ -425,9 +419,6 @@ An equivalent script written in R would look like this:
 
 To debug R scripts, you can save the workspace with ``save.image()``, and invoke R after Snakemake has terminated. Then you can use the usual R debugging facilities while having access to the ``snakemake`` variable.
 It is best practice to wrap the actual code into a separate function. This increases the portability if the code shall be invoked outside of Snakemake or from a different rule.
-
-R Markdown
-~~~~~~~~~~
 
 An R Markdown file can be integrated in the same way as R and Python scripts, but only a single output (html) file can be used:
 
