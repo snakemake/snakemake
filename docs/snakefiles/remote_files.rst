@@ -88,6 +88,13 @@ If you wish to have a rule to simply download a file to a local copy, you can do
         run:
             shell("cp {output[0]} ./")
 
+In some cases the rule can use the data directly on the remote provider, in these cases ``stay_on_remote=True`` can be set to avoid downloading/uploading data unnecessarily. Additionally, if the backend supports it, any potentially corrupt output files will be removed from the remote. The default for ``stay_on_remote`` and ``keep_local`` can be configured by setting these properties on the remote provider object:
+
+.. code-block:: python
+
+    from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
+    S3 = S3RemoteProvider(access_key_id="MYACCESSKEY", secret_access_key="MYSECRET", keep_local=True, stay_on_remote=True)
+
 The remote provider also supports a new ``glob_wildcards()`` (see :ref:`glob-wildcards`) which acts the same as the local version of ``glob_wildcards()``, but for remote files:
 
 .. code-block:: python
@@ -382,6 +389,31 @@ Using the Dropbox provider is straightforward:
 
 Note that Dropbox paths are case-insensitive.
 
+XRootD
+=======
+
+Snakemake can be used with `XRootD <http://xrootd.org/>` backed storage provided the python bindings are installed.
+This is typically most useful when combined with the ``stay_on_remote`` flag to minimise local storage requirements.
+This flag can be overridden on a file by file basis as described in the S3 remote. Additionally ``glob_wildcards()`` is supported:
+
+.. code-block:: python
+
+    from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
+
+    XRootD = XRootDRemoteProvider(stay_on_remote=True)
+    file_numbers = XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
+
+    rule all:
+        input:
+            XRootD.remote(expand("local_data/mclasseventv2_D0_{n}.root", n=file_numbers))
+
+    rule make_data:
+        input:
+            XRootD.remote("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
+        output:
+            'local_data/mclasseventv2_D0_{n}.root'
+        shell:
+            'xrdcp {input[0]} {output[0]}'
 
 Remote cross-provider transfers
 ===============================

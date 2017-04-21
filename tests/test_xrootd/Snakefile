@@ -1,0 +1,27 @@
+from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
+
+XRootD = XRootDRemoteProvider(stay_on_remote=True)
+
+remote_path = 'root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/'
+my_files, = XRootD.glob_wildcards(remote_path+'D0lifetime/2014/mclasseventv2_D0_{n}.root')
+
+rule all:
+    input:
+        expand('access_remotely/mclasseventv2_D0_{n}.root', n=my_files),
+        expand('access_locally/mclasseventv2_D0_{n}.root', n=my_files)
+
+rule access_remotely:
+    input:
+        XRootD.remote(remote_path+'D0lifetime/2014/mclasseventv2_D0_{n}.root')
+    output:
+        'access_remotely/mclasseventv2_D0_{n}.root'
+    shell:
+        'xrdcp {input[0]} {output[0]}'
+
+rule access_locally:
+    input:
+        XRootD.remote(remote_path+'D0lifetime/2014/mclasseventv2_D0_{n}.root', stay_on_remote=False)
+    output:
+        'access_locally/mclasseventv2_D0_{n}.root'
+    shell:
+        'cp {input[0]} {output[0]}'
