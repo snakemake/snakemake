@@ -376,9 +376,11 @@ A rule can also point to an external script instead of a shell command or inline
 
 The script path is always relative to the Snakefile (in contrast to the input and output file paths, which are relative to the working directory).
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
-Apart from Python scripts, this mechanism also allows you to integrate R_ scripts with Snakemake, e.g.
+
+Apart from Python scripts, this mechanism also allows you to integrate R_ and R Markdown_ scripts with Snakemake, e.g.
 
 .. _R: https://www.r-project.org
+.. _Markdown: http://rmarkdown.rstudio.com
 
 .. code-block:: python
 
@@ -418,6 +420,55 @@ An equivalent script written in R would look like this:
 To debug R scripts, you can save the workspace with ``save.image()``, and invoke R after Snakemake has terminated. Then you can use the usual R debugging facilities while having access to the ``snakemake`` variable.
 It is best practice to wrap the actual code into a separate function. This increases the portability if the code shall be invoked outside of Snakemake or from a different rule.
 
+An R Markdown file can be integrated in the same way as R and Python scripts, but only a single output (html) file can be used:
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/report.html",
+        script:
+            "path/to/report.Rmd"
+
+In the R Markdown file you can insert output from a R command, and access variables stored in the S4 object named ``snakemake``
+
+.. code-block:: R
+
+    ---
+    title: "Test Report"
+    author:
+        - "Your Name"
+    date: "`r format(Sys.time(), '%d %B, %Y')`"
+    params:
+       rmd: "report.Rmd"
+    output:
+      html_document:
+      highlight: tango
+      number_sections: no
+      theme: default
+      toc: yes
+      toc_depth: 3
+      toc_float:
+        collapsed: no
+        smooth_scroll: yes
+    ---
+
+    ## R Markdown
+
+    This is an R Markdown document.
+
+    Test include from snakemake `r snakemake@input`.
+
+    ## Source
+    <a download="report.Rmd" href="`r base64enc::dataURI(file = params$rmd, mime = 'text/rmd', encoding = 'base64')`">R Markdown source file (to produce this document)</a>
+
+A link to the R Markdown document with the snakemake object can be inserted. Therefore a variable called ``rmd`` needs to be added to the ``params`` section in the header of the ``report.Rmd`` file. The generated R Markdown file with snakemake object will be saved in the file specified in this ``rmd`` variable. This file can be embedded into the HTML document using base64 encoding and a link can be inserted as shown in the example above.
+Also other input and output files can be embedded in this way to make a portable report. Note that the above method with a data URI only works for small files. An experimental technology to embed larger files is using Javascript Blob object_.
+
+.. _object https://developer.mozilla.org/en-US/docs/Web/API/Blob
 
 Protected and Temporary Files
 -----------------------------
