@@ -59,7 +59,7 @@ def snakemake(snakefile,
               cluster_config=None,
               cluster_sync=None,
               drmaa=None,
-              drmaa_log_dir=".drmaa",
+              drmaa_log_dir=None,
               jobname="snakejob.{rulename}.{jobid}.sh",
               immediate_submit=False,
               standalone=False,
@@ -138,7 +138,7 @@ def snakemake(snakefile,
         cluster_config (str,list):  configuration file for cluster options, or list thereof (default None)
         cluster_sync (str):         blocking cluster submission command (like SGE 'qsub -sync y')  (default None)
         drmaa (str):                if not None use DRMAA for cluster support, str specifies native args passed to the cluster when submitting a job
-        drmaa_log_dir (str):        the path to stdout and stderr output of DRMAA jobs (default '.drmaa' in snakemake's working directory)
+        drmaa_log_dir (str):        the path to stdout and stderr output of DRMAA jobs (default None)
         jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
         standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False) (deprecated)
@@ -760,10 +760,12 @@ def get_argument_parser():
         "--drmaa-log-dir",
         metavar="DIR",
         action="store",
-        default=".drmaa",
-        help="Specify where stdout and stderr files of DRMAA jobs are written. "
-        "May be given as a relative path, in which case Snakemake will use "
-        "its working directory as the origin (default: .drmaa)")
+        default=None,
+        help="Specify a directory in which stdout and stderr files of DRMAA"
+        " jobs will be written. May be given as a relative path, in which"
+        " case Snakemake will use its working directory as the origin. If"
+        " given, this will override any given '-o' and/or '-e' native"
+        " specification (default: None).")
 
     parser.add_argument(
         "--cluster-config", "-u",

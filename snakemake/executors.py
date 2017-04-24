@@ -26,7 +26,7 @@ from snakemake.jobs import Job
 from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.stats import Stats
-from snakemake.utils import format, Unformattable
+from snakemake.utils import format, Unformattable, makedirs
 from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
@@ -740,19 +740,23 @@ class DRMAAExecutor(ClusterExecutor):
 
         import drmaa
 
-        drmaa_log_dir = os.path.expanduser(self.drmaa_log_dir)
-        if not os.path.isabs(drmaa_log_dir):
-            if self.workflow.overwrite_workdir:
-                drmaa_log_dir = os.path.join(self.workflow.overwrite_workdir, drmaa_log_dir)
-            else:
-                drmaa_log_dir = os.path.abspath(drmaa_log_dir)
+        if self.drmaa_log_dir:
+            drmaa_log_dir = os.path.expanduser(self.drmaa_log_dir)
+            if not os.path.isabs(drmaa_log_dir):
+                if self.workflow.overwrite_workdir:
+                    drmaa_log_dir = os.path.join(self.workflow.overwrite_workdir, drmaa_log_dir)
+                else:
+                    drmaa_log_dir = os.path.abspath(drmaa_log_dir)
+
+            makedirs(drmaa_log_dir)
 
         try:
             jt = self.session.createJobTemplate()
             jt.remoteCommand = jobscript
             jt.nativeSpecification = drmaa_args
-            jt.outputPath = ":" + drmaa_log_dir
-            jt.errorPath = ":" + drmaa_log_dir
+            if self.drmaa_log_dir:
+                jt.outputPath = ":" + drmaa_log_dir
+                jt.errorPath = ":" + drmaa_log_dir
             jt.jobName = os.path.basename(jobscript)
 
             jobid = self.session.runJob(jt)
