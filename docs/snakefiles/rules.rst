@@ -651,6 +651,8 @@ Note that the function will be executed when the rule is evaluated and before th
 Finally, when implementing the input function, it is best practice to make sure that it can properly handle all possible wildcard values your rule can have.
 In particular, input files should not be combined with very general rules that can be applied to create almost any file: Snakemake will try to apply the rule, and will report the exceptions of your input function as errors.
 
+For a practical example, see the :ref:`tutorial` (:ref:`tutorial-input_functions`).
+
 .. _snakefiles-unpack:
 
 Input Functions and ``unpack()``

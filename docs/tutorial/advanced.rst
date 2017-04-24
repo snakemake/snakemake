@@ -119,6 +119,7 @@ Now, we can remove the statement defining ``SAMPLES`` from the Snakefile and cha
             "samtools mpileup -g -f {input.fa} {input.bam} | "
             "bcftools call -mv - > {output}"
 
+.. _tutorial-input_functions:
 
 Step 3: Input functions
 :::::::::::::::::::::::
