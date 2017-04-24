@@ -26,7 +26,7 @@ from snakemake.jobs import Job
 from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.stats import Stats
-from snakemake.utils import format, Unformattable
+from snakemake.utils import format, Unformattable, makedirs
 from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
@@ -682,6 +682,7 @@ class DRMAAExecutor(ClusterExecutor):
                  quiet=False,
                  printshellcmds=False,
                  drmaa_args="",
+                 drmaa_log_dir=None,
                  latency_wait=3,
                  benchmark_repeats=1,
                  cluster_config=None,
@@ -707,6 +708,7 @@ class DRMAAExecutor(ClusterExecutor):
             raise WorkflowError("Error loading drmaa support:\n{}".format(e))
         self.session = drmaa.Session()
         self.drmaa_args = drmaa_args
+        self.drmaa_log_dir = drmaa_log_dir
         self.session.initialize()
         self.submitted = list()
 
@@ -737,10 +739,17 @@ class DRMAAExecutor(ClusterExecutor):
             raise WorkflowError(str(e), rule=job.rule)
 
         import drmaa
+
+        if self.drmaa_log_dir:
+            makedirs(self.drmaa_log_dir)
+
         try:
             jt = self.session.createJobTemplate()
             jt.remoteCommand = jobscript
             jt.nativeSpecification = drmaa_args
+            if self.drmaa_log_dir:
+                jt.outputPath = ":" + self.drmaa_log_dir
+                jt.errorPath = ":" + self.drmaa_log_dir
             jt.jobName = os.path.basename(jobscript)
 
             jobid = self.session.runJob(jt)
