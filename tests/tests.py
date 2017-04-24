@@ -485,6 +485,10 @@ def test_threads():
     run(dpath("test_threads"), cores=20)
 
 
+def test_dynamic_temp():
+    run(dpath("test_dynamic_temp"))
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
