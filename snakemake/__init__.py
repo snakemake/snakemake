@@ -759,8 +759,6 @@ def get_argument_parser():
     parser.add_argument(
         "--drmaa-log-dir",
         metavar="DIR",
-        action="store",
-        default=None,
         help="Specify a directory in which stdout and stderr files of DRMAA"
         " jobs will be written. The value may be given as a relative path,"
         " in which case Snakemake will use the current invocation directory"
