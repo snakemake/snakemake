@@ -741,22 +741,15 @@ class DRMAAExecutor(ClusterExecutor):
         import drmaa
 
         if self.drmaa_log_dir:
-            drmaa_log_dir = os.path.expanduser(self.drmaa_log_dir)
-            if not os.path.isabs(drmaa_log_dir):
-                if self.workflow.overwrite_workdir:
-                    drmaa_log_dir = os.path.join(self.workflow.overwrite_workdir, drmaa_log_dir)
-                else:
-                    drmaa_log_dir = os.path.abspath(drmaa_log_dir)
-
-            makedirs(drmaa_log_dir)
+            makedirs(self.drmaa_log_dir)
 
         try:
             jt = self.session.createJobTemplate()
             jt.remoteCommand = jobscript
             jt.nativeSpecification = drmaa_args
             if self.drmaa_log_dir:
-                jt.outputPath = ":" + drmaa_log_dir
-                jt.errorPath = ":" + drmaa_log_dir
+                jt.outputPath = ":" + self.drmaa_log_dir
+                jt.errorPath = ":" + self.drmaa_log_dir
             jt.jobName = os.path.basename(jobscript)
 
             jobid = self.session.runJob(jt)

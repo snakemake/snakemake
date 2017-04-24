@@ -762,10 +762,10 @@ def get_argument_parser():
         action="store",
         default=None,
         help="Specify a directory in which stdout and stderr files of DRMAA"
-        " jobs will be written. May be given as a relative path, in which"
-        " case Snakemake will use its working directory as the origin. If"
-        " given, this will override any given '-o' and/or '-e' native"
-        " specification (default: None).")
+        " jobs will be written. The value may be given as a relative path,"
+        " in which case Snakemake will use the current invocation directory"
+        " as the origin. If given, this will override any given '-o' and/or"
+        " '-e' native specifications (default: None).")
 
     parser.add_argument(
         "--cluster-config", "-u",
@@ -1017,6 +1017,10 @@ def main(argv=None):
                 sys.exit(1)
     elif args.cores is None:
         args.cores = 1
+
+    if args.drmaa_log_dir is not None:
+        if not os.path.isabs(args.drmaa_log_dir):
+            args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
 
     if args.profile:
         import yappi
