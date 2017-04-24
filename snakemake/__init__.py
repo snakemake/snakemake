@@ -764,7 +764,7 @@ def get_argument_parser():
         " in which case Snakemake will use the current invocation directory"
         " as the origin. If given, this will override any given '-o' and/or"
         " '-e' native specification. If not given, all DRMAA stdout and"
-        " stderr files are written to the Snakemake working directory.")
+        " stderr files are written to the current working directory.")
 
     parser.add_argument(
         "--cluster-config", "-u",
