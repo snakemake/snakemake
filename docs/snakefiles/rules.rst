@@ -478,9 +478,12 @@ A particular output file may require a huge amount of computation time. Hence on
 .. code-block:: python
 
     rule NAME:
-        input: "path/to/inputfile", "path/to/other/inputfile"
-        output: protected("path/to/outputfile"), "path/to/another/outputfile"
-        shell: "somecommand --threads {threads} {input} {output}"
+        input:
+            "path/to/inputfile"
+        output:
+            protected("path/to/outputfile")
+        shell:
+            "somecommand {input} {output}"
 
 A protected file will be write-protected after the rule that produces it is completed.
 
@@ -489,9 +492,31 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
 .. code-block:: python
 
     rule NAME:
-        input: "path/to/inputfile", "path/to/other/inputfile"
-        output: temp("path/to/outputfile"), "path/to/another/outputfile"
-        shell: "somecommand --threads {threads} {input} {output}"
+        input:
+            "path/to/inputfile"
+        output:
+            temp("path/to/outputfile")
+        shell:
+            "somecommand {input} {output}"
+
+Ignoring timestamps
+-------------------
+
+For determining whether output files have to be re-created, Snakemake checks whether the file modification date (i.e. the timestamp) of any input file of the same job is newer than the timestamp of the output file.
+This behavior can be overridden by marking an input file as ``ancient``.
+The timestamp of such files is ignored and always assumed to be older than any of the output files:
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            ancient("path/to/inputfile")
+        output:
+            "path/to/outputfile"
+        shell:
+            "somecommand {input} {output}"
+
+Here, this means that the file ``path/to/outputfile`` will not be triggered for re-creation after it has been generated once, even when the input file is modified in the future.
 
 Shadow rules
 ------------
