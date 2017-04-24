@@ -763,7 +763,8 @@ def get_argument_parser():
         " jobs will be written. The value may be given as a relative path,"
         " in which case Snakemake will use the current invocation directory"
         " as the origin. If given, this will override any given '-o' and/or"
-        " '-e' native specifications (default: None).")
+        " '-e' native specification. If not given, all DRMAA stdout and"
+        " stderr files are written to the Snakemake working directory.")
 
     parser.add_argument(
         "--cluster-config", "-u",
