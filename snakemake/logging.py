@@ -216,7 +216,7 @@ class Logger:
             if not self.last_msg_was_job_info:
                 self.logger.info("")
             if msg["msg"] is not None:
-                self.logger.info(msg["msg"])
+                self.logger.info("Job {}: {}".format(msg["jobid"], msg["msg"]))
                 if self.printreason:
                     self.logger.info("Reason: {}".format(msg["reason"]))
             else:
