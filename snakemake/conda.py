@@ -18,10 +18,16 @@ class Env:
 
     """Conda environment from a given specification file."""
 
-    def __init__(self, env_file):
+    def __init__(self, env_file, dag):
         self.file = env_file
+
+        self._env_dir = dag.workflow.persistence.conda_env_path
+        self._env_archive_dir = dag.workflow.persistence.conda_env_archive_path
+
         self._hash = None
         self._content = None
+        self._path = None
+        self._archive_file = None
 
     @property
     def content(self):
@@ -43,11 +49,30 @@ class Env:
             self._hash = md5hash.hexdigest()
         return self._hash
 
-    def get_archive(self, dag):
-        """Get path to archived environment derived from given environment file."""
-        return os.path.join(dag.workflow.persistence.conda_env_archive_path, self.hash)
+    @property
+    def path(self):
+        """Path to directory of the conda environment.
 
-    def create_archive(self, dag):
+        First tries full hash, if it does not exist, (8-prefix) is used
+        as default.
+
+        """
+        hash = self.hash
+        env_dir = self._env_dir
+        for h in [hash, hash[:8]]:
+            path = os.path.join(env_dir, h)
+            if os.path.exists(path):
+                return path
+        return path
+
+    @property
+    def archive_file(self):
+        """Path to archive of the conda environment, which may or may not exist."""
+        if self._archive_file is None:
+            self._archive_file = os.path.join(self._env_archive_dir, self.hash)
+        return self._archive_file
+
+    def create_archive(self):
         """Create self-contained archive of environment."""
         try:
             import yaml
@@ -57,7 +82,7 @@ class Env:
         # importing requests locally because it interferes with instantiating conda environments
         import requests
 
-        env_archive = self.get_archive(dag)
+        env_archive = self.archive_file
         if os.path.exists(env_archive):
             return env_archive
 
@@ -67,7 +92,7 @@ class Env:
             os.makedirs(env_archive, exist_ok=True)
             try:
                 out = subprocess.check_output(["conda", "list", "--explicit",
-                    "--prefix", self.get_path(dag)],
+                    "--prefix", self.path],
                     stderr=subprocess.STDOUT)
                 logger.debug(out.decode())
             except subprocess.CalledProcessError as e:
@@ -86,17 +111,7 @@ class Env:
             raise e
         return env_archive
 
-    def get_path(self, dag):
-        """Return environment path from hash.
-        First tries full hash, if it does not exist, (8-prefix) is used as
-        default."""
-        for h in [self.hash, self.hash[:8]]:
-            path = os.path.join(dag.workflow.persistence.conda_env_path, h)
-            if os.path.exists(path):
-                return path
-        return path
-
-    def create(self, dag):
+    def create(self):
         """ Create the conda enviroment."""
         # Read env file and create hash.
         env_file = self.file
@@ -110,12 +125,12 @@ class Env:
                 tmp_file = tmp.name
 
         env_hash = self.hash
-        env_path = self.get_path(dag)
+        env_path = self.path
         # Create environment if not already present.
         if not os.path.exists(env_path):
             logger.info("Creating conda environment {}...".format(env_file))
             # Check if env archive exists. Use that if present.
-            env_archive = self.get_archive(dag)
+            env_archive = self.archive_file
             try:
                 if os.path.exists(env_archive):
                     # install packages manually from env archive
@@ -141,7 +156,6 @@ class Env:
             # temporary file was created
             os.remove(tmp_file)
 
-        self.path = env_path
         return env_path
 
 

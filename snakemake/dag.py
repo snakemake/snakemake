@@ -162,11 +162,11 @@ class DAG:
         env_file_map = dict()
         hash_set = set()
         for env_file in env_set:
-            env = conda.Env(env_file)
+            env = conda.Env(env_file, self)
             hash = env.hash
             env_file_map[env_file] = env
             if hash not in hash_set:
-                env.create(self)
+                env.create()
                 logger.debug("Conda environment {} created.".format(env.file))
                 hash_set.add(hash)
 
