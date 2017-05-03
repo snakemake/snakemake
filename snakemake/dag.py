@@ -84,6 +84,7 @@ class DAG:
         self.keep_remote_local = keep_remote_local
         self._jobid = dict()
         self.job_cache = dict()
+        self.conda_envs = dict()
 
         self.forcerules = set()
         self.forcefiles = set()
@@ -154,8 +155,22 @@ class DAG:
 
     def create_conda_envs(self):
         conda.check_conda()
-        for job in self.needrun_jobs:
-            job.create_conda_env()
+        # First deduplicate based on job.conda_env_file
+        env_set = {job.conda_env_file for job in self.needrun_jobs
+                   if job.conda_env_file}
+        # Then based on md5sum values
+        env_file_map = dict()
+        hash_set = set()
+        for env_file in env_set:
+            env = conda.Env(env_file, self)
+            hash = env.hash
+            env_file_map[env_file] = env
+            if hash not in hash_set:
+                env.create()
+                logger.debug("Conda environment {} created.".format(env.file))
+                hash_set.add(hash)
+
+        self.conda_envs = env_file_map
 
     def update_output_index(self):
         """Update the OutputIndex."""

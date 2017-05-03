@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import hashlib
 import os
 import sys
 import base64
@@ -13,6 +14,8 @@ from collections import defaultdict
 from itertools import chain
 from functools import partial
 from operator import attrgetter
+from urllib.request import urlopen
+from urllib.parse import urlparse
 
 from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard, lstat
 from snakemake.utils import format, listfiles
@@ -142,32 +145,30 @@ class Job:
     @property
     def conda_env_file(self):
         if self._conda_env_file is None:
-            self._conda_env_file = self.rule.expand_conda_env(self.wildcards_dict)
+            expanded_env = self.rule.expand_conda_env(self.wildcards_dict)
+            scheme, _, path, *_ = urlparse(expanded_env)
+            # Normalize 'file:///my/path.yml' to '/my/path.yml'
+            if scheme == 'file' or not scheme:
+                self._conda_env_file = path
+            else:
+                self._conda_env_file = expanded_env
         return self._conda_env_file
 
     @property
     def conda_env(self):
         if self.conda_env_file:
+            if self._conda_env is None:
+                self._conda_env = self.dag.conda_envs.get(self.conda_env_file)
             logger.debug("Accessing conda environment {}.".format(self._conda_env))
             if self._conda_env is None:
-                raise ValueError("create_conda_env() must be called before calling conda_env")
-            return self._conda_env
+                raise ValueError("Conda environment {} not found in DAG.".format(self.conda_env_file))
+            return self._conda_env.path
         return None
-
-    def create_conda_env(self):
-        """Create conda environment if specified."""
-        if self.conda_env_file:
-            try:
-                self._conda_env = conda.create_env(self)
-                logger.debug("Conda environment {} created.".format(self._conda_env))
-            except CreateCondaEnvironmentException as e:
-                raise WorkflowError(e, rule=self.rule)
 
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""
         if self.conda_env_file:
-            self.create_conda_env()
-            return conda.archive_env(self)
+            return self.conda_env.create_archive()
         return None
 
     @property
