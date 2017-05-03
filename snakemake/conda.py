@@ -20,10 +20,12 @@ class Env:
 
     def __init__(self, env_file):
         self.file = env_file
+        self._hash = None
+        self._content = None
 
     @property
     def content(self):
-        if not hasattr(self, "_content"):
+        if self._content is None:
             env_file = self.file
             if urlparse(env_file).scheme:
                 content = urlopen(env_file).read()
@@ -35,7 +37,7 @@ class Env:
 
     @property
     def hash(self):
-        if not hasattr(self, "_hash"):
+        if self._hash is None:
             md5hash = hashlib.md5()
             md5hash.update(self.content)
             self._hash = md5hash.hexdigest()
