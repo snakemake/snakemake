@@ -367,6 +367,12 @@ def test_conda():
         run(dpath("test_conda"), use_conda=True)
 
 
+def test_conda_custom_dir():
+    if conda_available():
+        run(dpath("test_conda_custom_dir"),
+            use_conda=True, conda_dir="custom")
+
+
 def test_wrapper():
     if conda_available():
         run(dpath("test_wrapper"), use_conda=True)

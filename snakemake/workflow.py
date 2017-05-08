@@ -44,6 +44,7 @@ class Workflow:
                  config_args=None,
                  debug=False,
                  use_conda=False,
+                 conda_dir=None,
                  mode=Mode.default,
                  wrapper_prefix=None,
                  printshellcmds=False,
@@ -82,6 +83,7 @@ class Workflow:
         self.debug = debug
         self._rulecount = 0
         self.use_conda = use_conda
+        self.conda_dir = conda_dir
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
@@ -313,6 +315,7 @@ class Workflow:
         self.persistence = Persistence(
             nolock=nolock,
             dag=dag,
+            conda_dir=self.conda_dir,
             warn_only=dryrun or printrulegraph or printdag or summary or archive or
             list_version_changes or list_code_changes or list_input_changes or
             list_params_changes)
