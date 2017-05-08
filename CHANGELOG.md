@@ -2,10 +2,14 @@
 
 ## Unreleased
 ### Added
-- support for RMarkdown (.Rmd) in script directives.
+- Support for RMarkdown (.Rmd) in script directives.
+- New option --debug-dag that prints all decisions while building the DAG of jobs. This helps to debug problems like cycles or unexpected MissingInputExceptions.
 
 ### Changed
 - Benchmark files now also include the maximal RSS and VMS size of the Snakemake process and all sub processes.
+- Speedup conda environment creation.
+- Allow specification, of DRMAA log dir.
+- Pass cluster config to subworkflow.
 
 
 ## [3.11.2] - 2017-03-15
