@@ -367,6 +367,12 @@ def test_conda():
         run(dpath("test_conda"), use_conda=True)
 
 
+def test_conda_custom_prefix():
+    if conda_available():
+        run(dpath("test_conda_custom_prefix"),
+            use_conda=True, conda_prefix="custom")
+
+
 def test_wrapper():
     if conda_available():
         run(dpath("test_wrapper"), use_conda=True)
