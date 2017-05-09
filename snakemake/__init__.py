@@ -309,6 +309,7 @@ def snakemake(snakefile,
             os.makedirs(workdir)
         workdir = os.path.abspath(workdir)
         os.chdir(workdir)
+
     workflow = Workflow(snakefile=snakefile,
                         jobscript=jobscript,
                         overwrite_shellcmd=overwrite_shellcmd,
