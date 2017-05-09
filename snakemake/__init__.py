@@ -102,7 +102,7 @@ def snakemake(snakefile,
               verbose=False,
               force_use_threads=False,
               use_conda=False,
-              conda_dir=None,
+              conda_prefix=None,
               mode=Mode.default,
               wrapper_prefix=None):
     """Run snakemake on a given snakefile.
@@ -180,7 +180,7 @@ def snakemake(snakefile,
         restart_times (int):        number of times to restart failing jobs (default 1)
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
-        conda_dir (str):            the directories in which the snakemake 'conda' and 'conda-archive' directories will be created (default None)
+        conda_prefix (str):            the directories in which conda environments will be created (default None)
         mode (snakemake.common.Mode): Execution mode
         wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
@@ -319,7 +319,7 @@ def snakemake(snakefile,
                         config_args=config_args,
                         debug=debug,
                         use_conda=use_conda,
-                        conda_dir=conda_dir,
+                        conda_prefix=conda_prefix,
                         mode=mode,
                         wrapper_prefix=wrapper_prefix,
                         printshellcmds=printshellcmds,
@@ -385,7 +385,7 @@ def snakemake(snakefile,
                                        keep_shadow=True,
                                        force_use_threads=use_threads,
                                        use_conda=use_conda,
-                                       conda_dir=conda_dir)
+                                       conda_prefix=conda_prefix)
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
@@ -978,7 +978,7 @@ def get_argument_parser():
         help="If defined in the rule, create job specific conda environments. "
         "If this flag is not set, the conda directive is ignored.")
     parser.add_argument(
-        "--conda-dir",
+        "--conda-prefix",
         metavar="DIR",
         help="Specify a directory in which the 'conda' and 'conda-archive' "
         "directories are created. These are used to store conda environments "
@@ -1047,9 +1047,9 @@ def main(argv=None):
             file=sys.stderr)
         sys.exit(1)
 
-    if args.conda_dir and not args.use_conda:
+    if args.conda_prefix and not args.use_conda:
         print(
-            "Error: --use-conda must be set if --conda-dir is set.",
+            "Error: --use-conda must be set if --conda-prefix is set.",
             file=sys.stderr)
         sys.exit(1)
 
@@ -1156,7 +1156,7 @@ def main(argv=None):
                             restart_times=args.restart_times,
                             force_use_threads=args.force_use_threads,
                             use_conda=args.use_conda,
-                            conda_dir=args.conda_dir,
+                            conda_prefix=args.conda_prefix,
                             mode=args.mode,
                             wrapper_prefix=args.wrapper_prefix)
 
