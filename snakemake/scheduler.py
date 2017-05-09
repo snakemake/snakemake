@@ -33,6 +33,7 @@ class JobScheduler:
                  cluster_config=None,
                  cluster_sync=None,
                  drmaa=None,
+                 drmaa_log_dir=None,
                  jobname=None,
                  quiet=False,
                  printreason=False,
@@ -50,6 +51,7 @@ class JobScheduler:
         self.dag = dag
         self.workflow = workflow
         self.dryrun = dryrun
+        self.touch = touch
         self.quiet = quiet
         self.keepgoing = keepgoing
         self.running = set()
@@ -94,7 +96,8 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 use_threads=use_threads,
                 latency_wait=latency_wait,
-                benchmark_repeats=benchmark_repeats)
+                benchmark_repeats=benchmark_repeats,
+                cores=local_cores)
             self.run = self.run_cluster_or_local
             if cluster or cluster_sync:
                 constructor = SynchronousClusterExecutor if cluster_sync \
@@ -120,6 +123,7 @@ class JobScheduler:
                 self._executor = DRMAAExecutor(
                     workflow, dag, None,
                     drmaa_args=drmaa,
+                    drmaa_log_dir=drmaa_log_dir,
                     jobname=jobname,
                     printreason=printreason,
                     quiet=quiet,
@@ -140,7 +144,8 @@ class JobScheduler:
                                          printshellcmds=printshellcmds,
                                          use_threads=use_threads,
                                          latency_wait=latency_wait,
-                                         benchmark_repeats=benchmark_repeats, )
+                                         benchmark_repeats=benchmark_repeats,
+                                         cores=cores)
         self._open_jobs.set()
 
     @property
@@ -260,9 +265,8 @@ class JobScheduler:
 
             self.dag.finish(job, update_dynamic=update_dynamic)
 
-            logger.job_finished(jobid=self.dag.jobid(job))
-
             if print_progress:
+                logger.job_finished(jobid=self.dag.jobid(job))
                 self.progress()
 
             if any(self.open_jobs) or not self.running:
@@ -366,7 +370,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
     def job_reward(self, job):
         return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job),
-                job.inputsize)
+                0 if self.touch else job.inputsize)
 
     def dryrun_job_reward(self, job):
         return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job))

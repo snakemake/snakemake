@@ -248,8 +248,8 @@ Here is an example where you want to merge N files together, but if N == 1 a sym
         output: "{foo}/all_merged.txt"
         input: my_input_func  # some function that yields 1 or more files to merge
         run:
-            if len(output) > 1:
-                shell("cat {input} | sort > {out}")
+            if len(input) > 1:
+                shell("cat {input} | sort > {output}")
             else:
                 shell("ln -sr {input} {output}")
 
@@ -412,3 +412,11 @@ To remove all files created by snakemake as output files to start from scratch, 
 
     rm $(snakemake --summary | tail -n+2 | cut -f1)
 
+
+Why can't I use the conda directive with a run block?
+-----------------------------------------------------
+
+The run block of a rule (see :ref:`snakefiles-rules`) has access to anything defined in the Snakefile, outside of the rule.
+Hence, it has to share the conda environment with the main Snakemake process.
+To avoid confusion we therefore disallow the conda directive together with the run block.
+It is recommended to use the script directive instead (see :ref:`snakefiles-external_scripts`).

@@ -26,7 +26,7 @@ from snakemake.jobs import Job
 from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.stats import Stats
-from snakemake.utils import format, Unformattable
+from snakemake.utils import format, Unformattable, makedirs
 from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
@@ -106,9 +106,9 @@ class AbstractExecutor:
         logger.error("Error in job {} while creating output file{} {}.".format(
             job, "s" if len(job.output) > 1 else "", ", ".join(job.output)))
 
-    def finish_job(self, job, upload_remote=True):
+    def finish_job(self, job, upload_remote=True, ignore_missing_output=False):
         self.dag.handle_touch(job)
-        self.dag.check_and_touch_output(job, wait=self.latency_wait)
+        self.dag.check_and_touch_output(job, wait=self.latency_wait, ignore_missing_output=ignore_missing_output)
         self.dag.unshadow_output(job)
         self.dag.handle_remote(job, upload=upload_remote)
         self.dag.handle_protected(job)
@@ -149,8 +149,8 @@ class RealExecutor(AbstractExecutor):
                 "Please ensure write permissions for the "
                 "directory {}".format(e, self.workflow.persistence.path))
 
-    def finish_job(self, job, upload_remote=True):
-        super().finish_job(job, upload_remote=upload_remote)
+    def finish_job(self, job, upload_remote=True, ignore_missing_output=False):
+        super().finish_job(job, upload_remote=upload_remote, ignore_missing_output=ignore_missing_output)
         self.stats.report_job_end(job)
         try:
             self.workflow.persistence.finished(job)
@@ -198,10 +198,8 @@ class TouchExecutor(RealExecutor):
         super()._run(job)
         try:
             #Touching of output files will be done by finish_job
-            if job.benchmark:
-                job.benchmark.touch()
             time.sleep(0.1)
-            self.finish_job(job)
+            self.finish_job(job, ignore_missing_output=True)
             callback(job)
         except OSError as ex:
             print_exception(ex, self.workflow.linemaps)
@@ -223,7 +221,8 @@ class CPUExecutor(RealExecutor):
                  printshellcmds=False,
                  use_threads=False,
                  latency_wait=3,
-                 benchmark_repeats=1):
+                 benchmark_repeats=1,
+                 cores=1):
         super().__init__(workflow, dag,
                          printreason=printreason,
                          quiet=quiet,
@@ -239,8 +238,12 @@ class CPUExecutor(RealExecutor):
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
             '{overwrite_workdir} {overwrite_config} {printshellcmds} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
+
+        if self.workflow.use_conda:
+            self.exec_job += " --use-conda "
+
         self.use_threads = use_threads
-        self.cores = workers
+        self.cores = cores
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
 
     def run(self, job,
@@ -251,16 +254,18 @@ class CPUExecutor(RealExecutor):
 
         if self.use_threads or (not job.is_shadow and (job.is_shell or job.is_norun or job.is_script or job.is_wrapper)):
             job.prepare()
-            job.create_conda_env()
+            conda_env = None
+            if self.workflow.use_conda:
+                conda_env = job.conda_env
 
             benchmark = None
             if job.benchmark is not None:
                 benchmark = str(job.benchmark)
             future = self.pool.submit(
-                run_wrapper, job.rule.run_func, job.input.plainstrings(),
+                run_wrapper, job.rule, job.input.plainstrings(),
                 job.output.plainstrings(), job.params, job.wildcards, job.threads,
-                job.resources, job.log.plainstrings(), job.rule.version, benchmark,
-                self.benchmark_repeats, job.rule.name, job.conda_env,
+                job.resources, job.log.plainstrings(), benchmark,
+                self.benchmark_repeats, conda_env,
                 self.workflow.linemaps, self.workflow.debug,
                 shadow_dir=job.shadow_dir)
         else:
@@ -359,6 +364,8 @@ class ClusterExecutor(RealExecutor):
 
         if printshellcmds:
             self.exec_job += " --printshellcmds "
+        if self.workflow.use_conda:
+            self.exec_job += " --use-conda "
 
         # force threading.Lock() for cluster jobs
         self.exec_job += " --force-use-threads "
@@ -428,7 +435,7 @@ class ClusterExecutor(RealExecutor):
         wait_for_files = list(job.local_input) + [self.tmpdir]
         if job.shadow_dir:
             wait_for_files.append(job.shadow_dir)
-        if job.conda_env:
+        if self.workflow.use_conda and job.conda_env:
             wait_for_files.append(job.conda_env)
 
         format_p = partial(self.format_job_pattern,
@@ -438,8 +445,8 @@ class ClusterExecutor(RealExecutor):
                            latency_wait=self.latency_wait,
                            wait_for_files=wait_for_files,
                            **kwargs)
+        exec_job = self.exec_job
         try:
-            exec_job = self.exec_job
             exec_job = format_p(exec_job, _quote_all=True)
             with open(jobscript, "w") as f:
                 print(format_p(self.jobscript, exec_job=exec_job), file=f)
@@ -468,7 +475,7 @@ class ClusterExecutor(RealExecutor):
         super().finish_job(job, upload_remote=False)
 
 
-GenericClusterJob = namedtuple("GenericClusterJob", "job callback error_callback jobscript jobfinished jobfailed")
+GenericClusterJob = namedtuple("GenericClusterJob", "job jobid callback error_callback jobscript jobfinished jobfailed")
 
 
 class GenericClusterExecutor(ClusterExecutor):
@@ -545,7 +552,7 @@ class GenericClusterExecutor(ClusterExecutor):
 
         submit_callback(job)
         with self.lock:
-            self.active_jobs.append(GenericClusterJob(job, callback, error_callback, jobscript, jobfinished, jobfailed))
+            self.active_jobs.append(GenericClusterJob(job, ext_jobid, callback, error_callback, jobscript, jobfinished, jobfailed))
 
     def _wait_for_jobs(self):
         while True:
@@ -564,8 +571,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         os.remove(active_job.jobfailed)
                         os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
-                        print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
-                                                            active_job.jobscript),
+                        print_exception(ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                                         self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
                     else:
@@ -573,7 +579,7 @@ class GenericClusterExecutor(ClusterExecutor):
             time.sleep(1)
 
 
-SynchronousClusterJob = namedtuple("SynchronousClusterJob", "job callback error_callback jobscript process")
+SynchronousClusterJob = namedtuple("SynchronousClusterJob", "job jobid callback error_callback jobscript process")
 
 
 class SynchronousClusterExecutor(ClusterExecutor):
@@ -637,7 +643,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
         submit_callback(job)
 
         with self.lock:
-            self.active_jobs.append(SynchronousClusterJob(job, callback, error_callback, jobscript, process))
+            self.active_jobs.append(SynchronousClusterJob(job, process.pid, callback, error_callback, jobscript, process))
 
     def _wait_for_jobs(self):
         while True:
@@ -660,8 +666,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
                         # job failed
                         os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
-                        print_exception(ClusterJobException(active_job.job, self.dag.jobid(active_job.job),
-                                                            active_job.jobscript),
+                        print_exception(ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                                         self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
             time.sleep(1)
@@ -677,6 +682,7 @@ class DRMAAExecutor(ClusterExecutor):
                  quiet=False,
                  printshellcmds=False,
                  drmaa_args="",
+                 drmaa_log_dir=None,
                  latency_wait=3,
                  benchmark_repeats=1,
                  cluster_config=None,
@@ -702,6 +708,7 @@ class DRMAAExecutor(ClusterExecutor):
             raise WorkflowError("Error loading drmaa support:\n{}".format(e))
         self.session = drmaa.Session()
         self.drmaa_args = drmaa_args
+        self.drmaa_log_dir = drmaa_log_dir
         self.session.initialize()
         self.submitted = list()
 
@@ -732,20 +739,27 @@ class DRMAAExecutor(ClusterExecutor):
             raise WorkflowError(str(e), rule=job.rule)
 
         import drmaa
+
+        if self.drmaa_log_dir:
+            makedirs(self.drmaa_log_dir)
+
         try:
             jt = self.session.createJobTemplate()
             jt.remoteCommand = jobscript
             jt.nativeSpecification = drmaa_args
+            if self.drmaa_log_dir:
+                jt.outputPath = ":" + self.drmaa_log_dir
+                jt.errorPath = ":" + self.drmaa_log_dir
             jt.jobName = os.path.basename(jobscript)
 
             jobid = self.session.runJob(jt)
-        except (drmaa.errors.InternalException,
-                drmaa.errors.InvalidAttributeValueException) as e:
+        except (drmaa.InternalException,
+                drmaa.InvalidAttributeValueException) as e:
             print_exception(WorkflowError("DRMAA Error: {}".format(e)),
                             self.workflow.linemaps)
             error_callback(job)
             return
-        logger.info("Submitted DRMAA job (jobid {})".format(jobid))
+        logger.info("Submitted DRMAA job {} with external jobid {}.".format(self.dag.jobid(job), jobid))
         self.submitted.append(jobid)
         self.session.deleteJobTemplate(jt)
 
@@ -770,11 +784,11 @@ class DRMAAExecutor(ClusterExecutor):
                     try:
                         retval = self.session.wait(active_job.jobid,
                                                    drmaa.Session.TIMEOUT_NO_WAIT)
-                    except drmaa.errors.ExitTimeoutException as e:
+                    except drmaa.ExitTimeoutException as e:
                         # job still active
                         self.active_jobs.append(active_job)
                         continue
-                    except (drmaa.errors.InternalException, Exception) as e:
+                    except (drmaa.InternalException, Exception) as e:
                         print_exception(WorkflowError("DRMAA Error: {}".format(e)),
                                         self.workflow.linemaps)
                         os.remove(active_job.jobscript)
@@ -788,7 +802,7 @@ class DRMAAExecutor(ClusterExecutor):
                     else:
                         self.print_job_error(active_job.job)
                         print_exception(
-                            ClusterJobException(active_job.job, self.dag.jobid(active_job.job), active_job.jobscript),
+                            ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                             self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
             time.sleep(1)
@@ -809,39 +823,64 @@ def change_working_directory(directory=None):
         yield
 
 
-def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
-                version, benchmark, benchmark_repeats, rule, conda_env, linemaps, debug=False,
+def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, log,
+                benchmark, benchmark_repeats, conda_env, linemaps, debug=False,
                 shadow_dir=None):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
 
     Arguments
-    run        -- the run method
+    job_rule   -- the ``job.rule`` member
     input      -- list of input files
     output     -- list of output files
     wildcards  -- so far processed wildcards
     threads    -- usable threads
     log        -- list of log files
-    rule (str) -- rule name
     shadow_dir -- optional shadow directory root
     """
+    # get shortcuts to job_rule members
+    run = job_rule.run_func
+    version = job_rule.version
+    rule = job_rule.name
+
     if os.name == "posix" and debug:
         sys.stdin = open('/dev/stdin')
 
-    try:
-        runs = 1 if benchmark is None else benchmark_repeats
-        wallclock = []
-        for i in range(runs):
-            w = time.time()
-            # execute the actual run method.
-            with change_working_directory(shadow_dir):
-                run(input, output, params, wildcards, threads, resources, log,
-                    version, rule, conda_env)
-            w = time.time() - w
-            wallclock.append(w)
+    if benchmark is not None:
+        from snakemake.benchmark import BenchmarkRecord, benchmarked, write_benchmark_records
 
+    try:
+        with change_working_directory(shadow_dir):
+            if benchmark:
+                bench_records = []
+                for i in range(benchmark_repeats):
+                    # Determine whether to benchmark this process or do not
+                    # benchmarking at all.  We benchmark this process unless the
+                    # execution is done through the ``shell:``, ``script:``, or
+                    # ``wrapper:`` stanza.
+                    is_sub = job_rule.shellcmd or job_rule.script or job_rule.wrapper
+                    if is_sub:
+                        # The benchmarking through ``benchmarked()`` is started
+                        # in the execution of the shell fragment, script, wrapper
+                        # etc, as the child PID is available there.
+                        bench_record = BenchmarkRecord()
+                        run(input, output, params, wildcards, threads, resources,
+                            log, version, rule, conda_env, bench_record)
+                    else:
+                        # The benchmarking is started here as we have a run section
+                        # and the generated Python function is executed in this
+                        # process' thread.
+                        with benchmarked() as bench_record:
+                            run(input, output, params, wildcards, threads, resources,
+                                log, version, rule, conda_env, bench_record)
+                    # Store benchmark record for this iteration
+                    bench_records.append(bench_record)
+            else:
+                run(input, output, params, wildcards, threads, resources,
+                    log, version, rule, conda_env, None)
     except (KeyboardInterrupt, SystemExit) as e:
-        # re-raise the keyboard interrupt in order to record an error in the scheduler but ignore it
+        # Re-raise the keyboard interrupt in order to record an error in the
+        # scheduler but ignore it
         raise e
     except (Exception, BaseException) as ex:
         log_verbose_traceback(ex)
@@ -854,9 +893,6 @@ def run_wrapper(run, input, output, params, wildcards, threads, resources, log,
 
     if benchmark is not None:
         try:
-            with open(benchmark, "w") as f:
-                print("s", "h:m:s", sep="\t", file=f)
-                for t in wallclock:
-                    print(t, str(datetime.timedelta(seconds=t)), sep="\t", file=f)
+            write_benchmark_records(bench_records, benchmark)
         except (Exception, BaseException) as ex:
             raise WorkflowError(ex)

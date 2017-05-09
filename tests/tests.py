@@ -7,7 +7,7 @@ import sys
 import os
 from os.path import join
 from subprocess import call
-from tempfile import mkdtemp
+import tempfile
 import hashlib
 import urllib
 from shutil import rmtree, which
@@ -63,8 +63,7 @@ def run(path,
     assert os.path.exists(snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir), '{} does not exist'.format(results_dir)
-    tmpdir = mkdtemp(prefix=".test", dir=os.path.abspath("."))
-    try:
+    with tempfile.TemporaryDirectory(prefix=".test", dir=os.path.abspath(".")) as tmpdir:
         config = {}
         if subpath is not None:
             # set up a working directory for the subworkflow and pass it in `config`
@@ -104,8 +103,6 @@ def run(path,
                     assert md5sum(targetfile) == md5sum(
                         expectedfile), 'wrong result produced for file "{}"'.format(
                             resultfile)
-    finally:
-        rmtree(tmpdir)
 
 
 def test01():
@@ -189,6 +186,14 @@ def test_same_wildcard():
 def test_conditional():
     run(dpath("test_conditional"),
         targets="test.out test.0.out test.1.out test.2.out".split())
+
+
+def test_unpack_dict():
+    run(dpath("test_unpack_dict"))
+
+
+def test_unpack_list():
+    run(dpath("test_unpack_list"))
 
 
 def test_shell():
@@ -475,6 +480,13 @@ def test_restartable_job_qsub_exit_1():
     # Restarting once is enough
     run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
         restart_times=1, shouldfail=False)
+
+def test_threads():
+    run(dpath("test_threads"), cores=20)
+
+
+def test_dynamic_temp():
+    run(dpath("test_dynamic_temp"))
 
 
 if __name__ == '__main__':

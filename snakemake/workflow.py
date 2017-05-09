@@ -13,6 +13,7 @@ from collections import OrderedDict
 from itertools import filterfalse, chain
 from functools import partial
 from operator import attrgetter
+import copy
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder
@@ -23,7 +24,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch
+from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
@@ -87,12 +88,10 @@ class Workflow:
         self.restart_times = restart_times
 
         global config
-        config = dict()
-        config.update(self.overwrite_config)
+        config = copy.deepcopy(self.overwrite_config)
 
         global cluster_config
-        cluster_config = dict()
-        cluster_config.update(self.overwrite_clusterconfig)
+        cluster_config = copy.deepcopy(self.overwrite_clusterconfig)
 
         global rules
         rules = Rules()
@@ -201,6 +200,7 @@ class Workflow:
                 printrulegraph=False,
                 printd3dag=False,
                 drmaa=None,
+                drmaa_log_dir=None,
                 stats=None,
                 force_incomplete=False,
                 ignore_incomplete=False,
@@ -209,6 +209,7 @@ class Workflow:
                 list_input_changes=False,
                 list_params_changes=False,
                 summary=False,
+                archive=None,
                 detailed_summary=False,
                 latency_wait=3,
                 benchmark_repeats=3,
@@ -312,7 +313,7 @@ class Workflow:
         self.persistence = Persistence(
             nolock=nolock,
             dag=dag,
-            warn_only=dryrun or printrulegraph or printdag or summary or
+            warn_only=dryrun or printrulegraph or printdag or summary or archive or
             list_version_changes or list_code_changes or list_input_changes or
             list_params_changes)
 
@@ -406,6 +407,9 @@ class Workflow:
         elif detailed_summary:
             print("\n".join(dag.summary(detailed=True)))
             return True
+        elif archive:
+            dag.archive(archive)
+            return True
         elif list_version_changes:
             items = list(
                 chain(*map(self.persistence.version_changed, dag.jobs)))
@@ -434,6 +438,9 @@ class Workflow:
         if not keep_shadow:
             self.persistence.cleanup_shadow()
 
+        if not dryrun and self.use_conda:
+            dag.create_conda_envs()
+
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
                                  dryrun=dryrun,
@@ -446,6 +453,7 @@ class Workflow:
                                  quiet=quiet,
                                  keepgoing=keepgoing,
                                  drmaa=drmaa,
+                                 drmaa_log_dir=drmaa_log_dir,
                                  printreason=printreason,
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
@@ -465,13 +473,13 @@ class Workflow:
                 if provided_resources:
                     logger.resources_info(
                         "Provided resources: " + provided_resources)
-                ignored_resources = format_resource_names(
+                unlimited_resources = format_resource_names(set(
                     resource for job in dag.needrun_jobs
                     for resource in job.resources.keys()
-                    if resource not in resources)
-                if ignored_resources:
+                    if resource not in resources))
+                if unlimited_resources:
                     logger.resources_info(
-                        "Ignored resources: " + ignored_resources)
+                        "Unlimited resources: " + unlimited_resources)
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
@@ -583,6 +591,10 @@ class Workflow:
         self._ruleorder.add(*rulenames)
 
     def subworkflow(self, name, snakefile=None, workdir=None, configfile=None):
+        # Take absolute path of config file, because it is relative to current
+        # workdir, which could be changed for the subworkflow.
+        if configfile:
+            configfile = os.path.abspath(configfile)
         sw = Subworkflow(self, name, snakefile, workdir, configfile)
         self._subworkflows[name] = sw
         self.globals[name] = sw.target
@@ -644,6 +656,9 @@ class Workflow:
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(ruleinfo.wrapper)
             if ruleinfo.conda_env:
+                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
+                    raise RuleException("Conda environments are only allowed "
+                        "with shell, script or wrapper directives (not with run).", rule=rule)
                 if not os.path.isabs(ruleinfo.conda_env):
                     ruleinfo.conda_env = os.path.join(self.current_basedir, ruleinfo.conda_env)
                 rule.conda_env = ruleinfo.conda_env

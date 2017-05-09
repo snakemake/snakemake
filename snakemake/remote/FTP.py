@@ -3,14 +3,15 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, re, ftplib
-from itertools import product, chain
+import os
+import re
+import ftplib
+from itertools import chain
 from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import FTPFileException, WorkflowError
-import snakemake.io
 
 try:
     # third-party modules
@@ -20,9 +21,36 @@ except ImportError as e:
     raise WorkflowError("The Python 3 package 'ftputil' " +
         "must be installed to use SFTP remote() file functionality. %s" % e.msg)
 
+
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, **kwargs):
-        super(RemoteProvider, self).__init__(*args, **kwargs)
+    def __init__(self, *args, stay_on_remote=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+
+    @property
+    def default_protocol(self):
+        """The protocol that is prepended to the path when no protocol is specified."""
+        return 'ftp://'
+
+    @property
+    def available_protocols(self):
+        """List of valid protocols for this remote provider."""
+        return ['ftp://', 'ftps://']
+
+    def remote(self, value, *args, encrypt_data_channel=None, **kwargs):
+        match = re.match('^(ftps?)://.+', value)
+        if match:
+            protocol, = match.groups()
+            if protocol == 'ftps' and encrypt_data_channel:
+                raise SyntaxError('encrypt_data_channel=False cannot be used with a ftps:// url')
+            if protocol == 'ftp' and encrypt_data_channel not in [None, False]:
+                raise SyntaxError('encrypt_data_channel=Trie cannot be used with a ftp:// url')
+        else:
+            if encrypt_data_channel:
+                value = 'ftps://' + value
+            else:
+                value = 'ftp://' + value
+        return super(RemoteProvider, self).remote(value, *args, encrypt_data_channel=encrypt_data_channel, **kwargs)
+
 
 class RemoteObject(DomainObject):
     """ This is a class to interact with an FTP server.
@@ -79,7 +107,7 @@ class RemoteObject(DomainObject):
                 return ftpc.path.exists(self.remote_path)
             return False
         else:
-            raise FTPFileException("The file cannot be parsed as an FTP path in form 'host:port/abs/path/to/file': %s" % self.file())
+            raise FTPFileException("The file cannot be parsed as an FTP path in form 'host:port/abs/path/to/file': %s" % self.local_file())
 
     def mtime(self):
         if self.exists():
@@ -91,7 +119,7 @@ class RemoteObject(DomainObject):
                     pass
                 return ftpc.path.getmtime(self.remote_path)
         else:
-            raise FTPFileException("The file does not seem to exist remotely: %s" % self.file())
+            raise FTPFileException("The file does not seem to exist remotely: %s" % self.local_file())
 
     def size(self):
         if self.exists():
@@ -113,7 +141,7 @@ class RemoteObject(DomainObject):
                     pass
                 ftpc.download(source=self.remote_path, target=self.local_path)
             else:
-                raise FTPFileException("The file does not seem to exist remotely: %s" % self.file())
+                raise FTPFileException("The file does not seem to exist remotely: %s" % self.local_file())
 
     def upload(self):
         with self.ftpc() as ftpc:

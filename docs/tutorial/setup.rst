@@ -1,11 +1,11 @@
-.. _tutorial-welcome:
 
-==============
-Tutorial Setup
-==============
+.. _tutorial-setup:
 
-.. _Snakemake: http://snakemake.bitbucket.org
-.. _Snakemake homepage: http://snakemake.bitbucket.org
+Setup
+-----
+
+.. _Snakemake: http://snakemake.readthedocs.io
+.. _Snakemake homepage: http://snakemake.readthedocs.io
 .. _GNU Make: https://www.gnu.org/software/make
 .. _Python: http://www.python.org
 .. _BWA: http://bio-bwa.sourceforge.net
@@ -16,41 +16,13 @@ Tutorial Setup
 .. _Conda: http://conda.pydata.org
 .. _Bash: http://www.tldp.org/LDP/Bash-Beginners-Guide/html
 .. _Atom: https://atom.io
-.. _Anaconda: https://anaconda.org
 .. _Graphviz: http://www.graphviz.org
-.. _RestructuredText: http://docutils.sourceforge.net/rst.html
-.. _data URI: https://developer.mozilla.org/en-US/docs/Web/HTTP/data_URIs
-.. _JSON: http://json.org
-.. _YAML: http://yaml.org
-.. _DRMAA: http://www.drmaa.org
-.. _rpy2: http://rpy.sourceforge.net
-.. _R: https://www.r-project.org
-.. _Rscript: https://stat.ethz.ch/R-manual/R-devel/library/utils/html/Rscript.html
 .. _PyYAML: http://pyyaml.org
 .. _Docutils: http://docutils.sourceforge.net
 .. _Bioconda: https://bioconda.github.io
 .. _Vagrant: https://www.vagrantup.com
 .. _Vagrant Documentation: https://docs.vagrantup.com
 .. _Blogpost: http://blog.osteel.me/posts/2015/01/25/how-to-use-vagrant-on-windows.html
-.. _slides: http://slides.com/johanneskoester/deck-1
-
-This tutorial introduces the text-based workflow system Snakemake_.
-Snakemake follows the `GNU Make`_ paradigm: workflows are defined in terms of rules that define how to create output files from input files.
-Dependencies between the rules are determined automatically, creating a DAG (directed acyclic graph) of jobs that can be automatically parallelized.
-
-Snakemake sets itself apart from existing text-based workflow systems in the following way.
-Hooking into the Python interpreter, Snakemake offers a definition language that is an extension of Python_ with syntax to define rules and workflow specific properties.
-This allows to combine the flexibility of a plain scripting language with a pythonic workflow definition.
-The Python language is known to be concise yet readable and can appear almost like pseudo-code.
-The syntactic extensions provided by Snakemake maintain this property for the definition of the workflow.
-Further, Snakemakes scheduling algorithm can be constrained by priorities, provided cores and customizable resources and it provides a generic support for distributed computing (e.g., cluster or batch systems).
-Hence, a Snakemake workflow scales without modification from single core workstations and multi-core servers to cluster or batch systems.
-
-While the examples presented here come from Bioinformatics, Snakemake is considered a general-purpose workflow management system for any discipline.
-
-Also have a look at the corresponding slides_.
-
-.. _tutorial-setup:
 
 Requirements
 ::::::::::::
@@ -58,7 +30,7 @@ Requirements
 To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.3
-* Snakemake_ 3.9.0
+* Snakemake_ 3.11.0
 * BWA_ 0.7.12
 * SAMtools_ 1.3.1
 * BCFtools_ 1.3.1
@@ -130,29 +102,27 @@ We will later use Conda_ to create an isolated environment with all required sof
 Step 2: Preparing a working directory
 :::::::::::::::::::::::::::::::::::::
 
-First, change to a reasonable place where you want your tutorial code to be.
-If you use a Vagrant Linux VM from Windows as described above, change to a directory under ``/vagrant/``, so that the contents are shared with your host system (you can then edit all files from within Windows with an editor that supports Unix line breaks).
+First, **create a new directory** ``snakemake-tutorial`` at a reasonable place and change into that directory in your terminal.
+If you use a Vagrant Linux VM from Windows as described above, create that directory under ``/vagrant/``, so that the contents are shared with your host system (you can then edit all files from within Windows with an editor that supports Unix line breaks).
+Then, **change to the newly created directory**.
 In this directory, we will later create an example workflow that illustrates the Snakemake syntax and execution environment.
-First, we clone a git repository with example data:
+First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ git clone https://bitbucket.org/snakemake/snakemake-tutorial.git
-    $ cd snakemake-tutorial
+    $ wget https://bitbucket.org/snakemake/snakemake-tutorial/get/v3.11.0.tar.bz2
+    $ tar -xf v3.11.0.tar.bz2 --strip 1
 
-This will create a ``data`` folder and a ``requirements.txt`` file in the directory ``snakemake-tutorial``.
+This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
 
 Step 3: Creating an environment with the required software
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-The ``requirements.txt`` file can be used to install all required software into an isolated Conda environment with the name ``snakemake-tutorial`` via
+The ``environment.yaml`` file can be used to install all required software into an isolated Conda environment with the name ``snakemake-tutorial`` via
 
 .. code:: console
 
-    $ conda create -n snakemake-tutorial -c bioconda --file requirements.txt
-
-Note that the arguments after the ``-c`` flags define software channels that shall be used in addition to the main ``conda`` repository.
-Here, we use the Bioconda_ channel, which contains a growing collection of bioinformatics software packaged for Conda.
+    $ conda env create --name snakemake-tutorial --file environment.yaml
 
 Step 4: Activating the environment
 ::::::::::::::::::::::::::::::::::

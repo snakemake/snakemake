@@ -108,11 +108,11 @@ def report(text, path,
             if not isinstance(_files, list):
                 _files = [_files]
             links = []
-            for file in _files:
+            for file in sorted(_files):
                 data = data_uri(file)
                 links.append(':raw-html:`<a href="{data}" download="{filename}" draggable="true">{filename}</a>`'.format(
                     data=data, filename=os.path.basename(file)))
-            links = "\n\n          ".join(links)
+            links = "\n\n              ".join(links)
             attachments.append('''
        .. container::
           :name: {name}

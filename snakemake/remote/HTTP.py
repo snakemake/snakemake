@@ -3,15 +3,14 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, re, http.client
+import os
+import re
 import email.utils
-#from itertools import product, chain
 from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import HTTPFileException, WorkflowError
-import snakemake.io
 
 try:
     # third-party modules
@@ -20,18 +19,43 @@ except ImportError as e:
     raise WorkflowError("The Python 3 package 'requests' " +
         "must be installed to use HTTP(S) remote() file functionality. %s" % e.msg)
 
+
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, **kwargs):
-        super(RemoteProvider, self).__init__(*args, **kwargs)
+    def __init__(self, *args, stay_on_remote=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+
+    @property
+    def default_protocol(self):
+        """The protocol that is prepended to the path when no protocol is specified."""
+        return 'https://'
+
+    @property
+    def available_protocols(self):
+        """List of valid protocols for this remote provider."""
+        return ['http://', 'https://']
+
+    def remote(self, value, *args, insecure=None, **kwargs):
+        match = re.match('^(https?)://.+', value)
+        if match:
+            protocol, = match.groups()
+            if protocol == 'https' and insecure:
+                raise SyntaxError('insecure=True cannot be used with a https:// url')
+            if protocol == 'http' and insecure not in [None, False]:
+                raise SyntaxError('insecure=False cannot be used with a http:// url')
+        else:
+            if insecure:
+                value = 'http://' + value
+            else:
+                value = 'https://' + value
+        return super(RemoteProvider, self).remote(value, *args, **kwargs)
+
 
 class RemoteObject(DomainObject):
     """ This is a class to interact with an HTTP server.
     """
 
-    def __init__(self, *args, keep_local=False, provider=None, insecure=False, additional_request_string="", **kwargs):
+    def __init__(self, *args, keep_local=False, provider=None, additional_request_string="", **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
-
-        self.insecure = insecure
         self.additional_request_string = additional_request_string
 
     # === Implementations of abstract class members ===
@@ -68,13 +92,7 @@ class RemoteObject(DomainObject):
         del kwargs_to_use["username"]
         del kwargs_to_use["password"]
 
-        url = self._iofile._file + self.additional_request_string
-        # default to HTTPS
-        if not self.insecure:
-            protocol = "https://"
-        else:
-            protocol = "http://"
-        url = protocol + url
+        url = self.remote_file() + self.additional_request_string
 
         if verb.upper() == "GET":
             r = requests.get(url, *args_to_use, stream=stream, **kwargs_to_use)
@@ -87,10 +105,13 @@ class RemoteObject(DomainObject):
     def exists(self):
         if self._matched_address:
             with self.httpr(verb="HEAD") as httpr:
+                # if a file redirect was found
+                if httpr.status_code in range(300,308):
+                    raise HTTPFileException("The file specified appears to have been moved (HTTP %s), check the URL or try adding 'allow_redirects=True' to the remote() file object: %s" % (httpr.status_code, httpr.url))
                 return httpr.status_code == requests.codes.ok
             return False
         else:
-            raise HTTPFileException("The file cannot be parsed as an HTTP path in form 'host:port/abs/path/to/file': %s" % self.file())
+            raise HTTPFileException("The file cannot be parsed as an HTTP path in form 'host:port/abs/path/to/file': %s" % self.local_file())
 
     def mtime(self):
         if self.exists():
@@ -103,7 +124,7 @@ class RemoteObject(DomainObject):
 
                 return epochTime
         else:
-            raise HTTPFileException("The file does not seem to exist remotely: %s" % self.file())
+            raise HTTPFileException("The file does not seem to exist remotely: %s" % self.remote_file())
 
     def size(self):
         if self.exists():
@@ -127,7 +148,7 @@ class RemoteObject(DomainObject):
                             if chunk: # filter out keep-alives
                                 f.write(chunk)
             else:
-                raise HTTPFileException("The file does not seem to exist remotely: %s" % self.file())
+                raise HTTPFileException("The file does not seem to exist remotely: %s" % self.remote_file())
 
     def upload(self):
         raise HTTPFileException("Upload is not permitted for the HTTP remote provider. Is an output set to HTTP.remote()?")

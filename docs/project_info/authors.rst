@@ -16,6 +16,7 @@ Development Team
 - Christopher Tomkins-Tinch
 - David Koppstein
 - Tim Booth
+- Manuel Holtgrewe
 - Christian Arnold
 
 Contributors

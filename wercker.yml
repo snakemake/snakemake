@@ -1,14 +1,14 @@
+box: 
+  id: quay.io/snakemake/snakemake
+  tag: master
+  registry: quay.io
+
 build:
-  box: 
-    id: quay.io/snakemake/snakemake
-    tag: master
-    registry: quay.io
+  steps:
+    - script:
+        name: pip
+        code: pip install -e .
 
-steps:
-  - script:
-      name: pip
-      code: pip install -e .
-
-  - script:
-      name: run tests
-      code: python setup.py nosetests
+    - script:
+        name: run tests
+        code: python setup.py nosetests
