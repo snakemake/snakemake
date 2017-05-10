@@ -23,8 +23,10 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, stay_on_remote=False, **kwargs):
+    def __init__(self, *args, stay_on_remote=False, immediate_close=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+
+        self.immediate_close = immediate_close
 
     @property
     def default_protocol(self):
@@ -36,33 +38,42 @@ class RemoteProvider(AbstractRemoteProvider):
         """List of valid protocols for this remote provider."""
         return ['ftp://', 'ftps://']
 
-    def remote(self, value, *args, encrypt_data_channel=None, **kwargs):
-        match = re.match('^(ftps?)://.+', value)
-        if match:
-            protocol, = match.groups()
-            if protocol == 'ftps' and encrypt_data_channel:
-                raise SyntaxError('encrypt_data_channel=False cannot be used with a ftps:// url')
-            if protocol == 'ftp' and encrypt_data_channel not in [None, False]:
-                raise SyntaxError('encrypt_data_channel=Trie cannot be used with a ftp:// url')
-        else:
-            if encrypt_data_channel:
-                value = 'ftps://' + value
+    def remote(self, value, *args, encrypt_data_channel=None, immediate_close=None, **kwargs):
+        if isinstance(value, str):
+            values = [value]
+        elif isinstance(value, list):
+            values = value
+
+        for i, file in enumerate(values):
+            match = re.match('^(ftps?)://.+', file)
+            if match:
+                protocol, = match.groups()
+                if protocol == 'ftps' and encrypt_data_channel:
+                    raise SyntaxError('encrypt_data_channel=False cannot be used with a ftps:// url')
+                if protocol == 'ftp' and encrypt_data_channel not in [None, False]:
+                    raise SyntaxError('encrypt_data_channel=Trie cannot be used with a ftp:// url')
             else:
-                value = 'ftp://' + value
-        return super(RemoteProvider, self).remote(value, *args, encrypt_data_channel=encrypt_data_channel, **kwargs)
+                if encrypt_data_channel:
+                    values[i] = 'ftps://' + file
+                else:
+                    values[i] = 'ftp://' + file
+
+        should_close = immediate_close if immediate_close else self.immediate_close
+        return super(RemoteProvider, self).remote(values, *args, encrypt_data_channel=encrypt_data_channel, immediate_close=should_close, **kwargs)
 
 
 class RemoteObject(DomainObject):
     """ This is a class to interact with an FTP server.
     """
 
-    def __init__(self, *args, keep_local=False, provider=None, encrypt_data_channel=False, **kwargs):
+    def __init__(self, *args, keep_local=False, provider=None, encrypt_data_channel=False, immediate_close=False, **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
         self.encrypt_data_channel = encrypt_data_channel
+        self.immediate_close      = immediate_close
 
     def close(self):
-        if hasattr(self, "conn") and isinstance(self.conn, ftputil.FTPHost):
+        if hasattr(self, "conn") and isinstance(self.conn, ftputil.FTPHost) and not self.immediate_close:
             self.conn.close()
 
     # === Implementations of abstract class members ===
@@ -100,6 +111,8 @@ class RemoteObject(DomainObject):
 
             self.conn = ftputil.FTPHost(kwargs_to_use["host"], kwargs_to_use["username"], kwargs_to_use["password"], session_factory=ftp_session_factory)
         yield self.conn
+        if self.immediate_close:
+            self.conn.close()
 
     def exists(self):
         if self._matched_address:

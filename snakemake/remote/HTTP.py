@@ -35,19 +35,26 @@ class RemoteProvider(AbstractRemoteProvider):
         return ['http://', 'https://']
 
     def remote(self, value, *args, insecure=None, **kwargs):
-        match = re.match('^(https?)://.+', value)
-        if match:
-            protocol, = match.groups()
-            if protocol == 'https' and insecure:
-                raise SyntaxError('insecure=True cannot be used with a https:// url')
-            if protocol == 'http' and insecure not in [None, False]:
-                raise SyntaxError('insecure=False cannot be used with a http:// url')
-        else:
-            if insecure:
-                value = 'http://' + value
+        if isinstance(value, str):
+            values = [value]
+        elif isinstance(value, list):
+            values = value
+
+        for i, file in enumerate(values):
+            match = re.match('^(https?)://.+', file)
+            if match:
+                protocol, = match.groups()
+                if protocol == 'https' and insecure:
+                    raise SyntaxError('insecure=True cannot be used with a https:// url')
+                if protocol == 'http' and insecure not in [None, False]:
+                    raise SyntaxError('insecure=False cannot be used with a http:// url')
             else:
-                value = 'https://' + value
-        return super(RemoteProvider, self).remote(value, *args, **kwargs)
+                if insecure:
+                    values[i] = 'http://' + file
+                else:
+                    values[i] = 'https://' + file
+
+        return super(RemoteProvider, self).remote(values, *args, **kwargs)
 
 
 class RemoteObject(DomainObject):
