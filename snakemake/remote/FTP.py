@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 import re
 import ftplib
+import collections
 from itertools import chain
 from contextlib import contextmanager
 
@@ -41,8 +42,10 @@ class RemoteProvider(AbstractRemoteProvider):
     def remote(self, value, *args, encrypt_data_channel=None, immediate_close=None, **kwargs):
         if isinstance(value, str):
             values = [value]
-        elif isinstance(value, list):
+        elif isinstance(value, collections.Iterable):
             values = value
+        else:
+            raise TypeError('Invalid type ({}) passed to remote: {}'.format(type(value), value))
 
         for i, file in enumerate(values):
             match = re.match('^(ftps?)://.+', file)

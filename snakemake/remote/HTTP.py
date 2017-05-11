@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import os
 import re
+import collections
 import email.utils
 from contextlib import contextmanager
 
@@ -37,8 +38,10 @@ class RemoteProvider(AbstractRemoteProvider):
     def remote(self, value, *args, insecure=None, **kwargs):
         if isinstance(value, str):
             values = [value]
-        elif isinstance(value, list):
+        elif isinstance(value, collections.Iterable):
             values = value
+        else:
+            raise TypeError('Invalid type ({}) passed to remote: {}'.format(type(value), value))
 
         for i, file in enumerate(values):
             match = re.match('^(https?)://.+', file)
