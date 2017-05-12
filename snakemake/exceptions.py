@@ -321,7 +321,7 @@ class XRootDFileException(RuleException):
     def __init__(self, msg, lineno=None, snakefile=None):
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
-class GenBankFileException(RuleException):
+class NCBIFileException(RuleException):
     def __init__(self, msg, lineno=None, snakefile=None):
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 

@@ -12,7 +12,7 @@ import logging
 
 # module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
-from snakemake.exceptions import WorkflowError, GenBankFileException
+from snakemake.exceptions import WorkflowError, NCBIFileException
 from snakemake.logging import logger
 
 try:
@@ -20,44 +20,44 @@ try:
     from Bio import Entrez
 except ImportError as e:
     raise WorkflowError("The Python package 'biopython' " +
-        "needs to be installed to use GenBank remote() file functionality. %s" % e.msg)
+        "needs to be installed to use NCBI Entrez remote() file functionality. %s" % e.msg)
 
 
 class RemoteProvider(AbstractRemoteProvider):
     def __init__(self, *args, stay_on_remote=False, email=None, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, email=email, **kwargs)
-        self._gb = GenBankHelper(*args, email=email, **kwargs)
+        self._ncbi = NCBIHelper(*args, email=email, **kwargs)
 
     def remote_interface(self):
-        return self._gb
+        return self._ncbi
 
     @property
     def default_protocol(self):
         """The protocol that is prepended to the path when no protocol is specified."""
-        return 'genbank://'
+        return 'ncbi://'
 
     @property
     def available_protocols(self):
         """List of valid protocols for this remote provider."""
-        return ['genbank://']
+        return ['ncbi://']
 
     def search(self, query, *args, db="nuccore", idtype="acc", retmode="json", retmax=200, return_all=True, **kwargs):
-        return self._gb.search(query, *args, db=db, idtype=idtype, retmode=retmode, retmax=retmax, return_all=return_all, **kwargs)
+        return self._ncbi.search(query, *args, db=db, idtype=idtype, retmode=retmode, retmax=retmax, return_all=return_all, **kwargs)
 
 
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with GenBank.
+    """ This is a class to interact with NCBI / GenBank.
     """
 
     def __init__(self, *args, keep_local=False, stay_on_remote=False, provider=None, email=None, db=None, rettype=None, retmode=None, **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, stay_on_remote=stay_on_remote, provider=provider, email=email, db=db, rettype=rettype, retmode=retmode, **kwargs)
         if provider:
-            self._gb = provider.remote_interface()
+            self._ncbi = provider.remote_interface()
         else:
-            self._gb = GenBankHelper(*args, email=email, **kwargs)
+            self._ncbi = NCBIHelper(*args, email=email, **kwargs)
 
-        if db and not self._gb.is_valid_db(db):
-            raise GenBankFileException("DB specified is not valid. Options include: {dbs}".format(dbs=", ".join(self._gb.valid_dbs)))
+        if db and not self._ncbi.is_valid_db(db):
+            raise NCBIFileException("DB specified is not valid. Options include: {dbs}".format(dbs=", ".join(self._ncbi.valid_dbs)))
         else:
             self.db = db
         
@@ -69,56 +69,56 @@ class RemoteObject(AbstractRemoteObject):
 
     def exists(self):
         if not self.retmode or not self.rettype:
-            likely_request_options = self._gb.guess_db_options_for_extension(self.file_ext, db=self.db, rettype=self.rettype, retmode=self.retmode)
+            likely_request_options = self._ncbi.guess_db_options_for_extension(self.file_ext, db=self.db, rettype=self.rettype, retmode=self.retmode)
             self.db = likely_request_options["db"]
             self.retmode = likely_request_options["retmode"]
             self.rettype = likely_request_options["rettype"]
-        return self._gb.exists(self.accession, db=self.db)
+        return self._ncbi.exists(self.accession, db=self.db)
 
     def mtime(self):
         if self.exists():
-            return self._gb.mtime(self.accession, db=self.db)
+            return self._ncbi.mtime(self.accession, db=self.db)
         else:
-            raise GenBankFileException("The record does not seem to exist remotely: %s" % self.accession)
+            raise NCBIFileException("The record does not seem to exist remotely: %s" % self.accession)
 
     def size(self):
         if self.exists():
-            return self._gb.size(self.accession, db=self.db)
+            return self._ncbi.size(self.accession, db=self.db)
         else:
             return self._iofile.size_local
 
     def download(self):
         if self.exists():
-            self._gb.fetch_from_genbank([self.accession], os.path.dirname(self.accession), rettype=self.rettype, retmode=self.retmode, fileExt=self.file_ext, db=self.db, **self.kwargs)
+            self._ncbi.fetch_from_ncbi([self.accession], os.path.dirname(self.accession), rettype=self.rettype, retmode=self.retmode, fileExt=self.file_ext, db=self.db, **self.kwargs)
         else:
-            raise GenBankFileException("The record does not seem to exist remotely: %s" % self.accession)
+            raise NCBIFileException("The record does not seem to exist remotely: %s" % self.accession)
 
     def upload(self):
-        raise GenBankFileException("Upload is not permitted for the GenBank remote provider. Is an output set to GenBank.remote()?")
+        raise NCBIFileException("Upload is not permitted for the NCBI remote provider. Is an output set to NCBI.RemoteProvider.remote()?")
 
     @property
     def list(self):
-        raise GenBankFileException("The GenBank Remote Provider does not currently support list-based operations like glob_wildcards().")
+        raise NCBIFileException("The NCBI Remote Provider does not currently support list-based operations like glob_wildcards().")
   
     @property
     def accession(self):
-        accession, version, file_ext = self._gb.parse_accession_str(self.local_file())
+        accession, version, file_ext = self._ncbi.parse_accession_str(self.local_file())
         return accession + "." + version
 
     @property
     def file_ext(self):
-        accession, version, file_ext = self._gb.parse_accession_str(self.local_file())
+        accession, version, file_ext = self._ncbi.parse_accession_str(self.local_file())
         return file_ext
 
     @property
     def version(self):
-        accession, version, file_ext = self._gb.parse_accession_str(self.local_file())
+        accession, version, file_ext = self._ncbi.parse_accession_str(self.local_file())
         return version
 
-class GenBankHelper(object):
+class NCBIHelper(object):
     def __init__(self, *args, email=None, **kwargs):
         if not email:
-            raise GenBankFileException("An e-mail address must be provided to either the remote file or the RemoteProvider. The NCBI requires e-mail addresses for queries.")
+            raise NCBIFileException("An e-mail address must be provided to either the remote file or the RemoteProvider. The NCBI requires e-mail addresses for queries.")
 
         self.email = email
         self.entrez = Entrez
@@ -309,7 +309,7 @@ class GenBankHelper(object):
         assert file_ext, "file_ext must be defined"
 
         if not self.is_valid_db(db):
-            raise GenBankFileException("DB specified is not valid. Options include: {dbs}".format(dbs=", ".join(self.valid_dbs)))
+            raise NCBIFileException("DB specified is not valid. Options include: {dbs}".format(dbs=", ".join(self.valid_dbs)))
 
         db_options = self.efetch_options[db]
         for opt in db_options:
@@ -335,7 +335,7 @@ class GenBankHelper(object):
         possible_dbs = [db] if db else self.dbs_for_options(file_ext, rettype, retmode)
 
         if len(possible_dbs) > 1:
-            raise GenBankFileException('Ambigious db for file extension specified: "{}"; possible databases include: {}'.format(file_ext, ", ".join(list(possible_dbs))))
+            raise NCBIFileException('Ambigious db for file extension specified: "{}"; possible databases include: {}'.format(file_ext, ", ".join(list(possible_dbs))))
         elif len(possible_dbs) == 1:
             likely_db = possible_dbs.pop()
 
@@ -348,13 +348,13 @@ class GenBankHelper(object):
                 request_options["ext"] = likely_options[0]["ext"]
                 return request_options
             elif len(likely_options) > 1:
-                raise GenBankFileException('Please clarify the rettype and retmode. Multiple request types are possible for the file extension ({}) specified: {}'.format(file_ext, likely_options))
+                raise NCBIFileException('Please clarify the rettype and retmode. Multiple request types are possible for the file extension ({}) specified: {}'.format(file_ext, likely_options))
             else:
-                raise GenBankFileException("No request options found. Please check the file extension ({}), db ({}), rettype ({}), and retmode ({}) specified.".format(file_ext, db, rettype, retmode))
+                raise NCBIFileException("No request options found. Please check the file extension ({}), db ({}), rettype ({}), and retmode ({}) specified.".format(file_ext, db, rettype, retmode))
 
     def is_valid_db_request(self, db, rettype, retmode):
         if not self.is_valid_db(db):
-            raise GenBankFileException("DB specified is not valid. Options include: {dbs}".format(dbs=", ".join(self.valid_dbs)))
+            raise NCBIFileException("DB specified is not valid. Options include: {dbs}".format(dbs=", ".join(self.valid_dbs)))
         db_options = self.efetch_options[db]
         for opt in db_options:
             if opt["rettype"] == rettype and opt["retmode"] == retmode:
@@ -400,7 +400,7 @@ class GenBankHelper(object):
         if m:
             count = int(m.group("count"))
         else:
-            raise GenBankFileException("The esearch query failed.")
+            raise NCBIFileException("The esearch query failed.")
 
         if count == 1:
             return True
@@ -416,7 +416,7 @@ class GenBankHelper(object):
         if m:
             length = int(m.group("length"))
         else:
-            raise GenBankFileException("The esummary query failed.")
+            raise NCBIFileException("The esummary query failed.")
 
         return length
 
@@ -428,14 +428,14 @@ class GenBankHelper(object):
         if m:
             update_date = str(m.group("update_date"))
         else:
-            raise GenBankFileException("The esummary query failed.")
+            raise NCBIFileException("The esummary query failed.")
 
         pattern = '%Y/%m/%d'
         epoch_update_date = int(time.mktime(time.strptime(update_date, pattern)))
         
         return epoch_update_date
 
-    def fetch_from_genbank(self, accessionList, destinationDir,
+    def fetch_from_ncbi(self, accessionList, destinationDir,
                             forceOverwrite=False, rettype="fasta", retmode="text",
                             fileExt=None, combinedFilePrefix=None, removeSeparateFiles=False,
                             chunkSize=1, db="nuccore", **kwargs):
@@ -467,7 +467,7 @@ class GenBankHelper(object):
         if outputExtension[:1] != ".":
             outputExtension = "." + outputExtension
 
-        logger.info("Fetching {} entries from GenBank: {}\n".format(str(len(accessionList)), ", ".join(accessionList[:10])))
+        logger.info("Fetching {} entries from NCBI: {}\n".format(str(len(accessionList)), ", ".join(accessionList[:10])))
         outputFiles = []
 
         for chunkNum, chunk in enumerate(self._seq_chunks(accessionList, chunkSize)):
@@ -567,7 +567,7 @@ class GenBankHelper(object):
             if "esearchresult" in json_results and "idlist" in json_results["esearchresult"]:
                 return json_results["esearchresult"]["idlist"]
             else:
-                raise GenBankFileException("ESearch error")
+                raise NCBIFileException("ESearch error")
 
         json_results = esearch_json(term=query, *args, db=db, idtype=idtype, retmax=retmax, **kwargs)
 
@@ -577,7 +577,7 @@ class GenBankHelper(object):
         if "count" in json_results["esearchresult"] and int(json_results["esearchresult"]["count"]) > retmax+retstart and return_all:
             # start where the user wants, knowing we've already done one request
             count = int(json_results["esearchresult"]["count"])
-            logging.info("The result list for GenBankProvider.search(query='%s') extends to multiple pages. Fetching all results..." % query)
+            logging.info("The result list for NCBIProvider.search(query='%s') extends to multiple pages. Fetching all results..." % query)
             while retstart+retmax < count:
                 retstart += retmax
                 # sleep to throttle requests to 2 per second per NCBI guidelines:

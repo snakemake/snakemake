@@ -422,8 +422,8 @@ Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.ni
 
 .. code-block:: python
 
-    from snakemake.remote.GenBank import RemoteProvider as GenBankRemoteProvider
-    GenBank = GenBankRemoteProvider(email="someone@example.com") # email required by NCBI to prevent abuse
+    from snakemake.remote.NCBI import RemoteProvider as NCBIRemoteProvider
+    NCBI = NCBIRemoteProvider(email="someone@example.com") # email required by NCBI to prevent abuse
 
     rule all:
         input:
@@ -431,27 +431,27 @@ Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.ni
 
     rule download_and_count:
         input:
-            GenBank.remote("KY785484.1.fasta", db="nuccore")
+            NCBI.remote("KY785484.1.fasta", db="nuccore")
         output:
             "sizes.txt"
         run:
             shell("wc -c {input} > sizes.txt")
 
-When used in conjunction with ``GenBank.RemoteProvider.search()``, Snakemake can be used to find accessions by query and download them in a variety of `formats <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`.
+When used in conjunction with ``NCBI.RemoteProvider.search()``, Snakemake can be used to find accessions by query and download them in a variety of `formats <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`.
 
 The output format and source database of a record retrieved from GenBank by Snakemake is inferred from the file extension specified. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible options.
 
-Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>` are supported as kwargs, and may be passed in to ``GenBank.RemoteProvider.remote()``.
+Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>` are supported as kwargs, and may be passed in to ``NCBI.RemoteProvider.remote()``.
 
 .. code-block:: python
 
-    from snakemake.remote.GenBank import RemoteProvider as GenBankRemoteProvider
-    GenBank = GenBankRemoteProvider(email="someone@example.com") # email required by NCBI to prevent abuse
+    from snakemake.remote.NCBI import RemoteProvider as NCBIRemoteProvider
+    NCBI = NCBIRemoteProvider(email="someone@example.com") # email required by NCBI to prevent abuse
 
     # get accessions for the first 3 results in a search for full-length Zika virus genomes
     # the query parameter accepts standard GenBank search syntax
     query = '"Zika virus"[Organism] AND (("9000"[SLEN] : "20000"[SLEN]) AND ("2017/03/20"[PDAT] : "2017/03/24"[PDAT])) '
-    accessions = GenBank.search(query, retmax=3, return_all=False)
+    accessions = NCBI.search(query, retmax=3, return_all=False)
 
     # give the accessions a file extension to help the RemoteProvider determine the 
     # proper output type. 
@@ -465,7 +465,7 @@ Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK2549
         input:
             # Since *.fasta files could come from several different databases, specify the database here.
             # if the input files are ambiguous, the provider will alert the user with possible options
-            GenBank.remote(input_files, db="nuccore", seq_start=5000)
+            NCBI.remote(input_files, db="nuccore", seq_start=5000)
 
         output:
             "sizes.txt"
