@@ -420,6 +420,23 @@ GenBank / NCBI Entrez
 
 Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.nih.gov/genbank/>` and other `NCBI Entrez databases <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>` if the Biopython library is installed.
 
+.. code-block:: python
+
+    from snakemake.remote.GenBank import RemoteProvider as GenBankRemoteProvider
+    GenBank = GenBankRemoteProvider(email="someone@example.com") # email required by NCBI to prevent abuse
+
+    rule all:
+        input:
+            "sizes.txt"
+
+    rule download_and_count:
+        input:
+            GenBank.remote("KY785484.1.fasta", db="nuccore")
+        output:
+            "sizes.txt"
+        run:
+            shell("wc -c {input} > sizes.txt")
+
 When used in conjunction with ``GenBank.RemoteProvider.search()``, Snakemake can be used to find accessions by query and download them in a variety of `formats <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`.
 
 The output format and source database of a record retrieved from GenBank by Snakemake is inferred from the file extension specified. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible options.
