@@ -422,6 +422,16 @@ def test_static_remote():
     except ImportError:
         pass
 
+def test_remote_genbank():
+    try:
+        import Bio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_remote_genbank"))
+    except ImportError:
+        pass
+
 
 def test_deferred_func_eval():
     run(dpath("test_deferred_func_eval"))

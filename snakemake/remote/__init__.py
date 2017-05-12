@@ -83,7 +83,8 @@ class AbstractRemoteProvider:
             protocol, value = list(zip(*[_set_protocol(v) for v in value]))
             if len(set(protocol)) != 1:
                 raise SyntaxError('A single protocol must be used per RemoteObject')
-            value = [protocol+v if stay_on_remote else value for v in value]
+            protocol = set(protocol).pop()
+            value = [protocol+v if stay_on_remote else v for v in value]
 
         provider = sys.modules[self.__module__]  # get module of derived class
         remote_object = provider.RemoteObject(
