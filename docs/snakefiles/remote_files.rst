@@ -465,12 +465,15 @@ Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK2549
         input:
             # Since *.fasta files could come from several different databases, specify the database here.
             # if the input files are ambiguous, the provider will alert the user with possible options
+            # standard options like "seq_start" are supported
             NCBI.remote(input_files, db="nuccore", seq_start=5000)
 
         output:
             "sizes.txt"
         run:
             shell("wc -c {input} > sizes.txt")
+
+Normally, all accessions for a query are returned from ``NCBI.RemoteProvider.search()`` to truncate the results, specify ``retmax=<desired_number>, return_all=False``. This has lower overhead than truncating the resulting list in Python.
 
 
 Remote cross-provider transfers
