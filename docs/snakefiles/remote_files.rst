@@ -422,7 +422,7 @@ Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.ni
 
 When used in conjunction with ``GenBank.RemoteProvider.search()``, Snakemake can be used to find accessions by query and download them in a variety of `formats <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`.
 
-The output format and source database of a record retreived from GenBank by Snakemake is inferred from the file extension specified. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible options.
+The output format and source database of a record retrieved from GenBank by Snakemake is inferred from the file extension specified. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible options.
 
 Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>` are supported as kwargs, and may be passed in to ``GenBank.RemoteProvider.remote()``.
 
