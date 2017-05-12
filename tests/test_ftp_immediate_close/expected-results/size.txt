@@ -1,0 +1,1 @@
+9.9M	ftp.sra.ebi.ac.uk/vol1/ERA651/ERA651425/fastq/RAG16_R1.fastq.gz
