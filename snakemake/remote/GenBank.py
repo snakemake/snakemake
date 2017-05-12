@@ -60,8 +60,10 @@ class RemoteObject(AbstractRemoteObject):
             raise GenBankFileException("DB specified is not valid. Options include: {dbs}".format(dbs=", ".join(self._gb.valid_dbs)))
         else:
             self.db = db
-            self.rettype = rettype
-            self.retmode = retmode
+        
+        self.rettype = rettype
+        self.retmode = retmode
+        self.kwargs  = kwargs
 
     # === Implementations of abstract class members ===
 
@@ -87,7 +89,7 @@ class RemoteObject(AbstractRemoteObject):
 
     def download(self):
         if self.exists():
-            self._gb.fetch_from_genbank([self.accession], os.path.dirname(self.accession), rettype=self.rettype, retmode=self.retmode, fileExt=self.file_ext, db=self.db)
+            self._gb.fetch_from_genbank([self.accession], os.path.dirname(self.accession), rettype=self.rettype, retmode=self.retmode, fileExt=self.file_ext, db=self.db, **self.kwargs)
         else:
             raise GenBankFileException("The record does not seem to exist remotely: %s" % self.accession)
 
@@ -436,7 +438,7 @@ class GenBankHelper(object):
     def fetch_from_genbank(self, accessionList, destinationDir,
                             forceOverwrite=False, rettype="fasta", retmode="text",
                             fileExt=None, combinedFilePrefix=None, removeSeparateFiles=False,
-                            chunkSize=1, db="nuccore"):
+                            chunkSize=1, db="nuccore", **kwargs):
         """
             This function downloads and saves files from NCBI.
             Adapted in part from the BSD-licensed code here:
@@ -490,7 +492,7 @@ class GenBankHelper(object):
             while True:
                 try:
                     logger.info("Fetching file {}: {}, try #{}".format(chunkNum + 1, accString, tryCount))
-                    handle = self.entrez.efetch(db=db, rettype=rettype, retmode=retmode, id=accString)
+                    handle = self.entrez.efetch(db=db, rettype=rettype, retmode=retmode, id=accString, **kwargs)
 
                     with open(outputFilePath, "w") as outf:
                         for line in handle:

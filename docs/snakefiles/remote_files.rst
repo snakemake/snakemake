@@ -448,7 +448,7 @@ Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK2549
         input:
             # Since *.fasta files could come from several different databases, specify the database here.
             # if the input files are ambiguous, the provider will alert the user with possible options
-            GenBank.remote(input_files, db="nuccore")
+            GenBank.remote(input_files, db="nuccore", seq_start=5000)
 
         output:
             "sizes.txt"
