@@ -77,13 +77,17 @@ class RemoteObject(DomainObject):
 
     def close(self):
         if hasattr(self, "conn") and isinstance(self.conn, ftputil.FTPHost) and not self.immediate_close:
-            self.conn.close()
+            try:
+                self.conn.keep_alive()
+                self.conn.close()
+            except:
+                pass
 
     # === Implementations of abstract class members ===
 
     @contextmanager #makes this a context manager. after 'yield' is __exit__()
     def ftpc(self):
-        if not hasattr(self, "conn") or (hasattr(self, "conn") and not isinstance(self.conn, ftputil.FTPHost)):
+        if (not hasattr(self, "conn") or (hasattr(self, "conn") and not isinstance(self.conn, ftputil.FTPHost))) or self.immediate_close:
             # if args have been provided to remote(), use them over those given to RemoteProvider()
             args_to_use = self.provider.args
             if len(self.args):
@@ -112,10 +116,22 @@ class RemoteObject(DomainObject):
                            encrypt_data_channel= kwargs_to_use["encrypt_data_channel"],
                            debug_level=None)
 
-            self.conn = ftputil.FTPHost(kwargs_to_use["host"], kwargs_to_use["username"], kwargs_to_use["password"], session_factory=ftp_session_factory)
-        yield self.conn
+            conn = ftputil.FTPHost(kwargs_to_use["host"], kwargs_to_use["username"], kwargs_to_use["password"], session_factory=ftp_session_factory)
+            if self.immediate_close:
+                yield conn
+            else:    
+                self.conn = conn
+                yield self.conn
+        elif not self.immediate_close:
+            yield self.conn
+        
+        # after returning from the context manager, close the connection if the scope is local
         if self.immediate_close:
-            self.conn.close()
+            try:
+                conn.keep_alive()
+                conn.close()
+            except:
+                pass
 
     def exists(self):
         if self._matched_address:
