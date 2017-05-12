@@ -8,6 +8,5 @@ rule a:
     conda:
         "test-env.yaml"
     shell:
-        "(test -d custom/6291eeeb63ef1987c7d7fa4494eb56d6 ||"
-        " test -d custom/6291eeeb)"
-        " && snakemake --version > {output}"
+        "test -e custom/*/bin/snakemake && "
+        "snakemake --version > {output}"
