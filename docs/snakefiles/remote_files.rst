@@ -475,6 +475,8 @@ Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK2549
 
 Normally, all accessions for a query are returned from ``NCBI.RemoteProvider.search()`` to truncate the results, specify ``retmax=<desired_number>, return_all=False``. This has lower overhead than truncating the resulting list in Python.
 
+To view valid file extensions, access ``NCBI.RemoteProvider._gb.valid_extensions``, or instantiate an ``NCBI.NCBIHelper`` and access ``NCBI.NCBIHelper.valid_extensions``
+
 
 Remote cross-provider transfers
 ===============================
