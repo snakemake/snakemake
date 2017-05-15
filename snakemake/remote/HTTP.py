@@ -157,6 +157,7 @@ class RemoteObject(DomainObject):
                         for chunk in httpr.iter_content(chunk_size=1024):
                             if chunk: # filter out keep-alives
                                 f.write(chunk)
+                    os.sync() # ensure flush to disk
             else:
                 raise HTTPFileException("The file does not seem to exist remotely: %s" % self.remote_file())
 

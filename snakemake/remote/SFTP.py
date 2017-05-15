@@ -106,6 +106,7 @@ class RemoteObject(DomainObject):
                     os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
 
                 sftpc.get(remotepath=self.remote_path, localpath=self.local_path, preserve_mtime=True)
+                os.sync() # ensure flush to disk
             else:
                 raise SFTPFileException("The file does not seem to exist remotely: %s" % self.local_file())
 
