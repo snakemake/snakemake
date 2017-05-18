@@ -494,6 +494,9 @@ def test_threads():
 def test_dynamic_temp():
     run(dpath("test_dynamic_temp"))
 
+def test_issue260():
+    run(dpath("test_issue260"))
+
 
 if __name__ == '__main__':
     import nose

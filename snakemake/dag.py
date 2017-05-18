@@ -22,7 +22,7 @@ from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException
-from snakemake.exceptions import PeriodicWildcardError
+from snakemake.exceptions import PeriodicWildcardError, WildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
@@ -513,7 +513,7 @@ class DAG:
                 raise CyclicGraphException(job.rule, file, rule=job.rule)
             if exceptions:
                 raise exceptions[0]
-        
+
         logger.dag_debug(dict(status="selected", job=job))
 
         return producer
@@ -797,14 +797,19 @@ class DAG:
         newjob = self.new_job(newrule, format_wildcards=non_dynamic_wildcards)
         self.replace_job(job, newjob)
         for job_ in depending:
-            if job_.dynamic_input:
+            needs_update = any(
+                f.get_wildcard_names() & dynamic_wildcards.keys()
+                for f in job_.rule.dynamic_input)
+
+            if needs_update:
                 newrule_ = job_.rule.dynamic_branch(dynamic_wildcards)
                 if newrule_ is not None:
                     self.specialize_rule(job_.rule, newrule_)
                     if not self.dynamic(job_):
                         logger.debug("Updating job {}.".format(job_))
-                        newjob_ = self.new_job(newrule_,
-                                      targetfile=job_.output[0] if job_.output else None)
+                        newjob_ = self.new_job(
+                            newrule_,
+                            targetfile=job_.output[0] if job_.output else None)
 
                         unexpected_output = self.reason(
                             job_).missing_output.intersection(
@@ -857,10 +862,12 @@ class DAG:
         self.delete_job(job)
         self.update([newjob])
 
+        logger.debug("Replace {} with dynamic branch {}".format(job, newjob))
         for job_, files in depending:
-            if not job_.dynamic_input:
-                self.dependencies[job_][newjob].update(files)
-                self.depending[newjob][job_].update(files)
+            #if not job_.dynamic_input:
+            logger.debug("updating depending job {}".format(job_))
+            self.dependencies[job_][newjob].update(files)
+            self.depending[newjob][job_].update(files)
 
     def specialize_rule(self, rule, newrule):
         """Specialize the given rule by inserting newrule into the DAG."""
