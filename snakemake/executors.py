@@ -62,6 +62,9 @@ class AbstractExecutor:
     def shutdown(self):
         pass
 
+    def cancel(self):
+        pass
+
     def _run(self, job):
         self.printjob(job)
 
