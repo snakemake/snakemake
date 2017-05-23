@@ -286,7 +286,8 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 out = os.path.abspath(output[0])
                 shell("Rscript -e 'rmarkdown::render(\"{f.name}\", output_file=\"{out}\", quiet=TRUE, params = list(rmd=\"{f.name}\"))'",
                     bench_record=bench_record)
-            os.remove(f.name)
 
     except URLError as e:
         raise WorkflowError(e)
+    finally:
+        os.remove(f.name)
