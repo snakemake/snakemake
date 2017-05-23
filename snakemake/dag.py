@@ -153,7 +153,7 @@ class DAG:
             except KeyError:
                 pass
 
-    def create_conda_envs(self):
+    def create_conda_envs(self, dryrun=False):
         conda.check_conda()
         # First deduplicate based on job.conda_env_file
         env_set = {job.conda_env_file for job in self.needrun_jobs
@@ -166,8 +166,7 @@ class DAG:
             hash = env.hash
             env_file_map[env_file] = env
             if hash not in hash_set:
-                env.create()
-                logger.debug("Conda environment {} created.".format(env.file))
+                env.create(dryrun)
                 hash_set.add(hash)
 
         self.conda_envs = env_file_map

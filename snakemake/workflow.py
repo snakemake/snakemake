@@ -441,8 +441,8 @@ class Workflow:
         if not keep_shadow:
             self.persistence.cleanup_shadow()
 
-        if not dryrun and self.use_conda:
-            dag.create_conda_envs()
+        if self.use_conda:
+            dag.create_conda_envs(dryrun=dryrun)
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
