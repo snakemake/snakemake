@@ -506,7 +506,7 @@ def parse_config(args):
                 try:
                     v = parser(val)
                     # avoid accidental interpretation as function
-                    if not isinstance(v, callable):
+                    if not callable(v):
                         break
                 except:
                     pass
