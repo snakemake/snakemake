@@ -427,21 +427,20 @@ Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.ni
 
     rule all:
         input:
-            "sizes.txt"
+            "size.txt"
 
     rule download_and_count:
         input:
             NCBI.remote("KY785484.1.fasta", db="nuccore")
         output:
-            "sizes.txt"
+            "size.txt"
         run:
-            shell("wc -c {input} > sizes.txt")
+            shell("wc -c {input} > {output}")
 
-When used in conjunction with ``NCBI.RemoteProvider.search()``, Snakemake can be used to find accessions by query and download them in a variety of `formats <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`.
+The output format and source database of a record retrieved from GenBank is inferred from the file extension specified. For example, ``NCBI.RemoteProvider().remote("KY785484.1.fasta", db="nuccore")`` will download a FASTA file while ``NCBI.RemoteProvider().remote("KY785484.1.gb", db="nuccore")`` will download a GenBank-format file. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible format choices. To see available formats, consult the 
+in a variety of `Entrez EFetch documentation <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`. To view the valid file extensions for these formats, access ``NCBI.RemoteProvider()._gb.valid_extensions``, or instantiate an ``NCBI.NCBIHelper()`` and access ``NCBI.NCBIHelper().valid_extensions`` (this is a property).
 
-The output format and source database of a record retrieved from GenBank by Snakemake is inferred from the file extension specified. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible options.
-
-Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>` are supported as kwargs, and may be passed in to ``NCBI.RemoteProvider.remote()``.
+When used in conjunction with ``NCBI.RemoteProvider().search()``, Snakemake and ``NCBI.RemoteProvider().remote()`` can be used to find accessions by query and download them:
 
 .. code-block:: python
 
@@ -451,7 +450,7 @@ Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK2549
     # get accessions for the first 3 results in a search for full-length Zika virus genomes
     # the query parameter accepts standard GenBank search syntax
     query = '"Zika virus"[Organism] AND (("9000"[SLEN] : "20000"[SLEN]) AND ("2017/03/20"[PDAT] : "2017/03/24"[PDAT])) '
-    accessions = NCBI.search(query, retmax=3, return_all=False)
+    accessions = NCBI.search(query, retmax=3)
 
     # give the accessions a file extension to help the RemoteProvider determine the 
     # proper output type. 
@@ -473,10 +472,7 @@ Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK2549
         run:
             shell("wc -c {input} > sizes.txt")
 
-Normally, all accessions for a query are returned from ``NCBI.RemoteProvider.search()``. To truncate the results, specify ``retmax=<desired_number>, return_all=False``. This has lower overhead than truncating the resulting list in Python.
-
-To view valid file extensions, access ``NCBI.RemoteProvider._gb.valid_extensions``, or instantiate an ``NCBI.NCBIHelper`` and access ``NCBI.NCBIHelper.valid_extensions`` (this is a property).
-
+Normally, all accessions for a query are returned from ``NCBI.RemoteProvider.search()``. To truncate the results, specify ``retmax=<desired_number>``. Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>` are supported as kwargs, and may be passed in to ``NCBI.RemoteProvider.remote()`` and ``NCBI.RemoteProvider.search()``.
 
 Remote cross-provider transfers
 ===============================

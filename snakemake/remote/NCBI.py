@@ -9,6 +9,7 @@ import os
 import re
 import json
 import logging
+import xml.etree.ElementTree as ET
 
 # module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
@@ -19,8 +20,7 @@ try:
     # third-party modules
     from Bio import Entrez
 except ImportError as e:
-    raise WorkflowError("The Python package 'biopython' " +
-        "needs to be installed to use NCBI Entrez remote() file functionality. %s" % e.msg)
+    raise WorkflowError("The Python package 'biopython' needs to be installed to use NCBI Entrez remote() file functionality. %s" % e.msg)
 
 
 class RemoteProvider(AbstractRemoteProvider):
@@ -41,8 +41,8 @@ class RemoteProvider(AbstractRemoteProvider):
         """List of valid protocols for this remote provider."""
         return ['ncbi://']
 
-    def search(self, query, *args, db="nuccore", idtype="acc", retmode="json", retmax=200, return_all=True, **kwargs):
-        return self._ncbi.search(query, *args, db=db, idtype=idtype, retmode=retmode, retmax=retmax, return_all=return_all, **kwargs)
+    def search(self, query, *args, db="nuccore", idtype="acc", retmode="json", **kwargs):
+        return list(self._ncbi.search(query, *args, db=db, idtype=idtype, retmode=retmode, **kwargs))
 
 
 class RemoteObject(AbstractRemoteObject):
@@ -118,7 +118,7 @@ class RemoteObject(AbstractRemoteObject):
 class NCBIHelper(object):
     def __init__(self, *args, email=None, **kwargs):
         if not email:
-            raise NCBIFileException("An e-mail address must be provided to either the remote file or the RemoteProvider. The NCBI requires e-mail addresses for queries.")
+            raise NCBIFileException("An e-mail address must be provided to either the remote file or the RemoteProvider() as email=<your_address>. The NCBI requires e-mail addresses for queries.")
 
         self.email = email
         self.entrez = Entrez
@@ -275,22 +275,6 @@ class NCBIHelper(object):
                 extensions |= set([options["ext"]])
         return list(extensions)
 
-    def parse_accession_str(self, id_str):
-        '''
-            This tries to match an NCBI accession as defined here:
-                http://www.ncbi.nlm.nih.gov/Sequin/acc.html
-        '''
-        m = re.search( r"(?P<accession>(?:[a-zA-Z]{1,6}|NC_)\d{1,10})(?:\.(?P<version>\d+))?(?:\.(?P<file_ext>\S+))?.*", id_str )
-        accession, version, file_ext = ("","","")
-        if m:
-            accession = m.group("accession")
-            version = m.group("version")
-            file_ext = m.group("file_ext")
-        assert file_ext, "file_ext must be defined: {}.{}.<file_ext>. Possible values include: {}".format(accession,version,", ".join(self.valid_extensions))
-        assert version, "version must be defined: {}.<version>.{}".format(accession, file_ext)
-
-        return accession, version, file_ext
-
     def dbs_for_options(self, file_ext, rettype=None, retmode=None):
         possible_dbs = set()
         for db, db_options in self.efetch_options.items():
@@ -391,16 +375,32 @@ class NCBIHelper(object):
         for i in range(0, len(seq), n):
             yield seq[i:i + n]
 
+    def _esummary_and_parse(self, accession, xpath_selector, db="nuccore", return_type=int, raise_on_failure=True, retmode="xml", **kwargs):
+        result = self.entrez.esummary(db=db, id=accession, **kwargs)
+
+        root = ET.fromstring(result.read())
+        nodes = root.findall(xpath_selector)
+
+        retval = 0
+        if len(nodes):
+            retval = return_type(nodes[0].text)
+        else:
+            if raise_on_failure:
+                raise NCBIFileException("The esummary query failed.")
+
+        return retval
+
     def exists(self, accession, db="nuccore"):
         result = self.entrez.esearch(db=db, term=accession, rettype="count")
 
-        m = re.search(r"\<Count\>(?P<count>\d+)\<\/Count\>", result.read())
+        root = ET.fromstring(result.read())
+        nodes = root.findall(".//Count")
 
         count = 0
-        if m:
-            count = int(m.group("count"))
+        if len(nodes):
+            count = int(nodes[0].text)
         else:
-            raise NCBIFileException("The esearch query failed.")
+            raise NCBIFileException("The esummary query failed.")
 
         if count == 1:
             return True
@@ -409,30 +409,14 @@ class NCBIHelper(object):
             return False
 
     def size(self, accession, db="nuccore"):
-        result = self.entrez.esummary(db=db, id=accession, rettype="xml")
-        m = re.search(r'<Item.*Name="Length".*>(?P<length>\d+)<\/Item>', result.read())
-
-        length = 0
-        if m:
-            length = int(m.group("length"))
-        else:
-            raise NCBIFileException("The esummary query failed.")
-
-        return length
+        return self._esummary_and_parse(accession, ".//*[@Name='Length']", db=db)
 
     def mtime(self, accession, db="nuccore"):
-        result = self.entrez.esummary(db=db, id=accession, rettype="xml")
-        m = re.search(r'<Item.*Name="UpdateDate".*>(?P<update_date>\d{4}\/\d{1,2}\/\d{1,2})<\/Item>', result.read())
-
-        update_date = 0
-        if m:
-            update_date = str(m.group("update_date"))
-        else:
-            raise NCBIFileException("The esummary query failed.")
+        update_date = self._esummary_and_parse(accession, ".//Item[@Name='UpdateDate']", db=db, return_type=str)
 
         pattern = '%Y/%m/%d'
         epoch_update_date = int(time.mktime(time.strptime(update_date, pattern)))
-        
+
         return epoch_update_date
 
     def fetch_from_ncbi(self, accessionList, destinationDir,
@@ -473,7 +457,7 @@ class NCBIHelper(object):
         for chunkNum, chunk in enumerate(self._seq_chunks(accessionList, chunkSize)):
             # sleep to throttle requests to 2 per second per NCBI guidelines:
             #   https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.Usage_Guidelines_and_Requiremen
-            time.sleep(0.4)
+            time.sleep(0.5)
             accString = ",".join(chunk)
 
             # if the filename would be longer than Linux allows, simply say "chunk-chunkNum"
@@ -548,15 +532,19 @@ class NCBIHelper(object):
         # return list of files
         return outputFiles
 
-    def search(self, query, *args, db="nuccore", idtype="acc", retmax=200, return_all=True, **kwargs):
-        ''' 
-            This will pass through the normal parameters usable by esearch:
-            https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.ESearch
-        '''
-        ids = []
-
+    def search(self, query, *args, db="nuccore", idtype="acc", **kwargs):
         # enforce JSON return mode
         kwargs["retmode"] = "json"
+
+        # if the user specifies retmax, use it and limit there
+        # otherwise page 200 at a time and return all
+        if 'retmax' not in kwargs or not kwargs['retmax']:
+            kwargs['retmax'] = 100000
+            return_all = True
+        else:
+            return_all = False
+
+        kwargs['retstart'] = kwargs.get('retstart', 0)
 
         def esearch_json(term, *args, **kwargs):
             handle = self.entrez.esearch(term=term, *args, **kwargs)
@@ -569,21 +557,18 @@ class NCBIHelper(object):
             else:
                 raise NCBIFileException("ESearch error")
 
-        json_results = esearch_json(term=query, *args, db=db, idtype=idtype, retmax=retmax, **kwargs)
+        has_more = True
 
-        ids.extend(result_ids(json_results))
+        while has_more:
+            json_results = esearch_json(term=query, *args, db=db, idtype=idtype, **kwargs)
 
-        retstart = int(kwargs["retstart"]) if "retstart" in kwargs else 0
-        if "count" in json_results["esearchresult"] and int(json_results["esearchresult"]["count"]) > retmax+retstart and return_all:
-            # start where the user wants, knowing we've already done one request
-            count = int(json_results["esearchresult"]["count"])
-            logging.info("The result list for NCBIProvider.search(query='%s') extends to multiple pages. Fetching all results..." % query)
-            while retstart+retmax < count:
-                retstart += retmax
-                # sleep to throttle requests to 2 per second per NCBI guidelines:
+            for acc in result_ids(json_results):
+                yield acc
+
+            if return_all and ("count" in json_results["esearchresult"] and int(json_results["esearchresult"]["count"]) > kwargs['retmax']+kwargs['retstart']):
+                kwargs['retstart'] += kwargs['retmax']
+                # sleep to throttle requests to <2 per second per NCBI guidelines:
                 #   https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.Usage_Guidelines_and_Requiremen
                 time.sleep(0.5)
-                json_results = esearch_json(term=query, *args, db=db, idtype=idtype, retmax=retmax, retstart=retstart, **kwargs)
-                ids.extend(result_ids(json_results))
-
-        return ids
+            else:
+                has_more = False
