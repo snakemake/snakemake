@@ -258,12 +258,13 @@ class JobScheduler:
                  update_resources=True):
         """ Do stuff after job is finished. """
         with self._lock:
+            self.dag.finish(job, update_dynamic=update_dynamic)
+
             if update_resources:
                 self.finished_jobs += 1
                 self.running.remove(job)
                 self._free_resources(job)
 
-            self.dag.finish(job, update_dynamic=update_dynamic)
 
             if print_progress:
                 logger.job_finished(jobid=self.dag.jobid(job))

@@ -441,8 +441,8 @@ class Workflow:
         if not keep_shadow:
             self.persistence.cleanup_shadow()
 
-        if not dryrun and self.use_conda:
-            dag.create_conda_envs()
+        if self.use_conda:
+            dag.create_conda_envs(dryrun=dryrun)
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
@@ -464,7 +464,7 @@ class Workflow:
                                  greediness=greediness,
                                  force_use_threads=force_use_threads)
 
-        if not dryrun and not quiet:
+        if not dryrun:
             if len(dag):
                 if cluster or cluster_sync or drmaa:
                     logger.resources_info(
@@ -496,7 +496,7 @@ class Workflow:
 
         if success:
             if dryrun:
-                if not quiet and len(dag):
+                if len(dag):
                     logger.run_info("\n".join(dag.stats()))
             elif stats:
                 scheduler.stats.to_json(stats)

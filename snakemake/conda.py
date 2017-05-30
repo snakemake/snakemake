@@ -12,6 +12,7 @@ from glob import glob
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import strip_prefix
+from snakemake import utils
 
 
 class Env:
@@ -117,7 +118,7 @@ class Env:
             raise e
         return env_archive
 
-    def create(self):
+    def create(self, dryrun=False):
         """ Create the conda enviroment."""
         # Read env file and create hash.
         env_file = self.file
@@ -125,7 +126,7 @@ class Env:
 
         url_scheme, *_ = urlparse(env_file)
         if url_scheme and not url_scheme == 'file':
-            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as tmp:
                 tmp.write(self.content)
                 env_file = tmp.name
                 tmp_file = tmp.name
@@ -134,8 +135,11 @@ class Env:
         env_path = self.path
         # Create environment if not already present.
         if not os.path.exists(env_path):
+            if dryrun:
+                logger.info("Conda environment {} will be created.".format(utils.simplify_path(self.file)))
+                return env_path
             logger.info("Creating conda environment {}...".format(
-                        os.path.relpath(env_file)))
+                        utils.simplify_path(self.file)))
             # Check if env archive exists. Use that if present.
             env_archive = self.archive_file
             try:

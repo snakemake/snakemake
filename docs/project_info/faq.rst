@@ -420,3 +420,14 @@ The run block of a rule (see :ref:`snakefiles-rules`) has access to anything def
 Hence, it has to share the conda environment with the main Snakemake process.
 To avoid confusion we therefore disallow the conda directive together with the run block.
 It is recommended to use the script directive instead (see :ref:`snakefiles-external_scripts`).
+
+
+My workflow is very large, how to I stop Snakemake from printing all this rule/job information in a dry-run?
+------------------------------------------------------------------------------------------------------------
+
+Indeed, the information for each individual job can slow down a dryrun if there are tens of thousands of jobs.
+If you are just interested in the final summary, you can use the ``--quiet`` flag to suppress this.
+
+.. code-block:: console
+
+    $ snakemake -n --quiet

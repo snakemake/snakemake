@@ -504,6 +504,9 @@ def test_ftp_immediate_close():
     except ImportError:
         pass
 
+def test_issue260():
+    run(dpath("test_issue260"))
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
