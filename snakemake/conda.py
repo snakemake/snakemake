@@ -45,6 +45,12 @@ class Env:
     def hash(self):
         if self._hash is None:
             md5hash = hashlib.md5()
+            # Include the absolute path of the target env dir into the hash.
+            # By this, moving the working directory around automatically
+            # invalidates all environments. This is necessary, because binaries
+            # in conda environments can contain hardcoded absolute RPATHs.
+            assert os.path.isabs(self._env_dir)
+            md5hash.update(self._env_dir.encode())
             md5hash.update(self.content)
             self._hash = md5hash.hexdigest()
         return self._hash
@@ -128,7 +134,8 @@ class Env:
         env_path = self.path
         # Create environment if not already present.
         if not os.path.exists(env_path):
-            logger.info("Creating conda environment {}...".format(env_file))
+            logger.info("Creating conda environment {}...".format(
+                        os.path.relpath(env_file)))
             # Check if env archive exists. Use that if present.
             env_archive = self.archive_file
             try:
@@ -144,7 +151,8 @@ class Env:
                                                 "--prefix", env_path],
                                                 stderr=subprocess.STDOUT)
                 logger.debug(out.decode())
-                logger.info("Environment for {} created.".format(env_file))
+                logger.info("Environment for {} created (location: {})".format(
+                            os.path.relpath(env_file), os.path.relpath(env_path)))
             except subprocess.CalledProcessError as e:
                 # remove potential partially installed environment
                 shutil.rmtree(env_path, ignore_errors=True)
