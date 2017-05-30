@@ -89,7 +89,7 @@ class RemoteObject(AbstractRemoteObject):
 
     def download(self):
         if self.exists():
-            self._ncbi.fetch_from_ncbi([self.accession], os.path.dirname(self.accession), rettype=self.rettype, retmode=self.retmode, fileExt=self.file_ext, db=self.db, **self.kwargs)
+            self._ncbi.fetch_from_ncbi([self.accession], os.path.dirname(self.accession), rettype=self.rettype, retmode=self.retmode, file_ext=self.file_ext, db=self.db, **self.kwargs)
         else:
             raise NCBIFileException("The record does not seem to exist remotely: %s" % self.accession)
 
@@ -419,77 +419,77 @@ class NCBIHelper(object):
 
         return epoch_update_date
 
-    def fetch_from_ncbi(self, accessionList, destinationDir,
-                            forceOverwrite=False, rettype="fasta", retmode="text",
-                            fileExt=None, combinedFilePrefix=None, removeSeparateFiles=False,
-                            chunkSize=1, db="nuccore", **kwargs):
+    def fetch_from_ncbi(self, accession_list, destination_dir,
+                            force_overwrite=False, rettype="fasta", retmode="text",
+                            file_ext=None, combined_file_prefix=None, remove_separate_files=False,
+                            chunk_size=1, db="nuccore", **kwargs):
         """
             This function downloads and saves files from NCBI.
             Adapted in part from the BSD-licensed code here:
               https://github.com/broadinstitute/viral-ngs/blob/master/util/genbank.py
         """
 
-        maxChunkSize = 500
+        max_chunk_size = 500
 
         # Conform to NCBI retreival guidelines by chunking into 500-accession chunks if
-        # >500 accessions are specified and chunkSize is set to 1
+        # >500 accessions are specified and chunk_size is set to 1
         # Also clamp chunk size to 500 if the user specified a larger value.
-        if chunkSize > maxChunkSize or (len(accessionList) > maxChunkSize and chunkSize == 1):
-            chunkSize = maxChunkSize
+        if chunk_size > max_chunk_size or (len(accession_list) > max_chunk_size and chunk_size == 1):
+            chunk_size = max_chunk_size
 
         outEx = {"fasta": "fasta", "ft": "tbl", "gb": "gbk"}
 
-        outputDirectory = os.path.abspath(os.path.expanduser(destinationDir))
+        output_directory = os.path.abspath(os.path.expanduser(destination_dir))
 
-        if not os.path.exists(outputDirectory):
-            os.makedirs(outputDirectory)
+        if not os.path.exists(output_directory):
+            os.makedirs(output_directory)
 
-        outputExtension = str(fileExt)
+        output_extension = str(file_ext)
 
         # ensure the extension starts with a ".", also allowing for passed-in
         # extensions that already have it
-        if outputExtension[:1] != ".":
-            outputExtension = "." + outputExtension
+        if output_extension[:1] != ".":
+            output_extension = "." + output_extension
 
-        logger.info("Fetching {} entries from NCBI: {}\n".format(str(len(accessionList)), ", ".join(accessionList[:10])))
-        outputFiles = []
+        logger.info("Fetching {} entries from NCBI: {}\n".format(str(len(accession_list)), ", ".join(accession_list[:10])))
+        output_files = []
 
-        for chunkNum, chunk in enumerate(self._seq_chunks(accessionList, chunkSize)):
+        for chunk_num, chunk in enumerate(self._seq_chunks(accession_list, chunk_size)):
             # sleep to throttle requests to 2 per second per NCBI guidelines:
             #   https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.Usage_Guidelines_and_Requiremen
             time.sleep(0.5)
-            accString = ",".join(chunk)
+            acc_string = ",".join(chunk)
 
-            # if the filename would be longer than Linux allows, simply say "chunk-chunkNum"
-            if len(accString) + len(outputExtension) <= 254:
-                outputFilePath = os.path.join(outputDirectory, accString + outputExtension)
+            # if the filename would be longer than Linux allows, simply say "chunk-chunk_num"
+            if len(acc_string) + len(output_extension) <= 254:
+                output_file_path = os.path.join(output_directory, acc_string + output_extension)
             else:
-                outputFilePath = os.path.join(outputDirectory, "chunk-{}".format(chunkNum) + outputExtension)
+                output_file_path = os.path.join(output_directory, "chunk-{}".format(chunk_num) + output_extension)
 
-            if not forceOverwrite:
+            if not force_overwrite:
                 logger.info("not overwriting, checking for existence")
-                assert not os.path.exists(outputFilePath), """File %s already exists. Consider removing
+                assert not os.path.exists(output_file_path), """File %s already exists. Consider removing
                     this file or specifying a different output directory. The files for the accessions specified
-                    can be overwritten if you add forceOverwrite flag. Processing aborted.""" % outputFilePath
+                    can be overwritten if you add force_overwrite flag. Processing aborted.""" % output_file_path
 
-            tryCount = 1
+            try_count = 1
             while True:
                 try:
-                    logger.info("Fetching file {}: {}, try #{}".format(chunkNum + 1, accString, tryCount))
-                    handle = self.entrez.efetch(db=db, rettype=rettype, retmode=retmode, id=accString, **kwargs)
+                    logger.info("Fetching file {}: {}, try #{}".format(chunk_num + 1, acc_string, try_count))
+                    handle = self.entrez.efetch(db=db, rettype=rettype, retmode=retmode, id=acc_string, **kwargs)
 
-                    with open(outputFilePath, "w") as outf:
+                    with open(output_file_path, "w") as outf:
                         for line in handle:
                             outf.write(line)
-                    outputFiles.append(outputFilePath)
+                    output_files.append(output_file_path)
                 except IOError:
 
                     logger.warning(
-                        "Error fetching file {}: {}, try #{} probably because NCBI is too busy.".format(chunkNum + 1, accString,
-                        tryCount))
+                        "Error fetching file {}: {}, try #{} probably because NCBI is too busy.".format(chunk_num + 1, acc_string,
+                        try_count))
 
-                    tryCount += 1
-                    if tryCount > 4:
+                    try_count += 1
+                    if try_count > 4:
                         logger.warning("Tried too many times. Aborting.")
                         raise
 
@@ -501,36 +501,36 @@ class NCBIHelper(object):
                 break
 
         # assert that we are not trying to remove the intermediate files without writing a combined file
-        if removeSeparateFiles:
-            assert combinedFilePrefix, """The intermediate files
-                can only be removed if a combined file is written via combinedFilePrefix"""
+        if remove_separate_files:
+            assert combined_file_prefix, """The intermediate files
+                can only be removed if a combined file is written via combined_file_prefix"""
 
         # build a path to the combined genome file
-        if combinedFilePrefix:
-            concatenatedGenomeFilepath = os.path.join(outputDirectory, combinedFilePrefix + outputExtension)
+        if combined_file_prefix:
+            concatenated_genome_file_path = os.path.join(output_directory, combined_file_prefix + output_extension)
 
-            if not forceOverwrite:
-                assert not os.path.exists(concatenatedGenomeFilepath), """File %s already exists. Consider removing
+            if not force_overwrite:
+                assert not os.path.exists(concatenated_genome_file_path), """File %s already exists. Consider removing
                     this file or specifying a different output directory. The files for the accessions specified
-                    can be overwritten if you add forceOverwrite flag. Processing aborted.""" % outputFilePath
+                    can be overwritten if you add force_overwrite flag. Processing aborted.""" % output_file_path
 
             # concatenate the files together into one genome file
-            with open(concatenatedGenomeFilepath, 'w') as outfile:
-                for filePath in outputFiles:
-                    with open(filePath) as infile:
+            with open(concatenated_genome_file_path, 'w') as outfile:
+                for file_path in output_files:
+                    with open(file_path) as infile:
                         for line in infile:
                             outfile.write(line)
 
             # if the option is specified, remove the intermediate fasta files
-            if removeSeparateFiles:
-                while len(outputFiles) > 0:
-                    os.unlink(outputFiles.pop())
+            if remove_separate_files:
+                while len(output_files) > 0:
+                    os.unlink(output_files.pop())
 
             # add the combined file to the list of files returned
-            outputFiles.append(concatenatedGenomeFilepath)
+            output_files.append(concatenated_genome_file_path)
 
         # return list of files
-        return outputFiles
+        return output_files
 
     def search(self, query, *args, db="nuccore", idtype="acc", **kwargs):
         # enforce JSON return mode
