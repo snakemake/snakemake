@@ -352,7 +352,9 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
 
 to get the same effect as above. Note that in contrast to the ``input`` directive, the
 ``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, ``threads``, and ``resources``.
-Here, this allows you to derive the prefix name from the output file.
+From the Python perspective, they can be seen as optional keyword arguments without a default value.
+Their order does not matter, apart from the fact that ``wildcards`` has to be the first argument.
+In the example above, this allows you to derive the prefix name from the output file.
 
 
 .. _snakefiles-external_scripts:
