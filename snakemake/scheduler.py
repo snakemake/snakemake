@@ -74,6 +74,7 @@ class JobScheduler:
             update_dynamic=not self.dryrun,
             print_progress=not self.quiet and not self.dryrun)
 
+        self._local_executor = None
         if dryrun:
             self._executor = DryrunExecutor(workflow, dag,
                                             printreason=printreason,
@@ -98,7 +99,6 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 benchmark_repeats=benchmark_repeats,
                 cores=local_cores)
-            self.run = self.run_cluster_or_local
             if cluster or cluster_sync:
                 constructor = SynchronousClusterExecutor if cluster_sync \
                               else GenericClusterExecutor
@@ -227,19 +227,18 @@ class JobScheduler:
                 job.cleanup()
             return False
 
-    def run(self, job):
-        self._executor.run(job,
-                           callback=self._finish_callback,
-                           submit_callback=self._submit_callback,
-                           error_callback=self._error)
+    def get_executor(self, job):
+        if self._local_executor is None:
+            return self._executor
+        else:
+            return self._local_executor if self.workflow.is_local(
+                job.rule) else self._executor
 
-    def run_cluster_or_local(self, job):
-        executor = self._local_executor if self.workflow.is_local(
-            job.rule) else self._executor
-        executor.run(job,
-                     callback=self._finish_callback,
-                     submit_callback=self._submit_callback,
-                     error_callback=self._error)
+    def run(self, job):
+        self.get_executor(job).run(job,
+            callback=self._finish_callback,
+            submit_callback=self._submit_callback,
+            error_callback=self._error)
 
     def _noop(self, job):
         pass
@@ -258,6 +257,8 @@ class JobScheduler:
                  update_resources=True):
         """ Do stuff after job is finished. """
         with self._lock:
+            # by calling this behind the lock, we avoid race conditions
+            self.get_executor(job).handle_job_success(job)
             self.dag.finish(job, update_dynamic=update_dynamic)
 
             if update_resources:
@@ -282,6 +283,7 @@ class JobScheduler:
         try to run the job again.
         """
         with self._lock:
+            self.get_executor(job).handle_job_error(job)
             self.running.remove(job)
             self._free_resources(job)
             self._open_jobs.set()

@@ -737,8 +737,6 @@ class DAG:
     def finish(self, job, update_dynamic=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
-        job.close_remote()
-
         self._finished.add(job)
         try:
             self._ready_jobs.remove(job)
