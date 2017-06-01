@@ -422,6 +422,25 @@ def test_static_remote():
     except ImportError:
         pass
 
+def test_remote_ncbi_simple():
+    try:
+        import Bio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_remote_ncbi_simple"))
+    except ImportError:
+        pass
+
+def test_remote_ncbi():
+    try:
+        import Bio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_remote_ncbi"))
+    except ImportError:
+        pass
 
 def test_deferred_func_eval():
     run(dpath("test_deferred_func_eval"))

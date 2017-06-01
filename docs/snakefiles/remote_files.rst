@@ -439,6 +439,65 @@ This flag can be overridden on a file by file basis as described in the S3 remot
         shell:
             'xrdcp {input[0]} {output[0]}'
 
+GenBank / NCBI Entrez
+=====================
+
+Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.nih.gov/genbank/>` and other `NCBI Entrez databases <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>` if the Biopython library is installed.
+
+.. code-block:: python
+
+    from snakemake.remote.NCBI import RemoteProvider as NCBIRemoteProvider
+    NCBI = NCBIRemoteProvider(email="someone@example.com") # email required by NCBI to prevent abuse
+
+    rule all:
+        input:
+            "size.txt"
+
+    rule download_and_count:
+        input:
+            NCBI.remote("KY785484.1.fasta", db="nuccore")
+        output:
+            "size.txt"
+        run:
+            shell("wc -c {input} > {output}")
+
+The output format and source database of a record retrieved from GenBank is inferred from the file extension specified. For example, ``NCBI.RemoteProvider().remote("KY785484.1.fasta", db="nuccore")`` will download a FASTA file while ``NCBI.RemoteProvider().remote("KY785484.1.gb", db="nuccore")`` will download a GenBank-format file. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible format choices. To see available formats, consult the 
+in a variety of `Entrez EFetch documentation <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`. To view the valid file extensions for these formats, access ``NCBI.RemoteProvider()._gb.valid_extensions``, or instantiate an ``NCBI.NCBIHelper()`` and access ``NCBI.NCBIHelper().valid_extensions`` (this is a property).
+
+When used in conjunction with ``NCBI.RemoteProvider().search()``, Snakemake and ``NCBI.RemoteProvider().remote()`` can be used to find accessions by query and download them:
+
+.. code-block:: python
+
+    from snakemake.remote.NCBI import RemoteProvider as NCBIRemoteProvider
+    NCBI = NCBIRemoteProvider(email="someone@example.com") # email required by NCBI to prevent abuse
+
+    # get accessions for the first 3 results in a search for full-length Zika virus genomes
+    # the query parameter accepts standard GenBank search syntax
+    query = '"Zika virus"[Organism] AND (("9000"[SLEN] : "20000"[SLEN]) AND ("2017/03/20"[PDAT] : "2017/03/24"[PDAT])) '
+    accessions = NCBI.search(query, retmax=3)
+
+    # give the accessions a file extension to help the RemoteProvider determine the 
+    # proper output type. 
+    input_files = expand("{acc}.fasta", acc=accessions)
+
+    rule all:
+        input:
+            "sizes.txt"
+
+    rule download_and_count:
+        input:
+            # Since *.fasta files could come from several different databases, specify the database here.
+            # if the input files are ambiguous, the provider will alert the user with possible options
+            # standard options like "seq_start" are supported
+            NCBI.remote(input_files, db="nuccore", seq_start=5000)
+
+        output:
+            "sizes.txt"
+        run:
+            shell("wc -c {input} > sizes.txt")
+
+Normally, all accessions for a query are returned from ``NCBI.RemoteProvider.search()``. To truncate the results, specify ``retmax=<desired_number>``. Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>` are supported as kwargs, and may be passed in to ``NCBI.RemoteProvider.remote()`` and ``NCBI.RemoteProvider.search()``.
+
 Remote cross-provider transfers
 ===============================
 

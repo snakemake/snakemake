@@ -109,13 +109,11 @@ class AbstractExecutor:
         logger.error("Error in job {} while creating output file{} {}.".format(
             job, "s" if len(job.output) > 1 else "", ", ".join(job.output)))
 
-    def finish_job(self, job, upload_remote=True, ignore_missing_output=False):
-        self.dag.handle_touch(job)
-        self.dag.check_and_touch_output(job, wait=self.latency_wait, ignore_missing_output=ignore_missing_output)
-        self.dag.unshadow_output(job)
-        self.dag.handle_remote(job, upload=upload_remote)
-        self.dag.handle_protected(job)
-        self.dag.handle_temp(job)
+    def handle_job_success(self, job):
+        pass
+
+    def handle_job_error(self, job):
+        pass
 
 
 class DryrunExecutor(AbstractExecutor):
@@ -152,8 +150,18 @@ class RealExecutor(AbstractExecutor):
                 "Please ensure write permissions for the "
                 "directory {}".format(e, self.workflow.persistence.path))
 
-    def finish_job(self, job, upload_remote=True, ignore_missing_output=False):
-        super().finish_job(job, upload_remote=upload_remote, ignore_missing_output=ignore_missing_output)
+    def handle_job_success(self, job, upload_remote=True, ignore_missing_output=False):
+        self.dag.handle_touch(job)
+        self.dag.check_and_touch_output(
+            job,
+            wait=self.latency_wait,
+            ignore_missing_output=ignore_missing_output)
+        self.dag.unshadow_output(job)
+        self.dag.handle_remote(job, upload=upload_remote)
+        self.dag.handle_protected(job)
+        self.dag.handle_temp(job)
+        job.close_remote()
+
         self.stats.report_job_end(job)
         try:
             self.workflow.persistence.finished(job)
@@ -162,6 +170,9 @@ class RealExecutor(AbstractExecutor):
                         "({}). Please ensure write permissions for the "
                         "directory {}".format(e,
                                               self.workflow.persistence.path))
+
+    def handle_job_error(self, job):
+        job.close_remote()
 
     def format_job_pattern(self, pattern, job=None, **kwargs):
         overwrite_workdir = []
@@ -200,13 +211,15 @@ class TouchExecutor(RealExecutor):
             error_callback=None):
         super()._run(job)
         try:
-            #Touching of output files will be done by finish_job
+            #Touching of output files will be done by handle_job_success
             time.sleep(0.1)
-            self.finish_job(job, ignore_missing_output=True)
             callback(job)
         except OSError as ex:
             print_exception(ex, self.workflow.linemaps)
             error_callback(job)
+
+    def handle_job_success(self, job):
+        super().handle_job_success(job, ignore_missing_output=True)
 
 
 _ProcessPoolExceptions = (KeyboardInterrupt, )
@@ -299,23 +312,24 @@ class CPUExecutor(RealExecutor):
             ex = future.exception()
             if ex:
                 raise ex
-            self.finish_job(job)
             callback(job)
         except _ProcessPoolExceptions:
-            job.cleanup()
-            self.workflow.persistence.cleanup(job)
+            self.handle_job_error(job)
             # no error callback, just silently ignore the interrupt as the main scheduler is also killed
         except SpawnedJobError:
             # don't print error message, this is done by the spawned subprocess
-            job.cleanup()
-            self.workflow.persistence.cleanup(job)
             error_callback(job)
         except (Exception, BaseException) as ex:
             self.print_job_error(job)
             print_exception(ex, self.workflow.linemaps)
-            job.cleanup()
-            self.workflow.persistence.cleanup(job)
             error_callback(job)
+
+    def handle_job_success(self, job):
+        super().handle_job_success(job)
+
+    def handle_job_error(self, job):
+        job.cleanup()
+        self.workflow.persistence.cleanup(job)
 
 
 class ClusterExecutor(RealExecutor):
@@ -474,8 +488,13 @@ class ClusterExecutor(RealExecutor):
     def cluster_wildcards(self, job):
         return Wildcards(fromdict=self.cluster_params(job))
 
-    def finish_job(self, job):
-        super().finish_job(job, upload_remote=False)
+    def handle_job_success(self, job):
+        super().handle_job_success(job, upload_remote=False)
+
+    def handle_job_error(self, job):
+        # TODO what about removing empty remote dirs?? This cannot be decided
+        # on the cluster node.
+        super().handle_job_error(job)
 
 
 GenericClusterJob = namedtuple("GenericClusterJob", "job jobid callback error_callback jobscript jobfinished jobfailed")
@@ -568,7 +587,6 @@ class GenericClusterExecutor(ClusterExecutor):
                     if os.path.exists(active_job.jobfinished):
                         os.remove(active_job.jobfinished)
                         os.remove(active_job.jobscript)
-                        self.finish_job(active_job.job)
                         active_job.callback(active_job.job)
                     elif os.path.exists(active_job.jobfailed):
                         os.remove(active_job.jobfailed)
@@ -663,7 +681,6 @@ class SynchronousClusterExecutor(ClusterExecutor):
                     elif exitcode == 0:
                         # job finished successfully
                         os.remove(active_job.jobscript)
-                        self.finish_job(active_job.job)
                         active_job.callback(active_job.job)
                     else:
                         # job failed
@@ -800,7 +817,6 @@ class DRMAAExecutor(ClusterExecutor):
                     # job exited
                     os.remove(active_job.jobscript)
                     if retval.hasExited and retval.exitStatus == 0:
-                        self.finish_job(active_job.job)
                         active_job.callback(active_job.job)
                     else:
                         self.print_job_error(active_job.job)
