@@ -25,6 +25,8 @@ Talks and Posters
 External Resources
 ------------------
 
+These resources are not part of the official documentation.
+
 * `Snakemake workflow used for the Kallisto paper <https://github.com/pachterlab/kallisto_paper_analysis>`_
 * `An alternative tutorial for Snakemake <http://slowkow.com/notes/snakemake-tutorial/>`_
 * `An Emacs mode for Snakemake <http://melpa.milkbox.net/#/snakemake-mode>`_
@@ -32,3 +34,5 @@ External Resources
 * `Sandwiches with Snakemake <https://github.com/leipzig/SandwichesWithSnakemake>`_
 * `A visualization of the past years of Snakemake development <http://youtu.be/bq3vXrWw1yk>`_
 * `Japanese version of the Snakemake tutorial <https://github.com/joemphilips/Translate_Snakemake_Tutorial>`_
+* `Basic <http://bioinfo-fr.net/snakemake-pour-les-nuls>`_ and `advanced <http://bioinfo-fr.net/snakemake-aller-plus-loin-avec-la-parallelisation>`_ french Snakemake tutorial.
+* `Mini tutorial on Snakemake and Bioconda <https://github.com/dlaehnemann/TutMinicondaSnakemake>`_

@@ -1,0 +1,14 @@
+localrules: all
+
+shell.executable('bash')
+
+rule all:
+	input: '.done'
+
+rule fails_sometimes:
+	output:
+		'.done'
+	shell:
+		r"""
+		touch .done
+		"""

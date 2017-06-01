@@ -1,3 +1,5 @@
+.. _utils-api:
+
 Additional utils
 ================
 

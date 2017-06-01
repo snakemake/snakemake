@@ -20,3 +20,6 @@ dependencies:
   - appdirs
   - pytools
   - docutils
+  - pandoc
+  - r-rmarkdown
+  - psutil

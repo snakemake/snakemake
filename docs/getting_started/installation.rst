@@ -7,11 +7,32 @@ Installation
 Snakemake is available on PyPi as well as through Bioconda and also from source code.
 You can use one of the following ways for installing Snakemake.
 
+Installation via Conda
+======================
+
+On **Linux** and **MacOSX**, this is the recommended way to install Snakemake,
+because it also enables Snakemake to :ref:`handle software dependencies of your
+workflow <integrated_package_management>`.
+
+First, you have to install the Miniconda Python3 distribution.
+See `here <https://conda.io/docs/install/quick.html>`_ for installation instructions.
+Make sure to ...
+
+* Install the **Python 3** version of Miniconda.
+* Answer yes to the question whether conda shall be put into your PATH.
+
+Then, you can install Snakemake with
+
+.. code-block:: console
+
+    $ conda install -c bioconda snakemake
+
+from the `Bioconda <https://bioconda.github.io>`_ channel.
 
 Global Installation
 ===================
 
-With a working Python 3 setup, installation of Snakemake can be performed by issueing
+With a working Python 3 setup, installation of Snakemake can be performed by issuing
 
 .. code-block:: console
 
@@ -34,22 +55,8 @@ To create an installation in a virtual environment, use the following commands:
 .. code-block:: console
 
     $ virtualenv -p python3 .venv
-    $ source . .venv/bin/activate
+    $ source .venv/bin/activate
     $ pip install snakemake
-
-
-Installing Conda
-================
-
-In case you have to install Python 3 yourself, we recommend to use the Miniconda Python 3 distribution (http://conda.pydata.org/miniconda.html).
-
-With Miniconda installed, you can issue
-
-.. code-block:: console
-
-    $ conda install -c bioconda snakemake
-
-to install Snakemake from the bioconda channel.
 
 
 Installing from Source
@@ -64,7 +71,7 @@ Note that this will install the development version and as you are installing fr
     $ git clone https://bitbucket.org/snakemake/snakemake.git
     $ cd snakemake
     $ virtualenv -p python3 .venv
-    $ source . .venv/bin/activate
-    $ python setup install
+    $ source .venv/bin/activate
+    $ python setup.py install
 
-You can also use ``python setup develop`` to create a "development installation" in which no files are copied but a link is created and changes in the source code are immediately visible in your ``snakemake`` commands.
+You can also use ``python setup.py develop`` to create a "development installation" in which no files are copied but a link is created and changes in the source code are immediately visible in your ``snakemake`` commands.
