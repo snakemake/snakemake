@@ -513,9 +513,18 @@ def test_threads():
 def test_dynamic_temp():
     run(dpath("test_dynamic_temp"))
 
+def test_ftp_immediate_close():
+    try:
+        import ftputil
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_ftp_immediate_close"))
+    except ImportError:
+        pass
+
 def test_issue260():
     run(dpath("test_issue260"))
-
 
 if __name__ == '__main__':
     import nose

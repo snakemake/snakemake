@@ -362,6 +362,30 @@ Anonymous download of FTP resources is possible:
 
     print(FTP.glob_wildcards("example.com/somedir/{file}.txt"))
 
+Setting `immediate_close=True` allows the use of a large number of remote FTP input files in a job where the endpoint server limits the number of concurrent connections. When `immediate_close=True`, Snakemake will terminate FTP connections after each remote file action (`exists()`, `size()`, `download()`, `mtime()`, etc.). This is in contrast to the default behavior which caches FTP details and leaves the connection open across actions to improve performance (closing the connection upon job termination).  :
+
+.. code-block:: python
+
+    from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+    FTP = FTPRemoteProvider()
+
+    rule all:
+        input:
+            # only keep the file so we can move it out to the cwd
+            # This server limits the number of concurrent connections so we need to have Snakemake close each after each FTP action.
+            FTP.remote(expand("ftp.example.com/rel/path/to/{file}", file=large_list), keep_local=True, immediate_close=True)
+        run:
+            shell("mv {input} ./")
+
+``glob_wildcards()``:
+
+.. code-block:: python
+
+    from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+    FTP = FTPRemoteProvider(username="myusername", password="mypassword")
+
+    print(FTP.glob_wildcards("example.com/somedir/{file}.txt"))
+
 Dropbox
 =======
 
