@@ -31,7 +31,7 @@ rule c_to_o:
     output:
         temp('{ODIR}/{name}.o')
     input:
-        '{name}.c', HEADERS
+        '{name}.c'#, HEADERS
     shell:
         "{CC} -c -o {output} {input} {CFLAGS}"
 
