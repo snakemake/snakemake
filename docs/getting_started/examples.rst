@@ -181,9 +181,10 @@ A Snakefile can be easily written as
         output:
             temp('{ODIR}/{name}.o')
         input:
-            '{name}.c', HEADERS
+            src='{name}.c',
+            headers=HEADERS
         shell:
-            "{CC} -c -o {output} {input} {CFLAGS}"
+            "{CC} -c -o {output} {input.src} {CFLAGS}"
 
     rule clean:
         """clean up temporary files"""
