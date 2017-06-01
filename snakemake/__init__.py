@@ -913,7 +913,9 @@ def get_argument_parser():
         "--allowed-rules",
         nargs="+",
         help=
-        "Only use given rules. If omitted, all rules in Snakefile are used.")
+        "Only consider given rules. If omitted, all rules in Snakefile are "
+        "used. Note that this is intended primarily for internal use and may "
+        "lead to unexpected results otherwise.")
     parser.add_argument(
         "--max-jobs-per-second", default=None, type=float,
         help=
