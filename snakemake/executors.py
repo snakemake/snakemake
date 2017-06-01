@@ -442,12 +442,16 @@ class ClusterExecutor(RealExecutor):
         return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
-        return os.path.join(
-            self.tmpdir,
-            job.format_wildcards(self.jobname,
-                                 rulename=job.rule.name,
-                                 jobid=self.dag.jobid(job),
-                                 cluster=self.cluster_wildcards(job)))
+        f = job.format_wildcards(self.jobname,
+                             rulename=job.rule.name,
+                             jobid=self.dag.jobid(job),
+                             cluster=self.cluster_wildcards(job))
+        if os.path.sep in f:
+            raise WorkflowError("Path separator ({}) found in job name {}. "
+                                "This is not supported.".format(
+                                os.path.sep, f))
+
+        return os.path.join(self.tmpdir, f)
 
     def spawn_jobscript(self, job, jobscript, **kwargs):
         wait_for_files = [self.tmpdir]
