@@ -431,6 +431,7 @@ class ClusterExecutor(RealExecutor):
         if self.max_jobs_per_second:
             self._limit_rate()
         job.remove_existing_output()
+        job.download_remote_input()
         super()._run(job, callback=callback, error_callback=error_callback)
         logger.shellcmd(job.shellcmd)
 
@@ -449,7 +450,11 @@ class ClusterExecutor(RealExecutor):
                                  cluster=self.cluster_wildcards(job)))
 
     def spawn_jobscript(self, job, jobscript, **kwargs):
-        wait_for_files = list(job.local_input) + [self.tmpdir]
+        wait_for_files = [self.tmpdir]
+        wait_for_files.extend(job.local_input)
+        wait_for_files.extend(f.local_file()
+                              for f in job.remote_input if not f.stay_on_remote)
+
         if job.shadow_dir:
             wait_for_files.append(job.shadow_dir)
         if self.workflow.use_conda and job.conda_env:

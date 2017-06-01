@@ -452,6 +452,10 @@ class Job:
                 #No file == no problem
                 pass
 
+    def download_remote_input(self):
+        for f in self.files_to_download:
+            f.download_from_remote()
+
     def prepare(self):
         """
         Prepare execution of job.
@@ -475,8 +479,7 @@ class Job:
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
-        for f in self.files_to_download:
-            f.download_from_remote()
+        self.download_remote_input()
 
         for f in self.log:
             f.prepare()
