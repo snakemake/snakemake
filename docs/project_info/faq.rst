@@ -431,3 +431,8 @@ If you are just interested in the final summary, you can use the ``--quiet`` fla
 .. code-block:: console
 
     $ snakemake -n --quiet
+
+Git is messing up the modification times of my input files, what can I do?
+--------------------------------------------------------------------------
+
+When you checkout a git repository, the modification times of updated files are set to the time of the checkout. If you rely on these files as input **and** output files in your workflow, this can cause trouble. For example, Snakemake could think that a certain (git-tracked) output has to be re-executed, just because its input has been checked out a bit later. In such cases, it is advisable to set the file modification dates to the last commit date after an update has been pulled. See `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_ for a solution to achieve this.
