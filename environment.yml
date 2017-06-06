@@ -22,4 +22,5 @@ dependencies:
   - docutils
   - pandoc
   - r-rmarkdown
+  - xorg-libxrender
   - psutil
