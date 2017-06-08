@@ -23,4 +23,7 @@ dependencies:
   - pandoc
   - r-rmarkdown
   - xorg-libxrender
+  - xorg-libxext
+  - xorg-libxau
+  - xorg-libxdmcp
   - psutil
