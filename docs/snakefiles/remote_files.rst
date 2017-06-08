@@ -6,7 +6,7 @@ Remote files
 
 In versions ``snakemake>=3.5``.
 
-The ``Snakefile`` supports a wrapper function, ``remote()``, indicating a file is on a remote storage provider (this is similar to ``temp()`` or ``protected()``). In order to use all types of remote files, the Python packages ``boto``, ``moto``, ``filechunkio``, ``pysftp``, ``dropbox``, ``requests``, and ``ftputil`` must be installed.
+The ``Snakefile`` supports a wrapper function, ``remote()``, indicating a file is on a remote storage provider (this is similar to ``temp()`` or ``protected()``). In order to use all types of remote files, the Python packages ``boto``, ``moto``, ``filechunkio``, ``pysftp``, ``dropbox``, ``requests``, ``ftputil``, ``XRootD``, and ``biopython`` must be installed.
 
 During rule execution, a remote file (or object) specified is downloaded to the local ``cwd``, within a sub-directory bearing the same name as the remote provider. This sub-directory naming lets you have multiple remote origins with reduced likelihood of name collisions, and allows Snakemake to easily translate remote objects to local file paths. You can think of each local remote sub-directory as a local mirror of the remote system. The ``remote()`` wrapper is mutually-exclusive with the ``temp()`` and ``protected()`` wrappers.
 
@@ -18,6 +18,8 @@ Snakemake includes the following remote providers, supported by the correspondin
 * Read-only web (HTTP[S]): ``snakemake.remote.HTTP``
 * File transfer protocol (FTP): ``snakemake.remote.FTP``
 * Dropbox: ``snakemake.remote.dropbox``
+* XRootD: ``snakemake.remote.XRootD``
+* GenBank / NCBI Entrez: ``snakemake.remote.NCBI``
 
 
 Amazon Simple Storage Service (S3)
@@ -416,7 +418,7 @@ Note that Dropbox paths are case-insensitive.
 XRootD
 =======
 
-Snakemake can be used with `XRootD <http://xrootd.org/>` backed storage provided the python bindings are installed.
+Snakemake can be used with `XRootD <http://xrootd.org/>`_ backed storage provided the python bindings are installed.
 This is typically most useful when combined with the ``stay_on_remote`` flag to minimise local storage requirements.
 This flag can be overridden on a file by file basis as described in the S3 remote. Additionally ``glob_wildcards()`` is supported:
 
@@ -442,7 +444,7 @@ This flag can be overridden on a file by file basis as described in the S3 remot
 GenBank / NCBI Entrez
 =====================
 
-Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.nih.gov/genbank/>` and other `NCBI Entrez databases <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>` if the Biopython library is installed.
+Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.nih.gov/genbank/>`_ and other `NCBI Entrez databases <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>`_ if the Biopython library is installed.
 
 .. code-block:: python
 
@@ -462,7 +464,7 @@ Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.ni
             shell("wc -c {input} > {output}")
 
 The output format and source database of a record retrieved from GenBank is inferred from the file extension specified. For example, ``NCBI.RemoteProvider().remote("KY785484.1.fasta", db="nuccore")`` will download a FASTA file while ``NCBI.RemoteProvider().remote("KY785484.1.gb", db="nuccore")`` will download a GenBank-format file. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible format choices. To see available formats, consult the 
-in a variety of `Entrez EFetch documentation <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`. To view the valid file extensions for these formats, access ``NCBI.RemoteProvider()._gb.valid_extensions``, or instantiate an ``NCBI.NCBIHelper()`` and access ``NCBI.NCBIHelper().valid_extensions`` (this is a property).
+in a variety of `Entrez EFetch documentation <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`_. To view the valid file extensions for these formats, access ``NCBI.RemoteProvider()._gb.valid_extensions``, or instantiate an ``NCBI.NCBIHelper()`` and access ``NCBI.NCBIHelper().valid_extensions`` (this is a property).
 
 When used in conjunction with ``NCBI.RemoteProvider().search()``, Snakemake and ``NCBI.RemoteProvider().remote()`` can be used to find accessions by query and download them:
 
@@ -496,7 +498,7 @@ When used in conjunction with ``NCBI.RemoteProvider().search()``, Snakemake and 
         run:
             shell("wc -c {input} > sizes.txt")
 
-Normally, all accessions for a query are returned from ``NCBI.RemoteProvider.search()``. To truncate the results, specify ``retmax=<desired_number>``. Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>` are supported as kwargs, and may be passed in to ``NCBI.RemoteProvider.remote()`` and ``NCBI.RemoteProvider.search()``.
+Normally, all accessions for a query are returned from ``NCBI.RemoteProvider.search()``. To truncate the results, specify ``retmax=<desired_number>``. Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>`_ are supported as kwargs, and may be passed in to ``NCBI.RemoteProvider.remote()`` and ``NCBI.RemoteProvider.search()``.
 
 Remote cross-provider transfers
 ===============================
