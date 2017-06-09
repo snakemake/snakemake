@@ -781,6 +781,12 @@ class DRMAAExecutor(ClusterExecutor):
                         # job still active
                         self.active_jobs.append(active_job)
                         continue
+                    except drmaa.DrmCommunicationException as e:
+                        # hopefully an intermittent problem?
+                        logger.warning("DRMAA Communication Error: {}".format(e))
+                        logger.warning("Will keep polling in the hope this is a transient failure.")
+                        self.active_jobs.append(active_job)
+                        continue
                     except (drmaa.InternalException, Exception) as e:
                         print_exception(WorkflowError("DRMAA Error: {}".format(e)),
                                         self.workflow.linemaps)
