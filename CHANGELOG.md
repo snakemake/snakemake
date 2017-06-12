@@ -1,5 +1,14 @@
 # Change Log
 
+## [3.13.0] - 2017-06-12
+### Added
+- An NCBI remote provider. By this, you can seamlessly integrate any NCBI resouce (reference genome, gene/protein sequences, ...) as input file.
+### Changed
+- Snakemake now detects if automatically generated conda environments have to be recreated because the workflow has been moved to a new path.
+- Remote functionality has been made more robust, in particular to avoid race conditions.
+- `--config` parameter evaluation has been fixed for non-string types.
+- The Snakemake docker container is now based on the official debian image.
+
 ## [3.12.0] - 2017-05-09
 ### Added
 - Support for RMarkdown (.Rmd) in script directives.
