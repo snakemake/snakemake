@@ -444,7 +444,7 @@ This flag can be overridden on a file by file basis as described in the S3 remot
 GenBank / NCBI Entrez
 =====================
 
-Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.nih.gov/genbank/>`_ and other `NCBI Entrez databases <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>`_ if the Biopython library is installed.
+Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.nih.gov/genbank/>`_ and other `NCBI Entrez databases <https://www.ncbi.nlm.nih.gov/books/NBK25497/table/chapter2.T._entrez_unique_identifiers_ui/?report=objectonly>`_ if the Biopython library is installed.
 
 .. code-block:: python
 
