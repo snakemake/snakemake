@@ -46,6 +46,8 @@ class AbstractRemoteProvider:
     """
     __metaclass__ = ABCMeta
 
+    supports_default = False
+
     def __init__(self, *args, keep_local=False, stay_on_remote=False, **kwargs):
         self.args = args
         self.stay_on_remote = stay_on_remote

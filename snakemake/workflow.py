@@ -32,6 +32,7 @@ from snakemake.wrapper import wrapper
 import snakemake.wrapper
 from snakemake.common import Mode
 
+
 class Workflow:
     def __init__(self,
                  snakefile=None,
@@ -48,7 +49,9 @@ class Workflow:
                  mode=Mode.default,
                  wrapper_prefix=None,
                  printshellcmds=False,
-                 restart_times=None):
+                 restart_times=None,
+                 default_remote_provider=None,
+                 default_remote_prefix=""):
         """
         Create the controller.
         """
@@ -88,6 +91,8 @@ class Workflow:
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
         self.restart_times = restart_times
+        self.default_remote_provider = default_remote_provider
+        self.default_remote_prefix = default_remote_prefix
 
         global config
         config = copy.deepcopy(self.overwrite_config)

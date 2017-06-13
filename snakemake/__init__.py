@@ -15,6 +15,7 @@ import inspect
 import threading
 import webbrowser
 from functools import partial
+import importlib
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -104,7 +105,9 @@ def snakemake(snakefile,
               use_conda=False,
               conda_prefix=None,
               mode=Mode.default,
-              wrapper_prefix=None):
+              wrapper_prefix=None,
+              default_remote_provider=None,
+              default_remote_prefix=""):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -180,9 +183,11 @@ def snakemake(snakefile,
         restart_times (int):        number of times to restart failing jobs (default 1)
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
-        conda_prefix (str):            the directories in which conda environments will be created (default None)
+        conda_prefix (str):         the directories in which conda environments will be created (default None)
         mode (snakemake.common.Mode): Execution mode
         wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
+        default_remote_provider (str): Default remote provider to use instead of local files (S3, GS)
+        default_remote_prefix (str): Prefix for default remote provider (e.g. name of the bucket).
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
 
             :level:
@@ -310,6 +315,20 @@ def snakemake(snakefile,
         workdir = os.path.abspath(workdir)
         os.chdir(workdir)
 
+    # handle default remote provider
+    _default_remote_provider = None
+    if default_remote_provider is not None:
+        try:
+            rmt = importlib.import_module("snakemake.remote." +
+                                          default_remote_provider)
+        except ImportError as e:
+            raise WorkflowError("Unknown default remote provider.")
+        if rmt.RemoteProvider.supports_default:
+            _default_remote_provider = rmt.RemoteProvider()
+        else:
+            raise WorkflowError("Remote provider {} does not (yet) support to "
+                                "be used as default provider.")
+
     workflow = Workflow(snakefile=snakefile,
                         jobscript=jobscript,
                         overwrite_shellcmd=overwrite_shellcmd,
@@ -324,7 +343,9 @@ def snakemake(snakefile,
                         mode=mode,
                         wrapper_prefix=wrapper_prefix,
                         printshellcmds=printshellcmds,
-                        restart_times=restart_times)
+                        restart_times=restart_times,
+                        default_remote_provider=_default_remote_provider,
+                        default_remote_prefix=default_remote_prefix)
     success = True
     try:
         workflow.include(snakefile,
@@ -386,7 +407,10 @@ def snakemake(snakefile,
                                        keep_shadow=True,
                                        force_use_threads=use_threads,
                                        use_conda=use_conda,
-                                       conda_prefix=conda_prefix)
+                                       conda_prefix=conda_prefix,
+                                       default_remote_provider=default_remote_provider,
+                                       default_remote_prefix=default_remote_prefix)
+
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,

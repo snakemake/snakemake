@@ -9,6 +9,7 @@ import sys
 import inspect
 import sre_constants
 from collections import defaultdict, Iterable
+from urllib.parse import urljoin
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
@@ -291,8 +292,16 @@ class Rule:
         inoutput -- either a Namedlist of input or output items
         name     -- an optional name for the item
         """
+        def apply_default_remote(item):
+            if (not is_flagged(item, "remote_object") and
+                self.workflow.default_remote_provider is not None):
+                item = "{}/{}".format(self.workflow.default_remote_prefix, item)
+                return self.workflow.default_remote_provider.remote(item)
+
         inoutput = self.output if output else self.input
         if isinstance(item, str):
+            item = apply_default_remote(item)
+
             # add the rule to the dependencies
             if isinstance(item, _IOFile) and item.rule:
                 self.dependencies[item] = item.rule
@@ -340,6 +349,8 @@ class Rule:
             if name:
                 inoutput.add_name(name)
         elif callable(item):
+            item = apply_default_remote(item)
+
             if output:
                 raise SyntaxError(
                     "Only input files can be specified as functions")
