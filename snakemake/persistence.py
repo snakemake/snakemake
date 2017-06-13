@@ -18,7 +18,7 @@ from snakemake.utils import listfiles
 
 
 class Persistence:
-    def __init__(self, nolock=False, dag=None, warn_only=False):
+    def __init__(self, nolock=False, dag=None, conda_prefix=None, warn_only=False):
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
             os.mkdir(self.path)
@@ -34,16 +34,24 @@ class Persistence:
         self._code_path = os.path.join(self.path, "code_tracking")
         self._rule_path = os.path.join(self.path, "rule_tracking")
         self._input_path = os.path.join(self.path, "input_tracking")
+        self._log_path = os.path.join(self.path, "log_tracking")
         self._params_path = os.path.join(self.path, "params_tracking")
         self._shellcmd_path = os.path.join(self.path, "shellcmd_tracking")
         self.shadow_path = os.path.join(self.path, "shadow")
-        self.conda_env_path = os.path.join(self.path, "conda")
+        self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
 
         for d in (self._incomplete_path, self._version_path, self._code_path,
-                  self._rule_path, self._input_path, self._params_path,
-                  self._shellcmd_path, self.shadow_path, self.conda_env_path):
+                  self._rule_path, self._input_path, self._log_path, self._params_path,
+                  self._shellcmd_path, self.shadow_path, self.conda_env_archive_path):
             if not os.path.exists(d):
                 os.mkdir(d)
+
+        if conda_prefix is None:
+            self.conda_env_path = os.path.join(self.path, "conda")
+        else:
+            self.conda_env_path = os.path.abspath(os.path.expanduser(conda_prefix))
+
+        os.makedirs(self.conda_env_path, exist_ok=True)
 
         if nolock:
             self.lock = self.noop
@@ -111,6 +119,7 @@ class Persistence:
         self._delete_record(self._code_path, path)
         self._delete_record(self._rule_path, path)
         self._delete_record(self._input_path, path)
+        self._delete_record(self._log_path, path)
         self._delete_record(self._params_path, path)
         self._delete_record(self._shellcmd_path, path)
 
@@ -128,6 +137,7 @@ class Persistence:
             job.rule.version) if job.rule.version is not None else None
         code = self._code(job.rule)
         input = self._input(job)
+        log = self._log(job)
         params = self._params(job)
         shellcmd = self._shellcmd(job)
         for f in job.expanded_output:
@@ -136,6 +146,7 @@ class Persistence:
             self._record(self._code_path, code, f, bin=True)
             self._record(self._rule_path, job.rule.name, f)
             self._record(self._input_path, input, f)
+            self._record(self._log_path, log, f)
             self._record(self._params_path, params, f)
             self._record(self._shellcmd_path, shellcmd, f)
 
@@ -146,6 +157,7 @@ class Persistence:
             self._delete_record(self._code_path, f)
             self._delete_record(self._rule_path, f)
             self._delete_record(self._input_path, f)
+            self._delete_record(self._log_path, f)
             self._delete_record(self._params_path, f)
             self._delete_record(self._shellcmd_path, f)
 
@@ -162,6 +174,12 @@ class Persistence:
 
     def input(self, path):
         files = self._read_record(self._input_path, path)
+        if files is not None:
+            return files.split("\n")
+        return None
+
+    def log(self, path):
+        files = self._read_record(self._log_path, path)
         if files is not None:
             return files.split("\n")
         return None
@@ -215,6 +233,10 @@ class Persistence:
     @lru_cache()
     def _input(self, job):
         return "\n".join(sorted(job.input))
+
+    @lru_cache()
+    def _log(self, job):
+        return "\n".join(sorted(job.log))
 
     @lru_cache()
     def _params(self, job):

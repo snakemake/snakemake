@@ -3,41 +3,75 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, re, http.client
+import os
+import re
+import collections
 import email.utils
-#from itertools import product, chain
 from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import HTTPFileException, WorkflowError
-import snakemake.io
 
 try:
     # third-party modules
     import requests
 except ImportError as e:
-    raise WorkflowError("The Python 3 package 'requests' " + 
+    raise WorkflowError("The Python 3 package 'requests' " +
         "must be installed to use HTTP(S) remote() file functionality. %s" % e.msg)
 
+
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, **kwargs):
-        super(RemoteProvider, self).__init__(*args, **kwargs)
+    def __init__(self, *args, stay_on_remote=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+
+    @property
+    def default_protocol(self):
+        """The protocol that is prepended to the path when no protocol is specified."""
+        return 'https://'
+
+    @property
+    def available_protocols(self):
+        """List of valid protocols for this remote provider."""
+        return ['http://', 'https://']
+
+    def remote(self, value, *args, insecure=None, **kwargs):
+        if isinstance(value, str):
+            values = [value]
+        elif isinstance(value, collections.Iterable):
+            values = value
+        else:
+            raise TypeError('Invalid type ({}) passed to remote: {}'.format(type(value), value))
+
+        for i, file in enumerate(values):
+            match = re.match('^(https?)://.+', file)
+            if match:
+                protocol, = match.groups()
+                if protocol == 'https' and insecure:
+                    raise SyntaxError('insecure=True cannot be used with a https:// url')
+                if protocol == 'http' and insecure not in [None, False]:
+                    raise SyntaxError('insecure=False cannot be used with a http:// url')
+            else:
+                if insecure:
+                    values[i] = 'http://' + file
+                else:
+                    values[i] = 'https://' + file
+
+        return super(RemoteProvider, self).remote(values, *args, **kwargs)
+
 
 class RemoteObject(DomainObject):
     """ This is a class to interact with an HTTP server.
     """
 
-    def __init__(self, *args, keep_local=False, provider=None, insecure=False, additional_request_string="", **kwargs):
+    def __init__(self, *args, keep_local=False, provider=None, additional_request_string="", **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
-
-        self.insecure = insecure
         self.additional_request_string = additional_request_string
-        
+
     # === Implementations of abstract class members ===
 
     @contextmanager #makes this a context manager. after 'yield' is __exit__()
-    def httpr(self, verb="GET", stream=False):     
+    def httpr(self, verb="GET", stream=False):
         # if args have been provided to remote(), use them over those given to RemoteProvider()
         args_to_use = self.provider.args
         if len(self.args):
@@ -68,13 +102,7 @@ class RemoteObject(DomainObject):
         del kwargs_to_use["username"]
         del kwargs_to_use["password"]
 
-        url = self._iofile._file + self.additional_request_string
-        # default to HTTPS
-        if not self.insecure:
-            protocol = "https://"
-        else:
-            protocol = "http://"
-        url = protocol + url
+        url = self.remote_file() + self.additional_request_string
 
         if verb.upper() == "GET":
             r = requests.get(url, *args_to_use, stream=stream, **kwargs_to_use)
@@ -87,23 +115,26 @@ class RemoteObject(DomainObject):
     def exists(self):
         if self._matched_address:
             with self.httpr(verb="HEAD") as httpr:
+                # if a file redirect was found
+                if httpr.status_code in range(300,308):
+                    raise HTTPFileException("The file specified appears to have been moved (HTTP %s), check the URL or try adding 'allow_redirects=True' to the remote() file object: %s" % (httpr.status_code, httpr.url))
                 return httpr.status_code == requests.codes.ok
             return False
         else:
-            raise HTTPFileException("The file cannot be parsed as an HTTP path in form 'host:port/abs/path/to/file': %s" % self.file())
+            raise HTTPFileException("The file cannot be parsed as an HTTP path in form 'host:port/abs/path/to/file': %s" % self.local_file())
 
     def mtime(self):
         if self.exists():
             with self.httpr(verb="HEAD") as httpr:
-                
+
                 file_mtime = self.get_header_item(httpr, "last-modified", default=0)
 
                 modified_tuple = email.utils.parsedate_tz(file_mtime)
-                epochTime = int(email.utils.mktime_tz(modified_tuple))
+                epochTime = email.utils.mktime_tz(modified_tuple)
 
                 return epochTime
         else:
-            raise HTTPFileException("The file does not seem to exist remotely: %s" % self.file())
+            raise HTTPFileException("The file does not seem to exist remotely: %s" % self.remote_file())
 
     def size(self):
         if self.exists():
@@ -121,13 +152,14 @@ class RemoteObject(DomainObject):
                 # if the destination path does not exist
                 if make_dest_dirs:
                     os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
-                
+
                     with open(self.local_path, 'wb') as f:
-                        for chunk in httpr.iter_content(chunk_size=1024): 
+                        for chunk in httpr.iter_content(chunk_size=1024):
                             if chunk: # filter out keep-alives
                                 f.write(chunk)
+                    os.sync() # ensure flush to disk
             else:
-                raise HTTPFileException("The file does not seem to exist remotely: %s" % self.file())
+                raise HTTPFileException("The file does not seem to exist remotely: %s" % self.remote_file())
 
     def upload(self):
         raise HTTPFileException("Upload is not permitted for the HTTP remote provider. Is an output set to HTTP.remote()?")

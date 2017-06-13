@@ -1,5 +1,87 @@
 # Change Log
 
+## [3.13.0] - 2017-06-12
+### Added
+- An NCBI remote provider. By this, you can seamlessly integrate any NCBI resouce (reference genome, gene/protein sequences, ...) as input file.
+### Changed
+- Snakemake now detects if automatically generated conda environments have to be recreated because the workflow has been moved to a new path.
+- Remote functionality has been made more robust, in particular to avoid race conditions.
+- `--config` parameter evaluation has been fixed for non-string types.
+- The Snakemake docker container is now based on the official debian image.
+
+## [3.12.0] - 2017-05-09
+### Added
+- Support for RMarkdown (.Rmd) in script directives.
+- New option --debug-dag that prints all decisions while building the DAG of jobs. This helps to debug problems like cycles or unexpected MissingInputExceptions.
+- New option --conda-prefix to specify the place where conda environments are stored.
+
+### Changed
+- Benchmark files now also include the maximal RSS and VMS size of the Snakemake process and all sub processes.
+- Speedup conda environment creation.
+- Allow specification, of DRMAA log dir.
+- Pass cluster config to subworkflow.
+
+
+## [3.11.2] - 2017-03-15
+### Changed
+- Fixed fix handling of local URIs with the wrapper directive.
+
+
+## [3.11.1] - 2017-03-14
+### Changed
+- --touch ignores missing files
+- Fixed handling of local URIs with the wrapper directive.
+
+
+## [3.11.0] - 2017-03-08
+### Added
+- Param functions can now also refer to threads.
+### Changed
+- Improved tutorial and docs.
+- Made conda integration more robust.
+- None is converted to NULL in R scripts.
+
+
+## [3.10.2] - 2017-02-28
+### Changed
+- Improved config file handling and merging.
+- Output files can be referred in params functions (i.e. lambda wildcards, output: ...)
+- Improved conda-environment creation.
+- Jobs are cached, leading to reduced memory footprint.
+- Fixed subworkflow handling in input functions.
+
+## [3.10.0] - 2017-01-18
+### Added
+- Workflows can now be archived to a tarball with `snakemake --archive my-workflow.tar.gz`. The archive contains all input files, source code versioned with git and all software packages that are defined via conda environments. Hence, the archive allows to fully reproduce a workflow on a different machine. Such an archive can be uploaded to Zenodo, such that your workflow is secured in a self-contained, executable way for the future.
+### Changed
+- Improved logging.
+- Reduced memory footprint.
+- Added a flag to automatically unpack the output of input functions.
+- Improved handling of HTTP redirects with remote files.
+- Improved exception handling with DRMAA.
+- Scripts referred by the script directive can now use locally defined external python modules.
+
+
+## [3.9.1] - 2016-12-23
+### Added
+- Jobs can be restarted upon failure (--restart-times).
+### Changed
+- The docs have been restructured and improved. Now available under snakemake.readthedocs.org.
+- Changes in scripts show up with --list-code-changes.
+- Duplicate output files now cause an error.
+- Various bug fixes.
+
+
+## [3.9.0] - 2016-11-15
+### Added
+- Ability to define isolated conda software environments (YAML) per rule. Environment will be deployed by Snakemake upon workflow execution.
+- Command line argument --wrapper-prefix in order to overwrite the default URL for looking up wrapper scripts.
+### Changed
+- --summary now displays the log files correspoding to each output file.
+- Fixed hangups when using run directive and a large number of jobs
+- Fixed pickling errors with anonymous rules and run directive.
+- Various small bug fixes
+
 ## [3.8.2] - 2016-09-23
 ### Changed
 - Add missing import in rules.py.

@@ -423,7 +423,7 @@ class Run(RuleKeywordState):
         yield "@workflow.run"
         yield "\n"
         yield ("def __rule_{rulename}(input, output, params, wildcards, threads, "
-               "resources, log, version, conda_env):".format(
+               "resources, log, version, rule, conda_env, bench_record):".format(
                    rulename=self.rulename if self.rulename is not None else self.snakefile.rulecount))
 
     def end(self):
@@ -509,6 +509,9 @@ class Shell(AbstractCmd):
     start_func = "@workflow.shellcmd"
     end_func = "shell"
 
+    def args(self):
+        yield ", bench_record=bench_record"
+
 
 class Script(AbstractCmd):
     start_func = "@workflow.script"
@@ -519,7 +522,7 @@ class Script(AbstractCmd):
         yield ', "{}"'.format(
             os.path.abspath(os.path.dirname(self.snakefile.path)))
         # other args
-        yield ", input, output, params, wildcards, threads, resources, log, config, conda_env"
+        yield ", input, output, params, wildcards, threads, resources, log, config, rule, conda_env, bench_record"
 
 
 class Wrapper(Script):
@@ -527,7 +530,7 @@ class Wrapper(Script):
     end_func = "wrapper"
 
     def args(self):
-        yield ", input, output, params, wildcards, threads, resources, log, config, conda_env"
+        yield ", input, output, params, wildcards, threads, resources, log, config, rule, conda_env, bench_record, workflow.wrapper_prefix"
 
 
 class Rule(GlobalKeywordState):

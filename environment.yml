@@ -4,6 +4,7 @@ channels:
   - anaconda
   - conda-forge
 dependencies:
+  - python >=3.3
   - rpy2 >=0.7.6
   - boto
   - moto
@@ -17,5 +18,12 @@ dependencies:
   - dropbox
   - numpy
   - appdirs
-  - snakemake
   - pytools
+  - docutils
+  - pandoc
+  - r-rmarkdown
+  - xorg-libxrender
+  - xorg-libxext
+  - xorg-libxau
+  - xorg-libxdmcp
+  - psutil

@@ -86,8 +86,10 @@ class Logger:
         self.stream_handler = None
         self.printshellcmds = False
         self.printreason = False
+        self.debug_dag = False
         self.quiet = False
         self.logfile = None
+        self.last_msg_was_job_info = False
 
     def setup(self):
         # logfile output is done always
@@ -102,6 +104,7 @@ class Logger:
         self.logfile_handler.close()
         os.close(self.logfile_fd)
         os.remove(self.logfile)
+        self.log_handler = [self.text_handler]
 
     def get_logfile(self):
         if self.logfile is not None:
@@ -146,6 +149,9 @@ class Logger:
         msg["level"] = "job_info"
         self.handler(msg)
 
+    def dag_debug(self, msg):
+        self.handler(dict(level="dag_debug", **msg))
+
     def shellcmd(self, msg):
         if msg is not None:
             self.handler(dict(level="shellcmd", msg=msg))
@@ -175,7 +181,7 @@ class Logger:
             def format_item(item, omit=None, valueformat=str):
                 value = msg[item]
                 if value != omit:
-                    return "\t{}: {}".format(item, valueformat(value))
+                    return "    {}: {}".format(item, valueformat(value))
 
             yield "{}rule {}:".format("local" if msg["local"] else "",
                                       msg["name"])
@@ -184,7 +190,7 @@ class Logger:
                 if fmt != None:
                     yield fmt
 
-            singleitems = ["benchmark"]
+            singleitems = ["jobid", "benchmark"]
             if self.printreason:
                 singleitems.append("reason")
             for item in singleitems:
@@ -194,7 +200,7 @@ class Logger:
 
             wildcards = format_wildcards(msg["wildcards"])
             if wildcards:
-                yield "\twildcards: " + wildcards
+                yield "    wildcards: " + wildcards
 
             for item, omit in zip("priority threads".split(), [0, 1]):
                 fmt = format_item(item, omit=omit)
@@ -203,45 +209,63 @@ class Logger:
 
             resources = format_resources(msg["resources"])
             if resources:
-                yield "\tresources: " + resources
+                yield "    resources: " + resources
 
         level = msg["level"]
-        if level == "info" and not self.quiet:
-            self.logger.warning(msg["msg"])
-        if level == "warning":
-            self.logger.warning(msg["msg"])
-        elif level == "error":
-            self.logger.error(msg["msg"])
-        elif level == "debug":
-            self.logger.debug(msg["msg"])
-        elif level == "resources_info" and not self.quiet:
-            self.logger.warning(msg["msg"])
-        elif level == "run_info" and not self.quiet:
-            self.logger.warning(msg["msg"])
-        elif level == "progress" and not self.quiet:
-            done = msg["done"]
-            total = msg["total"]
-            p = done / total
-            percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
-            self.logger.info("{} of {} steps ({}) done".format(
-                done, total, percent_fmt))
-        elif level == "job_info" and not self.quiet:
+        if level == "job_info" and not self.quiet:
+            if not self.last_msg_was_job_info:
+                self.logger.info("")
             if msg["msg"] is not None:
-                self.logger.info(msg["msg"])
+                self.logger.info("Job {}: {}".format(msg["jobid"], msg["msg"]))
+                if self.printreason:
+                    self.logger.info("Reason: {}".format(msg["reason"]))
             else:
                 self.logger.info("\n".join(job_info(msg)))
-        elif level == "shellcmd":
-            if self.printshellcmds:
+            self.logger.info("")
+
+            self.last_msg_was_job_info = True
+        else:
+            if level == "info" and not self.quiet:
                 self.logger.warning(msg["msg"])
-        elif level == "job_finished":
-            # do not display this on the console for now
-            pass
-        elif level == "rule_info":
-            self.logger.info(msg["name"])
-            if msg["docstring"]:
-                self.logger.info("\t" + msg["docstring"])
-        elif level == "d3dag":
-            print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
+            if level == "warning":
+                self.logger.warning(msg["msg"])
+            elif level == "error":
+                self.logger.error(msg["msg"])
+            elif level == "debug":
+                self.logger.debug(msg["msg"])
+            elif level == "resources_info" and not self.quiet:
+                self.logger.warning(msg["msg"])
+            elif level == "run_info" and not self.quiet:
+                self.logger.warning(msg["msg"])
+            elif level == "progress" and not self.quiet:
+                done = msg["done"]
+                total = msg["total"]
+                p = done / total
+                percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
+                self.logger.info("{} of {} steps ({}) done".format(
+                    done, total, percent_fmt))
+            elif level == "shellcmd":
+                if self.printshellcmds:
+                    self.logger.warning(msg["msg"])
+            elif level == "job_finished" and not self.quiet:
+                self.logger.info("Finished job {}.".format(msg["jobid"]))
+                pass
+            elif level == "rule_info":
+                self.logger.info(msg["name"])
+                if msg["docstring"]:
+                    self.logger.info("    " + msg["docstring"])
+            elif level == "d3dag":
+                print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
+            elif level == "dag_debug":
+                if self.debug_dag:
+                    job = msg["job"]
+                    self.logger.warning(
+                        "{status} job {name}\n\twildcards: {wc}".format(
+                            status=msg["status"],
+                            name=job.rule.name,
+                            wc=format_wildcards(job.wildcards)))
+
+            self.last_msg_was_job_info = False
 
 
 def format_dict(dict, omit_keys=[], omit_values=[]):
@@ -265,6 +289,7 @@ def setup_logger(handler=None,
                  quiet=False,
                  printshellcmds=False,
                  printreason=False,
+                 debug_dag=False,
                  nocolor=False,
                  stdout=False,
                  debug=False,
@@ -289,3 +314,4 @@ def setup_logger(handler=None,
     logger.quiet = quiet
     logger.printshellcmds = printshellcmds
     logger.printreason = printreason
+    logger.debug_dag = debug_dag

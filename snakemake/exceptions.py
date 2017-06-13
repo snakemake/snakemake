@@ -317,14 +317,22 @@ class DropboxFileException(RuleException):
     def __init__(self, msg, lineno=None, snakefile=None):
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
+class XRootDFileException(RuleException):
+    def __init__(self, msg, lineno=None, snakefile=None):
+        super().__init__(msg, lineno=lineno, snakefile=snakefile)
+
+class NCBIFileException(RuleException):
+    def __init__(self, msg, lineno=None, snakefile=None):
+        super().__init__(msg, lineno=lineno, snakefile=snakefile)
+
 class ClusterJobException(RuleException):
-    def __init__(self, job, jobid, jobscript):
+    def __init__(self, job_info, jobid):
         super().__init__(
-            "Error executing rule {} on cluster (jobid: {}, jobscript: {}). "
-            "For detailed error see the cluster log.".format(job.rule.name,
-                                                             jobid, jobscript),
-            lineno=job.rule.lineno,
-            snakefile=job.rule.snakefile)
+            "Error executing rule {} on cluster (jobid: {}, external: {}, jobscript: {}). "
+            "For detailed error see the cluster log.".format(job_info.job.rule.name,
+                                                             jobid, job_info.jobid, job_info.jobscript),
+            lineno=job_info.job.rule.lineno,
+            snakefile=job_info.job.rule.snakefile)
 
 
 class CreateRuleException(RuleException):

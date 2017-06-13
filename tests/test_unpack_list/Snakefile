@@ -1,0 +1,27 @@
+rule all:
+    input:
+        'prefix.out1.txt',
+        'prefix.out2.txt',
+
+
+def get_in(wildcards):
+    result = ['{wildcards.prefix}.in1.txt', '{wildcards.prefix}.in2.txt']
+    return [x.format(wildcards=wildcards) for x in result]
+
+
+def get_out():
+    return ['{prefix}.out1.txt', '{prefix}.out2.txt']
+
+
+rule copy_files:
+    input:
+        unpack(get_in)
+    output:
+        *get_out()
+    shell:
+        r"""
+        cp {input[0]} {output[0]}
+        cp {input[1]} {output[1]}
+        """
+
+

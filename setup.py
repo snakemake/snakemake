@@ -5,7 +5,6 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-
 from setuptools.command.test import test as TestCommand
 import sys
 
@@ -54,7 +53,7 @@ setup(
     'code to define rules. Rules describe how to create output files from input files.',
     zip_safe=False,
     license='MIT',
-    url='http://snakemake.bitbucket.org',
+    url='http://snakemake.bitbucket.io',
     packages=['snakemake', 'snakemake.remote'],
     entry_points={
         "console_scripts":
@@ -62,9 +61,9 @@ setup(
          "snakemake-bash-completion = snakemake:bash_completion"]
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
-    install_requires=['wrapt',],
+    install_requires=['wrapt', 'requests'],
     tests_require=['pytools', 'rpy2', 'httpretty==0.8.10', 'docutils', 'nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6',
-                     'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8', 'requests>=2.8.1', 'dropbox>=5.2', 'pyyaml'],
+                   'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8', 'requests>=2.8.1', 'dropbox>=5.2', 'pyyaml'],
     test_suite='all',
     cmdclass={'test': NoseTestCommand},
     classifiers=

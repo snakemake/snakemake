@@ -14,11 +14,21 @@ from collections import Mapping
 import multiprocessing
 import string
 import shlex
+import sys
 
-from snakemake.io import regex, Namedlist
+from snakemake.io import regex, Namedlist, Wildcards
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 import snakemake
+
+
+def simplify_path(path):
+    """Return a simplified version of the given path."""
+    relpath = os.path.relpath(path)
+    if relpath.startswith("../../"):
+        return path
+    else:
+        return relpath
 
 
 def linecount(filename):
@@ -179,6 +189,8 @@ class SequenceFormatter(string.Formatter):
         return self.element_formatter.format_field(elem, format_spec)
 
     def format_field(self, value, format_spec):
+        if isinstance(value, Wildcards):
+            return ",".join("{}={}".format(name, value.get(name)) for name in value.keys())
         if isinstance(value, (list, tuple, set, frozenset)):
             return self.separator.join(self.format_element(v, format_spec) for v in value)
         else:
@@ -245,7 +257,7 @@ def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
     variables = dict(frame.f_globals)
     # add local variables from calling rule/function
     variables.update(frame.f_locals)
-    if "self" in variables:
+    if "self" in variables and sys.version_info < (3, 5):
         # self is the first arg of fmt.format as well. Not removing it would
         # cause a multiple values error on Python <=3.4.2.
         del variables["self"]

@@ -1,0 +1,22 @@
+---
+title: "Test Report"
+author: "Mattias"
+date: "March 22, 2017"
+output:
+  html_document:
+    highlight: tango
+    number_sections: no
+    theme: default
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+---
+
+
+## R Markdown
+
+This is an R Markdown document.
+
+Test include from snakemake `r snakemake@params[["test"]]`.

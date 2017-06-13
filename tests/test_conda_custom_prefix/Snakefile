@@ -1,0 +1,12 @@
+rule all:
+    input:
+        expand("test{i}.out", i=range(3))
+
+rule a:
+    output:
+        "test{i}.out"
+    conda:
+        "test-env.yaml"
+    shell:
+        "test -e custom/*/bin/snakemake && "
+        "snakemake --version > {output}"
