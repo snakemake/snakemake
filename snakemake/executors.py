@@ -872,6 +872,9 @@ def change_working_directory(directory=None):
         yield
 
 
+KubernetesJob = namedtuple("KubernetesJob", "job jobid callback error_callback")
+
+
 class KubernetesExecutor(ClusterExecutor):
     def __init__(self, workflow, dag, cores,
                  jobname="snakejob.{rulename}.{jobid}.sh",
@@ -897,19 +900,76 @@ class KubernetesExecutor(ClusterExecutor):
                          restart_times=restart_times)
 
         import kubernetes.client
-        self.kubeapi = kubernetes.client.ApisApi()
+        self.kubeapi = kubernetes.client.CoreV1Api()
+        self.batchapi = kubernetes.client.BatchV1Api()
+        self.namespace = self.init_namespace()
+        self.submitted = list()
+
+    def init_namespace(self):
+        # try to create a namespace
+        namespace_spec = kubernetes.client.V1Namespace()
+        for i in range(1000):
+            name = "snakemake-{}".format(random.randint(0, sys.maxsize))
+            namespaces = self.kubeapi.list_namespace()
+            for n in namespaces:
+                if name == n.metadata.name:
+                    # namespace already occupied
+                    continue
+            namespace_spec.metadata.name = name
+            self.kubeapi.create_namespace(namespace_spec)
+            return name
+        raise WorkflowError("Error creating kubernetes namespace.")
+
+    def shutdown(self):
+        super().shutdown()
+        self.kubeapi.delete_namespace(self.namespace)
 
     def cancel(self):
-        pass
+        with self.lock:
+            for j in self.active_jobs:
+                self.batchapi.delete_namespaced_job(self.namespace, j.jobid)
+        self.shutdown()
 
-    def run(self, job):
+    def run(self, job,
+            callback=None,
+            submit_callback=None,
+            error_callback=None):
         super().run(job)
         exec_job = self.format_job(self.exec_job, job, _quote_all=True)
+        jobid = str(self.dag.jobid(job))
 
-        self.kubeapi.create_namespaced_job()
+        body = kubernetes.client.V1Job()
+        body.metadata.name = jobid
+        container = body.spec.template.spec.containers[0]
+        container.image = "quay.io/snakemake/snakemake"
+        container.command = shlex.split(exec_job)
+
+        self.active_jobs.append(KubernetesJob(job, jobid, callback, error_callback))
+        self.batchapi.create_namespaced_job(self.namespace, body)
 
     def _wait_for_jobs(self):
-        pass
+        while True:
+            with self.lock:
+                if not self.wait:
+                    return
+                active_jobs = self.active_jobs
+                self.active_jobs = list()
+                for j in active_jobs:
+                    res = self.batchapi.read_namespaced_job_status(j.jobid, namespace)
+                    if res.status.failed:
+                        # failed
+                        self.print_job_error(j.job)
+                        print_exception(
+                            ClusterJobException(j, j.jobid),
+                            self.workflow.linemaps)
+                        j.error_callback(j.job)
+                    elif res.status.succeeded:
+                        # finished
+                        j.callback(j.job)
+                    else:
+                        # still active
+                        self.active_jobs.append(j)
+            time.sleep(1)
 
 
 def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, log,
