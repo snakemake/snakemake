@@ -297,6 +297,7 @@ class Rule:
                 self.workflow.default_remote_provider is not None):
                 item = "{}/{}".format(self.workflow.default_remote_prefix, item)
                 return self.workflow.default_remote_provider.remote(item)
+            return item
 
         inoutput = self.output if output else self.input
         if isinstance(item, str):
