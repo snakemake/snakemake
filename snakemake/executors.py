@@ -453,7 +453,7 @@ class ClusterExecutor(RealExecutor):
 
         return os.path.join(self.tmpdir, f)
 
-    def spawn_jobscript(self, job, jobscript, **kwargs):
+    def format_job(self, pattern, job, **kwargs):
         wait_for_files = [self.tmpdir]
         wait_for_files.extend(job.local_input)
         wait_for_files.extend(f.local_file()
@@ -473,13 +473,23 @@ class ClusterExecutor(RealExecutor):
                            **kwargs)
         exec_job = self.exec_job
         try:
-            exec_job = format_p(exec_job, _quote_all=True)
-            with open(jobscript, "w") as f:
-                print(format_p(self.jobscript, exec_job=exec_job), file=f)
+            return format_p(pattern)
         except KeyError as e:
             raise WorkflowError(
                 "Error formatting jobscript: {} not found\n"
                 "Make sure that your custom jobscript is up to date.".format(e))
+
+    def write_jobscript(self, job, jobscript, **kwargs):
+        exec_job = self.format_job(self.exec_job,
+                                   job,
+                                   _quote_all=True,
+                                   **kwargs)
+        content = self.format_job(self.jobscript,
+                                  job,
+                                  exec_job=exec_job,
+                                  **kwargs)
+        with open(jobscript, "w") as f:
+            print(content, file=f)
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
 
     def cluster_params(self, job):
@@ -552,7 +562,7 @@ class GenericClusterExecutor(ClusterExecutor):
         jobscript = self.get_jobscript(job)
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
         jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
-        self.spawn_jobscript(job, jobscript,
+        self.write_jobscript(job, jobscript,
                              jobfinished=jobfinished,
                              jobfailed=jobfailed)
 
@@ -656,7 +666,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
         jobid = self.dag.jobid(job)
 
         jobscript = self.get_jobscript(job)
-        self.spawn_jobscript(job, jobscript)
+        self.write_jobscript(job, jobscript)
 
         deps = " ".join(self.external_jobid[f] for f in job.input
                         if f in self.external_jobid)
@@ -758,7 +768,7 @@ class DRMAAExecutor(ClusterExecutor):
             error_callback=None):
         super()._run(job)
         jobscript = self.get_jobscript(job)
-        self.spawn_jobscript(job, jobscript)
+        self.write_jobscript(job, jobscript)
 
         try:
             drmaa_args = job.format_wildcards(
@@ -851,8 +861,44 @@ def change_working_directory(directory=None):
         yield
 
 
-class KubernetesExecutor(RealExecutor):
-    pass
+class KubernetesExecutor(ClusterExecutor):
+    def __init__(self, workflow, dag, cores,
+                 jobname="snakejob.{rulename}.{jobid}.sh",
+                 printreason=False,
+                 quiet=False,
+                 printshellcmds=False,
+                 latency_wait=3,
+                 benchmark_repeats=1,
+                 cluster_config=None,
+                 local_input=None,
+                 max_jobs_per_second=None,
+                 restart_times=None):
+        super().__init__(self,
+                         jobname=jobname,
+                         printreason=printreason,
+                         quiet=quiet,
+                         printshellcmds=printshellcmds,
+                         latency_wait=latency_wait,
+                         benchmark_repeats=benchmark_repeats,
+                         cluster_config=cluster_config,
+                         local_input=local_input,
+                         max_jobs_per_second=max_jobs_per_second,
+                         restart_times=restart_times)
+
+        import kubernetes.client
+        self.kubeapi = kubernetes.client.ApisApi()
+
+    def cancel(self):
+        pass
+
+    def run(self, job):
+        super().run(job)
+        exec_job = self.format_job(self.exec_job, job, _quote_all=True)
+
+        self.kubeapi.create_namespaced_job()
+
+    def _wait_for_jobs(self):
+        pass
 
 
 def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, log,
