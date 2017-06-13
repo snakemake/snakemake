@@ -412,7 +412,12 @@ class DAG:
         """ Remove local files if they are no longer needed, and upload to S3. """
         if upload:
             # handle output files
-            for f in job.expanded_output:
+            files = list(job.expanded_output)
+            if job.benchmark:
+                files.append(job.benchmark)
+            if job.log:
+                files.extend(job.log)
+            for f in files:
                 if f.is_remote and not f.should_stay_on_remote:
                     f.upload_to_remote()
                     remote_mtime = f.mtime

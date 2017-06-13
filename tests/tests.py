@@ -524,7 +524,7 @@ def test_ftp_immediate_close():
         pass
 
 def test_issue260():
-    run(dpath("test_issue260"))
+   run(dpath("test_issue260"))
 
 def test_default_remote():
     run(dpath("test_default_remote"),
