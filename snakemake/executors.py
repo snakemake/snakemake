@@ -51,6 +51,15 @@ class AbstractExecutor:
         self.latency_wait = latency_wait
         self.benchmark_repeats = benchmark_repeats
 
+    def get_default_remote_provider_args(self):
+        if self.workflow.default_remote_provider:
+            return (
+                "--default-remote-provider {} "
+                "--default-remote-prefix {} ").format(
+                    self.workflow.default_remote_provider.__module__.split(".")[-1],
+                    self.workflow.default_remote_prefix)
+        return ""
+
     def run(self, job,
             callback=None,
             submit_callback=None,
@@ -252,6 +261,7 @@ class CPUExecutor(RealExecutor):
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--benchmark-repeats {benchmark_repeats} ',
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
+            self.get_default_remote_provider_args(),
             '{overwrite_workdir} {overwrite_config} {printshellcmds} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
 
@@ -375,6 +385,7 @@ class ClusterExecutor(RealExecutor):
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
             '--benchmark-repeats {benchmark_repeats} ',
+            self.get_default_remote_provider_args(),
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
             '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
             '--notemp --quiet --no-hooks --nolock'))

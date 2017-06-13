@@ -1021,6 +1021,14 @@ def get_argument_parser():
         "https://bitbucket.org/snakemake/snakemake-wrappers/raw/). Set this to "
         "a different URL to use your fork or a local clone of the repository."
     )
+    parser.add_argument("--default-remote-provider",
+                        help="Specify default remote provider to be used for "
+                        "all input and output files that don't yet specify "
+                        "one.")
+    parser.add_argument("--default-remote-prefix",
+                        default="",
+                        help="Specify prefix for default remote provider. E.g. "
+                        "a bucket name.")
     parser.add_argument("--version", "-v",
                         action="version",
                         version=__version__)
@@ -1185,7 +1193,9 @@ def main(argv=None):
                             use_conda=args.use_conda,
                             conda_prefix=args.conda_prefix,
                             mode=args.mode,
-                            wrapper_prefix=args.wrapper_prefix)
+                            wrapper_prefix=args.wrapper_prefix,
+                            default_remote_provider=args.default_remote_provider,
+                            default_remote_prefix=args.default_remote_prefix)
 
     if args.profile:
         with open(args.profile, "w") as out:
