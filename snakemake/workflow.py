@@ -208,7 +208,7 @@ class Workflow:
                 printd3dag=False,
                 drmaa=None,
                 drmaa_log_dir=None,
-                kubernetes=False,
+                kubernetes=None,
                 stats=None,
                 force_incomplete=False,
                 ignore_incomplete=False,

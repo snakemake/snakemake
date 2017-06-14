@@ -106,7 +106,7 @@ def snakemake(snakefile,
               conda_prefix=None,
               mode=Mode.default,
               wrapper_prefix=None,
-              kubernetes=False,
+              kubernetes=None,
               default_remote_provider=None,
               default_remote_prefix=""):
     """Run snakemake on a given snakefile.
@@ -836,8 +836,10 @@ def get_argument_parser():
         "per default. The wildcard {jobid} has to be present in the name.")
 
     parser.add_argument(
-        "--kubernetes", action="store_true",
+        "--kubernetes", metavar="NAMESPACE",
         help="Execute workflow in a kubernetes cluster (in the cloud). "
+        "NAMESPACE is the namespace you want to use for your job. "
+        "It has to be configured via kubernetes. "
         "Usually, this requires --default-remote-provider and "
         "--default-remote-prefix to be set to a S3 or GS bucket where your . "
         "data shall be stored. It is further advisable to activate conda "

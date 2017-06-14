@@ -116,9 +116,11 @@ class AbstractExecutor:
             logger.info("Subsequent jobs will be added dynamically "
                         "depending on the output of this rule")
 
-    def print_job_error(self, job):
+    def print_job_error(self, job, msg=None):
         logger.error("Error in job {} while creating output file{} {}.".format(
             job, "s" if len(job.output) > 1 else "", ", ".join(job.output)))
+        if msg is not None:
+            logger.error(msg)
 
     def handle_job_success(self, job):
         pass
@@ -878,11 +880,11 @@ def change_working_directory(directory=None):
         yield
 
 
-KubernetesJob = namedtuple("KubernetesJob", "job jobid callback error_callback kubejob")
+KubernetesJob = namedtuple("KubernetesJob", "job jobid callback error_callback kubejob jobscript")
 
 
 class KubernetesExecutor(ClusterExecutor):
-    def __init__(self, workflow, dag,
+    def __init__(self, workflow, dag, namespace,
                  jobname="{rulename}.{jobid}",
                  printreason=False,
                  quiet=False,
@@ -922,31 +924,10 @@ class KubernetesExecutor(ClusterExecutor):
         import kubernetes.client
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
-        self.namespace = self.init_namespace()
-        self.submitted = list()
-
-    def init_namespace(self):
-        import kubernetes.client
-        # try to create a namespace
-        namespace_spec = kubernetes.client.V1Namespace()
-        for i in range(1000):
-            name = "snakemake-{}".format(random.randint(0, sys.maxsize))
-            namespaces = self.kubeapi.list_namespace()
-            for n in namespaces.items:
-                if name == n.metadata.name:
-                    # namespace already occupied
-                    continue
-            namespace_spec.metadata = kubernetes.client.V1ObjectMeta()
-            namespace_spec.metadata.name = name
-            self.kubeapi.create_namespace(namespace_spec)
-            return name
-        raise WorkflowError("Error creating kubernetes namespace.")
+        self.namespace = namespace
 
     def shutdown(self):
-        import kubernetes.client
         super().shutdown()
-        body = kubernetes.client.V1DeleteOptions()
-        self.kubeapi.delete_namespace(self.namespace, body)
 
     def cancel(self):
         import kubernetes.client
@@ -954,7 +935,7 @@ class KubernetesExecutor(ClusterExecutor):
         with self.lock:
             for j in self.active_jobs:
                 self.batchapi.delete_namespaced_job(
-                    self.namespace, j.jobid, body)
+                    j.jobid, self.namespace, body)
         self.shutdown()
 
     def run(self, job,
@@ -980,7 +961,7 @@ class KubernetesExecutor(ClusterExecutor):
         body.spec.template.spec.restart_policy = "Never"
 
         container = kubernetes.client.V1Container()
-        container.image = "quay.io/snakemake/snakemake"
+        container.image = "busybox"#"quay.io/snakemake/snakemake"
         container.command = shlex.split(exec_job)
         container.name = jobid
         body.spec.template.spec.containers = [container]
@@ -994,7 +975,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         kubejob = self.batchapi.create_namespaced_job(self.namespace, body)
         self.active_jobs.append(KubernetesJob(
-            job, jobid, callback, error_callback, kubejob))
+            job, jobid, callback, error_callback, kubejob, None))
 
     def _wait_for_jobs(self):
         while True:
@@ -1006,10 +987,10 @@ class KubernetesExecutor(ClusterExecutor):
                 for j in active_jobs:
                     res = self.batchapi.read_namespaced_job_status(
                         j.jobid, self.namespace)
-                    print(res)
                     if res.status.failed:
+                        msg = "Investigate with 'kubectl describe job {}''.".format(j.jobid)
                         # failed
-                        self.print_job_error(j.job)
+                        self.print_job_error(j.job, msg=msg)
                         print_exception(
                             ClusterJobException(j, j.jobid),
                             self.workflow.linemaps)
