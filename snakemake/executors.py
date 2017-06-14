@@ -13,6 +13,7 @@ import json
 import textwrap
 import stat
 import shutil
+import shlex
 import threading
 import concurrent.futures
 import subprocess
@@ -21,6 +22,7 @@ from functools import partial
 from itertools import chain
 from collections import namedtuple
 from tempfile import mkdtemp
+import random
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -54,7 +56,7 @@ class AbstractExecutor:
     def get_default_remote_provider_args(self):
         if self.workflow.default_remote_provider:
             return (
-                "--default-remote-provider {} "
+                " --default-remote-provider {} "
                 "--default-remote-prefix {} ").format(
                     self.workflow.default_remote_provider.__module__.split(".")[-1],
                     self.workflow.default_remote_prefix)
@@ -356,7 +358,8 @@ class ClusterExecutor(RealExecutor):
                  cluster_config=None,
                  local_input=None,
                  max_jobs_per_second=None,
-                 restart_times=None):
+                 restart_times=None,
+                 exec_job=None):
         local_input = local_input or []
         super().__init__(workflow, dag,
                          printreason=printreason,
@@ -379,21 +382,24 @@ class ClusterExecutor(RealExecutor):
             raise WorkflowError(
                 "Defined jobname (\"{}\") has to contain the wildcard {jobid}.")
 
-        self.exec_job = '\\\n'.join((
-            'cd {workflow.workdir_init} && ',
-            '{sys.executable} -m snakemake {target} --snakefile {workflow.snakefile} ',
-            '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
-            '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
-            '--benchmark-repeats {benchmark_repeats} ',
-            self.get_default_remote_provider_args(),
-            '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
-            '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
-            '--notemp --quiet --no-hooks --nolock'))
+        if exec_job is None:
+            self.exec_job = '\\\n'.join((
+                'cd {workflow.workdir_init} && ',
+                '{sys.executable} -m snakemake {target} --snakefile {workflow.snakefile} ',
+                '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
+                '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
+                '--benchmark-repeats {benchmark_repeats} ',
+                '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
+                '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
+                '--notemp --quiet --no-hooks --nolock'))
+        else:
+            self.exec_job = exec_job
 
         if printshellcmds:
             self.exec_job += " --printshellcmds "
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
+        self.exec_job += self.get_default_remote_provider_args()
 
         # force threading.Lock() for cluster jobs
         self.exec_job += " --force-use-threads "
@@ -872,12 +878,12 @@ def change_working_directory(directory=None):
         yield
 
 
-KubernetesJob = namedtuple("KubernetesJob", "job jobid callback error_callback")
+KubernetesJob = namedtuple("KubernetesJob", "job jobid callback error_callback kubejob")
 
 
 class KubernetesExecutor(ClusterExecutor):
-    def __init__(self, workflow, dag, cores,
-                 jobname="snakejob.{rulename}.{jobid}.sh",
+    def __init__(self, workflow, dag,
+                 jobname="{rulename}.{jobid}",
                  printreason=False,
                  quiet=False,
                  printshellcmds=False,
@@ -887,7 +893,17 @@ class KubernetesExecutor(ClusterExecutor):
                  local_input=None,
                  max_jobs_per_second=None,
                  restart_times=None):
-        super().__init__(self,
+
+        exec_job = (
+            'snakemake {target} --snakefile {workflow.snakefile} '
+            '--force -j{cores} --keep-target-files --keep-shadow --keep-remote '
+            '--latency-wait 0 '
+            '--benchmark-repeats {benchmark_repeats} '
+            '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} '
+            '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor '
+            '--notemp --quiet --no-hooks --nolock ')
+
+        super().__init__(workflow, dag, None,
                          jobname=jobname,
                          printreason=printreason,
                          quiet=quiet,
@@ -897,7 +913,11 @@ class KubernetesExecutor(ClusterExecutor):
                          cluster_config=cluster_config,
                          local_input=local_input,
                          max_jobs_per_second=max_jobs_per_second,
-                         restart_times=restart_times)
+                         restart_times=restart_times,
+                         exec_job=exec_job)
+
+        from kubernetes import config
+        config.load_kube_config()
 
         import kubernetes.client
         self.kubeapi = kubernetes.client.CoreV1Api()
@@ -906,46 +926,75 @@ class KubernetesExecutor(ClusterExecutor):
         self.submitted = list()
 
     def init_namespace(self):
+        import kubernetes.client
         # try to create a namespace
         namespace_spec = kubernetes.client.V1Namespace()
         for i in range(1000):
             name = "snakemake-{}".format(random.randint(0, sys.maxsize))
             namespaces = self.kubeapi.list_namespace()
-            for n in namespaces:
+            for n in namespaces.items:
                 if name == n.metadata.name:
                     # namespace already occupied
                     continue
+            namespace_spec.metadata = kubernetes.client.V1ObjectMeta()
             namespace_spec.metadata.name = name
             self.kubeapi.create_namespace(namespace_spec)
             return name
         raise WorkflowError("Error creating kubernetes namespace.")
 
     def shutdown(self):
+        import kubernetes.client
         super().shutdown()
-        self.kubeapi.delete_namespace(self.namespace)
+        body = kubernetes.client.V1DeleteOptions()
+        self.kubeapi.delete_namespace(self.namespace, body)
 
     def cancel(self):
+        import kubernetes.client
+        body = kubernetes.client.V1DeleteOptions()
         with self.lock:
             for j in self.active_jobs:
-                self.batchapi.delete_namespaced_job(self.namespace, j.jobid)
+                self.batchapi.delete_namespaced_job(
+                    self.namespace, j.jobid, body)
         self.shutdown()
 
     def run(self, job,
             callback=None,
             submit_callback=None,
             error_callback=None):
-        super().run(job)
+        import kubernetes.client
+
+        super()._run(job)
         exec_job = self.format_job(self.exec_job, job, _quote_all=True)
         jobid = str(self.dag.jobid(job))
 
         body = kubernetes.client.V1Job()
+        body.metadata = kubernetes.client.V1ObjectMeta()
         body.metadata.name = jobid
-        container = body.spec.template.spec.containers[0]
+
+        body.spec = kubernetes.client.V1JobSpec()
+
+        body.spec.template = kubernetes.client.V1PodTemplateSpec()
+        body.spec.template.metadata = kubernetes.client.V1ObjectMeta()
+        body.spec.template.metadata.name = jobid
+        body.spec.template.spec = kubernetes.client.V1PodSpec()
+        body.spec.template.spec.restart_policy = "Never"
+
+        container = kubernetes.client.V1Container()
         container.image = "quay.io/snakemake/snakemake"
         container.command = shlex.split(exec_job)
+        container.name = jobid
+        body.spec.template.spec.containers = [container]
 
-        self.active_jobs.append(KubernetesJob(job, jobid, callback, error_callback))
-        self.batchapi.create_namespaced_job(self.namespace, body)
+        # request resources
+        container.resources = kubernetes.client.V1ResourceRequirements()
+        container.resources.requests = {"cpu": job.resources["_cores"]}
+        if "mem_mb" in job.resources:
+            container.resources.requests["memory"] = "{}M".format(
+                job.resources["mem_mb"])
+
+        kubejob = self.batchapi.create_namespaced_job(self.namespace, body)
+        self.active_jobs.append(KubernetesJob(
+            job, jobid, callback, error_callback, kubejob))
 
     def _wait_for_jobs(self):
         while True:
@@ -955,7 +1004,9 @@ class KubernetesExecutor(ClusterExecutor):
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 for j in active_jobs:
-                    res = self.batchapi.read_namespaced_job_status(j.jobid, namespace)
+                    res = self.batchapi.read_namespaced_job_status(
+                        j.jobid, self.namespace)
+                    print(res)
                     if res.status.failed:
                         # failed
                         self.print_job_error(j.job)

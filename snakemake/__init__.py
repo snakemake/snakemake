@@ -106,6 +106,7 @@ def snakemake(snakefile,
               conda_prefix=None,
               mode=Mode.default,
               wrapper_prefix=None,
+              kubernetes=False,
               default_remote_provider=None,
               default_remote_prefix=""):
     """Run snakemake on a given snakefile.
@@ -408,6 +409,7 @@ def snakemake(snakefile,
                                        force_use_threads=use_threads,
                                        use_conda=use_conda,
                                        conda_prefix=conda_prefix,
+                                       kubernetes=kubernetes,
                                        default_remote_provider=default_remote_provider,
                                        default_remote_prefix=default_remote_prefix)
 
@@ -435,6 +437,7 @@ def snakemake(snakefile,
                     jobname=jobname,
                     drmaa=drmaa,
                     drmaa_log_dir=drmaa_log_dir,
+                    kubernetes=kubernetes,
                     max_jobs_per_second=max_jobs_per_second,
                     printd3dag=printd3dag,
                     immediate_submit=immediate_submit,
@@ -831,6 +834,23 @@ def get_argument_parser():
         help="Provide a custom name for the jobscript that is submitted to the "
         "cluster (see --cluster). NAME is \"snakejob.{rulename}.{jobid}.sh\" "
         "per default. The wildcard {jobid} has to be present in the name.")
+
+    parser.add_argument(
+        "--kubernetes", action="store_true",
+        help="Execute workflow in a kubernetes cluster (in the cloud). "
+        "Usually, this requires --default-remote-provider and "
+        "--default-remote-prefix to be set to a S3 or GS bucket where your . "
+        "data shall be stored. It is further advisable to activate conda "
+        "integration via --use-conda.")
+    parser.add_argument("--default-remote-provider",
+                        help="Specify default remote provider to be used for "
+                        "all input and output files that don't yet specify "
+                        "one.")
+    parser.add_argument("--default-remote-prefix",
+                        default="",
+                        help="Specify prefix for default remote provider. E.g. "
+                        "a bucket name.")
+
     parser.add_argument("--reason", "-r",
                         action="store_true",
                         help="Print the reason for each executed rule.")
@@ -1021,14 +1041,6 @@ def get_argument_parser():
         "https://bitbucket.org/snakemake/snakemake-wrappers/raw/). Set this to "
         "a different URL to use your fork or a local clone of the repository."
     )
-    parser.add_argument("--default-remote-provider",
-                        help="Specify default remote provider to be used for "
-                        "all input and output files that don't yet specify "
-                        "one.")
-    parser.add_argument("--default-remote-prefix",
-                        default="",
-                        help="Specify prefix for default remote provider. E.g. "
-                        "a bucket name.")
     parser.add_argument("--version", "-v",
                         action="version",
                         version=__version__)
@@ -1155,6 +1167,7 @@ def main(argv=None):
                             cluster_sync=args.cluster_sync,
                             drmaa=args.drmaa,
                             drmaa_log_dir=args.drmaa_log_dir,
+                            kubernetes=args.kubernetes,
                             jobname=args.jobname,
                             immediate_submit=args.immediate_submit,
                             standalone=True,
