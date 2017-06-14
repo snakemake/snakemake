@@ -6,6 +6,10 @@ box:
 build:
   steps:
     - script:
+        name: env
+        code: conda env update --name root --file test-environment.yml
+
+    - script:
         name: pip
         code: pip install -e .
 
