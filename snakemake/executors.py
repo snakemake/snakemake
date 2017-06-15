@@ -925,6 +925,24 @@ class KubernetesExecutor(ClusterExecutor):
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
+        self.secret_files = {}
+        self.secret_name = uuid.uuid4()
+        self.register_secret()
+
+    def register_secret(self):
+        import kubernetes.client
+
+        secret = kubernetes.client.V1Secret()
+        secret.metadata = kubernetes.client.V1ObjectMeta()
+        # create a random uuid
+        secret.metadata.name = self.secret_name
+        secret.type = "Opaque"
+        for i, f in enumerate(self.workflow.get_sources()):
+            with open(f, "b") as content:
+                key = "f{}".format(i)
+                self.secret_files[key] = f
+                secret.data[key] = base64.b64encode(content.read())
+        self.kubeapi.create_namespaced_secret(self.namespace, secret)
 
     def shutdown(self):
         super().shutdown()
@@ -965,6 +983,16 @@ class KubernetesExecutor(ClusterExecutor):
         container.command = shlex.split(exec_job)
         container.name = jobid
         body.spec.template.spec.containers = [container]
+
+        secret_volume = kubernetes.client.V1Volume()
+        secret_volume.name: "secret"
+        secret_volume.secret = kubernetes.client.V1SecretVolumeSource()
+        secret_volume.secret.secret_name = self.secret_name
+        secret_volume.secret.items = [
+            kubernetes.client.V1KeyToPath(key=key, path=path)
+            for key, path in self.secret_files.items()
+        ]
+        body.spec.template.spec.volumes = [secret_volume]
 
         # request resources
         container.resources = kubernetes.client.V1ResourceRequirements()

@@ -22,19 +22,6 @@ from snakemake.exceptions import WorkflowError
 import snakemake
 
 
-def get_git_versioned_files():
-    try:
-        out = subprocess.check_output(["git", "ls-files", "."])
-        for f in out.decode().split("\n"):
-            if f:
-                yield f
-    except subprocess.CalledProcessError as e:
-        if "fatal: Not a git repository" in e.stderr.decode():
-            raise WorkflowError("Error: this is not a git repository.")
-        raise WorkflowError("Error executing git:\n{}".format(
-            e.stderr.decode()))
-
-
 def simplify_path(path):
     """Return a simplified version of the given path."""
     relpath = os.path.relpath(path)

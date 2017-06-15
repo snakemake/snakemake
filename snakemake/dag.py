@@ -1179,8 +1179,9 @@ class DAG:
                             archived.add(f)
                             logger.info("archived " + f)
 
-                logger.info("Archiving files under version control...")
-                for f in utils.get_git_versioned_files():
+                logger.info("Archiving snakefiles, scripts and files under "
+                            "version control...")
+                for f in self.workflow.get_sources():
                     add(f)
 
                 logger.info("Archiving external input files...")

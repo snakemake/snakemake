@@ -103,6 +103,30 @@ class Workflow:
         global rules
         rules = Rules()
 
+    def get_sources(self):
+        files = set()
+
+        # get registered sources
+        for f in self.included:
+            files.add(os.path.relpath(f))
+        for rule in self.rules:
+            if rule.script:
+                files.add(os.path.relpath(rule.script))
+
+        # get git-managed files
+        try:
+            out = subprocess.check_output(["git", "ls-files", "."])
+            for f in out.decode().split("\n"):
+                if f:
+                    files.add(os.path.relpath(f))
+        except subprocess.CalledProcessError as e:
+            if "fatal: Not a git repository" in e.stderr.decode():
+                raise WorkflowError("Error: this is not a git repository.")
+            raise WorkflowError("Error executing git:\n{}".format(
+                e.stderr.decode()))
+
+        return files
+
     @property
     def subworkflows(self):
         return self._subworkflows.values()
