@@ -23,6 +23,8 @@ from itertools import chain
 from collections import namedtuple
 from tempfile import mkdtemp
 import random
+import base64
+import uuid
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -884,7 +886,7 @@ KubernetesJob = namedtuple("KubernetesJob", "job jobid callback error_callback k
 
 
 class KubernetesExecutor(ClusterExecutor):
-    def __init__(self, workflow, dag, namespace,
+    def __init__(self, workflow, dag, namespace, envvars,
                  jobname="{rulename}.{jobid}",
                  printreason=False,
                  quiet=False,
@@ -925,8 +927,10 @@ class KubernetesExecutor(ClusterExecutor):
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
+        self.envvars = envvars
         self.secret_files = {}
-        self.secret_name = uuid.uuid4()
+        self.run_namespace = str(uuid.uuid4())
+        self.secret_envvars = {}
         self.register_secret()
 
     def register_secret(self):
@@ -935,13 +939,21 @@ class KubernetesExecutor(ClusterExecutor):
         secret = kubernetes.client.V1Secret()
         secret.metadata = kubernetes.client.V1ObjectMeta()
         # create a random uuid
-        secret.metadata.name = self.secret_name
+        secret.metadata.name = self.run_namespace
         secret.type = "Opaque"
+        secret.data = {}
         for i, f in enumerate(self.workflow.get_sources()):
-            with open(f, "b") as content:
+            with open(f, "br") as content:
                 key = "f{}".format(i)
                 self.secret_files[key] = f
-                secret.data[key] = base64.b64encode(content.read())
+                secret.data[key] = base64.b64encode(content.read()).decode()
+        for e in self.envvars:
+            try:
+                key = e.lower()
+                secret.data[key] = base64.b64encode(os.environ[e].encode()).decode()
+                self.secret_envvars[key] = e
+            except KeyError:
+                continue
         self.kubeapi.create_namespaced_secret(self.namespace, secret)
 
     def shutdown(self):
@@ -964,7 +976,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         super()._run(job)
         exec_job = self.format_job(self.exec_job, job, _quote_all=True)
-        jobid = str(self.dag.jobid(job))
+        jobid = "snakejob-{}-{}".format(self.run_namespace, self.dag.jobid(job))
 
         body = kubernetes.client.V1Job()
         body.metadata = kubernetes.client.V1ObjectMeta()
@@ -972,27 +984,39 @@ class KubernetesExecutor(ClusterExecutor):
 
         body.spec = kubernetes.client.V1JobSpec()
 
+        # pod template
         body.spec.template = kubernetes.client.V1PodTemplateSpec()
         body.spec.template.metadata = kubernetes.client.V1ObjectMeta()
         body.spec.template.metadata.name = jobid
         body.spec.template.spec = kubernetes.client.V1PodSpec()
         body.spec.template.spec.restart_policy = "Never"
 
+        # container
         container = kubernetes.client.V1Container()
-        container.image = "busybox"#"quay.io/snakemake/snakemake"
+        container.image = "quay.io/snakemake/snakemake"
         container.command = shlex.split(exec_job)
         container.name = jobid
         body.spec.template.spec.containers = [container]
 
+        # source files
         secret_volume = kubernetes.client.V1Volume()
-        secret_volume.name: "secret"
+        secret_volume.name = "secret"
         secret_volume.secret = kubernetes.client.V1SecretVolumeSource()
-        secret_volume.secret.secret_name = self.secret_name
+        secret_volume.secret.secret_name = self.run_namespace
         secret_volume.secret.items = [
             kubernetes.client.V1KeyToPath(key=key, path=path)
             for key, path in self.secret_files.items()
         ]
         body.spec.template.spec.volumes = [secret_volume]
+
+        # env vars
+        container.env = []
+        for key, e in self.secret_envvars.items():
+            envvar = kubernetes.client.V1EnvVar(name=key)
+            envvar.value_from = kubernetes.client.V1EnvVarSource()
+            envvar.value_from.secret_key_ref = kubernetes.client.V1SecretKeySelector(
+                key=key, name=self.run_namespace)
+            container.env.append(envvar)
 
         # request resources
         container.resources = kubernetes.client.V1ResourceRequirements()

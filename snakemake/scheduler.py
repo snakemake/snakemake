@@ -37,6 +37,7 @@ class JobScheduler:
                  drmaa=None,
                  drmaa_log_dir=None,
                  kubernetes=None,
+                 kubernetes_envvars=None,
                  jobname=None,
                  quiet=False,
                  printreason=False,
@@ -137,7 +138,7 @@ class JobScheduler:
                     max_jobs_per_second=max_jobs_per_second)
         elif kubernetes:
             self._executor = KubernetesExecutor(
-                workflow, dag, kubernetes,
+                workflow, dag, kubernetes, kubernetes_envvars,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,

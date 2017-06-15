@@ -107,6 +107,7 @@ def snakemake(snakefile,
               mode=Mode.default,
               wrapper_prefix=None,
               kubernetes=None,
+              kubernetes_envvars=None,
               default_remote_provider=None,
               default_remote_prefix=""):
     """Run snakemake on a given snakefile.
@@ -410,6 +411,7 @@ def snakemake(snakefile,
                                        use_conda=use_conda,
                                        conda_prefix=conda_prefix,
                                        kubernetes=kubernetes,
+                                       kubernetes_envvars=kubernetes_envvars,
                                        default_remote_provider=default_remote_provider,
                                        default_remote_prefix=default_remote_prefix)
 
@@ -438,6 +440,7 @@ def snakemake(snakefile,
                     drmaa=drmaa,
                     drmaa_log_dir=drmaa_log_dir,
                     kubernetes=kubernetes,
+                    kubernetes_envvars=kubernetes_envvars,
                     max_jobs_per_second=max_jobs_per_second,
                     printd3dag=printd3dag,
                     immediate_submit=immediate_submit,
@@ -844,6 +847,9 @@ def get_argument_parser():
         "--default-remote-prefix to be set to a S3 or GS bucket where your . "
         "data shall be stored. It is further advisable to activate conda "
         "integration via --use-conda.")
+    parser.add_argument(
+        "--kubernetes-env", nargs="+", metavar="ENVVAR", default=[],
+        help="Specify environment variables to pass to the kubernetes job.")
     parser.add_argument("--default-remote-provider",
                         help="Specify default remote provider to be used for "
                         "all input and output files that don't yet specify "
@@ -1170,6 +1176,7 @@ def main(argv=None):
                             drmaa=args.drmaa,
                             drmaa_log_dir=args.drmaa_log_dir,
                             kubernetes=args.kubernetes,
+                            kubernetes_envvars=args.kubernetes_env,
                             jobname=args.jobname,
                             immediate_submit=args.immediate_submit,
                             standalone=True,

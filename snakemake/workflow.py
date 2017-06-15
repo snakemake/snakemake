@@ -14,6 +14,7 @@ from itertools import filterfalse, chain
 from functools import partial
 from operator import attrgetter
 import copy
+import subprocess
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder
@@ -93,7 +94,7 @@ class Workflow:
         self.restart_times = restart_times
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
-        self.configfile = []
+        self.configfiles = []
 
         global config
         config = copy.deepcopy(self.overwrite_config)
@@ -236,6 +237,7 @@ class Workflow:
                 drmaa=None,
                 drmaa_log_dir=None,
                 kubernetes=None,
+                kubernetes_envvars=None,
                 stats=None,
                 force_incomplete=False,
                 ignore_incomplete=False,
@@ -491,6 +493,7 @@ class Workflow:
                                  drmaa=drmaa,
                                  drmaa_log_dir=drmaa_log_dir,
                                  kubernetes=kubernetes,
+                                 kubernetes_envvars=kubernetes_envvars,
                                  printreason=printreason,
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
