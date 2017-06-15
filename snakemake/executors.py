@@ -964,7 +964,7 @@ class KubernetesExecutor(ClusterExecutor):
         body = kubernetes.client.V1DeleteOptions()
         with self.lock:
             for j in self.active_jobs:
-                self.batchapi.delete_namespaced_job(
+                self.kubeapi.delete_namespaced_pod(
                     j.jobid, self.namespace, body)
         self.shutdown()
 
@@ -978,25 +978,18 @@ class KubernetesExecutor(ClusterExecutor):
         exec_job = self.format_job(self.exec_job, job, _quote_all=True)
         jobid = "snakejob-{}-{}".format(self.run_namespace, self.dag.jobid(job))
 
-        body = kubernetes.client.V1Job()
+        body = kubernetes.client.V1Pod()
         body.metadata = kubernetes.client.V1ObjectMeta()
         body.metadata.name = jobid
 
-        body.spec = kubernetes.client.V1JobSpec()
-
-        # pod template
-        body.spec.template = kubernetes.client.V1PodTemplateSpec()
-        body.spec.template.metadata = kubernetes.client.V1ObjectMeta()
-        body.spec.template.metadata.name = jobid
-        body.spec.template.spec = kubernetes.client.V1PodSpec()
-        body.spec.template.spec.restart_policy = "Never"
+        body.spec = kubernetes.client.V1PodSpec()
 
         # container
         container = kubernetes.client.V1Container()
         container.image = "quay.io/snakemake/snakemake"
         container.command = shlex.split(exec_job)
         container.name = jobid
-        body.spec.template.spec.containers = [container]
+        body.spec.containers = [container]
 
         # source files
         secret_volume = kubernetes.client.V1Volume()
@@ -1007,7 +1000,7 @@ class KubernetesExecutor(ClusterExecutor):
             kubernetes.client.V1KeyToPath(key=key, path=path)
             for key, path in self.secret_files.items()
         ]
-        body.spec.template.spec.volumes = [secret_volume]
+        body.spec.volumes = [secret_volume]
 
         # env vars
         container.env = []
@@ -1025,9 +1018,9 @@ class KubernetesExecutor(ClusterExecutor):
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"])
 
-        kubejob = self.batchapi.create_namespaced_job(self.namespace, body)
+        pod = self.kubeapi.create_namespaced_pod(self.namespace, body)
         self.active_jobs.append(KubernetesJob(
-            job, jobid, callback, error_callback, kubejob, None))
+            job, jobid, callback, error_callback, pod, None))
 
     def _wait_for_jobs(self):
         while True:
@@ -1037,17 +1030,17 @@ class KubernetesExecutor(ClusterExecutor):
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 for j in active_jobs:
-                    res = self.batchapi.read_namespaced_job_status(
+                    res = self.kubeapi.read_namespaced_pod_status(
                         j.jobid, self.namespace)
-                    if res.status.failed:
-                        msg = "Investigate with 'kubectl describe job {}''.".format(j.jobid)
+                    if res.status.phase == "Failed":
+                        msg = "For details, please issue:\nkubectl describe pod {}".format(j.jobid)
                         # failed
                         self.print_job_error(j.job, msg=msg)
                         print_exception(
                             ClusterJobException(j, j.jobid),
                             self.workflow.linemaps)
                         j.error_callback(j.job)
-                    elif res.status.succeeded:
+                    elif res.status.phase == "Succeeded":
                         # finished
                         j.callback(j.job)
                     else:
