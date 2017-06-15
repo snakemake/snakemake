@@ -93,6 +93,7 @@ class Workflow:
         self.restart_times = restart_times
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
+        self.configfile = []
 
         global config
         config = copy.deepcopy(self.overwrite_config)
@@ -112,6 +113,8 @@ class Workflow:
         for rule in self.rules:
             if rule.script:
                 files.add(os.path.relpath(rule.script))
+        for f in self.configfiles:
+            files.add(f)
 
         # get git-managed files
         try:
@@ -617,6 +620,7 @@ class Workflow:
     def configfile(self, jsonpath):
         """ Update the global config with the given dictionary. """
         global config
+        self.configfiles.append(jsonpath)
         c = snakemake.io.load_configfile(jsonpath)
         update_config(config, c)
         update_config(config, self.overwrite_config)
