@@ -29,8 +29,8 @@ def get_script(path, prefix=None):
     return path
 
 
-def get_conda_env(path):
-    path = get_path(path)
+def get_conda_env(path, prefix=None):
+    path = get_path(path, prefix=prefix)
     if is_script(path):
         # URLs and posixpaths share the same separator. Hence use posixpath here.
         path = posixpath.dirname(path)

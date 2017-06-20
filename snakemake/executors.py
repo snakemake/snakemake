@@ -273,6 +273,8 @@ class CPUExecutor(RealExecutor):
 
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
+            if self.workflow.conda_prefix:
+                self.exec_job += " --conda-prefix " + self.workflow.conda_prefix + " "
 
         self.use_threads = use_threads
         self.cores = cores
@@ -403,6 +405,9 @@ class ClusterExecutor(RealExecutor):
             self.exec_job += " --printshellcmds "
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
+            if self.workflow.conda_prefix:
+                self.exec_job += " --conda-prefix " + self.workflow.conda_prefix + " "
+
         self.exec_job += self.get_default_remote_provider_args()
 
         # force threading.Lock() for cluster jobs

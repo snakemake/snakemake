@@ -170,6 +170,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
     else:
         sourceurl = path
 
+    f = None
     try:
         with urlopen(sourceurl) as source:
             if path.endswith(".py"):
@@ -290,4 +291,5 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
     except URLError as e:
         raise WorkflowError(e)
     finally:
-        os.remove(f.name)
+        if f:
+            os.remove(f.name)

@@ -1,5 +1,16 @@
 # Change Log
 
+## [3.13.2] - 2017-06-20
+### Changed
+- The --wrapper-prefix flag now also affects where the corresponding environment definition is fetched from.
+- Fix bug where empty output file list was recognized as containing duplicates (issue #574).
+
+
+## [3.13.1] - 2017-06-20
+### Changed
+- Fix --conda-prefix to be passed to all jobs.
+- Fix cleanup issue with scripts that fail to download.
+
 ## [3.13.0] - 2017-06-12
 ### Added
 - An NCBI remote provider. By this, you can seamlessly integrate any NCBI resouce (reference genome, gene/protein sequences, ...) as input file.

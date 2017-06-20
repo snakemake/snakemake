@@ -695,7 +695,8 @@ class Workflow:
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
             if ruleinfo.wrapper:
-                rule.conda_env = snakemake.wrapper.get_conda_env(ruleinfo.wrapper)
+                rule.conda_env = snakemake.wrapper.get_conda_env(
+                    ruleinfo.wrapper, prefix=self.wrapper_prefix)
             if ruleinfo.conda_env:
                 if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
                     raise RuleException("Conda environments are only allowed "
