@@ -19,3 +19,4 @@ dependencies:
   - docutils
   - psutil
   - pandas
+  - nomkl
