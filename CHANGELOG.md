@@ -1,5 +1,11 @@
 # Change Log
 
+## [3.13.2] - 2017-06-20
+### Changed
+- The --wrapper-prefix flag now also affects where the corresponding environment definition is fetched from.
+- Fix bug where empty output file list was recognized as containing duplicates (issue #574).
+
+
 ## [3.13.1] - 2017-06-20
 ### Changed
 - Fix --conda-prefix to be passed to all jobs.
