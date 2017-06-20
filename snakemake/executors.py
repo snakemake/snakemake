@@ -151,6 +151,7 @@ class RealExecutor(AbstractExecutor):
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats)
         self.stats = Stats()
+        self.snakefile = workflow.snakefile
 
     def _run(self, job, callback=None, error_callback=None):
         super()._run(job)
@@ -213,6 +214,7 @@ class RealExecutor(AbstractExecutor):
                       overwrite_config=overwrite_config,
                       printshellcmds=printshellcmds,
                       workflow=self.workflow,
+                      snakefile=self.snakefile,
                       cores=self.cores,
                       benchmark_repeats=self.benchmark_repeats,
                       target=target,
@@ -263,7 +265,7 @@ class CPUExecutor(RealExecutor):
 
         self.exec_job = '\\\n'.join((
             'cd {workflow.workdir_init} && ',
-            '{sys.executable} -m snakemake {target} --snakefile {workflow.snakefile} ',
+            '{sys.executable} -m snakemake {target} --snakefile {snakefile} ',
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--benchmark-repeats {benchmark_repeats} ',
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
@@ -391,7 +393,7 @@ class ClusterExecutor(RealExecutor):
         if exec_job is None:
             self.exec_job = '\\\n'.join((
                 'cd {workflow.workdir_init} && ',
-                '{sys.executable} -m snakemake {target} --snakefile {workflow.snakefile} ',
+                '{sys.executable} -m snakemake {target} --snakefile {snakefile} ',
                 '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
                 '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
                 '--benchmark-repeats {benchmark_repeats} ',
@@ -904,12 +906,12 @@ class KubernetesExecutor(ClusterExecutor):
                  restart_times=None):
 
         exec_job = (
-            'snakemake {target} --snakefile {workflow.snakefile} '
+            'snakemake {target} --snakefile {snakefile} '
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote '
             '--latency-wait 0 '
             '--benchmark-repeats {benchmark_repeats} '
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} '
-            '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor '
+            '{overwrite_config} {printshellcmds} --nocolor '
             '--notemp --quiet --no-hooks --nolock ')
 
         super().__init__(workflow, dag, None,
@@ -924,6 +926,8 @@ class KubernetesExecutor(ClusterExecutor):
                          max_jobs_per_second=max_jobs_per_second,
                          restart_times=restart_times,
                          exec_job=exec_job)
+        # use relative path to Snakefile
+        self.snakefile = os.path.relpath(workflow.snakefile)
 
         from kubernetes import config
         config.load_kube_config()
@@ -948,6 +952,10 @@ class KubernetesExecutor(ClusterExecutor):
         secret.type = "Opaque"
         secret.data = {}
         for i, f in enumerate(self.workflow.get_sources()):
+            if f.startswith(".."):
+                logger.warning("Ignoring source file {}. Only files relative "
+                               "to the working directory are allowed.")
+                continue
             with open(f, "br") as content:
                 key = "f{}".format(i)
                 self.secret_files[key] = f
@@ -988,17 +996,22 @@ class KubernetesExecutor(ClusterExecutor):
         body.metadata.name = jobid
 
         body.spec = kubernetes.client.V1PodSpec()
+        # fail on first error
+        body.spec.restart_policy = "Never"
 
         # container
         container = kubernetes.client.V1Container()
         container.image = "quay.io/snakemake/snakemake"
         container.command = shlex.split(exec_job)
         container.name = jobid
+        container.working_dir = "/workdir"
+        container.volume_mounts = [kubernetes.client.V1VolumeMount(
+            name="workdir", mount_path="/workdir")]
         body.spec.containers = [container]
 
         # source files
         secret_volume = kubernetes.client.V1Volume()
-        secret_volume.name = "secret"
+        secret_volume.name = "workdir"
         secret_volume.secret = kubernetes.client.V1SecretVolumeSource()
         secret_volume.secret.secret_name = self.run_namespace
         secret_volume.secret.items = [
@@ -1024,6 +1037,9 @@ class KubernetesExecutor(ClusterExecutor):
                 job.resources["mem_mb"])
 
         pod = self.kubeapi.create_namespaced_pod(self.namespace, body)
+        logger.info("Get status with:\n"
+                    "kubectl describe pod {jobid}\n"
+                    "kubectl logs {jobid}".format(jobid=jobid))
         self.active_jobs.append(KubernetesJob(
             job, jobid, callback, error_callback, pod, None))
 
@@ -1038,7 +1054,9 @@ class KubernetesExecutor(ClusterExecutor):
                     res = self.kubeapi.read_namespaced_pod_status(
                         j.jobid, self.namespace)
                     if res.status.phase == "Failed":
-                        msg = "For details, please issue:\nkubectl describe pod {}".format(j.jobid)
+                        msg = ("For details, please issue:\n"
+                               "kubectl describe pod {jobid}\n"
+                               "kubectl logs {jobid}").format(jobid=j.jobid)
                         # failed
                         self.print_job_error(j.job, msg=msg)
                         print_exception(
