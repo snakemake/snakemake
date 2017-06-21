@@ -734,7 +734,7 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
-        self._names[name] = (index, end if end is not None else index + 1)
+        self._names[name] = (index, end)
         if end is None:
             setattr(self, name, self[index])
         else:
@@ -764,9 +764,11 @@ class Namedlist(list):
     def allitems(self):
         next = 0
         for name, index in sorted(self._names.items(),
-                                  key=lambda item: item[1]):
+                key=lambda item: (item[1][0], item[1][0] + 1 if item[1][1] is None else item[1][1])):
+
             start, end = index
-            assert end is not None
+            if end is None:
+                end = start + 1
             if start > next:
                 for item in self[next:start]:
                     yield None, item
@@ -780,7 +782,7 @@ class Namedlist(list):
         add = len(items) - 1
         for name, (i, j) in self._names.items():
             if i > index:
-                self._names[name] = (i + add, j + add)
+                self._names[name] = (i + add, None if j is None else j + add)
             elif i == index:
                 self.set_name(name, i, end=i + len(items))
 
