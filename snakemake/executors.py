@@ -143,13 +143,15 @@ class RealExecutor(AbstractExecutor):
                  quiet=False,
                  printshellcmds=False,
                  latency_wait=3,
-                 benchmark_repeats=1):
+                 benchmark_repeats=1,
+                 assume_shared_fs=True):
         super().__init__(workflow, dag,
                          printreason=printreason,
                          quiet=quiet,
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats)
+        self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
         self.snakefile = workflow.snakefile
 
@@ -167,16 +169,17 @@ class RealExecutor(AbstractExecutor):
                 "directory {}".format(e, self.workflow.persistence.path))
 
     def handle_job_success(self, job, upload_remote=True, ignore_missing_output=False):
-        self.dag.handle_touch(job)
-        self.dag.check_and_touch_output(
-            job,
-            wait=self.latency_wait,
-            ignore_missing_output=ignore_missing_output)
-        self.dag.unshadow_output(job)
-        self.dag.handle_remote(job, upload=upload_remote)
-        self.dag.handle_protected(job)
-        self.dag.handle_temp(job)
-        job.close_remote()
+        if self.assume_shared_fs:
+            self.dag.handle_touch(job)
+            self.dag.check_and_touch_output(
+                job,
+                wait=self.latency_wait,
+                ignore_missing_output=ignore_missing_output)
+            self.dag.unshadow_output(job)
+            self.dag.handle_remote(job, upload=upload_remote)
+            self.dag.handle_protected(job)
+            self.dag.handle_temp(job)
+            job.close_remote()
 
         self.stats.report_job_end(job)
         try:
@@ -188,7 +191,8 @@ class RealExecutor(AbstractExecutor):
                                               self.workflow.persistence.path))
 
     def handle_job_error(self, job):
-        job.close_remote()
+        if self.assume_shared_fs:
+            job.close_remote()
 
     def format_job_pattern(self, pattern, job=None, **kwargs):
         overwrite_workdir = []
@@ -367,14 +371,16 @@ class ClusterExecutor(RealExecutor):
                  local_input=None,
                  max_jobs_per_second=None,
                  restart_times=None,
-                 exec_job=None):
+                 exec_job=None,
+                 assume_shared_fs=True):
         local_input = local_input or []
         super().__init__(workflow, dag,
                          printreason=printreason,
                          quiet=quiet,
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
-                         benchmark_repeats=benchmark_repeats)
+                         benchmark_repeats=benchmark_repeats,
+                         assume_shared_fs=assume_shared_fs)
 
         jobscript = workflow.jobscript
         if jobscript is None:
@@ -458,8 +464,9 @@ class ClusterExecutor(RealExecutor):
     def _run(self, job, callback=None, error_callback=None):
         if self.max_jobs_per_second:
             self._limit_rate()
-        job.remove_existing_output()
-        job.download_remote_input()
+        if self.assume_shared_fs:
+            job.remove_existing_output()
+            job.download_remote_input()
         super()._run(job, callback=callback, error_callback=error_callback)
         logger.shellcmd(job.shellcmd)
 
@@ -482,15 +489,17 @@ class ClusterExecutor(RealExecutor):
         return os.path.join(self.tmpdir, f)
 
     def format_job(self, pattern, job, **kwargs):
-        wait_for_files = [self.tmpdir]
-        wait_for_files.extend(job.local_input)
-        wait_for_files.extend(f.local_file()
-                              for f in job.remote_input if not f.stay_on_remote)
+        wait_for_files = []
+        if self.assume_shared_fs:
+            wait_for_files.append(self.tmpdir)
+            wait_for_files.extend(job.local_input)
+            wait_for_files.extend(f.local_file()
+                                  for f in job.remote_input if not f.stay_on_remote)
 
-        if job.shadow_dir:
-            wait_for_files.append(job.shadow_dir)
-        if self.workflow.use_conda and job.conda_env:
-            wait_for_files.append(job.conda_env)
+            if job.shadow_dir:
+                wait_for_files.append(job.shadow_dir)
+            if self.workflow.use_conda and job.conda_env:
+                wait_for_files.append(job.conda_env)
 
         format_p = partial(self.format_job_pattern,
                            job=job,
@@ -925,7 +934,8 @@ class KubernetesExecutor(ClusterExecutor):
                          local_input=local_input,
                          max_jobs_per_second=max_jobs_per_second,
                          restart_times=restart_times,
-                         exec_job=exec_job)
+                         exec_job=exec_job,
+                         assume_shared_fs=False)
         # use relative path to Snakefile
         self.snakefile = os.path.relpath(workflow.snakefile)
 
@@ -1023,7 +1033,7 @@ class KubernetesExecutor(ClusterExecutor):
         # env vars
         container.env = []
         for key, e in self.secret_envvars.items():
-            envvar = kubernetes.client.V1EnvVar(name=key)
+            envvar = kubernetes.client.V1EnvVar(name=e)
             envvar.value_from = kubernetes.client.V1EnvVarSource()
             envvar.value_from.secret_key_ref = kubernetes.client.V1SecretKeySelector(
                 key=key, name=self.run_namespace)
@@ -1031,7 +1041,13 @@ class KubernetesExecutor(ClusterExecutor):
 
         # request resources
         container.resources = kubernetes.client.V1ResourceRequirements()
-        container.resources.requests = {"cpu": job.resources["_cores"]}
+        container.resources.requests = {}
+        # Subtract 1 from the requested number of cores.
+        # The reason is that kubernetes requires some cycles for
+        # maintenance, but won't use a full core for that.
+        # This way, we should be able to saturate the node without exceeding it
+        # too much.
+        container.resources.requests["cpu"] = job.resources["_cores"] - 1
         if "mem_mb" in job.resources:
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"])

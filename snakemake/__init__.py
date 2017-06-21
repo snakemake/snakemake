@@ -840,9 +840,10 @@ def get_argument_parser():
 
     parser.add_argument(
         "--kubernetes", metavar="NAMESPACE",
+        nargs="?", const="default",
         help="Execute workflow in a kubernetes cluster (in the cloud). "
-        "NAMESPACE is the namespace you want to use for your job. "
-        "It has to be configured via kubernetes. "
+        "NAMESPACE is the namespace you want to use for your job (if nothing "
+        "specified: 'default'). "
         "Usually, this requires --default-remote-provider and "
         "--default-remote-prefix to be set to a S3 or GS bucket where your . "
         "data shall be stored. It is further advisable to activate conda "
