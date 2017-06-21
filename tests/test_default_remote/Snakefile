@@ -1,0 +1,40 @@
+rule all:
+    input:
+        "test.3.txt"
+
+
+def check_remote(f):
+    if not f.startswith("test-remote-bucket/"):
+        raise ValueError("Input and output are not remote files.")
+
+
+rule a:
+    input:
+        "test.txt"
+    output:
+        "test.2.txt"
+    run:
+        check_remote(input[0])
+        check_remote(output[0])
+        shell("cp {input} {output}")
+
+rule b:
+    input:
+        "test.2.txt"
+    output:
+        "test.3.txt"
+    run:
+        check_remote(input[0])
+        check_remote(output[0])
+        shell("cp {input} {output}")
+
+
+# after we finish, we need to remove the pickle storing
+# the local moto "buckets" so we are starting fresh
+# next time this test is run. This file is created by
+# the moto wrapper defined in S3Mocked.py
+onsuccess:
+    shell("rm ./motoState.p")
+
+onerror:
+    shell("rm ./motoState.p")

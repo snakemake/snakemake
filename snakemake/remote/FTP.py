@@ -119,12 +119,12 @@ class RemoteObject(DomainObject):
             conn = ftputil.FTPHost(kwargs_to_use["host"], kwargs_to_use["username"], kwargs_to_use["password"], session_factory=ftp_session_factory)
             if self.immediate_close:
                 yield conn
-            else:    
+            else:
                 self.conn = conn
                 yield self.conn
         elif not self.immediate_close:
             yield self.conn
-        
+
         # after returning from the context manager, close the connection if the scope is local
         if self.immediate_close:
             try:

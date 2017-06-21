@@ -524,7 +524,12 @@ def test_ftp_immediate_close():
         pass
 
 def test_issue260():
-    run(dpath("test_issue260"))
+   run(dpath("test_issue260"))
+
+def test_default_remote():
+    run(dpath("test_default_remote"),
+        default_remote_provider="S3Mocked",
+        default_remote_prefix="test-remote-bucket")
 
 if __name__ == '__main__':
     import nose

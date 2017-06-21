@@ -23,7 +23,7 @@ try:
     from moto import mock_s3
     import filechunkio
 except ImportError as e:
-    raise WorkflowError("The Python 3 packages 'moto', boto' and 'filechunkio' " + 
+    raise WorkflowError("The Python 3 packages 'moto', boto' and 'filechunkio' " +
         "need to be installed to use S3Mocked remote() file functionality. %s" % e.msg)
 
 def noop():
@@ -33,7 +33,7 @@ def pickled_moto_wrapper(func):
     """
         This is a class decorator that in turn decorates all methods within
         a class to mock out boto calls with moto-simulated ones.
-        Since the moto backends are not presistent across calls by default, 
+        Since the moto backends are not presistent across calls by default,
         the wrapper also pickles the bucket state after each function call,
         and restores it before execution. This way uploaded files are available
         for follow-on tasks. Since snakemake may execute with multiple threads
@@ -73,13 +73,13 @@ def pickled_moto_wrapper(func):
 class RemoteProvider(S3RemoteProvider):
     def __init__(self, *args, **kwargs):
         super(RemoteProvider, self).__init__(*args, **kwargs)
-        
+
 @dec_all_methods(pickled_moto_wrapper, prefix=None)
 class RemoteObject(S3RemoteObject):
-    """ 
+    """
         This is a derivative of the S3 remote provider that mocks
         out boto-based S3 calls using the "moto" Python package.
-        Only the initializer is different; it "uploads" the input 
+        Only the initializer is different; it "uploads" the input
         test file to the moto-simulated bucket at the start.
     """
 

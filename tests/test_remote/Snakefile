@@ -1,6 +1,6 @@
 #import re, os, sys
 
-from S3Mocked import RemoteProvider as S3RemoteProvider
+from snakemake.remote.S3Mocked import RemoteProvider as S3RemoteProvider
 
 S3 = S3RemoteProvider()
 
@@ -25,16 +25,16 @@ rule split:
 
 rule cut:
     input: S3.remote('test-remote-bucket/prefix{split_id,[a-z][a-z]}.txt')
-    output: 
+    output:
         S3.remote('test-remote-bucket/{split_id}_cut.txt')
     shell: 'cut -f 1,2 {input} > {output}'
 
 rule merge:
-    input: 
+    input:
         S3.remote(dynamic('test-remote-bucket/{split_id}_cut.txt'))
-    output: 
+    output:
         S3.remote('test-remote-bucket/out.txt'),
-    run: 
+    run:
         shell('echo {input}; cat {input} > {output}')
 
 # after we finish, we need to remove the pickle storing
@@ -70,17 +70,14 @@ onerror:
 
 # rule cut:
 #     input: remote('test-remote-bucket/prefix{split_id,[a-z][a-z]}.txt', provider=S3Mocked, additional_kwargs={})
-#     output: 
+#     output:
 #         remote('test-remote-bucket/{split_id}_cut.txt', provider=S3Mocked, additional_kwargs={})
 #     shell: 'cut -f 1,2 {input} > {output}'
 
 # rule merge:
-#     input: 
+#     input:
 #         remote(dynamic('test-remote-bucket/{split_id}_cut.txt'), provider=S3Mocked, additional_kwargs={})
-#     output: 
+#     output:
 #         remote('test-remote-bucket/out.txt', provider=S3Mocked, additional_kwargs={}),
-#     run: 
+#     run:
 #         shell('echo {input}; cat {input} > {output}')
-
-
-

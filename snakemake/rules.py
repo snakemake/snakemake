@@ -9,6 +9,7 @@ import sys
 import inspect
 import sre_constants
 from collections import defaultdict, Iterable
+from urllib.parse import urljoin
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
@@ -195,6 +196,7 @@ class Rule:
 
     @benchmark.setter
     def benchmark(self, benchmark):
+        benchmark = self.apply_default_remote(benchmark)
         self._benchmark = IOFile(benchmark, rule=self)
 
     @property
@@ -282,6 +284,13 @@ class Rule:
                         self.name, seen[value], name or idx))
             seen[value] = name or idx
 
+    def apply_default_remote(self, item):
+        if (not is_flagged(item, "remote_object") and
+            self.workflow.default_remote_provider is not None):
+            item = "{}/{}".format(self.workflow.default_remote_prefix, item)
+            return self.workflow.default_remote_provider.remote(item)
+        return item
+
     def _set_inoutput_item(self, item, output=False, name=None):
         """
         Set an item to be input or output.
@@ -293,6 +302,8 @@ class Rule:
         """
         inoutput = self.output if output else self.input
         if isinstance(item, str):
+            item = self.apply_default_remote(item)
+
             # add the rule to the dependencies
             if isinstance(item, _IOFile) and item.rule:
                 self.dependencies[item] = item.rule
@@ -340,6 +351,8 @@ class Rule:
             if name:
                 inoutput.add_name(name)
         elif callable(item):
+            item = self.apply_default_remote(item)
+
             if output:
                 raise SyntaxError(
                     "Only input files can be specified as functions")
@@ -392,6 +405,7 @@ class Rule:
 
     def _set_log_item(self, item, name=None):
         if isinstance(item, str) or callable(item):
+            item = self.apply_default_remote(item)
             self.log.append(IOFile(item,
                                    rule=self) if isinstance(item, str) else
                             item)
