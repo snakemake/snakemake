@@ -19,11 +19,10 @@ from snakemake.exceptions import WorkflowError
 
 try:
     # third-party
-    import boto
+    import boto3
     from moto import mock_s3
-    import filechunkio
 except ImportError as e:
-    raise WorkflowError("The Python 3 packages 'moto', boto' and 'filechunkio' " +
+    raise WorkflowError("The Python 3 packages 'moto' and boto3' " +
         "need to be installed to use S3Mocked remote() file functionality. %s" % e.msg)
 
 def noop():
@@ -89,9 +88,8 @@ class RemoteObject(S3RemoteObject):
         bucket_name = 'test-remote-bucket'
         test_file = "test.txt"
 
-        conn = boto.connect_s3()
-        if bucket_name not in [b.name for b in conn.get_all_buckets()]:
-            conn.create_bucket(bucket_name)
+        s3 = boto3.resource('s3')
+        s3.create_bucket(Bucket=bucket_name)
 
         # "Upload" files that should be in S3 before tests...
         s3c = S3Helper()
