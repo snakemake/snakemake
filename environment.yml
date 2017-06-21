@@ -6,7 +6,7 @@ channels:
 dependencies:
   - python >=3.3
   - boto3
-  - moto
+  - moto >=1.0.1
   - httpretty
   - pyyaml
   - ftputil
