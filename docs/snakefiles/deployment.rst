@@ -51,7 +51,7 @@ Integrated Package Management
 With Snakemake 3.9.0 it is possible to define isolated software environments per rule.
 Upon execution of a workflow, the `Conda package manager <http://conda.pydata.org>`_ is used to obtain and deploy the defined software packages in the specified versions. Packages will be installed into your working directory, without requiring any admin/root priviledges.
 Given that conda is available on your system (see `Miniconda <http://conda.pydata.org/miniconda.html>`_), to use the Conda integration, add the ``--use-conda`` flag to your workflow execution command, e.g. ``snakemake --cores 8 --use-conda``.
-When ``--use-conda`` is activated, Snakemake will automatically create software environments for any used wrapper (see above).
+When ``--use-conda`` is activated, Snakemake will automatically create software environments for any used wrapper (see :ref:`snakefiles-wrappers`).
 Further, you can manually define environments via the ``conda`` directive, e.g.:
 
 .. code-block:: python
@@ -78,7 +78,7 @@ with the following `environment definition <http://conda.pydata.org/docs/using/e
      - r-ggplot2=2.1.0
 
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
-Note that you need to clean up environments manually for now. However, they are lightweight and consist only of symlinks to your central conda installation.
+Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
 
 
 --------------------------------------

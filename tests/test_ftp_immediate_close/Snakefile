@@ -1,0 +1,11 @@
+from snakemake.remote.FTP import RemoteProvider
+FTP = RemoteProvider()
+
+rule a:
+    input:
+        FTP.remote("ftp://ftp.sra.ebi.ac.uk/vol1/ERA651/ERA651425/fastq/RAG16_R1.fastq.gz", immediate_close=True)
+    output:
+        "size.txt"
+    run:
+        shell("du -h {input} > {output}")
+

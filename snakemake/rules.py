@@ -497,7 +497,7 @@ class Rule:
                                   concretize=concretize_iofile,
                                   mapping=mapping)
         except WildcardError as e:
-            raise WorkflowError(
+            raise WildcardError(
                 "Wildcards in input files cannot be "
                 "determined from output files:",
                 str(e), rule=self)
@@ -536,7 +536,7 @@ class Rule:
                                               "output": output,
                                               "threads": resources._cores})
         except WildcardError as e:
-            raise WorkflowError(
+            raise WildcardError(
                 "Wildcards in params cannot be "
                 "determined from output files:",
                 str(e), rule=self)
@@ -575,7 +575,7 @@ class Rule:
                                   wildcards,
                                   concretize=concretize_logfile)
         except WildcardError as e:
-            raise WorkflowError(
+            raise WildcardError(
                 "Wildcards in log files cannot be "
                 "determined from output files:",
                 str(e), rule=self)
@@ -590,7 +590,7 @@ class Rule:
             benchmark = self.benchmark.apply_wildcards(
                 wildcards) if self.benchmark else None
         except WildcardError as e:
-            raise WorkflowError(
+            raise WildcardError(
                 "Wildcards in benchmark file cannot be "
                 "determined from output files:",
                 str(e), rule=self)
@@ -619,7 +619,7 @@ class Rule:
             conda_env = self.conda_env.apply_wildcards(
                 wildcards) if self.conda_env else None
         except WildcardError as e:
-            raise WorkflowError(
+            raise WildcardError(
                 "Wildcards in conda environment file cannot be "
                 "determined from output files:",
                 str(e), rule=self)

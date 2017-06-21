@@ -22,6 +22,15 @@ from snakemake.exceptions import WorkflowError
 import snakemake
 
 
+def simplify_path(path):
+    """Return a simplified version of the given path."""
+    relpath = os.path.relpath(path)
+    if relpath.startswith("../../"):
+        return path
+    else:
+        return relpath
+
+
 def linecount(filename):
     """Return the number of lines of given file.
 

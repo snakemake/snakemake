@@ -1,11 +1,35 @@
+import time
 
 
 rule all:
     input:
-        "test.benchmark.txt"
+        "test.benchmark_shell.txt",
+        "test.benchmark_script.txt",
+        "test.benchmark_run.txt",
+        "test.benchmark_run_shell.txt",
 
-rule:
+
+rule bench_shell:
     benchmark:
-        "{v}.benchmark.txt"
+        "test.benchmark_shell.txt"
     shell:
         "sleep 1"
+
+
+rule bench_script:
+    benchmark:
+        "test.benchmark_script.txt"
+    script: 'script.py'
+
+
+rule bench_run:
+    benchmark:
+        "test.benchmark_run.txt"
+    run:
+        time.sleep(1)
+
+rule bench_run_shell:
+    benchmark:
+        "test.benchmark_run_shell.txt"
+    run:
+        shell("sleep 1")

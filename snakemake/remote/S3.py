@@ -4,19 +4,16 @@ __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
 # built-ins
-import os, re, sys
+import os
+import re
 import math
-import time
 import email.utils
-from time import mktime
-import datetime
 import functools
 import concurrent.futures
 
 # module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
-from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException, S3FileException
-import snakemake.io 
+from snakemake.exceptions import WorkflowError, S3FileException
 
 try:
     # third-party modules
@@ -24,17 +21,29 @@ try:
     from boto.s3.key import Key
     from filechunkio import FileChunkIO
 except ImportError as e:
-    raise WorkflowError("The Python 3 packages 'boto' and 'filechunkio' " + 
+    raise WorkflowError("The Python 3 packages 'boto' and 'filechunkio' " +
         "need to be installed to use S3 remote() file functionality. %s" % e.msg)
 
+
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, **kwargs):
-        super(RemoteProvider, self).__init__(*args, **kwargs)
+    def __init__(self, *args, stay_on_remote=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
 
         self._s3c = S3Helper(*args, **kwargs)
-    
+
     def remote_interface(self):
         return self._s3c
+
+    @property
+    def default_protocol(self):
+        """The protocol that is prepended to the path when no protocol is specified."""
+        return 's3://'
+
+    @property
+    def available_protocols(self):
+        """List of valid protocols for this remote provider."""
+        return ['s3://']
+
 
 class RemoteObject(AbstractRemoteObject):
     """ This is a class to interact with the AWS S3 object store.
@@ -54,13 +63,13 @@ class RemoteObject(AbstractRemoteObject):
         if self._matched_s3_path:
             return self._s3c.exists_in_bucket(self.s3_bucket, self.s3_key)
         else:
-            raise S3FileException("The file cannot be parsed as an s3 path in form 'bucket/key': %s" % self.file())
+            raise S3FileException("The file cannot be parsed as an s3 path in form 'bucket/key': %s" % self.local_file())
 
     def mtime(self):
         if self.exists():
             return self._s3c.key_last_modified(self.s3_bucket, self.s3_key)
         else:
-            raise S3FileException("The file does not seem to exist remotely: %s" % self.file())
+            raise S3FileException("The file does not seem to exist remotely: %s" % self.local_file())
 
     def size(self):
         if self.exists():
@@ -69,13 +78,14 @@ class RemoteObject(AbstractRemoteObject):
             return self._iofile.size_local
 
     def download(self):
-        self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.file())
+        self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.local_file())
+        os.sync() # ensure flush to disk
 
     def upload(self):
         if self.size() > 10 * 1024 * 1024: # S3 complains if multipart uploads are <10MB
-            self._s3c.upload_to_s3_multipart(self.s3_bucket, self.file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
+            self._s3c.upload_to_s3_multipart(self.s3_bucket, self.local_file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
         else:
-            self._s3c.upload_to_s3(self.s3_bucket, self.file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
+            self._s3c.upload_to_s3(self.s3_bucket, self.local_file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
 
     @property
     def list(self):
@@ -85,7 +95,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def _matched_s3_path(self):
-        return re.search("(?P<bucket>[^/]*)/(?P<key>.*)", self.file())
+        return re.search("(?P<bucket>[^/]*)/(?P<key>.*)", self.local_file())
 
     @property
     def s3_bucket(self):
@@ -108,7 +118,8 @@ class RemoteObject(AbstractRemoteObject):
                 self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.file, create_stub_only=True)
         else:
             raise S3FileException("The file to be downloaded cannot be parsed as an s3 path in form 'bucket/key': %s" %
-                                  self.file())
+                                  self.local_file())
+
 
 class S3Helper(object):
 
@@ -118,7 +129,7 @@ class S3Helper(object):
         # AWS_SECRET_ACCESS_KEY
         # Otherwise these values need to be passed in as kwargs
 
-        # allow key_id and secret to be specified with aws_, gs_, or no prefix. 
+        # allow key_id and secret to be specified with aws_, gs_, or no prefix.
         # Standardize to the aws_ prefix expected by boto.
         if "gs_access_key_id" in kwargs:
             kwargs["aws_access_key_id"] = kwargs.pop("gs_access_key_id")
@@ -128,7 +139,7 @@ class S3Helper(object):
             kwargs["aws_access_key_id"] = kwargs.pop("access_key_id")
         if "secret_access_key" in kwargs:
             kwargs["aws_secret_access_key"] = kwargs.pop("secret_access_key")
-        
+
         self.conn = boto.connect_s3(*args, **kwargs)
 
     def upload_to_s3(

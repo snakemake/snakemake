@@ -29,18 +29,18 @@ def get_script(path, prefix=None):
     return path
 
 
-def get_conda_env(path):
-    path = get_path(path)
+def get_conda_env(path, prefix=None):
+    path = get_path(path, prefix=prefix)
     if is_script(path):
         # URLs and posixpaths share the same separator. Hence use posixpath here.
         path = posixpath.dirname(path)
     return path + "/environment.yaml"
 
 
-def wrapper(path, input, output, params, wildcards, threads, resources, log, config, rulename, conda_env, prefix):
+def wrapper(path, input, output, params, wildcards, threads, resources, log, config, rulename, conda_env, bench_record, prefix):
     """
     Load a wrapper from https://bitbucket.org/snakemake/snakemake-wrappers under
     the given path + wrapper.py and execute it.
     """
     path = get_script(path, prefix=prefix)
-    script(path, "", input, output, params, wildcards, threads, resources, log, config, rulename, conda_env)
+    script(path, "", input, output, params, wildcards, threads, resources, log, config, rulename, conda_env, bench_record)

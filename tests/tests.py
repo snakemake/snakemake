@@ -367,6 +367,12 @@ def test_conda():
         run(dpath("test_conda"), use_conda=True)
 
 
+def test_conda_custom_prefix():
+    if conda_available():
+        run(dpath("test_conda_custom_prefix"),
+            use_conda=True, conda_prefix="custom")
+
+
 def test_wrapper():
     if conda_available():
         run(dpath("test_wrapper"), use_conda=True)
@@ -416,6 +422,25 @@ def test_static_remote():
     except ImportError:
         pass
 
+def test_remote_ncbi_simple():
+    try:
+        import Bio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_remote_ncbi_simple"))
+    except ImportError:
+        pass
+
+def test_remote_ncbi():
+    try:
+        import Bio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_remote_ncbi"))
+    except ImportError:
+        pass
 
 def test_deferred_func_eval():
     run(dpath("test_deferred_func_eval"))
@@ -484,6 +509,22 @@ def test_restartable_job_qsub_exit_1():
 def test_threads():
     run(dpath("test_threads"), cores=20)
 
+
+def test_dynamic_temp():
+    run(dpath("test_dynamic_temp"))
+
+def test_ftp_immediate_close():
+    try:
+        import ftputil
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_ftp_immediate_close"))
+    except ImportError:
+        pass
+
+def test_issue260():
+    run(dpath("test_issue260"))
 
 if __name__ == '__main__':
     import nose

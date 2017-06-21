@@ -208,7 +208,7 @@ Further, a rule can be given a number of threads to use, i.e.
 Snakemake can alter the number of cores available based on command line options. Therefore it is useful to propagate it via the built in variable ``threads`` rather than hardcoding it into the shell command.
 In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``). On a cluster node, Snakemake uses as many cores as available on that node. Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node. Note: This behavior is not affected by ``--local-cores``, which only applies to jobs running on the master node.
 
-Starting from version 3.7, threads can also be a callable that returns an ``int`` value. It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
+Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards, [input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
 
 
 .. _snakefiles-resources:
@@ -352,7 +352,9 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
 
 to get the same effect as above. Note that in contrast to the ``input`` directive, the
 ``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, ``threads``, and ``resources``.
-Here, this allows you to derive the prefix name from the output file.
+From the Python perspective, they can be seen as optional keyword arguments without a default value.
+Their order does not matter, apart from the fact that ``wildcards`` has to be the first argument.
+In the example above, this allows you to derive the prefix name from the output file.
 
 
 .. _snakefiles-external_scripts:
@@ -376,9 +378,11 @@ A rule can also point to an external script instead of a shell command or inline
 
 The script path is always relative to the Snakefile (in contrast to the input and output file paths, which are relative to the working directory).
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
-Apart from Python scripts, this mechanism also allows you to integrate R_ scripts with Snakemake, e.g.
+
+Apart from Python scripts, this mechanism also allows you to integrate R_ and R Markdown_ scripts with Snakemake, e.g.
 
 .. _R: https://www.r-project.org
+.. _Markdown: http://rmarkdown.rstudio.com
 
 .. code-block:: python
 
@@ -418,6 +422,55 @@ An equivalent script written in R would look like this:
 To debug R scripts, you can save the workspace with ``save.image()``, and invoke R after Snakemake has terminated. Then you can use the usual R debugging facilities while having access to the ``snakemake`` variable.
 It is best practice to wrap the actual code into a separate function. This increases the portability if the code shall be invoked outside of Snakemake or from a different rule.
 
+An R Markdown file can be integrated in the same way as R and Python scripts, but only a single output (html) file can be used:
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/report.html",
+        script:
+            "path/to/report.Rmd"
+
+In the R Markdown file you can insert output from a R command, and access variables stored in the S4 object named ``snakemake``
+
+.. code-block:: R
+
+    ---
+    title: "Test Report"
+    author:
+        - "Your Name"
+    date: "`r format(Sys.time(), '%d %B, %Y')`"
+    params:
+       rmd: "report.Rmd"
+    output:
+      html_document:
+      highlight: tango
+      number_sections: no
+      theme: default
+      toc: yes
+      toc_depth: 3
+      toc_float:
+        collapsed: no
+        smooth_scroll: yes
+    ---
+
+    ## R Markdown
+
+    This is an R Markdown document.
+
+    Test include from snakemake `r snakemake@input`.
+
+    ## Source
+    <a download="report.Rmd" href="`r base64enc::dataURI(file = params$rmd, mime = 'text/rmd', encoding = 'base64')`">R Markdown source file (to produce this document)</a>
+
+A link to the R Markdown document with the snakemake object can be inserted. Therefore a variable called ``rmd`` needs to be added to the ``params`` section in the header of the ``report.Rmd`` file. The generated R Markdown file with snakemake object will be saved in the file specified in this ``rmd`` variable. This file can be embedded into the HTML document using base64 encoding and a link can be inserted as shown in the example above.
+Also other input and output files can be embedded in this way to make a portable report. Note that the above method with a data URI only works for small files. An experimental technology to embed larger files is using Javascript Blob object_.
+
+.. _object https://developer.mozilla.org/en-US/docs/Web/API/Blob
 
 Protected and Temporary Files
 -----------------------------
@@ -427,9 +480,12 @@ A particular output file may require a huge amount of computation time. Hence on
 .. code-block:: python
 
     rule NAME:
-        input: "path/to/inputfile", "path/to/other/inputfile"
-        output: protected("path/to/outputfile"), "path/to/another/outputfile"
-        shell: "somecommand --threads {threads} {input} {output}"
+        input:
+            "path/to/inputfile"
+        output:
+            protected("path/to/outputfile")
+        shell:
+            "somecommand {input} {output}"
 
 A protected file will be write-protected after the rule that produces it is completed.
 
@@ -438,9 +494,32 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
 .. code-block:: python
 
     rule NAME:
-        input: "path/to/inputfile", "path/to/other/inputfile"
-        output: temp("path/to/outputfile"), "path/to/another/outputfile"
-        shell: "somecommand --threads {threads} {input} {output}"
+        input:
+            "path/to/inputfile"
+        output:
+            temp("path/to/outputfile")
+        shell:
+            "somecommand {input} {output}"
+
+Ignoring timestamps
+-------------------
+
+For determining whether output files have to be re-created, Snakemake checks whether the file modification date (i.e. the timestamp) of any input file of the same job is newer than the timestamp of the output file.
+This behavior can be overridden by marking an input file as ``ancient``.
+The timestamp of such files is ignored and always assumed to be older than any of the output files:
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            ancient("path/to/inputfile")
+        output:
+            "path/to/outputfile"
+        shell:
+            "somecommand {input} {output}"
+
+Here, this means that the file ``path/to/outputfile`` will not be triggered for re-creation after it has been generated once, even when the input file is modified in the future.
+Note that any flag that forces re-creation of files still also applies to files marked as ``ancient``.
 
 Shadow rules
 ------------
@@ -574,6 +653,8 @@ Note that the function will be executed when the rule is evaluated and before th
 
 Finally, when implementing the input function, it is best practice to make sure that it can properly handle all possible wildcard values your rule can have.
 In particular, input files should not be combined with very general rules that can be applied to create almost any file: Snakemake will try to apply the rule, and will report the exceptions of your input function as errors.
+
+For a practical example, see the :ref:`tutorial` (:ref:`tutorial-input_functions`).
 
 .. _snakefiles-unpack:
 
@@ -803,6 +884,13 @@ With the `benchmark` keyword, a rule can be declared to store a benchmark of its
             "somecommand {input} {output}"
 
 benchmarks the CPU and wall clock time of the command ``somecommand`` for the given output and input files.
-For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark txt file (which will contain a tab-separated table of run times). Per default, Snakemake executes the job once, generating one run time.
+For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark txt file (which will contain a tab-separated table of run times and memory usage in MiB).
+Per default, Snakemake executes the job once, generating one run time.
 With ``snakemake --benchmark-repeats``, this number can be changed to e.g. generate timings for two or three runs.
 The resulting txt file can be used as input for other rules, just like any other output file.
+
+.. note::
+
+    Note that benchmarking is only possible in a reliable fashion for subprocesses (thus for tasks run through the ``shell``, ``script``, and ``wrapper`` directive).
+    In the ``run`` block, the variable ``bench_record`` is available that you can pass to ``shell()`` as ``bench_record=bench_record``.
+    When using ``shell(..., bench_record=bench_record)``, the maximum of all measurements of all ``shell()`` calls will be used but the running time of the rule execution including any Python code.

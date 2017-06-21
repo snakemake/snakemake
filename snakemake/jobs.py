@@ -3,17 +3,19 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import hashlib
 import os
 import sys
 import base64
 import tempfile
 import subprocess
-import json
 
 from collections import defaultdict
 from itertools import chain
 from functools import partial
 from operator import attrgetter
+from urllib.request import urlopen
+from urllib.parse import urlparse
 
 from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard, lstat
 from snakemake.utils import format, listfiles
@@ -143,32 +145,30 @@ class Job:
     @property
     def conda_env_file(self):
         if self._conda_env_file is None:
-            self._conda_env_file = self.rule.expand_conda_env(self.wildcards_dict)
+            expanded_env = self.rule.expand_conda_env(self.wildcards_dict)
+            scheme, _, path, *_ = urlparse(expanded_env)
+            # Normalize 'file:///my/path.yml' to '/my/path.yml'
+            if scheme == 'file' or not scheme:
+                self._conda_env_file = path
+            else:
+                self._conda_env_file = expanded_env
         return self._conda_env_file
 
     @property
     def conda_env(self):
         if self.conda_env_file:
+            if self._conda_env is None:
+                self._conda_env = self.dag.conda_envs.get(self.conda_env_file)
             logger.debug("Accessing conda environment {}.".format(self._conda_env))
             if self._conda_env is None:
-                raise ValueError("create_conda_env() must be called before calling conda_env")
-            return self._conda_env
+                raise ValueError("Conda environment {} not found in DAG.".format(self.conda_env_file))
+            return self._conda_env.path
         return None
-
-    def create_conda_env(self):
-        """Create conda environment if specified."""
-        if self.conda_env_file:
-            try:
-                self._conda_env = conda.create_env(self)
-                logger.debug("Conda environment {} created.".format(self._conda_env))
-            except CreateCondaEnvironmentException as e:
-                raise WorkflowError(e, rule=self.rule)
 
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""
         if self.conda_env_file:
-            self.create_conda_env()
-            return conda.archive_env(self)
+            return self.conda_env.create_archive()
         return None
 
     @property
@@ -452,6 +452,10 @@ class Job:
                 #No file == no problem
                 pass
 
+    def download_remote_input(self):
+        for f in self.files_to_download:
+            f.download_from_remote()
+
     def prepare(self):
         """
         Prepare execution of job.
@@ -475,8 +479,7 @@ class Job:
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
-        for f in self.files_to_download:
-            f.download_from_remote()
+        self.download_remote_input()
 
         for f in self.log:
             f.prepare()
@@ -525,8 +528,11 @@ class Job:
         """ Cleanup output files. """
         to_remove = [f for f in self.expanded_output if f.exists]
 
-        to_remove.extend([f for f in self.remote_input if f.exists])
-        to_remove.extend([f for f in self.remote_output if f.exists_local])
+        to_remove.extend([f for f in self.remote_input if f.exists_local])
+        to_remove.extend([
+            f for f in self.remote_output
+            if (f.exists_remote if (f.is_remote and f.should_stay_on_remote) else f.exists_local)
+        ])
         if to_remove:
             logger.info("Removing output files of failed job {}"
                         " since they might be corrupted:\n{}".format(
@@ -539,7 +545,7 @@ class Job:
     @property
     def empty_remote_dirs(self):
         for f in (set(self.output) | set(self.input)):
-            if f.is_remote:
+            if f.is_remote and not f.should_stay_on_remote:
                 if os.path.exists(os.path.dirname(f)) and not len(os.listdir(
                         os.path.dirname(f))):
                     yield os.path.dirname(f)
@@ -586,7 +592,9 @@ class Job:
             "local": self.dag.workflow.is_local(self.rule),
             "input": self.input,
             "output": self.output,
+            "wildcards": self.wildcards,
             "params": params,
+            "log": self.log,
             "threads": self.threads,
             "resources": resources,
             "jobid": self.dag.jobid(self)

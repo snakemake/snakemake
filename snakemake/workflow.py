@@ -44,6 +44,7 @@ class Workflow:
                  config_args=None,
                  debug=False,
                  use_conda=False,
+                 conda_prefix=None,
                  mode=Mode.default,
                  wrapper_prefix=None,
                  printshellcmds=False,
@@ -82,6 +83,7 @@ class Workflow:
         self.debug = debug
         self._rulecount = 0
         self.use_conda = use_conda
+        self.conda_prefix = conda_prefix
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
@@ -200,6 +202,7 @@ class Workflow:
                 printrulegraph=False,
                 printd3dag=False,
                 drmaa=None,
+                drmaa_log_dir=None,
                 stats=None,
                 force_incomplete=False,
                 ignore_incomplete=False,
@@ -312,6 +315,7 @@ class Workflow:
         self.persistence = Persistence(
             nolock=nolock,
             dag=dag,
+            conda_prefix=self.conda_prefix,
             warn_only=dryrun or printrulegraph or printdag or summary or archive or
             list_version_changes or list_code_changes or list_input_changes or
             list_params_changes)
@@ -437,8 +441,8 @@ class Workflow:
         if not keep_shadow:
             self.persistence.cleanup_shadow()
 
-        if not dryrun and self.use_conda:
-            dag.create_conda_envs()
+        if self.use_conda:
+            dag.create_conda_envs(dryrun=dryrun)
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
@@ -452,6 +456,7 @@ class Workflow:
                                  quiet=quiet,
                                  keepgoing=keepgoing,
                                  drmaa=drmaa,
+                                 drmaa_log_dir=drmaa_log_dir,
                                  printreason=printreason,
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
@@ -459,7 +464,7 @@ class Workflow:
                                  greediness=greediness,
                                  force_use_threads=force_use_threads)
 
-        if not dryrun and not quiet:
+        if not dryrun:
             if len(dag):
                 if cluster or cluster_sync or drmaa:
                     logger.resources_info(
@@ -491,7 +496,7 @@ class Workflow:
 
         if success:
             if dryrun:
-                if not quiet and len(dag):
+                if len(dag):
                     logger.run_info("\n".join(dag.stats()))
             elif stats:
                 scheduler.stats.to_json(stats)
@@ -652,7 +657,8 @@ class Workflow:
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
             if ruleinfo.wrapper:
-                rule.conda_env = snakemake.wrapper.get_conda_env(ruleinfo.wrapper)
+                rule.conda_env = snakemake.wrapper.get_conda_env(
+                    ruleinfo.wrapper, prefix=self.wrapper_prefix)
             if ruleinfo.conda_env:
                 if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
                     raise RuleException("Conda environments are only allowed "

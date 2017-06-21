@@ -18,7 +18,7 @@ from snakemake.utils import listfiles
 
 
 class Persistence:
-    def __init__(self, nolock=False, dag=None, warn_only=False):
+    def __init__(self, nolock=False, dag=None, conda_prefix=None, warn_only=False):
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
             os.mkdir(self.path)
@@ -38,15 +38,20 @@ class Persistence:
         self._params_path = os.path.join(self.path, "params_tracking")
         self._shellcmd_path = os.path.join(self.path, "shellcmd_tracking")
         self.shadow_path = os.path.join(self.path, "shadow")
-        self.conda_env_path = os.path.join(self.path, "conda")
         self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
 
         for d in (self._incomplete_path, self._version_path, self._code_path,
                   self._rule_path, self._input_path, self._log_path, self._params_path,
-                  self._shellcmd_path, self.shadow_path, self.conda_env_path,
-                  self.conda_env_archive_path):
+                  self._shellcmd_path, self.shadow_path, self.conda_env_archive_path):
             if not os.path.exists(d):
                 os.mkdir(d)
+
+        if conda_prefix is None:
+            self.conda_env_path = os.path.join(self.path, "conda")
+        else:
+            self.conda_env_path = os.path.abspath(os.path.expanduser(conda_prefix))
+
+        os.makedirs(self.conda_env_path, exist_ok=True)
 
         if nolock:
             self.lock = self.noop
