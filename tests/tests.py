@@ -534,6 +534,9 @@ def test_default_remote():
 def test_run_namedlist():
     run(dpath("test_run_namedlist"))
 
+def test_remote_gs():
+    run(dpath("test_remote_gs"))
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
