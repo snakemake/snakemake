@@ -1,16 +1,18 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2017, Johannes Köster, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
 import email
 import os
+import re
 
-# module-specific
-from snakemake.remote.S3 import RemoteObject, RemoteProvider as S3RemoteProvider
-
+from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.exceptions import WorkflowError
+from snakemake.common import lazy_property
 
 try:
+    import google.cloud
     from google.cloud import storage
 except ImportError as e:
     raise WorkflowError("The Python 3 package 'google-cloud-sdk' "
@@ -46,14 +48,10 @@ class RemoteObject(AbstractRemoteObject):
         else:
             self.client = storage.Client(*args, **kwargs)
 
-        m = re.search("(?P<bucket>[^/]*)/(?P<key>.*)", self.local_file())
-        if len(m.groups()) != 2:
-            raise WorkflowError("GS remote file {} does not have the form "
-                "<bucket>/<key>.".format(self.local_file()))
-        self.key = m.group("key")
-        self.bucket_name = m.group("bucket")
-        self.bucket = self.client.bucket(self.bucket_name)
-        self.blob = self.bucket.blob(self.key)
+        self._key = None
+        self._bucket_name = None
+        self._bucket = None
+        self._blob = None
 
     # === Implementations of abstract class members ===
 
@@ -62,6 +60,7 @@ class RemoteObject(AbstractRemoteObject):
 
     def mtime(self):
         if self.exists():
+            self.update_blob()
             t = self.blob.updated
             # email.utils parsing of timestamp mirrors boto whereas
             # time.strptime() can have TZ issues due to DST
@@ -73,20 +72,56 @@ class RemoteObject(AbstractRemoteObject):
 
     def size(self):
         if self.exists():
+            self.update_blob()
             return self.blob.size // 1024
         else:
             return self._iofile.size_local
 
     def download(self):
         if self.exists():
-            self.blob.download_to_file(self.local_file())
+            os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
+            self.blob.download_to_filename(self.local_file())
             os.sync()
             return self.local_file()
         return None
 
     def upload(self):
+        try:
+            self.bucket.create()
+            self.update_blob()
+        except google.cloud.exceptions.Conflict:
+            # if the bucket exists, we are fine
+            pass
         self.blob.upload_from_filename(self.local_file())
 
     @property
     def list(self):
         return [k.name for k in self.bucket.list_blobs()]
+
+    # ========= Helpers ===============
+
+    def update_blob(self):
+        self._blob = self.bucket.get_blob(self.key)
+
+    @lazy_property
+    def bucket(self):
+        return self.client.bucket(self.bucket_name)
+
+    @lazy_property
+    def blob(self):
+        return self.bucket.blob(self.key)
+
+    @lazy_property
+    def bucket_name(self):
+        return self.parse().group("bucket")
+
+    @lazy_property
+    def key(self):
+        return self.parse().group("key")
+
+    def parse(self):
+        m = re.search("(?P<bucket>[^/]*)/(?P<key>.*)", self.local_file())
+        if len(m.groups()) != 2:
+            raise WorkflowError("GS remote file {} does not have the form "
+                "<bucket>/<key>.".format(self.local_file()))
+        return m
