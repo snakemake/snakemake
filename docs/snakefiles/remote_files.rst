@@ -116,6 +116,9 @@ executing Snakemake, i.e.:
 
 .. code-block:: console
 
+    $ gcloud auth application-default login
+
+In the Snakefile, no additional authentication information has to be provided:
 
 .. code-block:: python
 
