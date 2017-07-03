@@ -159,7 +159,7 @@ class _IOFile(str):
             logger.warning("File path '{}' contains line break. "
                 "This is likely unintended. {}".format(self._file, hint))
         if "{0}{0}".format(os.path.sep) in self._file:
-            logger.warning("File path {} contains double '{}'.
+            logger.warning("File path {} contains double '{}'. "
                 "This is likely unintended. {}".format(
                     self._file, os.path.sep, hint))
 
