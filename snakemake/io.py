@@ -158,7 +158,7 @@ class _IOFile(str):
         if "\n" in self._file:
             logger.warning("File path '{}' contains line break. "
                 "This is likely unintended. {}".format(self._file, hint))
-        if "{0}{0}".format(os.path.sep) in self._file:
+        if _double_slash_regex.search(self._file) is not None:
             logger.warning("File path {} contains double '{}'. "
                 "This is likely unintended. {}".format(
                     self._file, os.path.sep, hint))
@@ -353,6 +353,11 @@ class _IOFile(str):
 
     def __hash__(self):
         return self._file.__hash__()
+
+
+_double_slash_regex = (re.compile(r"([^:]//|^//)")
+                       if os.path.sep == "/"
+                       else re.compile(r"\\\\"))
 
 
 _wildcard_regex = re.compile(
