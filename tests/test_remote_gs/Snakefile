@@ -1,9 +1,8 @@
 from snakemake.remote import GS
-GS = GS.RemoteProvider()
-
-
 import google.auth
 try:
+    GS = GS.RemoteProvider()
+
     rule copy:
         input:
             GS.remote("gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt")
@@ -14,4 +13,3 @@ try:
 except google.auth.exceptions.DefaultCredentialsError:
     # ignore the test if not authenticated
     print("skipping test_remote_gs because we are not authenticated with gcloud")
-
