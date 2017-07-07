@@ -535,7 +535,12 @@ def test_run_namedlist():
     run(dpath("test_run_namedlist"))
 
 def test_remote_gs():
-    run(dpath("test_remote_gs"))
+    import google.auth
+    try:
+        run(dpath("test_remote_gs"))
+    except google.auth.exceptions.DefaultCredentialsError:
+        # ignore the test if not authenticated
+        pass
 
 if __name__ == '__main__':
     import nose
