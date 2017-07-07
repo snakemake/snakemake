@@ -851,15 +851,6 @@ def get_argument_parser():
     parser.add_argument(
         "--kubernetes-env", nargs="+", metavar="ENVVAR", default=[],
         help="Specify environment variables to pass to the kubernetes job.")
-    parser.add_argument("--default-remote-provider",
-                        help="Specify default remote provider to be used for "
-                        "all input and output files that don't yet specify "
-                        "one.")
-    parser.add_argument("--default-remote-prefix",
-                        default="",
-                        help="Specify prefix for default remote provider. E.g. "
-                        "a bucket name.")
-
     parser.add_argument("--reason", "-r",
                         action="store_true",
                         help="Print the reason for each executed rule.")
@@ -1050,6 +1041,15 @@ def get_argument_parser():
         "https://bitbucket.org/snakemake/snakemake-wrappers/raw/). Set this to "
         "a different URL to use your fork or a local clone of the repository."
     )
+    parser.add_argument("--default-remote-provider",
+                        choices=["S3", "GS", "SFTP", "S3Mocked"],
+                        help="Specify default remote provider to be used for "
+                        "all input and output files that don't yet specify "
+                        "one.")
+    parser.add_argument("--default-remote-prefix",
+                        default="",
+                        help="Specify prefix for default remote provider. E.g. "
+                        "a bucket name.")
     parser.add_argument("--version", "-v",
                         action="version",
                         version=__version__)

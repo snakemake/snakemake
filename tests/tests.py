@@ -531,6 +531,9 @@ def test_default_remote():
         default_remote_provider="S3Mocked",
         default_remote_prefix="test-remote-bucket")
 
+def test_run_namedlist():
+    run(dpath("test_run_namedlist"))
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
