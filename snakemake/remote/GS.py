@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2017, Johannes Köster, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import email
 import os
 import re
 
@@ -62,11 +61,7 @@ class RemoteObject(AbstractRemoteObject):
         if self.exists():
             self.update_blob()
             t = self.blob.updated
-            # email.utils parsing of timestamp mirrors boto whereas
-            # time.strptime() can have TZ issues due to DST
-            modified_tuple = email.utils.parsedate_tz(t)
-            epoch_time = int(email.utils.mktime_tz(modified_tuple))
-            return epoch_time
+            return t.timestamp()
         else:
             raise WorkflowError("The file does not seem to exist remotely: %s" % self.local_file())
 
