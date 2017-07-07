@@ -141,18 +141,27 @@ class _IOFile(str):
                              "may not be used directly.")
 
     def check(self):
+        hint = (
+            "It can also lead to inconsistent results of the file-matching "
+            "approach used by Snakemake."
+        )
         if self._file.startswith("./"):
             logger.warning("Relative file path '{}' starts with './'. This is redundant "
-                           "and strongly discouraged. It can also lead to "
-                           "inconsistent results of the file-matching approach "
-                           "used by Snakemake. You can simply omit the './' "
-                           "for relative file paths.".format(self._file))
+                           "and strongly discouraged. {} You can simply omit the './' "
+                           "for relative file paths.".format(self._file, hint))
         if self._file.startswith(" "):
-            logger.warning("File path '{}' starts with whitespace. This is likely unintended.")
+            logger.warning("File path '{}' starts with whitespace. "
+                "This is likely unintended. {}".format(self._file, hint))
         if self._file.endswith(" "):
-            logger.warning("File path '{}' ends with whitespace. This is likely unintended.")
+            logger.warning("File path '{}' ends with whitespace. "
+                "This is likely unintended. {}".format(self._file, hint))
         if "\n" in self._file:
-            logger.warning("File path '{}' contains line break. This is likely unintended.")
+            logger.warning("File path '{}' contains line break. "
+                "This is likely unintended. {}".format(self._file, hint))
+        if "{0}{0}".format(os.path.sep) in self._file:
+            logger.warning("File path {} contains double '{}'. "
+                "This is likely unintended. {}".format(
+                    self._file, os.path.sep, hint))
 
     @property
     @_refer_to_remote

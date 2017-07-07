@@ -1,5 +1,9 @@
 # Change Log
 
+## [3.13.3] - 2017-06-23
+### Changed
+- Fix a followup bug in Namedlist where a single item was not returned as string.
+
 ## [3.13.2] - 2017-06-20
 ### Changed
 - The --wrapper-prefix flag now also affects where the corresponding environment definition is fetched from.
