@@ -540,7 +540,7 @@ def test_remote_gs():
         run(dpath("test_remote_gs"))
     except google.auth.exceptions.DefaultCredentialsError:
         # ignore the test if not authenticated
-        pass
+        print("skipping test_remote_gs because we are not authenticated with gcloud")
 
 if __name__ == '__main__':
     import nose
