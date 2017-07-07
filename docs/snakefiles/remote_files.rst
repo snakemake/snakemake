@@ -110,15 +110,20 @@ The remote provider also supports a new ``glob_wildcards()`` (see :ref:`glob-wil
 Google Cloud Storage (GS)
 =========================
 
-Using Google Cloud Storage (GS) is a simple import change, though since GS support it is based on boto, GS must be accessed via Google's "`interoperable <https://cloud.google.com/storage/docs/interoperability>`_" credentials.
 Usage of the GS provider is the same as the S3 provider.
-You may specify credentials as environment variables in the file ``=/.aws/credentials``, prefixed with ``AWS_*``, as with a standard `boto config <http://boto.readthedocs.org/en/latest/boto_config_tut.html>`_, or explicitly in the ``Snakefile``.
+For authentication, one simply needs to login via the ``gcloud`` tool before
+executing Snakemake, i.e.:
 
+.. code-block:: console
+
+    $ gcloud auth application-default login
+
+In the Snakefile, no additional authentication information has to be provided:
 
 .. code-block:: python
 
     from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
-    GS = GSRemoteProvider(access_key_id="MYACCESSKEY", secret_access_key="MYSECRET")
+    GS = GSRemoteProvider()
 
     rule all:
         input:
@@ -463,7 +468,7 @@ Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.ni
         run:
             shell("wc -c {input} > {output}")
 
-The output format and source database of a record retrieved from GenBank is inferred from the file extension specified. For example, ``NCBI.RemoteProvider().remote("KY785484.1.fasta", db="nuccore")`` will download a FASTA file while ``NCBI.RemoteProvider().remote("KY785484.1.gb", db="nuccore")`` will download a GenBank-format file. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible format choices. To see available formats, consult the 
+The output format and source database of a record retrieved from GenBank is inferred from the file extension specified. For example, ``NCBI.RemoteProvider().remote("KY785484.1.fasta", db="nuccore")`` will download a FASTA file while ``NCBI.RemoteProvider().remote("KY785484.1.gb", db="nuccore")`` will download a GenBank-format file. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible format choices. To see available formats, consult the
 in a variety of `Entrez EFetch documentation <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`_. To view the valid file extensions for these formats, access ``NCBI.RemoteProvider()._gb.valid_extensions``, or instantiate an ``NCBI.NCBIHelper()`` and access ``NCBI.NCBIHelper().valid_extensions`` (this is a property).
 
 When used in conjunction with ``NCBI.RemoteProvider().search()``, Snakemake and ``NCBI.RemoteProvider().remote()`` can be used to find accessions by query and download them:
@@ -478,8 +483,8 @@ When used in conjunction with ``NCBI.RemoteProvider().search()``, Snakemake and 
     query = '"Zika virus"[Organism] AND (("9000"[SLEN] : "20000"[SLEN]) AND ("2017/03/20"[PDAT] : "2017/03/24"[PDAT])) '
     accessions = NCBI.search(query, retmax=3)
 
-    # give the accessions a file extension to help the RemoteProvider determine the 
-    # proper output type. 
+    # give the accessions a file extension to help the RemoteProvider determine the
+    # proper output type.
     input_files = expand("{acc}.fasta", acc=accessions)
 
     rule all:
