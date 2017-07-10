@@ -65,7 +65,8 @@ Then, run
 
     $ gcloud init
 
-to setup your access. Then, you can create a new kubernetes cluster via
+to setup your access. 
+Then, you can create a new kubernetes cluster via
 
 .. code-block:: console
 
@@ -78,11 +79,6 @@ nodes. Next, you configure Kubernetes to use the new cluster via
 
     $ CLOUDSDK_CONTAINER_USE_CLIENT_CERTIFICATE=True gcloud container clusters get-credentials $CLUSTER_NAME
 
-Finally, setup your access to cloud storage via
-
-.. code-block:: console
-
-    $ gcloud auth application-default login
 
 Now, Snakemake is ready to use your cluster.
 
