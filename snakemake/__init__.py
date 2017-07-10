@@ -18,7 +18,7 @@ from functools import partial
 import importlib
 
 from snakemake.workflow import Workflow
-from snakemake.exceptions import print_exception
+from snakemake.exceptions import print_exception, WorkflowError
 from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
 from snakemake.io import load_configfile
@@ -317,21 +317,22 @@ def snakemake(snakefile,
         workdir = os.path.abspath(workdir)
         os.chdir(workdir)
 
-    # handle default remote provider
-    _default_remote_provider = None
-    if default_remote_provider is not None:
-        try:
-            rmt = importlib.import_module("snakemake.remote." +
-                                          default_remote_provider)
-        except ImportError as e:
-            raise WorkflowError("Unknown default remote provider.")
-        if rmt.RemoteProvider.supports_default:
-            _default_remote_provider = rmt.RemoteProvider()
-        else:
-            raise WorkflowError("Remote provider {} does not (yet) support to "
-                                "be used as default provider.")
+    try:
+        # handle default remote provider
+        _default_remote_provider = None
+        if default_remote_provider is not None:
+            try:
+                rmt = importlib.import_module("snakemake.remote." +
+                                              default_remote_provider)
+            except ImportError as e:
+                raise WorkflowError("Unknown default remote provider.")
+            if rmt.RemoteProvider.supports_default:
+                _default_remote_provider = rmt.RemoteProvider()
+            else:
+                raise WorkflowError("Remote provider {} does not (yet) support to "
+                                    "be used as default provider.")
 
-    workflow = Workflow(snakefile=snakefile,
+        workflow = Workflow(snakefile=snakefile,
                         jobscript=jobscript,
                         overwrite_shellcmd=overwrite_shellcmd,
                         overwrite_config=overwrite_config,
@@ -348,8 +349,7 @@ def snakemake(snakefile,
                         restart_times=restart_times,
                         default_remote_provider=_default_remote_provider,
                         default_remote_prefix=default_remote_prefix)
-    success = True
-    try:
+        success = True
         workflow.include(snakefile,
                          overwrite_first_rule=True,
                          print_compilation=print_compilation)
@@ -1042,7 +1042,7 @@ def get_argument_parser():
         "a different URL to use your fork or a local clone of the repository."
     )
     parser.add_argument("--default-remote-provider",
-                        choices=["S3", "GS", "SFTP", "S3Mocked"],
+                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked"],
                         help="Specify default remote provider to be used for "
                         "all input and output files that don't yet specify "
                         "one.")
