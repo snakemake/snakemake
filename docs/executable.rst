@@ -84,6 +84,14 @@ Next, you configure Kubernetes to use the new cluster via
 
 Now, Snakemake is ready to use your cluster.
 
+**Important:** After finishing your work, do not forget to delete the cluster with
+
+.. code-block:: console
+   
+    $ gcloud container clusters delete $CLUSTER_NAME
+
+in order to avoid unnecessary charges.
+
 
 Executing a Snakemake workflow via kubernetes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
