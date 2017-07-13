@@ -1,8 +1,8 @@
 .. user_manual-snakemake_executable:
 
-========================
-The Snakemake Executable
-========================
+===================
+Executing Snakemake
+===================
 
 This part of the documentation describes the ``snakemake`` executable.  Snakemake
 is primarily a command-line tool, so the ``snakemake`` executable is the primary way
@@ -70,14 +70,16 @@ Then, you can create a new kubernetes cluster via
 
 .. code-block:: console
 
-    $ gcloud container clusters create $CLUSTER_NAME --num-nodes=$NODES
+    $ gcloud container clusters create $CLUSTER_NAME --num-nodes=$NODES --scopes storage-rw
 
 with ``$CLUSTER_NAME`` being the cluster name and ``$NODES`` being the number of cluster
-nodes. Next, you configure Kubernetes to use the new cluster via
+nodes. If you intent to use google storage, make sure that `--scopes storage-rw` is set.
+This enables Snakemake to write to the google storage from within the cloud nodes.
+Next, you configure Kubernetes to use the new cluster via
 
 .. code-block:: console
 
-    $ CLOUDSDK_CONTAINER_USE_CLIENT_CERTIFICATE=True gcloud container clusters get-credentials $CLUSTER_NAME
+    $ gcloud container clusters get-credentials $CLUSTER_NAME
 
 
 Now, Snakemake is ready to use your cluster.
