@@ -104,6 +104,7 @@ def snakemake(snakefile,
               force_use_threads=False,
               use_conda=False,
               conda_prefix=None,
+              create_envs_only=False,
               mode=Mode.default,
               wrapper_prefix=None,
               default_remote_provider=None,
@@ -184,6 +185,7 @@ def snakemake(snakefile,
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
         conda_prefix (str):         the directories in which conda environments will be created (default None)
+        create_envs_only (bool):   If specified, only builds the conda environments specified for each job, then exits.
         mode (snakemake.common.Mode): Execution mode
         wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
         default_remote_provider (str): Default remote provider to use instead of local files (S3, GS)
@@ -340,6 +342,7 @@ def snakemake(snakefile,
                         debug=debug,
                         use_conda=use_conda,
                         conda_prefix=conda_prefix,
+                        create_envs_only=create_envs_only,
                         mode=mode,
                         wrapper_prefix=wrapper_prefix,
                         printshellcmds=printshellcmds,
@@ -408,6 +411,7 @@ def snakemake(snakefile,
                                        force_use_threads=use_threads,
                                        use_conda=use_conda,
                                        conda_prefix=conda_prefix,
+                                       create_envs_only=create_envs_only,
                                        default_remote_provider=default_remote_provider,
                                        default_remote_prefix=default_remote_prefix)
 
@@ -1014,6 +1018,11 @@ def get_argument_parser():
         "If supplied, the `--use-conda` flag must also be set. The value may "
         "be given as a relative path, which will be extrapolated to the "
         "invocation directory, or as an absolute path.")
+    parser.add_argument("--create-envs-only",
+                        action="store_true",
+                        help="If specified, only creates the job-specific "
+                        "conda environments then exits. The `--use-conda` "
+                        "flag must also be set.")
     parser.add_argument(
         "--wrapper-prefix",
         default="https://bitbucket.org/snakemake/snakemake-wrappers/raw/",
@@ -1083,9 +1092,10 @@ def main(argv=None):
             file=sys.stderr)
         sys.exit(1)
 
-    if args.conda_prefix and not args.use_conda:
+    if (args.conda_prefix or args.create_envs_only) and not args.use_conda:
         print(
-            "Error: --use-conda must be set if --conda-prefix is set.",
+            "Error: --use-conda must be set if --conda-prefix or "
+            "--create-emvs-only is set.",
             file=sys.stderr)
         sys.exit(1)
 
@@ -1193,6 +1203,7 @@ def main(argv=None):
                             force_use_threads=args.force_use_threads,
                             use_conda=args.use_conda,
                             conda_prefix=args.conda_prefix,
+                            create_envs_only=args.create_envs_only,
                             mode=args.mode,
                             wrapper_prefix=args.wrapper_prefix,
                             default_remote_provider=args.default_remote_provider,

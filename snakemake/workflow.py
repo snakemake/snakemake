@@ -46,6 +46,7 @@ class Workflow:
                  debug=False,
                  use_conda=False,
                  conda_prefix=None,
+                 create_envs_only=False,
                  mode=Mode.default,
                  wrapper_prefix=None,
                  printshellcmds=False,
@@ -87,6 +88,7 @@ class Workflow:
         self._rulecount = 0
         self.use_conda = use_conda
         self.conda_prefix = conda_prefix
+        self.create_envs_only = create_envs_only
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
@@ -448,6 +450,8 @@ class Workflow:
 
         if self.use_conda:
             dag.create_conda_envs(dryrun=dryrun)
+            if self.create_envs_only:
+                return True
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
