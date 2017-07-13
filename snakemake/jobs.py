@@ -418,7 +418,8 @@ class Job:
 
         for f in self.input:
             if f.is_remote:
-                if not f.exists_local and f.exists_remote:
+                if (not f.exists_local and f.exists_remote) and (
+                    not self.rule.norun or f.remote_object.keep_local):
                     toDownload.add(f)
 
         toDownload = toDownload | self.remote_input_newer_than_local

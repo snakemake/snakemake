@@ -137,6 +137,18 @@ class JobScheduler:
                     cluster_config=cluster_config,
                     max_jobs_per_second=max_jobs_per_second)
         elif kubernetes:
+            workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)),
+                          local_cores)
+            self._local_executor = CPUExecutor(
+                workflow, dag, workers,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                use_threads=use_threads,
+                latency_wait=latency_wait,
+                benchmark_repeats=benchmark_repeats,
+                cores=local_cores)
+
             self._executor = KubernetesExecutor(
                 workflow, dag, kubernetes, kubernetes_envvars,
                 printreason=printreason,
