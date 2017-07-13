@@ -29,6 +29,7 @@ from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.common import DYNAMIC_FILL
 from snakemake import conda
+from snakemake import utils
 
 # Workaround for Py <3.5 prior to existence of RecursionError
 try:
@@ -1178,14 +1179,10 @@ class DAG:
                             archived.add(f)
                             logger.info("archived " + f)
 
-                logger.info("Archiving files under version control...")
-                try:
-                    out = subprocess.check_output(["git", "ls-files", "."])
-                    for f in out.decode().split("\n"):
-                        if f:
-                            add(f)
-                except subprocess.CalledProcessError as e:
-                    raise WorkflowError("Error executing git.")
+                logger.info("Archiving snakefiles, scripts and files under "
+                            "version control...")
+                for f in self.workflow.get_sources():
+                    add(f)
 
                 logger.info("Archiving external input files...")
                 for job in self.jobs:

@@ -1,8 +1,8 @@
 .. user_manual-snakemake_executable:
 
-========================
-The Snakemake Executable
-========================
+===================
+Executing Snakemake
+===================
 
 This part of the documentation describes the ``snakemake`` executable.  Snakemake
 is primarily a command-line tool, so the ``snakemake`` executable is the primary way
@@ -46,6 +46,68 @@ By specifying the number of available cores, i.e.
 
 one can tell Snakemake to use up to 4 cores and solve a binary knapsack problem to optimize the scheduling of jobs.
 If the number is omitted (i.e., only ``-j`` is given), the number of used cores is determined as the number of available CPU cores in the machine.
+
+
+-------------
+Cloud Support
+-------------
+
+Snakemake supports execution in the cloud via Kubernetes. This is independent of
+the cloud provider, but we provide the setup steps for GCE below.
+
+Google cloud engine
+~~~~~~~~~~~~~~~~~~~
+
+First, install the `Google Cloud SDK <https://cloud.google.com/sdk/docs/quickstarts>`_.
+Then, run
+
+.. code-block:: console
+
+    $ gcloud init
+
+to setup your access. 
+Then, you can create a new kubernetes cluster via
+
+.. code-block:: console
+
+    $ gcloud container clusters create $CLUSTER_NAME --num-nodes=$NODES --scopes storage-rw
+
+with ``$CLUSTER_NAME`` being the cluster name and ``$NODES`` being the number of cluster
+nodes. If you intent to use google storage, make sure that `--scopes storage-rw` is set.
+This enables Snakemake to write to the google storage from within the cloud nodes.
+Next, you configure Kubernetes to use the new cluster via
+
+.. code-block:: console
+
+    $ gcloud container clusters get-credentials $CLUSTER_NAME
+
+
+Now, Snakemake is ready to use your cluster.
+
+
+Executing a Snakemake workflow via kubernetes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Assuming that kubernetes has been properly configured (see above), you can
+execute a workflow via:
+
+.. code-block:: console
+
+    snakemake --kubernetes --use-conda --default-remote-provider $REMOTE --default-remote-prefix $PREFIX
+
+In this mode, Snakemake will assume all input and output files to be stored in a given
+remote location, configured by setting ``$REMOTE`` to your provider of choice
+(e.g. ``GS`` for Google cloud storage or ``S3`` for Amazon S3) and ``$PREFIX``
+to a bucket name or subfolder within that remote storage.
+After successful execution, you find your results in the specified remote storage.
+Of course, if any input or output already defines a different remote location, the latter will be used instead.
+
+Sometimes, remote providers need additional credentials. This is, e.g., also the
+case with ``GS``. For example you will have to define environment variables
+``$AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY``. In order to pass these to the
+kubernetes jobs, you can use the flag ``--kubernetes-env``, e.g.:
+
+.. code-block
 
 -----------------
 Cluster Execution

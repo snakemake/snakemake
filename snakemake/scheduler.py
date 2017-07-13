@@ -11,7 +11,9 @@ from collections import defaultdict
 from itertools import chain, accumulate
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
-from snakemake.executors import GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor
+from snakemake.executors import (
+    GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor,
+    KubernetesExecutor)
 
 from snakemake.logging import logger
 
@@ -34,6 +36,8 @@ class JobScheduler:
                  cluster_sync=None,
                  drmaa=None,
                  drmaa_log_dir=None,
+                 kubernetes=None,
+                 kubernetes_envvars=None,
                  jobname=None,
                  quiet=False,
                  printreason=False,
@@ -132,6 +136,28 @@ class JobScheduler:
                     benchmark_repeats=benchmark_repeats,
                     cluster_config=cluster_config,
                     max_jobs_per_second=max_jobs_per_second)
+        elif kubernetes:
+            workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)),
+                          local_cores)
+            self._local_executor = CPUExecutor(
+                workflow, dag, workers,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                use_threads=use_threads,
+                latency_wait=latency_wait,
+                benchmark_repeats=benchmark_repeats,
+                cores=local_cores)
+
+            self._executor = KubernetesExecutor(
+                workflow, dag, kubernetes, kubernetes_envvars,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                benchmark_repeats=benchmark_repeats,
+                cluster_config=cluster_config,
+                max_jobs_per_second=max_jobs_per_second)
         else:
             # local execution or execution of cluster job
             # calculate how many parallel workers the executor shall spawn

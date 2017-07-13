@@ -19,6 +19,9 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
+
+    supports_default = True
+
     def __init__(self, *args, stay_on_remote=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
 
@@ -82,12 +85,20 @@ class RemoteObject(AbstractRemoteObject):
 
     def upload(self):
         try:
-            self.bucket.create()
-            self.update_blob()
-        except google.cloud.exceptions.Conflict:
-            # if the bucket exists, we are fine
-            pass
-        self.blob.upload_from_filename(self.local_file())
+            try:
+                self.bucket.create()
+                self.update_blob()
+            except google.cloud.exceptions.Conflict:
+                # if the bucket exists, we are fine
+                pass
+            self.blob.upload_from_filename(self.local_file())
+        except google.cloud.exceptions.Forbidden as e:
+            raise WorkflowError(e,
+                "When running locally, make sure that you are authenticated "
+                "via gcloud (see Snakemake documentation). When running in a "
+                "kubernetes cluster, make sure that storage-rw is added to "
+                "--scopes (see Snakemake documentation).")
+
 
     @property
     def list(self):
