@@ -1012,7 +1012,7 @@ class KubernetesExecutor(ClusterExecutor):
         # container
         container = kubernetes.client.V1Container()
         # TODO return to master branch (with correct version tag) once merged
-        container.image = "quay.io/snakemake/snakemake:kubernetes-executor"
+        container.image = "quay.io/snakemake/snakemake:4.x"
         container.command = shlex.split(exec_job)
         container.name = jobid
         container.working_dir = "/workdir"
