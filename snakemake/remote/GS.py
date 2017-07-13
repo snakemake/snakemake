@@ -96,7 +96,7 @@ class RemoteObject(AbstractRemoteObject):
             raise WorkflowError(e,
                 "When running locally, make sure that you are authenticated "
                 "via gcloud (see Snakemake documentation). When running in a "
-                "kubernetes cluster, make sure that storage-rw is added to
+                "kubernetes cluster, make sure that storage-rw is added to "
                 "--scopes (see Snakemake documentation).")
 
 
