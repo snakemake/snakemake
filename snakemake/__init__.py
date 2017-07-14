@@ -342,7 +342,6 @@ def snakemake(snakefile,
                         debug=debug,
                         use_conda=use_conda,
                         conda_prefix=conda_prefix,
-                        create_envs_only=create_envs_only,
                         mode=mode,
                         wrapper_prefix=wrapper_prefix,
                         printshellcmds=printshellcmds,
@@ -470,7 +469,8 @@ def snakemake(snakefile,
                     allowed_rules=allowed_rules,
                     greediness=greediness,
                     no_hooks=no_hooks,
-                    force_use_threads=use_threads)
+                    force_use_threads=use_threads,
+                    create_envs_only=create_envs_only)
 
     except BrokenPipeError:
         # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
@@ -1095,7 +1095,7 @@ def main(argv=None):
     if (args.conda_prefix or args.create_envs_only) and not args.use_conda:
         print(
             "Error: --use-conda must be set if --conda-prefix or "
-            "--create-emvs-only is set.",
+            "--create-envs-only is set.",
             file=sys.stderr)
         sys.exit(1)
 
