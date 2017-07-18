@@ -256,6 +256,9 @@ class Persistence:
         max_len = os.pathconf(
             subject,
             "PC_NAME_MAX") if os.name == "posix" else 255  # maximum NTFS and FAT32 filename length
+        if max_len == 0:
+            max_len = 255
+
         b64id = self._b64id(id)
         # split into chunks of proper length
         b64id = [b64id[i:i + max_len - 1]
