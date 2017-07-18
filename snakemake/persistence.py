@@ -8,7 +8,8 @@ import shutil
 import signal
 import marshal
 import pickle
-from base64 import urlsafe_b64encode
+import json
+from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse, count
 
@@ -29,22 +30,13 @@ class Persistence:
         self.dag = dag
         self._lockfile = dict()
 
-        self._incomplete_path = os.path.join(self.path, "incomplete_files")
-        self._version_path = os.path.join(self.path, "version_tracking")
-        self._code_path = os.path.join(self.path, "code_tracking")
-        self._rule_path = os.path.join(self.path, "rule_tracking")
-        self._input_path = os.path.join(self.path, "input_tracking")
-        self._log_path = os.path.join(self.path, "log_tracking")
-        self._params_path = os.path.join(self.path, "params_tracking")
-        self._shellcmd_path = os.path.join(self.path, "shellcmd_tracking")
+        self._metadata_path = os.path.join(self.path, "metadata")
+
         self.shadow_path = os.path.join(self.path, "shadow")
         self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
 
-        for d in (self._incomplete_path, self._version_path, self._code_path,
-                  self._rule_path, self._input_path, self._log_path, self._params_path,
-                  self._shellcmd_path, self.shadow_path, self.conda_env_archive_path):
-            if not os.path.exists(d):
-                os.mkdir(d)
+        for d in (self._metadata_path, self.shadow_path, self.conda_env_archive_path):
+            os.makedirs(d, exist_ok=True)
 
         if conda_prefix is None:
             self.conda_env_path = os.path.join(self.path, "conda")
@@ -114,14 +106,7 @@ class Persistence:
         shutil.rmtree(self._lockdir)
 
     def cleanup_metadata(self, path):
-        self._delete_record(self._incomplete_path, path)
-        self._delete_record(self._version_path, path)
-        self._delete_record(self._code_path, path)
-        self._delete_record(self._rule_path, path)
-        self._delete_record(self._input_path, path)
-        self._delete_record(self._log_path, path)
-        self._delete_record(self._params_path, path)
-        self._delete_record(self._shellcmd_path, path)
+        self._delete_record(self._metadata_path, path)
 
     def cleanup_shadow(self):
         if os.path.exists(self.shadow_path):
@@ -130,7 +115,7 @@ class Persistence:
 
     def started(self, job):
         for f in job.output:
-            self._record(self._incomplete_path, "", f)
+            self._record(self._metadata_path, {"incomplete": True}, f)
 
     def finished(self, job):
         version = str(
@@ -141,83 +126,58 @@ class Persistence:
         params = self._params(job)
         shellcmd = self._shellcmd(job)
         for f in job.expanded_output:
-            self._delete_record(self._incomplete_path, f)
-            self._record(self._version_path, version, f)
-            self._record(self._code_path, code, f, bin=True)
-            self._record(self._rule_path, job.rule.name, f)
-            self._record(self._input_path, input, f)
-            self._record(self._log_path, log, f)
-            self._record(self._params_path, params, f)
-            self._record(self._shellcmd_path, shellcmd, f)
+            self._record(self._metadata_path, {
+                "version": version,
+                "code": code,
+                "rule": job.rule.name,
+                "input": input,
+                "log": log,
+                "params": params,
+                "shellcmd": shellcmd,
+                "incomplete": False
+            }, f)
 
     def cleanup(self, job):
         for f in job.expanded_output:
-            self._delete_record(self._incomplete_path, f)
-            self._delete_record(self._version_path, f)
-            self._delete_record(self._code_path, f)
-            self._delete_record(self._rule_path, f)
-            self._delete_record(self._input_path, f)
-            self._delete_record(self._log_path, f)
-            self._delete_record(self._params_path, f)
-            self._delete_record(self._shellcmd_path, f)
+            self._delete_record(self._metadata_path, f)
 
     def incomplete(self, job):
-        marked_incomplete = partial(self._exists_record, self._incomplete_path)
+        def marked_incomplete(f):
+            return self._read_record(self._metadata_path, f).get("incomplete", False)
+
         return any(
             map(lambda f: f.exists and marked_incomplete(f), job.output))
 
     def version(self, path):
-        return self._read_record(self._version_path, path)
+        return self._read_record(self._metadata_path, path).get("version")
 
     def rule(self, path):
-        return self._read_record(self._rule_path, path)
+        return self._read_record(self._metadata_path, path).get("rule")
 
     def input(self, path):
-        files = self._read_record(self._input_path, path)
-        if files is not None:
-            return files.split("\n")
-        return None
+        return self._read_record(self._metadata_path, path).get("input")
 
     def log(self, path):
-        files = self._read_record(self._log_path, path)
-        if files is not None:
-            return files.split("\n")
-        return None
+        return self._read_record(self._metadata_path, path).get("log")
 
     def shellcmd(self, path):
-        return self._read_record(self._shellcmd_path, path)
+        return self._read_record(self._metadata_path, path).get("shellcmd")
 
     def version_changed(self, job, file=None):
-        cr = partial(self._changed_records, self._version_path,
-                     job.rule.version)
-        if file is None:
-            return cr(*job.output)
-        else:
-            return bool(list(cr(file)))
+        assert file is not None
+        return self.version(file) != job.rule.version
 
     def code_changed(self, job, file=None):
-        cr = partial(self._changed_records, self._code_path,
-                     self._code(job.rule),
-                     bin=True)
-        if file is None:
-            return cr(*job.output)
-        else:
-            return bool(list(cr(file)))
+        assert file is not None
+        return self.code(file) != self._code(job.rule)
 
     def input_changed(self, job, file=None):
-        cr = partial(self._changed_records, self._input_path, self._input(job))
-        if file is None:
-            return cr(*job.output)
-        else:
-            return bool(list(cr(file)))
+        assert file is not None
+        return self.input(file) != self._input(job)
 
     def params_changed(self, job, file=None):
-        cr = partial(self._changed_records, self._params_path,
-                     self._params(job))
-        if file is None:
-            return cr(*job.output)
-        else:
-            return bool(list(cr(file)))
+        assert file is not None
+        return self.params(file) != self._params(job)
 
     def noop(self, *args):
         pass
@@ -228,19 +188,19 @@ class Persistence:
     @lru_cache()
     def _code(self, rule):
         code = rule.run_func.__code__
-        return pickle_code(code)
+        return b64encode(pickle_code(code)).decode()
 
     @lru_cache()
     def _input(self, job):
-        return "\n".join(sorted(job.input))
+        return sorted(job.input)
 
     @lru_cache()
     def _log(self, job):
-        return "\n".join(sorted(job.log))
+        return sorted(job.log)
 
     @lru_cache()
     def _params(self, job):
-        return "\n".join(sorted(map(repr, job.params)))
+        return sorted(map(repr, job.params))
 
     @lru_cache()
     def _output(self, job):
@@ -250,15 +210,11 @@ class Persistence:
     def _shellcmd(self, job):
         return job.shellcmd
 
-    def _record(self, subject, value, id, bin=False):
+    def _record(self, subject, json_value, id):
         recpath = self._record_path(subject, id)
-        if value is not None:
-            os.makedirs(os.path.dirname(recpath), exist_ok=True)
-            with open(recpath, "wb" if bin else "w") as f:
-                f.write(value)
-        else:
-            if os.path.exists(recpath):
-                os.remove(recpath)
+        os.makedirs(os.path.dirname(recpath), exist_ok=True)
+        with open(recpath, "w") as f:
+            json.dump(json_value, f)
 
     def _delete_record(self, subject, id):
         try:
@@ -271,20 +227,12 @@ class Persistence:
             if e.errno != 2:  # not missing
                 raise e
 
-    def _read_record(self, subject, id, bin=False):
+    @lru_cache()
+    def _read_record(self, subject, id):
         if not self._exists_record(subject, id):
-            return None
-        with open(self._record_path(subject, id), "rb" if bin else "r") as f:
-            return f.read()
-
-    def _changed_records(self, subject, value, *ids, bin=False):
-        equals = partial(self._equals_record, subject, value, bin=bin)
-        return filter(
-            lambda id: self._exists_record(subject, id) and not equals(id),
-            ids)
-
-    def _equals_record(self, subject, value, id, bin=False):
-        return self._read_record(subject, id, bin=bin) == value
+            return dict()
+        with open(self._record_path(subject, id), "r") as f:
+            return json.load(f)
 
     def _exists_record(self, subject, id):
         return os.path.exists(self._record_path(subject, id))
