@@ -182,9 +182,9 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 searchpath = os.path.dirname(os.path.dirname(__file__))
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
-                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({})
+                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
                 ######## Original script #########
-                """).format(searchpath, snakemake)
+                """).format(searchpath, snakemake, logger.printshellcmds)
             elif path.endswith(".R") or path.endswith(".Rmd"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
