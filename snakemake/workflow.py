@@ -236,7 +236,8 @@ class Workflow:
                 max_jobs_per_second=None,
                 greediness=1.0,
                 no_hooks=False,
-                force_use_threads=False):
+                force_use_threads=False,
+                create_envs_only=False):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -448,6 +449,8 @@ class Workflow:
 
         if self.use_conda:
             dag.create_conda_envs(dryrun=dryrun)
+            if create_envs_only:
+                return True
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
