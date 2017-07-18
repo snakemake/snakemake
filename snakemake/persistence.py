@@ -30,14 +30,6 @@ class Persistence:
         self.dag = dag
         self._lockfile = dict()
 
-        # self._incomplete_path = os.path.join(self.path, "incomplete_files")
-        # self._version_path = os.path.join(self.path, "version_tracking")
-        # self._code_path = os.path.join(self.path, "code_tracking")
-        # self._rule_path = os.path.join(self.path, "rule_tracking")
-        # self._input_path = os.path.join(self.path, "input_tracking")
-        # self._log_path = os.path.join(self.path, "log_tracking")
-        # self._params_path = os.path.join(self.path, "params_tracking")
-        # self._shellcmd_path = os.path.join(self.path, "shellcmd_tracking")
         self._metadata_path = os.path.join(self.path, "metadata")
 
         self.shadow_path = os.path.join(self.path, "shadow")
