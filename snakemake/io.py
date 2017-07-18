@@ -893,10 +893,11 @@ def load_configfile(configpath):
 
 
 class PeriodicityDetector:
-    def __init__(self, min_repeat=50, max_repeat=100):
+    def __init__(self, min_repeat=20, max_repeat=100):
         """
         Args:
-            max_len (int): The maximum length of the periodic substring.
+            max_repeat (int): The maximum length of the periodic substring.
+            min_repeat (int): The minimum length of the periodic substring.
         """
         self.regex = re.compile(
             "((?P<value>.+)(?P=value){{{min_repeat},{max_repeat}}})$".format(
