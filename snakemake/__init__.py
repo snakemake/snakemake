@@ -254,11 +254,11 @@ def snakemake(snakefile,
         configs = [load_configfile(f) for f in cluster_config]
         # Merge in the order as specified, overriding earlier values with
         # later ones
-        cluster_config = configs[0]
+        cluster_config_content = configs[0]
         for other in configs[1:]:
-            update_config(cluster_config, other)
+            update_config(cluster_config_content, other)
     else:
-        cluster_config = dict()
+        cluster_config_content = dict()
 
     # force thread use for any kind of cluster
     use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
@@ -337,7 +337,7 @@ def snakemake(snakefile,
                         overwrite_config=overwrite_config,
                         overwrite_workdir=workdir,
                         overwrite_configfile=configfile,
-                        overwrite_clusterconfig=cluster_config,
+                        overwrite_clusterconfig=cluster_config_content,
                         config_args=config_args,
                         debug=debug,
                         use_conda=use_conda,
