@@ -212,9 +212,7 @@ You can copy that file to ``$HOME/.vim/syntax`` directory and add
 .. code-block:: vim
 
     au BufNewFile,BufRead Snakefile set syntax=snakemake
-    au BufNewFile,BufRead *.rules set syntax=snakemake
-    au BufNewFile,BufRead *.snakefile set syntax=snakemake
-    au BufNewFile,BufRead *.snake set syntax=snakemake
+    au BufNewFile,BufRead *.smk set syntax=snakemake
 
 to your ``$HOME/.vimrc`` file. Highlighting can be forced in a vim session with ``:set syntax=snakemake``.
 

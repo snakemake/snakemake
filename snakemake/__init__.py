@@ -18,7 +18,7 @@ from functools import partial
 import importlib
 
 from snakemake.workflow import Workflow
-from snakemake.exceptions import print_exception
+from snakemake.exceptions import print_exception, WorkflowError
 from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
 from snakemake.io import load_configfile
@@ -106,6 +106,8 @@ def snakemake(snakefile,
               conda_prefix=None,
               mode=Mode.default,
               wrapper_prefix=None,
+              kubernetes=None,
+              kubernetes_envvars=None,
               default_remote_provider=None,
               default_remote_prefix=""):
     """Run snakemake on a given snakefile.
@@ -315,21 +317,22 @@ def snakemake(snakefile,
         workdir = os.path.abspath(workdir)
         os.chdir(workdir)
 
-    # handle default remote provider
-    _default_remote_provider = None
-    if default_remote_provider is not None:
-        try:
-            rmt = importlib.import_module("snakemake.remote." +
-                                          default_remote_provider)
-        except ImportError as e:
-            raise WorkflowError("Unknown default remote provider.")
-        if rmt.RemoteProvider.supports_default:
-            _default_remote_provider = rmt.RemoteProvider()
-        else:
-            raise WorkflowError("Remote provider {} does not (yet) support to "
-                                "be used as default provider.")
+    try:
+        # handle default remote provider
+        _default_remote_provider = None
+        if default_remote_provider is not None:
+            try:
+                rmt = importlib.import_module("snakemake.remote." +
+                                              default_remote_provider)
+            except ImportError as e:
+                raise WorkflowError("Unknown default remote provider.")
+            if rmt.RemoteProvider.supports_default:
+                _default_remote_provider = rmt.RemoteProvider()
+            else:
+                raise WorkflowError("Remote provider {} does not (yet) support to "
+                                    "be used as default provider.")
 
-    workflow = Workflow(snakefile=snakefile,
+        workflow = Workflow(snakefile=snakefile,
                         jobscript=jobscript,
                         overwrite_shellcmd=overwrite_shellcmd,
                         overwrite_config=overwrite_config,
@@ -346,8 +349,7 @@ def snakemake(snakefile,
                         restart_times=restart_times,
                         default_remote_provider=_default_remote_provider,
                         default_remote_prefix=default_remote_prefix)
-    success = True
-    try:
+        success = True
         workflow.include(snakefile,
                          overwrite_first_rule=True,
                          print_compilation=print_compilation)
@@ -408,6 +410,8 @@ def snakemake(snakefile,
                                        force_use_threads=use_threads,
                                        use_conda=use_conda,
                                        conda_prefix=conda_prefix,
+                                       kubernetes=kubernetes,
+                                       kubernetes_envvars=kubernetes_envvars,
                                        default_remote_provider=default_remote_provider,
                                        default_remote_prefix=default_remote_prefix)
 
@@ -435,6 +439,8 @@ def snakemake(snakefile,
                     jobname=jobname,
                     drmaa=drmaa,
                     drmaa_log_dir=drmaa_log_dir,
+                    kubernetes=kubernetes,
+                    kubernetes_envvars=kubernetes_envvars,
                     max_jobs_per_second=max_jobs_per_second,
                     printd3dag=printd3dag,
                     immediate_submit=immediate_submit,
@@ -831,6 +837,20 @@ def get_argument_parser():
         help="Provide a custom name for the jobscript that is submitted to the "
         "cluster (see --cluster). NAME is \"snakejob.{rulename}.{jobid}.sh\" "
         "per default. The wildcard {jobid} has to be present in the name.")
+
+    parser.add_argument(
+        "--kubernetes", metavar="NAMESPACE",
+        nargs="?", const="default",
+        help="Execute workflow in a kubernetes cluster (in the cloud). "
+        "NAMESPACE is the namespace you want to use for your job (if nothing "
+        "specified: 'default'). "
+        "Usually, this requires --default-remote-provider and "
+        "--default-remote-prefix to be set to a S3 or GS bucket where your . "
+        "data shall be stored. It is further advisable to activate conda "
+        "integration via --use-conda.")
+    parser.add_argument(
+        "--kubernetes-env", nargs="+", metavar="ENVVAR", default=[],
+        help="Specify environment variables to pass to the kubernetes job.")
     parser.add_argument("--reason", "-r",
                         action="store_true",
                         help="Print the reason for each executed rule.")
@@ -1022,7 +1042,7 @@ def get_argument_parser():
         "a different URL to use your fork or a local clone of the repository."
     )
     parser.add_argument("--default-remote-provider",
-                        choices=["S3", "GS", "SFTP", "S3Mocked"],
+                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked"],
                         help="Specify default remote provider to be used for "
                         "all input and output files that don't yet specify "
                         "one.")
@@ -1156,6 +1176,8 @@ def main(argv=None):
                             cluster_sync=args.cluster_sync,
                             drmaa=args.drmaa,
                             drmaa_log_dir=args.drmaa_log_dir,
+                            kubernetes=args.kubernetes,
+                            kubernetes_envvars=args.kubernetes_env,
                             jobname=args.jobname,
                             immediate_submit=args.immediate_submit,
                             standalone=True,
