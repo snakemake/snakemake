@@ -43,7 +43,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with the AWS S3 object store.
+    """ This is a class to interact with the Dropbox API.
     """
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
