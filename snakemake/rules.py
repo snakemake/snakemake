@@ -616,15 +616,25 @@ class Rule:
 
     def expand_resources(self, wildcards, input):
         resources = dict()
-        for name, res in self.resources.items():
+
+        def apply(name, res, threads=None):
             if callable(res):
+                aux = {"threads": threads} if threads is not None else dict()
                 res = self.apply_input_function(res,
                                                 wildcards,
-                                                input=input)
+                                                input=input,
+                                                **aux)
                 if not isinstance(res, int):
                     raise WorkflowError("Resources function did not return int.")
             res = min(self.workflow.global_resources.get(name, res), res)
-            resources[name] = res
+            return res
+
+        threads = apply("_cores", self.resources["_cores"])
+        resources["_cores"] = threads
+
+        for name, res in self.resources.items():
+            if name != "_cores":
+                resources[name] = apply(name, res)
         resources = Resources(fromdict=resources)
         return resources
 
