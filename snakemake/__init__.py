@@ -307,6 +307,8 @@ def snakemake(snakefile,
         configfile = os.path.abspath(configfile)
     if config:
         overwrite_config.update(config)
+        if config_args is None:
+            config_args = unparse_config(config)
 
     if workdir:
         olddir = os.getcwd()
@@ -541,6 +543,18 @@ def parse_config(args):
             assert v is not None
             config[key] = v
     return config
+
+
+def unparse_config(config):
+    if not isinstance(config, dict):
+        raise ValueError("config is not a dict")
+    items = []
+    for key, value in config.items():
+        if isinstance(value, dict):
+            raise ValueError("config may only be a flat dict")
+        encoded = "'{}'".format(value) if isinstance(value, str) else value
+        items.append("{}={}".format(key, encoded))
+    return items
 
 
 def get_argument_parser():
