@@ -36,6 +36,7 @@ from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError, ImproperShadowException, SpawnedJobError
 from snakemake.common import Mode
+from snakemake.version import __version__
 
 
 class AbstractExecutor:
@@ -1011,8 +1012,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         # container
         container = kubernetes.client.V1Container()
-        # TODO return to master branch (with correct version tag) once merged
-        container.image = "quay.io/snakemake/snakemake:4.x"
+        container.image = "quay.io/snakemake/snakemake:{}".format(__version__)
         container.command = shlex.split(exec_job)
         container.name = jobid
         container.working_dir = "/workdir"
