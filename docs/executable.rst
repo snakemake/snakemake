@@ -52,8 +52,8 @@ If the number is omitted (i.e., only ``-j`` is given), the number of used cores 
 Cloud Support
 -------------
 
-Snakemake supports execution in the cloud via Kubernetes. This is independent of
-the cloud provider, but we provide the setup steps for GCE below.
+Snakemake 4.0 and later supports experimental execution in the cloud via Kubernetes.
+This is independent of the cloud provider, but we provide the setup steps for GCE below.
 
 Google cloud engine
 ~~~~~~~~~~~~~~~~~~~
@@ -65,7 +65,7 @@ Then, run
 
     $ gcloud init
 
-to setup your access. 
+to setup your access.
 Then, you can create a new kubernetes cluster via
 
 .. code-block:: console
@@ -87,7 +87,7 @@ Now, Snakemake is ready to use your cluster.
 **Important:** After finishing your work, do not forget to delete the cluster with
 
 .. code-block:: console
-   
+
     $ gcloud container clusters delete $CLUSTER_NAME
 
 in order to avoid unnecessary charges.
@@ -110,10 +110,14 @@ to a bucket name or subfolder within that remote storage.
 After successful execution, you find your results in the specified remote storage.
 Of course, if any input or output already defines a different remote location, the latter will be used instead.
 
-Sometimes, remote providers need additional credentials. This is, e.g., also the
-case with ``GS``. For example you will have to define environment variables
-``$AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY``. In order to pass these to the
-kubernetes jobs, you can use the flag ``--kubernetes-env``, e.g.:
+It is further possible to forward arbitrary environment variables to the kubernetes
+jobs via the flag ``--kubernetes-env`` (see ``snakemake --help``).
+
+When executing, Snakemake will make use of the defined resources and threads
+to schedule jobs to the correct nodes. In particular, it will forward memory requirements
+defined as `mem_mb` to kubernetes. Further, it will propagate the number of threads
+a job intends to use, such that kubernetes can allocate it to the correct cloud
+computing node.
 
 .. code-block
 
