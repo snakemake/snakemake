@@ -238,7 +238,7 @@ Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a
 Resources must be ``int`` values.
 
 Resources can also be callables that return ``int`` values.
-The signature of the callable should be ``callable(wildcards, [input])`` (input is an optional parameter).
+The signature of the callable should be ``callable(wildcards [, input] [, threads])`` (input and threads are optional parameters).
 
 Messages
 --------

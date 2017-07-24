@@ -60,7 +60,7 @@ class RemoteObject(AbstractRemoteObject):
             raise NCBIFileException("DB specified is not valid. Options include: {dbs}".format(dbs=", ".join(self._ncbi.valid_dbs)))
         else:
             self.db = db
-        
+
         self.rettype = rettype
         self.retmode = retmode
         self.kwargs  = kwargs
@@ -99,7 +99,7 @@ class RemoteObject(AbstractRemoteObject):
     @property
     def list(self):
         raise NCBIFileException("The NCBI Remote Provider does not currently support list-based operations like glob_wildcards().")
-  
+
     @property
     def accession(self):
         accession, version, file_ext = self._ncbi.parse_accession_str(self.local_file())
@@ -357,7 +357,7 @@ class NCBIHelper(object):
             This tries to match an NCBI accession as defined here:
                 http://www.ncbi.nlm.nih.gov/Sequin/acc.html
         '''
-        m = re.search( r"(?P<accession>(?:[a-zA-Z]{1,6}|NC_|NM_|NR_)\d{1,10})(?:\.(?P<version>\d+))?(?:\.(?P<file_ext>\S+))?.*", id_str )
+        m = re.search( r"(?P<accession>(?:[a-zA-Z]{1,6}|NW_|NC_|NM_|NR_)\d{1,10})(?:\.(?P<version>\d+))?(?:\.(?P<file_ext>\S+))?.*", id_str )
         accession, version, file_ext = ("","","")
         if m:
             accession = m.group("accession")

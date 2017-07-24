@@ -616,15 +616,25 @@ class Rule:
 
     def expand_resources(self, wildcards, input):
         resources = dict()
-        for name, res in self.resources.items():
+
+        def apply(name, res, threads=None):
             if callable(res):
+                aux = {"threads": threads} if threads is not None else dict()
                 res = self.apply_input_function(res,
                                                 wildcards,
-                                                input=input)
+                                                input=input,
+                                                **aux)
                 if not isinstance(res, int):
                     raise WorkflowError("Resources function did not return int.")
             res = min(self.workflow.global_resources.get(name, res), res)
-            resources[name] = res
+            return res
+
+        threads = apply("_cores", self.resources["_cores"])
+        resources["_cores"] = threads
+
+        for name, res in self.resources.items():
+            if name != "_cores":
+                resources[name] = apply(name, res)
         resources = Resources(fromdict=resources)
         return resources
 
@@ -727,23 +737,26 @@ class Ruleorder:
         """
         Return whether rule2 has a higher priority than rule1.
         """
-        # try the last clause first,
-        # i.e. clauses added later overwrite those before.
-        for clause in reversed(self.order):
-            try:
-                i = clause.index(rule1.name)
-                j = clause.index(rule2.name)
-                # rules with higher priority should have a smaller index
-                comp = j - i
-                if comp < 0:
-                    comp = -1
-                elif comp > 0:
-                    comp = 1
-                return comp
-            except ValueError:
-                pass
+        # if rules have the same name, they have been specialized by dynamic output
+        # in that case, clauses are irrelevant and have to be skipped
+        if rule1.name != rule2.name:
+            # try the last clause first,
+            # i.e. clauses added later overwrite those before.
+            for clause in reversed(self.order):
+                try:
+                    i = clause.index(rule1.name)
+                    j = clause.index(rule2.name)
+                    # rules with higher priority should have a smaller index
+                    comp = j - i
+                    if comp < 0:
+                        comp = -1
+                    elif comp > 0:
+                        comp = 1
+                    return comp
+                except ValueError:
+                    pass
 
-        # if not ruleorder given, prefer rule without wildcards
+        # if no ruleorder given, prefer rule without wildcards
         wildcard_cmp = rule2.has_wildcards() - rule1.has_wildcards()
         if wildcard_cmp != 0:
             return wildcard_cmp
