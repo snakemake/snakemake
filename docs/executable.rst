@@ -109,6 +109,8 @@ remote location, configured by setting ``$REMOTE`` to your provider of choice
 to a bucket name or subfolder within that remote storage.
 After successful execution, you find your results in the specified remote storage.
 Of course, if any input or output already defines a different remote location, the latter will be used instead.
+Importantly, this means that Snakemake does **not** require a shared network
+filesystem to work in the cloud.
 
 It is further possible to forward arbitrary environment variables to the kubernetes
 jobs via the flag ``--kubernetes-env`` (see ``snakemake --help``).
