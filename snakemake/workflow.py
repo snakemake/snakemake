@@ -14,6 +14,7 @@ from itertools import filterfalse, chain
 from functools import partial
 from operator import attrgetter
 import copy
+import subprocess
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder
@@ -93,6 +94,7 @@ class Workflow:
         self.restart_times = restart_times
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
+        self.configfiles = []
 
         global config
         config = copy.deepcopy(self.overwrite_config)
@@ -102,6 +104,32 @@ class Workflow:
 
         global rules
         rules = Rules()
+
+    def get_sources(self):
+        files = set()
+
+        # get registered sources
+        for f in self.included:
+            files.add(os.path.relpath(f))
+        for rule in self.rules:
+            if rule.script:
+                files.add(os.path.relpath(rule.script))
+        for f in self.configfiles:
+            files.add(f)
+
+        # get git-managed files
+        try:
+            out = subprocess.check_output(["git", "ls-files", "."])
+            for f in out.decode().split("\n"):
+                if f:
+                    files.add(os.path.relpath(f))
+        except subprocess.CalledProcessError as e:
+            if "fatal: Not a git repository" in e.stderr.decode():
+                raise WorkflowError("Error: this is not a git repository.")
+            raise WorkflowError("Error executing git:\n{}".format(
+                e.stderr.decode()))
+
+        return files
 
     @property
     def subworkflows(self):
@@ -208,6 +236,8 @@ class Workflow:
                 printd3dag=False,
                 drmaa=None,
                 drmaa_log_dir=None,
+                kubernetes=None,
+                kubernetes_envvars=None,
                 stats=None,
                 force_incomplete=False,
                 ignore_incomplete=False,
@@ -465,6 +495,8 @@ class Workflow:
                                  keepgoing=keepgoing,
                                  drmaa=drmaa,
                                  drmaa_log_dir=drmaa_log_dir,
+                                 kubernetes=kubernetes,
+                                 kubernetes_envvars=kubernetes_envvars,
                                  printreason=printreason,
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
@@ -594,6 +626,7 @@ class Workflow:
     def configfile(self, jsonpath):
         """ Update the global config with the given dictionary. """
         global config
+        self.configfiles.append(jsonpath)
         c = snakemake.io.load_configfile(jsonpath)
         update_config(config, c)
         update_config(config, self.overwrite_config)

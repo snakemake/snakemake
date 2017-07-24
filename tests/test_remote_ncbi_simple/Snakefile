@@ -10,5 +10,5 @@ rule download_and_count:
         NCBI.remote("KY785484.1.fasta", db="nuccore")
     output:
         "sizes.txt"
-    run:
-        shell("wc -c {input} > sizes.txt")
+    shell:
+        r"wc -c {input} | sed 's/^[ \t]*//' > sizes.txt"

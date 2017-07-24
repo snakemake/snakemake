@@ -1,0 +1,29 @@
+from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
+GS = GSRemoteProvider()
+
+
+rule all:
+    input:
+        "landsat-data.txt.bz2"
+
+
+rule copy:
+    input:
+        GS.remote("gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt")
+    output:
+        "landsat-data.txt"
+    shell:
+        "cp {input} {output}"
+
+
+rule pack:
+    input:
+        "landsat-data.txt"
+    output:
+        "landsat-data.txt.bz2"
+    conda:
+        "envs/gzip.yaml"
+    log:
+        "logs/pack.log"
+    shell:
+        "bzip2 -c {input} > {output}; echo successful > {log}"

@@ -20,6 +20,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * Dropbox: ``snakemake.remote.dropbox``
 * XRootD: ``snakemake.remote.XRootD``
 * GenBank / NCBI Entrez: ``snakemake.remote.NCBI``
+* WebDAV: ``snakemake.remote.webdav``
 
 
 Amazon Simple Storage Service (S3)
@@ -110,15 +111,20 @@ The remote provider also supports a new ``glob_wildcards()`` (see :ref:`glob-wil
 Google Cloud Storage (GS)
 =========================
 
-Using Google Cloud Storage (GS) is a simple import change, though since GS support it is based on boto, GS must be accessed via Google's "`interoperable <https://cloud.google.com/storage/docs/interoperability>`_" credentials.
 Usage of the GS provider is the same as the S3 provider.
-You may specify credentials as environment variables in the file ``=/.aws/credentials``, prefixed with ``AWS_*``, as with a standard `boto config <http://boto.readthedocs.org/en/latest/boto_config_tut.html>`_, or explicitly in the ``Snakefile``.
+For authentication, one simply needs to login via the ``gcloud`` tool before
+executing Snakemake, i.e.:
 
+.. code-block:: console
+
+    $ gcloud auth application-default login
+
+In the Snakefile, no additional authentication information has to be provided:
 
 .. code-block:: python
 
     from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
-    GS = GSRemoteProvider(access_key_id="MYACCESSKEY", secret_access_key="MYSECRET")
+    GS = GSRemoteProvider()
 
     rule all:
         input:
@@ -463,8 +469,7 @@ Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.ni
         run:
             shell("wc -c {input} > {output}")
 
-The output format and source database of a record retrieved from GenBank is inferred from the file extension specified. For example, ``NCBI.RemoteProvider().remote("KY785484.1.fasta", db="nuccore")`` will download a FASTA file while ``NCBI.RemoteProvider().remote("KY785484.1.gb", db="nuccore")`` will download a GenBank-format file. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible format choices. To see available formats, consult the 
-in a variety of `Entrez EFetch documentation <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`_. To view the valid file extensions for these formats, access ``NCBI.RemoteProvider()._gb.valid_extensions``, or instantiate an ``NCBI.NCBIHelper()`` and access ``NCBI.NCBIHelper().valid_extensions`` (this is a property).
+The output format and source database of a record retrieved from GenBank is inferred from the file extension specified. For example, ``NCBI.RemoteProvider().remote("KY785484.1.fasta", db="nuccore")`` will download a FASTA file while ``NCBI.RemoteProvider().remote("KY785484.1.gb", db="nuccore")`` will download a GenBank-format file. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible format choices. To see available formats, consult the `Entrez EFetch documentation <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`_. To view the valid file extensions for these formats, access ``NCBI.RemoteProvider()._gb.valid_extensions``, or instantiate an ``NCBI.NCBIHelper()`` and access ``NCBI.NCBIHelper().valid_extensions`` (this is a property).
 
 When used in conjunction with ``NCBI.RemoteProvider().search()``, Snakemake and ``NCBI.RemoteProvider().remote()`` can be used to find accessions by query and download them:
 
@@ -478,8 +483,8 @@ When used in conjunction with ``NCBI.RemoteProvider().search()``, Snakemake and 
     query = '"Zika virus"[Organism] AND (("9000"[SLEN] : "20000"[SLEN]) AND ("2017/03/20"[PDAT] : "2017/03/24"[PDAT])) '
     accessions = NCBI.search(query, retmax=3)
 
-    # give the accessions a file extension to help the RemoteProvider determine the 
-    # proper output type. 
+    # give the accessions a file extension to help the RemoteProvider determine the
+    # proper output type.
     input_files = expand("{acc}.fasta", acc=accessions)
 
     rule all:
@@ -499,6 +504,24 @@ When used in conjunction with ``NCBI.RemoteProvider().search()``, Snakemake and 
             shell("wc -c {input} > sizes.txt")
 
 Normally, all accessions for a query are returned from ``NCBI.RemoteProvider.search()``. To truncate the results, specify ``retmax=<desired_number>``. Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>`_ are supported as kwargs, and may be passed in to ``NCBI.RemoteProvider.remote()`` and ``NCBI.RemoteProvider.search()``.
+
+WebDAV
+======
+
+WebDAV support is currently ``experimental`` and is in versions ``snakemake>=4.0``.
+
+Snakemake supports reading and writing WebDAV remote files. The protocol defaults to ``https://``, but insecure connections
+can be used by specifying ``protocol=="http://"``. Similarly, the port defaults to 443, and can be overridden by specifying ``port=##`` or by including the port as part of the file address. 
+
+.. code-block:: python
+
+from snakemake.remote.webdav import RemoteProvider as WebDAVRemoteProvider
+
+WEBDAV = WebDAVRemoteProvider(username="test", password="test", protocol="http://")
+
+rule all:
+    input:
+        WEBDAV.remote("example.com:8888/path/to/input_file.csv"),
 
 Remote cross-provider transfers
 ===============================
