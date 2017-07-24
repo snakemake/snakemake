@@ -12,6 +12,9 @@
   use for all input and output files.
 - Added an option to only create conda environments instead of executing the workflow.
 ### Changed
+- The google storage (GS) remote provider has been changed to use the google SDK.
+  This is a breaking change, since the remote provider invocation has been simplified (see docs).
+- Due to WebDAV support (which uses asyncio), Snakemake now requires Python 3.5 at least.
 - Various minor bug fixes (e.g. for dynamic output files).
 
 
