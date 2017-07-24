@@ -54,8 +54,8 @@ Quick Example
 * Snakemake determines the rule dependencies by matching file names.
 * Input and output files can contain multiple named wildcards.
 * Rules can either use shell commands, plain Python code or external Python or R scripts to create output files from input files.
-* Snakemake workflows can be executed on workstations and clusters without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
-* Snakemake can use Amazon S3, Google Storage, Dropbox, FTP and SFTP to access input or output files and further access input files via HTTP and HTTPS.
+* Snakemake workflows can be easily executed on **workstations**, **clusters** and **in the cloud** without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
+* Snakemake can use Amazon S3, Google Storage, Dropbox, FTP, WebDAV and SFTP to access input or output files and further access input files via HTTP and HTTPS.
 
 .. _main-getting-started:
 

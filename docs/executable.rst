@@ -1,4 +1,4 @@
-.. user_manual-snakemake_executable:
+.. _executable:
 
 ===================
 Executing Snakemake
@@ -121,7 +121,6 @@ defined as `mem_mb` to kubernetes. Further, it will propagate the number of thre
 a job intends to use, such that kubernetes can allocate it to the correct cloud
 computing node.
 
-.. code-block
 
 -----------------
 Cluster Execution
