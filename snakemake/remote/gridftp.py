@@ -42,19 +42,22 @@ class RemoteObject(AbstractRemoteObject):
 
     def _uberftp(self, *args, **kwargs):
         try:
-            return sp.run(["uberftp"] + list(args), check=True, **kwargs)
+            return sp.run(["uberftp"] + list(args), **kwargs)
         except sp.CalledProcessError as e:
             raise WorkflowError("Error calling uberftp.", e)
+
+    def _uberftp_exists(self, url):
+        res = self._uberftp("-ls", url, stdout=sp.PIPE)
+        return "No match for" not in res.stdout.decode()
 
     # === Implementations of abstract class members ===
 
     def exists(self):
-        res = self._uberftp("-ls", self.remote_file(), stdout=sp.PIPE)
-        return "No match for" not in res.stdout.decode()
+        self._uberftp_exists(self.remote_file())
 
     def mtime(self):
         assert self.exists()
-        res = self._uberftp("-ls", self.remote_file(), stdout=sp.PIPE)
+        res = self._uberftp("-ls", self.remote_file(), check=True, stdout=sp.PIPE)
         date = " ".join(res.stdout.decode().split()[-4:-1])
         # first, try minute resolution
         try:
@@ -66,20 +69,25 @@ class RemoteObject(AbstractRemoteObject):
 
     def size(self):
         assert self.exists()
-        res = self._uberftp("-size", self.remote_file(), stdout=sp.PIPE)
+        res = self._uberftp("-size", self.remote_file(), check=True, stdout=sp.PIPE)
         return int(res.stdout.decode())
 
     def download(self):
         if self.exists():
             os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
-            self._uberftp(self.remote_file(), "file://" + self.local_file())
+            self._uberftp(self.remote_file(), "file://" + self.local_file(), check=True)
             os.sync()
             return self.local_file()
         return None
 
     def upload(self):
         self._uberftp("-rm", self.remote_file())
-        self._uberftp("file://" + self.local_file(), self.remote_file())
+        prefix = self.protocol
+        for d in self.local_file().split("/")[:-1]:
+            prefix = "/" + d
+            if not self._uberftp_exists(prefix):
+                self._uberftp("-mkdir", prefix)
+        self._uberftp("file://" + self.local_file(), self.remote_file(), check=True)
 
     @property
     def list(self):
