@@ -84,7 +84,7 @@ class RemoteObject(AbstractRemoteObject):
         self._uberftp("-rm", self.remote_file())
         prefix = self.protocol
         for d in self.local_file().split("/")[:-1]:
-            prefix = "/" + d
+            prefix += "/" + d
             if not self._uberftp_exists(prefix):
                 self._uberftp("-mkdir", prefix)
         self._uberftp("file://" + self.local_file(), self.remote_file(), check=True)
