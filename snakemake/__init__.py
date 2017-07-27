@@ -190,7 +190,7 @@ def snakemake(snakefile,
         create_envs_only (bool):   If specified, only builds the conda environments specified for each job, then exits.
         mode (snakemake.common.Mode): Execution mode
         wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
-        default_remote_provider (str): Default remote provider to use instead of local files (S3, GS)
+        default_remote_provider (str): Default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): Prefix for default remote provider (e.g. name of the bucket).
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
 
@@ -1065,7 +1065,7 @@ def get_argument_parser():
         "a different URL to use your fork or a local clone of the repository."
     )
     parser.add_argument("--default-remote-provider",
-                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked"],
+                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gridftp"],
                         help="Specify default remote provider to be used for "
                         "all input and output files that don't yet specify "
                         "one.")
