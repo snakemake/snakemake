@@ -267,7 +267,8 @@ class Workflow:
                 greediness=1.0,
                 no_hooks=False,
                 force_use_threads=False,
-                create_envs_only=False):
+                create_envs_only=False,
+                assume_shared_fs=True):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -502,7 +503,8 @@ class Workflow:
                                  latency_wait=latency_wait,
                                  benchmark_repeats=benchmark_repeats,
                                  greediness=greediness,
-                                 force_use_threads=force_use_threads)
+                                 force_use_threads=force_use_threads,
+                                 assume_shared_fs=assume_shared_fs)
 
         if not dryrun:
             if len(dag):

@@ -47,7 +47,8 @@ class JobScheduler:
                  latency_wait=3,
                  benchmark_repeats=1,
                  greediness=1.0,
-                 force_use_threads=False):
+                 force_use_threads=False,
+                 assume_shared_fs=True):
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.cluster_config = cluster_config
@@ -116,7 +117,8 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
-                    max_jobs_per_second=max_jobs_per_second)
+                    max_jobs_per_second=max_jobs_per_second,
+                    assume_shared_fs=assume_shared_fs)
                 if workflow.immediate_submit:
                     self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
@@ -135,7 +137,8 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
                     cluster_config=cluster_config,
-                    max_jobs_per_second=max_jobs_per_second)
+                    max_jobs_per_second=max_jobs_per_second,
+                    assume_shared_fs=assume_shared_fs)
         elif kubernetes:
             workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)),
                           local_cores)
