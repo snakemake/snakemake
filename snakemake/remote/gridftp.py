@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess as sp
+import datetime
 
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError
