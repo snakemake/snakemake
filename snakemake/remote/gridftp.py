@@ -7,7 +7,7 @@ import os
 import re
 import shutil
 import subprocess as sp
-import datetime
+from datetime import datetime
 
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError
@@ -65,10 +65,10 @@ class RemoteObject(AbstractRemoteObject):
         date = " ".join(res.stdout.decode().split()[-4:-1])
         # first, try minute resolution
         try:
-            date = datetime.strptime(date, "%b %d %H:%M")
-        except:
             date = datetime.strptime(date, "%b %d %Y")
-
+        except:
+            date = datetime.strptime(date, "%b %d %H:%M")
+            date.replace(year=datetime.now().year)
         return date.timestamp()
 
     def size(self):
