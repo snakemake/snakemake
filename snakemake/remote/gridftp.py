@@ -87,7 +87,7 @@ class RemoteObject(AbstractRemoteObject):
 
     def upload(self):
         self._uberftp("-rm", self.remote_file())
-        prefix = self.protocol
+        prefix = self.protocol[:-1] # remove last slash
         for d in self.local_file().split("/")[:-1]:
             prefix += "/" + d
             if not self._uberftp_exists(prefix):
