@@ -56,7 +56,7 @@ class RemoteObject(AbstractRemoteObject):
     # === Implementations of abstract class members ===
 
     def exists(self):
-        self._uberftp_exists(self.remote_file())
+        return self._uberftp_exists(self.remote_file())
 
     def mtime(self):
         assert self.exists()
