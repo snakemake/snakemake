@@ -11,6 +11,7 @@ import subprocess as sp
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError
 from snakemake.common import lazy_property
+from snakemake.logging import logger
 
 
 if not shutil.which("uberftp"):
@@ -41,13 +42,15 @@ class RemoteObject(AbstractRemoteObject):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
     def _uberftp(self, *args, **kwargs):
+        cmd = ["uberftp"] + list(args)
+        logger.debug(" ".join(cmd))
         try:
-            return sp.run(["uberftp"] + list(args), **kwargs)
+            return sp.run(cmd, **kwargs)
         except sp.CalledProcessError as e:
             raise WorkflowError("Error calling uberftp.", e)
 
     def _uberftp_exists(self, url):
-        res = self._uberftp("-ls", url, stdout=sp.PIPE)
+        res = self._uberftp("-ls", url, stdout=sp.PIPE, stderr=sp.STDOUT)
         return "No match for" not in res.stdout.decode()
 
     # === Implementations of abstract class members ===
