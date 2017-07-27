@@ -568,7 +568,8 @@ class GenericClusterExecutor(ClusterExecutor):
                  latency_wait=3,
                  benchmark_repeats=1,
                  max_jobs_per_second=None,
-                 restart_times=0):
+                 restart_times=0,
+                 assume_shared_fs=True):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -578,7 +579,8 @@ class GenericClusterExecutor(ClusterExecutor):
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          max_jobs_per_second=max_jobs_per_second,
-                         restart_times=restart_times)
+                         restart_times=restart_times,
+                         assume_shared_fs=assume_shared_fs)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
         # TODO wrap with watch and touch {jobrunning}
@@ -677,7 +679,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                  latency_wait=3,
                  benchmark_repeats=1,
                  max_jobs_per_second=None,
-                 restart_times=0):
+                 restart_times=0,
+                 assume_shared_fs=True):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -687,7 +690,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          max_jobs_per_second=max_jobs_per_second,
-                         restart_times=restart_times)
+                         restart_times=restart_times,
+                         assume_shared_fs=assume_shared_fs)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
 
@@ -764,7 +768,8 @@ class DRMAAExecutor(ClusterExecutor):
                  benchmark_repeats=1,
                  cluster_config=None,
                  max_jobs_per_second=None,
-                 restart_times=0):
+                 restart_times=0,
+                 assume_shared_fs=True):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -774,7 +779,8 @@ class DRMAAExecutor(ClusterExecutor):
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          max_jobs_per_second=max_jobs_per_second,
-                         restart_times=restart_times)
+                         restart_times=restart_times,
+                         assume_shared_fs=assume_shared_fs)
         try:
             import drmaa
         except ImportError:
