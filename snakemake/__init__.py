@@ -1077,7 +1077,7 @@ def get_argument_parser():
                         default="",
                         help="Specify prefix for default remote provider. E.g. "
                         "a bucket name.")
-    parser.add_argument("--not-assume-shared-fs",
+    parser.add_argument("--no-shared-fs",
                         action="store_true",
                         help="Do not assume that jobs share a common file "
                         "system. When this flag is activated, Snakemake will "
@@ -1260,7 +1260,7 @@ def main(argv=None):
                             wrapper_prefix=args.wrapper_prefix,
                             default_remote_provider=args.default_remote_provider,
                             default_remote_prefix=args.default_remote_prefix,
-                            assume_shared_fs=not args.not_assume_shared_fs)
+                            assume_shared_fs=not args.no_shared_fs)
 
     if args.profile:
         with open(args.profile, "w") as out:
