@@ -196,7 +196,8 @@ class Rule:
 
     @benchmark.setter
     def benchmark(self, benchmark):
-        benchmark = self.apply_default_remote(benchmark)
+        if not callable(benchmark):
+            benchmark = self.apply_default_remote(benchmark)
         self._benchmark = IOFile(benchmark, rule=self)
 
     @property
@@ -285,6 +286,7 @@ class Rule:
             seen[value] = name or idx
 
     def apply_default_remote(self, item):
+        assert not callable(item)
         if (not is_flagged(item, "remote_object") and
             self.workflow.default_remote_provider is not None):
             item = "{}/{}".format(self.workflow.default_remote_prefix, item)
@@ -351,8 +353,6 @@ class Rule:
             if name:
                 inoutput.add_name(name)
         elif callable(item):
-            item = self.apply_default_remote(item)
-
             if output:
                 raise SyntaxError(
                     "Only input files can be specified as functions")
@@ -405,7 +405,9 @@ class Rule:
 
     def _set_log_item(self, item, name=None):
         if isinstance(item, str) or callable(item):
-            item = self.apply_default_remote(item)
+            if not callable(item):
+                item = self.apply_default_remote(item)
+
             self.log.append(IOFile(item,
                                    rule=self) if isinstance(item, str) else
                             item)
@@ -457,6 +459,7 @@ class Rule:
 
             if is_callable(item):
                 item = self.apply_input_function(item, wildcards, **aux_params)
+                item = self.apply_default_remote(item)
 
             if is_unpack:
                 # Sanity checks before interpreting unpack()
