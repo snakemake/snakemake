@@ -78,7 +78,9 @@ class RemoteObject(AbstractRemoteObject):
     def download(self):
         if self.exists():
             os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
-            self._uberftp(self.remote_file(), "file://" + self.local_file(), check=True)
+            self._uberftp(self.remote_file(),
+                          "file://" + os.path.abspath(self.local_file()),
+                          check=True)
             os.sync()
             return self.local_file()
         return None
