@@ -511,17 +511,18 @@ WebDAV
 WebDAV support is currently ``experimental`` and is in versions ``snakemake>=4.0``.
 
 Snakemake supports reading and writing WebDAV remote files. The protocol defaults to ``https://``, but insecure connections
-can be used by specifying ``protocol=="http://"``. Similarly, the port defaults to 443, and can be overridden by specifying ``port=##`` or by including the port as part of the file address. 
+can be used by specifying ``protocol=="http://"``. Similarly, the port defaults to 443, and can be overridden by specifying ``port=##`` or by including the port as part of the file address.
 
 .. code-block:: python
 
-from snakemake.remote.webdav import RemoteProvider as WebDAVRemoteProvider
+    from snakemake.remote import webdav
 
-WEBDAV = WebDAVRemoteProvider(username="test", password="test", protocol="http://")
+    webdav = webdav.RemoteProvider(username="test", password="test", protocol="http://")
 
-rule all:
-    input:
-        WEBDAV.remote("example.com:8888/path/to/input_file.csv"),
+    rule all:
+        input:
+            WEBDAV.remote("example.com:8888/path/to/input_file.csv"),
+
 
 Remote cross-provider transfers
 ===============================
@@ -546,4 +547,4 @@ It is possible to use Snakemake to transfer files between remote providers (usin
         output:
             GS.remote( expand("destination-bucket/{file}.bam", file=fileList) )
         run:
-            shell("cp -R source-bucket/ destination-bucket/")
+            shell("cp {input} {output}")
