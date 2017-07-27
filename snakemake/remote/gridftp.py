@@ -92,7 +92,8 @@ class RemoteObject(AbstractRemoteObject):
             prefix += "/" + d
             if not self._uberftp_exists(prefix):
                 self._uberftp("-mkdir", prefix)
-        self._uberftp("file://" + self.local_file(), self.remote_file(), check=True)
+        self._uberftp("file://" + os.path.abspath(self.local_file()),
+                      self.remote_file(), check=True)
 
     @property
     def list(self):
