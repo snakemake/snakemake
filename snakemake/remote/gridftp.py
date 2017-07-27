@@ -42,7 +42,7 @@ class RemoteObject(AbstractRemoteObject):
 
     def _uberftp(self, *args, **kwargs):
         try:
-            return sp.run(["uberftp"] + list(args), check=True)
+            return sp.run(["uberftp"] + list(args), check=True, **kwargs)
         except sp.CalledProcessError as e:
             raise WorkflowError("Error calling uberftp.", e)
 
