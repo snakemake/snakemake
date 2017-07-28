@@ -32,6 +32,7 @@ class JobScheduler:
                  dryrun=False,
                  touch=False,
                  cluster=None,
+                 cluster_status=None,
                  cluster_config=None,
                  cluster_sync=None,
                  drmaa=None,
@@ -105,8 +106,12 @@ class JobScheduler:
                 benchmark_repeats=benchmark_repeats,
                 cores=local_cores)
             if cluster or cluster_sync:
-                constructor = SynchronousClusterExecutor if cluster_sync \
-                              else GenericClusterExecutor
+                if cluster_sync:
+                    constructor = SynchronousClusterExecutor
+                else:
+                    constructor = partial(GenericClusterExecutor,
+                                          statuscmd=cluster_status)
+
                 self._executor = constructor(
                     workflow, dag, None,
                     submitcmd=(cluster or cluster_sync),

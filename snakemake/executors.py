@@ -560,6 +560,7 @@ GenericClusterJob = namedtuple("GenericClusterJob", "job jobid callback error_ca
 class GenericClusterExecutor(ClusterExecutor):
     def __init__(self, workflow, dag, cores,
                  submitcmd="qsub",
+                 statuscmd=None,
                  cluster_config=None,
                  jobname="snakejob.{rulename}.{jobid}.sh",
                  printreason=False,
@@ -570,6 +571,15 @@ class GenericClusterExecutor(ClusterExecutor):
                  max_jobs_per_second=None,
                  restart_times=0,
                  assume_shared_fs=True):
+
+        self.submitcmd = submitcmd
+        if not assume_shared_fs and statuscmd is None:
+            raise WorkflowError("When no shared filesystem can be assumed, a "
+                "status command must be given.")
+
+        self.statuscmd = statuscmd
+        self.external_jobid = dict()
+
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -581,8 +591,7 @@ class GenericClusterExecutor(ClusterExecutor):
                          max_jobs_per_second=max_jobs_per_second,
                          restart_times=restart_times,
                          assume_shared_fs=assume_shared_fs)
-        self.submitcmd = submitcmd
-        self.external_jobid = dict()
+
         # TODO wrap with watch and touch {jobrunning}
         # check modification date of {jobrunning} in the wait_for_job method
         self.exec_job += ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
@@ -628,7 +637,7 @@ class GenericClusterExecutor(ClusterExecutor):
         if ext_jobid and ext_jobid[0]:
             ext_jobid = ext_jobid[0]
             self.external_jobid.update((f, ext_jobid) for f in job.output)
-            logger.debug("Submitted job {} with external jobid {}.".format(
+            logger.info("Submitted job {} with external jobid '{}'.".format(
                 jobid, ext_jobid))
 
         submit_callback(job)
@@ -636,6 +645,37 @@ class GenericClusterExecutor(ClusterExecutor):
             self.active_jobs.append(GenericClusterJob(job, ext_jobid, callback, error_callback, jobscript, jobfinished, jobfailed))
 
     def _wait_for_jobs(self):
+        if self.statuscmd is not None:
+            def job_status(job):
+                return subprocess.check_output(
+                    '{statuscmd} {jobid}'.format(jobid=job.jobid,
+                                                 statuscmd=self.statuscmd),
+                    shell=True).decode().split("\n")[0]
+
+            def job_finished(job):
+                if job_status(job) == "success":
+                    return True
+                return False
+
+            def job_failed(job):
+                if job_status(job) == "failed":
+                    return True
+                return False
+        else:
+            def job_finished(job):
+                if os.path.exists(active_job.jobfinished):
+                    os.remove(active_job.jobfinished)
+                    os.remove(active_job.jobscript)
+                    return True
+                return False
+
+            def job_failed(job):
+                if os.path.exists(active_job.jobfailed):
+                    os.remove(active_job.jobfailed)
+                    os.remove(active_job.jobscript)
+                    return True
+                return False
+
         while True:
             with self.lock:
                 if not self.wait:
@@ -643,13 +683,9 @@ class GenericClusterExecutor(ClusterExecutor):
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 for active_job in active_jobs:
-                    if os.path.exists(active_job.jobfinished):
-                        os.remove(active_job.jobfinished)
-                        os.remove(active_job.jobscript)
+                    if job_finished(active_job):
                         active_job.callback(active_job.job)
-                    elif os.path.exists(active_job.jobfailed):
-                        os.remove(active_job.jobfailed)
-                        os.remove(active_job.jobscript)
+                    elif job_failed(active_job):
                         self.print_job_error(active_job.job)
                         print_exception(ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                                         self.workflow.linemaps)

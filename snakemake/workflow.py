@@ -268,7 +268,8 @@ class Workflow:
                 no_hooks=False,
                 force_use_threads=False,
                 create_envs_only=False,
-                assume_shared_fs=True):
+                assume_shared_fs=True,
+                cluster_status=None):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -488,6 +489,7 @@ class Workflow:
                                  dryrun=dryrun,
                                  touch=touch,
                                  cluster=cluster,
+                                 cluster_status=cluster_status,
                                  cluster_config=cluster_config,
                                  cluster_sync=cluster_sync,
                                  jobname=jobname,
