@@ -400,7 +400,8 @@ class ClusterExecutor(RealExecutor):
         if exec_job is None:
             self.exec_job = '\\\n'.join((
                 'cd {workflow.workdir_init} && ' if assume_shared_fs else '',
-                '{sys.executable} -m snakemake {target} --snakefile {snakefile} ',
+                '{sys.executable} ' if assume_shared_fs else 'python ',
+                '-m snakemake {target} --snakefile {snakefile} ',
                 '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
                 '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
                 '--benchmark-repeats {benchmark_repeats} ',
