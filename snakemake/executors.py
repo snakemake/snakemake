@@ -592,9 +592,12 @@ class GenericClusterExecutor(ClusterExecutor):
                          restart_times=restart_times,
                          assume_shared_fs=assume_shared_fs)
 
-        # TODO wrap with watch and touch {jobrunning}
-        # check modification date of {jobrunning} in the wait_for_job method
-        self.exec_job += ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
+        if assume_shared_fs:
+            # TODO wrap with watch and touch {jobrunning}
+            # check modification date of {jobrunning} in the wait_for_job method
+            self.exec_job += ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
+        else:
+            self.exec_job += ' && exit 0 || exit 1'
 
     def cancel(self):
         logger.info("Will exit after finishing currently running jobs.")
