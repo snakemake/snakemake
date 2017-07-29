@@ -383,6 +383,10 @@ class ClusterExecutor(RealExecutor):
                          benchmark_repeats=benchmark_repeats,
                          assume_shared_fs=assume_shared_fs)
 
+        if not self.assume_shared_fs:
+            # use relative path to Snakefile
+            self.snakefile = os.path.relpath(workflow.snakefile)
+
         jobscript = workflow.jobscript
         if jobscript is None:
             jobscript = os.path.join(os.path.dirname(__file__),
