@@ -288,6 +288,7 @@ class Rule:
     def apply_default_remote(self, item):
         assert not callable(item)
         if (not is_flagged(item, "remote_object") and
+            not is_flagged(item, "local") and
             self.workflow.default_remote_provider is not None):
             item = "{}/{}".format(self.workflow.default_remote_prefix, item)
             return self.workflow.default_remote_provider.remote(item)
