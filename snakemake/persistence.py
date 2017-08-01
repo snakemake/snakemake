@@ -163,6 +163,12 @@ class Persistence:
     def shellcmd(self, path):
         return self._read_record(self._metadata_path, path).get("shellcmd")
 
+    def params(self, path):
+        return self._read_record(self.metadata_path, path).get("params")
+
+    def code(self, path):
+        return self._read_record(self.metadata_path, path).get("code")
+
     def version_changed(self, job, file=None):
         assert file is not None
         return self.version(file) != job.rule.version
