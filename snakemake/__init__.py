@@ -495,6 +495,7 @@ def snakemake(snakefile,
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)
         success = False
+
     if workdir:
         os.chdir(olddir)
     if workflow.persistence:

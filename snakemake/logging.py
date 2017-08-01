@@ -6,6 +6,7 @@ __license__ = "MIT"
 import logging as _logging
 import platform
 import time
+import datetime
 import sys
 import os
 import json
@@ -93,23 +94,28 @@ class Logger:
 
     def setup(self):
         # logfile output is done always
-        self.logfile_fd, self.logfile = tempfile.mkstemp(
-            prefix="",
-            suffix=".snakemake.log")
+        os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
+        self.logfile = os.path.abspath(os.path.join(".snakemake",
+                                    "log",
+                                    datetime.datetime.now().isoformat() +
+                                    ".snakemake.log"))
+
         self.logfile_handler = _logging.FileHandler(self.logfile)
         self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
         self.logger.removeHandler(self.logfile_handler)
         self.logfile_handler.close()
-        os.close(self.logfile_fd)
-        os.remove(self.logfile)
         self.log_handler = [self.text_handler]
 
     def get_logfile(self):
         if self.logfile is not None:
             self.logfile_handler.flush()
         return self.logfile
+
+    def remove_logfile(self):
+        self.logfile_handler.close()
+        os.remove(self.logfile)
 
     def handler(self, msg):
         for handler in self.log_handler:
@@ -123,6 +129,9 @@ class Logger:
 
     def set_level(self, level):
         self.logger.setLevel(level)
+
+    def logfile_hint(self):
+        self.info("Entire log: {}".format(os.path.relpath(self.get_logfile())))
 
     def info(self, msg):
         self.handler(dict(level="info", msg=msg))

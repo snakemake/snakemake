@@ -219,6 +219,7 @@ class JobScheduler:
                 if not self.keepgoing and self._errors:
                     logger.info("Will exit after finishing "
                                 "currently running jobs.")
+
                     if not running:
                         self._executor.shutdown()
                         logger.error(_ERROR_MSG_FINAL)

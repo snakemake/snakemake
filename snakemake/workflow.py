@@ -542,14 +542,17 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
+                logger.remove_logfile()
             elif stats:
                 scheduler.stats.to_json(stats)
+                logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
             return True
         else:
             if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
+            logger.logfile_hint()
             return False
 
     @property
