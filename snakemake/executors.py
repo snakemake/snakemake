@@ -192,8 +192,9 @@ class RealExecutor(AbstractExecutor):
                         "directory {}".format(e,
                                               self.workflow.persistence.path))
 
-    def handle_job_error(self, job):
-        self.dag.handle_remote_log(job)
+    def handle_job_error(self, job, upload_remote=True):
+        if upload_remote:
+            self.dag.handle_remote_log(job)
         if self.assume_shared_fs:
             job.close_remote()
 
@@ -553,7 +554,7 @@ class ClusterExecutor(RealExecutor):
     def handle_job_error(self, job):
         # TODO what about removing empty remote dirs?? This cannot be decided
         # on the cluster node.
-        super().handle_job_error(job)
+        super().handle_job_error(job, upload_remote=False)
 
 
 GenericClusterJob = namedtuple("GenericClusterJob", "job jobid callback error_callback jobscript jobfinished jobfailed")
