@@ -178,6 +178,7 @@ class RealExecutor(AbstractExecutor):
                 ignore_missing_output=ignore_missing_output)
             self.dag.unshadow_output(job)
             self.dag.handle_remote(job, upload=upload_remote)
+            self.dag.handle_remote_log(job)
             self.dag.handle_protected(job)
             self.dag.handle_temp(job)
             job.close_remote()
@@ -192,6 +193,7 @@ class RealExecutor(AbstractExecutor):
                                               self.workflow.persistence.path))
 
     def handle_job_error(self, job):
+        self.dag.handle_remote_log(job)
         if self.assume_shared_fs:
             job.close_remote()
 
