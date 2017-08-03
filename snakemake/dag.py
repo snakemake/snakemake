@@ -409,15 +409,23 @@ class DAG:
             logger.info("Removing temporary output file {}.".format(f))
             f.remove(remove_non_empty_dir=True)
 
+    def handle_remote_log(self, job):
+        for f in job.log:
+            if f.is_remote and not f.should_stay_on_remote:
+                f.upload_to_remote()
+                if not f.exists_remote:
+                    raise RemoteFileException(
+                        "The file upload was attempted, but it does not "
+                        "exist on remote. Check that your credentials have "
+                        "read AND write permissions.")
+
     def handle_remote(self, job, upload=True):
-        """ Remove local files if they are no longer needed, and upload to S3. """
+        """ Remove local files if they are no longer needed and upload. """
         if upload:
             # handle output files
             files = list(job.expanded_output)
             if job.benchmark:
                 files.append(job.benchmark)
-            if job.log:
-                files.extend(job.log)
             for f in files:
                 if f.is_remote and not f.should_stay_on_remote:
                     f.upload_to_remote()
