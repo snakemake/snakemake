@@ -39,6 +39,14 @@ from snakemake.common import Mode
 from snakemake.version import __version__
 
 
+def format_files(job, io, dynamicio):
+    for f in io:
+        if f in dynamicio:
+            yield "{} (dynamic)".format(f.format_dynamic())
+        else:
+            yield f
+
+
 class AbstractExecutor:
     def __init__(self, workflow, dag,
                  printreason=False,
@@ -90,13 +98,6 @@ class AbstractExecutor:
         if self.dag.dynamic(job):
             return
 
-        def format_files(job, io, dynamicio):
-            for f in io:
-                if f in dynamicio:
-                    yield "{} (dynamic)".format(f.format_dynamic())
-                else:
-                    yield f
-
         priority = self.dag.priority(job)
         logger.job_info(jobid=self.dag.jobid(job),
                         msg=job.message,
@@ -119,9 +120,13 @@ class AbstractExecutor:
             logger.info("Subsequent jobs will be added dynamically "
                         "depending on the output of this rule")
 
-    def print_job_error(self, job, msg=None):
-        logger.error("Error in job {} while creating output file{} {}.".format(
-            job, "s" if len(job.output) > 1 else "", ", ".join(job.output)))
+    def print_job_error(self, job, msg=None, **kwargs):
+        logger.job_error(name=job.rule.name,
+                         jobid=self.dag.jobid(job),
+                         output=list(format_files(job, job.output,
+                                                  job.dynamic_output)),
+                         log=list(job.log),
+                         aux=kwargs)
         if msg is not None:
             logger.error(msg)
 
@@ -694,9 +699,10 @@ class GenericClusterExecutor(ClusterExecutor):
                     if job_finished(active_job):
                         active_job.callback(active_job.job)
                     elif job_failed(active_job):
-                        self.print_job_error(active_job.job)
-                        print_exception(ClusterJobException(active_job, self.dag.jobid(active_job.job)),
-                                        self.workflow.linemaps)
+                        self.print_job_error(
+                            active_job.job,
+                            cluster_jobid=active_job.jobid if active_job.jobid else "unknown",
+                        )
                         active_job.error_callback(active_job.job)
                     else:
                         self.active_jobs.append(active_job)
@@ -1125,10 +1131,7 @@ class KubernetesExecutor(ClusterExecutor):
                                "kubectl describe pod {jobid}\n"
                                "kubectl logs {jobid}").format(jobid=j.jobid)
                         # failed
-                        self.print_job_error(j.job, msg=msg)
-                        print_exception(
-                            ClusterJobException(j, j.jobid),
-                            self.workflow.linemaps)
+                        self.print_job_error(j.job, msg=msg, jobid=j.jobid)
                         j.error_callback(j.job)
                     elif res.status.phase == "Succeeded":
                         # finished

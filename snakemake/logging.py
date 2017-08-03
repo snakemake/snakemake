@@ -158,6 +158,10 @@ class Logger:
         msg["level"] = "job_info"
         self.handler(msg)
 
+    def job_error(self, **msg):
+        msg["level"] = "job_error"
+        self.handler(msg)
+
     def dag_debug(self, msg):
         self.handler(dict(level="dag_debug", **msg))
 
@@ -233,6 +237,16 @@ class Logger:
             self.logger.info("")
 
             self.last_msg_was_job_info = True
+        elif level == "job_error":
+            self.logger.error("Error in rule {}:".format(msg["name"]))
+            self.logger.error("    jobid: {}".format(msg["jobid"]))
+            if msg["output"]:
+                self.logger.error("    output: {}".format(", ".join(msg["output"])))
+            if msg["log"]:
+                self.logger.error("    log: {}".format(", ".join(msg["log"])))
+            for item in msg["aux"].items():
+                self.logger.error("    {}: {}".format(*item))
+            self.logger.error("")
         else:
             if level == "info" and not self.quiet:
                 self.logger.warning(msg["msg"])
