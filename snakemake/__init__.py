@@ -582,9 +582,14 @@ def get_argument_parser():
         nargs="?",
         const="8000",
         metavar="PORT",
-        type=int,
-        help="Serve an HTML based user interface to the given port "
-        "(default: 8000). If possible, a browser window is opened.")
+        type=str,
+        help="Serve an HTML based user interface to the given network and "
+        "port e.g. 168.129.10.15:8000. By default Snakemake is only "
+        "available in the local network (default port: 8000). To make "
+        "Snakemake listen to all ip addresses add the special host address "
+        "0.0.0.0 to the url (0.0.0.0:8000). This is important if Snakemake "
+        "is used in a virtualised environment like Docker. If possible, a "
+        "browser window is opened.")
     parser.add_argument(
         "--cores", "--jobs", "-j",
         action="store",
@@ -1146,7 +1151,14 @@ def main(argv=None):
 
         _snakemake = partial(snakemake, os.path.abspath(args.snakefile))
         gui.register(_snakemake, args)
-        url = "http://127.0.0.1:{}".format(args.gui)
+
+        if ":" in args.gui:
+            host, port = args.gui.split(":")
+        else:
+            port = args.gui
+            host = "127.0.0.1"
+
+        url = "http://{}:{}".format(host, port)
         print("Listening on {}.".format(url), file=sys.stderr)
 
         def open_browser():
@@ -1159,8 +1171,10 @@ def main(argv=None):
               file=sys.stderr)
         threading.Timer(0.5, open_browser).start()
         success = True
+
         try:
-            gui.app.run(debug=False, threaded=True, port=args.gui)
+            gui.app.run(debug=False, threaded=True, port=int(port), host=host)
+
         except (KeyboardInterrupt, SystemExit):
             # silently close
             pass
