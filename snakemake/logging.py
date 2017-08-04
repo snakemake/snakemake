@@ -131,7 +131,11 @@ class Logger:
         self.logger.setLevel(level)
 
     def logfile_hint(self):
-        self.info("Entire log: {}".format(os.path.relpath(self.get_logfile())))
+        logfile = os.path.relpath(self.get_logfile())
+        if logfile.startswith(".."):
+            # relative path is not "simple to read", use absolute path
+            logfile = self.get_logfile()
+        self.info("Complete log: {}".format(logfile))
 
     def info(self, msg):
         self.handler(dict(level="info", msg=msg))

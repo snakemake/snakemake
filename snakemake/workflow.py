@@ -480,7 +480,8 @@ class Workflow:
             self.persistence.cleanup_shadow()
 
         if self.use_conda:
-            dag.create_conda_envs(dryrun=dryrun)
+            if assume_shared_fs:
+                dag.create_conda_envs(dryrun=dryrun)
             if create_envs_only:
                 return True
 
