@@ -177,13 +177,13 @@ class RealExecutor(AbstractExecutor):
     def handle_job_success(self, job, upload_remote=True, ignore_missing_output=False):
         if self.assume_shared_fs:
             self.dag.handle_touch(job)
+            self.dag.handle_log(job)
             self.dag.check_and_touch_output(
                 job,
                 wait=self.latency_wait,
                 ignore_missing_output=ignore_missing_output)
             self.dag.unshadow_output(job)
             self.dag.handle_remote(job, upload=upload_remote)
-            self.dag.handle_remote_log(job)
             self.dag.handle_protected(job)
             self.dag.handle_temp(job)
             job.close_remote()
@@ -198,8 +198,7 @@ class RealExecutor(AbstractExecutor):
                                               self.workflow.persistence.path))
 
     def handle_job_error(self, job, upload_remote=True):
-        if upload_remote:
-            self.dag.handle_remote_log(job)
+        self.dag.handle_log(job, upload_remote=upload_remote)
         if self.assume_shared_fs:
             job.close_remote()
 
@@ -361,6 +360,7 @@ class CPUExecutor(RealExecutor):
         super().handle_job_success(job)
 
     def handle_job_error(self, job):
+        super().handle_job_error(job)
         job.cleanup()
         self.workflow.persistence.cleanup(job)
 

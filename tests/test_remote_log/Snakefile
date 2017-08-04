@@ -1,0 +1,17 @@
+#import re, os, sys
+
+# clean up moto state
+shell("rm -f motoState.p")
+
+from snakemake.remote.S3Mocked import RemoteProvider as S3RemoteProvider
+
+S3 = S3RemoteProvider()
+
+
+rule test:
+    input:
+        S3.remote('test-remote-bucket/test.txt')
+    log:
+        S3.remote("test-remote-bucket/testlog.txt")
+    shell:
+        "exit 1"

@@ -409,9 +409,12 @@ class DAG:
             logger.info("Removing temporary output file {}.".format(f))
             f.remove(remove_non_empty_dir=True)
 
-    def handle_remote_log(self, job):
+    def handle_log(self, job, upload_remote=True):
         for f in job.log:
-            if f.is_remote and not f.should_stay_on_remote:
+            if not f.exists_local:
+                # If log file was not created during job, create an empty one.
+                f.touch_or_create()
+            if upload_remote and f.is_remote and not f.should_stay_on_remote:
                 f.upload_to_remote()
                 if not f.exists_remote:
                     raise RemoteFileException(
