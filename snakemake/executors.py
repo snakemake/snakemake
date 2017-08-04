@@ -185,8 +185,8 @@ class RealExecutor(AbstractExecutor):
             self.dag.unshadow_output(job)
             self.dag.handle_remote(job, upload=upload_remote)
             self.dag.handle_protected(job)
-            self.dag.handle_temp(job)
             job.close_remote()
+        self.dag.handle_temp(job)
 
         self.stats.report_job_end(job)
         try:
