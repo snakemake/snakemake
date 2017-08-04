@@ -198,8 +198,8 @@ class RealExecutor(AbstractExecutor):
                                               self.workflow.persistence.path))
 
     def handle_job_error(self, job, upload_remote=True):
-        self.dag.handle_log(job, upload_remote=upload_remote)
         if self.assume_shared_fs:
+            self.dag.handle_log(job, upload_remote=upload_remote)
             job.close_remote()
 
     def format_job_pattern(self, pattern, job=None, **kwargs):
