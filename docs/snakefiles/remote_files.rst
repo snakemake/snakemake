@@ -21,6 +21,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * XRootD: ``snakemake.remote.XRootD``
 * GenBank / NCBI Entrez: ``snakemake.remote.NCBI``
 * WebDAV: ``snakemake.remote.webdav``
+* GridFTP: ``snakemake.remote.gridftp``
 
 
 Amazon Simple Storage Service (S3)
@@ -508,7 +509,7 @@ Normally, all accessions for a query are returned from ``NCBI.RemoteProvider.sea
 WebDAV
 ======
 
-WebDAV support is currently ``experimental`` and is in versions ``snakemake>=4.0``.
+WebDAV support is currently ``experimental`` and available in Snakemake 4.0 and later.
 
 Snakemake supports reading and writing WebDAV remote files. The protocol defaults to ``https://``, but insecure connections
 can be used by specifying ``protocol=="http://"``. Similarly, the port defaults to 443, and can be overridden by specifying ``port=##`` or by including the port as part of the file address.
@@ -519,9 +520,42 @@ can be used by specifying ``protocol=="http://"``. Similarly, the port defaults 
 
     webdav = webdav.RemoteProvider(username="test", password="test", protocol="http://")
 
-    rule all:
+    rule a:
         input:
-            WEBDAV.remote("example.com:8888/path/to/input_file.csv"),
+            webdav.remote("example.com:8888/path/to/input_file.csv"),
+        shell:
+            # do something
+
+
+GridFTP
+=======
+
+GridFTP support is available in Snakemake 4.1 and later.
+
+Snakemake supports reading and writing remote files via the `GridFTP protocol <https://en.wikipedia.org/wiki/GridFTP>`_.
+GridFTP is an extension of the FTP protocol that is often used in grid computing environments.
+The implementation uses the `UberFTP <https://github.com/JasonAlt/UberFTP/wiki>`_ client, which has to be available in the `$PATH` and configured correctly.
+In general, if you are able to use the `uberftp` directly, Snakemake support for GridFTP will work as well.
+
+.. code-block:: python
+
+    from snakemake.remote import gridftp
+
+    gridftp = gridftp.RemoteProvider()
+
+    rule a:
+        input:
+            gridftp.remote("gridftp.grid.sara.nl:2811/path/to/infile.txt")
+        output:
+            gridftp.remote("gridftp.grid.sara.nl:2811/path/to/outfile.txt")
+        shell:
+            # do something
+
+Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
+Usually, this is already the case and no action has to be taken.
+
+Note that GridFTP support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
+to transparently use Snakemake in a grid computing environment without a shared network filesystem.
 
 
 Remote cross-provider transfers
