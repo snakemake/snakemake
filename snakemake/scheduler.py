@@ -322,7 +322,9 @@ class JobScheduler:
             self.running.remove(job)
             self._free_resources(job)
             self._open_jobs.set()
-            if job.rule.restart_times > job.attempt:
+            # attempt starts counting from 1, but the first attempt is not
+            # a restart, hence we subtract 1.
+            if job.rule.restart_times > job.attempt - 1:
                 logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
                 job.attempt += 1
             else:
