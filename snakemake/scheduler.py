@@ -322,14 +322,9 @@ class JobScheduler:
             self.running.remove(job)
             self._free_resources(job)
             self._open_jobs.set()
-            if job.restart_times > 0:
-                msg = (
-                    ("Trying to restart job for rule {} with "
-                     "wildcards {}").format(
-                         job.rule.name, job.wildcards_dict))
-                logger.info(msg
-                    )
-                job.restart_times -= 1
+            if job.rule.restart_times > job.attempt:
+                logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
+                job.attempt += 1
             else:
                 self._errors = True
                 self.failed.add(job)

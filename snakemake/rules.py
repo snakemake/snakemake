@@ -164,8 +164,14 @@ class Rule:
             branch._input, _, branch.dependencies = branch.expand_input(non_dynamic_wildcards)
             branch._output, _ = branch.expand_output(non_dynamic_wildcards)
 
-            resources = branch.expand_resources(non_dynamic_wildcards, branch._input)
-            branch._params = branch.expand_params(non_dynamic_wildcards, branch._input, branch._output, resources)
+            resources = branch.expand_resources(non_dynamic_wildcards,
+                                                branch._input,
+                                                1)
+            branch._params = branch.expand_params(non_dynamic_wildcards,
+                                                  branch._input,
+                                                  branch._output,
+                                                  resources,
+                                                  omit_callable=True)
             branch.resources = dict(resources.items())
 
             branch._log = branch.expand_log(non_dynamic_wildcards)
@@ -448,6 +454,7 @@ class Rule:
     def _apply_wildcards(self, newitems, olditems, wildcards,
                          concretize=apply_wildcards,
                          check_return_type=True,
+                         omit_callable=False,
                          mapping=None,
                          no_flattening=False,
                          aux_params=None):
@@ -459,6 +466,8 @@ class Rule:
             is_unpack = is_flagged(item, "unpack")
 
             if is_callable(item):
+                if omit_callable:
+                    continue
                 item = self.apply_input_function(item, wildcards, **aux_params)
                 item = self.apply_default_remote(item)
 
@@ -535,7 +544,7 @@ class Rule:
 
         return input, mapping, dependencies
 
-    def expand_params(self, wildcards, input, output, resources):
+    def expand_params(self, wildcards, input, output, resources, omit_callable=False):
         def concretize_param(p, wildcards):
             if isinstance(p, str):
                 return apply_wildcards(p, wildcards)
@@ -548,6 +557,7 @@ class Rule:
             self._apply_wildcards(params, self.params, wildcards,
                                   concretize=concretize_param,
                                   check_return_type=False,
+                                  omit_callable=omit_callable,
                                   no_flattening=True,
                                   aux_params={"input": input,
                                               "resources": resources,
@@ -618,7 +628,7 @@ class Rule:
 
         return benchmark
 
-    def expand_resources(self, wildcards, input):
+    def expand_resources(self, wildcards, input, attempt):
         resources = dict()
 
         def apply(name, res, threads=None):
@@ -627,6 +637,7 @@ class Rule:
                 res = self.apply_input_function(res,
                                                 wildcards,
                                                 input=input,
+                                                attempt=attempt,
                                                 **aux)
                 if not isinstance(res, int):
                     raise WorkflowError("Resources function did not return int.")
