@@ -25,7 +25,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack
+from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
@@ -267,7 +267,9 @@ class Workflow:
                 greediness=1.0,
                 no_hooks=False,
                 force_use_threads=False,
-                create_envs_only=False):
+                create_envs_only=False,
+                assume_shared_fs=True,
+                cluster_status=None):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -478,7 +480,8 @@ class Workflow:
             self.persistence.cleanup_shadow()
 
         if self.use_conda:
-            dag.create_conda_envs(dryrun=dryrun)
+            if assume_shared_fs:
+                dag.create_conda_envs(dryrun=dryrun)
             if create_envs_only:
                 return True
 
@@ -487,6 +490,7 @@ class Workflow:
                                  dryrun=dryrun,
                                  touch=touch,
                                  cluster=cluster,
+                                 cluster_status=cluster_status,
                                  cluster_config=cluster_config,
                                  cluster_sync=cluster_sync,
                                  jobname=jobname,
@@ -502,7 +506,8 @@ class Workflow:
                                  latency_wait=latency_wait,
                                  benchmark_repeats=benchmark_repeats,
                                  greediness=greediness,
-                                 force_use_threads=force_use_threads)
+                                 force_use_threads=force_use_threads,
+                                 assume_shared_fs=assume_shared_fs)
 
         if not dryrun:
             if len(dag):
@@ -538,14 +543,17 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
+                logger.remove_logfile()
             elif stats:
                 scheduler.stats.to_json(stats)
+                logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
             return True
         else:
             if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
+            logger.logfile_hint()
             return False
 
     @property

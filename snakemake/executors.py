@@ -39,6 +39,14 @@ from snakemake.common import Mode
 from snakemake.version import __version__
 
 
+def format_files(job, io, dynamicio):
+    for f in io:
+        if f in dynamicio:
+            yield "{} (dynamic)".format(f.format_dynamic())
+        else:
+            yield f
+
+
 class AbstractExecutor:
     def __init__(self, workflow, dag,
                  printreason=False,
@@ -90,13 +98,6 @@ class AbstractExecutor:
         if self.dag.dynamic(job):
             return
 
-        def format_files(job, io, dynamicio):
-            for f in io:
-                if f in dynamicio:
-                    yield "{} (dynamic)".format(f.format_dynamic())
-                else:
-                    yield f
-
         priority = self.dag.priority(job)
         logger.job_info(jobid=self.dag.jobid(job),
                         msg=job.message,
@@ -119,9 +120,13 @@ class AbstractExecutor:
             logger.info("Subsequent jobs will be added dynamically "
                         "depending on the output of this rule")
 
-    def print_job_error(self, job, msg=None):
-        logger.error("Error in job {} while creating output file{} {}.".format(
-            job, "s" if len(job.output) > 1 else "", ", ".join(job.output)))
+    def print_job_error(self, job, msg=None, **kwargs):
+        logger.job_error(name=job.rule.name,
+                         jobid=self.dag.jobid(job),
+                         output=list(format_files(job, job.output,
+                                                  job.dynamic_output)),
+                         log=list(job.log),
+                         aux=kwargs)
         if msg is not None:
             logger.error(msg)
 
@@ -172,16 +177,16 @@ class RealExecutor(AbstractExecutor):
     def handle_job_success(self, job, upload_remote=True, ignore_missing_output=False):
         if self.assume_shared_fs:
             self.dag.handle_touch(job)
+            self.dag.handle_log(job)
             self.dag.check_and_touch_output(
                 job,
                 wait=self.latency_wait,
                 ignore_missing_output=ignore_missing_output)
             self.dag.unshadow_output(job)
             self.dag.handle_remote(job, upload=upload_remote)
-            self.dag.handle_remote_log(job)
             self.dag.handle_protected(job)
-            self.dag.handle_temp(job)
             job.close_remote()
+        self.dag.handle_temp(job)
 
         self.stats.report_job_end(job)
         try:
@@ -193,9 +198,8 @@ class RealExecutor(AbstractExecutor):
                                               self.workflow.persistence.path))
 
     def handle_job_error(self, job, upload_remote=True):
-        if upload_remote:
-            self.dag.handle_remote_log(job)
         if self.assume_shared_fs:
+            self.dag.handle_log(job, upload_remote=upload_remote)
             job.close_remote()
 
     def format_job_pattern(self, pattern, job=None, **kwargs):
@@ -356,6 +360,7 @@ class CPUExecutor(RealExecutor):
         super().handle_job_success(job)
 
     def handle_job_error(self, job):
+        super().handle_job_error(job)
         job.cleanup()
         self.workflow.persistence.cleanup(job)
 
@@ -386,6 +391,10 @@ class ClusterExecutor(RealExecutor):
                          benchmark_repeats=benchmark_repeats,
                          assume_shared_fs=assume_shared_fs)
 
+        if not self.assume_shared_fs:
+            # use relative path to Snakefile
+            self.snakefile = os.path.relpath(workflow.snakefile)
+
         jobscript = workflow.jobscript
         if jobscript is None:
             jobscript = os.path.join(os.path.dirname(__file__),
@@ -402,8 +411,9 @@ class ClusterExecutor(RealExecutor):
 
         if exec_job is None:
             self.exec_job = '\\\n'.join((
-                'cd {workflow.workdir_init} && ',
-                '{sys.executable} -m snakemake {target} --snakefile {snakefile} ',
+                'cd {workflow.workdir_init} && ' if assume_shared_fs else '',
+                '{sys.executable} ' if assume_shared_fs else 'python ',
+                '-m snakemake {target} --snakefile {snakefile} ',
                 '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
                 '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
                 '--benchmark-repeats {benchmark_repeats} ',
@@ -563,6 +573,7 @@ GenericClusterJob = namedtuple("GenericClusterJob", "job jobid callback error_ca
 class GenericClusterExecutor(ClusterExecutor):
     def __init__(self, workflow, dag, cores,
                  submitcmd="qsub",
+                 statuscmd=None,
                  cluster_config=None,
                  jobname="snakejob.{rulename}.{jobid}.sh",
                  printreason=False,
@@ -571,7 +582,17 @@ class GenericClusterExecutor(ClusterExecutor):
                  latency_wait=3,
                  benchmark_repeats=1,
                  max_jobs_per_second=None,
-                 restart_times=0):
+                 restart_times=0,
+                 assume_shared_fs=True):
+
+        self.submitcmd = submitcmd
+        if not assume_shared_fs and statuscmd is None:
+            raise WorkflowError("When no shared filesystem can be assumed, a "
+                "status command must be given.")
+
+        self.statuscmd = statuscmd
+        self.external_jobid = dict()
+
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -581,12 +602,15 @@ class GenericClusterExecutor(ClusterExecutor):
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          max_jobs_per_second=max_jobs_per_second,
-                         restart_times=restart_times)
-        self.submitcmd = submitcmd
-        self.external_jobid = dict()
-        # TODO wrap with watch and touch {jobrunning}
-        # check modification date of {jobrunning} in the wait_for_job method
-        self.exec_job += ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
+                         restart_times=restart_times,
+                         assume_shared_fs=assume_shared_fs)
+
+        if assume_shared_fs:
+            # TODO wrap with watch and touch {jobrunning}
+            # check modification date of {jobrunning} in the wait_for_job method
+            self.exec_job += ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
+        else:
+            self.exec_job += ' && exit 0 || exit 1'
 
     def cancel(self):
         logger.info("Will exit after finishing currently running jobs.")
@@ -629,7 +653,7 @@ class GenericClusterExecutor(ClusterExecutor):
         if ext_jobid and ext_jobid[0]:
             ext_jobid = ext_jobid[0]
             self.external_jobid.update((f, ext_jobid) for f in job.output)
-            logger.debug("Submitted job {} with external jobid {}.".format(
+            logger.info("Submitted job {} with external jobid '{}'.".format(
                 jobid, ext_jobid))
 
         submit_callback(job)
@@ -637,6 +661,37 @@ class GenericClusterExecutor(ClusterExecutor):
             self.active_jobs.append(GenericClusterJob(job, ext_jobid, callback, error_callback, jobscript, jobfinished, jobfailed))
 
     def _wait_for_jobs(self):
+        if self.statuscmd is not None:
+            def job_status(job):
+                return subprocess.check_output(
+                    '{statuscmd} {jobid}'.format(jobid=job.jobid,
+                                                 statuscmd=self.statuscmd),
+                    shell=True).decode().split("\n")[0]
+
+            def job_finished(job):
+                if job_status(job) == "success":
+                    return True
+                return False
+
+            def job_failed(job):
+                if job_status(job) == "failed":
+                    return True
+                return False
+        else:
+            def job_finished(job):
+                if os.path.exists(active_job.jobfinished):
+                    os.remove(active_job.jobfinished)
+                    os.remove(active_job.jobscript)
+                    return True
+                return False
+
+            def job_failed(job):
+                if os.path.exists(active_job.jobfailed):
+                    os.remove(active_job.jobfailed)
+                    os.remove(active_job.jobscript)
+                    return True
+                return False
+
         while True:
             with self.lock:
                 if not self.wait:
@@ -644,16 +699,13 @@ class GenericClusterExecutor(ClusterExecutor):
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 for active_job in active_jobs:
-                    if os.path.exists(active_job.jobfinished):
-                        os.remove(active_job.jobfinished)
-                        os.remove(active_job.jobscript)
+                    if job_finished(active_job):
                         active_job.callback(active_job.job)
-                    elif os.path.exists(active_job.jobfailed):
-                        os.remove(active_job.jobfailed)
-                        os.remove(active_job.jobscript)
-                        self.print_job_error(active_job.job)
-                        print_exception(ClusterJobException(active_job, self.dag.jobid(active_job.job)),
-                                        self.workflow.linemaps)
+                    elif job_failed(active_job):
+                        self.print_job_error(
+                            active_job.job,
+                            cluster_jobid=active_job.jobid if active_job.jobid else "unknown",
+                        )
                         active_job.error_callback(active_job.job)
                     else:
                         self.active_jobs.append(active_job)
@@ -680,7 +732,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                  latency_wait=3,
                  benchmark_repeats=1,
                  max_jobs_per_second=None,
-                 restart_times=0):
+                 restart_times=0,
+                 assume_shared_fs=True):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -690,7 +743,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          max_jobs_per_second=max_jobs_per_second,
-                         restart_times=restart_times)
+                         restart_times=restart_times,
+                         assume_shared_fs=assume_shared_fs)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
 
@@ -767,7 +821,8 @@ class DRMAAExecutor(ClusterExecutor):
                  benchmark_repeats=1,
                  cluster_config=None,
                  max_jobs_per_second=None,
-                 restart_times=0):
+                 restart_times=0,
+                 assume_shared_fs=True):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -777,7 +832,8 @@ class DRMAAExecutor(ClusterExecutor):
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          max_jobs_per_second=max_jobs_per_second,
-                         restart_times=restart_times)
+                         restart_times=restart_times,
+                         assume_shared_fs=assume_shared_fs)
         try:
             import drmaa
         except ImportError:
@@ -1078,10 +1134,7 @@ class KubernetesExecutor(ClusterExecutor):
                                "kubectl describe pod {jobid}\n"
                                "kubectl logs {jobid}").format(jobid=j.jobid)
                         # failed
-                        self.print_job_error(j.job, msg=msg)
-                        print_exception(
-                            ClusterJobException(j, j.jobid),
-                            self.workflow.linemaps)
+                        self.print_job_error(j.job, msg=msg, jobid=j.jobid)
                         j.error_callback(j.job)
                     elif res.status.phase == "Succeeded":
                         # finished

@@ -6,6 +6,7 @@ __license__ = "MIT"
 import logging as _logging
 import platform
 import time
+import datetime
 import sys
 import os
 import json
@@ -93,23 +94,28 @@ class Logger:
 
     def setup(self):
         # logfile output is done always
-        self.logfile_fd, self.logfile = tempfile.mkstemp(
-            prefix="",
-            suffix=".snakemake.log")
+        os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
+        self.logfile = os.path.abspath(os.path.join(".snakemake",
+                                    "log",
+                                    datetime.datetime.now().isoformat() +
+                                    ".snakemake.log"))
+
         self.logfile_handler = _logging.FileHandler(self.logfile)
         self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
         self.logger.removeHandler(self.logfile_handler)
         self.logfile_handler.close()
-        os.close(self.logfile_fd)
-        os.remove(self.logfile)
         self.log_handler = [self.text_handler]
 
     def get_logfile(self):
         if self.logfile is not None:
             self.logfile_handler.flush()
         return self.logfile
+
+    def remove_logfile(self):
+        self.logfile_handler.close()
+        os.remove(self.logfile)
 
     def handler(self, msg):
         for handler in self.log_handler:
@@ -123,6 +129,13 @@ class Logger:
 
     def set_level(self, level):
         self.logger.setLevel(level)
+
+    def logfile_hint(self):
+        logfile = os.path.relpath(self.get_logfile())
+        if logfile.startswith(".."):
+            # relative path is not "simple to read", use absolute path
+            logfile = self.get_logfile()
+        self.info("Complete log: {}".format(logfile))
 
     def info(self, msg):
         self.handler(dict(level="info", msg=msg))
@@ -147,6 +160,10 @@ class Logger:
 
     def job_info(self, **msg):
         msg["level"] = "job_info"
+        self.handler(msg)
+
+    def job_error(self, **msg):
+        msg["level"] = "job_error"
         self.handler(msg)
 
     def dag_debug(self, msg):
@@ -224,6 +241,16 @@ class Logger:
             self.logger.info("")
 
             self.last_msg_was_job_info = True
+        elif level == "job_error":
+            self.logger.error("Error in rule {}:".format(msg["name"]))
+            self.logger.error("    jobid: {}".format(msg["jobid"]))
+            if msg["output"]:
+                self.logger.error("    output: {}".format(", ".join(msg["output"])))
+            if msg["log"]:
+                self.logger.error("    log: {}".format(", ".join(msg["log"])))
+            for item in msg["aux"].items():
+                self.logger.error("    {}: {}".format(*item))
+            self.logger.error("")
         else:
             if level == "info" and not self.quiet:
                 self.logger.warning(msg["msg"])

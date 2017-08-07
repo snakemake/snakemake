@@ -162,7 +162,7 @@ class AbstractRemoteObject:
             return self._file
 
     def remote_file(self):
-        return self.protocol+self.local_file()
+        return self.protocol + self.local_file()
 
     @abstractmethod
     def close(self):

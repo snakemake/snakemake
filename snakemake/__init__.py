@@ -110,7 +110,9 @@ def snakemake(snakefile,
               kubernetes=None,
               kubernetes_envvars=None,
               default_remote_provider=None,
-              default_remote_prefix=""):
+              default_remote_prefix="",
+              assume_shared_fs=True,
+              cluster_status=None):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -190,8 +192,10 @@ def snakemake(snakefile,
         create_envs_only (bool):   If specified, only builds the conda environments specified for each job, then exits.
         mode (snakemake.common.Mode): Execution mode
         wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
-        default_remote_provider (str): Default remote provider to use instead of local files (S3, GS)
+        default_remote_provider (str): Default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): Prefix for default remote provider (e.g. name of the bucket).
+        assume_shared_fs (bool):    Assume that cluster nodes share a common filesystem (default true).
+        cluster_status (str):       Status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
 
             :level:
@@ -418,7 +422,9 @@ def snakemake(snakefile,
                                        kubernetes_envvars=kubernetes_envvars,
                                        create_envs_only=create_envs_only,
                                        default_remote_provider=default_remote_provider,
-                                       default_remote_prefix=default_remote_prefix)
+                                       default_remote_prefix=default_remote_prefix,
+                                       assume_shared_fs=assume_shared_fs,
+                                       cluster_status=cluster_status)
 
                 success = workflow.execute(
                     targets=targets,
@@ -478,7 +484,9 @@ def snakemake(snakefile,
                     greediness=greediness,
                     no_hooks=no_hooks,
                     force_use_threads=use_threads,
-                    create_envs_only=create_envs_only)
+                    create_envs_only=create_envs_only,
+                    assume_shared_fs=assume_shared_fs,
+                    cluster_status=cluster_status)
 
     except BrokenPipeError:
         # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
@@ -487,6 +495,7 @@ def snakemake(snakefile,
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)
         success = False
+
     if workdir:
         os.chdir(olddir)
     if workflow.persistence:
@@ -860,6 +869,17 @@ def get_argument_parser():
         help="Provide a custom name for the jobscript that is submitted to the "
         "cluster (see --cluster). NAME is \"snakejob.{rulename}.{jobid}.sh\" "
         "per default. The wildcard {jobid} has to be present in the name.")
+    parser.add_argument(
+        "--cluster-status",
+        help="Status command for cluster execution. This is only considered "
+        "in combination with the --cluster flag. If provided, Snakemake will "
+        "use the status command to determine if a job has finished successfully "
+        "or failed. For this it is necessary that the submit command provided "
+        "to --cluster returns the cluster job id. Then, the status command "
+        "will be invoked with the job id. Snakemake expects it to return "
+        "'success' if the job was successfull, 'failed' if the job failed and "
+        "'running' if the job still runs."
+    )
 
     parser.add_argument(
         "--kubernetes", metavar="NAMESPACE",
@@ -1070,7 +1090,7 @@ def get_argument_parser():
         "a different URL to use your fork or a local clone of the repository."
     )
     parser.add_argument("--default-remote-provider",
-                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked"],
+                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gridftp"],
                         help="Specify default remote provider to be used for "
                         "all input and output files that don't yet specify "
                         "one.")
@@ -1078,6 +1098,20 @@ def get_argument_parser():
                         default="",
                         help="Specify prefix for default remote provider. E.g. "
                         "a bucket name.")
+    parser.add_argument("--no-shared-fs",
+                        action="store_true",
+                        help="Do not assume that jobs share a common file "
+                        "system. When this flag is activated, Snakemake will "
+                        "assume that the filesystem on a cluster node is not "
+                        "shared with other nodes. For example, this will lead "
+                        "to downloading remote files on each cluster node "
+                        "separately. Further, it won't take special measures "
+                        "to deal with filesystem latency issues. This option "
+                        "will in most cases only make sense in combination with "
+                        "--default-remote-provider. Further, when using --cluster "
+                        "you will have to also provide --cluster-status. "
+                        "Only activate this if you "
+                        "know what you are doing.")
     parser.add_argument("--version", "-v",
                         action="version",
                         version=__version__)
@@ -1257,7 +1291,9 @@ def main(argv=None):
                             mode=args.mode,
                             wrapper_prefix=args.wrapper_prefix,
                             default_remote_provider=args.default_remote_provider,
-                            default_remote_prefix=args.default_remote_prefix)
+                            default_remote_prefix=args.default_remote_prefix,
+                            assume_shared_fs=not args.no_shared_fs,
+                            cluster_status=args.cluster_status)
 
     if args.profile:
         with open(args.profile, "w") as out:

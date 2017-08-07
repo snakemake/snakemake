@@ -1,6 +1,6 @@
-__author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2017, Johannes Köster, Christopher Tomkins-Tinch"
-__email__ = "tomkinsc@broadinstitute.org"
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2017, Johannes Köster"
+__email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
 import os
