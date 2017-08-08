@@ -63,7 +63,7 @@ class Job:
         self.shadow_dir = None
         self._inputsize = None
 
-        self._attempt = 1
+        self._attempt = self.dag.workflow.attempt
 
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()

@@ -100,6 +100,7 @@ def snakemake(snakefile,
               keep_logger=False,
               max_jobs_per_second=None,
               restart_times=0,
+              attempt=1,
               verbose=False,
               force_use_threads=False,
               use_conda=False,
@@ -185,7 +186,8 @@ def snakemake(snakefile,
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
         verbose (bool):             show additional debug output (default False)
         max_jobs_per_second (int):  maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
-        restart_times (int):        number of times to restart failing jobs (default 1)
+        restart_times (int):        number of times to restart failing jobs (default 0)
+        attempt (int):              initial value of Job.attempt. This is intended for internal use only (default 1).
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
         conda_prefix (str):         the directories in which conda environments will be created (default None)
@@ -355,6 +357,7 @@ def snakemake(snakefile,
                         wrapper_prefix=wrapper_prefix,
                         printshellcmds=printshellcmds,
                         restart_times=restart_times,
+                        attempt=attempt,
                         default_remote_provider=_default_remote_provider,
                         default_remote_prefix=default_remote_prefix)
         success = True
@@ -394,6 +397,8 @@ def snakemake(snakefile,
                                        immediate_submit=immediate_submit,
                                        standalone=standalone,
                                        ignore_ambiguity=ignore_ambiguity,
+                                       restart_times=restart_times,
+                                       attempt=attempt,
                                        lock=lock,
                                        unlock=unlock,
                                        cleanup_metadata=cleanup_metadata,
@@ -1011,6 +1016,10 @@ def get_argument_parser():
         "--restart-times", default=0, type=int,
         help=
         "Number of times to restart failing jobs (defaults to 0).")
+    parser.add_argument(
+        "--attempt", default=1, type=int,
+        help="Internal use only: define the initial value of the attempt "
+        "parameter (default: 1).")
     parser.add_argument('--timestamp', '-T',
                         action='store_true',
                         help='Add a timestamp to all logging output')
@@ -1284,6 +1293,7 @@ def main(argv=None):
                             allowed_rules=args.allowed_rules,
                             max_jobs_per_second=args.max_jobs_per_second,
                             restart_times=args.restart_times,
+                            attempt=args.attempt,
                             force_use_threads=args.force_use_threads,
                             use_conda=args.use_conda,
                             conda_prefix=args.conda_prefix,

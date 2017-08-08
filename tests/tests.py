@@ -100,6 +100,8 @@ def run(path,
                     targetfile), 'expected file "{}" not produced'.format(
                         resultfile)
                 if check_md5:
+                    # if md5sum(targetfile) != md5sum(expectedfile):
+                    #     import pdb; pdb.set_trace()
                     assert md5sum(targetfile) == md5sum(
                         expectedfile), 'wrong result produced for file "{}"'.format(
                             resultfile)
@@ -488,7 +490,7 @@ def test_restartable_job_cmd_exit_1():
         restart_times=0, shouldfail=True)
     # Restarting once is enough
     run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
-        restart_times=1, shouldfail=False)
+        restart_times=1, printshellcmds=True)
 
 
 def test_restartable_job_qsub_exit_1():

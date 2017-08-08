@@ -222,6 +222,7 @@ class RealExecutor(AbstractExecutor):
 
         return format(pattern,
                       job=job,
+                      attempt=job.attempt,
                       overwrite_workdir=overwrite_workdir,
                       overwrite_config=overwrite_config,
                       printshellcmds=printshellcmds,
@@ -279,10 +280,10 @@ class CPUExecutor(RealExecutor):
             'cd {workflow.workdir_init} && ',
             '{sys.executable} -m snakemake {target} --snakefile {snakefile} ',
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
-            '--benchmark-repeats {benchmark_repeats} ',
+            '--benchmark-repeats {benchmark_repeats} --attempt {attempt} ',
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
             self.get_default_remote_provider_args(),
-            '{overwrite_workdir} {overwrite_config} {printshellcmds} ',
+            '{overwrite_workdir} {overwrite_config} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
 
         if self.workflow.use_conda:
@@ -416,7 +417,7 @@ class ClusterExecutor(RealExecutor):
                 '-m snakemake {target} --snakefile {snakefile} ',
                 '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
                 '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
-                '--benchmark-repeats {benchmark_repeats} ',
+                '--benchmark-repeats {benchmark_repeats} --attempt {attempt} ',
                 '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
                 '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
                 '--notemp --quiet --no-hooks --nolock'))
@@ -978,7 +979,7 @@ class KubernetesExecutor(ClusterExecutor):
             'snakemake {target} --snakefile {snakefile} '
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote '
             '--latency-wait 0 '
-            '--benchmark-repeats {benchmark_repeats} '
+            '--benchmark-repeats {benchmark_repeats} --attempt {attempt} '
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} '
             '{overwrite_config} {printshellcmds} --nocolor '
             '--notemp --quiet --no-hooks --nolock ')

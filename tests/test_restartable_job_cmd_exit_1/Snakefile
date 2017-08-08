@@ -12,6 +12,7 @@ rule fails_sometimes:
         mem=lambda wildcards, attempt: 100 * attempt
     shell:
         r"""
+        echo {resources.mem}
         if [[ ! -f ".first" ]]; then
             touch .first
             exit 1

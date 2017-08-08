@@ -51,6 +51,7 @@ class Workflow:
                  wrapper_prefix=None,
                  printshellcmds=False,
                  restart_times=None,
+                 attempt=1,
                  default_remote_provider=None,
                  default_remote_prefix=""):
         """
@@ -92,6 +93,7 @@ class Workflow:
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
         self.restart_times = restart_times
+        self.attempt = attempt
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
         self.configfiles = []
