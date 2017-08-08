@@ -93,6 +93,8 @@ Now, Snakemake is ready to use your cluster.
 in order to avoid unnecessary charges.
 
 
+.. _kubernetes:
+
 Executing a Snakemake workflow via kubernetes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -228,11 +230,19 @@ To visualize the whole DAG regardless of the eventual presence of files, the ``f
 
 Of course the visual appearance can be modified by providing further command line arguments to ``dot``.
 
+
+.. _all_options:
+
 -----------
 All Options
 -----------
 
-All command line options can be printed by calling ``snakemake -h``.
+.. argparse::
+   :module: snakemake
+   :func: get_argument_parser
+   :prog: snakemake
+
+   All command line options can be printed by calling ``snakemake -h``.
 
 .. _getting_started-bash_completion:
 

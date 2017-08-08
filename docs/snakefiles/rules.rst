@@ -223,22 +223,46 @@ In addition to threads, a rule can use arbitrary user-defined resources by speci
     rule:
         input:     ...
         output:    ...
-        resources: gpu=1
-        shell: "..."
+        resources:
+            mem_mb=100
+        shell:
+            "..."
 
 If limits for the resources are given via the command line, e.g.
 
 .. code-block:: console
 
-    $ snakemake --resources gpu=2
+    $ snakemake --resources mem_mb=100
 
 the scheduler will ensure that the given resources are not exceeded by running jobs.
 If no limits are given, the resources are ignored.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
 Resources must be ``int`` values.
+Note that you are free to choose any names for the given resources.
+When defining memory constraints, it is however advised to use ``mem_mb``, because there are
+Snakemake execution modes that make use of this information, (e.g., when using :ref:`kubernetes`).
 
 Resources can also be callables that return ``int`` values.
-The signature of the callable should be ``callable(wildcards [, input] [, threads])`` (input and threads are optional parameters).
+The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
+
+The parameter ``attempt`` allows to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--restart-times``).
+This is handy when executing a Snakemake workflow in a cluster environment, where jobs can e.g. fail because of too limited resources.
+When Snakemake is executed with ``--restart-times 3``, it will try to restart a failed job 3 times before it gives up.
+Thereby, the parameter ``attempt`` will contain the current attempt number (starting from ``1``).
+This can be used to adjust the required memory as follows
+
+.. code-block:: python
+
+    rule:
+        input:    ...
+        output:   ...
+        resources:
+            mem_mb=lambda wildcards, attempt: attempt * 100
+        shell:
+            "..."
+
+Here, the first attempt will require 100 MB memory, the second attempt will require 200 MB memory and so on.
+When passing memory requirements to the cluster engine, you can by this automatically try out larger nodes if it turns out to be necessary.
 
 Messages
 --------
