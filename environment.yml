@@ -21,3 +21,4 @@ dependencies:
   - pandas
   - nomkl
   - google-cloud-storage
+  - ratelimiter
