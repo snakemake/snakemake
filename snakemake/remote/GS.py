@@ -99,6 +99,9 @@ class RemoteObject(AbstractRemoteObject):
                 "kubernetes cluster, make sure that storage-rw is added to "
                 "--scopes (see Snakemake documentation).")
 
+    @property
+    def name(self):
+        return self.key
 
     @property
     def list(self):
