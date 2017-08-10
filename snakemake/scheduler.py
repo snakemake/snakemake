@@ -9,6 +9,9 @@ import operator
 from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate
+from contextlib import contextmanager
+
+from ratelimiter import RateLimiter
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
@@ -24,6 +27,11 @@ def cumsum(iterable, zero=[0]):
 
 _ERROR_MSG_FINAL = ("Exiting because a job execution failed. "
                     "Look above for error message")
+
+
+@contextmanager
+def dummy_rate_limiter():
+    yield
 
 
 class JobScheduler:
@@ -64,6 +72,7 @@ class JobScheduler:
         self.failed = set()
         self.finished_jobs = 0
         self.greediness = 1
+        self.max_jobs_per_second = max_jobs_per_second
 
         self.resources = dict(self.workflow.global_resources)
 
@@ -122,7 +131,6 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
-                    max_jobs_per_second=max_jobs_per_second,
                     assume_shared_fs=assume_shared_fs)
                 if workflow.immediate_submit:
                     self.job_reward = self.dryrun_job_reward
@@ -142,7 +150,6 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
                     cluster_config=cluster_config,
-                    max_jobs_per_second=max_jobs_per_second,
                     assume_shared_fs=assume_shared_fs)
         elif kubernetes:
             workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)),
@@ -164,8 +171,7 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 benchmark_repeats=benchmark_repeats,
-                cluster_config=cluster_config,
-                max_jobs_per_second=max_jobs_per_second)
+                cluster_config=cluster_config)
         else:
             # local execution or execution of cluster job
             # calculate how many parallel workers the executor shall spawn
@@ -181,6 +187,13 @@ class JobScheduler:
                                          benchmark_repeats=benchmark_repeats,
                                          cores=cores)
         self._open_jobs.set()
+
+    def rate_limiter(self):
+        if self.max_jobs_per_second:
+            return RateLimiter(max_calls=self.max_jobs_per_second,
+                                            period=1)
+        else:
+            return dummy_rate_limiter()
 
     @property
     def stats(self):
@@ -202,6 +215,7 @@ class JobScheduler:
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
+
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
@@ -252,7 +266,8 @@ class JobScheduler:
                     "Resources after job selection: {}".format(self.resources))
                 # actually run jobs
                 for job in run:
-                    self.run(job)
+                    with self.rate_limiter():
+                        self.run(job)
         except (KeyboardInterrupt, SystemExit):
             logger.info("Terminating processes on user request.")
             self._executor.cancel()
