@@ -379,7 +379,6 @@ class ClusterExecutor(RealExecutor):
                  benchmark_repeats=1,
                  cluster_config=None,
                  local_input=None,
-                 max_jobs_per_second=None,
                  restart_times=None,
                  exec_job=None,
                  assume_shared_fs=True):
@@ -444,12 +443,7 @@ class ClusterExecutor(RealExecutor):
         self.cores = cores if cores else ""
         self.cluster_config = cluster_config if cluster_config else dict()
 
-        self.max_jobs_per_second = max_jobs_per_second
         self.restart_times = restart_times
-        if self.max_jobs_per_second:
-            self.rate_lock = threading.RLock()
-            self.rate_interval = 1 / self.max_jobs_per_second
-            self.rate_last_called = 0
 
         self.active_jobs = list()
         self.lock = threading.Lock()
@@ -467,18 +461,7 @@ class ClusterExecutor(RealExecutor):
     def cancel(self):
         self.shutdown()
 
-    def _limit_rate(self):
-        """Called in ``_run()`` for rate-limiting"""
-        with self.rate_lock:
-            elapsed = time.clock() - self.rate_last_called
-            wait = self.rate_interval - elapsed
-            if wait > 0:
-                time.sleep(wait)
-            self.rate_last_called = time.clock()
-
     def _run(self, job, callback=None, error_callback=None):
-        if self.max_jobs_per_second:
-            self._limit_rate()
         if self.assume_shared_fs:
             job.remove_existing_output()
             job.download_remote_input()
@@ -582,7 +565,6 @@ class GenericClusterExecutor(ClusterExecutor):
                  printshellcmds=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 max_jobs_per_second=None,
                  restart_times=0,
                  assume_shared_fs=True):
 
@@ -602,7 +584,6 @@ class GenericClusterExecutor(ClusterExecutor):
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
-                         max_jobs_per_second=max_jobs_per_second,
                          restart_times=restart_times,
                          assume_shared_fs=assume_shared_fs)
 
@@ -732,7 +713,6 @@ class SynchronousClusterExecutor(ClusterExecutor):
                  printshellcmds=False,
                  latency_wait=3,
                  benchmark_repeats=1,
-                 max_jobs_per_second=None,
                  restart_times=0,
                  assume_shared_fs=True):
         super().__init__(workflow, dag, cores,
@@ -743,7 +723,6 @@ class SynchronousClusterExecutor(ClusterExecutor):
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
-                         max_jobs_per_second=max_jobs_per_second,
                          restart_times=restart_times,
                          assume_shared_fs=assume_shared_fs)
         self.submitcmd = submitcmd
@@ -821,7 +800,6 @@ class DRMAAExecutor(ClusterExecutor):
                  latency_wait=3,
                  benchmark_repeats=1,
                  cluster_config=None,
-                 max_jobs_per_second=None,
                  restart_times=0,
                  assume_shared_fs=True):
         super().__init__(workflow, dag, cores,
@@ -832,7 +810,6 @@ class DRMAAExecutor(ClusterExecutor):
                          latency_wait=latency_wait,
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
-                         max_jobs_per_second=max_jobs_per_second,
                          restart_times=restart_times,
                          assume_shared_fs=assume_shared_fs)
         try:
@@ -972,7 +949,6 @@ class KubernetesExecutor(ClusterExecutor):
                  benchmark_repeats=1,
                  cluster_config=None,
                  local_input=None,
-                 max_jobs_per_second=None,
                  restart_times=None):
 
         exec_job = (
@@ -993,7 +969,6 @@ class KubernetesExecutor(ClusterExecutor):
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          local_input=local_input,
-                         max_jobs_per_second=max_jobs_per_second,
                          restart_times=restart_times,
                          exec_job=exec_job,
                          assume_shared_fs=False)
