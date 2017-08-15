@@ -85,12 +85,9 @@ class RemoteObject(AbstractRemoteObject):
 
     def upload(self):
         try:
-            try:
+            if not self.bucket.exists():
                 self.bucket.create()
                 self.update_blob()
-            except google.cloud.exceptions.Conflict:
-                # if the bucket exists, we are fine
-                pass
             self.blob.upload_from_filename(self.local_file())
         except google.cloud.exceptions.Forbidden as e:
             raise WorkflowError(e,
