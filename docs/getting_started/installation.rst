@@ -10,7 +10,7 @@ You can use one of the following ways for installing Snakemake.
 Installation via Conda
 ======================
 
-On **Linux** and **MacOSX**, this is the recommended way to install Snakemake,
+This is the recommended way to install Snakemake,
 because it also enables Snakemake to :ref:`handle software dependencies of your
 workflow <integrated_package_management>`.
 
@@ -32,7 +32,7 @@ from the `Bioconda <https://bioconda.github.io>`_ channel.
 Global Installation
 ===================
 
-With a working Python 3 setup, installation of Snakemake can be performed by issuing
+With a working Python ``>=3.5`` setup, installation of Snakemake can be performed by issuing
 
 .. code-block:: console
 
