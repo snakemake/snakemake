@@ -691,7 +691,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         active_job.error_callback(active_job.job)
                     else:
                         self.active_jobs.append(active_job)
-            time.sleep(1)
+            time.sleep(30)
 
 
 SynchronousClusterJob = namedtuple("SynchronousClusterJob", "job jobid callback error_callback jobscript process")
