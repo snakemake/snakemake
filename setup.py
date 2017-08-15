@@ -73,5 +73,5 @@ setup(
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",
      "Intended Audience :: Science/Research",
      "License :: OSI Approved :: MIT License", "Natural Language :: English",
-     "Programming Language :: Python :: 3",
+     "Programming Language :: Python :: 3.5",
      "Topic :: Scientific/Engineering :: Bio-Informatics"])
