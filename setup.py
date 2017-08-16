@@ -61,7 +61,7 @@ setup(
          "snakemake-bash-completion = snakemake:bash_completion"]
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
-    install_requires=['wrapt', 'requests'],
+    install_requires=['wrapt', 'requests', 'ratelimiter'],
     tests_require=['pytools', 'rpy2', 'httpretty==0.8.10', 'docutils',
                    'nose>=1.3', 'boto>=2.38.0', 'filechunkio>=1.6',
                    'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8',
