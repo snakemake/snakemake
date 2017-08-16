@@ -273,7 +273,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                             # to execute script
                             py_exec = "python"
                         else:
-                            logger.info("Conda environment defines Python "
+                            logger.warning("Conda environment defines Python "
                                         "version < {}.{}. Using Python of the "
                                         "master process to execute "
                                         "script.".format(*MIN_PY_VERSION))
