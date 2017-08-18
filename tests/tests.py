@@ -100,6 +100,8 @@ def run(path,
                     targetfile), 'expected file "{}" not produced'.format(
                         resultfile)
                 if check_md5:
+                    # if md5sum(targetfile) != md5sum(expectedfile):
+                    #     import pdb; pdb.set_trace()
                     assert md5sum(targetfile) == md5sum(
                         expectedfile), 'wrong result produced for file "{}"'.format(
                             resultfile)
@@ -488,7 +490,7 @@ def test_restartable_job_cmd_exit_1():
         restart_times=0, shouldfail=True)
     # Restarting once is enough
     run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
-        restart_times=1, shouldfail=False)
+        restart_times=1, printshellcmds=True)
 
 
 def test_restartable_job_qsub_exit_1():
@@ -506,12 +508,14 @@ def test_restartable_job_qsub_exit_1():
     run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
         restart_times=1, shouldfail=False)
 
+
 def test_threads():
     run(dpath("test_threads"), cores=20)
 
 
 def test_dynamic_temp():
     run(dpath("test_dynamic_temp"))
+
 
 def test_ftp_immediate_close():
     try:
@@ -523,13 +527,28 @@ def test_ftp_immediate_close():
     except ImportError:
         pass
 
+
 def test_issue260():
    run(dpath("test_issue260"))
+
 
 def test_default_remote():
     run(dpath("test_default_remote"),
         default_remote_provider="S3Mocked",
         default_remote_prefix="test-remote-bucket")
+
+
+def test_run_namedlist():
+    run(dpath("test_run_namedlist"))
+
+
+def test_remote_gs():
+    run(dpath("test_remote_gs"))
+
+
+def test_remote_log():
+    run(dpath("test_remote_log"), shouldfail=True)
+
 
 if __name__ == '__main__':
     import nose

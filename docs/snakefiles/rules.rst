@@ -208,7 +208,7 @@ Further, a rule can be given a number of threads to use, i.e.
 Snakemake can alter the number of cores available based on command line options. Therefore it is useful to propagate it via the built in variable ``threads`` rather than hardcoding it into the shell command.
 In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``). On a cluster node, Snakemake uses as many cores as available on that node. Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node. Note: This behavior is not affected by ``--local-cores``, which only applies to jobs running on the master node.
 
-Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards, [input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
+Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards[, input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
 
 
 .. _snakefiles-resources:
@@ -223,22 +223,46 @@ In addition to threads, a rule can use arbitrary user-defined resources by speci
     rule:
         input:     ...
         output:    ...
-        resources: gpu=1
-        shell: "..."
+        resources:
+            mem_mb=100
+        shell:
+            "..."
 
 If limits for the resources are given via the command line, e.g.
 
 .. code-block:: console
 
-    $ snakemake --resources gpu=2
+    $ snakemake --resources mem_mb=100
 
 the scheduler will ensure that the given resources are not exceeded by running jobs.
 If no limits are given, the resources are ignored.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
 Resources must be ``int`` values.
+Note that you are free to choose any names for the given resources.
+When defining memory constraints, it is however advised to use ``mem_mb``, because there are
+Snakemake execution modes that make use of this information, (e.g., when using :ref:`kubernetes`).
 
 Resources can also be callables that return ``int`` values.
-The signature of the callable should be ``callable(wildcards, [input])`` (input is an optional parameter).
+The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
+
+The parameter ``attempt`` allows to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--restart-times``).
+This is handy when executing a Snakemake workflow in a cluster environment, where jobs can e.g. fail because of too limited resources.
+When Snakemake is executed with ``--restart-times 3``, it will try to restart a failed job 3 times before it gives up.
+Thereby, the parameter ``attempt`` will contain the current attempt number (starting from ``1``).
+This can be used to adjust the required memory as follows
+
+.. code-block:: python
+
+    rule:
+        input:    ...
+        output:   ...
+        resources:
+            mem_mb=lambda wildcards, attempt: attempt * 100
+        shell:
+            "..."
+
+Here, the first attempt will require 100 MB memory, the second attempt will require 200 MB memory and so on.
+When passing memory requirements to the cluster engine, you can by this automatically try out larger nodes if it turns out to be necessary.
 
 Messages
 --------

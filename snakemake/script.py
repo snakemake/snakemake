@@ -182,9 +182,9 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 searchpath = os.path.dirname(os.path.dirname(__file__))
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
-                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({})
+                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
                 ######## Original script #########
-                """).format(searchpath, snakemake)
+                """).format(searchpath, snakemake, logger.printshellcmds)
             elif path.endswith(".R") or path.endswith(".Rmd"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
@@ -273,7 +273,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                             # to execute script
                             py_exec = "python"
                         else:
-                            logger.info("Conda environment defines Python "
+                            logger.warning("Conda environment defines Python "
                                         "version < {}.{}. Using Python of the "
                                         "master process to execute "
                                         "script.".format(*MIN_PY_VERSION))

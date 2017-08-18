@@ -141,18 +141,27 @@ class _IOFile(str):
                              "may not be used directly.")
 
     def check(self):
+        hint = (
+            "It can also lead to inconsistent results of the file-matching "
+            "approach used by Snakemake."
+        )
         if self._file.startswith("./"):
             logger.warning("Relative file path '{}' starts with './'. This is redundant "
-                           "and strongly discouraged. It can also lead to "
-                           "inconsistent results of the file-matching approach "
-                           "used by Snakemake. You can simply omit the './' "
-                           "for relative file paths.".format(self._file))
+                           "and strongly discouraged. {} You can simply omit the './' "
+                           "for relative file paths.".format(self._file, hint))
         if self._file.startswith(" "):
-            logger.warning("File path '{}' starts with whitespace. This is likely unintended.")
+            logger.warning("File path '{}' starts with whitespace. "
+                "This is likely unintended. {}".format(self._file, hint))
         if self._file.endswith(" "):
-            logger.warning("File path '{}' ends with whitespace. This is likely unintended.")
+            logger.warning("File path '{}' ends with whitespace. "
+                "This is likely unintended. {}".format(self._file, hint))
         if "\n" in self._file:
-            logger.warning("File path '{}' contains line break. This is likely unintended.")
+            logger.warning("File path '{}' contains line break. "
+                "This is likely unintended. {}".format(self._file, hint))
+        if _double_slash_regex.search(self._file) is not None:
+            logger.warning("File path {} contains double '{}'. "
+                "This is likely unintended. {}".format(
+                    self._file, os.path.sep, hint))
 
     @property
     @_refer_to_remote
@@ -344,6 +353,11 @@ class _IOFile(str):
 
     def __hash__(self):
         return self._file.__hash__()
+
+
+_double_slash_regex = (re.compile(r"([^:]//|^//)")
+                       if os.path.sep == "/"
+                       else re.compile(r"\\\\"))
 
 
 _wildcard_regex = re.compile(
@@ -572,6 +586,15 @@ def unpack(value):
     return flag(value, "unpack")
 
 
+def local(value):
+    """Mark a file as local file. This disables application of a default remote
+    provider.
+    """
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Remote and local flags are mutually exclusive.")
+    return flag(value, "local")
+
+
 def expand(*args, **wildcards):
     """
     Expand wildcards in given filepatterns.
@@ -734,7 +757,7 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
-        self._names[name] = (index, end if end is not None else index + 1)
+        self._names[name] = (index, end)
         if end is None:
             setattr(self, name, self[index])
         else:
@@ -764,9 +787,11 @@ class Namedlist(list):
     def allitems(self):
         next = 0
         for name, index in sorted(self._names.items(),
-                                  key=lambda item: item[1]):
+                key=lambda item: (item[1][0], item[1][0] + 1 if item[1][1] is None else item[1][1])):
+
             start, end = index
-            assert end is not None
+            if end is None:
+                end = start + 1
             if start > next:
                 for item in self[next:start]:
                     yield None, item
@@ -780,7 +805,7 @@ class Namedlist(list):
         add = len(items) - 1
         for name, (i, j) in self._names.items():
             if i > index:
-                self._names[name] = (i + add, j + add)
+                self._names[name] = (i + add, None if j is None else j + add)
             elif i == index:
                 self.set_name(name, i, end=i + len(items))
 
@@ -877,10 +902,11 @@ def load_configfile(configpath):
 
 
 class PeriodicityDetector:
-    def __init__(self, min_repeat=50, max_repeat=100):
+    def __init__(self, min_repeat=20, max_repeat=100):
         """
         Args:
-            max_len (int): The maximum length of the periodic substring.
+            max_repeat (int): The maximum length of the periodic substring.
+            min_repeat (int): The minimum length of the periodic substring.
         """
         self.regex = re.compile(
             "((?P<value>.+)(?P=value){{{min_repeat},{max_repeat}}})$".format(

@@ -37,9 +37,9 @@ class Job:
                  "_format_wildcards", "input", "dependencies", "output",
                  "_params", "_log", "_benchmark", "_resources",
                  "_conda_env_file", "_conda_env", "shadow_dir", "_inputsize",
-                 "restart_times", "dynamic_output", "dynamic_input",
+                 "dynamic_output", "dynamic_input",
                  "temp_output", "protected_output", "touch_output",
-                 "subworkflow_input", "_hash"]
+                 "subworkflow_input", "_hash", "_attempt"]
 
     def __init__(self, rule, dag, wildcards_dict=None, format_wildcards=None):
         self.rule = rule
@@ -63,7 +63,7 @@ class Job:
         self.shadow_dir = None
         self._inputsize = None
 
-        self.restart_times = self.rule.restart_times
+        self._attempt = self.dag.workflow.attempt
 
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
@@ -94,7 +94,7 @@ class Job:
     def is_valid(self):
         """Check if job is valid"""
         # these properties have to work in dry-run as well. Hence we check them here:
-        resources = self.rule.expand_resources(self.wildcards_dict, self.input)
+        resources = self.rule.expand_resources(self.wildcards_dict, self.input, self.attempt)
         self.rule.expand_params(self.wildcards_dict, self.input, self.output, resources)
         self.rule.expand_benchmark(self.wildcards_dict)
         self.rule.expand_log(self.wildcards_dict)
@@ -136,10 +136,21 @@ class Job:
         return self._benchmark
 
     @property
+    def attempt(self):
+        return self._attempt
+
+    @attempt.setter
+    def attempt(self, attempt):
+        # reset resources
+        self._resources = None
+        self._attempt = attempt
+
+    @property
     def resources(self):
         if self._resources is None:
             self._resources = self.rule.expand_resources(self.wildcards_dict,
-                                                         self.input)
+                                                         self.input,
+                                                         self.attempt)
         return self._resources
 
     @property
@@ -418,7 +429,8 @@ class Job:
 
         for f in self.input:
             if f.is_remote:
-                if not f.exists_local and f.exists_remote:
+                if (not f.exists_local and f.exists_remote) and (
+                    not self.rule.norun or f.remote_object.keep_local):
                     toDownload.add(f)
 
         toDownload = toDownload | self.remote_input_newer_than_local

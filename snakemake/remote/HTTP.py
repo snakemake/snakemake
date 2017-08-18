@@ -12,6 +12,8 @@ from contextlib import contextmanager
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import HTTPFileException, WorkflowError
+from snakemake.logging import logger
+
 
 try:
     # third-party modules
@@ -128,6 +130,7 @@ class RemoteObject(DomainObject):
             with self.httpr(verb="HEAD") as httpr:
 
                 file_mtime = self.get_header_item(httpr, "last-modified", default=0)
+                logger.debug("HTTP mtime: {}".format(file_mtime))
 
                 modified_tuple = email.utils.parsedate_tz(file_mtime)
                 epochTime = email.utils.mktime_tz(modified_tuple)

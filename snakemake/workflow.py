@@ -14,6 +14,7 @@ from itertools import filterfalse, chain
 from functools import partial
 from operator import attrgetter
 import copy
+import subprocess
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder
@@ -24,7 +25,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack
+from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
@@ -50,6 +51,7 @@ class Workflow:
                  wrapper_prefix=None,
                  printshellcmds=False,
                  restart_times=None,
+                 attempt=1,
                  default_remote_provider=None,
                  default_remote_prefix=""):
         """
@@ -91,8 +93,10 @@ class Workflow:
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
         self.restart_times = restart_times
+        self.attempt = attempt
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
+        self.configfiles = []
 
         global config
         config = copy.deepcopy(self.overwrite_config)
@@ -102,6 +106,32 @@ class Workflow:
 
         global rules
         rules = Rules()
+
+    def get_sources(self):
+        files = set()
+
+        # get registered sources
+        for f in self.included:
+            files.add(os.path.relpath(f))
+        for rule in self.rules:
+            if rule.script:
+                files.add(os.path.relpath(rule.script))
+        for f in self.configfiles:
+            files.add(f)
+
+        # get git-managed files
+        try:
+            out = subprocess.check_output(["git", "ls-files", "."])
+            for f in out.decode().split("\n"):
+                if f:
+                    files.add(os.path.relpath(f))
+        except subprocess.CalledProcessError as e:
+            if "fatal: Not a git repository" in e.stderr.decode():
+                raise WorkflowError("Error: this is not a git repository.")
+            raise WorkflowError("Error executing git:\n{}".format(
+                e.stderr.decode()))
+
+        return files
 
     @property
     def subworkflows(self):
@@ -208,6 +238,8 @@ class Workflow:
                 printd3dag=False,
                 drmaa=None,
                 drmaa_log_dir=None,
+                kubernetes=None,
+                kubernetes_envvars=None,
                 stats=None,
                 force_incomplete=False,
                 ignore_incomplete=False,
@@ -236,7 +268,10 @@ class Workflow:
                 max_jobs_per_second=None,
                 greediness=1.0,
                 no_hooks=False,
-                force_use_threads=False):
+                force_use_threads=False,
+                create_envs_only=False,
+                assume_shared_fs=True,
+                cluster_status=None):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -447,13 +482,17 @@ class Workflow:
             self.persistence.cleanup_shadow()
 
         if self.use_conda:
-            dag.create_conda_envs(dryrun=dryrun)
+            if assume_shared_fs:
+                dag.create_conda_envs(dryrun=dryrun)
+            if create_envs_only:
+                return True
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
                                  dryrun=dryrun,
                                  touch=touch,
                                  cluster=cluster,
+                                 cluster_status=cluster_status,
                                  cluster_config=cluster_config,
                                  cluster_sync=cluster_sync,
                                  jobname=jobname,
@@ -462,12 +501,15 @@ class Workflow:
                                  keepgoing=keepgoing,
                                  drmaa=drmaa,
                                  drmaa_log_dir=drmaa_log_dir,
+                                 kubernetes=kubernetes,
+                                 kubernetes_envvars=kubernetes_envvars,
                                  printreason=printreason,
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
                                  benchmark_repeats=benchmark_repeats,
                                  greediness=greediness,
-                                 force_use_threads=force_use_threads)
+                                 force_use_threads=force_use_threads,
+                                 assume_shared_fs=assume_shared_fs)
 
         if not dryrun:
             if len(dag):
@@ -503,14 +545,17 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
+                logger.remove_logfile()
             elif stats:
                 scheduler.stats.to_json(stats)
+                logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
             return True
         else:
             if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
+            logger.logfile_hint()
             return False
 
     @property
@@ -591,6 +636,7 @@ class Workflow:
     def configfile(self, jsonpath):
         """ Update the global config with the given dictionary. """
         global config
+        self.configfiles.append(jsonpath)
         c = snakemake.io.load_configfile(jsonpath)
         update_config(config, c)
         update_config(config, self.overwrite_config)

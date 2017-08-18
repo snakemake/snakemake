@@ -29,6 +29,7 @@ from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.common import DYNAMIC_FILL
 from snakemake import conda
+from snakemake import utils
 
 # Workaround for Py <3.5 prior to existence of RecursionError
 try:
@@ -408,15 +409,26 @@ class DAG:
             logger.info("Removing temporary output file {}.".format(f))
             f.remove(remove_non_empty_dir=True)
 
+    def handle_log(self, job, upload_remote=True):
+        for f in job.log:
+            if not f.exists_local:
+                # If log file was not created during job, create an empty one.
+                f.touch_or_create()
+            if upload_remote and f.is_remote and not f.should_stay_on_remote:
+                f.upload_to_remote()
+                if not f.exists_remote:
+                    raise RemoteFileException(
+                        "The file upload was attempted, but it does not "
+                        "exist on remote. Check that your credentials have "
+                        "read AND write permissions.")
+
     def handle_remote(self, job, upload=True):
-        """ Remove local files if they are no longer needed, and upload to S3. """
+        """ Remove local files if they are no longer needed and upload. """
         if upload:
             # handle output files
             files = list(job.expanded_output)
             if job.benchmark:
                 files.append(job.benchmark)
-            if job.log:
-                files.extend(job.log)
             for f in files:
                 if f.is_remote and not f.should_stay_on_remote:
                     f.upload_to_remote()
@@ -1178,14 +1190,10 @@ class DAG:
                             archived.add(f)
                             logger.info("archived " + f)
 
-                logger.info("Archiving files under version control...")
-                try:
-                    out = subprocess.check_output(["git", "ls-files", "."])
-                    for f in out.decode().split("\n"):
-                        if f:
-                            add(f)
-                except subprocess.CalledProcessError as e:
-                    raise WorkflowError("Error executing git.")
+                logger.info("Archiving snakefiles, scripts and files under "
+                            "version control...")
+                for f in self.workflow.get_sources():
+                    add(f)
 
                 logger.info("Archiving external input files...")
                 for job in self.jobs:

@@ -1,5 +1,29 @@
 # Change Log
 
+## [4.0.0] - 2017-07-24
+### Added
+- Cloud computing support via Kubernetes. Snakemake workflows can be executed transparently
+  in the cloud, while storing input and output files within the cloud storage
+  (e.g. S3 or Google Storage). I.e., this feature does not need a shared filesystem
+  between the cloud notes, and thereby makes the setup really simple.
+- WebDAV remote file support: Snakemake can now read and write from WebDAV. Hence,
+  it can now, e.g., interact with Nextcloud or Owncloud.
+- Support for default remote providers: define a remote provider to implicitly
+  use for all input and output files.
+- Added an option to only create conda environments instead of executing the workflow.
+### Changed
+- The number of files used for the metadata tracking of Snakemake (e.g., code, params, input changes) in the .snakemake directory has been reduced by a factor of 10, which should help with NFS and IO bottlenecks. This is a breaking change in the sense that Snakemake 4.x won't see the metadata of workflows executed with Snakemake 3.x. However, old metadata won't be overwritten, so that you can always go back and check things by installing an older version of Snakemake again.
+- The google storage (GS) remote provider has been changed to use the google SDK.
+  This is a breaking change, since the remote provider invocation has been simplified (see docs).
+- Due to WebDAV support (which uses asyncio), Snakemake now requires Python 3.5 at least.
+- Various minor bug fixes (e.g. for dynamic output files).
+
+
+## [3.13.3] - 2017-06-23
+### Changed
+- Fix a followup bug in Namedlist where a single item was not returned as string.
+
+
 ## [3.13.2] - 2017-06-20
 ### Changed
 - The --wrapper-prefix flag now also affects where the corresponding environment definition is fetched from.

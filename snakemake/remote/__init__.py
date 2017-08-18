@@ -46,8 +46,6 @@ class AbstractRemoteProvider:
     """
     __metaclass__ = ABCMeta
 
-    supports_default = False
-
     def __init__(self, *args, keep_local=False, stay_on_remote=False, **kwargs):
         self.args = args
         self.stay_on_remote = stay_on_remote
@@ -68,14 +66,12 @@ class AbstractRemoteProvider:
 
         def _set_protocol(value):
             """Adds the default protocol to `value` if it doesn't already have one"""
-            for protocol in self.available_protocols:
-                if value.startswith(protocol):
+            protocol = self.default_protocol
+            for p in self.available_protocols:
+                if value.startswith(p):
+                    value = value[len(p):]
+                    protocol = p
                     break
-            if value.startswith(protocol):
-                value = value[len(protocol):]
-                protocol = protocol
-            else:
-                protocol = self.default_protocol
             return protocol, value
 
         if isinstance(value, str):
@@ -88,9 +84,15 @@ class AbstractRemoteProvider:
             protocol = set(protocol).pop()
             value = [protocol+v if stay_on_remote else v for v in value]
 
+        if "protocol" not in kwargs:
+            if "protocol" not in self.kwargs:
+                kwargs["protocol"] = protocol
+            else:
+                kwargs["protocol"] = self.kwargs["protocol"]
+
         provider = sys.modules[self.__module__]  # get module of derived class
         remote_object = provider.RemoteObject(
-            *args, protocol=protocol, keep_local=keep_local, stay_on_remote=stay_on_remote,
+            *args, keep_local=keep_local, stay_on_remote=stay_on_remote,
             provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs
         )
         if static:
@@ -102,7 +104,6 @@ class AbstractRemoteProvider:
         kwargs = self.kwargs if not kwargs else kwargs
 
         referenceObj = snakemake.io.IOFile(self.remote(pattern, *args, **kwargs))
-
         if not referenceObj.remote_object.stay_on_remote:
             pattern = "./" + referenceObj.remote_object.name
             pattern = os.path.normpath(pattern)
@@ -161,7 +162,7 @@ class AbstractRemoteObject:
             return self._file
 
     def remote_file(self):
-        return self.protocol+self.local_file()
+        return self.protocol + self.local_file()
 
     @abstractmethod
     def close(self):
@@ -214,11 +215,17 @@ class DomainObject(AbstractRemoteObject):
 
     @property
     def _matched_address(self):
-        return re.search("^(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$", self.local_file())
+        return re.search("^(?P<protocol>[a-zA-Z]+\://)?(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$", self.local_file())
 
     @property
     def name(self):
         return self.path_remainder
+
+    # if we ever parse out the protocol directly
+    #@property
+    #def protocol(self):
+    #    if self._matched_address:
+    #        return self._matched_address.group("protocol")
 
     @property
     def host(self):
@@ -227,7 +234,8 @@ class DomainObject(AbstractRemoteObject):
 
     @property
     def port(self):
-        return self._matched_address.group("port")
+        if self._matched_address:
+            return self._matched_address.group("port")
 
     @property
     def path_prefix(self):

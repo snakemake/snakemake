@@ -19,3 +19,5 @@ dependencies:
   - psutil
   - pandas
   - nomkl
+  - google-cloud-storage
+  - ratelimiter

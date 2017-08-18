@@ -26,3 +26,5 @@ dependencies:
   - xorg-libxau
   - xorg-libxdmcp
   - psutil
+  - google-cloud-storage
+  - ratelimiter

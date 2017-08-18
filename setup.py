@@ -13,8 +13,8 @@ import sys
 exec(open("snakemake/version.py").read())
 
 
-if sys.version_info < (3, 3):
-    print("At least Python 3.3 is required.\n", file=sys.stderr)
+if sys.version_info < (3, 5):
+    print("At least Python 3.5 is required.\n", file=sys.stderr)
     exit(1)
 
 
@@ -73,5 +73,5 @@ setup(
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",
      "Intended Audience :: Science/Research",
      "License :: OSI Approved :: MIT License", "Natural Language :: English",
-     "Programming Language :: Python :: 3",
+     "Programming Language :: Python :: 3.5",
      "Topic :: Scientific/Engineering :: Bio-Informatics"])
