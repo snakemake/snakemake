@@ -61,9 +61,12 @@ setup(
          "snakemake-bash-completion = snakemake:bash_completion"]
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
-    install_requires=['wrapt', 'requests'],
-    tests_require=['pytools', 'rpy2', 'httpretty==0.8.10', 'docutils', 'nose>=1.3', 'boto3',
-                   'moto>=1.0.1', 'ftputil>=3.2', 'pysftp>=0.2.8', 'requests>=2.8.1', 'dropbox>=5.2', 'pyyaml'],
+    install_requires=['wrapt', 'requests', 'ratelimiter'],
+    tests_require=['pytools', 'rpy2', 'httpretty==0.8.10', 'docutils',
+                   'nose>=1.3', 'boto3', 'filechunkio>=1.6',
+                   'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8',
+                   'requests>=2.8.1', 'dropbox>=5.2', 'pyyaml',
+                   'google-cloud-storage', 'ratelimiter'],
     test_suite='all',
     cmdclass={'test': NoseTestCommand},
     classifiers=

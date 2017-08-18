@@ -7,7 +7,6 @@ __license__ = "MIT"
 import os
 import re
 import math
-import email.utils
 import functools
 import concurrent.futures
 
@@ -84,10 +83,7 @@ class RemoteObject(AbstractRemoteObject):
         os.sync() # ensure flush to disk
 
     def upload(self):
-        if self.size() > 10 * 1024 * 1024: # S3 complains if multipart uploads are <10MB
-            self._s3c.upload_to_s3_multipart(self.s3_bucket, self.local_file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
-        else:
-            self._s3c.upload_to_s3(self.s3_bucket, self.local_file(), self.s3_key, encrypt_key=self.kwargs.get("encrypt_key", None))
+        self._s3c.upload_to_s3(self.s3_bucket, self.local_file(), self.s3_key, extra_args=self.kwargs.get("ExtraArgs", None), config=self.kwargs.get("Config", None))
 
     @property
     def list(self):
@@ -142,8 +138,14 @@ class S3Helper(object):
         if "secret_access_key" in kwargs:
             kwargs["aws_secret_access_key"] = kwargs.pop("secret_access_key")
 
-        # self.conn = boto3.connect_s3(*args, **kwargs)
         self.s3 = boto3.resource('s3', **kwargs)
+
+    def bucket_exists(self, bucket_name):
+        try:
+            self.s3.meta.client.head_bucket(Bucket=bucket_name)
+            return True
+        except:
+            return False
 
     def upload_to_s3(
             self,
@@ -151,7 +153,9 @@ class S3Helper(object):
             file_path,
             key=None,
             use_relative_path_for_key=True,
-            relative_start_dir=None):
+            relative_start_dir=None,
+            extra_args=None,
+            config=None):
         """ Upload a file to S3
 
             This function uploads a file to an AWS S3 bucket.
@@ -174,7 +178,8 @@ class S3Helper(object):
         assert os.path.exists(file_path), "The file path specified does not exist: %s" % file_path
         assert os.path.isfile(file_path), "The file path specified does not appear to be a file: %s" % file_path
 
-        self.s3.create_bucket(Bucket=bucket_name)
+        if not self.bucket_exists(bucket_name):
+            self.s3.create_bucket(Bucket=bucket_name)
 
         if not key:
             if use_relative_path_for_key:
@@ -189,8 +194,9 @@ class S3Helper(object):
         k = self.s3.Object(bucket_name, key)
 
         try:
-            k.upload_file(file_path)
+            k.upload_file(file_path, ExtraArgs=extra_args, Config=config)
         except:
+            raise
             return None
 
     def download_from_s3(
@@ -236,10 +242,6 @@ class S3Helper(object):
         if make_dest_dirs:
             os.makedirs(os.path.dirname(destination_path), exist_ok=True)
 
-        if not key:
-            # TODO dead code, see above assertion
-            key = os.path.basename(destination_path)
-
         k = self.s3.Object(bucket_name, key)
 
         try:
@@ -248,9 +250,7 @@ class S3Helper(object):
             else:
                 # just create an empty file with the right timestamps
                 with open(destination_path, 'wb') as fp:
-                    modified_tuple = email.utils.parsedate_tz(k.last_modified)
-                    modified_stamp = int(email.utils.mktime_tz(modified_tuple))
-                    os.utime(fp.name, (modified_stamp, modified_stamp))
+                    os.utime(fp.name, (int(k.last_modified.timestamp()), int(k.last_modified.timestamp())))
             return destination_path
         except:
             return None
@@ -328,12 +328,7 @@ class S3Helper(object):
 
         k = self.s3.Object(bucket_name, key)
 
-        # email.utils parsing of timestamp mirrors boto whereas
-        # time.strptime() can have TZ issues due to DST
-        modified_tuple = email.utils.parsedate_tz(k.last_modified)
-        epochTime = int(email.utils.mktime_tz(modified_tuple))
-
-        return epochTime
+        return int(k.last_modified.timestamp())
 
     def list_keys(self, bucket_name):
         b = self.s3.Bucket(bucket_name)
