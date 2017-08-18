@@ -250,7 +250,7 @@ class S3Helper(object):
             else:
                 # just create an empty file with the right timestamps
                 with open(destination_path, 'wb') as fp:
-                    os.utime(fp.name, (int(k.last_modified.timestamp()), int(k.last_modified.timestamp())))
+                    os.utime(fp.name, (k.last_modified.timestamp(), k.last_modified.timestamp()))
             return destination_path
         except:
             return None
@@ -328,7 +328,7 @@ class S3Helper(object):
 
         k = self.s3.Object(bucket_name, key)
 
-        return int(k.last_modified.timestamp())
+        return k.last_modified.timestamp()
 
     def list_keys(self, bucket_name):
         b = self.s3.Bucket(bucket_name)
