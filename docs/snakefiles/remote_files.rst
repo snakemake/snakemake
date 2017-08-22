@@ -23,6 +23,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * WebDAV: ``snakemake.remote.webdav``
 * GFAL: ``snakemake.remote.gfal``
 * GridFTP: ``snakemake.remote.gridftp``
+* iRODS: ``snakemake.remote.iRODS``
 
 
 Amazon Simple Storage Service (S3)
@@ -629,3 +630,50 @@ It is possible to use Snakemake to transfer files between remote providers (usin
             GS.remote( expand("destination-bucket/{file}.bam", file=fileList) )
         run:
             shell("cp {input} {output}")
+
+
+iRODS
+=====
+
+You can access an iRODS server to retreive data from and upload data to. If your
+iRODS server is not set to a certain timezone, it is using UTC. It is advised
+to shift it then to your timezone by providing the `timezone` parameter such
+that timestamps coming from iRODS are converted to the correct time.
+
+.. code-block:: python
+
+    from snakemake.remote.iRODS import RemoteProvider
+
+    irods = RemoteProvider(user='rods', password='rods', timezone="Europe/Berlin")
+                           # optional parameters: timezone='wherever'
+                           #                      zone='whatever'
+
+    rule all:
+        input:
+            irods.remote('localhost:1247/tempZone/home/rods/testfile.out')
+
+    rule gen:
+        input:
+            irods.remote('localhost:1247/tempZone/home/rods/testfile.in')
+                         # optional parameters: overwrite=True (False by default)
+        output:
+            irods.remote('localhost:1247/tempZone/home/rods/testfile.out')
+        shell:
+            r"""
+            touch {output}
+            """
+
+Since one has to define the full path on the iRODS server, the zone parameter
+is determined from that and such it is an optional parameter.
+
+iRODS actually does not save the timestamp from your original file but creates
+its own timestamp of the upload time. When downloading it does not take the
+timestamp from the remote file, the file will have the timestamp when it was
+downloade. Such we create a metadata entry to store the original file stamp
+from your system and alter the timestamp of the downloaded file accordingly.
+We write the entries `atime`, `ctime` and `mtime`.
+
+By default, temporary stored local files are removed. You can specify anyway
+the parameter `overwrite` to tell iRODS to overwrite existing files that are
+downloaded, because iRODS complains if a local file already exists when a
+download attempt is issued.
