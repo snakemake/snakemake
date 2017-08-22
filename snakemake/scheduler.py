@@ -9,9 +9,14 @@ import operator
 from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate
+from contextlib import contextmanager
+
+from ratelimiter import RateLimiter
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
-from snakemake.executors import GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor
+from snakemake.executors import (
+    GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor,
+    KubernetesExecutor)
 
 from snakemake.logging import logger
 
@@ -24,16 +29,24 @@ _ERROR_MSG_FINAL = ("Exiting because a job execution failed. "
                     "Look above for error message")
 
 
+@contextmanager
+def dummy_rate_limiter():
+    yield
+
+
 class JobScheduler:
     def __init__(self, workflow, dag, cores,
                  local_cores=1,
                  dryrun=False,
                  touch=False,
                  cluster=None,
+                 cluster_status=None,
                  cluster_config=None,
                  cluster_sync=None,
                  drmaa=None,
                  drmaa_log_dir=None,
+                 kubernetes=None,
+                 kubernetes_envvars=None,
                  jobname=None,
                  quiet=False,
                  printreason=False,
@@ -43,7 +56,8 @@ class JobScheduler:
                  latency_wait=3,
                  benchmark_repeats=1,
                  greediness=1.0,
-                 force_use_threads=False):
+                 force_use_threads=False,
+                 assume_shared_fs=True):
         """ Create a new instance of KnapsackJobScheduler. """
         self.cluster = cluster
         self.cluster_config = cluster_config
@@ -58,6 +72,7 @@ class JobScheduler:
         self.failed = set()
         self.finished_jobs = 0
         self.greediness = 1
+        self.max_jobs_per_second = max_jobs_per_second
 
         self.resources = dict(self.workflow.global_resources)
 
@@ -74,6 +89,7 @@ class JobScheduler:
             update_dynamic=not self.dryrun,
             print_progress=not self.quiet and not self.dryrun)
 
+        self._local_executor = None
         if dryrun:
             self._executor = DryrunExecutor(workflow, dag,
                                             printreason=printreason,
@@ -98,10 +114,13 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 benchmark_repeats=benchmark_repeats,
                 cores=local_cores)
-            self.run = self.run_cluster_or_local
             if cluster or cluster_sync:
-                constructor = SynchronousClusterExecutor if cluster_sync \
-                              else GenericClusterExecutor
+                if cluster_sync:
+                    constructor = SynchronousClusterExecutor
+                else:
+                    constructor = partial(GenericClusterExecutor,
+                                          statuscmd=cluster_status)
+
                 self._executor = constructor(
                     workflow, dag, None,
                     submitcmd=(cluster or cluster_sync),
@@ -112,7 +131,7 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
-                    max_jobs_per_second=max_jobs_per_second)
+                    assume_shared_fs=assume_shared_fs)
                 if workflow.immediate_submit:
                     self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
@@ -131,7 +150,28 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
                     cluster_config=cluster_config,
-                    max_jobs_per_second=max_jobs_per_second)
+                    assume_shared_fs=assume_shared_fs)
+        elif kubernetes:
+            workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)),
+                          local_cores)
+            self._local_executor = CPUExecutor(
+                workflow, dag, workers,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                use_threads=use_threads,
+                latency_wait=latency_wait,
+                benchmark_repeats=benchmark_repeats,
+                cores=local_cores)
+
+            self._executor = KubernetesExecutor(
+                workflow, dag, kubernetes, kubernetes_envvars,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                benchmark_repeats=benchmark_repeats,
+                cluster_config=cluster_config)
         else:
             # local execution or execution of cluster job
             # calculate how many parallel workers the executor shall spawn
@@ -147,6 +187,13 @@ class JobScheduler:
                                          benchmark_repeats=benchmark_repeats,
                                          cores=cores)
         self._open_jobs.set()
+
+    def rate_limiter(self):
+        if self.max_jobs_per_second:
+            return RateLimiter(max_calls=self.max_jobs_per_second,
+                                            period=1)
+        else:
+            return dummy_rate_limiter()
 
     @property
     def stats(self):
@@ -168,6 +215,7 @@ class JobScheduler:
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
+
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
@@ -185,6 +233,7 @@ class JobScheduler:
                 if not self.keepgoing and self._errors:
                     logger.info("Will exit after finishing "
                                 "currently running jobs.")
+
                     if not running:
                         self._executor.shutdown()
                         logger.error(_ERROR_MSG_FINAL)
@@ -217,7 +266,8 @@ class JobScheduler:
                     "Resources after job selection: {}".format(self.resources))
                 # actually run jobs
                 for job in run:
-                    self.run(job)
+                    with self.rate_limiter():
+                        self.run(job)
         except (KeyboardInterrupt, SystemExit):
             logger.info("Terminating processes on user request.")
             self._executor.cancel()
@@ -227,19 +277,18 @@ class JobScheduler:
                 job.cleanup()
             return False
 
-    def run(self, job):
-        self._executor.run(job,
-                           callback=self._finish_callback,
-                           submit_callback=self._submit_callback,
-                           error_callback=self._error)
+    def get_executor(self, job):
+        if self._local_executor is None:
+            return self._executor
+        else:
+            return self._local_executor if self.workflow.is_local(
+                job.rule) else self._executor
 
-    def run_cluster_or_local(self, job):
-        executor = self._local_executor if self.workflow.is_local(
-            job.rule) else self._executor
-        executor.run(job,
-                     callback=self._finish_callback,
-                     submit_callback=self._submit_callback,
-                     error_callback=self._error)
+    def run(self, job):
+        self.get_executor(job).run(job,
+            callback=self._finish_callback,
+            submit_callback=self._submit_callback,
+            error_callback=self._error)
 
     def _noop(self, job):
         pass
@@ -258,12 +307,15 @@ class JobScheduler:
                  update_resources=True):
         """ Do stuff after job is finished. """
         with self._lock:
+            # by calling this behind the lock, we avoid race conditions
+            self.get_executor(job).handle_job_success(job)
+            self.dag.finish(job, update_dynamic=update_dynamic)
+
             if update_resources:
                 self.finished_jobs += 1
                 self.running.remove(job)
                 self._free_resources(job)
 
-            self.dag.finish(job, update_dynamic=update_dynamic)
 
             if print_progress:
                 logger.job_finished(jobid=self.dag.jobid(job))
@@ -281,17 +333,15 @@ class JobScheduler:
         try to run the job again.
         """
         with self._lock:
+            self.get_executor(job).handle_job_error(job)
             self.running.remove(job)
             self._free_resources(job)
             self._open_jobs.set()
-            if job.restart_times > 0:
-                msg = (
-                    ("Trying to restart job for rule {} with "
-                     "wildcards {}").format(
-                         job.rule.name, job.wildcards_dict))
-                logger.info(msg
-                    )
-                job.restart_times -= 1
+            # attempt starts counting from 1, but the first attempt is not
+            # a restart, hence we subtract 1.
+            if job.rule.restart_times > job.attempt - 1:
+                logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
+                job.attempt += 1
             else:
                 self._errors = True
                 self.failed.add(job)

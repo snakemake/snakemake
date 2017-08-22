@@ -9,6 +9,7 @@ import sys
 import inspect
 import sre_constants
 from collections import defaultdict, Iterable
+from urllib.parse import urljoin
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
@@ -163,8 +164,14 @@ class Rule:
             branch._input, _, branch.dependencies = branch.expand_input(non_dynamic_wildcards)
             branch._output, _ = branch.expand_output(non_dynamic_wildcards)
 
-            resources = branch.expand_resources(non_dynamic_wildcards, branch._input)
-            branch._params = branch.expand_params(non_dynamic_wildcards, branch._input, branch._output, resources)
+            resources = branch.expand_resources(non_dynamic_wildcards,
+                                                branch._input,
+                                                1)
+            branch._params = branch.expand_params(non_dynamic_wildcards,
+                                                  branch._input,
+                                                  branch._output,
+                                                  resources,
+                                                  omit_callable=True)
             branch.resources = dict(resources.items())
 
             branch._log = branch.expand_log(non_dynamic_wildcards)
@@ -195,6 +202,8 @@ class Rule:
 
     @benchmark.setter
     def benchmark(self, benchmark):
+        if not callable(benchmark):
+            benchmark = self.apply_default_remote(benchmark)
         self._benchmark = IOFile(benchmark, rule=self)
 
     @property
@@ -282,6 +291,15 @@ class Rule:
                         self.name, seen[value], name or idx))
             seen[value] = name or idx
 
+    def apply_default_remote(self, item):
+        assert not callable(item)
+        if (not is_flagged(item, "remote_object") and
+            not is_flagged(item, "local") and
+            self.workflow.default_remote_provider is not None):
+            item = "{}/{}".format(self.workflow.default_remote_prefix, item)
+            return self.workflow.default_remote_provider.remote(item)
+        return item
+
     def _set_inoutput_item(self, item, output=False, name=None):
         """
         Set an item to be input or output.
@@ -293,6 +311,8 @@ class Rule:
         """
         inoutput = self.output if output else self.input
         if isinstance(item, str):
+            item = self.apply_default_remote(item)
+
             # add the rule to the dependencies
             if isinstance(item, _IOFile) and item.rule:
                 self.dependencies[item] = item.rule
@@ -392,6 +412,9 @@ class Rule:
 
     def _set_log_item(self, item, name=None):
         if isinstance(item, str) or callable(item):
+            if not callable(item):
+                item = self.apply_default_remote(item)
+
             self.log.append(IOFile(item,
                                    rule=self) if isinstance(item, str) else
                             item)
@@ -431,6 +454,7 @@ class Rule:
     def _apply_wildcards(self, newitems, olditems, wildcards,
                          concretize=apply_wildcards,
                          check_return_type=True,
+                         omit_callable=False,
                          mapping=None,
                          no_flattening=False,
                          aux_params=None):
@@ -442,7 +466,10 @@ class Rule:
             is_unpack = is_flagged(item, "unpack")
 
             if is_callable(item):
+                if omit_callable:
+                    continue
                 item = self.apply_input_function(item, wildcards, **aux_params)
+                item = self.apply_default_remote(item)
 
             if is_unpack:
                 # Sanity checks before interpreting unpack()
@@ -497,7 +524,7 @@ class Rule:
                                   concretize=concretize_iofile,
                                   mapping=mapping)
         except WildcardError as e:
-            raise WorkflowError(
+            raise WildcardError(
                 "Wildcards in input files cannot be "
                 "determined from output files:",
                 str(e), rule=self)
@@ -517,7 +544,7 @@ class Rule:
 
         return input, mapping, dependencies
 
-    def expand_params(self, wildcards, input, output, resources):
+    def expand_params(self, wildcards, input, output, resources, omit_callable=False):
         def concretize_param(p, wildcards):
             if isinstance(p, str):
                 return apply_wildcards(p, wildcards)
@@ -530,13 +557,14 @@ class Rule:
             self._apply_wildcards(params, self.params, wildcards,
                                   concretize=concretize_param,
                                   check_return_type=False,
+                                  omit_callable=omit_callable,
                                   no_flattening=True,
                                   aux_params={"input": input,
                                               "resources": resources,
                                               "output": output,
                                               "threads": resources._cores})
         except WildcardError as e:
-            raise WorkflowError(
+            raise WildcardError(
                 "Wildcards in params cannot be "
                 "determined from output files:",
                 str(e), rule=self)
@@ -575,7 +603,7 @@ class Rule:
                                   wildcards,
                                   concretize=concretize_logfile)
         except WildcardError as e:
-            raise WorkflowError(
+            raise WildcardError(
                 "Wildcards in log files cannot be "
                 "determined from output files:",
                 str(e), rule=self)
@@ -590,7 +618,7 @@ class Rule:
             benchmark = self.benchmark.apply_wildcards(
                 wildcards) if self.benchmark else None
         except WildcardError as e:
-            raise WorkflowError(
+            raise WildcardError(
                 "Wildcards in benchmark file cannot be "
                 "determined from output files:",
                 str(e), rule=self)
@@ -600,17 +628,28 @@ class Rule:
 
         return benchmark
 
-    def expand_resources(self, wildcards, input):
+    def expand_resources(self, wildcards, input, attempt):
         resources = dict()
-        for name, res in self.resources.items():
+
+        def apply(name, res, threads=None):
             if callable(res):
+                aux = {"threads": threads} if threads is not None else dict()
                 res = self.apply_input_function(res,
                                                 wildcards,
-                                                input=input)
+                                                input=input,
+                                                attempt=attempt,
+                                                **aux)
                 if not isinstance(res, int):
                     raise WorkflowError("Resources function did not return int.")
             res = min(self.workflow.global_resources.get(name, res), res)
-            resources[name] = res
+            return res
+
+        threads = apply("_cores", self.resources["_cores"])
+        resources["_cores"] = threads
+
+        for name, res in self.resources.items():
+            if name != "_cores":
+                resources[name] = apply(name, res)
         resources = Resources(fromdict=resources)
         return resources
 
@@ -619,7 +658,7 @@ class Rule:
             conda_env = self.conda_env.apply_wildcards(
                 wildcards) if self.conda_env else None
         except WildcardError as e:
-            raise WorkflowError(
+            raise WildcardError(
                 "Wildcards in conda environment file cannot be "
                 "determined from output files:",
                 str(e), rule=self)
@@ -713,23 +752,26 @@ class Ruleorder:
         """
         Return whether rule2 has a higher priority than rule1.
         """
-        # try the last clause first,
-        # i.e. clauses added later overwrite those before.
-        for clause in reversed(self.order):
-            try:
-                i = clause.index(rule1.name)
-                j = clause.index(rule2.name)
-                # rules with higher priority should have a smaller index
-                comp = j - i
-                if comp < 0:
-                    comp = -1
-                elif comp > 0:
-                    comp = 1
-                return comp
-            except ValueError:
-                pass
+        # if rules have the same name, they have been specialized by dynamic output
+        # in that case, clauses are irrelevant and have to be skipped
+        if rule1.name != rule2.name:
+            # try the last clause first,
+            # i.e. clauses added later overwrite those before.
+            for clause in reversed(self.order):
+                try:
+                    i = clause.index(rule1.name)
+                    j = clause.index(rule2.name)
+                    # rules with higher priority should have a smaller index
+                    comp = j - i
+                    if comp < 0:
+                        comp = -1
+                    elif comp > 0:
+                        comp = 1
+                    return comp
+                except ValueError:
+                    pass
 
-        # if not ruleorder given, prefer rule without wildcards
+        # if no ruleorder given, prefer rule without wildcards
         wildcard_cmp = rule2.has_wildcards() - rule1.has_wildcards()
         if wildcard_cmp != 0:
             return wildcard_cmp

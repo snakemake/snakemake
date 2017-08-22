@@ -1,0 +1,31 @@
+channels:
+  - bioconda
+  - r
+  - anaconda
+  - conda-forge
+dependencies:
+  - python >=3.3
+  - rpy2 >=0.7.6
+  - boto
+  - moto
+  - httpretty ==0.8.10
+  - filechunkio
+  - pyyaml
+  - nose
+  - ftputil
+  - pysftp
+  - requests
+  - dropbox
+  - numpy
+  - appdirs
+  - pytools
+  - docutils
+  - pandoc
+  - r-rmarkdown
+  - xorg-libxrender
+  - xorg-libxext
+  - xorg-libxau
+  - xorg-libxdmcp
+  - psutil
+  - google-cloud-storage
+  - ratelimiter

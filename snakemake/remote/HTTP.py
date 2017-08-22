@@ -5,12 +5,15 @@ __license__ = "MIT"
 
 import os
 import re
+import collections
 import email.utils
 from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import HTTPFileException, WorkflowError
+from snakemake.logging import logger
+
 
 try:
     # third-party modules
@@ -35,19 +38,28 @@ class RemoteProvider(AbstractRemoteProvider):
         return ['http://', 'https://']
 
     def remote(self, value, *args, insecure=None, **kwargs):
-        match = re.match('^(https?)://.+', value)
-        if match:
-            protocol, = match.groups()
-            if protocol == 'https' and insecure:
-                raise SyntaxError('insecure=True cannot be used with a https:// url')
-            if protocol == 'http' and insecure not in [None, False]:
-                raise SyntaxError('insecure=False cannot be used with a http:// url')
+        if isinstance(value, str):
+            values = [value]
+        elif isinstance(value, collections.Iterable):
+            values = value
         else:
-            if insecure:
-                value = 'http://' + value
+            raise TypeError('Invalid type ({}) passed to remote: {}'.format(type(value), value))
+
+        for i, file in enumerate(values):
+            match = re.match('^(https?)://.+', file)
+            if match:
+                protocol, = match.groups()
+                if protocol == 'https' and insecure:
+                    raise SyntaxError('insecure=True cannot be used with a https:// url')
+                if protocol == 'http' and insecure not in [None, False]:
+                    raise SyntaxError('insecure=False cannot be used with a http:// url')
             else:
-                value = 'https://' + value
-        return super(RemoteProvider, self).remote(value, *args, **kwargs)
+                if insecure:
+                    values[i] = 'http://' + file
+                else:
+                    values[i] = 'https://' + file
+
+        return super(RemoteProvider, self).remote(values, *args, **kwargs)
 
 
 class RemoteObject(DomainObject):
@@ -118,6 +130,7 @@ class RemoteObject(DomainObject):
             with self.httpr(verb="HEAD") as httpr:
 
                 file_mtime = self.get_header_item(httpr, "last-modified", default=0)
+                logger.debug("HTTP mtime: {}".format(file_mtime))
 
                 modified_tuple = email.utils.parsedate_tz(file_mtime)
                 epochTime = email.utils.mktime_tz(modified_tuple)
@@ -147,6 +160,7 @@ class RemoteObject(DomainObject):
                         for chunk in httpr.iter_content(chunk_size=1024):
                             if chunk: # filter out keep-alives
                                 f.write(chunk)
+                    os.sync() # ensure flush to disk
             else:
                 raise HTTPFileException("The file does not seem to exist remotely: %s" % self.remote_file())
 

@@ -6,7 +6,7 @@ Remote files
 
 In versions ``snakemake>=3.5``.
 
-The ``Snakefile`` supports a wrapper function, ``remote()``, indicating a file is on a remote storage provider (this is similar to ``temp()`` or ``protected()``). In order to use all types of remote files, the Python packages ``boto``, ``moto``, ``filechunkio``, ``pysftp``, ``dropbox``, ``requests``, and ``ftputil`` must be installed.
+The ``Snakefile`` supports a wrapper function, ``remote()``, indicating a file is on a remote storage provider (this is similar to ``temp()`` or ``protected()``). In order to use all types of remote files, the Python packages ``boto``, ``moto``, ``filechunkio``, ``pysftp``, ``dropbox``, ``requests``, ``ftputil``, ``XRootD``, and ``biopython`` must be installed.
 
 During rule execution, a remote file (or object) specified is downloaded to the local ``cwd``, within a sub-directory bearing the same name as the remote provider. This sub-directory naming lets you have multiple remote origins with reduced likelihood of name collisions, and allows Snakemake to easily translate remote objects to local file paths. You can think of each local remote sub-directory as a local mirror of the remote system. The ``remote()`` wrapper is mutually-exclusive with the ``temp()`` and ``protected()`` wrappers.
 
@@ -18,6 +18,10 @@ Snakemake includes the following remote providers, supported by the correspondin
 * Read-only web (HTTP[S]): ``snakemake.remote.HTTP``
 * File transfer protocol (FTP): ``snakemake.remote.FTP``
 * Dropbox: ``snakemake.remote.dropbox``
+* XRootD: ``snakemake.remote.XRootD``
+* GenBank / NCBI Entrez: ``snakemake.remote.NCBI``
+* WebDAV: ``snakemake.remote.webdav``
+* GridFTP: ``snakemake.remote.gridftp``
 
 
 Amazon Simple Storage Service (S3)
@@ -108,15 +112,20 @@ The remote provider also supports a new ``glob_wildcards()`` (see :ref:`glob-wil
 Google Cloud Storage (GS)
 =========================
 
-Using Google Cloud Storage (GS) is a simple import change, though since GS support it is based on boto, GS must be accessed via Google's "`interoperable <https://cloud.google.com/storage/docs/interoperability>`_" credentials.
 Usage of the GS provider is the same as the S3 provider.
-You may specify credentials as environment variables in the file ``=/.aws/credentials``, prefixed with ``AWS_*``, as with a standard `boto config <http://boto.readthedocs.org/en/latest/boto_config_tut.html>`_, or explicitly in the ``Snakefile``.
+For authentication, one simply needs to login via the ``gcloud`` tool before
+executing Snakemake, i.e.:
 
+.. code-block:: console
+
+    $ gcloud auth application-default login
+
+In the Snakefile, no additional authentication information has to be provided:
 
 .. code-block:: python
 
     from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
-    GS = GSRemoteProvider(access_key_id="MYACCESSKEY", secret_access_key="MYSECRET")
+    GS = GSRemoteProvider()
 
     rule all:
         input:
@@ -362,6 +371,30 @@ Anonymous download of FTP resources is possible:
 
     print(FTP.glob_wildcards("example.com/somedir/{file}.txt"))
 
+Setting `immediate_close=True` allows the use of a large number of remote FTP input files in a job where the endpoint server limits the number of concurrent connections. When `immediate_close=True`, Snakemake will terminate FTP connections after each remote file action (`exists()`, `size()`, `download()`, `mtime()`, etc.). This is in contrast to the default behavior which caches FTP details and leaves the connection open across actions to improve performance (closing the connection upon job termination).  :
+
+.. code-block:: python
+
+    from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+    FTP = FTPRemoteProvider()
+
+    rule all:
+        input:
+            # only keep the file so we can move it out to the cwd
+            # This server limits the number of concurrent connections so we need to have Snakemake close each after each FTP action.
+            FTP.remote(expand("ftp.example.com/rel/path/to/{file}", file=large_list), keep_local=True, immediate_close=True)
+        run:
+            shell("mv {input} ./")
+
+``glob_wildcards()``:
+
+.. code-block:: python
+
+    from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+    FTP = FTPRemoteProvider(username="myusername", password="mypassword")
+
+    print(FTP.glob_wildcards("example.com/somedir/{file}.txt"))
+
 Dropbox
 =======
 
@@ -392,7 +425,7 @@ Note that Dropbox paths are case-insensitive.
 XRootD
 =======
 
-Snakemake can be used with `XRootD <http://xrootd.org/>` backed storage provided the python bindings are installed.
+Snakemake can be used with `XRootD <http://xrootd.org/>`_ backed storage provided the python bindings are installed.
 This is typically most useful when combined with the ``stay_on_remote`` flag to minimise local storage requirements.
 This flag can be overridden on a file by file basis as described in the S3 remote. Additionally ``glob_wildcards()`` is supported:
 
@@ -414,6 +447,116 @@ This flag can be overridden on a file by file basis as described in the S3 remot
             'local_data/mclasseventv2_D0_{n}.root'
         shell:
             'xrdcp {input[0]} {output[0]}'
+
+GenBank / NCBI Entrez
+=====================
+
+Snakemake can directly source input files from `GenBank <https://www.ncbi.nlm.nih.gov/genbank/>`_ and other `NCBI Entrez databases <https://www.ncbi.nlm.nih.gov/books/NBK25497/table/chapter2.T._entrez_unique_identifiers_ui/?report=objectonly>`_ if the Biopython library is installed.
+
+.. code-block:: python
+
+    from snakemake.remote.NCBI import RemoteProvider as NCBIRemoteProvider
+    NCBI = NCBIRemoteProvider(email="someone@example.com") # email required by NCBI to prevent abuse
+
+    rule all:
+        input:
+            "size.txt"
+
+    rule download_and_count:
+        input:
+            NCBI.remote("KY785484.1.fasta", db="nuccore")
+        output:
+            "size.txt"
+        run:
+            shell("wc -c {input} > {output}")
+
+The output format and source database of a record retrieved from GenBank is inferred from the file extension specified. For example, ``NCBI.RemoteProvider().remote("KY785484.1.fasta", db="nuccore")`` will download a FASTA file while ``NCBI.RemoteProvider().remote("KY785484.1.gb", db="nuccore")`` will download a GenBank-format file. If the options are ambiguous, Snakemake will raise an exception and inform the user of possible format choices. To see available formats, consult the `Entrez EFetch documentation <https://www.ncbi.nlm.nih.gov/books/NBK25499/table/chapter4.T._valid_values_of__retmode_and/?report=objectonly>`_. To view the valid file extensions for these formats, access ``NCBI.RemoteProvider()._gb.valid_extensions``, or instantiate an ``NCBI.NCBIHelper()`` and access ``NCBI.NCBIHelper().valid_extensions`` (this is a property).
+
+When used in conjunction with ``NCBI.RemoteProvider().search()``, Snakemake and ``NCBI.RemoteProvider().remote()`` can be used to find accessions by query and download them:
+
+.. code-block:: python
+
+    from snakemake.remote.NCBI import RemoteProvider as NCBIRemoteProvider
+    NCBI = NCBIRemoteProvider(email="someone@example.com") # email required by NCBI to prevent abuse
+
+    # get accessions for the first 3 results in a search for full-length Zika virus genomes
+    # the query parameter accepts standard GenBank search syntax
+    query = '"Zika virus"[Organism] AND (("9000"[SLEN] : "20000"[SLEN]) AND ("2017/03/20"[PDAT] : "2017/03/24"[PDAT])) '
+    accessions = NCBI.search(query, retmax=3)
+
+    # give the accessions a file extension to help the RemoteProvider determine the
+    # proper output type.
+    input_files = expand("{acc}.fasta", acc=accessions)
+
+    rule all:
+        input:
+            "sizes.txt"
+
+    rule download_and_count:
+        input:
+            # Since *.fasta files could come from several different databases, specify the database here.
+            # if the input files are ambiguous, the provider will alert the user with possible options
+            # standard options like "seq_start" are supported
+            NCBI.remote(input_files, db="nuccore", seq_start=5000)
+
+        output:
+            "sizes.txt"
+        run:
+            shell("wc -c {input} > sizes.txt")
+
+Normally, all accessions for a query are returned from ``NCBI.RemoteProvider.search()``. To truncate the results, specify ``retmax=<desired_number>``. Standard Entrez `fetch query options <https://www.ncbi.nlm.nih.gov/books/NBK25499/#chapter4.EFetch>`_ are supported as kwargs, and may be passed in to ``NCBI.RemoteProvider.remote()`` and ``NCBI.RemoteProvider.search()``.
+
+WebDAV
+======
+
+WebDAV support is currently ``experimental`` and available in Snakemake 4.0 and later.
+
+Snakemake supports reading and writing WebDAV remote files. The protocol defaults to ``https://``, but insecure connections
+can be used by specifying ``protocol=="http://"``. Similarly, the port defaults to 443, and can be overridden by specifying ``port=##`` or by including the port as part of the file address.
+
+.. code-block:: python
+
+    from snakemake.remote import webdav
+
+    webdav = webdav.RemoteProvider(username="test", password="test", protocol="http://")
+
+    rule a:
+        input:
+            webdav.remote("example.com:8888/path/to/input_file.csv"),
+        shell:
+            # do something
+
+
+GridFTP
+=======
+
+GridFTP support is available in Snakemake 4.1 and later.
+
+Snakemake supports reading and writing remote files via the `GridFTP protocol <https://en.wikipedia.org/wiki/GridFTP>`_.
+GridFTP is an extension of the FTP protocol that is often used in grid computing environments.
+The implementation uses the `UberFTP <https://github.com/JasonAlt/UberFTP/wiki>`_ client, which has to be available in the `$PATH` and configured correctly.
+In general, if you are able to use the `uberftp` directly, Snakemake support for GridFTP will work as well.
+
+.. code-block:: python
+
+    from snakemake.remote import gridftp
+
+    gridftp = gridftp.RemoteProvider()
+
+    rule a:
+        input:
+            gridftp.remote("gridftp.grid.sara.nl:2811/path/to/infile.txt")
+        output:
+            gridftp.remote("gridftp.grid.sara.nl:2811/path/to/outfile.txt")
+        shell:
+            # do something
+
+Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
+Usually, this is already the case and no action has to be taken.
+
+Note that GridFTP support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
+to transparently use Snakemake in a grid computing environment without a shared network filesystem.
+
 
 Remote cross-provider transfers
 ===============================
@@ -438,4 +581,4 @@ It is possible to use Snakemake to transfer files between remote providers (usin
         output:
             GS.remote( expand("destination-bucket/{file}.bam", file=fileList) )
         run:
-            shell("cp -R source-bucket/ destination-bucket/")
+            shell("cp {input} {output}")

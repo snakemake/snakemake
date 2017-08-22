@@ -18,6 +18,7 @@ Development Team
 - Tim Booth
 - Manuel Holtgrewe
 - Christian Arnold
+- Wibowo Arindrarto
 
 Contributors
 ------------

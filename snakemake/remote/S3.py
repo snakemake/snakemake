@@ -26,6 +26,9 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
+
+    supports_default = True
+
     def __init__(self, *args, stay_on_remote=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
 
@@ -79,6 +82,7 @@ class RemoteObject(AbstractRemoteObject):
 
     def download(self):
         self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.local_file())
+        os.sync() # ensure flush to disk
 
     def upload(self):
         if self.size() > 10 * 1024 * 1024: # S3 complains if multipart uploads are <10MB

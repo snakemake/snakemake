@@ -1,3 +1,3 @@
-__version__ = "3.11.2"
+__version__ = "4.0.0"
 
 MIN_PY_VERSION = (3, 3)

@@ -43,7 +43,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with the AWS S3 object store.
+    """ This is a class to interact with the Dropbox API.
     """
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
@@ -89,6 +89,7 @@ class RemoteObject(AbstractRemoteObject):
                 os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
 
             self._dropboxc.files_download_to_file(self.local_file(), self.dropbox_file())
+            os.sync() # ensure flush to disk
         else:
             raise DropboxFileException("The file does not seem to exist remotely: %s" % self.dropbox_file())
 

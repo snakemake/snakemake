@@ -170,6 +170,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
     else:
         sourceurl = path
 
+    f = None
     try:
         with urlopen(sourceurl) as source:
             if path.endswith(".py"):
@@ -181,9 +182,9 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 searchpath = os.path.dirname(os.path.dirname(__file__))
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
-                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({})
+                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
                 ######## Original script #########
-                """).format(searchpath, snakemake)
+                """).format(searchpath, snakemake, logger.printshellcmds)
             elif path.endswith(".R") or path.endswith(".Rmd"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
@@ -272,7 +273,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                             # to execute script
                             py_exec = "python"
                         else:
-                            logger.info("Conda environment defines Python "
+                            logger.warning("Conda environment defines Python "
                                         "version < {}.{}. Using Python of the "
                                         "master process to execute "
                                         "script.".format(*MIN_PY_VERSION))
@@ -286,7 +287,9 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 out = os.path.abspath(output[0])
                 shell("Rscript -e 'rmarkdown::render(\"{f.name}\", output_file=\"{out}\", quiet=TRUE, params = list(rmd=\"{f.name}\"))'",
                     bench_record=bench_record)
-            os.remove(f.name)
 
     except URLError as e:
         raise WorkflowError(e)
+    finally:
+        if f:
+            os.remove(f.name)

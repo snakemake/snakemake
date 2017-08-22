@@ -1,0 +1,25 @@
+from snakemake.remote.NCBI import RemoteProvider as NCBIRemoteProvider
+NCBI = NCBIRemoteProvider(email="someone@example.com") # email required by NCBI to prevent abuse
+
+# get accessions for the first 3 results in a search for full-length Zika virus genomes
+# the query parameter accepts standard NCBI search syntax
+query = '"Zika virus"[Organism] AND (("9000"[SLEN] : "20000"[SLEN]) AND ("2017/03/20"[PDAT] : "2017/03/24"[PDAT])) '
+accessions = NCBI.search(query, retmax=3, return_all=False)
+
+# give the accessions a file extension to help the RemoteProvider determine the 
+# proper output type. 
+input_files = expand("{acc}.fasta", acc=accessions)
+
+rule all:
+    input:
+        "sizes.txt"
+
+rule download_and_count:
+    input:
+        # Since *.fasta files could come from several different databases, specify the database here.
+        # if the input files are ambiguous, the provider will alert the user with possible options
+        NCBI.remote(input_files, db="nuccore", seq_start=5000)
+    output:
+        "sizes.txt"
+    shell:
+        r"wc -c {input} | sed 's/^[ \t]*//' > sizes.txt"
