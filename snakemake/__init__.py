@@ -1234,7 +1234,7 @@ def get_argument_parser(profile=None):
         "a different URL to use your fork or a local clone of the repository."
     )
     parser.add_argument("--default-remote-provider",
-                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp"],
+                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp", "iRODS"],
                         help="Specify default remote provider to be used for "
                         "all input and output files that don't yet specify "
                         "one.")
