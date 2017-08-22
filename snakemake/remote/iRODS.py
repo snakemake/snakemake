@@ -190,15 +190,15 @@ class RemoteObject(DomainObject):
 
     @property
     def list(self):
-        raise iRODSFileException("The iRODS remote provider does currently not support list-based operations like glob_wildcards().")
-        # file_list = []
+        file_list = []
 
-        # first_wildcard = self._iofile.constant_prefix()
-        # dirname = first_wildcard.replace(self.path_prefix, "")
+        first_wildcard = self._iofile.constant_prefix()
+        dirname = os.path.dirname(first_wildcard.replace(self.path_prefix, ""))
 
-        # with self.irods_session() as session:
-        #     collection = session.collections.get(dirname)
-        #     for obj in collection.data_objects:
-        #         file_list.append(obj.path)
+        with self.irods_session() as session:
+            collection = session.collections.get(dirname)
+            for current_collection, subcollections, objs in collection.walk():
+                for obj in objs:
+                    file_list.append(obj.path.lstrip('/'))
 
-        # return file_list
+        return file_list

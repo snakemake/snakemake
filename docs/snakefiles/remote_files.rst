@@ -651,6 +651,8 @@ added. When this entry does not exist (because this module didn't upload the
 file), we fall back to the timestamp provided by IRODS with the above mentioned
 strategy.
 
+The ``glob_wildcards()`` function is supported.
+
 .. code-block:: python
 
     from snakemake.remote.iRODS import RemoteProvider
@@ -659,9 +661,13 @@ strategy.
                            # optional parameters: timezone='wherever'
                            #                      zone='whatever'
 
+    # please note the comma after the variable name!
+    # access: irods.remote(expand('localhost:1247/tempZone/home/rods/{f}), f=files))
+    files, = irods.glob_wildcards('localhost:1247/tempZone/home/rods/{files})
+
     rule all:
         input:
-            irods.remote('localhost:1247/tempZone/home/rods/testfile.out')
+            irods.remote('localhost:1247/tempZone/home/rods/testfile.out'),
 
     rule gen:
         input:
