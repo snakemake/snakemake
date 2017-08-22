@@ -105,12 +105,15 @@ class RemoteObject(DomainObject):
         if self.exists():
             with self.irods_session() as session:
                 obj = session.data_objects.get(self.remote_path)
-                mtime = obj.modify_time
                 meta = session.metadata.get(DataObject, self.remote_path)
 
+                # if mtime was set in metadata during upload, take this information
+                # otherwise fall back to iRODS timestamp (upload time!) and change
+                # timezone accordingly (iRODS might ignore the servers local timezone)
                 for m in meta:
                     if m.name == 'mtime':
-                        mtime = m.value
+                        mtime = float(m.value)
+                        break
                 else:
                     dt = self._convert_time(obj.modify_time, self.provider.kwargs.get('timezone', None))
                     utc2 = self._convert_time(utc)
@@ -126,9 +129,13 @@ class RemoteObject(DomainObject):
                 obj = session.data_objects.get(self.remote_path)
                 meta = session.metadata.get(DataObject, self.remote_path)
 
+                # if mtime was set in metadata during upload, take this information
+                # otherwise fall back to iRODS timestamp (upload time!) and change
+                # timezone accordingly (iRODS might ignore the servers local timezone)
                 for m in meta:
                     if m.name == 'atime':
-                        atime = m.value
+                        atime = float(m.value)
+                        break
                 else:
                     dt = self._convert_time(obj.modify_time, self.provider.kwargs.get('timezone', None))
                     utc2 = self._convert_time(utc)
@@ -157,12 +164,13 @@ class RemoteObject(DomainObject):
                 if make_dest_dirs:
                     os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
 
+                # force irods to overwrite existing file if this option is set
                 opt = {}
                 if self.kwargs.get('overwrite', None):
                     opt[kw.FORCE_FLAG_KW] = ''
 
+                # get object and change timestamp
                 obj = session.data_objects.get(self.remote_path, self.local_path, options=opt)
-                meta = session.metadata.get(DataObject, self.remote_path)
                 os.utime(self.local_path, (self.atime(), self.mtime()))
                 os.sync()
             else:
@@ -170,19 +178,27 @@ class RemoteObject(DomainObject):
 
     def upload(self):
         with self.irods_session() as session:
-            session.data_objects.put(self.local_path, self.remote_path)
+            # get current local timestamp
             stat = os.stat(self.local_path)
+
+            # upload file and store local timestamp in metadata since irods sets the files modification time to
+            # the upload time rather than retaining the local modification time
+            session.data_objects.put(self.local_path, self.remote_path)
             session.metadata.add(DataObject, self.remote_path, iRODSMeta('mtime', str(stat.st_mtime), 's'))
             session.metadata.add(DataObject, self.remote_path, iRODSMeta('atime', str(stat.st_atime), 's'))
             session.metadata.add(DataObject, self.remote_path, iRODSMeta('ctime', str(stat.st_ctime), 's'))
 
     @property
     def list(self):
-        file_list = []
+        raise iRODSFileException("The iRODS remote provider does currently not support list-based operations like glob_wildcards().")
+        # file_list = []
 
-        with self.session() as session:
-            collection = session.collections.get(self.remote_path)
-            for obj in collection.data_objects:
-                file_list.append(obj.path)
+        # first_wildcard = self._iofile.constant_prefix()
+        # dirname = first_wildcard.replace(self.path_prefix, "")
 
-        return file_list
+        # with self.irods_session() as session:
+        #     collection = session.collections.get(dirname)
+        #     for obj in collection.data_objects:
+        #         file_list.append(obj.path)
+
+        # return file_list
