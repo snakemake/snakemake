@@ -5,10 +5,9 @@ channels:
   - conda-forge
 dependencies:
   - python >=3.3
-  - boto
-  - moto
+  - boto3
+  - moto >=1.0.1
   - httpretty
-  - filechunkio
   - pyyaml
   - ftputil
   - pysftp
