@@ -154,10 +154,11 @@ class DAG:
             except KeyError:
                 pass
 
-    def create_conda_envs(self, dryrun=False):
+    def create_conda_envs(self, dryrun=False, forceall=False):
         conda.check_conda()
         # First deduplicate based on job.conda_env_file
-        env_set = {job.conda_env_file for job in self.needrun_jobs
+        jobs = self.jobs if forceall else self.needrun_jobs
+        env_set = {job.conda_env_file for job in jobs
                    if job.conda_env_file}
         # Then based on md5sum values
         env_file_map = dict()
@@ -1174,6 +1175,8 @@ class DAG:
         if os.path.exists(path):
             raise WorkflowError("Archive already exists:\n" + path)
 
+        self.create_conda_envs(forceall=True)
+
         try:
             workdir = Path(os.path.abspath(os.getcwd()))
             with tarfile.open(path, mode=mode, dereference=True) as archive:
@@ -1207,7 +1210,6 @@ class DAG:
                 envs = set()
                 for job in self.jobs:
                     if job.conda_env_file:
-                        job.create_conda_env()
                         env_archive = job.archive_conda_env()
                         envs.add(env_archive)
                 for env in envs:

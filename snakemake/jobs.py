@@ -173,7 +173,7 @@ class Job:
             logger.debug("Accessing conda environment {}.".format(self._conda_env))
             if self._conda_env is None:
                 raise ValueError("Conda environment {} not found in DAG.".format(self.conda_env_file))
-            return self._conda_env.path
+            return self._conda_env
         return None
 
     def archive_conda_env(self):
