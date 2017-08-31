@@ -305,7 +305,7 @@ class CPUExecutor(RealExecutor):
             job.prepare()
             conda_env = None
             if self.workflow.use_conda:
-                conda_env = job.conda_env.path
+                conda_env = job.conda_env_path
 
             benchmark = None
             if job.benchmark is not None:
@@ -497,7 +497,7 @@ class ClusterExecutor(RealExecutor):
             if job.shadow_dir:
                 wait_for_files.append(job.shadow_dir)
             if self.workflow.use_conda and job.conda_env:
-                wait_for_files.append(job.conda_env.path)
+                wait_for_files.append(job.conda_env_path)
 
         format_p = partial(self.format_job_pattern,
                            job=job,
