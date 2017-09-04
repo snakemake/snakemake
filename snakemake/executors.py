@@ -1,6 +1,6 @@
-__author__ = "Johannes KÃ¶ster"
+__author__ = "Johannes Köster"
 __contributors__ = ["David Alexander"]
-__copyright__ = "Copyright 2015, Johannes KÃ¶ster"
+__copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -783,7 +783,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
                         print_exception(ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                                         self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
-            time.sleep(1)
+            time.sleep(10)
 
 
 DRMAAClusterJob = namedtuple("DRMAAClusterJob", "job jobid callback error_callback jobscript")
@@ -918,7 +918,8 @@ class DRMAAExecutor(ClusterExecutor):
                             ClusterJobException(active_job, self.dag.jobid(active_job.job)),
                             self.workflow.linemaps)
                         active_job.error_callback(active_job.job)
-            time.sleep(1)
+            time.sleep(30)
+
 
 
 @contextlib.contextmanager
