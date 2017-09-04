@@ -3,7 +3,7 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-import os, signal
+import os, signal, sys
 import threading
 import operator
 from functools import partial
@@ -186,14 +186,16 @@ class JobScheduler:
                                          latency_wait=latency_wait,
                                          benchmark_repeats=benchmark_repeats,
                                          cores=cores)
-        self._open_jobs.set()
 
-    def rate_limiter(self):
         if self.max_jobs_per_second:
-            return RateLimiter(max_calls=self.max_jobs_per_second,
+            self.rate_limiter = RateLimiter(max_calls=self.max_jobs_per_second,
                                             period=1)
         else:
-            return dummy_rate_limiter()
+            # essentially no rate limit
+            self.rate_limiter = RateLimiter(max_calls=sys.maxsize,
+                                            period=1)
+
+        self._open_jobs.set()
 
     @property
     def stats(self):
@@ -266,7 +268,7 @@ class JobScheduler:
                     "Resources after job selection: {}".format(self.resources))
                 # actually run jobs
                 for job in run:
-                    with self.rate_limiter():
+                    with self.rate_limiter:
                         self.run(job)
         except (KeyboardInterrupt, SystemExit):
             logger.info("Terminating processes on user request.")

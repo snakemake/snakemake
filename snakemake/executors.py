@@ -1,6 +1,6 @@
-__author__ = "Johannes Köster"
+__author__ = "Johannes KÃ¶ster"
 __contributors__ = ["David Alexander"]
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes KÃ¶ster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -25,6 +25,8 @@ from tempfile import mkdtemp
 import random
 import base64
 import uuid
+
+from ratelimiter import RateLimiter
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -381,7 +383,8 @@ class ClusterExecutor(RealExecutor):
                  local_input=None,
                  restart_times=None,
                  exec_job=None,
-                 assume_shared_fs=True):
+                 assume_shared_fs=True,
+                 max_status_checks_per_second=1):
         local_input = local_input or []
         super().__init__(workflow, dag,
                          printreason=printreason,
@@ -451,6 +454,12 @@ class ClusterExecutor(RealExecutor):
         self.wait_thread = threading.Thread(target=self._wait_for_jobs)
         self.wait_thread.daemon = True
         self.wait_thread.start()
+
+        self.max_status_checks_per_second = max_status_checks_per_second
+
+        self.status_rate_limiter = RateLimiter(
+            max_calls=self.max_status_checks_per_second,
+            period=1)
 
     def shutdown(self):
         with self.lock:
@@ -566,7 +575,8 @@ class GenericClusterExecutor(ClusterExecutor):
                  latency_wait=3,
                  benchmark_repeats=1,
                  restart_times=0,
-                 assume_shared_fs=True):
+                 assume_shared_fs=True,
+                 max_status_checks_per_second=1):
 
         self.submitcmd = submitcmd
         if not assume_shared_fs and statuscmd is None:
@@ -585,7 +595,8 @@ class GenericClusterExecutor(ClusterExecutor):
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          restart_times=restart_times,
-                         assume_shared_fs=assume_shared_fs)
+                         assume_shared_fs=assume_shared_fs,
+                         max_status_checks_per_second=max_status_checks_per_second)
 
         if assume_shared_fs:
             # TODO wrap with watch and touch {jobrunning}
@@ -681,17 +692,18 @@ class GenericClusterExecutor(ClusterExecutor):
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 for active_job in active_jobs:
-                    if job_finished(active_job):
-                        active_job.callback(active_job.job)
-                    elif job_failed(active_job):
-                        self.print_job_error(
-                            active_job.job,
-                            cluster_jobid=active_job.jobid if active_job.jobid else "unknown",
-                        )
-                        active_job.error_callback(active_job.job)
-                    else:
-                        self.active_jobs.append(active_job)
-            time.sleep(30)
+                    with self.status_rate_limiter:
+                        if job_finished(active_job):
+                            active_job.callback(active_job.job)
+                        elif job_failed(active_job):
+                            self.print_job_error(
+                                active_job.job,
+                                cluster_jobid=active_job.jobid if active_job.jobid else "unknown",
+                            )
+                            active_job.error_callback(active_job.job)
+                        else:
+                            self.active_jobs.append(active_job)
+            time.sleep(10)
 
 
 SynchronousClusterJob = namedtuple("SynchronousClusterJob", "job jobid callback error_callback jobscript process")
@@ -724,7 +736,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          restart_times=restart_times,
-                         assume_shared_fs=assume_shared_fs)
+                         assume_shared_fs=assume_shared_fs,
+                         max_status_checks_per_second=10)
         self.submitcmd = submitcmd
         self.external_jobid = dict()
 
@@ -768,21 +781,24 @@ class SynchronousClusterExecutor(ClusterExecutor):
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 for active_job in active_jobs:
-                    exitcode = active_job.process.poll()
-                    if exitcode is None:
-                        # job not yet finished
-                        self.active_jobs.append(active_job)
-                    elif exitcode == 0:
-                        # job finished successfully
-                        os.remove(active_job.jobscript)
-                        active_job.callback(active_job.job)
-                    else:
-                        # job failed
-                        os.remove(active_job.jobscript)
-                        self.print_job_error(active_job.job)
-                        print_exception(ClusterJobException(active_job, self.dag.jobid(active_job.job)),
-                                        self.workflow.linemaps)
-                        active_job.error_callback(active_job.job)
+                    with self.status_rate_limiter:
+                        exitcode = active_job.process.poll()
+                        if exitcode is None:
+                            # job not yet finished
+                            self.active_jobs.append(active_job)
+                        elif exitcode == 0:
+                            # job finished successfully
+                            os.remove(active_job.jobscript)
+                            active_job.callback(active_job.job)
+                        else:
+                            # job failed
+                            os.remove(active_job.jobscript)
+                            self.print_job_error(active_job.job)
+                            print_exception(
+                                ClusterJobException(
+                                    active_job, self.dag.jobid(active_job.job)),
+                                self.workflow.linemaps)
+                            active_job.error_callback(active_job.job)
             time.sleep(10)
 
 
@@ -801,7 +817,8 @@ class DRMAAExecutor(ClusterExecutor):
                  benchmark_repeats=1,
                  cluster_config=None,
                  restart_times=0,
-                 assume_shared_fs=True):
+                 assume_shared_fs=True,
+                 max_status_checks_per_second=1):
         super().__init__(workflow, dag, cores,
                          jobname=jobname,
                          printreason=printreason,
@@ -811,7 +828,8 @@ class DRMAAExecutor(ClusterExecutor):
                          benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          restart_times=restart_times,
-                         assume_shared_fs=assume_shared_fs)
+                         assume_shared_fs=assume_shared_fs,
+                         max_status_checks_per_second=max_status_checks_per_second)
         try:
             import drmaa
         except ImportError:
@@ -895,31 +913,31 @@ class DRMAAExecutor(ClusterExecutor):
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 for active_job in active_jobs:
-                    try:
-                        retval = self.session.wait(active_job.jobid,
-                                                   drmaa.Session.TIMEOUT_NO_WAIT)
-                    except drmaa.ExitTimeoutException as e:
-                        # job still active
-                        self.active_jobs.append(active_job)
-                        continue
-                    except (drmaa.InternalException, Exception) as e:
-                        print_exception(WorkflowError("DRMAA Error: {}".format(e)),
-                                        self.workflow.linemaps)
+                    with self.status_rate_limiter:
+                        try:
+                            retval = self.session.wait(active_job.jobid,
+                                                       drmaa.Session.TIMEOUT_NO_WAIT)
+                        except drmaa.ExitTimeoutException as e:
+                            # job still active
+                            self.active_jobs.append(active_job)
+                            continue
+                        except (drmaa.InternalException, Exception) as e:
+                            print_exception(WorkflowError("DRMAA Error: {}".format(e)),
+                                            self.workflow.linemaps)
+                            os.remove(active_job.jobscript)
+                            active_job.error_callback(active_job.job)
+                            continue
+                        # job exited
                         os.remove(active_job.jobscript)
-                        active_job.error_callback(active_job.job)
-                        continue
-                    # job exited
-                    os.remove(active_job.jobscript)
-                    if retval.hasExited and retval.exitStatus == 0:
-                        active_job.callback(active_job.job)
-                    else:
-                        self.print_job_error(active_job.job)
-                        print_exception(
-                            ClusterJobException(active_job, self.dag.jobid(active_job.job)),
-                            self.workflow.linemaps)
-                        active_job.error_callback(active_job.job)
-            time.sleep(30)
-
+                        if retval.hasExited and retval.exitStatus == 0:
+                            active_job.callback(active_job.job)
+                        else:
+                            self.print_job_error(active_job.job)
+                            print_exception(
+                                ClusterJobException(active_job, self.dag.jobid(active_job.job)),
+                                self.workflow.linemaps)
+                            active_job.error_callback(active_job.job)
+            time.sleep(10)
 
 
 @contextlib.contextmanager
@@ -972,7 +990,8 @@ class KubernetesExecutor(ClusterExecutor):
                          local_input=local_input,
                          restart_times=restart_times,
                          exec_job=exec_job,
-                         assume_shared_fs=False)
+                         assume_shared_fs=False,
+                         max_status_checks_per_second=10)
         # use relative path to Snakefile
         self.snakefile = os.path.relpath(workflow.snakefile)
 
@@ -1104,22 +1123,23 @@ class KubernetesExecutor(ClusterExecutor):
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 for j in active_jobs:
-                    res = self.kubeapi.read_namespaced_pod_status(
-                        j.jobid, self.namespace)
-                    if res.status.phase == "Failed":
-                        msg = ("For details, please issue:\n"
-                               "kubectl describe pod {jobid}\n"
-                               "kubectl logs {jobid}").format(jobid=j.jobid)
-                        # failed
-                        self.print_job_error(j.job, msg=msg, jobid=j.jobid)
-                        j.error_callback(j.job)
-                    elif res.status.phase == "Succeeded":
-                        # finished
-                        j.callback(j.job)
-                    else:
-                        # still active
-                        self.active_jobs.append(j)
-            time.sleep(1)
+                    with self.status_rate_limiter:
+                        res = self.kubeapi.read_namespaced_pod_status(
+                            j.jobid, self.namespace)
+                        if res.status.phase == "Failed":
+                            msg = ("For details, please issue:\n"
+                                   "kubectl describe pod {jobid}\n"
+                                   "kubectl logs {jobid}").format(jobid=j.jobid)
+                            # failed
+                            self.print_job_error(j.job, msg=msg, jobid=j.jobid)
+                            j.error_callback(j.job)
+                        elif res.status.phase == "Succeeded":
+                            # finished
+                            j.callback(j.job)
+                        else:
+                            # still active
+                            self.active_jobs.append(j)
+            time.sleep(10)
 
 
 def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, log,
