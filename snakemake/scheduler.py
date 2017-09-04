@@ -53,6 +53,7 @@ class JobScheduler:
                  printshellcmds=False,
                  keepgoing=False,
                  max_jobs_per_second=None,
+                 max_status_checks_per_second=100,
                  latency_wait=3,
                  benchmark_repeats=1,
                  greediness=1.0,
@@ -119,7 +120,8 @@ class JobScheduler:
                     constructor = SynchronousClusterExecutor
                 else:
                     constructor = partial(GenericClusterExecutor,
-                                          statuscmd=cluster_status)
+                                          statuscmd=cluster_status,
+                                          max_status_checks_per_second=max_status_checks_per_second)
 
                 self._executor = constructor(
                     workflow, dag, None,
@@ -150,7 +152,8 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
                     cluster_config=cluster_config,
-                    assume_shared_fs=assume_shared_fs)
+                    assume_shared_fs=assume_shared_fs,
+                    max_status_checks_per_second=max_status_checks_per_second)
         elif kubernetes:
             workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)),
                           local_cores)
@@ -171,7 +174,8 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 benchmark_repeats=benchmark_repeats,
-                cluster_config=cluster_config)
+                cluster_config=cluster_config,
+                max_status_checks_per_second=max_status_checks_per_second)
         else:
             # local execution or execution of cluster job
             # calculate how many parallel workers the executor shall spawn

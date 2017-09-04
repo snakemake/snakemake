@@ -99,6 +99,7 @@ def snakemake(snakefile,
               log_handler=None,
               keep_logger=False,
               max_jobs_per_second=None,
+              max_status_checks_per_second=100,
               restart_times=0,
               attempt=1,
               verbose=False,
@@ -429,7 +430,9 @@ def snakemake(snakefile,
                                        default_remote_provider=default_remote_provider,
                                        default_remote_prefix=default_remote_prefix,
                                        assume_shared_fs=assume_shared_fs,
-                                       cluster_status=cluster_status)
+                                       cluster_status=cluster_status,
+                                       max_jobs_per_second=max_jobs_per_second,
+                                       max_status_checks_per_second=max_status_checks_per_second)
 
                 success = workflow.execute(
                     targets=targets,
@@ -458,6 +461,7 @@ def snakemake(snakefile,
                     kubernetes=kubernetes,
                     kubernetes_envvars=kubernetes_envvars,
                     max_jobs_per_second=max_jobs_per_second,
+                    max_status_checks_per_second=max_status_checks_per_second,
                     printd3dag=printd3dag,
                     immediate_submit=immediate_submit,
                     ignore_ambiguity=ignore_ambiguity,
@@ -1009,9 +1013,15 @@ def get_argument_parser():
         "used. Note that this is intended primarily for internal use and may "
         "lead to unexpected results otherwise.")
     parser.add_argument(
-        "--max-jobs-per-second", default=None, type=float,
+        "--max-jobs-per-second", default=10, type=float,
         help=
-        "Maximal number of cluster/drmaa jobs per second, default is no limit")
+        "Maximal number of cluster/drmaa jobs per second, default is 10, "
+        "fractions allowed.")
+    parser.add_argument(
+        "--max-status-checks-per-second", default=10, type=float,
+        help=
+        "Maximal number of job status checks per second, default is 10, "
+        "fractions allowed.")
     parser.add_argument(
         "--restart-times", default=0, type=int,
         help=
@@ -1292,6 +1302,7 @@ def main(argv=None):
                             keep_shadow=args.keep_shadow,
                             allowed_rules=args.allowed_rules,
                             max_jobs_per_second=args.max_jobs_per_second,
+                            max_status_checks_per_second=args.max_status_checks_per_second,
                             restart_times=args.restart_times,
                             attempt=args.attempt,
                             force_use_threads=args.force_use_threads,
