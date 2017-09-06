@@ -457,7 +457,8 @@ class Rule:
                          omit_callable=False,
                          mapping=None,
                          no_flattening=False,
-                         aux_params=None):
+                         aux_params=None,
+                         apply_default_remote=True):
         if aux_params is None:
             aux_params = dict()
         for name, item in olditems.allitems():
@@ -469,7 +470,8 @@ class Rule:
                 if omit_callable:
                     continue
                 item = self.apply_input_function(item, wildcards, **aux_params)
-                item = self.apply_default_remote(item)
+                if apply_default_remote:
+                    item = self.apply_default_remote(item)
 
             if is_unpack:
                 # Sanity checks before interpreting unpack()
@@ -559,6 +561,7 @@ class Rule:
                                   check_return_type=False,
                                   omit_callable=omit_callable,
                                   no_flattening=True,
+                                  apply_default_remote=False,
                                   aux_params={"input": input,
                                               "resources": resources,
                                               "output": output,
