@@ -8,6 +8,7 @@ dependencies:
   - boto3
   - moto >=1.0.1
   - httpretty
+  - wrapt
   - pyyaml
   - ftputil
   - pysftp

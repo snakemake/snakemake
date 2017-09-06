@@ -188,6 +188,12 @@ class RealExecutor(AbstractExecutor):
             self.dag.handle_remote(job, upload=upload_remote)
             self.dag.handle_protected(job)
             job.close_remote()
+        else:
+            self.dag.check_and_touch_output(
+                job,
+                wait=self.latency_wait,
+                no_touch=True,
+                force_stay_on_remote=True)
         self.dag.handle_temp(job)
 
         self.stats.report_job_end(job)

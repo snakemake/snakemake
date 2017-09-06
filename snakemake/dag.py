@@ -309,15 +309,22 @@ class DAG:
                 return True
         return False
 
-    def check_and_touch_output(self, job, wait=3, ignore_missing_output=False):
+    def check_and_touch_output(self,
+                               job,
+                               wait=3,
+                               ignore_missing_output=False,
+                               no_touch=False,
+                               force_stay_on_remote=False):
         """ Raise exception if output files of job are missing. """
         expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
         if job.benchmark:
             expanded_output.append(job.benchmark)
 
-        if ignore_missing_output is False:
+        if not ignore_missing_output:
             try:
-                wait_for_files(expanded_output, latency_wait=wait)
+                wait_for_files(expanded_output,
+                               latency_wait=wait,
+                               force_stay_on_remote=force_stay_on_remote)
             except IOError as e:
                 raise MissingOutputException(str(e) + "\nThis might be due to "
                 "filesystem latency. If that is the case, consider to increase the "
@@ -330,10 +337,11 @@ class DAG:
         #Note that if the input files somehow have a future date then this will
         #not currently be spotted and the job will always be re-run.
         #Also, don't touch directories, as we can't guarantee they were removed.
-        for f in expanded_output:
-            #This will neither create missing files nor touch directories
-            if os.path.isfile(f):
-                f.touch()
+        if not no_touch:
+            for f in expanded_output:
+                #This will neither create missing files nor touch directories
+                if os.path.isfile(f):
+                    f.touch()
 
     def unshadow_output(self, job):
         """ Move files from shadow directory to real output paths. """

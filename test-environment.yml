@@ -9,6 +9,7 @@ dependencies:
   - boto3
   - moto >=1.0.1
   - httpretty ==0.8.10
+  - wrapt
   - pyyaml
   - nose
   - ftputil
