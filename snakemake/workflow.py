@@ -369,7 +369,6 @@ class Workflow:
         dag.init()
         dag.check_dynamic()
 
-
         if unlock:
             try:
                 self.persistence.cleanup_locks()
