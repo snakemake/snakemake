@@ -111,6 +111,7 @@ def snakemake(snakefile,
               wrapper_prefix=None,
               kubernetes=None,
               kubernetes_envvars=None,
+              container_image=None,
               default_remote_provider=None,
               default_remote_prefix="",
               assume_shared_fs=True,
@@ -195,6 +196,9 @@ def snakemake(snakefile,
         create_envs_only (bool):   If specified, only builds the conda environments specified for each job, then exits.
         mode (snakemake.common.Mode): Execution mode
         wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
+        kubernetes (str):           Submit jobs to kubernetes, using the given namespace.
+        kubernetes_env (list):      Environment variables that shall be passed to kubernetes jobs.
+        container_image (str):         Docker image to use, e.g., for kubernetes.
         default_remote_provider (str): Default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): Prefix for default remote provider (e.g. name of the bucket).
         assume_shared_fs (bool):    Assume that cluster nodes share a common filesystem (default true).
@@ -426,6 +430,7 @@ def snakemake(snakefile,
                                        conda_prefix=conda_prefix,
                                        kubernetes=kubernetes,
                                        kubernetes_envvars=kubernetes_envvars,
+                                       container_image=container_image,
                                        create_envs_only=create_envs_only,
                                        default_remote_provider=default_remote_provider,
                                        default_remote_prefix=default_remote_prefix,
@@ -460,6 +465,7 @@ def snakemake(snakefile,
                     drmaa_log_dir=drmaa_log_dir,
                     kubernetes=kubernetes,
                     kubernetes_envvars=kubernetes_envvars,
+                    container_image=container_image,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     printd3dag=printd3dag,
@@ -903,6 +909,15 @@ def get_argument_parser():
     parser.add_argument(
         "--kubernetes-env", nargs="+", metavar="ENVVAR", default=[],
         help="Specify environment variables to pass to the kubernetes job.")
+    parser.add_argument(
+        "--container-image", metavar="IMAGE", help=
+        "Docker image to use, e.g., when submitting jobs to kubernetes. "
+        "By default, this is 'quay.io/snakemake/snakemake', tagged with "
+        "the same version as the currently running Snakemake instance. "
+        "Note that overwriting this value is up to your responsibility. "
+        "Any used image has to contain a working snakemake installation "
+        "that is compatible with (or ideally the same as) the currently "
+        "running version.")
     parser.add_argument("--reason", "-r",
                         action="store_true",
                         help="Print the reason for each executed rule.")
@@ -1269,6 +1284,7 @@ def main(argv=None):
                             drmaa_log_dir=args.drmaa_log_dir,
                             kubernetes=args.kubernetes,
                             kubernetes_envvars=args.kubernetes_env,
+                            container_image=args.container_image,
                             jobname=args.jobname,
                             immediate_submit=args.immediate_submit,
                             standalone=True,

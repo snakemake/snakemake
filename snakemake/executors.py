@@ -966,6 +966,7 @@ KubernetesJob = namedtuple("KubernetesJob", "job jobid callback error_callback k
 
 class KubernetesExecutor(ClusterExecutor):
     def __init__(self, workflow, dag, namespace, envvars,
+                 container_image=None,
                  jobname="{rulename}.{jobid}",
                  printreason=False,
                  quiet=False,
@@ -1013,6 +1014,9 @@ class KubernetesExecutor(ClusterExecutor):
         self.run_namespace = str(uuid.uuid4())
         self.secret_envvars = {}
         self.register_secret()
+        self.container_image = (
+            container_image or
+            "quay.io/snakemake/snakemake:{}".format(__version__))
 
     def register_secret(self):
         import kubernetes.client
@@ -1073,7 +1077,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         # container
         container = kubernetes.client.V1Container()
-        container.image = "quay.io/snakemake/snakemake:{}".format(__version__)
+        container.image = self.container_image
         container.command = shlex.split(exec_job)
         container.name = jobid
         container.working_dir = "/workdir"

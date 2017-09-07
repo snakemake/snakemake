@@ -47,6 +47,7 @@ class JobScheduler:
                  drmaa_log_dir=None,
                  kubernetes=None,
                  kubernetes_envvars=None,
+                 container_image=None,
                  jobname=None,
                  quiet=False,
                  printreason=False,
@@ -169,6 +170,7 @@ class JobScheduler:
 
             self._executor = KubernetesExecutor(
                 workflow, dag, kubernetes, kubernetes_envvars,
+                container_image=container_image,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
