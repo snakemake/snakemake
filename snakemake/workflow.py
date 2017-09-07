@@ -324,6 +324,7 @@ class Workflow:
         dag.init()
         dag.check_dynamic()
 
+
         if unlock:
             try:
                 self.persistence.cleanup_locks()
@@ -384,7 +385,7 @@ class Workflow:
                     "Dependency resolution disabled (--nodeps) "
                     "but missing input "
                     "files detected. If this happens on a cluster, please make sure "
-                    "that you handle the dependencies yourself or turn of "
+                    "that you handle the dependencies yourself or turn off "
                     "--immediate-submit. Missing input files:\n{}".format(
                         "\n".join(missing_input)))
                 return False

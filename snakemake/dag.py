@@ -498,7 +498,7 @@ class DAG:
             self.depending[job_][job].add(file)
 
         missing_input -= producer.keys()
-        if missing_input:
+        if missing_input and not self.ignore_incomplete:
             self.delete_job(job, recursive=False)  # delete job from tree
             raise MissingInputException(job.rule, missing_input)
 
