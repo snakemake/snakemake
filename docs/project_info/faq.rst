@@ -212,9 +212,7 @@ You can copy that file to ``$HOME/.vim/syntax`` directory and add
 .. code-block:: vim
 
     au BufNewFile,BufRead Snakefile set syntax=snakemake
-    au BufNewFile,BufRead *.rules set syntax=snakemake
-    au BufNewFile,BufRead *.snakefile set syntax=snakemake
-    au BufNewFile,BufRead *.snake set syntax=snakemake
+    au BufNewFile,BufRead *.smk set syntax=snakemake
 
 to your ``$HOME/.vimrc`` file. Highlighting can be forced in a vim session with ``:set syntax=snakemake``.
 
@@ -411,3 +409,28 @@ To remove all files created by snakemake as output files to start from scratch, 
 .. code-block:: console
 
     rm $(snakemake --summary | tail -n+2 | cut -f1)
+
+
+Why can't I use the conda directive with a run block?
+-----------------------------------------------------
+
+The run block of a rule (see :ref:`snakefiles-rules`) has access to anything defined in the Snakefile, outside of the rule.
+Hence, it has to share the conda environment with the main Snakemake process.
+To avoid confusion we therefore disallow the conda directive together with the run block.
+It is recommended to use the script directive instead (see :ref:`snakefiles-external_scripts`).
+
+
+My workflow is very large, how to I stop Snakemake from printing all this rule/job information in a dry-run?
+------------------------------------------------------------------------------------------------------------
+
+Indeed, the information for each individual job can slow down a dryrun if there are tens of thousands of jobs.
+If you are just interested in the final summary, you can use the ``--quiet`` flag to suppress this.
+
+.. code-block:: console
+
+    $ snakemake -n --quiet
+
+Git is messing up the modification times of my input files, what can I do?
+--------------------------------------------------------------------------
+
+When you checkout a git repository, the modification times of updated files are set to the time of the checkout. If you rely on these files as input **and** output files in your workflow, this can cause trouble. For example, Snakemake could think that a certain (git-tracked) output has to be re-executed, just because its input has been checked out a bit later. In such cases, it is advisable to set the file modification dates to the last commit date after an update has been pulled. See `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_ for a solution to achieve this.

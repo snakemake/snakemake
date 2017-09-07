@@ -13,7 +13,7 @@ import traceback
 import subprocess
 import collections
 import re
-from urllib.request import urlopen
+from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
 from snakemake.utils import format
@@ -23,7 +23,7 @@ from snakemake.shell import shell
 from snakemake.version import MIN_PY_VERSION
 
 
-PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*:")
+PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 
@@ -33,7 +33,9 @@ class REncoder:
 
     @classmethod
     def encode_value(cls, value):
-        if isinstance(value, str):
+        if value is None:
+            return "NULL"
+        elif isinstance(value, str):
             return repr(value)
         elif isinstance(value, dict):
             return cls.encode_dict(value)
@@ -149,7 +151,7 @@ class Snakemake:
 
 
 def script(path, basedir, input, output, params, wildcards, threads, resources,
-           log, config, rulename, conda_env):
+           log, config, rulename, conda_env, bench_record):
     """
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
@@ -157,13 +159,20 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
     if not path.startswith("http"):
         if path.startswith("file://"):
             path = path[7:]
+        elif path.startswith("file:"):
+            path = path[5:]
         if not os.path.isabs(path):
             path = os.path.abspath(os.path.join(basedir, path))
         path = "file://" + path
     path = format(path, stepout=1)
+    if path.startswith("file://"):
+        sourceurl = "file:"+pathname2url(path[7:])
+    else:
+        sourceurl = path
 
+    f = None
     try:
-        with urlopen(path) as source:
+        with urlopen(sourceurl) as source:
             if path.endswith(".py"):
                 snakemake = Snakemake(input, output, params, wildcards,
                                       threads, resources, log, config, rulename)
@@ -173,10 +182,10 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 searchpath = os.path.dirname(os.path.dirname(__file__))
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
-                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({})
+                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
                 ######## Original script #########
-                """).format(searchpath, snakemake)
-            elif path.endswith(".R"):
+                """).format(searchpath, snakemake, logger.printshellcmds)
+            elif path.endswith(".R") or path.endswith(".Rmd"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
                 library(methods)
@@ -218,7 +227,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                            }), REncoder.encode_dict(config), REncoder.encode_value(rulename))
             else:
                 raise ValueError(
-                    "Unsupported script: Expecting either Python (.py) or R (.R) script.")
+                    "Unsupported script: Expecting either Python (.py), R (.R) or RMarkdown (.Rmd) script.")
 
             if path.startswith("file://"):
                 # in case of local path, use the same directory
@@ -234,8 +243,22 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 prefix=prefix,
                 dir=dir,
                 delete=False) as f:
-                f.write(preamble.encode())
-                f.write(source.read())
+                if not path.endswith(".Rmd"):
+                    f.write(preamble.encode())
+                    f.write(source.read())
+                else:
+                    # Insert Snakemake object after the RMarkdown header
+                    code = source.read().decode()
+                    pos = code.rfind("---")
+                    f.write(str.encode(code[:pos+3]))
+                    preamble = textwrap.dedent("""
+                        ```{r, echo=FALSE, message=FALSE, warning=FALSE}
+                        %s
+                        ```
+                        """ % preamble)
+                    f.write(preamble.encode())
+                    f.write(str.encode(code[pos+3:]))
+
             if path.endswith(".py"):
                 py_exec = sys.executable
                 if conda_env is not None:
@@ -250,15 +273,23 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                             # to execute script
                             py_exec = "python"
                         else:
-                            logger.info("Conda environment defines Python "
+                            logger.warning("Conda environment defines Python "
                                         "version < {}.{}. Using Python of the "
                                         "master process to execute "
                                         "script.".format(*MIN_PY_VERSION))
                 # use the same Python as the running process or the one from the environment
-                shell("{py_exec} {f.name}")
+                shell("{py_exec} {f.name}", bench_record=bench_record)
             elif path.endswith(".R"):
-                shell("Rscript {f.name}")
-            os.remove(f.name)
+                shell("Rscript {f.name}", bench_record=bench_record)
+            elif path.endswith(".Rmd"):
+                if len(output) != 1:
+                    raise WorkflowError("RMarkdown scripts (.Rmd) may only have a single output file.")
+                out = os.path.abspath(output[0])
+                shell("Rscript -e 'rmarkdown::render(\"{f.name}\", output_file=\"{out}\", quiet=TRUE, params = list(rmd=\"{f.name}\"))'",
+                    bench_record=bench_record)
 
     except URLError as e:
         raise WorkflowError(e)
+    finally:
+        if f:
+            os.remove(f.name)

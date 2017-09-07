@@ -3,17 +3,15 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, re
-from contextlib import contextmanager
+import os
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject
 from snakemake.exceptions import DropboxFileException, WorkflowError
-import snakemake.io
 
 try:
     # third-party modules
-    import dropbox # The official Dropbox API library
+    import dropbox  # The official Dropbox API library
 except ImportError as e:
     raise WorkflowError("The Python 3 package 'dropbox' "
                         "must be installed to use Dropbox remote() file "
@@ -21,8 +19,8 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, **kwargs):
-        super(RemoteProvider, self).__init__(*args, **kwargs)
+    def __init__(self, *args, stay_on_remote=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
 
         self._dropboxc = dropbox.Dropbox(*args, **kwargs)
         try:
@@ -33,8 +31,19 @@ class RemoteProvider(AbstractRemoteProvider):
     def remote_interface(self):
         return self._dropboxc
 
+    @property
+    def default_protocol(self):
+        """The protocol that is prepended to the path when no protocol is specified."""
+        return 'dropbox://'
+
+    @property
+    def available_protocols(self):
+        """List of valid protocols for this remote provider."""
+        return ['dropbox://']
+
+
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with the AWS S3 object store.
+    """ This is a class to interact with the Dropbox API.
     """
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
@@ -53,22 +62,22 @@ class RemoteObject(AbstractRemoteObject):
 
     def exists(self):
         try:
-            metadata = self._dropboxc.files_get_metadata(self.remote_file())
+            metadata = self._dropboxc.files_get_metadata(self.dropbox_file())
             return True
         except:
             return False
 
     def mtime(self):
         if self.exists():
-            metadata = self._dropboxc.files_get_metadata(self.remote_file())
+            metadata = self._dropboxc.files_get_metadata(self.dropbox_file())
             epochTime = metadata.server_modified.timestamp()
             return epochTime
         else:
-            raise DropboxFileException("The file does not seem to exist remotely: %s" % self.remote_file())
+            raise DropboxFileException("The file does not seem to exist remotely: %s" % self.dropbox_file())
 
     def size(self):
         if self.exists():
-            metadata = self._dropboxc.files_get_metadata(self.remote_file())
+            metadata = self._dropboxc.files_get_metadata(self.dropbox_file())
             return int(metadata.size)
         else:
             return self._iofile.size_local
@@ -77,17 +86,17 @@ class RemoteObject(AbstractRemoteObject):
         if self.exists():
             # if the destination path does not exist, make it
             if make_dest_dirs:
-                os.makedirs(os.path.dirname(self.file()), exist_ok=True)
+                os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
 
-            self._dropboxc.files_download_to_file(self.file(), self.remote_file())
+            self._dropboxc.files_download_to_file(self.local_file(), self.dropbox_file())
+            os.sync() # ensure flush to disk
         else:
-            raise DropboxFileException("The file does not seem to exist remotely: %s" % self.remote_file())
+            raise DropboxFileException("The file does not seem to exist remotely: %s" % self.dropbox_file())
 
     def upload(self, mode=dropbox.files.WriteMode('overwrite')):
-        size = os.path.getsize(self.file())
         # Chunk file into 10MB slices because Dropbox does not accept more than 150MB chunks
         chunksize = 10000000
-        with open(self.file(), mode='rb') as f:
+        with open(self.local_file(), mode='rb') as f:
             data = f.read(chunksize)
             # Start upload session
             res = self._dropboxc.files_upload_session_start(data)
@@ -103,14 +112,14 @@ class RemoteObject(AbstractRemoteObject):
             self._dropboxc.files_upload_session_finish(
                 f.read(chunksize),
                 dropbox.files.UploadSessionCursor(res.session_id, offset),
-                dropbox.files.CommitInfo(path=self.remote_file(), mode=mode))
+                dropbox.files.CommitInfo(path=self.dropbox_file(), mode=mode))
 
-    def remote_file(self):
-        return "/"+self.file() if not self.file().startswith("/") else self.file()
+    def dropbox_file(self):
+        return "/"+self.local_file() if not self.local_file().startswith("/") else self.local_file()
 
     @property
     def name(self):
-        return self.file()
+        return self.local_file()
 
     @property
     def list(self):

@@ -5,22 +5,20 @@ channels:
   - conda-forge
 dependencies:
   - python >=3.3
-  - rpy2 >=0.7.6
-  - boto
-  - moto
-  - httpretty ==0.8.10
-  - filechunkio
+  - boto3
+  - moto >=1.0.1
+  - httpretty
+  - wrapt
   - pyyaml
-  - nose
   - ftputil
   - pysftp
   - requests
   - dropbox
-  - numpy
   - appdirs
   - pytools
   - docutils
-  - sphinx
-  - pip:
-    - sphinxcontrib-napoleon
-    - sphinx_rtd_theme
+  - psutil
+  - pandas
+  - nomkl
+  - google-cloud-storage
+  - ratelimiter

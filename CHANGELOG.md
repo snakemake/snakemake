@@ -1,8 +1,105 @@
 # Change Log
 
+## [4.0.0] - 2017-07-24
+### Added
+- Cloud computing support via Kubernetes. Snakemake workflows can be executed transparently
+  in the cloud, while storing input and output files within the cloud storage
+  (e.g. S3 or Google Storage). I.e., this feature does not need a shared filesystem
+  between the cloud notes, and thereby makes the setup really simple.
+- WebDAV remote file support: Snakemake can now read and write from WebDAV. Hence,
+  it can now, e.g., interact with Nextcloud or Owncloud.
+- Support for default remote providers: define a remote provider to implicitly
+  use for all input and output files.
+- Added an option to only create conda environments instead of executing the workflow.
+### Changed
+- The number of files used for the metadata tracking of Snakemake (e.g., code, params, input changes) in the .snakemake directory has been reduced by a factor of 10, which should help with NFS and IO bottlenecks. This is a breaking change in the sense that Snakemake 4.x won't see the metadata of workflows executed with Snakemake 3.x. However, old metadata won't be overwritten, so that you can always go back and check things by installing an older version of Snakemake again.
+- The google storage (GS) remote provider has been changed to use the google SDK.
+  This is a breaking change, since the remote provider invocation has been simplified (see docs).
+- Due to WebDAV support (which uses asyncio), Snakemake now requires Python 3.5 at least.
+- Various minor bug fixes (e.g. for dynamic output files).
+
+
+## [3.13.3] - 2017-06-23
+### Changed
+- Fix a followup bug in Namedlist where a single item was not returned as string.
+
+
+## [3.13.2] - 2017-06-20
+### Changed
+- The --wrapper-prefix flag now also affects where the corresponding environment definition is fetched from.
+- Fix bug where empty output file list was recognized as containing duplicates (issue #574).
+
+
+## [3.13.1] - 2017-06-20
+### Changed
+- Fix --conda-prefix to be passed to all jobs.
+- Fix cleanup issue with scripts that fail to download.
+
+## [3.13.0] - 2017-06-12
+### Added
+- An NCBI remote provider. By this, you can seamlessly integrate any NCBI resouce (reference genome, gene/protein sequences, ...) as input file.
+### Changed
+- Snakemake now detects if automatically generated conda environments have to be recreated because the workflow has been moved to a new path.
+- Remote functionality has been made more robust, in particular to avoid race conditions.
+- `--config` parameter evaluation has been fixed for non-string types.
+- The Snakemake docker container is now based on the official debian image.
+
+## [3.12.0] - 2017-05-09
+### Added
+- Support for RMarkdown (.Rmd) in script directives.
+- New option --debug-dag that prints all decisions while building the DAG of jobs. This helps to debug problems like cycles or unexpected MissingInputExceptions.
+- New option --conda-prefix to specify the place where conda environments are stored.
+
+### Changed
+- Benchmark files now also include the maximal RSS and VMS size of the Snakemake process and all sub processes.
+- Speedup conda environment creation.
+- Allow specification, of DRMAA log dir.
+- Pass cluster config to subworkflow.
+
+
+## [3.11.2] - 2017-03-15
+### Changed
+- Fixed fix handling of local URIs with the wrapper directive.
+
+
+## [3.11.1] - 2017-03-14
+### Changed
+- --touch ignores missing files
+- Fixed handling of local URIs with the wrapper directive.
+
+
+## [3.11.0] - 2017-03-08
+### Added
+- Param functions can now also refer to threads.
+### Changed
+- Improved tutorial and docs.
+- Made conda integration more robust.
+- None is converted to NULL in R scripts.
+
+
+## [3.10.2] - 2017-02-28
+### Changed
+- Improved config file handling and merging.
+- Output files can be referred in params functions (i.e. lambda wildcards, output: ...)
+- Improved conda-environment creation.
+- Jobs are cached, leading to reduced memory footprint.
+- Fixed subworkflow handling in input functions.
+
+## [3.10.0] - 2017-01-18
+### Added
+- Workflows can now be archived to a tarball with `snakemake --archive my-workflow.tar.gz`. The archive contains all input files, source code versioned with git and all software packages that are defined via conda environments. Hence, the archive allows to fully reproduce a workflow on a different machine. Such an archive can be uploaded to Zenodo, such that your workflow is secured in a self-contained, executable way for the future.
+### Changed
+- Improved logging.
+- Reduced memory footprint.
+- Added a flag to automatically unpack the output of input functions.
+- Improved handling of HTTP redirects with remote files.
+- Improved exception handling with DRMAA.
+- Scripts referred by the script directive can now use locally defined external python modules.
+
+
 ## [3.9.1] - 2016-12-23
 ### Added
-- Jobs can be restarted upon failure (--restart-times). 
+- Jobs can be restarted upon failure (--restart-times).
 ### Changed
 - The docs have been restructured and improved. Now available under snakemake.readthedocs.org.
 - Changes in scripts show up with --list-code-changes.

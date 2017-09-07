@@ -16,8 +16,8 @@ Welcome to Snakemake's documentation!
 .. image:: https://quay.io/repository/snakemake/snakemake/status
        :target: https://quay.io/repository/snakemake/snakemake
 
-.. image:: https://img.shields.io/circleci/project/bitbucket/snakemake/snakemake.svg
-    :target: https://circleci.com/bb/snakemake/snakemake/tree/master
+.. image:: https://app.wercker.com/status/5b4faec0485e3b6ed5497f3e8e551b34/s/master
+    :target: https://app.wercker.com/project/byKey/5b4faec0485e3b6ed5497f3e8e551b34
 
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
     :target: http://stackoverflow.com/questions/tagged/snakemake
@@ -54,8 +54,8 @@ Quick Example
 * Snakemake determines the rule dependencies by matching file names.
 * Input and output files can contain multiple named wildcards.
 * Rules can either use shell commands, plain Python code or external Python or R scripts to create output files from input files.
-* Snakemake workflows can be executed on workstations and clusters without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
-* Snakemake can use Amazon S3, Google Storage, Dropbox, FTP and SFTP to access input or output files and further access input files via HTTP and HTTPS.
+* Snakemake workflows can be easily executed on **workstations**, **clusters** and **in the cloud** without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
+* Snakemake can use Amazon S3, Google Storage, Dropbox, FTP, WebDAV and SFTP to access input or output files and further access input files via HTTP and HTTPS.
 
 .. _main-getting-started:
 
@@ -63,7 +63,7 @@ Quick Example
 Getting started
 ---------------
 
-To get started, consider the :ref:`tutorial <tutorial-welcome>`, the `introductory slides <http://slides.com/johanneskoester/snakemake-tutorial-2016>`_, and the :ref:`FAQ <project_info-faq>`.
+To get started, consider the :ref:`tutorial`, the `introductory slides <http://slides.com/johanneskoester/snakemake-tutorial-2016>`_, and the :ref:`FAQ <project_info-faq>`.
 
 .. _main-support:
 
@@ -109,6 +109,15 @@ Publications using Snakemake
 In the following you find an incomplete list of publications making use of Snakemake for their analyses.
 Please consider to add your own.
 
+* Uhlitz et al. 2017. `An immediate–late gene expression module decodes ERK signal duration <http://msb.embopress.org/content/13/5/928>`_. Molecular Systems Biology.
+* Akkouche et al. 2017. `Piwi Is Required during Drosophila Embryogenesis to License Dual-Strand piRNA Clusters for Transposon Repression in Adult Ovaries <http://www.sciencedirect.com/science/article/pii/S1097276517302071>`_. Molecular Cell.
+* Beatty et al. 2017. `Giardia duodenalis induces pathogenic dysbiosis of human intestinal microbiota biofilms <>`_. International Journal for Parasitology.
+* Meyer et al. 2017. `Differential Gene Expression in the Human Brain Is Associated with Conserved, but Not Accelerated, Noncoding Sequences <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5400397/>`_. Molecular Biology and Evolution.
+* Lonardo et al. 2017. `Priming of soil organic matter: Chemical structure of added compounds is more important than the energy content <http://www.sciencedirect.com/science/article/pii/S0038071716304539>`_. Soil Biology and Biochemistry.
+* Beisser et al. 2017. `Comprehensive transcriptome analysis provides new insights into nutritional strategies and phylogenetic relationships of chrysophytes <https://peerj.com/articles/2832/>`_. PeerJ.
+* Dimitrov et al 2017. `Successive DNA extractions improve characterization of soil microbial communities <https://peerj.com/articles/2915/>`_. PeerJ.
+* de Bourcy et al. 2016. `Phylogenetic analysis of the human antibody repertoire reveals quantitative signatures of immune senescence and aging <http://www.pnas.org/content/114/5/1105.short>`_. PNAS.
+* Bray et al. 2016. `Near-optimal probabilistic RNA-seq quantification<http://www.nature.com/nbt/journal/v34/n5/abs/nbt.3519.html>`_. Nature Biotechnology.
 * Etournay et al. 2016. `TissueMiner: a multiscale analysis toolkit to quantify how cellular processes create tissue dynamics <https://elifesciences.org/content/5/e14334>`_. eLife Sciences.
 * Townsend et al. 2016. `The Public Repository of Xenografts Enables Discovery and Randomized Phase II-like Trials in Mice <http://www.cell.com/cancer-cell/abstract/S1535-6108%2816%2930090-3>`_. Cancer Cell.
 * Burrows et al. 2016. `Genetic Variation, Not Cell Type of Origin, Underlies the Majority of Identifiable Regulatory Differences in iPSCs <http://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.1005793>`_. PLOS Genetics.
@@ -122,7 +131,6 @@ Please consider to add your own.
 * Břinda et al. 2015. `Spaced seeds improve k-mer-based metagenomic classification <http://bioinformatics.oxfordjournals.org/content/early/2015/08/10/bioinformatics.btv419>`_. Bioinformatics.
 * Spjuth et al. 2015. `Experiences with workflows for automating data-intensive bioinformatics <http://www.biologydirect.com/content/10/1/43>`_. Biology Direct.
 * Schramm et al. 2015. `Mutational dynamics between primary and relapse neuroblastomas <http://www.nature.com/ng/journal/v47/n8/full/ng.3349.html>`_. Nature Genetics.
-* Bray et al. 2015. `Near-optimal RNA-Seq quantification <http://arxiv.org/abs/1505.02710>`_. Arxiv preprint.
 * Berulava et al. 2015. `N6-Adenosine Methylation in MiRNAs <http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0118438>`_. PLOS ONE.
 * The Genome of the Netherlands Consortium 2014. `Whole-genome sequence variation, population structure and demographic history of the Dutch population <http://www.nature.com/ng/journal/v46/n8/full/ng.3021.html>`_. Nature Genetics.
 *  Patterson et al. 2014. `WhatsHap: Haplotype Assembly for Future-Generation Sequencing Reads <http://online.liebertpub.com/doi/10.1089/cmb.2014.0157>`_. Journal of Computational Biology.
@@ -138,25 +146,15 @@ Please consider to add your own.
 
 
 .. toctree::
-   :caption: Installation
-   :name: installation
+   :caption: Getting started
+   :name: getting_started
    :hidden:
    :maxdepth: 1
 
    getting_started/installation
    getting_started/examples
+   tutorial/tutorial
 
-
-.. toctree::
-   :caption: Tutorial
-   :name: tutorial
-   :hidden:
-   :maxdepth: 1
-
-   tutorial/welcome
-   tutorial/basics
-   tutorial/advanced
-   tutorial/additional_features
 
 .. toctree::
   :caption: Executing workflows
@@ -164,7 +162,7 @@ Please consider to add your own.
   :hidden:
   :maxdepth: 1
 
-  executable.rst
+  executable
 
 .. toctree::
     :caption: Defining workflows

@@ -1,8 +1,8 @@
-.. user_manual-snakemake_executable:
+.. _executable:
 
-========================
-The Snakemake Executable
-========================
+===================
+Executing Snakemake
+===================
 
 This part of the documentation describes the ``snakemake`` executable.  Snakemake
 is primarily a command-line tool, so the ``snakemake`` executable is the primary way
@@ -46,6 +46,83 @@ By specifying the number of available cores, i.e.
 
 one can tell Snakemake to use up to 4 cores and solve a binary knapsack problem to optimize the scheduling of jobs.
 If the number is omitted (i.e., only ``-j`` is given), the number of used cores is determined as the number of available CPU cores in the machine.
+
+
+-------------
+Cloud Support
+-------------
+
+Snakemake 4.0 and later supports experimental execution in the cloud via Kubernetes.
+This is independent of the cloud provider, but we provide the setup steps for GCE below.
+
+Google cloud engine
+~~~~~~~~~~~~~~~~~~~
+
+First, install the `Google Cloud SDK <https://cloud.google.com/sdk/docs/quickstarts>`_.
+Then, run
+
+.. code-block:: console
+
+    $ gcloud init
+
+to setup your access.
+Then, you can create a new kubernetes cluster via
+
+.. code-block:: console
+
+    $ gcloud container clusters create $CLUSTER_NAME --num-nodes=$NODES --scopes storage-rw
+
+with ``$CLUSTER_NAME`` being the cluster name and ``$NODES`` being the number of cluster
+nodes. If you intent to use google storage, make sure that `--scopes storage-rw` is set.
+This enables Snakemake to write to the google storage from within the cloud nodes.
+Next, you configure Kubernetes to use the new cluster via
+
+.. code-block:: console
+
+    $ gcloud container clusters get-credentials $CLUSTER_NAME
+
+
+Now, Snakemake is ready to use your cluster.
+
+**Important:** After finishing your work, do not forget to delete the cluster with
+
+.. code-block:: console
+
+    $ gcloud container clusters delete $CLUSTER_NAME
+
+in order to avoid unnecessary charges.
+
+
+.. _kubernetes:
+
+Executing a Snakemake workflow via kubernetes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Assuming that kubernetes has been properly configured (see above), you can
+execute a workflow via:
+
+.. code-block:: console
+
+    snakemake --kubernetes --use-conda --default-remote-provider $REMOTE --default-remote-prefix $PREFIX
+
+In this mode, Snakemake will assume all input and output files to be stored in a given
+remote location, configured by setting ``$REMOTE`` to your provider of choice
+(e.g. ``GS`` for Google cloud storage or ``S3`` for Amazon S3) and ``$PREFIX``
+to a bucket name or subfolder within that remote storage.
+After successful execution, you find your results in the specified remote storage.
+Of course, if any input or output already defines a different remote location, the latter will be used instead.
+Importantly, this means that Snakemake does **not** require a shared network
+filesystem to work in the cloud.
+
+It is further possible to forward arbitrary environment variables to the kubernetes
+jobs via the flag ``--kubernetes-env`` (see ``snakemake --help``).
+
+When executing, Snakemake will make use of the defined resources and threads
+to schedule jobs to the correct nodes. In particular, it will forward memory requirements
+defined as `mem_mb` to kubernetes. Further, it will propagate the number of threads
+a job intends to use, such that kubernetes can allocate it to the correct cloud
+computing node.
+
 
 -----------------
 Cluster Execution
@@ -153,11 +230,19 @@ To visualize the whole DAG regardless of the eventual presence of files, the ``f
 
 Of course the visual appearance can be modified by providing further command line arguments to ``dot``.
 
+
+.. _all_options:
+
 -----------
 All Options
 -----------
 
-All command line options can be printed by calling ``snakemake -h``.
+.. argparse::
+   :module: snakemake
+   :func: get_argument_parser
+   :prog: snakemake
+
+   All command line options can be printed by calling ``snakemake -h``.
 
 .. _getting_started-bash_completion:
 

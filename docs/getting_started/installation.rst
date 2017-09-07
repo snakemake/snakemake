@@ -7,11 +7,32 @@ Installation
 Snakemake is available on PyPi as well as through Bioconda and also from source code.
 You can use one of the following ways for installing Snakemake.
 
+Installation via Conda
+======================
+
+This is the recommended way to install Snakemake,
+because it also enables Snakemake to :ref:`handle software dependencies of your
+workflow <integrated_package_management>`.
+
+First, you have to install the Miniconda Python3 distribution.
+See `here <https://conda.io/docs/install/quick.html>`_ for installation instructions.
+Make sure to ...
+
+* Install the **Python 3** version of Miniconda.
+* Answer yes to the question whether conda shall be put into your PATH.
+
+Then, you can install Snakemake with
+
+.. code-block:: console
+
+    $ conda install -c bioconda snakemake
+
+from the `Bioconda <https://bioconda.github.io>`_ channel.
 
 Global Installation
 ===================
 
-With a working Python 3 setup, installation of Snakemake can be performed by issuing
+With a working Python ``>=3.5`` setup, installation of Snakemake can be performed by issuing
 
 .. code-block:: console
 
@@ -36,20 +57,6 @@ To create an installation in a virtual environment, use the following commands:
     $ virtualenv -p python3 .venv
     $ source .venv/bin/activate
     $ pip install snakemake
-
-
-Installing Conda
-================
-
-In case you have to install Python 3 yourself, we recommend to use the Miniconda Python 3 distribution (http://conda.pydata.org/miniconda.html).
-
-With Miniconda installed, you can issue
-
-.. code-block:: console
-
-    $ conda install -c bioconda snakemake
-
-to install Snakemake from the bioconda channel.
 
 
 Installing from Source

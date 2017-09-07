@@ -73,6 +73,8 @@ class _IOFile(str):
     A file that is either input or output of a rule.
     """
 
+    __slots__ = ["_is_function", "_file", "rule", "_regex"]
+
     def __new__(cls, file):
         obj = str.__new__(cls, file)
         obj._is_function = isfunction(file) or ismethod(file)
@@ -121,6 +123,10 @@ class _IOFile(str):
         return get_flag_value(self._file, "remote_object").keep_local
 
     @property
+    def should_stay_on_remote(self):
+        return get_flag_value(self._file, "remote_object").stay_on_remote
+
+    @property
     def remote_object(self):
         self.update_remote_filepath()
         return get_flag_value(self._file, "remote_object")
@@ -135,18 +141,27 @@ class _IOFile(str):
                              "may not be used directly.")
 
     def check(self):
+        hint = (
+            "It can also lead to inconsistent results of the file-matching "
+            "approach used by Snakemake."
+        )
         if self._file.startswith("./"):
             logger.warning("Relative file path '{}' starts with './'. This is redundant "
-                           "and strongly discouraged. It can also lead to "
-                           "inconsistent results of the file-matching approach "
-                           "used by Snakemake. You can simply omit the './' "
-                           "for relative file paths.".format(self._file))
+                           "and strongly discouraged. {} You can simply omit the './' "
+                           "for relative file paths.".format(self._file, hint))
         if self._file.startswith(" "):
-            logger.warning("File path '{}' starts with whitespace. This is likely unintended.")
+            logger.warning("File path '{}' starts with whitespace. "
+                "This is likely unintended. {}".format(self._file, hint))
         if self._file.endswith(" "):
-            logger.warning("File path '{}' ends with whitespace. This is likely unintended.")
+            logger.warning("File path '{}' ends with whitespace. "
+                "This is likely unintended. {}".format(self._file, hint))
         if "\n" in self._file:
-            logger.warning("File path '{}' contains line break. This is likely unintended.")
+            logger.warning("File path '{}' contains line break. "
+                "This is likely unintended. {}".format(self._file, hint))
+        if _double_slash_regex.search(self._file) is not None:
+            logger.warning("File path {} contains double '{}'. "
+                "This is likely unintended. {}".format(
+                    self._file, os.path.sep, hint))
 
     @property
     @_refer_to_remote
@@ -211,8 +226,9 @@ class _IOFile(str):
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
-            logger.info("Downloading from remote: {}".format(self.file))
-            self.remote_object.download()
+            if not self.should_stay_on_remote:
+                logger.info("Downloading from remote: {}".format(self.file))
+                self.remote_object.download()
         else:
             raise RemoteFileException(
                 "The file to be downloaded does not seem to exist remotely.")
@@ -246,7 +262,7 @@ class _IOFile(str):
             lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
-        remove(self.file, remove_non_empty_dir=remove_non_empty_dir)
+        remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
         """ times must be 2-tuple: (atime, mtime) """
@@ -339,6 +355,11 @@ class _IOFile(str):
         return self._file.__hash__()
 
 
+_double_slash_regex = (re.compile(r"([^:]//|^//)")
+                       if os.path.sep == "/"
+                       else re.compile(r"\\\\"))
+
+
 _wildcard_regex = re.compile(
     r"""
     \{
@@ -355,10 +376,18 @@ _wildcard_regex = re.compile(
     """, re.VERBOSE)
 
 
-def wait_for_files(files, latency_wait=3):
+def wait_for_files(files, latency_wait=3, force_stay_on_remote=False):
     """Wait for given files to be present in filesystem."""
     files = list(files)
-    get_missing = lambda: [f for f in files if not os.path.exists(f)]
+    def get_missing():
+        return [
+            f for f in files
+            if not (f.exists_remote
+                    if (isinstance(f, _IOFile) and
+                       f.is_remote and
+                       (force_stay_on_remote or f.should_stay_on_remote))
+                    else os.path.exists(f))]
+                    
     missing = get_missing()
     if missing:
         logger.info("Waiting at most {} seconds for missing files.".format(
@@ -385,7 +414,10 @@ def contains_wildcard_constraints(pattern):
 
 
 def remove(file, remove_non_empty_dir=False):
-    if os.path.isdir(file) and not os.path.islink(file):
+    if file.is_remote and file.should_stay_on_remote:
+        if file.exists_remote:
+            file.remote_object.remove()
+    elif os.path.isdir(file) and not os.path.islink(file):
         if remove_non_empty_dir:
             shutil.rmtree(file)
         else:
@@ -495,6 +527,7 @@ def get_flag_value(value, flag_type):
         else:
             return None
 
+
 def ancient(value):
     """
     A flag for an input file that shall be considered ancient; i.e. its timestamp shall have no effect on which jobs to run.
@@ -553,8 +586,19 @@ def dynamic(value):
 def touch(value):
     return flag(value, "touch")
 
+
 def unpack(value):
     return flag(value, "unpack")
+
+
+def local(value):
+    """Mark a file as local file. This disables application of a default remote
+    provider.
+    """
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Remote and local flags are mutually exclusive.")
+    return flag(value, "local")
+
 
 def expand(*args, **wildcards):
     """
@@ -653,12 +697,12 @@ def update_wildcard_constraints(pattern,
             return match.group(0)
         examined_names.add(name)
         # Don't override if constraint already set
-        if not constraint is None:
+        if constraint is not None:
             if name in wildcard_constraints:
                 raise ValueError("Wildcard {} is constrained by both the rule and the file pattern. Consider removing one of the constraints.")
             return match.group(0)
         # Only update if a new constraint has actually been set
-        elif not newconstraint is None:
+        elif newconstraint is not None:
             return "{{{},{}}}".format(name, newconstraint)
         else:
             return match.group(0)
@@ -671,7 +715,6 @@ def update_wildcard_constraints(pattern,
         updated = AnnotatedString(updated)
         updated.flags = deepcopy(pattern.flags)
     return updated
-
 
 
 # TODO rewrite Namedlist!
@@ -749,7 +792,8 @@ class Namedlist(list):
     def allitems(self):
         next = 0
         for name, index in sorted(self._names.items(),
-                                  key=lambda item: item[1][0]):
+                key=lambda item: (item[1][0], item[1][0] + 1 if item[1][1] is None else item[1][1])):
+
             start, end = index
             if end is None:
                 end = start + 1
@@ -766,7 +810,7 @@ class Namedlist(list):
         add = len(items) - 1
         for name, (i, j) in self._names.items():
             if i > index:
-                self._names[name] = (i + add, j + add)
+                self._names[name] = (i + add, None if j is None else j + add)
             elif i == index:
                 self.set_name(name, i, end=i + len(items))
 
@@ -863,10 +907,11 @@ def load_configfile(configpath):
 
 
 class PeriodicityDetector:
-    def __init__(self, min_repeat=50, max_repeat=100):
+    def __init__(self, min_repeat=20, max_repeat=100):
         """
         Args:
-            max_len (int): The maximum length of the periodic substring.
+            max_repeat (int): The maximum length of the periodic substring.
+            min_repeat (int): The minimum length of the periodic substring.
         """
         self.regex = re.compile(
             "((?P<value>.+)(?P=value){{{min_repeat},{max_repeat}}})$".format(

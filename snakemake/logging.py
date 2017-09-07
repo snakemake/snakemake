@@ -6,6 +6,7 @@ __license__ = "MIT"
 import logging as _logging
 import platform
 import time
+import datetime
 import sys
 import os
 import json
@@ -86,28 +87,35 @@ class Logger:
         self.stream_handler = None
         self.printshellcmds = False
         self.printreason = False
+        self.debug_dag = False
         self.quiet = False
         self.logfile = None
+        self.last_msg_was_job_info = False
 
     def setup(self):
         # logfile output is done always
-        self.logfile_fd, self.logfile = tempfile.mkstemp(
-            prefix="",
-            suffix=".snakemake.log")
+        os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
+        self.logfile = os.path.abspath(os.path.join(".snakemake",
+                                    "log",
+                                    datetime.datetime.now().isoformat() +
+                                    ".snakemake.log"))
+
         self.logfile_handler = _logging.FileHandler(self.logfile)
         self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
         self.logger.removeHandler(self.logfile_handler)
         self.logfile_handler.close()
-        os.close(self.logfile_fd)
-        os.remove(self.logfile)
         self.log_handler = [self.text_handler]
 
     def get_logfile(self):
         if self.logfile is not None:
             self.logfile_handler.flush()
         return self.logfile
+
+    def remove_logfile(self):
+        self.logfile_handler.close()
+        os.remove(self.logfile)
 
     def handler(self, msg):
         for handler in self.log_handler:
@@ -121,6 +129,13 @@ class Logger:
 
     def set_level(self, level):
         self.logger.setLevel(level)
+
+    def logfile_hint(self):
+        logfile = os.path.relpath(self.get_logfile())
+        if logfile.startswith(".."):
+            # relative path is not "simple to read", use absolute path
+            logfile = self.get_logfile()
+        self.info("Complete log: {}".format(logfile))
 
     def info(self, msg):
         self.handler(dict(level="info", msg=msg))
@@ -146,6 +161,13 @@ class Logger:
     def job_info(self, **msg):
         msg["level"] = "job_info"
         self.handler(msg)
+
+    def job_error(self, **msg):
+        msg["level"] = "job_error"
+        self.handler(msg)
+
+    def dag_debug(self, msg):
+        self.handler(dict(level="dag_debug", **msg))
 
     def shellcmd(self, msg):
         if msg is not None:
@@ -185,7 +207,7 @@ class Logger:
                 if fmt != None:
                     yield fmt
 
-            singleitems = ["benchmark"]
+            singleitems = ["jobid", "benchmark"]
             if self.printreason:
                 singleitems.append("reason")
             for item in singleitems:
@@ -207,45 +229,70 @@ class Logger:
                 yield "    resources: " + resources
 
         level = msg["level"]
-        if level == "info" and not self.quiet:
-            self.logger.warning(msg["msg"])
-        if level == "warning":
-            self.logger.warning(msg["msg"])
-        elif level == "error":
-            self.logger.error(msg["msg"])
-        elif level == "debug":
-            self.logger.debug(msg["msg"])
-        elif level == "resources_info" and not self.quiet:
-            self.logger.warning(msg["msg"])
-        elif level == "run_info" and not self.quiet:
-            self.logger.warning(msg["msg"])
-        elif level == "progress" and not self.quiet:
-            done = msg["done"]
-            total = msg["total"]
-            p = done / total
-            percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
-            self.logger.info("{} of {} steps ({}) done".format(
-                done, total, percent_fmt))
-        elif level == "job_info" and not self.quiet:
+        if level == "job_info" and not self.quiet:
+            if not self.last_msg_was_job_info:
+                self.logger.info("")
             if msg["msg"] is not None:
-                self.logger.info(msg["msg"])
+                self.logger.info("Job {}: {}".format(msg["jobid"], msg["msg"]))
                 if self.printreason:
                     self.logger.info("Reason: {}".format(msg["reason"]))
             else:
                 self.logger.info("\n".join(job_info(msg)))
             self.logger.info("")
-        elif level == "shellcmd":
-            if self.printshellcmds:
+
+            self.last_msg_was_job_info = True
+        elif level == "job_error":
+            self.logger.error("Error in rule {}:".format(msg["name"]))
+            self.logger.error("    jobid: {}".format(msg["jobid"]))
+            if msg["output"]:
+                self.logger.error("    output: {}".format(", ".join(msg["output"])))
+            if msg["log"]:
+                self.logger.error("    log: {}".format(", ".join(msg["log"])))
+            for item in msg["aux"].items():
+                self.logger.error("    {}: {}".format(*item))
+            self.logger.error("")
+        else:
+            if level == "info" and not self.quiet:
                 self.logger.warning(msg["msg"])
-        elif level == "job_finished":
-            # do not display this on the console for now
-            pass
-        elif level == "rule_info":
-            self.logger.info(msg["name"])
-            if msg["docstring"]:
-                self.logger.info("    " + msg["docstring"])
-        elif level == "d3dag":
-            print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
+            if level == "warning":
+                self.logger.warning(msg["msg"])
+            elif level == "error":
+                self.logger.error(msg["msg"])
+            elif level == "debug":
+                self.logger.debug(msg["msg"])
+            elif level == "resources_info" and not self.quiet:
+                self.logger.warning(msg["msg"])
+            elif level == "run_info" and not self.quiet:
+                self.logger.warning(msg["msg"])
+            elif level == "progress" and not self.quiet:
+                done = msg["done"]
+                total = msg["total"]
+                p = done / total
+                percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
+                self.logger.info("{} of {} steps ({}) done".format(
+                    done, total, percent_fmt))
+            elif level == "shellcmd":
+                if self.printshellcmds:
+                    self.logger.warning(msg["msg"])
+            elif level == "job_finished" and not self.quiet:
+                self.logger.info("Finished job {}.".format(msg["jobid"]))
+                pass
+            elif level == "rule_info":
+                self.logger.info(msg["name"])
+                if msg["docstring"]:
+                    self.logger.info("    " + msg["docstring"])
+            elif level == "d3dag":
+                print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
+            elif level == "dag_debug":
+                if self.debug_dag:
+                    job = msg["job"]
+                    self.logger.warning(
+                        "{status} job {name}\n\twildcards: {wc}".format(
+                            status=msg["status"],
+                            name=job.rule.name,
+                            wc=format_wildcards(job.wildcards)))
+
+            self.last_msg_was_job_info = False
 
 
 def format_dict(dict, omit_keys=[], omit_values=[]):
@@ -269,6 +316,7 @@ def setup_logger(handler=None,
                  quiet=False,
                  printshellcmds=False,
                  printreason=False,
+                 debug_dag=False,
                  nocolor=False,
                  stdout=False,
                  debug=False,
@@ -293,3 +341,4 @@ def setup_logger(handler=None,
     logger.quiet = quiet
     logger.printshellcmds = printshellcmds
     logger.printreason = printreason
+    logger.debug_dag = debug_dag

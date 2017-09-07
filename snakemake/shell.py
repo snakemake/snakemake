@@ -12,6 +12,7 @@ import inspect
 from snakemake.utils import format
 from snakemake.logging import logger
 
+
 __author__ = "Johannes Köster"
 
 STDOUT = sys.stdout
@@ -43,7 +44,8 @@ class shell:
     def __new__(cls, cmd, *args,
                 async=False,
                 iterable=False,
-                read=False, **kwargs):
+                read=False, bench_record=None,
+                **kwargs):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
         cmd = format(cmd, *args, stepout=2, **kwargs)
@@ -56,7 +58,11 @@ class shell:
         close_fds = sys.platform != 'win32'
 
         conda_env = context.get("conda_env", None)
-        env_prefix = "" if conda_env is None else "source activate {};".format(conda_env)
+        if conda_env is None:
+            env_prefix = ""
+        else:
+            env_prefix = "source activate {};".format(conda_env)
+            logger.info("Activating conda environment {}.".format(conda_env))
 
         proc = sp.Popen("{} {} {} {}".format(
                             env_prefix,
@@ -75,7 +81,13 @@ class shell:
             ret = proc.stdout.read()
         elif async:
             return proc
-        retcode = proc.wait()
+        if bench_record is not None:
+            from snakemake.benchmark import benchmarked
+            # Note: benchmarking does not work in case of async=True
+            with benchmarked(proc.pid, bench_record):
+                retcode = proc.wait()
+        else:
+            retcode = proc.wait()
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
         return ret
