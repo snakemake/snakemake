@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess as sp
 from datetime import datetime
+import time
 
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError
@@ -23,8 +24,9 @@ class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
 
-    def __init__(self, *args, stay_on_remote=False, **kwargs):
+    def __init__(self, *args, stay_on_remote=False, max_requests_per_second=5, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+        self.max_requests_per_second = max_requests_per_second
 
     @property
     def default_protocol(self):
@@ -43,16 +45,29 @@ class RemoteObject(AbstractRemoteObject):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
     def _uberftp(self, *args, **kwargs):
-        cmd = ["uberftp"] + list(args)
-        logger.debug(" ".join(cmd))
-        try:
-            return sp.run(cmd, **kwargs)
-        except sp.CalledProcessError as e:
-            raise WorkflowError("Error calling uberftp.", e)
+        # try several times for error robustness
+        for i in range(10):
+            cmd = " ".join(["uberftp"] + list(args))
+            logger.debug(" ".join(cmd))
+            try:
+                # use shell=True because otherwise login seeems to be unreliable
+                return sp.run(cmd, **kwargs, shell=True)
+            except sp.CalledProcessError as e:
+                if i == 9:
+                    raise WorkflowError("Error calling uberftp.", e)
+                time.sleep(0.5)
 
     def _uberftp_exists(self, url):
-        res = self._uberftp("-ls", url, stdout=sp.PIPE, stderr=sp.STDOUT)
-        return "No match for" not in res.stdout.decode()
+        for i in range(10):
+            res = self._uberftp("-ls", url, stdout=sp.PIPE, stderr=sp.STDOUT)
+            if res.returncode == 0:
+                return True
+            elif "No match for" in res.stdout.decode():
+                return False
+            else:
+                if i == 9:
+                    raise WorkflowError("Error calling uberftp. {}".format(res.stdout.decode()))
+                time.sleep(0.5)
 
     # === Implementations of abstract class members ===
 
@@ -68,7 +83,7 @@ class RemoteObject(AbstractRemoteObject):
             date = datetime.strptime(date, "%b %d %Y")
         except:
             date = datetime.strptime(date, "%b %d %H:%M")
-            date.replace(year=datetime.now().year)
+            date = date.replace(year=datetime.now().year)
         return date.timestamp()
 
     def size(self):
