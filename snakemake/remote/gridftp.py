@@ -48,7 +48,7 @@ class RemoteObject(AbstractRemoteObject):
         # try several times for error robustness
         for i in range(10):
             cmd = " ".join(["uberftp"] + list(args))
-            logger.debug(" ".join(cmd))
+            logger.debug(cmd)
             try:
                 # use shell=True because otherwise login seeems to be unreliable
                 return sp.run(cmd, **kwargs, shell=True)
@@ -75,7 +75,7 @@ class RemoteObject(AbstractRemoteObject):
         return self._uberftp_exists(self.remote_file())
 
     def mtime(self):
-        assert self.exists()
+        # assert self.exists()
         res = self._uberftp("-ls", self.remote_file(), check=True, stdout=sp.PIPE)
         date = " ".join(res.stdout.decode().split()[-4:-1])
         # first, try minute resolution
@@ -87,7 +87,7 @@ class RemoteObject(AbstractRemoteObject):
         return date.timestamp()
 
     def size(self):
-        assert self.exists()
+        # assert self.exists()
         res = self._uberftp("-size", self.remote_file(), check=True, stdout=sp.PIPE)
         return int(res.stdout.decode())
 
@@ -102,10 +102,13 @@ class RemoteObject(AbstractRemoteObject):
         return None
 
     def upload(self):
+        if os.path.isdir(self.local_file()):
+            raise WorkflowError("Directories are not supported by gridftp remote.")
         if self.exists():
             self._uberftp("-rm", self.remote_file(), check=True)
-        prefix = self.protocol[:-1] # remove last slash
-        for d in self.local_file().split("/")[:-1]:
+        prefix = self.protocol + self.host()
+        # omit first and last elements (host and file)
+        for d in self.local_file().split("/")[1:-1]:
             prefix += "/" + d
             if not self._uberftp_exists(prefix):
                 self._uberftp("-mkdir", prefix, check=True)
@@ -116,3 +119,6 @@ class RemoteObject(AbstractRemoteObject):
     def list(self):
         # TODO implement listing of remote files with patterns
         return []
+
+    def host(self):
+        return self.local_file().split("/")[0]
