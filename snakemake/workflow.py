@@ -349,7 +349,7 @@ class Workflow:
             omitrules=omitrules,
             ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
-            ignore_incomplete=ignore_incomplete or printdag or printrulegraph,
+            ignore_incomplete=ignore_incomplete or printd3dag or printdag or printrulegraph,
             notemp=notemp,
             keep_remote_local=keep_remote_local)
 
@@ -437,10 +437,11 @@ class Workflow:
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
         if printd3dag:
+            #In this case the printing is done via the logger
             dag.d3dag()
             return True
         elif printdag:
-            print(dag)
+            print(dag.dot())
             return True
         elif printrulegraph:
             print(dag.rule_dot())

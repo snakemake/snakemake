@@ -700,7 +700,7 @@ def get_argument_parser():
         "Recommended use on Unix systems: snakemake --rulegraph | dot | display")
     parser.add_argument("--d3dag",
                         action="store_true",
-                        help="Print the DAG in D3.js compatible JSON format.")
+                        help="Do not execute anything and print the DAG in D3.js compatible JSON format.")
     parser.add_argument(
         "--summary", "-S",
         action="store_true",
