@@ -98,7 +98,6 @@ class JobScheduler:
                                             quiet=quiet,
                                             printshellcmds=printshellcmds,
                                             latency_wait=latency_wait)
-            self.job_reward = self.dryrun_job_reward
         elif touch:
             self._executor = TouchExecutor(workflow, dag,
                                            printreason=printreason,
@@ -136,7 +135,6 @@ class JobScheduler:
                     benchmark_repeats=benchmark_repeats,
                     assume_shared_fs=assume_shared_fs)
                 if workflow.immediate_submit:
-                    self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
                                                     update_dynamic=False,
                                                     print_progress=False,
@@ -427,11 +425,25 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 for name in self.workflow.global_resources]
 
     def job_reward(self, job):
-        return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job),
-                0 if self.touch else job.inputsize)
+        if self.touch or self.dryrun or self.workflow.immediate_submit:
+            temp_size = 0
+            input_size = 0
+        else:
+            temp_size = self.dag.temp_size(job)
+            input_size = job.inputsize
 
-    def dryrun_job_reward(self, job):
-        return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job))
+        # Usually, this should guide the scheduler to first schedule all jobs
+        # that remove the largest temp file, then the second largest and so on.
+        # Since the weight is summed up, it can in theory be that it sometimes
+        # prefers a set of many jobs that all depend on smaller temp files though.
+        # A real solution to the problem is therefore to use dummy jobs that
+        # ensure selection of groups of jobs that together delete the same temp
+        # file.
+
+        return (self.dag.priority(job),
+                temp_size,
+                self.dag.downstream_size(job),
+                input_size)
 
     def progress(self):
         """ Display the progress. """

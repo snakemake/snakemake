@@ -66,11 +66,11 @@ class DAG:
         self._needrun = set()
         self._priority = dict()
         self._downstream_size = dict()
-        self._temp_input_count = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
         self._dynamic = set()
         self._len = 0
+        self._temp_size = dict()
         self.workflow = workflow
         self.rules = set(rules)
         self.ignore_ambiguity = ignore_ambiguity
@@ -251,10 +251,6 @@ class DAG:
         """Return the number of downstream jobs of a given job."""
         return self._downstream_size[job]
 
-    def temp_input_count(self, job):
-        """Return number of temporary input files of given job."""
-        return self._temp_input_count[job]
-
     def noneedrun_finished(self, job):
         """
         Return whether a given job is finished or was not
@@ -399,24 +395,47 @@ class DAG:
             for f in filter(job_.temp_output.__contains__, files):
                 yield f
 
+    def temp_size(self, job):
+        """Return the total size of temporary input files of the job.
+        If none, return 0.
+        """
+        currtime = time.time()
+        return sum(self._temp_size[f] for f in self.temp_input(job))
+
     def handle_temp(self, job):
-        """ Remove temp files if they are no longer needed. """
+        """ Remove temp files if they are no longer needed. Update temp_mtimes. """
         if self.notemp:
             return
+
+        is_temp = lambda f: is_flagged(f, "temp")
+
+        # Step 1: handle temp output
+
+        for f in job.expanded_output:
+            if is_temp:
+                self._temp_size[f] = f.size
+
+        # Step 2: handle temp input
 
         needed = lambda job_, f: any(
             f in files for j, files in self.depending[job_].items()
             if not self.finished(j) and self.needrun(j) and j != job)
 
         def unneeded_files():
+            # temp input
             for job_, files in self.dependencies[job].items():
-                yield from filterfalse(partial(needed, job_), job_.temp_output & files)
+                tempfiles = set(f for f in job_.expanded_output if is_temp(f))
+                yield from filterfalse(partial(needed, job_), tempfiles & files)
+
+            # temp output
             if job not in self.targetjobs:
-                yield from filterfalse(partial(needed, job), job.temp_output)
+                tempfiles = (f for f in job.expanded_output if is_temp(f))
+                yield from filterfalse(partial(needed, job), tempfiles)
 
         for f in unneeded_files():
             logger.info("Removing temporary output file {}.".format(f))
             f.remove(remove_non_empty_dir=True)
+            del self._temp_size[f]
 
     def handle_log(self, job, upload_remote=True):
         for f in job.log:
@@ -733,11 +752,6 @@ class DAG:
                                   job,
                                   stop=self.noneedrun_finished)) - 1
 
-    def update_temp_input_count(self):
-        """For each job update the number of temporary input files."""
-        for job in self.needrun_jobs:
-            self._temp_input_count[job] = sum(1 for _ in self.temp_input(job))
-
     def close_remote_objects(self):
         """Close all remote objects."""
         for job in self.jobs:
@@ -752,7 +766,6 @@ class DAG:
         self.update_priority()
         self.update_ready()
         self.update_downstream_size()
-        self.update_temp_input_count()
         self.close_remote_objects()
 
     def _ready(self, job):
