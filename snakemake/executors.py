@@ -163,11 +163,14 @@ class RealExecutor(AbstractExecutor):
         self.stats = Stats()
         self.snakefile = workflow.snakefile
 
+    def register_job(self, job):
+        self.workflow.persistence.started(job)
+
     def _run(self, job, callback=None, error_callback=None):
         super()._run(job)
         self.stats.report_job_start(job)
         try:
-            self.workflow.persistence.started(job)
+            self.register_job(job)
         except IOError as e:
             logger.info(
                 "Failed to set marker file for job started ({}). "
@@ -614,6 +617,10 @@ class GenericClusterExecutor(ClusterExecutor):
     def cancel(self):
         logger.info("Will exit after finishing currently running jobs.")
         self.shutdown()
+
+    def register_job(self, job):
+        self.workflow.persistence.started(
+            job, external_jobid=self.external_jobid[job])
 
     def run(self, job,
             callback=None,

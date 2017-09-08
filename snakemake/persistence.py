@@ -113,9 +113,12 @@ class Persistence:
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
 
-    def started(self, job):
+    def started(self, job, external_jobid=None):
         for f in job.output:
-            self._record(self._metadata_path, {"incomplete": True}, f)
+            self._record(self._metadata_path, {
+                             "incomplete": True,
+                             "external_jobid": external_jobid
+                         }, f)
 
     def finished(self, job):
         version = str(
