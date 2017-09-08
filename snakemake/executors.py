@@ -619,8 +619,9 @@ class GenericClusterExecutor(ClusterExecutor):
         self.shutdown()
 
     def register_job(self, job):
-        self.workflow.persistence.started(
-            job, external_jobid=self.external_jobid[job])
+        # Do not register job here.
+        # Instead do it manually once the jobid is known.
+        pass
 
     def run(self, job,
             callback=None,
@@ -636,6 +637,22 @@ class GenericClusterExecutor(ClusterExecutor):
         self.write_jobscript(job, jobscript,
                              jobfinished=jobfinished,
                              jobfailed=jobfailed)
+
+        if self.statuscmd:
+            ext_jobid = self.dag.incomplete_external_jobid(job)
+            if ext_jobid:
+                # Job is incomplete and still running.
+                # We simply register it and wait for completion or failure.
+                submit_callback(job)
+                self.active_jobs.append(
+                    GenericClusterJob(job,
+                                      ext_jobid,
+                                      callback,
+                                      error_callback,
+                                      jobscript,
+                                      jobfinished,
+                                      jobfailed))
+                return
 
         deps = " ".join(self.external_jobid[f] for f in job.input
                         if f in self.external_jobid)
@@ -661,6 +678,8 @@ class GenericClusterExecutor(ClusterExecutor):
             self.external_jobid.update((f, ext_jobid) for f in job.output)
             logger.info("Submitted job {} with external jobid '{}'.".format(
                 jobid, ext_jobid))
+            self.workflow.persistence.started(
+                job, external_jobid=ext_jobid)
 
         submit_callback(job)
         with self.lock:
@@ -669,10 +688,14 @@ class GenericClusterExecutor(ClusterExecutor):
     def _wait_for_jobs(self):
         if self.statuscmd is not None:
             def job_status(job):
-                return subprocess.check_output(
-                    '{statuscmd} {jobid}'.format(jobid=job.jobid,
-                                                 statuscmd=self.statuscmd),
-                    shell=True).decode().split("\n")[0]
+                try:
+                    return subprocess.check_output(
+                        '{statuscmd} {jobid}'.format(jobid=job.jobid,
+                                                     statuscmd=self.statuscmd),
+                        shell=True).decode().split("\n")[0]
+                except subprocess.CalledProcessError as e:
+                    raise WorkflowError("Failed to obtain job status. "
+                                        "See above for error message.")
 
             def job_finished(job):
                 if job_status(job) == "success":

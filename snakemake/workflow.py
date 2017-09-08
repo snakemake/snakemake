@@ -419,7 +419,10 @@ class Workflow:
             # rescue globals
             self.globals.update(globals_backup)
 
-        dag.check_incomplete()
+        if not (cluster and cluster_status):
+            # no incomplete check needed because we use external jobids to handle
+            # this later in the executor
+            dag.check_incomplete()
         dag.postprocess()
 
         if nodeps:

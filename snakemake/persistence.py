@@ -151,6 +151,12 @@ class Persistence:
         return any(
             map(lambda f: f.exists and marked_incomplete(f), job.output))
 
+    def external_jobids(self, job):
+        return list(set(
+            self._read_record(self._metadata_path, f)
+                .get("external_jobid", None)
+            for f in job.output))
+
     def version(self, path):
         return self._read_record(self._metadata_path, path).get("version")
 

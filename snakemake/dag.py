@@ -190,6 +190,24 @@ class DAG:
                 else:
                     raise IncompleteFilesException(incomplete)
 
+    def incomplete_external_jobid(self, job):
+        """Return the external jobid of the job if it is marked as incomplete.
+
+        Returns None, if job is not incomplete, or if no external jobid has been
+        registered or if force_incomplete is True.
+        """
+        jobids = self.workflow.persistence.external_jobids(job)
+        if len(jobids) == 1:
+            return jobids[0]
+        elif not self.force_incomplete:
+            raise WorkflowError(
+                "Multiple different external jobids registered "
+                "for output files of incomplete job {} ({}). This job "
+                "cannot be resumed. Execute Snakemake with --rerun-incomplete "
+                "to fix this issue.".format(job.jobid, jobids))
+        else:
+            return None
+
     def check_dynamic(self):
         """Check dynamic output and update downstream rules if necessary."""
         for job in filter(
@@ -428,7 +446,7 @@ class DAG:
                 yield from filterfalse(partial(needed, job_), tempfiles & files)
 
             # temp output
-            if job not in self.targetjobs:
+            if job not in self.targetjobs and not job.dynamic_output:
                 tempfiles = (f for f in job.expanded_output if is_temp(f))
                 yield from filterfalse(partial(needed, job), tempfiles)
 
