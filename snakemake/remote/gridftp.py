@@ -94,7 +94,9 @@ class RemoteObject(AbstractRemoteObject):
     def download(self):
         if self.exists():
             os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
-            self._uberftp(self.remote_file(),
+            # Download file. Use checksum for integrity check, wait for staging.
+            self._uberftp("-cksum", "on", "-wait",
+                          self.remote_file(),
                           "file://" + os.path.abspath(self.local_file()),
                           check=True)
             os.sync()
@@ -112,7 +114,9 @@ class RemoteObject(AbstractRemoteObject):
             prefix += "/" + d
             if not self._uberftp_exists(prefix):
                 self._uberftp("-mkdir", prefix, check=True)
-        self._uberftp("file://" + os.path.abspath(self.local_file()),
+        # Upload file. Use checksum.
+        self._uberftp("-cksum", "on",
+                      "file://" + os.path.abspath(self.local_file()),
                       self.remote_file(), check=True)
 
     @property
