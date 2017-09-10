@@ -229,6 +229,7 @@ class _IOFile(str):
             if not self.should_stay_on_remote:
                 logger.info("Downloading from remote: {}".format(self.file))
                 self.remote_object.download()
+                logger.info("Finished download.")
         else:
             raise RemoteFileException(
                 "The file to be downloaded does not seem to exist remotely.")
@@ -237,6 +238,7 @@ class _IOFile(str):
         if self.is_remote:
             logger.info("Uploading to remote: {}".format(self.file))
             self.remote_object.upload()
+            logger.info("Finished upload.")
 
     def prepare(self):
         path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
@@ -387,7 +389,7 @@ def wait_for_files(files, latency_wait=3, force_stay_on_remote=False):
                        f.is_remote and
                        (force_stay_on_remote or f.should_stay_on_remote))
                     else os.path.exists(f))]
-                    
+
     missing = get_missing()
     if missing:
         logger.info("Waiting at most {} seconds for missing files.".format(

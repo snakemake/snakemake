@@ -431,7 +431,7 @@ class ClusterExecutor(RealExecutor):
                 '--benchmark-repeats {benchmark_repeats} --attempt {attempt} ',
                 '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
                 '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
-                '--notemp --quiet --no-hooks --nolock'))
+                '--notemp --no-hooks --nolock'))
         else:
             self.exec_job = exec_job
 
@@ -1014,7 +1014,7 @@ class KubernetesExecutor(ClusterExecutor):
             '--benchmark-repeats {benchmark_repeats} --attempt {attempt} '
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} '
             '{overwrite_config} {printshellcmds} --nocolor '
-            '--notemp --quiet --no-hooks --nolock ')
+            '--notemp --no-hooks --nolock ')
 
         super().__init__(workflow, dag, None,
                          jobname=jobname,

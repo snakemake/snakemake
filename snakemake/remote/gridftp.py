@@ -24,9 +24,9 @@ class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
 
-    def __init__(self, *args, stay_on_remote=False, max_requests_per_second=5, **kwargs):
+    def __init__(self, *args, stay_on_remote=False, retry=10, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
-        self.max_requests_per_second = max_requests_per_second
+        self.retry = retry
 
     @property
     def default_protocol(self):
@@ -45,20 +45,24 @@ class RemoteObject(AbstractRemoteObject):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
     def _uberftp(self, *args, **kwargs):
+        if "stderr" not in kwargs:
+            kwargs["stderr"] = sp.PIPE
         # try several times for error robustness
-        for i in range(10):
+        for i in range(self.provider.retry + 1):
             cmd = " ".join(["uberftp"] + list(args))
             logger.debug(cmd)
             try:
-                # use shell=True because otherwise login seeems to be unreliable
+                # use shell=True because otherwise login seeems to be
+                # unreliable
                 return sp.run(cmd, **kwargs, shell=True)
             except sp.CalledProcessError as e:
                 if i == 9:
-                    raise WorkflowError("Error calling uberftp.", e)
+                    raise WorkflowError("Error calling uberftp:\n{}".format(
+                        e.stderr.decode()))
                 time.sleep(0.5)
 
     def _uberftp_exists(self, url):
-        for i in range(10):
+        for i in range(self.provider.retry + 1):
             res = self._uberftp("-ls", url, stdout=sp.PIPE, stderr=sp.STDOUT)
             if res.returncode == 0:
                 return True
@@ -66,7 +70,9 @@ class RemoteObject(AbstractRemoteObject):
                 return False
             else:
                 if i == 9:
-                    raise WorkflowError("Error calling uberftp. {}".format(res.stdout.decode()))
+                    raise WorkflowError(
+                        "Error calling uberftp:\n{}".format(
+                            res.stdout.decode()))
                 time.sleep(0.5)
 
     # === Implementations of abstract class members ===
