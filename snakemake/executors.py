@@ -431,7 +431,7 @@ class ClusterExecutor(RealExecutor):
                 '--benchmark-repeats {benchmark_repeats} --attempt {attempt} ',
                 '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
                 '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
-                '--notemp --no-hooks --nolock'))
+                '--notemp --no-hooks --nolock --timestamp '))
         else:
             self.exec_job = exec_job
 
