@@ -541,7 +541,7 @@ In general, if you are able to use the `uberftp` directly, Snakemake support for
 
     from snakemake.remote import gridftp
 
-    gridftp = gridftp.RemoteProvider()
+    gridftp = gridftp.RemoteProvider(retry=10, chksum=False)
 
     rule a:
         input:
@@ -553,6 +553,8 @@ In general, if you are able to use the `uberftp` directly, Snakemake support for
 
 Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
 Usually, this is already the case and no action has to be taken.
+The two keyword arguments to the remote provider allow to set the number of retries in case of failed commands (the GRID is usually relatively unreliable), and whether checksums will be used to ensure file integrity after transfer.
+The latter may be unsupported depending on the system configuration.
 
 Note that GridFTP support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
 to transparently use Snakemake in a grid computing environment without a shared network filesystem.
