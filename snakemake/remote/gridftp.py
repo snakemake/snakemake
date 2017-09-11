@@ -24,9 +24,10 @@ class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
 
-    def __init__(self, *args, stay_on_remote=False, retry=10, **kwargs):
+    def __init__(self, *args, stay_on_remote=False, retry=10, chksum=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
         self.retry = retry
+        self.chksum = chksum
 
     @property
     def default_protocol(self):
@@ -100,11 +101,15 @@ class RemoteObject(AbstractRemoteObject):
     def download(self):
         if self.exists():
             os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
-            # Download file. Use checksum for integrity check, wait for staging.
-            self._uberftp("-cksum", "on", "-wait",
-                          self.remote_file(),
-                          "file://" + os.path.abspath(self.local_file()),
-                          check=True)
+
+            # Download file. Wait for staging.
+            source = self.remote_file()
+            target = "file://" + os.path.abspath(self.local_file())
+            if self.provider.chksum:
+                self._uberftp("-cksum", "on", "-wait", source, target, check=True)
+            else:
+                self._uberftp("-wait", source, target, check=True)
+
             os.sync()
             return self.local_file()
         return None
@@ -114,16 +119,21 @@ class RemoteObject(AbstractRemoteObject):
             raise WorkflowError("Directories are not supported by gridftp remote.")
         if self.exists():
             self._uberftp("-rm", self.remote_file(), check=True)
+
         prefix = self.protocol + self.host()
         # omit first and last elements (host and file)
         for d in self.local_file().split("/")[1:-1]:
             prefix += "/" + d
             if not self._uberftp_exists(prefix):
                 self._uberftp("-mkdir", prefix, check=True)
-        # Upload file. Use checksum.
-        self._uberftp("-cksum", "on",
-                      "file://" + os.path.abspath(self.local_file()),
-                      self.remote_file(), check=True)
+
+        # Upload file.
+        source = "file://" + os.path.abspath(self.local_file())
+        target = self.remote_file()
+        if self.provider.chksum:
+            self._uberftp("-cksum", "on", source, target, check=True)
+        else:
+            self._uberftp(source, target, check=True)
 
     @property
     def list(self):
