@@ -181,6 +181,20 @@ class RemoteObject(DomainObject):
             # get current local timestamp
             stat = os.stat(self.local_path)
 
+            # create folder structure on remote
+            folders = os.path.dirname(self.remote_path).split(os.sep)[1:]
+            collpath = os.sep
+
+            for folder in folders:
+                collpath = os.path.join(collpath, folder)
+
+                try:
+                    print("trying to get {}".format(collpath))
+                    session.collections.get(collpath)
+                except:
+                    print("creating {}".format(collpath))
+                    session.collections.create(collpath)
+
             # upload file and store local timestamp in metadata since irods sets the files modification time to
             # the upload time rather than retaining the local modification time
             session.data_objects.put(self.local_path, self.remote_path)
