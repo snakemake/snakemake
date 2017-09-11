@@ -70,9 +70,11 @@ class ColorizingStreamHandler(_logging.StreamHandler):
                 self.handleError(record)
 
     def decorate(self, record):
-        message = [record.message]
-        if self.timestamp:
-            message.insert(0, "[{}] ".format(time.asctime()))
+        message = record.message
+        if self.timestamp and message:
+            stamp = "[{}] {{}}".format(time.asctime()).format
+            message = "".join(map(stamp, message.splitlines(True)))
+        message = [message]
         if not self.nocolor and record.levelname in self.colors:
             message.insert(0, self.COLOR_SEQ %
                            (30 + self.colors[record.levelname]))
