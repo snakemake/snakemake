@@ -643,6 +643,9 @@ class GenericClusterExecutor(ClusterExecutor):
             if ext_jobid:
                 # Job is incomplete and still running.
                 # We simply register it and wait for completion or failure.
+                logger.info(
+                    "Resume incomplete job {} with external jobid '{}'.".format(
+                    jobid, ext_jobid))
                 submit_callback(job)
                 self.active_jobs.append(
                     GenericClusterJob(job,
