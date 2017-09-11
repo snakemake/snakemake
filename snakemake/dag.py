@@ -196,17 +196,17 @@ class DAG:
         Returns None, if job is not incomplete, or if no external jobid has been
         registered or if force_incomplete is True.
         """
+        if self.force_incomplete:
+            return None
         jobids = self.workflow.persistence.external_jobids(job)
         if len(jobids) == 1:
             return jobids[0]
-        elif not self.force_incomplete:
+        else:
             raise WorkflowError(
                 "Multiple different external jobids registered "
                 "for output files of incomplete job {} ({}). This job "
                 "cannot be resumed. Execute Snakemake with --rerun-incomplete "
                 "to fix this issue.".format(job.jobid, jobids))
-        else:
-            return None
 
     def check_dynamic(self):
         """Check dynamic output and update downstream rules if necessary."""
