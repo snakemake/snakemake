@@ -567,6 +567,9 @@ class ClusterExecutor(RealExecutor):
         # TODO what about removing empty remote dirs?? This cannot be decided
         # on the cluster node.
         super().handle_job_error(job, upload_remote=False)
+        if not self.assume_shared_fs:
+            # if no shared fs, we have to remove metadata here as well
+            self.workflow.persistence.cleanup(job)
 
 
 GenericClusterJob = namedtuple("GenericClusterJob", "job jobid callback error_callback jobscript jobfinished jobfailed")
