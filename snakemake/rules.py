@@ -314,7 +314,8 @@ class Rule:
             item = self.apply_default_remote(item)
 
             # add the rule to the dependencies
-            if isinstance(item, _IOFile) and item.rule:
+            if (isinstance(item, _IOFile) and item.rule
+                and item in item.rule.output):
                 self.dependencies[item] = item.rule
             if output:
                 rule = self
@@ -329,7 +330,7 @@ class Rule:
                             snakefile=self.snakefile,
                             lineno=self.lineno)
             else:
-                rule = None
+                rule = self
                 if contains_wildcard_constraints(item) and self.workflow.mode != Mode.subprocess:
                     logger.warning(
                         "wildcard constraints in inputs are ignored")

@@ -98,6 +98,8 @@ class Workflow:
         self.default_remote_prefix = default_remote_prefix
         self.configfiles = []
 
+        self.iocache = snakemake.io.IOCache()
+
         global config
         config = copy.deepcopy(self.overwrite_config)
 
@@ -424,6 +426,11 @@ class Workflow:
             # this later in the executor
             dag.check_incomplete()
         dag.postprocess()
+        # deactivate IOCache such that from now on we always get updated
+        # size, existence and mtime information
+        # ATTENTION: this may never be removed without really good reason.
+        # Otherwise weird things may happen.
+        self.iocache.deactivate()
 
         if nodeps:
             missing_input = [f for job in dag.targetjobs for f in job.input

@@ -413,7 +413,7 @@ def test_spaces_in_fnames():
         printshellcmds=True)
 
 
-# deactivate because of problems with moto and boto3.
+# TODO deactivate because of problems with moto and boto3.
 # def test_static_remote():
 #     import importlib
 #     try:
@@ -534,10 +534,11 @@ def test_issue260():
    run(dpath("test_issue260"))
 
 
-def test_default_remote():
-    run(dpath("test_default_remote"),
-        default_remote_provider="S3Mocked",
-        default_remote_prefix="test-remote-bucket")
+# TODO reenable once S3Mocked works again with boto3
+# def test_default_remote():
+#     run(dpath("test_default_remote"),
+#         default_remote_provider="S3Mocked",
+#         default_remote_prefix="test-remote-bucket")
 
 
 def test_run_namedlist():
