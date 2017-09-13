@@ -105,14 +105,13 @@ class RemoteObject(AbstractRemoteObject):
             # Download file. Wait for staging.
             source = self.remote_file()
             target = "file://" + os.path.abspath(self.local_file())
+
+
+            args = ["-keepalive", "10", "-wait"]
             if self.provider.chksum:
-                self._uberftp("-active",
-                              "-cksum", "on",
-                              "-wait", "-keepalive", "10",
-                              source, target, check=True)
-            else:
-                self._uberftp("-active", "-wait", "-keepalive", "10",
-                              source, target, check=True)
+                args += ["-cksum", "on"]
+            args += [source, target]
+            self._uberftp(*args, check=True)
 
             os.sync()
             return self.local_file()
@@ -134,13 +133,14 @@ class RemoteObject(AbstractRemoteObject):
         # Upload file.
         source = "file://" + os.path.abspath(self.local_file())
         target = self.remote_file()
+        args = ["-keepalive", "10"]
         if self.provider.chksum:
-            self._uberftp("-cksum", "on",
-                          "-active", "-keepalive", "10",
-                          source, target, check=True)
-        else:
-            self._uberftp("-active", "-keepalive", "10",
-                          source, target, check=True)
+            args += ["-cksum", "on"]
+        if self._iofile.size_local == 0:
+            # uberftp hangs on empty files in passive mode
+            args += ["-active"]
+        args += [source, target]
+        self._uberftp(*args, check=True)
 
     @property
     def list(self):
