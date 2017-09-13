@@ -106,9 +106,11 @@ class RemoteObject(AbstractRemoteObject):
             source = self.remote_file()
             target = "file://" + os.path.abspath(self.local_file())
             if self.provider.chksum:
-                self._uberftp("-cksum", "on", "-wait", source, target, check=True)
+                self._uberftp("-active",
+                              "-cksum", "on",
+                              "-wait", source, target, check=True)
             else:
-                self._uberftp("-wait", source, target, check=True)
+                self._uberftp("-active", "-wait", source, target, check=True)
 
             os.sync()
             return self.local_file()
@@ -131,9 +133,10 @@ class RemoteObject(AbstractRemoteObject):
         source = "file://" + os.path.abspath(self.local_file())
         target = self.remote_file()
         if self.provider.chksum:
-            self._uberftp("-cksum", "on", source, target, check=True)
+            self._uberftp("-cksum", "on",
+                          "-active", source, target, check=True)
         else:
-            self._uberftp(source, target, check=True)
+            self._uberftp("-active", source, target, check=True)
 
     @property
     def list(self):
