@@ -108,9 +108,11 @@ class RemoteObject(AbstractRemoteObject):
             if self.provider.chksum:
                 self._uberftp("-active",
                               "-cksum", "on",
-                              "-wait", source, target, check=True)
+                              "-wait", "-keepalive", "10",
+                              source, target, check=True)
             else:
-                self._uberftp("-active", "-wait", source, target, check=True)
+                self._uberftp("-active", "-wait", "-keepalive", "10",
+                              source, target, check=True)
 
             os.sync()
             return self.local_file()
@@ -134,9 +136,11 @@ class RemoteObject(AbstractRemoteObject):
         target = self.remote_file()
         if self.provider.chksum:
             self._uberftp("-cksum", "on",
-                          "-active", source, target, check=True)
+                          "-active", "-keepalive", "10",
+                          source, target, check=True)
         else:
-            self._uberftp("-active", source, target, check=True)
+            self._uberftp("-active", "-keepalive", "10",
+                          source, target, check=True)
 
     @property
     def list(self):
