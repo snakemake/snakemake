@@ -102,6 +102,9 @@ class _IOFile(str):
         obj.rule = None
         obj._regex = None
 
+        if obj.is_remote:
+            obj.remote_object._iofile = obj
+
         return obj
 
     def iocache(func):
