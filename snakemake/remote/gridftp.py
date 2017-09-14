@@ -106,8 +106,7 @@ class RemoteObject(AbstractRemoteObject):
             source = self.remote_file()
             target = "file://" + os.path.abspath(self.local_file())
 
-
-            args = ["-keepalive", "10", "-wait"]
+            args = []
             if self.provider.chksum:
                 args += ["-cksum", "on"]
             args += [source, target]
@@ -133,7 +132,7 @@ class RemoteObject(AbstractRemoteObject):
         # Upload file.
         source = "file://" + os.path.abspath(self.local_file())
         target = self.remote_file()
-        args = ["-keepalive", "10"]
+        args = []
         if self.provider.chksum:
             args += ["-cksum", "on"]
         if self._iofile.size_local == 0:
