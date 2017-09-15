@@ -495,9 +495,12 @@ class DAG:
                     for f in filter(putative, files):
                         if not needed(job_, f):
                             yield f
-                for f in filter(putative, job.output):
-                    if not needed(job, f) and not f in self.targetfiles:
-                        for f_ in job.expand_dynamic(f):
+                for f, f_ in zip(job.output, job.rule.output):
+                    if putative(f) and not needed(job, f) and not f in self.targetfiles:
+                        if f in job.dynamic_output:
+                            for f_ in job.expand_dynamic(f_):
+                                yield f_
+                        else:
                             yield f
                 for f in filter(putative, job.input):
                     # TODO what about remote inputs that are used by multiple jobs?
