@@ -17,17 +17,21 @@ from snakemake.logging import logger
 
 
 if not shutil.which("uberftp"):
-    raise WorkflowError("The uberftp command needs to be available for GridFTP support")
+    raise WorkflowError("The uberftp command needs to be available for "
+                        "GridFTP support.")
+if not shutil.which("globus-url-copy"):
+    raise WorkflowError("The globus-url-copy command needs to be available for "
+                        "GridFTP support.")
+
 
 
 class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
 
-    def __init__(self, *args, stay_on_remote=False, retry=10, chksum=False, **kwargs):
+    def __init__(self, *args, stay_on_remote=False, retry=10, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
         self.retry = retry
-        self.chksum = chksum
 
     @property
     def default_protocol(self):
@@ -44,6 +48,15 @@ class RemoteObject(AbstractRemoteObject):
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+
+    def _globus_url_copy(self, source, target):
+        try:
+            return sp.run("globus-url-copy", "-fast", "-cd", "-r",
+                          "-rst", "-rst-retries", self.provider.retry,
+                          source, target, check=True, stderr=sp.PIPE)
+        except sp.CalledProcessError as e:
+            raise WorkflowError("Error calling globus-url-copy:\n{}".format(
+                e.stderr.decode()))
 
     def _uberftp(self, *args, **kwargs):
         if "stderr" not in kwargs:
@@ -106,11 +119,7 @@ class RemoteObject(AbstractRemoteObject):
             source = self.remote_file()
             target = "file://" + os.path.abspath(self.local_file())
 
-            args = []
-            if self.provider.chksum:
-                args += ["-cksum", "on"]
-            args += [source, target]
-            self._uberftp(*args, check=True)
+            self._globus_url_copy(source, target)
 
             os.sync()
             return self.local_file()
@@ -132,14 +141,8 @@ class RemoteObject(AbstractRemoteObject):
         # Upload file.
         source = "file://" + os.path.abspath(self.local_file())
         target = self.remote_file()
-        args = []
-        if self.provider.chksum:
-            args += ["-cksum", "on"]
-        if self._iofile.size_local == 0:
-            # uberftp hangs on empty files in passive mode
-            args += ["-active"]
-        args += [source, target]
-        self._uberftp(*args, check=True)
+
+        self._globus_url_copy(source, target)
 
     @property
     def list(self):

@@ -534,14 +534,14 @@ GridFTP support is available in Snakemake 4.1 and later.
 
 Snakemake supports reading and writing remote files via the `GridFTP protocol <https://en.wikipedia.org/wiki/GridFTP>`_.
 GridFTP is an extension of the FTP protocol that is often used in grid computing environments.
-The implementation uses the `UberFTP <https://github.com/JasonAlt/UberFTP/wiki>`_ client, which has to be available in the `$PATH` and configured correctly.
+The implementation uses the command `globus-url-copy` from `Globus Toolkit <http://toolkit.globus.org/toolkit/>`_ and the `UberFTP <https://github.com/JasonAlt/UberFTP/wiki>`_ client, which has to be available in the `$PATH` and configured correctly.
 In general, if you are able to use the `uberftp` directly, Snakemake support for GridFTP will work as well.
 
 .. code-block:: python
 
     from snakemake.remote import gridftp
 
-    gridftp = gridftp.RemoteProvider(retry=10, chksum=False)
+    gridftp = gridftp.RemoteProvider(retry=5)
 
     rule a:
         input:
