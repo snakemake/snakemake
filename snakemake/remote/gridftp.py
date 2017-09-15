@@ -51,7 +51,8 @@ class RemoteObject(AbstractRemoteObject):
 
     def _globus_url_copy(self, source, target):
         try:
-            return sp.run(["globus-url-copy", "-fast", "-cd", "-r",
+            return sp.run(["globus-url-copy", "-stall-timeout", "0",
+                           "-fast", "-cd", "-r",
                           "-rst", "-rst-retries", str(self.provider.retry),
                           source, target], check=True, stderr=sp.PIPE)
         except sp.CalledProcessError as e:
