@@ -53,7 +53,7 @@ class RemoteObject(AbstractRemoteObject):
         try:
             return sp.run("globus-url-copy", "-fast", "-cd", "-r",
                           "-rst", "-rst-retries", self.provider.retry,
-                          source, target, check=True, stderr=sp.PIPE)
+                          source, target, check=True)
         except sp.CalledProcessError as e:
             raise WorkflowError("Error calling globus-url-copy:\n{}".format(
                 e.stderr.decode()))
