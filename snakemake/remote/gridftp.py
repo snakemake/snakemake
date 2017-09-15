@@ -127,17 +127,8 @@ class RemoteObject(AbstractRemoteObject):
         return None
 
     def upload(self):
-        if os.path.isdir(self.local_file()):
-            raise WorkflowError("Directories are not supported by gridftp remote.")
         if self.exists():
             self._uberftp("-rm", self.remote_file(), check=True)
-
-        prefix = self.protocol + self.host()
-        # omit first and last elements (host and file)
-        for d in self.local_file().split("/")[1:-1]:
-            prefix += "/" + d
-            if not self._uberftp_exists(prefix):
-                self._uberftp("-mkdir", prefix, check=True)
 
         # Upload file.
         source = "file://" + os.path.abspath(self.local_file())
