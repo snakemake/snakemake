@@ -49,6 +49,13 @@ class RemoteObject(AbstractRemoteObject):
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
+    def _gfal_copy(self, source, target):
+        try:
+            return sp.run(["gfal-copy", "-f", source, target],
+                          check=True)
+        except sp.CalledProcessError as e:
+            raise WorkflowError("Error calling gfal-copy.")
+
     def _globus_url_copy(self, source, target):
         try:
             return sp.run(["globus-url-copy", "-stall-timeout", "0",
@@ -120,7 +127,7 @@ class RemoteObject(AbstractRemoteObject):
             source = self.remote_file()
             target = "file://" + os.path.abspath(self.local_file())
 
-            self._globus_url_copy(source, target)
+            self._gfal_copy(source, target)
 
             os.sync()
             return self.local_file()
@@ -134,7 +141,7 @@ class RemoteObject(AbstractRemoteObject):
         source = "file://" + os.path.abspath(self.local_file())
         target = self.remote_file()
 
-        self._globus_url_copy(source, target)
+        self._gfal_copy(source, target)
 
     @property
     def list(self):
