@@ -49,6 +49,13 @@ class RemoteObject(AbstractRemoteObject):
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
+    def _gfal_mkdir(self, target):
+        try:
+            return sp.run(["gfal-mkdir", "-p", target],
+                          check=True)
+        except sp.CalledProcessError as e:
+            raise WorkflowError("Error calling gfal-mkdir.")
+
     def _gfal_copy(self, source, target):
         try:
             return sp.run(["gfal-copy", "-f", source, target],
@@ -134,13 +141,13 @@ class RemoteObject(AbstractRemoteObject):
         return None
 
     def upload(self):
-        if self.exists():
-            self._uberftp("-rm", self.remote_file(), check=True)
+        target = self.remote_file()
+        parent = os.path.dirname(target)
+        if parent:
+            self._gfal_mkdir(parent)
 
         # Upload file.
         source = "file://" + os.path.abspath(self.local_file())
-        target = self.remote_file()
-
         self._gfal_copy(source, target)
 
     @property
