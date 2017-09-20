@@ -297,6 +297,7 @@ class Rule:
             not is_flagged(item, "local") and
             self.workflow.default_remote_provider is not None):
             item = "{}/{}".format(self.workflow.default_remote_prefix, item)
+            item = os.path.normpath(item)
             return self.workflow.default_remote_provider.remote(item)
         return item
 
