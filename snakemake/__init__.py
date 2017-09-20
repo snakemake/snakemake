@@ -6,7 +6,6 @@ __license__ = "MIT"
 import os
 import subprocess
 import glob
-import argparse
 from argparse import ArgumentError
 import logging as _logging
 import re
@@ -16,6 +15,10 @@ import threading
 import webbrowser
 from functools import partial
 import importlib
+
+from appdirs import AppDirs
+import configargparse
+from configargparse import YAMLConfigFileParser
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception, WorkflowError
@@ -587,16 +590,51 @@ def unparse_config(config):
     return items
 
 
-def get_argument_parser():
+APPDIRS = AppDirs("snakemake", "snakemake")
+
+
+def get_profile_variants(profile, file):
+    get_path = lambda d: os.path.join(d, profile, file)
+    for d in (APPDIRS.site_config_dir, APPDIRS.user_config_dir):
+        p = get_path(d)
+        if os.path.exists(p):
+            yield p
+
+
+def get_argument_parser(profile=None):
     """Generate and return argument parser."""
-    parser = argparse.ArgumentParser(
+    config_files = []
+    if profile:
+        if profile == "" or os.path.sep in profile:
+            print("Error: invalid profile name.", file=sys.stderr)
+            exit(1)
+
+        config_files = list(get_profile_variants(profile, "config.yaml"))
+        if not config_files:
+            print("Error: profile given but no config.yaml found in "
+                  "{site}/{profile} or {user}/{profile}.".format(
+                      site=dirs.site_config_dir,
+                      user=dirs.user_config_dir,
+                      profile=profile), file=sys.stderr)
+            exit(1)
+
+    parser = configargparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
-        "environment for GNU Make-like workflows.")
+        "environment for GNU Make-like workflows.",
+        default_config_files=config_files,
+        config_file_parser_class=YAMLConfigFileParser)
 
     parser.add_argument("target",
                         nargs="*",
                         default=None,
                         help="Targets to build. May be rules or files.")
+
+    parser.add_argument("--profile",
+                        help="Name of profile to use for configuring "
+                        "Snakemake. Snakemake will search for a corresponding "
+                        "folder in {} and {}.".format(dirs.site_config_dir,
+                                                      dirs.user_config_dir))
+
     parser.add_argument("--snakefile", "-s",
                         metavar="FILE",
                         default="Snakefile",
@@ -1077,7 +1115,7 @@ def get_argument_parser():
                         help="Allow to debug rules with e.g. PDB. This flag "
                         "allows to set breakpoints in run blocks.")
     parser.add_argument(
-        "--profile",
+        "--runtime-profile",
         metavar="FILE",
         help=
         "Profile Snakemake and write the output to FILE. This requires yappi "
@@ -1149,13 +1187,20 @@ def get_argument_parser():
     parser.add_argument("--version", "-v",
                         action="version",
                         version=__version__)
-    return parser
+    return parser, dirs
 
 
 def main(argv=None):
     """Main entry point."""
     parser = get_argument_parser()
     args = parser.parse_args(argv)
+
+    if args.profile:
+        # reparse args while inferring config file from profile
+        parser = get_argument_parser(args.profile)
+        args = parser.parse_args(argv)
+
+
 
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
