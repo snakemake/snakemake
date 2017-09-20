@@ -25,7 +25,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
 
-    def __init__(self, *args, stay_on_remote=False, **kwargs):
+    def __init__(self, *args, stay_on_remote=False, retry=10, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
         self.retry = retry
 
@@ -49,12 +49,18 @@ class RemoteObject(AbstractRemoteObject):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
     def _gfal(self, cmd, *args):
-        try:
-            return sp.run(["gfal-" + cmd] + args,
-                   check=True, stderr=sp.PIPE, stdout=sp.PIPE).stdout.decode()
-        except sp.CalledProcessError as e:
-            raise WorkflowError("Error calling gfal-{}:\n{}".format(
-                cmd, e.stderr.decode()))
+        for i in range(self.provider.retry + 1):
+            try:
+                return sp.run(["gfal-" + cmd] + args,
+                       check=True, stderr=sp.PIPE, stdout=sp.PIPE).stdout.decode()
+            except sp.CalledProcessError as e:
+                if i == self.provider.retry:
+                    raise WorkflowError("Error calling gfal-{}:\n{}".format(
+                        cmd, e.stderr.decode()))
+                else:
+                    # try again after some seconds
+                    time.sleep(5)
+                    continue
 
     # === Implementations of abstract class members ===
 
