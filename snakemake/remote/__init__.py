@@ -76,7 +76,7 @@ class AbstractRemoteProvider:
 
         if isinstance(value, str):
             protocol, value = _set_protocol(value)
-            value = protocol+value if stay_on_remote else value
+            value = protocol + value if stay_on_remote else value
         else:
             protocol, value = list(zip(*[_set_protocol(v) for v in value]))
             if len(set(protocol)) != 1:

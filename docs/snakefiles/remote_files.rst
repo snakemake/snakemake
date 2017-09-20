@@ -527,27 +527,26 @@ can be used by specifying ``protocol=="http://"``. Similarly, the port defaults 
             # do something
 
 
-GridFTP
-=======
+GFAL
+=====
 
-GridFTP support is available in Snakemake 4.1 and later.
+GFAL support is available in Snakemake 4.1 and later.
 
-Snakemake supports reading and writing remote files via the `GridFTP protocol <https://en.wikipedia.org/wiki/GridFTP>`_.
-GridFTP is an extension of the FTP protocol that is often used in grid computing environments.
-The implementation uses the command `globus-url-copy` from `Globus Toolkit <http://toolkit.globus.org/toolkit/>`_ and the `UberFTP <https://github.com/JasonAlt/UberFTP/wiki>`_ client, which has to be available in the `$PATH` and configured correctly.
-In general, if you are able to use the `uberftp` directly, Snakemake support for GridFTP will work as well.
+Snakemake supports reading and writing remote files via the `GFAL <https://dmc.web.cern.ch/projects/gfal-2/home>`_ command line client (gfal-* commands).
+By this, it supports various grid storage protocols like `GridFTP <https://en.wikipedia.org/wiki/GridFTP>`_.
+In general, if you are able to use the `gfal-*` commands directly, Snakemake support for GFAL will work as well.
 
 .. code-block:: python
 
-    from snakemake.remote import gridftp
+    from snakemake.remote import gfal
 
-    gridftp = gridftp.RemoteProvider(retry=5)
+    gfal = gfal.RemoteProvider()
 
     rule a:
         input:
-            gridftp.remote("gridftp.grid.sara.nl:2811/path/to/infile.txt")
+            gfal.remote("gridftp.grid.sara.nl:2811/path/to/infile.txt")
         output:
-            gridftp.remote("gridftp.grid.sara.nl:2811/path/to/outfile.txt")
+            gfal.remote("gridftp.grid.sara.nl:2811/path/to/outfile.txt")
         shell:
             # do something
 
