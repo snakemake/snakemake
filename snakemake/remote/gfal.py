@@ -42,24 +42,30 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-    mtime_re = re.compile("^\s+Modify: (.+)$", flags=re.MULTILINE)
-    size_re = re.compile("^\s+Size: ([0-9]+).*$", flags=re.MULTILINE)
+    mtime_re = re.compile(r"^\s*Modify: (.+)$", flags=re.MULTILINE)
+    size_re = re.compile(r"^\s*Size: ([0-9]+).*$", flags=re.MULTILINE)
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
-    def _gfal(self, cmd, *args):
+    def _gfal(self, cmd, *args, retry=None, raise_workflow_error=True):
+        if retry is None:
+            retry = self.provider.retry
         _cmd = ["gfal-" + cmd] + list(args)
-        for i in range(self.provider.retry + 1):
+        for i in range(retry + 1):
             try:
+                logger.debug(_cmd)
                 return sp.run(_cmd,
                               check=True,
                               stderr=sp.PIPE,
                               stdout=sp.PIPE).stdout.decode()
             except sp.CalledProcessError as e:
-                if i == self.provider.retry:
-                    raise WorkflowError("Error calling gfal-{}:\n{}".format(
-                        cmd, e.stderr.decode()))
+                if i == retry:
+                    if raise_workflow_error:
+                        raise WorkflowError("Error calling gfal-{}:\n{}".format(
+                            cmd, e.stderr.decode()))
+                    else:
+                        raise e
                 else:
                     # try again after some seconds
                     time.sleep(5)
@@ -68,8 +74,18 @@ class RemoteObject(AbstractRemoteObject):
     # === Implementations of abstract class members ===
 
     def exists(self):
-        files =self._gfal("ls", "-a", os.path.dirname(self.remote_file()))
-        return os.path.basename(self.remote_file()) in files.splitlines()
+        try:
+            self._gfal("ls", "-a", self.remote_file(), 
+                       retry=0, raise_workflow_error=False)
+        except sp.CalledProcessError as e:
+            if e.returncode == 2:
+                # exit code 2 means no such file or directory
+                return False
+            else:
+                raise WorkflowError("Error calling gfal-ls:\n{}".format(
+                    e.stderr.decode()))
+        # exit code 0 means that the file is present
+        return True
 
     def _stat(self):
         stat = self._gfal("stat", self.remote_file())
