@@ -49,10 +49,13 @@ class RemoteObject(AbstractRemoteObject):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
     def _gfal(self, cmd, *args):
+        _cmd = ["gfal-" + cmd] + list(args)
         for i in range(self.provider.retry + 1):
             try:
-                return sp.run(["gfal-" + cmd] + args,
-                       check=True, stderr=sp.PIPE, stdout=sp.PIPE).stdout.decode()
+                return sp.run(_cmd,
+                              check=True,
+                              stderr=sp.PIPE,
+                              stdout=sp.PIPE).stdout.decode()
             except sp.CalledProcessError as e:
                 if i == self.provider.retry:
                     raise WorkflowError("Error calling gfal-{}:\n{}".format(
