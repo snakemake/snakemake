@@ -520,7 +520,8 @@ class ClusterExecutor(RealExecutor):
         format_p = partial(self.format_job_pattern,
                            job=job,
                            properties=json.dumps(job.properties(
-                               cluster=self.cluster_params(job))),
+                               cluster=self.cluster_params(job),
+                               jobscript=self.get_jobscript(job))),
                            latency_wait=self.latency_wait,
                            wait_for_files=wait_for_files,
                            **kwargs)
