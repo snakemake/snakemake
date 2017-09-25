@@ -593,30 +593,41 @@ def unparse_config(config):
 APPDIRS = AppDirs("snakemake", "snakemake")
 
 
-def get_profile_variants(profile, file):
+def get_profile_file(profile, file):
+    if os.path.isabs(profile):
+        search_dirs = [os.path.dirname(profile)]
+        profile = os.path.basename(profile)
+    else:
+        search_dirs = [os.getcwd(),
+                       APPDIRS.user_config_dir,
+                       APPDIRS.site_config_dir]
     get_path = lambda d: os.path.join(d, profile, file)
-    for d in (APPDIRS.site_config_dir, APPDIRS.user_config_dir):
+    for d in search_dirs:
         p = get_path(d)
+        print(p)
         if os.path.exists(p):
-            yield p
+            return p
+    return None
 
 
 def get_argument_parser(profile=None):
     """Generate and return argument parser."""
     config_files = []
     if profile:
-        if profile == "" or os.path.sep in profile:
+        if profile == "":
             print("Error: invalid profile name.", file=sys.stderr)
             exit(1)
 
-        config_files = list(get_profile_variants(profile, "config.yaml"))
-        if not config_files:
-            print("Error: profile given but no config.yaml found in "
-                  "{site}/{profile} or {user}/{profile}.".format(
-                      site=dirs.site_config_dir,
-                      user=dirs.user_config_dir,
-                      profile=profile), file=sys.stderr)
+        config_file = get_profile_file(profile, "config.yaml")
+        if config_file is None:
+            print("Error: profile given but no config.yaml found. "
+                  "Profile has to be given as either absolute path, relative "
+                  "path or name of a directory available in either "
+                  "{site} or {user}.".format(
+                      site=APPDIRS.site_config_dir,
+                      user=APPDIRS.user_config_dir), file=sys.stderr)
             exit(1)
+        config_files = [config_file]
 
     parser = configargparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
@@ -632,8 +643,9 @@ def get_argument_parser(profile=None):
     parser.add_argument("--profile",
                         help="Name of profile to use for configuring "
                         "Snakemake. Snakemake will search for a corresponding "
-                        "folder in {} and {}.".format(dirs.site_config_dir,
-                                                      dirs.user_config_dir))
+                        "folder in {} and {}. Alternatively, this can be an "
+                        "absolute or relative path.".format(APPDIRS.site_config_dir,
+                                                            APPDIRS.user_config_dir))
 
     parser.add_argument("--snakefile", "-s",
                         metavar="FILE",
@@ -1187,7 +1199,7 @@ def get_argument_parser(profile=None):
     parser.add_argument("--version", "-v",
                         action="version",
                         version=__version__)
-    return parser, dirs
+    return parser
 
 
 def main(argv=None):
@@ -1199,8 +1211,6 @@ def main(argv=None):
         # reparse args while inferring config file from profile
         parser = get_argument_parser(args.profile)
         args = parser.parse_args(argv)
-
-
 
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
@@ -1233,7 +1243,7 @@ def main(argv=None):
         if not os.path.isabs(args.drmaa_log_dir):
             args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
 
-    if args.profile:
+    if args.runtime_profile:
         import yappi
         yappi.start()
 
@@ -1377,8 +1387,8 @@ def main(argv=None):
                             assume_shared_fs=not args.no_shared_fs,
                             cluster_status=args.cluster_status)
 
-    if args.profile:
-        with open(args.profile, "w") as out:
+    if args.runtime_profile:
+        with open(args.runtime_profile, "w") as out:
             profile = yappi.get_func_stats()
             profile.sort("totaltime")
             profile.print_all(out=out)

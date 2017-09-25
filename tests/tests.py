@@ -553,6 +553,10 @@ def test_remote_log():
     run(dpath("test_remote_log"), shouldfail=True)
 
 
+def test_profile():
+    run(dpath("test_profile"))
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)

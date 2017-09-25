@@ -1,0 +1,3 @@
+rule:
+    shell:
+        "snakemake --profile test-profile -s Snakefile.internal"
