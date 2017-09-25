@@ -604,7 +604,6 @@ def get_profile_file(profile, file):
     get_path = lambda d: os.path.join(d, profile, file)
     for d in search_dirs:
         p = get_path(d)
-        print(p)
         if os.path.exists(p):
             return p
     return None

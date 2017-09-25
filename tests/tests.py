@@ -72,12 +72,12 @@ def run(path,
                 subpath), '{} does not exist'.format(subpath)
             subworkdir = os.path.join(tmpdir, "subworkdir")
             os.mkdir(subworkdir)
-            call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
+            call('find {} -maxdepth 1 -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
                 quote(subpath), quote(subworkdir)),
                  shell=True)
             config['subworkdir'] = subworkdir
 
-        call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
+        call('find {} -maxdepth 1 -print0 | xargs -0 -I%% -n 1 cp -r %% {}'.format(
             quote(path), quote(tmpdir)),
              shell=True)
         success = snakemake(snakefile,
@@ -294,7 +294,7 @@ def test_yaml_config():
 #         import moto
 #         import boto3
 #         import filechunkio
-# 
+#
 #         # only run the remote file test if the dependencies
 #         # are installed, otherwise do nothing
 #         run(dpath("test_remote"), cores=1)
