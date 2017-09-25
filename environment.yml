@@ -22,3 +22,5 @@ dependencies:
   - nomkl
   - google-cloud-storage
   - ratelimiter
+  - configargparse
+  - appdirs

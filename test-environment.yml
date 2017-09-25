@@ -29,3 +29,5 @@ dependencies:
   - psutil
   - google-cloud-storage
   - ratelimiter
+  - configargparse
+  - appdirs

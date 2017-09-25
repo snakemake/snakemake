@@ -77,7 +77,7 @@ def run(path,
                  shell=True)
             config['subworkdir'] = subworkdir
 
-        call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
+        call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp -r %% {}'.format(
             quote(path), quote(tmpdir)),
              shell=True)
         success = snakemake(snakefile,
@@ -294,7 +294,7 @@ def test_yaml_config():
 #         import moto
 #         import boto3
 #         import filechunkio
-# 
+#
 #         # only run the remote file test if the dependencies
 #         # are installed, otherwise do nothing
 #         run(dpath("test_remote"), cores=1)
@@ -551,6 +551,10 @@ def test_remote_gs():
 
 def test_remote_log():
     run(dpath("test_remote_log"), shouldfail=True)
+
+
+def test_profile():
+    run(dpath("test_profile"))
 
 
 if __name__ == '__main__':
