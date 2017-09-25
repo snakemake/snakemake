@@ -568,6 +568,7 @@ class ClusterExecutor(RealExecutor):
         # on the cluster node.
         super().handle_job_error(job, upload_remote=False)
         if not self.assume_shared_fs:
+            logger.debug("Cleanup job metadata.")
             # if no shared fs, we have to remove metadata here as well
             self.workflow.persistence.cleanup(job)
 

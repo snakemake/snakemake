@@ -21,7 +21,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * XRootD: ``snakemake.remote.XRootD``
 * GenBank / NCBI Entrez: ``snakemake.remote.NCBI``
 * WebDAV: ``snakemake.remote.webdav``
-* GridFTP: ``snakemake.remote.gridftp``
+* GFAL: ``snakemake.remote.gfal``
 
 
 Amazon Simple Storage Service (S3)
@@ -555,7 +555,7 @@ Usually, this is already the case and no action has to be taken.
 The two keyword arguments to the remote provider allow to set the number of retries in case of failed commands (the GRID is usually relatively unreliable), and whether checksums will be used to ensure file integrity after transfer.
 The latter may be unsupported depending on the system configuration.
 
-Note that GridFTP support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
+Note that GFAL support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
 to transparently use Snakemake in a grid computing environment without a shared network filesystem.
 
 

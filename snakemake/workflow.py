@@ -431,6 +431,8 @@ class Workflow:
         # ATTENTION: this may never be removed without really good reason.
         # Otherwise weird things may happen.
         self.iocache.deactivate()
+        # clear and deactivate persistence cache, from now on we want to see updates
+        self.persistence.deactivate_cache()
 
         if nodeps:
             missing_input = [f for job in dag.targetjobs for f in job.input
