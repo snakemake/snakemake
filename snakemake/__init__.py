@@ -640,11 +640,19 @@ def get_argument_parser(profile=None):
                         help="Targets to build. May be rules or files.")
 
     parser.add_argument("--profile",
-                        help="Name of profile to use for configuring "
-                        "Snakemake. Snakemake will search for a corresponding "
-                        "folder in {} and {}. Alternatively, this can be an "
-                        "absolute or relative path.".format(APPDIRS.site_config_dir,
-                                                            APPDIRS.user_config_dir))
+                        help="""
+                        Name of profile to use for configuring
+                        Snakemake. Snakemake will search for a corresponding
+                        folder in {} and {}. Alternatively, this can be an
+                        absolute or relative path.
+                        The profile folder has to contain a file 'config.yaml'.
+                        This file can be used to set default values for command
+                        line options in YAML format. For example,
+                        '--cluster qsub' becomes 'cluster: qsub' in the YAML
+                        file. Profiles can be obtained from
+                        https://github.com/snakemake-profiles.
+                        """.format(APPDIRS.site_config_dir,
+                                   APPDIRS.user_config_dir))
 
     parser.add_argument("--snakefile", "-s",
                         metavar="FILE",
