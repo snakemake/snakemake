@@ -593,7 +593,7 @@ def unparse_config(config):
 APPDIRS = AppDirs("snakemake", "snakemake")
 
 
-def get_profile_file(profile, file):
+def get_profile_file(profile, file, return_default=False):
     if os.path.isabs(profile):
         search_dirs = [os.path.dirname(profile)]
         profile = os.path.basename(profile)
@@ -606,6 +606,9 @@ def get_profile_file(profile, file):
         p = get_path(d)
         if os.path.exists(p):
             return p
+
+    if return_default:
+        return file
     return None
 
 
@@ -1218,6 +1221,19 @@ def main(argv=None):
         # reparse args while inferring config file from profile
         parser = get_argument_parser(args.profile)
         args = parser.parse_args(argv)
+        adjust_path = lambda f: get_profile_file(args.profile,
+                                                 f, return_default=True)
+
+        # update file paths to be relative to the profile
+        # (if they occur in the profile)
+        if args.jobscript:
+            args.jobscript = adjust_path(args.jobscript)
+        if args.cluster:
+            args.cluster = adjust_path(args.cluster)
+        if args.cluster_sync:
+            args.cluster_sync = adjust_path(args.cluster_sync)
+        if args.cluster_status:
+            args.cluster_status = adjust_path(args.cluster_status)
 
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
