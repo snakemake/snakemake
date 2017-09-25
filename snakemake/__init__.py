@@ -1221,11 +1221,14 @@ def main(argv=None):
         # reparse args while inferring config file from profile
         parser = get_argument_parser(args.profile)
         args = parser.parse_args(argv)
-        adjust_path = lambda f: get_profile_file(args.profile,
-                                                 f, return_default=True)
+        def adjust_path(f):
+            if os.path.exists(f) or os.path.isabs(f):
+                return f
+            else:
+                return get_profile_file(args.profile, f, return_default=True)
 
         # update file paths to be relative to the profile
-        # (if they occur in the profile)
+        # (if they do not exist relative to CWD)
         if args.jobscript:
             args.jobscript = adjust_path(args.jobscript)
         if args.cluster:
