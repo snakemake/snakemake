@@ -540,7 +540,7 @@ In general, if you are able to use the `gfal-*` commands directly, Snakemake sup
 
     from snakemake.remote import gfal
 
-    gfal = gfal.RemoteProvider()
+    gfal = gfal.RemoteProvider(retry=5)
 
     rule a:
         input:
@@ -552,7 +552,7 @@ In general, if you are able to use the `gfal-*` commands directly, Snakemake sup
 
 Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
 Usually, this is already the case and no action has to be taken.
-The two keyword arguments to the remote provider allow to set the number of retries in case of failed commands (the GRID is usually relatively unreliable), and whether checksums will be used to ensure file integrity after transfer.
+The keyword argument to the remote provider allows to set the number of retries (10 per default) in case of failed commands (the GRID is usually relatively unreliable).
 The latter may be unsupported depending on the system configuration.
 
 Note that GFAL support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
