@@ -292,7 +292,8 @@ class Workflow:
         else:
 
             def files(items):
-                return map(os.path.relpath, filterfalse(self.is_rule, items))
+                relpath = lambda f: f if os.path.isabs(f) else os.path.relpath(f)
+                return map(relpath, filterfalse(self.is_rule, items))
 
         if not targets:
             targets = [self.first_rule
