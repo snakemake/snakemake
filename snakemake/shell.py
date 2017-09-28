@@ -11,6 +11,7 @@ import inspect
 
 from snakemake.utils import format
 from snakemake.logging import logger
+from snakemake import singularity, conda
 
 
 __author__ = "Johannes Köster"
@@ -57,18 +58,24 @@ class shell:
 
         close_fds = sys.platform != 'win32'
 
+        env_prefix = ""
         conda_env = context.get("conda_env", None)
-        if conda_env is None:
-            env_prefix = ""
+        singularity_img = context.get("singularity_img", None)
+        if singularity_img:
+            cmd = singularity.shellcmd(singularity_img, cmd)
+            logger.info("Activating singularity image {}".format(singularity_img))
         else:
-            env_prefix = "source activate {};".format(conda_env)
-            logger.info("Activating conda environment {}.".format(conda_env))
+            # use conda if no singularity image is defined
+            if conda_env:
+                env_prefix = conda.shellcmd(conda_env)
+                logger.info("Activating conda environment {}.".format(conda_env))
 
-        proc = sp.Popen("{} {} {} {}".format(
+        cmd = "{} {} {} {}".format(
                             env_prefix,
                             cls._process_prefix,
                             cmd.rstrip(),
-                            cls._process_suffix),
+                            cls._process_suffix)
+        proc = sp.Popen(cmd,
                         bufsize=-1,
                         shell=True,
                         stdout=stdout,

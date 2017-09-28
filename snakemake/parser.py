@@ -401,6 +401,9 @@ class Benchmark(RuleKeywordState):
 class Conda(RuleKeywordState):
     pass
 
+class Singularity(RuleKeywordState):
+    pass
+
 
 class WildcardConstraints(RuleKeywordState):
     @property
@@ -423,8 +426,11 @@ class Run(RuleKeywordState):
         yield "@workflow.run"
         yield "\n"
         yield ("def __rule_{rulename}(input, output, params, wildcards, threads, "
-               "resources, log, version, rule, conda_env, bench_record):".format(
-                   rulename=self.rulename if self.rulename is not None else self.snakefile.rulecount))
+               "resources, log, version, rule, conda_env, singularity_img, "
+               "bench_record):".format(
+                   rulename=self.rulename
+                            if self.rulename is not None
+                            else self.snakefile.rulecount))
 
     def end(self):
         yield ""
@@ -522,7 +528,8 @@ class Script(AbstractCmd):
         yield ', "{}"'.format(
             os.path.abspath(os.path.dirname(self.snakefile.path)))
         # other args
-        yield ", input, output, params, wildcards, threads, resources, log, config, rule, conda_env, bench_record"
+        yield (", input, output, params, wildcards, threads, resources, log, "
+               "config, rule, conda_env, singularity_img, bench_record")
 
 
 class Wrapper(Script):
@@ -530,7 +537,9 @@ class Wrapper(Script):
     end_func = "wrapper"
 
     def args(self):
-        yield ", input, output, params, wildcards, threads, resources, log, config, rule, conda_env, bench_record, workflow.wrapper_prefix"
+        yield (", input, output, params, wildcards, threads, resources, log, "
+               "config, rule, conda_env, singularity_img, bench_record, "
+               "workflow.wrapper_prefix")
 
 
 class Rule(GlobalKeywordState):
@@ -545,6 +554,7 @@ class Rule(GlobalKeywordState):
                        message=Message,
                        benchmark=Benchmark,
                        conda=Conda,
+                       singularity=Singularity,
                        wildcard_constraints=WildcardConstraints,
                        shadow=Shadow,
                        run=Run,

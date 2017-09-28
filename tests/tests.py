@@ -557,6 +557,10 @@ def test_profile():
     run(dpath("test_profile"))
 
 
+def test_singularity():
+    run(dpath("test_singularity"))
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)

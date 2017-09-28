@@ -300,7 +300,13 @@ class CPUExecutor(RealExecutor):
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
             if self.workflow.conda_prefix:
-                self.exec_job += " --conda-prefix " + self.workflow.conda_prefix + " "
+                self.exec_job += " --conda-prefix {} ".format(
+                    self.workflow.conda_prefix)
+        if self.workflow.use_singularity:
+            self.exec_job += " --use_singularity "
+            if self.workflow.singularity_prefix:
+                self.exec_job += " --singularity-prefix {} ".format(
+                    self.workflow.singularity_prefix)
 
         self.use_threads = use_threads
         self.cores = cores
@@ -317,6 +323,9 @@ class CPUExecutor(RealExecutor):
             conda_env = None
             if self.workflow.use_conda:
                 conda_env = job.conda_env_path
+            singularity_img = None
+            if self.workflow.use_singularity:
+                singularity_img = job.singularity_img_path
 
             benchmark = None
             if job.benchmark is not None:
@@ -325,7 +334,7 @@ class CPUExecutor(RealExecutor):
                 run_wrapper, job.rule, job.input.plainstrings(),
                 job.output.plainstrings(), job.params, job.wildcards, job.threads,
                 job.resources, job.log.plainstrings(), benchmark,
-                self.benchmark_repeats, conda_env,
+                self.benchmark_repeats, conda_env, singularity_img,
                 self.workflow.linemaps, self.workflow.debug,
                 shadow_dir=job.shadow_dir)
         else:
@@ -440,7 +449,13 @@ class ClusterExecutor(RealExecutor):
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
             if self.workflow.conda_prefix:
-                self.exec_job += " --conda-prefix " + self.workflow.conda_prefix + " "
+                self.exec_job += " --conda-prefix {} ".format(
+                    self.workflow.conda_prefix)
+        if self.workflow.use_singularity:
+            self.exec_job += " --use_singularity "
+            if self.workflow.singularity_prefix:
+                self.exec_job += " --singularity-prefix {} ".format(
+                    self.workflow.singularity_prefix)
 
         self.exec_job += self.get_default_remote_provider_args()
 
@@ -1190,8 +1205,8 @@ class KubernetesExecutor(ClusterExecutor):
 
 
 def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, log,
-                benchmark, benchmark_repeats, conda_env, linemaps, debug=False,
-                shadow_dir=None):
+                benchmark, benchmark_repeats, conda_env, singularity_img,
+                linemaps, debug=False, shadow_dir=None):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
 
@@ -1231,19 +1246,21 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                         # etc, as the child PID is available there.
                         bench_record = BenchmarkRecord()
                         run(input, output, params, wildcards, threads, resources,
-                            log, version, rule, conda_env, bench_record)
+                            log, version, rule, conda_env, singularity_img,
+                            bench_record)
                     else:
                         # The benchmarking is started here as we have a run section
                         # and the generated Python function is executed in this
                         # process' thread.
                         with benchmarked() as bench_record:
                             run(input, output, params, wildcards, threads, resources,
-                                log, version, rule, conda_env, bench_record)
+                                log, version, rule, conda_env, singularity_img,
+                                bench_record)
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
             else:
                 run(input, output, params, wildcards, threads, resources,
-                    log, version, rule, conda_env, None)
+                    log, version, rule, conda_env, singularity_img, None)
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it

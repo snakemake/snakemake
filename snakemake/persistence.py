@@ -19,7 +19,12 @@ from snakemake.utils import listfiles
 
 
 class Persistence:
-    def __init__(self, nolock=False, dag=None, conda_prefix=None, warn_only=False):
+    def __init__(self,
+                 nolock=False,
+                 dag=None,
+                 conda_prefix=None,
+                 singularity_prefix=None,
+                 warn_only=False):
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
             os.mkdir(self.path)
@@ -41,9 +46,16 @@ class Persistence:
         if conda_prefix is None:
             self.conda_env_path = os.path.join(self.path, "conda")
         else:
-            self.conda_env_path = os.path.abspath(os.path.expanduser(conda_prefix))
+            self.conda_env_path = os.path.abspath(
+                os.path.expanduser(conda_prefix))
+        if singularity_prefix is None:
+            self.singularity_img_path = os.path.join(self.path, "singularity")
+        else:
+            self.singularity_img_path = os.path.abspath(
+                os.path.expanduser(singularity_prefix))
 
         os.makedirs(self.conda_env_path, exist_ok=True)
+        os.makedirs(self.singularity_img_path, exist_ok=True)
 
         if nolock:
             self.lock = self.noop

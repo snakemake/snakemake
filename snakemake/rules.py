@@ -52,6 +52,7 @@ class Rule:
             self._log = Log()
             self._benchmark = None
             self._conda_env = None
+            self._singularity_img = None
             self.wildcard_names = set()
             self.lineno = lineno
             self.snakefile = snakefile
@@ -86,6 +87,7 @@ class Rule:
             self._log = other._log
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
+            self._singularity_img = other._singularity_img
             self.wildcard_names = set(other.wildcard_names)
             self.lineno = other.lineno
             self.snakefile = other.snakefile
@@ -214,6 +216,13 @@ class Rule:
     def conda_env(self, conda_env):
         self._conda_env = IOFile(conda_env, rule=self)
 
+    @property
+    def singularity_img(self):
+        return self._singularity_img
+
+    @singularity_img.setter
+    def singularity_img(self, singularity_img):
+        self._singularity_img = singularity_img
 
     @property
     def input(self):

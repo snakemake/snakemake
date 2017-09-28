@@ -28,7 +28,7 @@ from snakemake.exceptions import UnexpectedOutputException, InputFunctionExcepti
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.common import DYNAMIC_FILL
-from snakemake import conda
+from snakemake import conda, singularity
 from snakemake import utils
 
 # Workaround for Py <3.5 prior to existence of RecursionError
@@ -160,17 +160,28 @@ class DAG:
         env_set = {job.conda_env_file for job in jobs
                    if job.conda_env_file}
         # Then based on md5sum values
-        env_file_map = dict()
+        self.conda_envs = dict()
         hash_set = set()
         for env_file in env_set:
             env = conda.Env(env_file, self)
             hash = env.hash
-            env_file_map[env_file] = env
+            self.conda_envs[env_file] = env
             if hash not in hash_set:
                 env.create(dryrun)
                 hash_set.add(hash)
 
-        self.conda_envs = env_file_map
+    def pull_singularity_imgs(self, dryrun=False, forceall=False):
+        # First deduplicate based on job.conda_env_file
+        jobs = self.jobs if forceall else self.needrun_jobs
+        img_set = {job.singularity_img_url for job in jobs
+                   if job.singularity_img_url}
+
+        self.singularity_imgs = dict()
+        for img_url in img_set:
+            img = singularity.Image(img_url, self)
+            img.pull(dryrun)
+            self.singularity_imgs[img_url] = img
+
 
     def update_output_index(self):
         """Update the OutputIndex."""
