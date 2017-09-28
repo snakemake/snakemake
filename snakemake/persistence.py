@@ -52,6 +52,8 @@ class Persistence:
             self.lock = self.lock_warn_only
             self.unlock = self.noop
 
+        self._read_record = self._read_record_cached
+
     @property
     def files(self):
         if self._files is None:
@@ -243,7 +245,10 @@ class Persistence:
                 raise e
 
     @lru_cache()
-    def _read_record(self, subject, id):
+    def _read_record_cached(self, subject, id):
+        return self._read_record_uncached(subject, id)
+
+    def _read_record_uncached(self, subject, id):
         if not self._exists_record(subject, id):
             return dict()
         with open(self._record_path(subject, id), "r") as f:
@@ -290,6 +295,10 @@ class Persistence:
     def all_inputfiles(self):
         # we consider all input files, also of not running jobs
         return jobfiles(self.dag.jobs, "input")
+
+    def deactivate_cache(self):
+        self._read_record_cached.cache_clear()
+        self._read_record = self._read_record_uncached
 
 
 def pickle_code(code):

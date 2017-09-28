@@ -70,7 +70,6 @@ class DAG:
         self._finished = set()
         self._dynamic = set()
         self._len = 0
-        self._temp_size = dict()
         self.workflow = workflow
         self.rules = set(rules)
         self.ignore_ambiguity = ignore_ambiguity
@@ -417,8 +416,7 @@ class DAG:
         """Return the total size of temporary input files of the job.
         If none, return 0.
         """
-        currtime = time.time()
-        return sum(self._temp_size[f] for f in self.temp_input(job))
+        return sum(f.size for f in self.temp_input(job))
 
     def handle_temp(self, job):
         """ Remove temp files if they are no longer needed. Update temp_mtimes. """
@@ -427,13 +425,7 @@ class DAG:
 
         is_temp = lambda f: is_flagged(f, "temp")
 
-        # Step 1: handle temp output
-
-        for f in job.expanded_output:
-            if is_temp:
-                self._temp_size[f] = f.size
-
-        # Step 2: handle temp input
+        # handle temp input
 
         needed = lambda job_, f: any(
             f in files for j, files in self.depending[job_].items()
@@ -453,7 +445,6 @@ class DAG:
         for f in unneeded_files():
             logger.info("Removing temporary output file {}.".format(f))
             f.remove(remove_non_empty_dir=True)
-            del self._temp_size[f]
 
     def handle_log(self, job, upload_remote=True):
         for f in job.log:
@@ -504,9 +495,12 @@ class DAG:
                     for f in filter(putative, files):
                         if not needed(job_, f):
                             yield f
-                for f in filter(putative, job.output):
-                    if not needed(job, f) and not f in self.targetfiles:
-                        for f_ in job.expand_dynamic(f):
+                for f, f_ in zip(job.output, job.rule.output):
+                    if putative(f) and not needed(job, f) and not f in self.targetfiles:
+                        if f in job.dynamic_output:
+                            for f_ in job.expand_dynamic(f_):
+                                yield f_
+                        else:
                             yield f
                 for f in filter(putative, job.input):
                     # TODO what about remote inputs that are used by multiple jobs?

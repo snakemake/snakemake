@@ -98,6 +98,8 @@ class Workflow:
         self.default_remote_prefix = default_remote_prefix
         self.configfiles = []
 
+        self.iocache = snakemake.io.IOCache()
+
         global config
         config = copy.deepcopy(self.overwrite_config)
 
@@ -290,7 +292,8 @@ class Workflow:
         else:
 
             def files(items):
-                return map(os.path.relpath, filterfalse(self.is_rule, items))
+                relpath = lambda f: f if os.path.isabs(f) else os.path.relpath(f)
+                return map(relpath, filterfalse(self.is_rule, items))
 
         if not targets:
             targets = [self.first_rule
@@ -424,6 +427,13 @@ class Workflow:
             # this later in the executor
             dag.check_incomplete()
         dag.postprocess()
+        # deactivate IOCache such that from now on we always get updated
+        # size, existence and mtime information
+        # ATTENTION: this may never be removed without really good reason.
+        # Otherwise weird things may happen.
+        self.iocache.deactivate()
+        # clear and deactivate persistence cache, from now on we want to see updates
+        self.persistence.deactivate_cache()
 
         if nodeps:
             missing_input = [f for job in dag.targetjobs for f in job.input

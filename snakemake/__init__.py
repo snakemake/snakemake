@@ -6,7 +6,6 @@ __license__ = "MIT"
 import os
 import subprocess
 import glob
-import argparse
 from argparse import ArgumentError
 import logging as _logging
 import re
@@ -16,6 +15,10 @@ import threading
 import webbrowser
 from functools import partial
 import importlib
+
+from appdirs import AppDirs
+import configargparse
+from configargparse import YAMLConfigFileParser
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception, WorkflowError
@@ -587,16 +590,73 @@ def unparse_config(config):
     return items
 
 
-def get_argument_parser():
+APPDIRS = AppDirs("snakemake", "snakemake")
+
+
+def get_profile_file(profile, file, return_default=False):
+    if os.path.isabs(profile):
+        search_dirs = [os.path.dirname(profile)]
+        profile = os.path.basename(profile)
+    else:
+        search_dirs = [os.getcwd(),
+                       APPDIRS.user_config_dir,
+                       APPDIRS.site_config_dir]
+    get_path = lambda d: os.path.join(d, profile, file)
+    for d in search_dirs:
+        p = get_path(d)
+        if os.path.exists(p):
+            return p
+
+    if return_default:
+        return file
+    return None
+
+
+def get_argument_parser(profile=None):
     """Generate and return argument parser."""
-    parser = argparse.ArgumentParser(
+    config_files = []
+    if profile:
+        if profile == "":
+            print("Error: invalid profile name.", file=sys.stderr)
+            exit(1)
+
+        config_file = get_profile_file(profile, "config.yaml")
+        if config_file is None:
+            print("Error: profile given but no config.yaml found. "
+                  "Profile has to be given as either absolute path, relative "
+                  "path or name of a directory available in either "
+                  "{site} or {user}.".format(
+                      site=APPDIRS.site_config_dir,
+                      user=APPDIRS.user_config_dir), file=sys.stderr)
+            exit(1)
+        config_files = [config_file]
+
+    parser = configargparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
-        "environment for GNU Make-like workflows.")
+        "environment for GNU Make-like workflows.",
+        default_config_files=config_files,
+        config_file_parser_class=YAMLConfigFileParser)
 
     parser.add_argument("target",
                         nargs="*",
                         default=None,
                         help="Targets to build. May be rules or files.")
+
+    parser.add_argument("--profile",
+                        help="""
+                        Name of profile to use for configuring
+                        Snakemake. Snakemake will search for a corresponding
+                        folder in {} and {}. Alternatively, this can be an
+                        absolute or relative path.
+                        The profile folder has to contain a file 'config.yaml'.
+                        This file can be used to set default values for command
+                        line options in YAML format. For example,
+                        '--cluster qsub' becomes 'cluster: qsub' in the YAML
+                        file. Profiles can be obtained from
+                        https://github.com/snakemake-profiles.
+                        """.format(APPDIRS.site_config_dir,
+                                   APPDIRS.user_config_dir))
+
     parser.add_argument("--snakefile", "-s",
                         metavar="FILE",
                         default="Snakefile",
@@ -1077,7 +1137,7 @@ def get_argument_parser():
                         help="Allow to debug rules with e.g. PDB. This flag "
                         "allows to set breakpoints in run blocks.")
     parser.add_argument(
-        "--profile",
+        "--runtime-profile",
         metavar="FILE",
         help=
         "Profile Snakemake and write the output to FILE. This requires yappi "
@@ -1124,7 +1184,7 @@ def get_argument_parser():
         "a different URL to use your fork or a local clone of the repository."
     )
     parser.add_argument("--default-remote-provider",
-                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gridftp"],
+                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal"],
                         help="Specify default remote provider to be used for "
                         "all input and output files that don't yet specify "
                         "one.")
@@ -1157,6 +1217,27 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
+    if args.profile:
+        # reparse args while inferring config file from profile
+        parser = get_argument_parser(args.profile)
+        args = parser.parse_args(argv)
+        def adjust_path(f):
+            if os.path.exists(f) or os.path.isabs(f):
+                return f
+            else:
+                return get_profile_file(args.profile, f, return_default=True)
+
+        # update file paths to be relative to the profile
+        # (if they do not exist relative to CWD)
+        if args.jobscript:
+            args.jobscript = adjust_path(args.jobscript)
+        if args.cluster:
+            args.cluster = adjust_path(args.cluster)
+        if args.cluster_sync:
+            args.cluster_sync = adjust_path(args.cluster_sync)
+        if args.cluster_status:
+            args.cluster_status = adjust_path(args.cluster_status)
+
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
         sys.stdout.buffer.write(cmd)
@@ -1188,7 +1269,7 @@ def main(argv=None):
         if not os.path.isabs(args.drmaa_log_dir):
             args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
 
-    if args.profile:
+    if args.runtime_profile:
         import yappi
         yappi.start()
 
@@ -1332,8 +1413,8 @@ def main(argv=None):
                             assume_shared_fs=not args.no_shared_fs,
                             cluster_status=args.cluster_status)
 
-    if args.profile:
-        with open(args.profile, "w") as out:
+    if args.runtime_profile:
+        with open(args.runtime_profile, "w") as out:
             profile = yappi.get_func_stats()
             profile.sort("totaltime")
             profile.print_all(out=out)
