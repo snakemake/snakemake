@@ -1170,6 +1170,16 @@ class KubernetesExecutor(ClusterExecutor):
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"])
 
+        # capabilities
+        if job.singularity_img and self.workflow.use_singularity:
+            # singularity inside docker requires SYS_ADMIN capabilities
+            container.capabilities = kubernetes.client.V1Capabilities()
+            container.capabilities.add = ["SYS_ADMIN",
+                                          "DAC_OVERRIDE",
+                                          "SETUID",
+                                          "SETGID",
+                                          "SYS_CHROOT"]
+
         pod = self.kubeapi.create_namespaced_pod(self.namespace, body)
         logger.info("Get status with:\n"
                     "kubectl describe pod {jobid}\n"
