@@ -1,11 +1,10 @@
 FROM bitnami/minideb:jessie
 MAINTAINER Johannes Köster <johannes.koester@tu-dortmund.de>
 ADD . /tmp/repo
-# taken from condaforge/linux-anvil 
-#RUN apt-get update && \
-#    apt-get install -y wget bzip2 && \
-#    rm -rf /var/lib/apt/lists/*
-RUN install_packages wget bzip2
+RUN install_packages wget
+RUN wget -O- http://neuro.debian.net/lists/xenial.us-ca.full > /etc/apt/sources.list.d/neurodebian.sources.list
+RUN wget -O- http://neuro.debian.net/_static/neuro.debian.net.asc | apt-key add -
+RUN install_packages bzip2 ca-certificates singularity-container
 RUN wget --no-check-certificate https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
     bash Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda && \
     rm Miniconda3-latest-Linux-x86_64.sh
