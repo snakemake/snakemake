@@ -109,6 +109,8 @@ The remote provider also supports a new ``glob_wildcards()`` (see :ref:`glob-wil
 
     # (result looks just like as if the local glob_wildcards() function were used on a locally with a folder called "bucket-name")
 
+The Snakemake S3 provider supports automatic decompression of s3 objects on download where the content encoding is set to gzip. This is analogous to how most web traffic is gzipped in-flight and decompressed by web browsers. This automatic decompression can be overridden via ``auto_decompress=False`` in the remote object args. Of note is that the decompression only applies to objects that have ``Content-Encoding: gzip`` set in their attributes, and not files ending in ``.gz``. It is left as an exercise to the uploader to compress files and set the content encoding appropriately. Gzipped files are assumed to be large, and are by default downloaded with a process pool requesting separate byte ranges to maximize connection throughput. This may be an issue on systems with limited memory since each process buffers a chunk of 20 megabytes. The parallel download of gzipped files can be overridden by setting ``streaming_decompress=True``, which will decompress a boto "stream" in 20MB chunks.
+
 Google Cloud Storage (GS)
 =========================
 
