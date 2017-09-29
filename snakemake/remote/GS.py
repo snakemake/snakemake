@@ -14,8 +14,9 @@ try:
     import google.cloud
     from google.cloud import storage
 except ImportError as e:
-    raise WorkflowError("The Python 3 package 'google-cloud-sdk' "
-        "needs to be installed to use GS remote() file functionality. %s" % e.msg)
+    raise WorkflowError("The Python 3 package 'google-cloud-storage' "
+        "needs to be installed to use GS remote() file functionality, "
+        "with credentials set via the google-cloud-sdk. %s" % e.msg)
 
 
 class RemoteProvider(AbstractRemoteProvider):
