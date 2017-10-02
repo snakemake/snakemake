@@ -303,7 +303,7 @@ class CPUExecutor(RealExecutor):
                 self.exec_job += " --conda-prefix {} ".format(
                     self.workflow.conda_prefix)
         if self.workflow.use_singularity:
-            self.exec_job += " --use_singularity "
+            self.exec_job += " --use-singularity "
             if self.workflow.singularity_prefix:
                 self.exec_job += " --singularity-prefix {} ".format(
                     self.workflow.singularity_prefix)
@@ -452,7 +452,7 @@ class ClusterExecutor(RealExecutor):
                 self.exec_job += " --conda-prefix {} ".format(
                     self.workflow.conda_prefix)
         if self.workflow.use_singularity:
-            self.exec_job += " --use_singularity "
+            self.exec_job += " --use-singularity "
             if self.workflow.singularity_prefix:
                 self.exec_job += " --singularity-prefix {} ".format(
                     self.workflow.singularity_prefix)
@@ -1173,6 +1173,7 @@ class KubernetesExecutor(ClusterExecutor):
         # capabilities
         if job.singularity_img and self.workflow.use_singularity:
             # singularity inside docker requires SYS_ADMIN capabilities
+            # see https://groups.google.com/a/lbl.gov/forum/#!topic/singularity/e9mlDuzKowc
             container.capabilities = kubernetes.client.V1Capabilities()
             container.capabilities.add = ["SYS_ADMIN",
                                           "DAC_OVERRIDE",
