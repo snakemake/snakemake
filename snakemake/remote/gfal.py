@@ -25,9 +25,10 @@ class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
 
-    def __init__(self, *args, stay_on_remote=False, retry=10, **kwargs):
+    def __init__(self, *args, stay_on_remote=False, retry=10, timeout=600, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
         self.retry = retry
+        self.timeout = timeout
 
     @property
     def default_protocol(self):
@@ -51,7 +52,7 @@ class RemoteObject(AbstractRemoteObject):
     def _gfal(self, cmd, *args, retry=None, raise_workflow_error=True):
         if retry is None:
             retry = self.provider.retry
-        _cmd = ["gfal-" + cmd] + list(args)
+        _cmd = ["gfal-" + cmd, "-t", str(self.provider.timeout)] + list(args)
         for i in range(retry + 1):
             try:
                 logger.debug(_cmd)
