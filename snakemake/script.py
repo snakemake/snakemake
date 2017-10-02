@@ -151,7 +151,7 @@ class Snakemake:
 
 
 def script(path, basedir, input, output, params, wildcards, threads, resources,
-           log, config, rulename, conda_env, bench_record):
+           log, config, rulename, conda_env, singularity_img, bench_record):
     """
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
@@ -277,6 +277,9 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                                         "version < {}.{}. Using Python of the "
                                         "master process to execute "
                                         "script.".format(*MIN_PY_VERSION))
+                if singularity_img is not None:
+                    # use python from image
+                    py_exec = "python"
                 # use the same Python as the running process or the one from the environment
                 shell("{py_exec} {f.name}", bench_record=bench_record)
             elif path.endswith(".R"):
