@@ -21,7 +21,7 @@ dependencies:
   - docutils
   - pandoc
   - r-base >=3.4.1
-  - r-rmarkdown ==0.8
+  - r-rmarkdown
   - xorg-libxrender
   - xorg-libxext
   - xorg-libxau
