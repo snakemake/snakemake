@@ -19,6 +19,9 @@ def content(env_file):
     if urlparse(env_file).scheme:
         return urlopen(env_file).read()
     else:
+        if not os.path.exists(env_file):
+            raise WorkflowError("Conda env file does not "
+                                "exist: {}".format(env_file))
         with open(env_file, 'rb') as f:
             return f.read()
 
