@@ -7,12 +7,12 @@ build:
   steps:
     - script:
         name: env
-        code: conda env update --name root --file test-environment.yml
+        code: conda env update --name test --file test-environment.yml
 
     - script:
         name: pip
-        code: pip install -e .
+        code: source activate test; pip install -e .
 
     - script:
         name: run tests
-        code: python setup.py nosetests
+        code: source activate test; python setup.py nosetests
