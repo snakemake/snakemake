@@ -26,6 +26,7 @@ dependencies:
   - xorg-libxext
   - xorg-libxau
   - xorg-libxdmcp
+  - xorg-libsm
   - psutil
   - google-cloud-storage
   - ratelimiter
