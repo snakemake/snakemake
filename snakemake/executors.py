@@ -293,6 +293,7 @@ class CPUExecutor(RealExecutor):
             '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
             '--benchmark-repeats {benchmark_repeats} --attempt {attempt} ',
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
+            '--latency-wait {latency_wait} ',
             self.get_default_remote_provider_args(),
             '{overwrite_workdir} {overwrite_config} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
@@ -348,7 +349,9 @@ class CPUExecutor(RealExecutor):
         exec_job = self.exec_job
         if not job.rule.is_branched:
             exec_job += " --allowed-rules {}".format(job.rule)
-        cmd = self.format_job_pattern(exec_job, job=job, _quote_all=True)
+        cmd = self.format_job_pattern(exec_job, job=job,
+                                      _quote_all=True,
+                                      latency_wait=self.latency_wait)
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError:
