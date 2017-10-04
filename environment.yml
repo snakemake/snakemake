@@ -1,8 +1,7 @@
 channels:
   - bioconda
-  - r
-  - anaconda
   - conda-forge
+  - defaults
 dependencies:
   - python >=3.3
   - boto3
