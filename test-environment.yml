@@ -7,7 +7,7 @@ dependencies:
   - rpy2 >=0.7.6
   - boto3
   - moto >=1.0.1
-  - httpretty ==0.8.10
+  - httpretty
   - wrapt
   - pyyaml
   - nose
@@ -20,6 +20,7 @@ dependencies:
   - pytools
   - docutils
   - pandoc
+  - r-base >=3.4.1
   - r-rmarkdown
   - xorg-libxrender
   - xorg-libxext
