@@ -558,7 +558,7 @@ def test_profile():
 
 
 def test_singularity():
-    run(dpath("test_singularity"))
+    run(dpath("test_singularity"), use_singularity=True)
 
 
 if __name__ == '__main__':
