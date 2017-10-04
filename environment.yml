@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python >=3.3
+  - python >=3.5
   - boto3
   - moto >=1.0.1
   - httpretty
