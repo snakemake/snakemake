@@ -49,7 +49,7 @@ class RemoteObject(AbstractRemoteObject):
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
-    def _gfal(self, cmd, *args, retry=None, raise_workflow_error=True):
+    def _gfal(self, cmd, *args, retry=None, raise_workflow_error=True, sleep=5):
         if retry is None:
             retry = self.provider.retry
         _cmd = ["gfal-" + cmd, "-t", str(self.provider.timeout)] + list(args)
@@ -69,14 +69,14 @@ class RemoteObject(AbstractRemoteObject):
                         raise e
                 else:
                     # try again after some seconds
-                    time.sleep(5)
+                    time.sleep(sleep)
                     continue
 
     # === Implementations of abstract class members ===
 
     def exists(self):
         try:
-            self._gfal("ls", "-a", self.remote_file(), 
+            self._gfal("ls", "-a", self.remote_file(),
                        retry=0, raise_workflow_error=False)
         except sp.CalledProcessError as e:
             if e.returncode == 2:
@@ -113,7 +113,7 @@ class RemoteObject(AbstractRemoteObject):
             source = self.remote_file()
             target = "file://" + os.path.abspath(self.local_file())
 
-            self._gfal("copy", "-f", source, target)
+            self._gfal("copy", "-f", source, target, sleep=600)
 
             os.sync()
             return self.local_file()
@@ -126,7 +126,7 @@ class RemoteObject(AbstractRemoteObject):
             self._gfal("mkdir", "-p", parent)
 
         source = "file://" + os.path.abspath(self.local_file())
-        self._gfal("copy", "-f", source, target)
+        self._gfal("copy", "-f", source, target, sleep=600)
 
     @property
     def list(self):
