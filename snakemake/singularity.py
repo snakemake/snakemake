@@ -46,5 +46,5 @@ class Image:
 
 
 def shellcmd(img_path, cmd):
-    return "singularity exec {} bash -c \"{}\"".format(
+    return "singularity exec --user {} bash -c \"{}\"".format(
         img_path, cmd.replace("\"", r"\""))
