@@ -114,7 +114,7 @@ class RemoteObject(AbstractRemoteObject):
             source = self.remote_file()
             target = "file://" + os.path.abspath(self.local_file())
 
-            self._gfal("copy", "-f", "-n", "4", source, target)
+            self._gfal("copy", "-f", "-n", "4", "-v", source, target)
 
             os.sync()
             return self.local_file()
@@ -127,7 +127,7 @@ class RemoteObject(AbstractRemoteObject):
             self._gfal("mkdir", "-p", parent)
 
         source = "file://" + os.path.abspath(self.local_file())
-        self._gfal("copy", "-f", "-n", "4", source, target)
+        self._gfal("copy", "-f", "-n", "4", "-v", source, target)
 
     @property
     def list(self):
