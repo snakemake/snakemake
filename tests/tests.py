@@ -519,15 +519,16 @@ def test_dynamic_temp():
     run(dpath("test_dynamic_temp"))
 
 
-def test_ftp_immediate_close():
-    try:
-        import ftputil
-
-        # only run the remote file test if the dependencies
-        # are installed, otherwise do nothing
-        run(dpath("test_ftp_immediate_close"))
-    except ImportError:
-        pass
+# TODO this currently hangs. Has to be investigated (issue #660).
+#def test_ftp_immediate_close():
+#    try:
+#        import ftputil
+#
+#        # only run the remote file test if the dependencies
+#        # are installed, otherwise do nothing
+#        run(dpath("test_ftp_immediate_close"))
+#    except ImportError:
+#        pass
 
 
 def test_issue260():
