@@ -418,6 +418,7 @@ class Run(RuleKeywordState):
                          dedent=dedent,
                          root=root)
         self.rulename = rulename
+        self.content = 0
 
     def start(self):
         yield "@workflow.run"
@@ -429,9 +430,13 @@ class Run(RuleKeywordState):
     def end(self):
         yield ""
 
+    def block_content(self, token):
+        self.content += 1
+        yield token.string, token
+
     def is_block_end(self, token):
-        return (self.line and self.was_indented and self.indent <= 0
-                ) or is_eof(token)
+        return (self.content and self.line
+                             and self.indent <= 0) or is_eof(token)
 
 
 class AbstractCmd(Run):

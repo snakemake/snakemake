@@ -26,8 +26,6 @@ import random
 import base64
 import uuid
 
-from ratelimiter import RateLimiter
-
 from snakemake.jobs import Job
 from snakemake.shell import shell
 from snakemake.logging import logger
@@ -397,6 +395,8 @@ class ClusterExecutor(RealExecutor):
                  exec_job=None,
                  assume_shared_fs=True,
                  max_status_checks_per_second=1):
+        from ratelimiter import RateLimiter
+
         local_input = local_input or []
         super().__init__(workflow, dag,
                          printreason=printreason,

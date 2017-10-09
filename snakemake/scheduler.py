@@ -11,8 +11,6 @@ from collections import defaultdict
 from itertools import chain, accumulate
 from contextlib import contextmanager
 
-from ratelimiter import RateLimiter
-
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
     GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor,
@@ -61,6 +59,8 @@ class JobScheduler:
                  force_use_threads=False,
                  assume_shared_fs=True):
         """ Create a new instance of KnapsackJobScheduler. """
+        from ratelimiter import RateLimiter
+
         self.cluster = cluster
         self.cluster_config = cluster_config
         self.cluster_sync = cluster_sync
