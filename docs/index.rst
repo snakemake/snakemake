@@ -28,15 +28,15 @@ Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
-Snakemake workflows are essentially Python scripts extended by declarative code to define **rules**.
-Rules describe how to create **output files** from **input files**.
-
 
 .. _manual-quick_example:
 
 -------------
 Quick Example
 -------------
+
+Snakemake workflows are essentially Python scripts extended by declarative code to define **rules**.
+Rules describe how to create **output files** from **input files**.
 
 .. code-block:: python
 
