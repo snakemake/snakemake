@@ -1213,7 +1213,7 @@ def get_argument_parser(profile=None):
         "may be given as a relative path, which will be extrapolated to the "
         "invocation directory, or as an absolute path.")
     parser.add_argument(
-        "--singularity-args"
+        "--singularity-args",
         metavar="ARGS",
         help="Pass additional args to singularity.")
     parser.add_argument(
