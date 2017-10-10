@@ -16,10 +16,6 @@ import webbrowser
 from functools import partial
 import importlib
 
-from appdirs import AppDirs
-import configargparse
-from configargparse import YAMLConfigFileParser
-
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception, WorkflowError
 from snakemake.logging import setup_logger, logger
@@ -602,17 +598,26 @@ def unparse_config(config):
     return items
 
 
-APPDIRS = AppDirs("snakemake", "snakemake")
+APPDIRS = None
+
+
+def get_appdirs():
+    global APPDIRS
+    if APPDIRS is None:
+        from appdirs import AppDirs
+        APPDIRS = AppDirs("snakemake", "snakemake")
+    return APPDIRS
 
 
 def get_profile_file(profile, file, return_default=False):
+    dirs = get_appdirs()
     if os.path.isabs(profile):
         search_dirs = [os.path.dirname(profile)]
         profile = os.path.basename(profile)
     else:
         search_dirs = [os.getcwd(),
-                       APPDIRS.user_config_dir,
-                       APPDIRS.site_config_dir]
+                       dirs.user_config_dir,
+                       dirs.site_config_dir]
     get_path = lambda d: os.path.join(d, profile, file)
     for d in search_dirs:
         p = get_path(d)
@@ -626,6 +631,10 @@ def get_profile_file(profile, file, return_default=False):
 
 def get_argument_parser(profile=None):
     """Generate and return argument parser."""
+    import configargparse
+    from configargparse import YAMLConfigFileParser
+
+    dirs = get_appdirs()
     config_files = []
     if profile:
         if profile == "":
@@ -638,8 +647,8 @@ def get_argument_parser(profile=None):
                   "Profile has to be given as either absolute path, relative "
                   "path or name of a directory available in either "
                   "{site} or {user}.".format(
-                      site=APPDIRS.site_config_dir,
-                      user=APPDIRS.user_config_dir), file=sys.stderr)
+                      site=dirs.site_config_dir,
+                      user=dirs.user_config_dir), file=sys.stderr)
             exit(1)
         config_files = [config_file]
 
@@ -666,8 +675,8 @@ def get_argument_parser(profile=None):
                         '--cluster qsub' becomes 'cluster: qsub' in the YAML
                         file. Profiles can be obtained from
                         https://github.com/snakemake-profiles.
-                        """.format(APPDIRS.site_config_dir,
-                                   APPDIRS.user_config_dir))
+                        """.format(dirs.site_config_dir,
+                                   dirs.user_config_dir))
 
     parser.add_argument("--snakefile", "-s",
                         metavar="FILE",

@@ -966,11 +966,19 @@ class Subworkflow:
 
     def target(self, paths):
         if not_iterable(paths):
-            return flag(os.path.join(self.workdir, paths), "subworkflow", self)
+            path = paths
+            path = (path if os.path.isabs(path)
+                         else os.path.join(self.workdir, path))
+            return flag(path, "subworkflow", self)
         return [self.target(path) for path in paths]
 
     def targets(self, dag):
-        return [f for job in dag.jobs for f in job.subworkflow_input
+        def relpath(f):
+            if f.startswith(self.workdir):
+                return os.path.relpath(f, start=self.workdir)
+            # do not adjust absolute targets outside of workdir
+            return f
+        return [relpath(f) for job in dag.jobs for f in job.subworkflow_input
                 if job.subworkflow_input[f] is self]
 
 

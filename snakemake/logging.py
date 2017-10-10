@@ -99,7 +99,8 @@ class Logger:
         os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
         self.logfile = os.path.abspath(os.path.join(".snakemake",
                                     "log",
-                                    datetime.datetime.now().isoformat() +
+                                    datetime.datetime.now().isoformat()
+                                                           .replace(":", "") +
                                     ".snakemake.log"))
 
         self.logfile_handler = _logging.FileHandler(self.logfile)

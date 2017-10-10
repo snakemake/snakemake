@@ -25,10 +25,9 @@ class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
 
-    def __init__(self, *args, stay_on_remote=False, retry=10, timeout=600, **kwargs):
+    def __init__(self, *args, stay_on_remote=False, retry=5, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
         self.retry = retry
-        self.timeout = timeout
 
     @property
     def default_protocol(self):
@@ -49,10 +48,13 @@ class RemoteObject(AbstractRemoteObject):
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
-    def _gfal(self, cmd, *args, retry=None, raise_workflow_error=True, sleep=5):
+    def _gfal(self,
+              cmd, *args,
+              retry=None,
+              raise_workflow_error=True):
         if retry is None:
             retry = self.provider.retry
-        _cmd = ["gfal-" + cmd, "-t", str(self.provider.timeout)] + list(args)
+        _cmd = ["gfal-" + cmd] + list(args)
         for i in range(retry + 1):
             try:
                 logger.debug(_cmd)
@@ -69,7 +71,7 @@ class RemoteObject(AbstractRemoteObject):
                         raise e
                 else:
                     # try again after some seconds
-                    time.sleep(sleep)
+                    time.sleep(1)
                     continue
 
     # === Implementations of abstract class members ===
@@ -107,13 +109,13 @@ class RemoteObject(AbstractRemoteObject):
 
     def download(self):
         if self.exists():
-            os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
-
             # Download file. Wait for staging.
             source = self.remote_file()
             target = "file://" + os.path.abspath(self.local_file())
 
-            self._gfal("copy", "-f", source, target, sleep=600)
+            # disable all timeouts (file transfers can take a long time)
+            self._gfal("copy", "-p", "-f", "-n", "4", "-t", "0", "-T", "0",
+                       source, target)
 
             os.sync()
             return self.local_file()
@@ -121,12 +123,10 @@ class RemoteObject(AbstractRemoteObject):
 
     def upload(self):
         target = self.remote_file()
-        parent = os.path.dirname(target)
-        if parent:
-            self._gfal("mkdir", "-p", parent)
-
         source = "file://" + os.path.abspath(self.local_file())
-        self._gfal("copy", "-f", source, target, sleep=600)
+        # disable all timeouts (file transfers can take a long time)
+        self._gfal("copy", "-p", "-f", "-n", "4", "-t", "0", "-T", "0",
+                   source, target)
 
     @property
     def list(self):

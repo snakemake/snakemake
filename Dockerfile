@@ -2,7 +2,7 @@ FROM bitnami/minideb:stretch
 MAINTAINER Johannes Köster <johannes.koester@tu-dortmund.de>
 ENV SINGULARITY_VERSION=2.3.2
 ADD . /tmp/repo
-RUN install_packages wget bzip2 ca-certificates
+RUN install_packages wget bzip2 ca-certificates gnupg2
 RUN wget -O- http://neuro.debian.net/lists/xenial.us-ca.full > /etc/apt/sources.list.d/neurodebian.sources.list
 RUN wget -O- http://neuro.debian.net/_static/neuro.debian.net.asc | apt-key add -
 RUN install_packages singularity-container

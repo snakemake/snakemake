@@ -141,7 +141,7 @@ class Persistence:
         input = self._input(job)
         log = self._log(job)
         params = self._params(job)
-        shellcmd = self._shellcmd(job)
+        shellcmd = job.shellcmd
         for f in job.expanded_output:
             self._record(self._metadata_path, {
                 "version": version,
@@ -187,24 +187,40 @@ class Persistence:
         return self._read_record(self._metadata_path, path).get("shellcmd")
 
     def params(self, path):
-        return self._read_record(self.metadata_path, path).get("params")
+        return self._read_record(self._metadata_path, path).get("params")
 
     def code(self, path):
-        return self._read_record(self.metadata_path, path).get("code")
+        return self._read_record(self._metadata_path, path).get("code")
 
     def version_changed(self, job, file=None):
+        """Yields output files with changed versions of bool if file given."""
+        return _bool_or_gen(self._version_changed, job, file=file)
+
+    def code_changed(self, job, file=None):
+        """Yields output files with changed code of bool if file given."""
+        return _bool_or_gen(self._code_changed, job, file=file)
+
+    def input_changed(self, job, file=None):
+        """Yields output files with changed input of bool if file given."""
+        return _bool_or_gen(self._input_changed, job, file=file)
+
+    def params_changed(self, job, file=None):
+        """Yields output files with changed params of bool if file given."""
+        return _bool_or_gen(self._params_changed, job, file=file)
+
+    def _version_changed(self, job, file=None):
         assert file is not None
         return self.version(file) != job.rule.version
 
-    def code_changed(self, job, file=None):
+    def _code_changed(self, job, file=None):
         assert file is not None
         return self.code(file) != self._code(job.rule)
 
-    def input_changed(self, job, file=None):
+    def _input_changed(self, job, file=None):
         assert file is not None
         return self.input(file) != self._input(job)
 
-    def params_changed(self, job, file=None):
+    def _params_changed(self, job, file=None):
         assert file is not None
         return self.params(file) != self._params(job)
 
@@ -234,10 +250,6 @@ class Persistence:
     @lru_cache()
     def _output(self, job):
         return sorted(job.output)
-
-    @lru_cache()
-    def _shellcmd(self, job):
-        return job.shellcmd
 
     def _record(self, subject, json_value, id):
         recpath = self._record_path(subject, id)
@@ -311,6 +323,13 @@ class Persistence:
     def deactivate_cache(self):
         self._read_record_cached.cache_clear()
         self._read_record = self._read_record_uncached
+
+
+def _bool_or_gen(func, job, file=None):
+    if file is None:
+        return (f for f in job.expanded_output if func(job, file=f))
+    else:
+        return func(job, file=file)
 
 
 def pickle_code(code):
