@@ -22,7 +22,12 @@ Welcome to Snakemake's documentation!
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
     :target: http://stackoverflow.com/questions/tagged/snakemake
 
-Snakemake is an MIT-licensed workflow management system that aims to reduce the complexity of creating workflows by providing a fast and comfortable execution environment, together with a clean and modern specification language in python style.
+
+The Snakemake workflow management system is a tool to create reproducible and scalable data analyses.
+Workflows are described via a human readable, Python based language.
+They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
+Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
+
 Snakemake workflows are essentially Python scripts extended by declarative code to define **rules**.
 Rules describe how to create **output files** from **input files**.
 
@@ -54,7 +59,8 @@ Quick Example
 * Snakemake determines the rule dependencies by matching file names.
 * Input and output files can contain multiple named wildcards.
 * Rules can either use shell commands, plain Python code or external Python or R scripts to create output files from input files.
-* Snakemake workflows can be easily executed on **workstations**, **clusters** and **in the cloud** without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
+* Snakemake workflows can be easily executed on **workstations**, **clusters**, **the grid**, and **in the cloud** without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
+* Snakemake can automatically deploy required software dependencies of a workflow using `Conda <https://conda.io>`_ or `Singularity <http://singularity.lbl.gov/>`_.
 * Snakemake can use Amazon S3, Google Storage, Dropbox, FTP, WebDAV and SFTP to access input or output files and further access input files via HTTP and HTTPS.
 
 .. _main-getting-started:
