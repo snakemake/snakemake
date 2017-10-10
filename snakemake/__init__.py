@@ -104,7 +104,10 @@ def snakemake(snakefile,
               verbose=False,
               force_use_threads=False,
               use_conda=False,
+              use_singularity=False,
+              singularity_args="",
               conda_prefix=None,
+              singularity_prefix=None,
               create_envs_only=False,
               mode=Mode.default,
               wrapper_prefix=None,
@@ -191,7 +194,10 @@ def snakemake(snakefile,
         attempt (int):              initial value of Job.attempt. This is intended for internal use only (default 1).
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
-        conda_prefix (str):         the directories in which conda environments will be created (default None)
+        use_singularity (bool):     run jobs in singularity containers (if defined with singularity directive)
+        singularity_args (str):     additional arguments to pass to singularity
+        conda_prefix (str):         the directory in which conda environments will be created (default None)
+        singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
         create_envs_only (bool):   If specified, only builds the conda environments specified for each job, then exits.
         mode (snakemake.common.Mode): Execution mode
         wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
@@ -356,7 +362,10 @@ def snakemake(snakefile,
                         config_args=config_args,
                         debug=debug,
                         use_conda=use_conda,
+                        use_singularity=use_singularity,
                         conda_prefix=conda_prefix,
+                        singularity_prefix=singularity_prefix,
+                        singularity_args=singularity_args,
                         mode=mode,
                         wrapper_prefix=wrapper_prefix,
                         printshellcmds=printshellcmds,
@@ -426,7 +435,10 @@ def snakemake(snakefile,
                                        keep_shadow=True,
                                        force_use_threads=use_threads,
                                        use_conda=use_conda,
+                                       use_singularity=use_singularity,
                                        conda_prefix=conda_prefix,
+                                       singularity_prefix=singularity_prefix,
+                                       singularity_args=singularity_args,
                                        kubernetes=kubernetes,
                                        kubernetes_envvars=kubernetes_envvars,
                                        container_image=container_image,
@@ -1168,7 +1180,7 @@ def get_argument_parser(profile=None):
     parser.add_argument(
         "--use-conda",
         action="store_true",
-        help="If defined in the rule, create job specific conda environments. "
+        help="If defined in the rule, run job in a conda environment. "
         "If this flag is not set, the conda directive is ignored.")
     parser.add_argument(
         "--conda-prefix",
@@ -1185,6 +1197,25 @@ def get_argument_parser(profile=None):
                         help="If specified, only creates the job-specific "
                         "conda environments then exits. The `--use-conda` "
                         "flag must also be set.")
+    parser.add_argument(
+        "--use-singularity",
+        action="store_true",
+        help="If defined in the rule, run job within a singularity container. "
+        "If this flag is not set, the singularity directive is ignored."
+    )
+    parser.add_argument(
+        "--singularity-prefix",
+        metavar="DIR",
+        help="Specify a directory in which singularity images will be stored."
+        "If not supplied, the value is set "
+        "to the '.snakemake' directory relative to the invocation directory. "
+        "If supplied, the `--use-singularity` flag must also be set. The value "
+        "may be given as a relative path, which will be extrapolated to the "
+        "invocation directory, or as an absolute path.")
+    parser.add_argument(
+        "--singularity-args",
+        metavar="ARGS",
+        help="Pass additional args to singularity.")
     parser.add_argument(
         "--wrapper-prefix",
         default="https://bitbucket.org/snakemake/snakemake-wrappers/raw/",
@@ -1294,6 +1325,11 @@ def main(argv=None):
             "Error: --use-conda must be set if --conda-prefix or "
             "--create-envs-only is set.",
             file=sys.stderr)
+        sys.exit(1)
+
+    if args.singularity_prefix and not args.use_singularity:
+        print("Error: --use_singularity must be set if --singularity-prefix "
+              "is set.", file=sys.stderr)
         sys.exit(1)
 
     if args.gui is not None:
@@ -1414,6 +1450,9 @@ def main(argv=None):
                             force_use_threads=args.force_use_threads,
                             use_conda=args.use_conda,
                             conda_prefix=args.conda_prefix,
+                            use_singularity=args.use_singularity,
+                            singularity_prefix=args.singularity_prefix,
+                            singularity_args=args.singularity_args,
                             create_envs_only=args.create_envs_only,
                             mode=args.mode,
                             wrapper_prefix=args.wrapper_prefix,

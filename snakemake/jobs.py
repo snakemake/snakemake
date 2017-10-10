@@ -187,6 +187,20 @@ class Job:
         return None
 
     @property
+    def singularity_img_url(self):
+        return self.rule.singularity_img
+
+    @property
+    def singularity_img(self):
+        if self.singularity_img_url:
+            return self.dag.singularity_imgs[self.singularity_img_url]
+        return None
+
+    @property
+    def singularity_img_path(self):
+        return self.singularity_img.path if self.singularity_img else None
+
+    @property
     def is_shadow(self):
         return self.rule.shadow_depth is not None
 

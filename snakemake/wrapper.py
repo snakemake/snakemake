@@ -37,10 +37,26 @@ def get_conda_env(path, prefix=None):
     return path + "/environment.yaml"
 
 
-def wrapper(path, input, output, params, wildcards, threads, resources, log, config, rulename, conda_env, bench_record, prefix):
+def wrapper(path,
+            input,
+            output,
+            params,
+            wildcards,
+            threads,
+            resources,
+            log,
+            config,
+            rulename,
+            conda_env,
+            singularity_img,
+            singularity_args,
+            bench_record,
+            prefix):
     """
     Load a wrapper from https://bitbucket.org/snakemake/snakemake-wrappers under
     the given path + wrapper.py and execute it.
     """
     path = get_script(path, prefix=prefix)
-    script(path, "", input, output, params, wildcards, threads, resources, log, config, rulename, conda_env, bench_record)
+    script(path, "", input, output, params, wildcards, threads, resources,
+           log, config, rulename, conda_env, singularity_img,
+           singularity_args, bench_record)

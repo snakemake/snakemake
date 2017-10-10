@@ -299,7 +299,13 @@ class CPUExecutor(RealExecutor):
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
             if self.workflow.conda_prefix:
-                self.exec_job += " --conda-prefix " + self.workflow.conda_prefix + " "
+                self.exec_job += " --conda-prefix {} ".format(
+                    self.workflow.conda_prefix)
+        if self.workflow.use_singularity:
+            self.exec_job += " --use-singularity "
+            if self.workflow.singularity_prefix:
+                self.exec_job += " --singularity-prefix {} ".format(
+                    self.workflow.singularity_prefix)
 
         self.use_threads = use_threads
         self.cores = cores
@@ -316,6 +322,9 @@ class CPUExecutor(RealExecutor):
             conda_env = None
             if self.workflow.use_conda:
                 conda_env = job.conda_env_path
+            singularity_img = None
+            if self.workflow.use_singularity:
+                singularity_img = job.singularity_img_path
 
             benchmark = None
             if job.benchmark is not None:
@@ -324,7 +333,8 @@ class CPUExecutor(RealExecutor):
                 run_wrapper, job.rule, job.input.plainstrings(),
                 job.output.plainstrings(), job.params, job.wildcards, job.threads,
                 job.resources, job.log.plainstrings(), benchmark,
-                self.benchmark_repeats, conda_env,
+                self.benchmark_repeats, conda_env, singularity_img,
+                self.workflow.singularity_args,
                 self.workflow.linemaps, self.workflow.debug,
                 shadow_dir=job.shadow_dir)
         else:
@@ -443,7 +453,13 @@ class ClusterExecutor(RealExecutor):
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
             if self.workflow.conda_prefix:
-                self.exec_job += " --conda-prefix " + self.workflow.conda_prefix + " "
+                self.exec_job += " --conda-prefix {} ".format(
+                    self.workflow.conda_prefix)
+        if self.workflow.use_singularity:
+            self.exec_job += " --use-singularity "
+            if self.workflow.singularity_prefix:
+                self.exec_job += " --singularity-prefix {} ".format(
+                    self.workflow.singularity_prefix)
 
         self.exec_job += self.get_default_remote_provider_args()
 
@@ -1158,6 +1174,23 @@ class KubernetesExecutor(ClusterExecutor):
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"])
 
+        # capabilities
+        if job.singularity_img and self.workflow.use_singularity:
+            # TODO this should work, but it doesn't currently because of
+            # missing loop devices
+            # singularity inside docker requires SYS_ADMIN capabilities
+            # see https://groups.google.com/a/lbl.gov/forum/#!topic/singularity/e9mlDuzKowc
+            # container.capabilities = kubernetes.client.V1Capabilities()
+            # container.capabilities.add = ["SYS_ADMIN",
+            #                               "DAC_OVERRIDE",
+            #                               "SETUID",
+            #                               "SETGID",
+            #                               "SYS_CHROOT"]
+
+            # Running in priviledged mode always works
+            container.security_context = kubernetes.client.V1SecurityContext(
+                privileged=True)
+
         pod = self.kubeapi.create_namespaced_pod(self.namespace, body)
         logger.info("Get status with:\n"
                     "kubectl describe pod {jobid}\n"
@@ -1193,8 +1226,8 @@ class KubernetesExecutor(ClusterExecutor):
 
 
 def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, log,
-                benchmark, benchmark_repeats, conda_env, linemaps, debug=False,
-                shadow_dir=None):
+                benchmark, benchmark_repeats, conda_env, singularity_img,
+                singularity_args, linemaps, debug=False, shadow_dir=None):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
 
@@ -1234,19 +1267,22 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                         # etc, as the child PID is available there.
                         bench_record = BenchmarkRecord()
                         run(input, output, params, wildcards, threads, resources,
-                            log, version, rule, conda_env, bench_record)
+                            log, version, rule, conda_env, singularity_img,
+                            singularity_args, bench_record)
                     else:
                         # The benchmarking is started here as we have a run section
                         # and the generated Python function is executed in this
                         # process' thread.
                         with benchmarked() as bench_record:
                             run(input, output, params, wildcards, threads, resources,
-                                log, version, rule, conda_env, bench_record)
+                                log, version, rule, conda_env, singularity_img,
+                                singularity_args, bench_record)
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
             else:
                 run(input, output, params, wildcards, threads, resources,
-                    log, version, rule, conda_env, None)
+                    log, version, rule, conda_env, singularity_img,
+                    singularity_args, None)
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it

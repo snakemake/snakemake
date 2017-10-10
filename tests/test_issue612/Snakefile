@@ -1,0 +1,11 @@
+rule A:
+    run: print("A")
+
+rule B:
+   run: print("B")
+
+
+rule C:
+   run:
+
+       print("C")
