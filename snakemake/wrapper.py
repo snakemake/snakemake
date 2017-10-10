@@ -49,6 +49,7 @@ def wrapper(path,
             rulename,
             conda_env,
             singularity_img,
+            singularity_args,
             bench_record,
             prefix):
     """
@@ -57,4 +58,5 @@ def wrapper(path,
     """
     path = get_script(path, prefix=prefix)
     script(path, "", input, output, params, wildcards, threads, resources,
-           log, config, rulename, conda_env, singularity_img, bench_record)
+           log, config, rulename, conda_env, singularity_img,
+           singularity_args, bench_record)
