@@ -1,5 +1,14 @@
 # Change Log
 
+## [4.2.0] - 2017-10-10
+### Added
+- Support for executing jobs in per-rule singularity images. This is meant as an alternative to the conda directive (see docs), providing even more guarantees for reproducibility.
+### Changed
+- In cluster mode, jobs that are still running after Snakemake has been killed are automatically resumed.
+- Various fixes to GFAL remote provider.
+- Fixed --summary and --list-code-changes.
+- Many other small bug fixes.
+
 ## [4.1.0] - 2017-09-26
 ### Added
 - Support for configuration profiles. Profiles allow to specify default options, e.g., a cluster
