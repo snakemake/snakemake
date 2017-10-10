@@ -49,6 +49,7 @@ class Workflow:
                  conda_prefix=None,
                  use_singularity=False,
                  singularity_prefix=None,
+                 singularity_args="",
                  mode=Mode.default,
                  wrapper_prefix=None,
                  printshellcmds=False,
@@ -93,6 +94,7 @@ class Workflow:
         self.conda_prefix = conda_prefix
         self.use_singularity = use_singularity
         self.singularity_prefix = singularity_prefix
+        self.singularity_args = singularity_args
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds

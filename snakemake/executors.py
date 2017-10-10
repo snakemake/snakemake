@@ -336,6 +336,7 @@ class CPUExecutor(RealExecutor):
                 job.output.plainstrings(), job.params, job.wildcards, job.threads,
                 job.resources, job.log.plainstrings(), benchmark,
                 self.benchmark_repeats, conda_env, singularity_img,
+                self.workflow.singularity_args,
                 self.workflow.linemaps, self.workflow.debug,
                 shadow_dir=job.shadow_dir)
         else:
@@ -1175,14 +1176,20 @@ class KubernetesExecutor(ClusterExecutor):
 
         # capabilities
         if job.singularity_img and self.workflow.use_singularity:
+            # TODO this should work, but it doesn't currently because of
+            # missing loop devices
             # singularity inside docker requires SYS_ADMIN capabilities
             # see https://groups.google.com/a/lbl.gov/forum/#!topic/singularity/e9mlDuzKowc
-            container.capabilities = kubernetes.client.V1Capabilities()
-            container.capabilities.add = ["SYS_ADMIN",
-                                          "DAC_OVERRIDE",
-                                          "SETUID",
-                                          "SETGID",
-                                          "SYS_CHROOT"]
+            # container.capabilities = kubernetes.client.V1Capabilities()
+            # container.capabilities.add = ["SYS_ADMIN",
+            #                               "DAC_OVERRIDE",
+            #                               "SETUID",
+            #                               "SETGID",
+            #                               "SYS_CHROOT"]
+
+            # Running in priviledged mode always works
+            container.security_context = kubernetes.client.V1SecurityContext(
+                privileged=True)
 
         pod = self.kubeapi.create_namespaced_pod(self.namespace, body)
         logger.info("Get status with:\n"
@@ -1220,7 +1227,7 @@ class KubernetesExecutor(ClusterExecutor):
 
 def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, log,
                 benchmark, benchmark_repeats, conda_env, singularity_img,
-                linemaps, debug=False, shadow_dir=None):
+                singularity_args, linemaps, debug=False, shadow_dir=None):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
 
@@ -1261,7 +1268,7 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                         bench_record = BenchmarkRecord()
                         run(input, output, params, wildcards, threads, resources,
                             log, version, rule, conda_env, singularity_img,
-                            bench_record)
+                            singularity_args, bench_record)
                     else:
                         # The benchmarking is started here as we have a run section
                         # and the generated Python function is executed in this
@@ -1269,12 +1276,13 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                         with benchmarked() as bench_record:
                             run(input, output, params, wildcards, threads, resources,
                                 log, version, rule, conda_env, singularity_img,
-                                bench_record)
+                                singularity_args, bench_record)
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
             else:
                 run(input, output, params, wildcards, threads, resources,
-                    log, version, rule, conda_env, singularity_img, None)
+                    log, version, rule, conda_env, singularity_img,
+                    singularity_args, None)
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it
