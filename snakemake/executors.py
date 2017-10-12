@@ -753,6 +753,7 @@ class GenericClusterExecutor(ClusterExecutor):
                     return
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
+                logger.debug("Checking status of {} jobs".format(len(active_jobs)))
                 for active_job in active_jobs:
                     with self.status_rate_limiter:
                         if job_finished(active_job):
