@@ -841,25 +841,28 @@ class SynchronousClusterExecutor(ClusterExecutor):
                     return
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
-                for active_job in active_jobs:
-                    with self.status_rate_limiter:
-                        exitcode = active_job.process.poll()
-                        if exitcode is None:
-                            # job not yet finished
-                            self.active_jobs.append(active_job)
-                        elif exitcode == 0:
-                            # job finished successfully
-                            os.remove(active_job.jobscript)
-                            active_job.callback(active_job.job)
-                        else:
-                            # job failed
-                            os.remove(active_job.jobscript)
-                            self.print_job_error(active_job.job)
-                            print_exception(
-                                ClusterJobException(
-                                    active_job, self.dag.jobid(active_job.job)),
-                                self.workflow.linemaps)
-                            active_job.error_callback(active_job.job)
+                still_running = list()
+            for active_job in active_jobs:
+                with self.status_rate_limiter:
+                    exitcode = active_job.process.poll()
+                    if exitcode is None:
+                        # job not yet finished
+                        still_running.append(active_job)
+                    elif exitcode == 0:
+                        # job finished successfully
+                        os.remove(active_job.jobscript)
+                        active_job.callback(active_job.job)
+                    else:
+                        # job failed
+                        os.remove(active_job.jobscript)
+                        self.print_job_error(active_job.job)
+                        print_exception(
+                            ClusterJobException(
+                                active_job, self.dag.jobid(active_job.job)),
+                            self.workflow.linemaps)
+                        active_job.error_callback(active_job.job)
+            with self.lock:
+                self.active_jobs.extend(still_running)
             time.sleep(10)
 
 
@@ -973,31 +976,34 @@ class DRMAAExecutor(ClusterExecutor):
                     return
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
-                for active_job in active_jobs:
-                    with self.status_rate_limiter:
-                        try:
-                            retval = self.session.wait(active_job.jobid,
-                                                       drmaa.Session.TIMEOUT_NO_WAIT)
-                        except drmaa.ExitTimeoutException as e:
-                            # job still active
-                            self.active_jobs.append(active_job)
-                            continue
-                        except (drmaa.InternalException, Exception) as e:
-                            print_exception(WorkflowError("DRMAA Error: {}".format(e)),
-                                            self.workflow.linemaps)
-                            os.remove(active_job.jobscript)
-                            active_job.error_callback(active_job.job)
-                            continue
-                        # job exited
+                still_running = list()
+            for active_job in active_jobs:
+                with self.status_rate_limiter:
+                    try:
+                        retval = self.session.wait(active_job.jobid,
+                                                   drmaa.Session.TIMEOUT_NO_WAIT)
+                    except drmaa.ExitTimeoutException as e:
+                        # job still active
+                        still_running.append(active_job)
+                        continue
+                    except (drmaa.InternalException, Exception) as e:
+                        print_exception(WorkflowError("DRMAA Error: {}".format(e)),
+                                        self.workflow.linemaps)
                         os.remove(active_job.jobscript)
-                        if retval.hasExited and retval.exitStatus == 0:
-                            active_job.callback(active_job.job)
-                        else:
-                            self.print_job_error(active_job.job)
-                            print_exception(
-                                ClusterJobException(active_job, self.dag.jobid(active_job.job)),
-                                self.workflow.linemaps)
-                            active_job.error_callback(active_job.job)
+                        active_job.error_callback(active_job.job)
+                        continue
+                    # job exited
+                    os.remove(active_job.jobscript)
+                    if retval.hasExited and retval.exitStatus == 0:
+                        active_job.callback(active_job.job)
+                    else:
+                        self.print_job_error(active_job.job)
+                        print_exception(
+                            ClusterJobException(active_job, self.dag.jobid(active_job.job)),
+                            self.workflow.linemaps)
+                        active_job.error_callback(active_job.job)
+            with self.lock:
+                self.active_jobs.extend(still_running)
             time.sleep(10)
 
 
@@ -1204,23 +1210,26 @@ class KubernetesExecutor(ClusterExecutor):
                     return
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
-                for j in active_jobs:
-                    with self.status_rate_limiter:
-                        res = self.kubeapi.read_namespaced_pod_status(
-                            j.jobid, self.namespace)
-                        if res.status.phase == "Failed":
-                            msg = ("For details, please issue:\n"
-                                   "kubectl describe pod {jobid}\n"
-                                   "kubectl logs {jobid}").format(jobid=j.jobid)
-                            # failed
-                            self.print_job_error(j.job, msg=msg, jobid=j.jobid)
-                            j.error_callback(j.job)
-                        elif res.status.phase == "Succeeded":
-                            # finished
-                            j.callback(j.job)
-                        else:
-                            # still active
-                            self.active_jobs.append(j)
+                still_running = list()
+            for j in active_jobs:
+                with self.status_rate_limiter:
+                    res = self.kubeapi.read_namespaced_pod_status(
+                        j.jobid, self.namespace)
+                    if res.status.phase == "Failed":
+                        msg = ("For details, please issue:\n"
+                               "kubectl describe pod {jobid}\n"
+                               "kubectl logs {jobid}").format(jobid=j.jobid)
+                        # failed
+                        self.print_job_error(j.job, msg=msg, jobid=j.jobid)
+                        j.error_callback(j.job)
+                    elif res.status.phase == "Succeeded":
+                        # finished
+                        j.callback(j.job)
+                    else:
+                        # still active
+                        still_running.append(j)
+            with self.lock:
+                self.active_jobs.extend(still_running)
             time.sleep(10)
 
 
