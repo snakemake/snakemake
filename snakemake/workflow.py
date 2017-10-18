@@ -377,7 +377,8 @@ class Workflow:
                 self.persistence.cleanup_metadata(f)
             return True
 
-        dag.init()
+        logger.info("Building DAG of jobs...")
+        dag.init(progress=True)
         dag.check_dynamic()
 
         if unlock:

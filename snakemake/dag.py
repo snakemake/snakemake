@@ -117,14 +117,14 @@ class DAG:
 
         self.update_output_index()
 
-    def init(self):
+    def init(self, progress=False):
         """ Initialise the DAG. """
         for job in map(self.rule2job, self.targetrules):
-            job = self.update([job])
+            job = self.update([job], progress=progress)
             self.targetjobs.add(job)
 
         for file in self.targetfiles:
-            job = self.update(self.file2jobs(file), file=file)
+            job = self.update(self.file2jobs(file), file=file, progress=progress)
             self.targetjobs.add(job)
 
         self.cleanup()
@@ -529,7 +529,7 @@ class DAG:
         """Return job id of given job."""
         return self._jobid[job]
 
-    def update(self, jobs, file=None, visited=None, skip_until_dynamic=False):
+    def update(self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False):
         """ Update the DAG by adding given jobs and their dependencies. """
         if visited is None:
             visited = set()
@@ -551,7 +551,8 @@ class DAG:
                 self.check_periodic_wildcards(job)
                 self.update_(job,
                              visited=set(visited),
-                             skip_until_dynamic=skip_until_dynamic)
+                             skip_until_dynamic=skip_until_dynamic,
+                             progress=progress)
                 # TODO this might fail if a rule discarded here is needed
                 # elsewhere
                 if producer:
@@ -583,9 +584,13 @@ class DAG:
 
         logger.dag_debug(dict(status="selected", job=job))
 
+        n = len(self.dependencies)
+        if progress and n % 100 == 0 and n:
+            logger.info("Processed {} potential jobs.".format(n))
+
         return producer
 
-    def update_(self, job, visited=None, skip_until_dynamic=False):
+    def update_(self, job, visited=None, skip_until_dynamic=False, progress=False):
         """ Update the DAG by adding the given job and its dependencies. """
         if job in self.dependencies:
             return
@@ -608,7 +613,8 @@ class DAG:
                     file=file,
                     visited=visited,
                     skip_until_dynamic=skip_until_dynamic or file in
-                    job.dynamic_input)
+                    job.dynamic_input,
+                    progress=progress)
                 producer[file] = selected_job
             except (MissingInputException, CyclicGraphException,
                     PeriodicWildcardError) as ex:

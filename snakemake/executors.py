@@ -708,13 +708,18 @@ class GenericClusterExecutor(ClusterExecutor):
                 job, external_jobid=ext_jobid)
 
         submit_callback(job)
+        
         with self.lock:
             self.active_jobs.append(GenericClusterJob(job, ext_jobid, callback, error_callback, jobscript, jobfinished, jobfailed))
 
     def _wait_for_jobs(self):
+        success = "success"
+        failed = "failed"
+        running = "running"
         if self.statuscmd is not None:
             def job_status(job):
                 try:
+                    # this command shall return "success", "failed" or "running"
                     return subprocess.check_output(
                         '{statuscmd} {jobid}'.format(jobid=job.jobid,
                                                      statuscmd=self.statuscmd),
@@ -722,30 +727,17 @@ class GenericClusterExecutor(ClusterExecutor):
                 except subprocess.CalledProcessError as e:
                     raise WorkflowError("Failed to obtain job status. "
                                         "See above for error message.")
-
-            def job_finished(job):
-                if job_status(job) == "success":
-                    return True
-                return False
-
-            def job_failed(job):
-                if job_status(job) == "failed":
-                    return True
-                return False
         else:
-            def job_finished(job):
+            def job_status(job):
                 if os.path.exists(active_job.jobfinished):
                     os.remove(active_job.jobfinished)
                     os.remove(active_job.jobscript)
-                    return True
-                return False
-
-            def job_failed(job):
+                    return success
                 if os.path.exists(active_job.jobfailed):
                     os.remove(active_job.jobfailed)
                     os.remove(active_job.jobscript)
-                    return True
-                return False
+                    return failed
+                return running
 
         while True:
             with self.lock:
@@ -753,19 +745,25 @@ class GenericClusterExecutor(ClusterExecutor):
                     return
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
-                logger.debug("Checking status of {} jobs".format(len(active_jobs)))
-                for active_job in active_jobs:
-                    with self.status_rate_limiter:
-                        if job_finished(active_job):
-                            active_job.callback(active_job.job)
-                        elif job_failed(active_job):
-                            self.print_job_error(
-                                active_job.job,
-                                cluster_jobid=active_job.jobid if active_job.jobid else "unknown",
-                            )
-                            active_job.error_callback(active_job.job)
-                        else:
-                            self.active_jobs.append(active_job)
+                still_running = list()
+            logger.debug("Checking status of {} jobs.".format(len(active_jobs)))
+            for active_job in active_jobs:
+                with self.status_rate_limiter:
+                    logger.debug("Checking status of job {}.".format(active_job.jobid))
+                    status = job_status(active_job)
+
+                    if status == success:
+                        active_job.callback(active_job.job)
+                    elif status == failed:
+                        self.print_job_error(
+                            active_job.job,
+                            cluster_jobid=active_job.jobid if active_job.jobid else "unknown",
+                        )
+                        active_job.error_callback(active_job.job)
+                    else:
+                        still_running.append(active_job)
+            with self.lock:
+                self.active_jobs.extend(still_running)
             time.sleep(10)
 
 
