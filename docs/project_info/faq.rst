@@ -420,7 +420,7 @@ To avoid confusion we therefore disallow the conda directive together with the r
 It is recommended to use the script directive instead (see :ref:`snakefiles-external_scripts`).
 
 
-My workflow is very large, how to I stop Snakemake from printing all this rule/job information in a dry-run?
+My workflow is very large, how do I stop Snakemake from printing all this rule/job information in a dry-run?
 ------------------------------------------------------------------------------------------------------------
 
 Indeed, the information for each individual job can slow down a dryrun if there are tens of thousands of jobs.

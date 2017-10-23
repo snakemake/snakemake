@@ -1,5 +1,28 @@
 # Change Log
 
+## [4.2.0] - 2017-10-10
+### Added
+- Support for executing jobs in per-rule singularity images. This is meant as an alternative to the conda directive (see docs), providing even more guarantees for reproducibility.
+### Changed
+- In cluster mode, jobs that are still running after Snakemake has been killed are automatically resumed.
+- Various fixes to GFAL remote provider.
+- Fixed --summary and --list-code-changes.
+- Many other small bug fixes.
+
+## [4.1.0] - 2017-09-26
+### Added
+- Support for configuration profiles. Profiles allow to specify default options, e.g., a cluster
+  submission command. They can be used via 'snakemake --profile myprofile'. See the docs for details.
+- GFAL remote provider. This allows to use GridFTP, SRM and any other protocol supported by GFAL for remote input and output files.
+- Added --cluster-status flag that allows to specify a command that returns jobs status.
+### Changed
+- The scheduler now tries to get rid of the largest temp files first.
+- The Docker image used for kubernetes support can now be configured at the command line.
+- Rate-limiting for cluster interaction has be unified.
+- S3 remote provider uses boto3.
+- Resource functions can now use an additional `attempt` parameter, that contains the number of times this job has already been tried.
+- Various minor fixes.
+
 ## [4.0.0] - 2017-07-24
 ### Added
 - Cloud computing support via Kubernetes. Snakemake workflows can be executed transparently

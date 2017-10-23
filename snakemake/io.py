@@ -62,7 +62,25 @@ def lchmod(f, mode):
              follow_symlinks=os.chmod not in os.supports_follow_symlinks)
 
 
+class IOCache:
+    def __init__(self):
+        self.mtime = dict()
+        self.exists = dict()
+        self.size = dict()
+        self.active = True
+
+    def clear(self):
+        self.mtime.clear()
+        self.exists.clear()
+        self.size.clear()
+
+    def deactivate(self):
+        self.clear()
+        self.active = False
+
+
 def IOFile(file, rule=None):
+    assert rule is not None
     f = _IOFile(file)
     f.rule = rule
     return f
@@ -84,7 +102,24 @@ class _IOFile(str):
         obj.rule = None
         obj._regex = None
 
+        if obj.is_remote:
+            obj.remote_object._iofile = obj
+
         return obj
+
+    def iocache(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if self.rule.workflow.iocache.active:
+                cache = getattr(self.rule.workflow.iocache, func.__name__)
+                if self in cache:
+                    return cache[self]
+                v = func(self, *args, **kwargs)
+                cache[self] = v
+                return v
+            else:
+                return func(self, *args, **kwargs)
+        return wrapper
 
     def _refer_to_remote(func):
         """
@@ -95,7 +130,6 @@ class _IOFile(str):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if self.is_remote:
-                self.update_remote_filepath()
                 if hasattr(self.remote_object, func.__name__):
                     return getattr(self.remote_object, func.__name__)(*args, **
                                                                       kwargs)
@@ -128,7 +162,6 @@ class _IOFile(str):
 
     @property
     def remote_object(self):
-        self.update_remote_filepath()
         return get_flag_value(self._file, "remote_object")
 
     @property
@@ -164,6 +197,7 @@ class _IOFile(str):
                     self._file, os.path.sep, hint))
 
     @property
+    @iocache
     @_refer_to_remote
     def exists(self):
         return self.exists_local
@@ -181,6 +215,7 @@ class _IOFile(str):
         return self.exists_local and not os.access(self.file, os.W_OK)
 
     @property
+    @iocache
     @_refer_to_remote
     def mtime(self):
         return self.mtime_local
@@ -195,6 +230,7 @@ class _IOFile(str):
         return getattr(self._file, "flags", {})
 
     @property
+    @iocache
     @_refer_to_remote
     def size(self):
         return self.size_local
@@ -229,6 +265,7 @@ class _IOFile(str):
             if not self.should_stay_on_remote:
                 logger.info("Downloading from remote: {}".format(self.file))
                 self.remote_object.download()
+                logger.info("Finished download.")
         else:
             raise RemoteFileException(
                 "The file to be downloaded does not seem to exist remotely.")
@@ -237,6 +274,7 @@ class _IOFile(str):
         if self.is_remote:
             logger.info("Uploading to remote: {}".format(self.file))
             self.remote_object.upload()
+            logger.info("Finished upload.")
 
     def prepare(self):
         path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
@@ -341,6 +379,7 @@ class _IOFile(str):
             if "remote_object" in self._file.flags:
                 self._file.flags['remote_object'] = copy.copy(
                     self._file.flags['remote_object'])
+                self.update_remote_filepath()
 
     def set_flags(self, flags):
         if isinstance(self._file, str):
@@ -376,13 +415,18 @@ _wildcard_regex = re.compile(
     """, re.VERBOSE)
 
 
-def wait_for_files(files, latency_wait=3):
+def wait_for_files(files, latency_wait=3, force_stay_on_remote=False):
     """Wait for given files to be present in filesystem."""
     files = list(files)
-    get_missing = lambda: [
-        f for f in files if not
-        (f.exists_remote if (isinstance(f, _IOFile) and f.is_remote and f.should_stay_on_remote) else os.path.exists(f))
-    ]
+    def get_missing():
+        return [
+            f for f in files
+            if not (f.exists_remote
+                    if (isinstance(f, _IOFile) and
+                       f.is_remote and
+                       (force_stay_on_remote or f.should_stay_on_remote))
+                    else os.path.exists(f))]
+
     missing = get_missing()
     if missing:
         logger.info("Waiting at most {} seconds for missing files.".format(

@@ -52,6 +52,7 @@ class Rule:
             self._log = Log()
             self._benchmark = None
             self._conda_env = None
+            self._singularity_img = None
             self.wildcard_names = set()
             self.lineno = lineno
             self.snakefile = snakefile
@@ -86,6 +87,7 @@ class Rule:
             self._log = other._log
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
+            self._singularity_img = other._singularity_img
             self.wildcard_names = set(other.wildcard_names)
             self.lineno = other.lineno
             self.snakefile = other.snakefile
@@ -214,6 +216,13 @@ class Rule:
     def conda_env(self, conda_env):
         self._conda_env = IOFile(conda_env, rule=self)
 
+    @property
+    def singularity_img(self):
+        return self._singularity_img
+
+    @singularity_img.setter
+    def singularity_img(self, singularity_img):
+        self._singularity_img = singularity_img
 
     @property
     def input(self):
@@ -297,6 +306,7 @@ class Rule:
             not is_flagged(item, "local") and
             self.workflow.default_remote_provider is not None):
             item = "{}/{}".format(self.workflow.default_remote_prefix, item)
+            item = os.path.normpath(item)
             return self.workflow.default_remote_provider.remote(item)
         return item
 
@@ -314,7 +324,8 @@ class Rule:
             item = self.apply_default_remote(item)
 
             # add the rule to the dependencies
-            if isinstance(item, _IOFile) and item.rule:
+            if (isinstance(item, _IOFile) and item.rule
+                and item in item.rule.output):
                 self.dependencies[item] = item.rule
             if output:
                 rule = self
@@ -329,7 +340,7 @@ class Rule:
                             snakefile=self.snakefile,
                             lineno=self.lineno)
             else:
-                rule = None
+                rule = self
                 if contains_wildcard_constraints(item) and self.workflow.mode != Mode.subprocess:
                     logger.warning(
                         "wildcard constraints in inputs are ignored")
@@ -457,7 +468,8 @@ class Rule:
                          omit_callable=False,
                          mapping=None,
                          no_flattening=False,
-                         aux_params=None):
+                         aux_params=None,
+                         apply_default_remote=True):
         if aux_params is None:
             aux_params = dict()
         for name, item in olditems.allitems():
@@ -469,7 +481,8 @@ class Rule:
                 if omit_callable:
                     continue
                 item = self.apply_input_function(item, wildcards, **aux_params)
-                item = self.apply_default_remote(item)
+                if apply_default_remote:
+                    item = self.apply_default_remote(item)
 
             if is_unpack:
                 # Sanity checks before interpreting unpack()
@@ -559,6 +572,7 @@ class Rule:
                                   check_return_type=False,
                                   omit_callable=omit_callable,
                                   no_flattening=True,
+                                  apply_default_remote=False,
                                   aux_params={"input": input,
                                               "resources": resources,
                                               "output": output,

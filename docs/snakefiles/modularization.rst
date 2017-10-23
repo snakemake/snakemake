@@ -4,7 +4,7 @@
 Modularization
 ==============
 
-Modularization in Snakemake comes at different levels. 
+Modularization in Snakemake comes at different levels.
 
 1. The most fine-grained level are wrappers. They are available and can be published at the `Snakemake Wrapper Repository <https://snakemake-wrappers.readthedocs.io>`_. These wrappers can then be composed and customized according to your needs, by copying skeleton rules into your workflow. In combination with conda integration, wrappers also automatically deploy the needed software dependencies into isolated environments.
 2. For larger, reusable parts that shall be integrated into a common workflow, it is recommended to write small Snakefiles and include them into a master Snakefile via the include statement. In such a setup, all rules share a common config file.
@@ -17,8 +17,8 @@ Modularization in Snakemake comes at different levels.
 Wrappers
 --------
 
-With Snakemake 3.5.5, the wrapper directive is introduced (experimental).
-This directive allows to have re-usable wrapper scripts around e.g. command line tools. In contrast to modularization strategies like ``include`` or subworkflows, the wrapper directive allows to re-wire the DAG of jobs.
+The wrapper directive allows to have re-usable wrapper scripts around e.g. command line tools.
+In contrast to modularization strategies like ``include`` or subworkflows, the wrapper directive allows to re-wire the DAG of jobs.
 For example
 
 .. code-block:: python
@@ -94,5 +94,3 @@ This function automatically determines the absolute path to the file (here ``../
 When executing, snakemake first tries to create (or update, if necessary) ``test.txt`` (and all other possibly mentioned dependencies) by executing the subworkflow.
 Then the current workflow is executed.
 This can also happen recursively, since the subworkflow may have its own subworkflows as well.
-
-

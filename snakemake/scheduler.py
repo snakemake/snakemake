@@ -3,15 +3,13 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-import os, signal
+import os, signal, sys
 import threading
 import operator
 from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate
 from contextlib import contextmanager
-
-from ratelimiter import RateLimiter
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
@@ -47,18 +45,22 @@ class JobScheduler:
                  drmaa_log_dir=None,
                  kubernetes=None,
                  kubernetes_envvars=None,
+                 container_image=None,
                  jobname=None,
                  quiet=False,
                  printreason=False,
                  printshellcmds=False,
                  keepgoing=False,
                  max_jobs_per_second=None,
+                 max_status_checks_per_second=100,
                  latency_wait=3,
                  benchmark_repeats=1,
                  greediness=1.0,
                  force_use_threads=False,
                  assume_shared_fs=True):
         """ Create a new instance of KnapsackJobScheduler. """
+        from ratelimiter import RateLimiter
+
         self.cluster = cluster
         self.cluster_config = cluster_config
         self.cluster_sync = cluster_sync
@@ -96,7 +98,6 @@ class JobScheduler:
                                             quiet=quiet,
                                             printshellcmds=printshellcmds,
                                             latency_wait=latency_wait)
-            self.job_reward = self.dryrun_job_reward
         elif touch:
             self._executor = TouchExecutor(workflow, dag,
                                            printreason=printreason,
@@ -119,7 +120,8 @@ class JobScheduler:
                     constructor = SynchronousClusterExecutor
                 else:
                     constructor = partial(GenericClusterExecutor,
-                                          statuscmd=cluster_status)
+                                          statuscmd=cluster_status,
+                                          max_status_checks_per_second=max_status_checks_per_second)
 
                 self._executor = constructor(
                     workflow, dag, None,
@@ -133,7 +135,6 @@ class JobScheduler:
                     benchmark_repeats=benchmark_repeats,
                     assume_shared_fs=assume_shared_fs)
                 if workflow.immediate_submit:
-                    self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
                                                     update_dynamic=False,
                                                     print_progress=False,
@@ -150,7 +151,8 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
                     cluster_config=cluster_config,
-                    assume_shared_fs=assume_shared_fs)
+                    assume_shared_fs=assume_shared_fs,
+                    max_status_checks_per_second=max_status_checks_per_second)
         elif kubernetes:
             workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)),
                           local_cores)
@@ -166,12 +168,14 @@ class JobScheduler:
 
             self._executor = KubernetesExecutor(
                 workflow, dag, kubernetes, kubernetes_envvars,
+                container_image=container_image,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 benchmark_repeats=benchmark_repeats,
-                cluster_config=cluster_config)
+                cluster_config=cluster_config,
+                max_status_checks_per_second=max_status_checks_per_second)
         else:
             # local execution or execution of cluster job
             # calculate how many parallel workers the executor shall spawn
@@ -186,14 +190,16 @@ class JobScheduler:
                                          latency_wait=latency_wait,
                                          benchmark_repeats=benchmark_repeats,
                                          cores=cores)
-        self._open_jobs.set()
 
-    def rate_limiter(self):
         if self.max_jobs_per_second:
-            return RateLimiter(max_calls=self.max_jobs_per_second,
+            self.rate_limiter = RateLimiter(max_calls=self.max_jobs_per_second,
                                             period=1)
         else:
-            return dummy_rate_limiter()
+            # essentially no rate limit
+            self.rate_limiter = RateLimiter(max_calls=sys.maxsize,
+                                            period=1)
+
+        self._open_jobs.set()
 
     @property
     def stats(self):
@@ -266,7 +272,7 @@ class JobScheduler:
                     "Resources after job selection: {}".format(self.resources))
                 # actually run jobs
                 for job in run:
-                    with self.rate_limiter():
+                    with self.rate_limiter:
                         self.run(job)
         except (KeyboardInterrupt, SystemExit):
             logger.info("Terminating processes on user request.")
@@ -419,11 +425,25 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 for name in self.workflow.global_resources]
 
     def job_reward(self, job):
-        return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job),
-                0 if self.touch else job.inputsize)
+        if self.touch or self.dryrun or self.workflow.immediate_submit:
+            temp_size = 0
+            input_size = 0
+        else:
+            temp_size = self.dag.temp_size(job)
+            input_size = job.inputsize
 
-    def dryrun_job_reward(self, job):
-        return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job))
+        # Usually, this should guide the scheduler to first schedule all jobs
+        # that remove the largest temp file, then the second largest and so on.
+        # Since the weight is summed up, it can in theory be that it sometimes
+        # prefers a set of many jobs that all depend on smaller temp files though.
+        # A real solution to the problem is therefore to use dummy jobs that
+        # ensure selection of groups of jobs that together delete the same temp
+        # file.
+
+        return (self.dag.priority(job),
+                temp_size,
+                self.dag.downstream_size(job),
+                input_size)
 
     def progress(self):
         """ Display the progress. """

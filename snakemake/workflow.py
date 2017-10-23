@@ -47,6 +47,9 @@ class Workflow:
                  debug=False,
                  use_conda=False,
                  conda_prefix=None,
+                 use_singularity=False,
+                 singularity_prefix=None,
+                 singularity_args="",
                  mode=Mode.default,
                  wrapper_prefix=None,
                  printshellcmds=False,
@@ -89,6 +92,9 @@ class Workflow:
         self._rulecount = 0
         self.use_conda = use_conda
         self.conda_prefix = conda_prefix
+        self.use_singularity = use_singularity
+        self.singularity_prefix = singularity_prefix
+        self.singularity_args = singularity_args
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
@@ -97,6 +103,8 @@ class Workflow:
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
         self.configfiles = []
+
+        self.iocache = snakemake.io.IOCache()
 
         global config
         config = copy.deepcopy(self.overwrite_config)
@@ -240,6 +248,7 @@ class Workflow:
                 drmaa_log_dir=None,
                 kubernetes=None,
                 kubernetes_envvars=None,
+                container_image=None,
                 stats=None,
                 force_incomplete=False,
                 ignore_incomplete=False,
@@ -266,6 +275,7 @@ class Workflow:
                 keep_remote_local=False,
                 allowed_rules=None,
                 max_jobs_per_second=None,
+                max_status_checks_per_second=None,
                 greediness=1.0,
                 no_hooks=False,
                 force_use_threads=False,
@@ -288,7 +298,8 @@ class Workflow:
         else:
 
             def files(items):
-                return map(os.path.relpath, filterfalse(self.is_rule, items))
+                relpath = lambda f: f if os.path.isabs(f) else os.path.relpath(f)
+                return map(relpath, filterfalse(self.is_rule, items))
 
         if not targets:
             targets = [self.first_rule
@@ -356,6 +367,7 @@ class Workflow:
             nolock=nolock,
             dag=dag,
             conda_prefix=self.conda_prefix,
+            singularity_prefix=self.singularity_prefix,
             warn_only=dryrun or printrulegraph or printdag or summary or archive or
             list_version_changes or list_code_changes or list_input_changes or
             list_params_changes)
@@ -365,7 +377,8 @@ class Workflow:
                 self.persistence.cleanup_metadata(f)
             return True
 
-        dag.init()
+        logger.info("Building DAG of jobs...")
+        dag.init(progress=True)
         dag.check_dynamic()
 
         if unlock:
@@ -417,8 +430,18 @@ class Workflow:
             # rescue globals
             self.globals.update(globals_backup)
 
-        dag.check_incomplete()
+        if not (cluster and cluster_status):
+            # no incomplete check needed because we use external jobids to handle
+            # this later in the executor
+            dag.check_incomplete()
         dag.postprocess()
+        # deactivate IOCache such that from now on we always get updated
+        # size, existence and mtime information
+        # ATTENTION: this may never be removed without really good reason.
+        # Otherwise weird things may happen.
+        self.iocache.deactivate()
+        # clear and deactivate persistence cache, from now on we want to see updates
+        self.persistence.deactivate_cache()
 
         if nodeps:
             missing_input = [f for job in dag.targetjobs for f in job.input
@@ -486,6 +509,9 @@ class Workflow:
                 dag.create_conda_envs(dryrun=dryrun)
             if create_envs_only:
                 return True
+        if self.use_singularity:
+            if assume_shared_fs:
+                dag.pull_singularity_imgs(dryrun=dryrun)
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
@@ -497,12 +523,14 @@ class Workflow:
                                  cluster_sync=cluster_sync,
                                  jobname=jobname,
                                  max_jobs_per_second=max_jobs_per_second,
+                                 max_status_checks_per_second=max_status_checks_per_second,
                                  quiet=quiet,
                                  keepgoing=keepgoing,
                                  drmaa=drmaa,
                                  drmaa_log_dir=drmaa_log_dir,
                                  kubernetes=kubernetes,
                                  kubernetes_envvars=kubernetes_envvars,
+                                 container_image=container_image,
                                  printreason=printreason,
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
@@ -710,13 +738,28 @@ class Workflow:
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper, prefix=self.wrapper_prefix)
+                # TODO retrieve suitable singularity image
+
+            if ruleinfo.conda_env and ruleinfo.singularity_img:
+                raise RuleException("Conda and singularity directive are "
+                                    "mutually exclusive.")
+
             if ruleinfo.conda_env:
                 if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
                     raise RuleException("Conda environments are only allowed "
-                        "with shell, script or wrapper directives (not with run).", rule=rule)
+                        "with shell, script or wrapper directives "
+                        "(not with run).", rule=rule)
                 if not os.path.isabs(ruleinfo.conda_env):
                     ruleinfo.conda_env = os.path.join(self.current_basedir, ruleinfo.conda_env)
                 rule.conda_env = ruleinfo.conda_env
+
+            if ruleinfo.singularity_img:
+                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
+                    raise RuleException("Singularity directive is only allowed "
+                        "with shell, script or wrapper directives "
+                        "(not with run).", rule=rule)
+                rule.singularity_img = ruleinfo.singularity_img
+
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
@@ -784,6 +827,13 @@ class Workflow:
     def conda(self, conda_env):
         def decorate(ruleinfo):
             ruleinfo.conda_env = conda_env
+            return ruleinfo
+
+        return decorate
+
+    def singularity(self, singularity_img):
+        def decorate(ruleinfo):
+            ruleinfo.singularity_img = singularity_img
             return ruleinfo
 
         return decorate
@@ -877,6 +927,7 @@ class RuleInfo:
         self.message = None
         self.benchmark = None
         self.conda_env = None
+        self.singularity_img = None
         self.wildcard_constraints = None
         self.threads = None
         self.shadow_depth = None
@@ -916,11 +967,19 @@ class Subworkflow:
 
     def target(self, paths):
         if not_iterable(paths):
-            return flag(os.path.join(self.workdir, paths), "subworkflow", self)
+            path = paths
+            path = (path if os.path.isabs(path)
+                         else os.path.join(self.workdir, path))
+            return flag(path, "subworkflow", self)
         return [self.target(path) for path in paths]
 
     def targets(self, dag):
-        return [f for job in dag.jobs for f in job.subworkflow_input
+        def relpath(f):
+            if f.startswith(self.workdir):
+                return os.path.relpath(f, start=self.workdir)
+            # do not adjust absolute targets outside of workdir
+            return f
+        return [relpath(f) for job in dag.jobs for f in job.subworkflow_input
                 if job.subworkflow_input[f] is self]
 
 

@@ -173,14 +173,32 @@ class Job:
             logger.debug("Accessing conda environment {}.".format(self._conda_env))
             if self._conda_env is None:
                 raise ValueError("Conda environment {} not found in DAG.".format(self.conda_env_file))
-            return self._conda_env.path
+            return self._conda_env
         return None
+
+    @property
+    def conda_env_path(self):
+        return self.conda_env.path if self.conda_env else None
 
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""
         if self.conda_env_file:
             return self.conda_env.create_archive()
         return None
+
+    @property
+    def singularity_img_url(self):
+        return self.rule.singularity_img
+
+    @property
+    def singularity_img(self):
+        if self.singularity_img_url:
+            return self.dag.singularity_imgs[self.singularity_img_url]
+        return None
+
+    @property
+    def singularity_img_path(self):
+        return self.singularity_img.path if self.singularity_img else None
 
     @property
     def is_shadow(self):
