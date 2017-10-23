@@ -232,12 +232,10 @@ class JobScheduler:
                 self._open_jobs.acquire()
 
                 # obtain needrun and running jobs in a thread-safe way
-                logger.location("LOCK")
                 with self._lock:
                     needrun = list(self.open_jobs)
                     running = list(self.running)
                     errors = self._errors
-                logger.location("UNLOCK")
 
                 # handle errors
                 if not self.keepgoing and errors:
@@ -270,10 +268,8 @@ class JobScheduler:
                 logger.debug("Selected jobs ({}):\n\t".format(len(run)) +
                              "\n\t".join(map(str, run)))
                 # update running jobs
-                logger.location("LOCK")
                 with self._lock:
                     self.running.update(run)
-                logger.location("UNLOCK")
                 logger.debug(
                     "Resources after job selection: {}".format(self.resources))
                 # actually run jobs
@@ -318,7 +314,6 @@ class JobScheduler:
                  print_progress=False,
                  update_resources=True):
         """ Do stuff after job is finished. """
-        logger.location("LOCK")
         with self._lock:
             # by calling this behind the lock, we avoid race conditions
             try:
@@ -344,7 +339,6 @@ class JobScheduler:
             if any(self.open_jobs) or not self.running:
                 # go on scheduling if open jobs are ready or no job is running
                 self._open_jobs.release()
-        logger.location("UNLOCK")
 
     def _error(self, job):
         with self._lock:
@@ -381,7 +375,6 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         Args:
             jobs (list):    list of jobs
         """
-        logger.location("LOCK")
         with self._lock:
             # each job is an item with one copy (0-1 MDKP)
             n = len(jobs)
@@ -428,7 +421,6 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             # update resources
             for name, b_i in zip(self.workflow.global_resources, b):
                 self.resources[name] = b_i
-            logger.location("UNLOCK")
             return solution
 
     def calc_resource(self, name, value):
