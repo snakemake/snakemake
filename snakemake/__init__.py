@@ -25,6 +25,7 @@ from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import Mode
 
+
 def snakemake(snakefile,
               listrules=False,
               list_target_rules=False,

@@ -10,11 +10,13 @@ from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate
 from contextlib import contextmanager
+import time
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
     GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor,
     KubernetesExecutor)
+from snakemake.exceptions import RuleException, WorkflowError
 
 from snakemake.logging import logger
 
@@ -79,7 +81,7 @@ class JobScheduler:
         self.resources = dict(self.workflow.global_resources)
 
         use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
-        self._open_jobs = threading.Event()
+        self._open_jobs = threading.Semaphore(0)
         self._lock = threading.Lock()
 
         self._errors = False
@@ -199,7 +201,7 @@ class JobScheduler:
             self.rate_limiter = RateLimiter(max_calls=sys.maxsize,
                                             period=1)
 
-        self._open_jobs.set()
+        self._open_jobs.release()
 
     @property
     def stats(self):
@@ -225,18 +227,18 @@ class JobScheduler:
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
-                while not self._open_jobs.wait(1):
-                    pass
+                #while not self._open_jobs.acquire(False):
+                #    time.sleep(1)
+                self._open_jobs.acquire()
 
                 # obtain needrun and running jobs in a thread-safe way
                 with self._lock:
                     needrun = list(self.open_jobs)
                     running = list(self.running)
-                # free the event
-                self._open_jobs.clear()
+                    errors = self._errors
 
                 # handle errors
-                if not self.keepgoing and self._errors:
+                if not self.keepgoing and errors:
                     logger.info("Will exit after finishing "
                                 "currently running jobs.")
 
@@ -248,9 +250,9 @@ class JobScheduler:
                 # normal shutdown because all jobs have been finished
                 if not needrun and not running:
                     self._executor.shutdown()
-                    if self._errors:
+                    if errors:
                         logger.error(_ERROR_MSG_FINAL)
-                    return not self._errors
+                    return not errors
 
                 # continue if no new job needs to be executed
                 if not needrun:
@@ -314,7 +316,14 @@ class JobScheduler:
         """ Do stuff after job is finished. """
         with self._lock:
             # by calling this behind the lock, we avoid race conditions
-            self.get_executor(job).handle_job_success(job)
+            try:
+                self.get_executor(job).handle_job_success(job)
+            except (RuleException, WorkflowError) as e:
+                # if an error occurs while processing job output,
+                # we do the same as in case of errors during execution
+                self._handle_error(job)
+                return
+
             self.dag.finish(job, update_dynamic=update_dynamic)
 
             if update_resources:
@@ -329,30 +338,33 @@ class JobScheduler:
 
             if any(self.open_jobs) or not self.running:
                 # go on scheduling if open jobs are ready or no job is running
-                self._open_jobs.set()
+                self._open_jobs.release()
 
     def _error(self, job):
+        with self._lock:
+            self._handle_error(job)
+   
+    def _handle_error(self, job):
         """Clear jobs and stop the workflow.
 
         If Snakemake is configured to restart jobs then the job might have
         "restart_times" left and we just decrement and let the scheduler
         try to run the job again.
         """
-        with self._lock:
-            self.get_executor(job).handle_job_error(job)
-            self.running.remove(job)
-            self._free_resources(job)
-            self._open_jobs.set()
-            # attempt starts counting from 1, but the first attempt is not
-            # a restart, hence we subtract 1.
-            if job.rule.restart_times > job.attempt - 1:
-                logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
-                job.attempt += 1
-            else:
-                self._errors = True
-                self.failed.add(job)
-                if self.keepgoing:
-                    logger.info("Job failed, going on with independent jobs.")
+        self.get_executor(job).handle_job_error(job)
+        self.running.remove(job)
+        self._free_resources(job)
+        # attempt starts counting from 1, but the first attempt is not
+        # a restart, hence we subtract 1.
+        if job.rule.restart_times > job.attempt - 1:
+            logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
+            job.attempt += 1
+        else:
+            self._errors = True
+            self.failed.add(job)
+            if self.keepgoing:
+                logger.info("Job failed, going on with independent jobs.")
+        self._open_jobs.release()
 
     def job_selector(self, jobs):
         """

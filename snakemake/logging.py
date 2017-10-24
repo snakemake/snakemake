@@ -13,6 +13,7 @@ import json
 import threading
 import tempfile
 from functools import partial
+import inspect
 
 from snakemake.common import DYNAMIC_FILL
 from snakemake.common import Mode
@@ -139,6 +140,12 @@ class Logger:
             # relative path is not "simple to read", use absolute path
             logfile = self.get_logfile()
         self.info("Complete log: {}".format(logfile))
+
+    def location(self, msg):
+        callerframerecord = inspect.stack()[1]
+        frame = callerframerecord[0]
+        info = inspect.getframeinfo(frame)
+        self.debug("{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info))
 
     def info(self, msg):
         self.handler(dict(level="info", msg=msg))
