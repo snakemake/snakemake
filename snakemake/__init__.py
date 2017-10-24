@@ -1215,6 +1215,7 @@ def get_argument_parser(profile=None):
         "invocation directory, or as an absolute path.")
     parser.add_argument(
         "--singularity-args",
+        default="",
         metavar="ARGS",
         help="Pass additional args to singularity.")
     parser.add_argument(

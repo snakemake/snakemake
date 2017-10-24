@@ -5,6 +5,7 @@ import hashlib
 
 from snakemake import conda
 from snakemake.common import lazy_property
+from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 
 
