@@ -43,7 +43,7 @@ class RemoteObject(gfal.RemoteObject):
                               stdout=sp.PIPE).stdout.decode()
             except sp.CalledProcessError as e:
                 if i == retry:
-                    raise WorkflowError("Error calling gfal-{}:\n{}".format(
+                    raise WorkflowError("Error calling globus-url-copy:\n{}".format(
                         cmd, e.stderr.decode()))
                 else:
                     # try again after some seconds
