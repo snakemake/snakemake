@@ -4,7 +4,22 @@ __email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
 
+import os
 import subprocess as sp
+import time
+
+from snakemake.exceptions import WorkflowError
+from snakemake.logging import logger
+
+
+if not shutil.which("globus-url-copy"):
+    raise WorkflowError("The globus-url-copy command has to be available for "
+                        "gridftp remote support.")
+
+if not shutil.which("gfal-ls"):
+    raise WorkflowError("The gfal-* commands need to be available for "
+                        "gridftp remote support.")
+
 
 from snakemake.remote import gfal
 
