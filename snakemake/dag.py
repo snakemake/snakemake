@@ -586,7 +586,7 @@ class DAG:
         logger.dag_debug(dict(status="selected", job=job))
 
         n = len(self.dependencies)
-        if progress and n % 100 == 0 and n and self._progress != n:
+        if progress and n % 1000 == 0 and n and self._progress != n:
             logger.info("Processed {} potential jobs.".format(n))
             self._progress = n
 

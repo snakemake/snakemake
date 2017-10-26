@@ -378,7 +378,7 @@ class Workflow:
             return True
 
         logger.info("Building DAG of jobs...")
-        dag.init(progress=True)
+        dag.init()
         dag.check_dynamic()
 
         if unlock:
