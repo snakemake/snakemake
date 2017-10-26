@@ -85,6 +85,7 @@ class DAG:
         self._jobid = dict()
         self.job_cache = dict()
         self.conda_envs = dict()
+        self._progress = 0
 
         self.forcerules = set()
         self.forcefiles = set()
@@ -585,8 +586,9 @@ class DAG:
         logger.dag_debug(dict(status="selected", job=job))
 
         n = len(self.dependencies)
-        if progress and n % 100 == 0 and n:
+        if progress and n % 100 == 0 and n and self._progress != n:
             logger.info("Processed {} potential jobs.".format(n))
+            self._progress = n
 
         return producer
 

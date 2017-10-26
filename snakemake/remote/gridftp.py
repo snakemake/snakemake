@@ -57,7 +57,6 @@ class RemoteObject(gfal.RemoteObject):
             target = "file://" + os.path.abspath(self.local_file())
 
             self._globus("-parallel", "4", "-create-dest", "-recurse",
-                         "-stall-timeout", "0",
                          source, target)
 
             os.sync()
