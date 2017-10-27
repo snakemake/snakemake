@@ -563,7 +563,7 @@ For an example see the `surfsara-grid configuration profile <https://github.com/
 GridFTP
 =======
 
-GridFTP support is available in Snakemake 4.2 and later.
+GridFTP support is available in Snakemake 4.3.0 and later.
 
 As a more specialized alternative to the GFAL remote provider, Snakemake provides a `GridFTP <https://en.wikipedia.org/wiki/GridFTP>`_ remote provider.
 This provider only supports the GridFTP protocol. Internally, it uses the `globus-url-copy <http://toolkit.globus.org/toolkit/docs/latest-stable/gridftp/user/#globus-url-copy>`_ command for downloads and uploads, while all other tasks are delegated to the GFAL remote provider.

@@ -1,5 +1,13 @@
 # Change Log
 
+## [4.3.0] - 2017-10-27
+### Added
+- GridFTP remote provider. This is a specialization of the GFAL remote provider that uses globus-url-copy to download or upload files.
+### Changed
+- Scheduling and execution mechanisms have undergone a major revision that removes several potential (but rare) deadlocks.
+- Several bugs and corner cases of the singularity support have been fixed.
+- Snakemake now requires singularity 2.4 at least.
+
 ## [4.2.0] - 2017-10-10
 ### Added
 - Support for executing jobs in per-rule singularity images. This is meant as an alternative to the conda directive (see docs), providing even more guarantees for reproducibility.
