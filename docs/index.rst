@@ -22,6 +22,8 @@ Welcome to Snakemake's documentation!
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
     :target: http://stackoverflow.com/questions/tagged/snakemake
 
+.. image:: https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow
+    :target: https://twitter.com/johanneskoester
 
 The Snakemake workflow management system is a tool to create reproducible and scalable data analyses.
 Workflows are described via a human readable, Python based language.
