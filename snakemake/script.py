@@ -275,9 +275,12 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                             py_exec = "python"
                         else:
                             logger.warning("Conda environment defines Python "
-                                        "version < {}.{}. Using Python of the "
+                                        "version < {0}.{1}. Using Python of the "
                                         "master process to execute "
-                                        "script.".format(*MIN_PY_VERSION))
+                                        "script. Note that this cannot be avoided, "
+                                        "because the script uses data structures from "
+                                        "Snakemake which are Python >={0}.{1} "
+                                        "only.".format(*MIN_PY_VERSION))
                 if singularity_img is not None:
                     # use python from image
                     py_exec = "python"
