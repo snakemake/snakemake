@@ -110,14 +110,16 @@ The remote provider also supports a new ``glob_wildcards()`` (see :ref:`glob-wil
 
     # (result looks just like as if the local glob_wildcards() function were used on a locally with a folder called "bucket-name")
 
-If the AWS CLI is installed it is possible to configure your keys. This removes the necessity of hardcoding the keys in the Snakefile. 
+If the AWS CLI is installed it is possible to configure your keys globally. This removes the necessity of hardcoding the keys in the Snakefile. The interactive AWS credentials setup can be done using the following command:
 
 .. code-block:: python
+
     aws configure
     
 S3 then can be used without the keys.  
 
-.. code-block:: python    
+.. code-block:: python  
+
     from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
     S3 = S3RemoteProvider()
 
