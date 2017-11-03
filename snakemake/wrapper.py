@@ -13,8 +13,6 @@ from urllib.request import urlopen
 from snakemake.exceptions import WorkflowError
 from snakemake.script import script
 
-# where to look for type of script?
-
 def is_script(path):
     return path.endswith("wrapper.py") or path.endswith("wrapper.R")
 
@@ -59,7 +57,6 @@ def get_script(path, prefix=None):
     is_local = path.startswith("file:")
     possible_extensions_ordered = [".py", ".R", ".Rmd"]
 
-    # chesk for path locally
     if not is_script(path) and is_local:
         path = find_local_extension(path, possible_extensions_ordered)
     elif not is_script(path) and not is_local:
