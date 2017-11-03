@@ -1,0 +1,5 @@
+rule r_wrapper:
+    output:
+        "deleteme"
+    wrapper:
+        "file://tests/test_r_wrapper"
