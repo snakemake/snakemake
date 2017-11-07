@@ -501,7 +501,7 @@ class Workflow:
                 print(*items, sep="\n")
             return True
 
-        if not keep_shadow:
+        if not keep_shadow and not dryrun:
             self.persistence.cleanup_shadow()
 
         if self.use_conda:
