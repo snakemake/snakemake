@@ -418,12 +418,15 @@ class Job:
 
         if self.rule.shadow_depth == "minimal":
             # Re-create the directory structure in the shadow directory
-            for f in set([os.path.dirname(item) for sublist in [self.input,self.output,self.log] if sublist is not None for item in sublist]):
-                if f and not os.path.isabs(f):
-                    rel_path=os.path.relpath(f)
+            for (f,d) in set([(item,os.path.dirname(item)) for sublist in [self.input,self.output,self.log] if sublist is not None for item in sublist]):
+                if d and not os.path.isabs(d):
+                    rel_path=os.path.relpath(d)
                     # Only create subdirectories
                     if not rel_path.split(os.path.sep)[0]=="..":
                         os.makedirs(os.path.join(self.shadow_dir, rel_path), exist_ok=True)
+                    else:
+                        raise RuleException("The following file name references a parent directory relative to your workdir.\n"
+                                            "This isn't supported for shadow: \"minimal\". Consider using an absolute path instead.\n{}".format(f),rule=self.rule)
 
             # Symlink the input files
             for rel_path in set([os.path.relpath(f) for f in self.input if not os.path.isabs(f)]):
