@@ -430,10 +430,9 @@ class Job:
 
             # Symlink the input files
             for rel_path in set([os.path.relpath(f) for f in self.input if not os.path.isabs(f)]):
-                if not rel_path.split(os.path.sep)[0]=="..":
-                    link=os.path.join(self.shadow_dir, rel_path)
-                    original=os.path.relpath(rel_path,os.path.dirname(link))
-                    os.symlink(original, link)
+                link=os.path.join(self.shadow_dir, rel_path)
+                original=os.path.relpath(rel_path,os.path.dirname(link))
+                os.symlink(original, link)
 
         # Shallow simply symlink everything in the working directory.
         elif self.rule.shadow_depth == "shallow":
