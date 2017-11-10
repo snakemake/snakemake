@@ -670,14 +670,15 @@ class GenericClusterExecutor(ClusterExecutor):
                     "Resume incomplete job {} with external jobid '{}'.".format(
                     jobid, ext_jobid))
                 submit_callback(job)
-                self.active_jobs.append(
-                    GenericClusterJob(job,
-                                      ext_jobid,
-                                      callback,
-                                      error_callback,
-                                      jobscript,
-                                      jobfinished,
-                                      jobfailed))
+                with self.lock:
+                    self.active_jobs.append(
+                        GenericClusterJob(job,
+                                          ext_jobid,
+                                          callback,
+                                          error_callback,
+                                          jobscript,
+                                          jobfinished,
+                                          jobfailed))
                 return
 
         deps = " ".join(self.external_jobid[f] for f in job.input
@@ -708,11 +709,16 @@ class GenericClusterExecutor(ClusterExecutor):
                 job, external_jobid=ext_jobid)
 
         submit_callback(job)
-        
+
         with self.lock:
             self.active_jobs.append(GenericClusterJob(job, ext_jobid, callback, error_callback, jobscript, jobfinished, jobfailed))
 
     def _wait_for_jobs(self):
+        #logger.debug("Setup rate limiter")
+        #status_rate_limiter = RateLimiter(
+        #    max_calls=self.max_status_checks_per_second,
+        #    period=1)
+        #logger.debug("Done setup rate limiter")
         success = "success"
         failed = "failed"
         running = "running"
@@ -749,7 +755,6 @@ class GenericClusterExecutor(ClusterExecutor):
             logger.debug("Checking status of {} jobs.".format(len(active_jobs)))
             for active_job in active_jobs:
                 with self.status_rate_limiter:
-                    logger.debug("Checking status of job {}.".format(active_job.jobid))
                     status = job_status(active_job)
 
                     if status == success:

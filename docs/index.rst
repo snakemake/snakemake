@@ -22,6 +22,8 @@ Welcome to Snakemake's documentation!
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
     :target: http://stackoverflow.com/questions/tagged/snakemake
 
+.. image:: https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow
+    :target: https://twitter.com/johanneskoester
 
 The Snakemake workflow management system is a tool to create reproducible and scalable data analyses.
 Workflows are described via a human readable, Python based language.
@@ -90,15 +92,15 @@ Citation
 
 See :doc:`Citations <project_info/citations>` for more information.
 
-----------------
-Related Projects
-----------------
+---------
+Resources
+---------
 
 `Snakemake Wrappers Repository <https://snakemake-wrappers.readthedocs.org>`_
     The Snakemake Wrapper Repository is a collection of reusable wrappers that allow to quickly use popular command line tools from Snakemake rules and workflows.
 
-`Snakemake Workflow Repository <https://bitbucket.org/snakemake/snakemake-workflows>`_
-    This repository provides a collection of high quality modularized and re-usable rules and workflows.
+`Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_
+    This project provides a collection of high quality modularized and re-usable workflows.
     The provided code should also serve as a best-practices of how to build production ready workflows with Snakemake.
     Everybody is invited to contribute.
 

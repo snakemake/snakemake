@@ -1,17 +1,39 @@
 import subprocess
+import shutil
 import os
 from urllib.parse import urlparse
 import hashlib
+from distutils.version import LooseVersion
 
 from snakemake import conda
 from snakemake.common import lazy_property
+from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 
 
 class Image:
     def __init__(self, url, dag):
+        if not shutil.which("singularity"):
+            raise WorkflowError("The singularity command has to be "
+                                "available in order to use singularity "
+                                "integration.")
+        try:
+            v = subprocess.check_output(["singularity", "--version"],
+                                        stderr=subprocess.PIPE).decode()
+        except subprocess.CalledProcessError as e:
+            raise WorkflowError(
+                "Failed to get singularity version:\n{}".format(
+                    e.stderr.decode()))
+        if not LooseVersion(v) >= LooseVersion("2.4"):
+            raise WorkflowError("Minimum singularity version is 2.4.")
+
         self.url = url
         self._img_dir = dag.workflow.persistence.singularity_img_path
+
+    @property
+    def is_local(self):
+        scheme = urlparse(self.url).scheme
+        return not scheme or scheme == "file"
 
     @lazy_property
     def hash(self):
@@ -20,17 +42,16 @@ class Image:
         return md5hash.hexdigest()
 
     def pull(self, dryrun=False):
+        if self.is_local:
+            return
         if dryrun:
             logger.info("Singularity image {} will be pulled.".format(self.url))
             return
         logger.debug("Singularity image location: {}".format(self.path))
-        scheme = urlparse(self.url).scheme
-        if not scheme or scheme == "file":
-            return
         if not os.path.exists(self.path):
             logger.info("Pulling singularity image {}.".format(self.url))
             try:
-                subprocess.check_output(["singularity", "pull",
+                p = subprocess.check_output(["singularity", "pull",
                                          "--name", self.hash, self.url],
                                         cwd=self._img_dir,
                                         stderr=subprocess.STDOUT)
@@ -42,7 +63,9 @@ class Image:
 
     @property
     def path(self):
-        return os.path.join(self._img_dir, self.hash) + ".img"
+        if self.is_local:
+            return urlparse(self.url).path
+        return os.path.join(self._img_dir, self.hash) + ".simg"
 
 
 def shellcmd(img_path, cmd, args):

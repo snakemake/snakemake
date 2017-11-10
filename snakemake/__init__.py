@@ -25,6 +25,7 @@ from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import Mode
 
+
 def snakemake(snakefile,
               listrules=False,
               list_target_rules=False,
@@ -1214,6 +1215,7 @@ def get_argument_parser(profile=None):
         "invocation directory, or as an absolute path.")
     parser.add_argument(
         "--singularity-args",
+        default="",
         metavar="ARGS",
         help="Pass additional args to singularity.")
     parser.add_argument(
@@ -1224,7 +1226,7 @@ def get_argument_parser(profile=None):
         "a different URL to use your fork or a local clone of the repository."
     )
     parser.add_argument("--default-remote-provider",
-                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal"],
+                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp"],
                         help="Specify default remote provider to be used for "
                         "all input and output files that don't yet specify "
                         "one.")

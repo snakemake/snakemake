@@ -378,7 +378,7 @@ class Workflow:
             return True
 
         logger.info("Building DAG of jobs...")
-        dag.init(progress=True)
+        dag.init()
         dag.check_dynamic()
 
         if unlock:
@@ -501,7 +501,7 @@ class Workflow:
                 print(*items, sep="\n")
             return True
 
-        if not keep_shadow:
+        if not keep_shadow and not dryrun:
             self.persistence.cleanup_shadow()
 
         if self.use_conda:
