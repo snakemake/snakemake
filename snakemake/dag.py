@@ -154,7 +154,7 @@ class DAG:
             except KeyError:
                 pass
 
-    def create_conda_envs(self, dryrun=False, forceall=False):
+    def create_conda_envs(self, dryrun=False, forceall=False, init_only=False):
         conda.check_conda()
         # First deduplicate based on job.conda_env_file
         jobs = self.jobs if forceall else self.needrun_jobs
@@ -168,7 +168,8 @@ class DAG:
             hash = env.hash
             self.conda_envs[env_file] = env
             if hash not in hash_set:
-                env.create(dryrun)
+                if not init_only:
+                    env.create(dryrun)
                 hash_set.add(hash)
 
     def pull_singularity_imgs(self, dryrun=False, forceall=False):

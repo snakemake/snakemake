@@ -256,6 +256,7 @@ class Workflow:
                 list_code_changes=False,
                 list_input_changes=False,
                 list_params_changes=False,
+                list_conda_envs=False,
                 summary=False,
                 archive=None,
                 detailed_summary=False,
@@ -499,6 +500,14 @@ class Workflow:
                 chain(*map(self.persistence.params_changed, dag.jobs)))
             if items:
                 print(*items, sep="\n")
+            return True
+        elif list_conda_envs:
+            from snakemake.utils import simplify_path
+            dag.create_conda_envs(init_only=True, forceall=True)
+            print("environment", "location", sep="\t")
+            for env in set(job.conda_env for job in dag.jobs):
+                if env:
+                    print(simplify_path(env.file), simplify_path(env.path), sep="\t")
             return True
 
         if not keep_shadow and not dryrun:
