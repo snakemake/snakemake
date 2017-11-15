@@ -80,7 +80,7 @@ class Persistence:
         if self.locked:
             logger.info(
                 "Error: Directory cannot be locked. This usually "
-                "means that another Snakemake instance is running on this directory."
+                "means that another Snakemake instance is running on this directory. "
                 "Another possiblity is that a previous run exited unexpectedly.")
 
     def lock(self):
