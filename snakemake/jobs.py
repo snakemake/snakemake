@@ -423,7 +423,7 @@ class Job:
                     rel_path = os.path.relpath(d)
                     # Only create subdirectories
                     if not rel_path.split(os.path.sep)[0] == "..":
-                        os.makedirs(os.path.join(self.shadow_dir, rel_path), exist_ok=True)
+                        os.makedirs(os.path.join(self.shadow_dir, rel_path), exist_ok = True)
                     else:
                         raise RuleException("The following file name references a parent directory relative to your workdir.\n"
                                             "This isn't supported for shadow: \"minimal\". Consider using an absolute path instead.\n{}".format(f),rule = self.rule)
