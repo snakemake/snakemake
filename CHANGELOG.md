@@ -1,5 +1,12 @@
 # Change Log
 
+## [4.3.1] - 2017-11-16
+### Added
+- List all conda environments with their location on disk via --list-conda-envs.
+### Changed
+- Do not clean up shadow on dry-run.
+- Allow R wrappers.
+
 ## [4.3.0] - 2017-10-27
 ### Added
 - GridFTP remote provider. This is a specialization of the GFAL remote provider that uses globus-url-copy to download or upload files.
