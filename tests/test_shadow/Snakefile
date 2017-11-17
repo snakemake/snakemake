@@ -164,7 +164,7 @@ rule minimal_ok:
     shell:
         """
         #test ! -w {input[0]}
-        #test -f benchmark_minimal.txt
+        test -f benchmark_minimal.txt
         test -f minimal.log
         test ! -f minimal_junk.out
         test ! -f outdir/minimal_junk.out
