@@ -3,19 +3,24 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import collections
 import os
 import shutil
 import re
 import stat
 import time
+import datetime
 import json
 import copy
 import functools
+import subprocess as sp
 from itertools import product, chain
 from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
+from copy import deepcopy
+
 from snakemake.common import DYNAMIC_FILL
 
 
@@ -30,24 +35,52 @@ def lutime(f, times):
     #target of a link.
     if os.utime in os.supports_follow_symlinks:
         #...utime is well behaved
-        return os.utime(f, times, follow_symlinks=False)
+        os.utime(f, times, follow_symlinks=False)
     elif not os.path.islink(f):
         #...symlinks not an issue here
-        return os.utime(f, times)
+        os.utime(f, times)
     else:
+        try:
+            # try the system command
+            if times:
+                fmt_time = lambda sec: datetime.fromtimestamp(sec).strftime("%Y%m%d%H%M.%S")
+                atime, mtime = times
+                sp.check_call(["touch", "-h", f, "-a", "-t", fmt_time(atime)])
+                sp.check_call(["touch", "-h", f, "-m", "-t", fmt_time(mtime)])
+            else:
+                sp.check_call(["touch", "-h", f])
+        except sp.CalledProcessError:
+            pass
         #...problem system.  Do nothing.
-        logger.warning("Unable to set utime on symlink {}.  Your Python build does not support it.".format(f))
+        logger.warning("Unable to set utime on symlink {}. Your Python build does not support it.".format(f))
         return None
 
 
 def lchmod(f, mode):
-    return os.chmod(
-        f,
-        mode,
-        follow_symlinks=os.chmod not in os.supports_follow_symlinks)
+    os.chmod(f,
+             mode,
+             follow_symlinks=os.chmod not in os.supports_follow_symlinks)
+
+
+class IOCache:
+    def __init__(self):
+        self.mtime = dict()
+        self.exists = dict()
+        self.size = dict()
+        self.active = True
+
+    def clear(self):
+        self.mtime.clear()
+        self.exists.clear()
+        self.size.clear()
+
+    def deactivate(self):
+        self.clear()
+        self.active = False
 
 
 def IOFile(file, rule=None):
+    assert rule is not None
     f = _IOFile(file)
     f.rule = rule
     return f
@@ -58,14 +91,35 @@ class _IOFile(str):
     A file that is either input or output of a rule.
     """
 
+    __slots__ = ["_is_function", "_file", "rule", "_regex"]
+
     def __new__(cls, file):
         obj = str.__new__(cls, file)
         obj._is_function = isfunction(file) or ismethod(file)
+        obj._is_function = obj._is_function or (
+            isinstance(file, AnnotatedString) and bool(file.callable))
         obj._file = file
         obj.rule = None
         obj._regex = None
 
+        if obj.is_remote:
+            obj.remote_object._iofile = obj
+
         return obj
+
+    def iocache(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if self.rule.workflow.iocache.active:
+                cache = getattr(self.rule.workflow.iocache, func.__name__)
+                if self in cache:
+                    return cache[self]
+                v = func(self, *args, **kwargs)
+                cache[self] = v
+                return v
+            else:
+                return func(self, *args, **kwargs)
+        return wrapper
 
     def _refer_to_remote(func):
         """
@@ -76,7 +130,6 @@ class _IOFile(str):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if self.is_remote:
-                self.update_remote_filepath()
                 if hasattr(self.remote_object, func.__name__):
                     return getattr(self.remote_object, func.__name__)(*args, **
                                                                       kwargs)
@@ -87,6 +140,10 @@ class _IOFile(str):
     @property
     def is_remote(self):
         return is_flagged(self._file, "remote_object")
+
+    @property
+    def is_ancient(self):
+        return is_flagged(self._file, "ancient")
 
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
@@ -100,8 +157,11 @@ class _IOFile(str):
         return get_flag_value(self._file, "remote_object").keep_local
 
     @property
+    def should_stay_on_remote(self):
+        return get_flag_value(self._file, "remote_object").stay_on_remote
+
+    @property
     def remote_object(self):
-        self.update_remote_filepath()
         return get_flag_value(self._file, "remote_object")
 
     @property
@@ -114,13 +174,30 @@ class _IOFile(str):
                              "may not be used directly.")
 
     def check(self):
+        hint = (
+            "It can also lead to inconsistent results of the file-matching "
+            "approach used by Snakemake."
+        )
         if self._file.startswith("./"):
-            logger.warning("File path {} starts with './'. This is redundant "
-                           "and strongly discouraged. It can also lead to "
-                           "inconsistent results of the file-matching approach "
-                           "used by Snakemake.".format(self._file))
+            logger.warning("Relative file path '{}' starts with './'. This is redundant "
+                           "and strongly discouraged. {} You can simply omit the './' "
+                           "for relative file paths.".format(self._file, hint))
+        if self._file.startswith(" "):
+            logger.warning("File path '{}' starts with whitespace. "
+                "This is likely unintended. {}".format(self._file, hint))
+        if self._file.endswith(" "):
+            logger.warning("File path '{}' ends with whitespace. "
+                "This is likely unintended. {}".format(self._file, hint))
+        if "\n" in self._file:
+            logger.warning("File path '{}' contains line break. "
+                "This is likely unintended. {}".format(self._file, hint))
+        if _double_slash_regex.search(self._file) is not None:
+            logger.warning("File path {} contains double '{}'. "
+                "This is likely unintended. {}".format(
+                    self._file, os.path.sep, hint))
 
     @property
+    @iocache
     @_refer_to_remote
     def exists(self):
         return self.exists_local
@@ -138,6 +215,7 @@ class _IOFile(str):
         return self.exists_local and not os.access(self.file, os.W_OK)
 
     @property
+    @iocache
     @_refer_to_remote
     def mtime(self):
         return self.mtime_local
@@ -152,6 +230,7 @@ class _IOFile(str):
         return getattr(self._file, "flags", {})
 
     @property
+    @iocache
     @_refer_to_remote
     def size(self):
         return self.size_local
@@ -172,7 +251,9 @@ class _IOFile(str):
     def is_newer(self, time):
         """ Returns true of the file is newer than time, or if it is
             a symlink that points to a file newer than time. """
-        if self.is_remote:
+        if self.is_ancient:
+            return False
+        elif self.is_remote:
             #If file is remote but provider does not override the implementation this
             #is the best we can do.
             return self.mtime > time
@@ -181,8 +262,10 @@ class _IOFile(str):
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
-            logger.info("Downloading from remote: {}".format(self.file))
-            self.remote_object.download()
+            if not self.should_stay_on_remote:
+                logger.info("Downloading from remote: {}".format(self.file))
+                self.remote_object.download()
+                logger.info("Finished download.")
         else:
             raise RemoteFileException(
                 "The file to be downloaded does not seem to exist remotely.")
@@ -191,6 +274,7 @@ class _IOFile(str):
         if self.is_remote:
             logger.info("Uploading to remote: {}".format(self.file))
             self.remote_object.upload()
+            logger.info("Finished upload.")
 
     def prepare(self):
         path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
@@ -216,7 +300,7 @@ class _IOFile(str):
             lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
-        remove(self.file, remove_non_empty_dir=remove_non_empty_dir)
+        remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
         """ times must be 2-tuple: (atime, mtime) """
@@ -295,6 +379,7 @@ class _IOFile(str):
             if "remote_object" in self._file.flags:
                 self._file.flags['remote_object'] = copy.copy(
                     self._file.flags['remote_object'])
+                self.update_remote_filepath()
 
     def set_flags(self, flags):
         if isinstance(self._file, str):
@@ -307,6 +392,11 @@ class _IOFile(str):
 
     def __hash__(self):
         return self._file.__hash__()
+
+
+_double_slash_regex = (re.compile(r"([^:]//|^//)")
+                       if os.path.sep == "/"
+                       else re.compile(r"\\\\"))
 
 
 _wildcard_regex = re.compile(
@@ -325,10 +415,18 @@ _wildcard_regex = re.compile(
     """, re.VERBOSE)
 
 
-def wait_for_files(files, latency_wait=3):
+def wait_for_files(files, latency_wait=3, force_stay_on_remote=False):
     """Wait for given files to be present in filesystem."""
     files = list(files)
-    get_missing = lambda: [f for f in files if not os.path.exists(f)]
+    def get_missing():
+        return [
+            f for f in files
+            if not (f.exists_remote
+                    if (isinstance(f, _IOFile) and
+                       f.is_remote and
+                       (force_stay_on_remote or f.should_stay_on_remote))
+                    else os.path.exists(f))]
+
     missing = get_missing()
     if missing:
         logger.info("Waiting at most {} seconds for missing files.".format(
@@ -355,21 +453,28 @@ def contains_wildcard_constraints(pattern):
 
 
 def remove(file, remove_non_empty_dir=False):
-    if os.path.exists(file):
-        if os.path.isdir(file):
-            if remove_non_empty_dir:
-                shutil.rmtree(file)
-            else:
-                try:
-                    os.removedirs(file)
-                except OSError as e:
-                    # skip non empty directories
-                    if e.errno == 39:
-                        logger.info("Skipped removing empty directory {}".format(e.filename))
-                    else:
-                        logger.warning(str(e))
+    if file.is_remote and file.should_stay_on_remote:
+        if file.exists_remote:
+            file.remote_object.remove()
+    elif os.path.isdir(file) and not os.path.islink(file):
+        if remove_non_empty_dir:
+            shutil.rmtree(file)
         else:
+            try:
+                os.removedirs(file)
+            except OSError as e:
+                # skip non empty directories
+                if e.errno == 39:
+                    logger.info("Skipped removing non-empty directory {}".format(e.filename))
+                else:
+                    logger.warning(str(e))
+    #Remember that dangling symlinks fail the os.path.exists() test, but
+    #we definitely still want to zap them. try/except is the safest way.
+    else:
+        try:
             os.remove(file)
+        except FileNotFoundError:
+            pass
 
 
 def regex(filepattern):
@@ -419,17 +524,20 @@ def apply_wildcards(pattern,
     return re.sub(_wildcard_regex, format_match, pattern)
 
 
-
-
-
 def not_iterable(value):
     return isinstance(value, str) or isinstance(value, dict) or not isinstance(
         value, Iterable)
 
 
+def is_callable(value):
+    return (callable(value) or
+            (isinstance(value, _IOFile) and value._is_function))
+
+
 class AnnotatedString(str):
     def __init__(self, value):
         self.flags = dict()
+        self.callable = value if is_callable(value) else None
 
 
 def flag(value, flag_type, flag_value=True):
@@ -457,6 +565,16 @@ def get_flag_value(value, flag_type):
             return value.flags[flag_type]
         else:
             return None
+
+
+def ancient(value):
+    """
+    A flag for an input file that shall be considered ancient; i.e. its timestamp shall have no effect on which jobs to run.
+    """
+    if is_flagged(value, "remote"):
+        raise SyntaxError(
+            "Ancient and remote flags are mutually exclusive.")
+    return flag(value, "ancient")
 
 
 def temp(value):
@@ -506,6 +624,19 @@ def dynamic(value):
 
 def touch(value):
     return flag(value, "touch")
+
+
+def unpack(value):
+    return flag(value, "unpack")
+
+
+def local(value):
+    """Mark a file as local file. This disables application of a default remote
+    provider.
+    """
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Remote and local flags are mutually exclusive.")
+    return flag(value, "local")
 
 
 def expand(*args, **wildcards):
@@ -575,7 +706,7 @@ def glob_wildcards(pattern, files=None):
     pattern = re.compile(regex(pattern))
 
     if files is None:
-        files = ((os.path.join(dirpath, f) if dirpath != "." else f)
+        files = (os.path.normpath(os.path.join(dirpath, f))
                  for dirpath, dirnames, filenames in os.walk(dirname)
                  for f in chain(filenames, dirnames))
 
@@ -605,19 +736,24 @@ def update_wildcard_constraints(pattern,
             return match.group(0)
         examined_names.add(name)
         # Don't override if constraint already set
-        if not constraint is None:
+        if constraint is not None:
             if name in wildcard_constraints:
                 raise ValueError("Wildcard {} is constrained by both the rule and the file pattern. Consider removing one of the constraints.")
             return match.group(0)
         # Only update if a new constraint has actually been set
-        elif not newconstraint is None:
+        elif newconstraint is not None:
             return "{{{},{}}}".format(name, newconstraint)
         else:
             return match.group(0)
 
     examined_names = set()
-    return re.sub(_wildcard_regex, replace_constraint, pattern)
+    updated = re.sub(_wildcard_regex, replace_constraint, pattern)
 
+    # inherit flags
+    if isinstance(pattern, AnnotatedString):
+        updated = AnnotatedString(updated)
+        updated.flags = deepcopy(pattern.flags)
+    return updated
 
 
 # TODO rewrite Namedlist!
@@ -695,7 +831,8 @@ class Namedlist(list):
     def allitems(self):
         next = 0
         for name, index in sorted(self._names.items(),
-                                  key=lambda item: item[1][0]):
+                key=lambda item: (item[1][0], item[1][0] + 1 if item[1][1] is None else item[1][1])):
+
             start, end = index
             if end is None:
                 end = start + 1
@@ -712,7 +849,7 @@ class Namedlist(list):
         add = len(items) - 1
         for name, (i, j) in self._names.items():
             if i > index:
-                self._names[name] = (i + add, j + add)
+                self._names[name] = (i + add, None if j is None else j + add)
             elif i == index:
                 self.set_name(name, i, end=i + len(items))
 
@@ -768,7 +905,7 @@ def _load_configfile(configpath):
     try:
         with open(configpath) as f:
             try:
-                return json.load(f)
+                return json.load(f, object_pairs_hook=collections.OrderedDict)
             except ValueError:
                 f.seek(0)  # try again
             try:
@@ -778,7 +915,17 @@ def _load_configfile(configpath):
                                     "has not been installed. Please install "
                                     "PyYAML to use YAML config files.")
             try:
-                return yaml.load(f)
+                # From http://stackoverflow.com/a/21912744/84349
+                class OrderedLoader(yaml.Loader):
+                    pass
+                def construct_mapping(loader, node):
+                    loader.flatten_mapping(node)
+                    return collections.OrderedDict(
+                        loader.construct_pairs(node))
+                OrderedLoader.add_constructor(
+                    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+                    construct_mapping)
+                return yaml.load(f, OrderedLoader)
             except yaml.YAMLError:
                 raise WorkflowError("Config file is not valid JSON or YAML. "
                                     "In case of YAML, make sure to not mix "
@@ -799,10 +946,11 @@ def load_configfile(configpath):
 
 
 class PeriodicityDetector:
-    def __init__(self, min_repeat=50, max_repeat=100):
+    def __init__(self, min_repeat=20, max_repeat=100):
         """
         Args:
-            max_len (int): The maximum length of the periodic substring.
+            max_repeat (int): The maximum length of the periodic substring.
+            min_repeat (int): The minimum length of the periodic substring.
         """
         self.regex = re.compile(
             "((?P<value>.+)(?P=value){{{min_repeat},{max_repeat}}})$".format(

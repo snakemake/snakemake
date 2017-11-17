@@ -1,0 +1,7 @@
+rule a:
+    output:
+        "test.out"
+    singularity:
+        "shub://vsoch/hello-world"
+    shell:
+        '/rawr.sh > {output}; echo "test" >> {output}'

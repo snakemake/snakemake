@@ -1,17 +1,25 @@
 channels:
   - bioconda
-  - r
+  - conda-forge
+  - defaults
 dependencies:
-  - rpy2 >=0.7.6
-  - boto
-  - moto
-  - httpretty ==0.8.10
-  - filechunkio
+  - python >=3.5
+  - boto3
+  - moto >=1.0.1
+  - httpretty
+  - wrapt
   - pyyaml
-  - nose
   - ftputil
   - pysftp
   - requests
   - dropbox
-  - numpy
+  - appdirs
+  - pytools
+  - docutils
+  - psutil
+  - pandas
+  - nomkl
+  - google-cloud-storage
+  - ratelimiter
+  - configargparse
   - appdirs

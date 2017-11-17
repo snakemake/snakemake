@@ -1,0 +1,22 @@
+localrules: all
+
+shell.executable('bash')
+
+rule all:
+    input: '.done'
+
+rule fails_sometimes:
+    output:
+        '.done'
+    resources:
+        mem=lambda wildcards, attempt: 100 * attempt
+    shell:
+        r"""
+        echo {resources.mem}
+        if [[ ! -f ".first" ]]; then
+            touch .first
+            exit 1
+        else
+            echo {resources.mem} > {output}
+        fi
+        """

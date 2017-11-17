@@ -97,28 +97,30 @@ def report(text, path,
 
     text = format(textwrap.dedent(text), stepout=3)
 
-    attachments = [textwrap.dedent("""
-        .. container::
-           :name: attachments
+    attachments = []
+    if files:
+        attachments = [textwrap.dedent("""
+            .. container::
+               :name: attachments
 
-        """)]
-    for name, _files in sorted(files.items()):
-        if not isinstance(_files, list):
-            _files = [_files]
-        links = []
-        for file in _files:
-            data = data_uri(file)
-            links.append(':raw-html:`<a href="{data}" download="{filename}" draggable="true">{filename}</a>`'.format(
-                data=data, filename=os.path.basename(file)))
-        links = "\n\n          ".join(links)
-        attachments.append('''
-   .. container::
-      :name: {name}
+            """)]
+        for name, _files in sorted(files.items()):
+            if not isinstance(_files, list):
+                _files = [_files]
+            links = []
+            for file in sorted(_files):
+                data = data_uri(file)
+                links.append(':raw-html:`<a href="{data}" download="{filename}" draggable="true">{filename}</a>`'.format(
+                    data=data, filename=os.path.basename(file)))
+            links = "\n\n              ".join(links)
+            attachments.append('''
+       .. container::
+          :name: {name}
 
-      {name}:
-          {links}
-            '''.format(name=name,
-                       links=links))
+          {name}:
+              {links}
+                '''.format(name=name,
+                           links=links))
 
     text = definitions + text + "\n\n" + "\n\n".join(attachments) + metadata
 

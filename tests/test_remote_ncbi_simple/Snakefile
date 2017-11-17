@@ -1,0 +1,14 @@
+from snakemake.remote.NCBI import RemoteProvider as NCBIRemoteProvider
+NCBI = NCBIRemoteProvider(email="someone@example.com") # email required by NCBI to prevent abuse
+
+rule all:
+    input:
+        "sizes.txt"
+
+rule download_and_count:
+    input:
+        NCBI.remote("KY785484.1.fasta", db="nuccore")
+    output:
+        "sizes.txt"
+    shell:
+        r"wc -c {input} | sed 's/^[ \t]*//' > sizes.txt"

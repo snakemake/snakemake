@@ -1,0 +1,18 @@
+box: 
+  id: quay.io/snakemake/snakemake
+  tag: master
+  registry: quay.io
+
+build:
+  steps:
+    - script:
+        name: env
+        code: conda env update --name test --file test-environment.yml
+
+    - script:
+        name: pip
+        code: source activate test; pip install -e .
+
+    - script:
+        name: run tests
+        code: source activate test; python setup.py nosetests

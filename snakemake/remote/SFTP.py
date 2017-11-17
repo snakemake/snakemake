@@ -3,13 +3,12 @@ __copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, re
+import os
 from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import SFTPFileException, WorkflowError
-import snakemake.io
 
 try:
     # third-party modules
@@ -20,8 +19,22 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, **kwargs):
-        super(RemoteProvider, self).__init__(*args, **kwargs)
+
+    supports_default = True
+
+    def __init__(self, *args, stay_on_remote=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+
+    @property
+    def default_protocol(self):
+        """The protocol that is prepended to the path when no protocol is specified."""
+        return 'sftp://'
+
+    @property
+    def available_protocols(self):
+        """List of valid protocols for this remote provider."""
+        return ['ssh://', 'sftp://']
+
 
 class RemoteObject(DomainObject):
     """ This is a class to interact with an SFTP server.
@@ -62,7 +75,7 @@ class RemoteObject(DomainObject):
                     return sftpc.isfile(self.remote_path)
             return False
         else:
-            raise SFTPFileException("The file cannot be parsed as an SFTP path in form 'host:port/path/to/file': %s" % self.file())
+            raise SFTPFileException("The file cannot be parsed as an SFTP path in form 'host:port/path/to/file': %s" % self.local_file())
 
     def mtime(self):
         if self.exists():
@@ -71,7 +84,7 @@ class RemoteObject(DomainObject):
                 attr = sftpc.lstat(self.remote_path)
                 return int(attr.st_mtime)
         else:
-            raise SFTPFileException("The file does not seem to exist remotely: %s" % self.file())
+            raise SFTPFileException("The file does not seem to exist remotely: %s" % self.local_file())
 
     def is_newer(self, time):
         """ Returns true of the file is newer than time, or if it is
@@ -96,8 +109,9 @@ class RemoteObject(DomainObject):
                     os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
 
                 sftpc.get(remotepath=self.remote_path, localpath=self.local_path, preserve_mtime=True)
+                os.sync() # ensure flush to disk
             else:
-                raise SFTPFileException("The file does not seem to exist remotely: %s" % self.file())
+                raise SFTPFileException("The file does not seem to exist remotely: %s" % self.local_file())
 
     def upload(self):
         with self.sftpc() as sftpc:

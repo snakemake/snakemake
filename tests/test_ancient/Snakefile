@@ -1,0 +1,28 @@
+shell("touch C;sleep 1;touch B;sleep 1;touch A;touch D")
+
+#Will not be executed even though A is newer
+rule a:
+    input:
+        ancient("A")
+    output:
+        "B"
+    shell:
+        "echo \"B recreated\" > {output}"
+
+#Will be executed because B is newer
+rule b:
+    input:
+        "B"
+    output:
+        "C"
+    shell:
+        "echo \"C recreated\" > {output}"
+
+#Will be executed because C was updated in rule b
+rule c:
+    input:
+        ancient("C")
+    output:
+        "D"
+    shell:
+        "echo \"D recreated\" > {output}"

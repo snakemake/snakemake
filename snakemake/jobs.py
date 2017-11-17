@@ -3,22 +3,27 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import hashlib
 import os
 import sys
 import base64
 import tempfile
+import subprocess
 
 from collections import defaultdict
 from itertools import chain
 from functools import partial
 from operator import attrgetter
+from urllib.request import urlopen
+from urllib.parse import urlparse
 
-from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard
+from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard, lstat
 from snakemake.utils import format, listfiles
-from snakemake.exceptions import RuleException, ProtectedOutputException
-from snakemake.exceptions import UnexpectedOutputException
+from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
+from snakemake.exceptions import UnexpectedOutputException, CreateCondaEnvironmentException
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL
+from snakemake.common import DYNAMIC_FILL, lazy_property
+from snakemake import conda, wrapper
 
 
 def jobfiles(jobs, type):
@@ -28,12 +33,19 @@ def jobfiles(jobs, type):
 class Job:
     HIGHEST_PRIORITY = sys.maxsize
 
-    def __init__(self, rule, dag, targetfile=None, format_wildcards=None):
+    __slots__ = ["rule", "dag", "wildcards_dict", "wildcards",
+                 "_format_wildcards", "input", "dependencies", "output",
+                 "_params", "_log", "_benchmark", "_resources",
+                 "_conda_env_file", "_conda_env", "shadow_dir", "_inputsize",
+                 "dynamic_output", "dynamic_input",
+                 "temp_output", "protected_output", "touch_output",
+                 "subworkflow_input", "_hash", "_attempt"]
+
+    def __init__(self, rule, dag, wildcards_dict=None, format_wildcards=None):
         self.rule = rule
         self.dag = dag
-        self.targetfile = targetfile
 
-        self.wildcards_dict = self.rule.get_wildcards(targetfile)
+        self.wildcards_dict = wildcards_dict
         self.wildcards = Wildcards(fromdict=self.wildcards_dict)
         self._format_wildcards = (self.wildcards if format_wildcards is None
                                   else Wildcards(fromdict=format_wildcards))
@@ -45,9 +57,13 @@ class Job:
         self._log = None
         self._benchmark = None
         self._resources = None
+        self._conda_env_file = None
+        self._conda_env = None
 
         self.shadow_dir = None
         self._inputsize = None
+
+        self._attempt = self.dag.workflow.attempt
 
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
@@ -69,18 +85,30 @@ class Job:
                 self.dynamic_input.add(f)
             if f_ in self.rule.subworkflow_input:
                 self.subworkflow_input[f] = self.rule.subworkflow_input[f_]
+            elif "subworkflow" in f.flags:
+                self.subworkflow_input[f] = f.flags["subworkflow"]
         self._hash = self.rule.__hash__()
-        if True or not self.dynamic_output:
-            for o in self.output:
-                self._hash ^= o.__hash__()
+        for o in self.output:
+            self._hash ^= o.__hash__()
 
     def is_valid(self):
         """Check if job is valid"""
         # these properties have to work in dry-run as well. Hence we check them here:
-        resources = self.rule.expand_resources(self.wildcards_dict, self.input)
-        self.rule.expand_params(self.wildcards_dict, self.input, resources)
+        resources = self.rule.expand_resources(self.wildcards_dict, self.input, self.attempt)
+        self.rule.expand_params(self.wildcards_dict, self.input, self.output, resources)
         self.rule.expand_benchmark(self.wildcards_dict)
         self.rule.expand_log(self.wildcards_dict)
+
+    def outputs_older_than_script(self):
+        """return output that's older than script, i.e. script has changed"""
+        if not self.is_script:
+            return
+        assert os.path.exists(self.rule.script)# to make sure lstat works
+        script_mtime = lstat(self.rule.script).st_mtime
+        for f in self.expanded_output:
+            if f.exists:
+                if not f.is_newer(script_mtime):
+                    yield f
 
     @property
     def threads(self):
@@ -91,6 +119,7 @@ class Job:
         if self._params is None:
             self._params = self.rule.expand_params(self.wildcards_dict,
                                                    self.input,
+                                                   self.output,
                                                    self.resources)
         return self._params
 
@@ -107,11 +136,69 @@ class Job:
         return self._benchmark
 
     @property
+    def attempt(self):
+        return self._attempt
+
+    @attempt.setter
+    def attempt(self, attempt):
+        # reset resources
+        self._resources = None
+        self._attempt = attempt
+
+    @property
     def resources(self):
         if self._resources is None:
             self._resources = self.rule.expand_resources(self.wildcards_dict,
-                                                         self.input)
+                                                         self.input,
+                                                         self.attempt)
         return self._resources
+
+    @property
+    def conda_env_file(self):
+        if self._conda_env_file is None:
+            expanded_env = self.rule.expand_conda_env(self.wildcards_dict)
+            scheme, _, path, *_ = urlparse(expanded_env)
+            # Normalize 'file:///my/path.yml' to '/my/path.yml'
+            if scheme == 'file' or not scheme:
+                self._conda_env_file = path
+            else:
+                self._conda_env_file = expanded_env
+        return self._conda_env_file
+
+    @property
+    def conda_env(self):
+        if self.conda_env_file:
+            if self._conda_env is None:
+                self._conda_env = self.dag.conda_envs.get(self.conda_env_file)
+            logger.debug("Accessing conda environment {}.".format(self._conda_env))
+            if self._conda_env is None:
+                raise ValueError("Conda environment {} not found in DAG.".format(self.conda_env_file))
+            return self._conda_env
+        return None
+
+    @property
+    def conda_env_path(self):
+        return self.conda_env.path if self.conda_env else None
+
+    def archive_conda_env(self):
+        """Archive a conda environment into a custom local channel."""
+        if self.conda_env_file:
+            return self.conda_env.create_archive()
+        return None
+
+    @property
+    def singularity_img_url(self):
+        return self.rule.singularity_img
+
+    @property
+    def singularity_img(self):
+        if self.singularity_img_url:
+            return self.dag.singularity_imgs[self.singularity_img_url]
+        return None
+
+    @property
+    def singularity_img_path(self):
+        return self.singularity_img.path if self.singularity_img else None
 
     @property
     def is_shadow(self):
@@ -161,6 +248,22 @@ class Job:
             raise RuleException("Unknown variable when printing "
                                 "shell command: {}".format(str(ex)),
                                 rule=self.rule)
+
+    @property
+    def is_shell(self):
+        return self.rule.shellcmd is not None
+
+    @property
+    def is_norun(self):
+        return self.rule.norun
+
+    @property
+    def is_script(self):
+        return self.rule.script is not None
+
+    @property
+    def is_wrapper(self):
+        return self.rule.wrapper is not None
 
     @property
     def expanded_output(self):
@@ -344,7 +447,8 @@ class Job:
 
         for f in self.input:
             if f.is_remote:
-                if not f.exists_local and f.exists_remote:
+                if (not f.exists_local and f.exists_remote) and (
+                    not self.rule.norun or f.remote_object.keep_local):
                     toDownload.add(f)
 
         toDownload = toDownload | self.remote_input_newer_than_local
@@ -378,6 +482,10 @@ class Job:
                 #No file == no problem
                 pass
 
+    def download_remote_input(self):
+        for f in self.files_to_download:
+            f.download_from_remote()
+
     def prepare(self):
         """
         Prepare execution of job.
@@ -396,18 +504,17 @@ class Job:
                 "present when the DAG was created:\n{}".format(
                     self.rule, unexpected_output))
 
+        self.remove_existing_output()
+
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
-        for f in self.files_to_download:
-            f.download_from_remote()
+        self.download_remote_input()
 
         for f in self.log:
             f.prepare()
         if self.benchmark:
             self.benchmark.prepare()
-
-        self.remove_existing_output()
 
         if not self.is_shadow:
             return
@@ -461,7 +568,6 @@ class Job:
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
 
-
     def close_remote(self):
         for f in (self.input + self.output):
             if f.is_remote:
@@ -471,8 +577,11 @@ class Job:
         """ Cleanup output files. """
         to_remove = [f for f in self.expanded_output if f.exists]
 
-        to_remove.extend([f for f in self.remote_input if f.exists])
-        to_remove.extend([f for f in self.remote_output if f.exists_local])
+        to_remove.extend([f for f in self.remote_input if f.exists_local])
+        to_remove.extend([
+            f for f in self.remote_output
+            if (f.exists_remote if (f.is_remote and f.should_stay_on_remote) else f.exists_local)
+        ])
         if to_remove:
             logger.info("Removing output files of failed job {}"
                         " since they might be corrupted:\n{}".format(
@@ -485,7 +594,7 @@ class Job:
     @property
     def empty_remote_dirs(self):
         for f in (set(self.output) | set(self.input)):
-            if f.is_remote:
+            if f.is_remote and not f.should_stay_on_remote:
                 if os.path.exists(os.path.dirname(f)) and not len(os.listdir(
                         os.path.dirname(f))):
                     yield os.path.dirname(f)
@@ -532,9 +641,12 @@ class Job:
             "local": self.dag.workflow.is_local(self.rule),
             "input": self.input,
             "output": self.output,
+            "wildcards": self.wildcards,
             "params": params,
+            "log": self.log,
             "threads": self.threads,
             "resources": resources,
+            "jobid": self.dag.jobid(self)
         }
         properties.update(aux_properties)
         return properties
@@ -567,15 +679,35 @@ class Job:
 
 
 class Reason:
+
+    __slots__ = ["_updated_input", "_updated_input_run", "_missing_output",
+                 "_incomplete_output", "forced", "noio", "nooutput", "derived"]
+
     def __init__(self):
-        self.updated_input = set()
-        self.updated_input_run = set()
-        self.missing_output = set()
-        self.incomplete_output = set()
+        self._updated_input = None
+        self._updated_input_run = None
+        self._missing_output = None
+        self._incomplete_output = None
         self.forced = False
         self.noio = False
         self.nooutput = False
         self.derived = True
+
+    @lazy_property
+    def updated_input(self):
+        return set()
+
+    @lazy_property
+    def updated_input_run(self):
+        return set()
+
+    @lazy_property
+    def missing_output(self):
+        return set()
+
+    @lazy_property
+    def incomplete_output(self):
+        return set()
 
     def __str__(self):
         s = list()
@@ -589,17 +721,17 @@ class Reason:
                 s.append("Rules with a run or shell declaration but no output "
                          "are always executed.")
             else:
-                if self.missing_output:
+                if self._missing_output:
                     s.append("Missing output files: {}".format(", ".join(
                         self.missing_output)))
-                if self.incomplete_output:
+                if self._incomplete_output:
                     s.append("Incomplete output files: {}".format(", ".join(
                         self.incomplete_output)))
-                updated_input = self.updated_input - self.updated_input_run
-                if updated_input:
+                if self._updated_input:
+                    updated_input = self.updated_input - self.updated_input_run
                     s.append("Updated input files: {}".format(", ".join(
                         updated_input)))
-                if self.updated_input_run:
+                if self._updated_input_run:
                     s.append("Input files updated by another job: {}".format(
                         ", ".join(self.updated_input_run)))
         s = "; ".join(s)

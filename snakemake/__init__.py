@@ -6,7 +6,6 @@ __license__ = "MIT"
 import os
 import subprocess
 import glob
-import argparse
 from argparse import ArgumentError
 import logging as _logging
 import re
@@ -15,14 +14,17 @@ import inspect
 import threading
 import webbrowser
 from functools import partial
+import importlib
 
 from snakemake.workflow import Workflow
-from snakemake.exceptions import print_exception
+from snakemake.exceptions import print_exception, WorkflowError
 from snakemake.logging import setup_logger, logger
 from snakemake.version import __version__
 from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
+from snakemake.common import Mode
+
 
 def snakemake(snakefile,
               listrules=False,
@@ -47,6 +49,7 @@ def snakemake(snakefile,
               stats=None,
               printreason=False,
               printshellcmds=False,
+              debug_dag=False,
               printdag=False,
               printrulegraph=False,
               printd3dag=False,
@@ -57,6 +60,7 @@ def snakemake(snakefile,
               cluster_config=None,
               cluster_sync=None,
               drmaa=None,
+              drmaa_log_dir=None,
               jobname="snakejob.{rulename}.{jobid}.sh",
               immediate_submit=False,
               standalone=False,
@@ -73,6 +77,7 @@ def snakemake(snakefile,
               list_params_changes=False,
               list_resources=False,
               summary=False,
+              archive=None,
               detailed_summary=False,
               latency_wait=3,
               benchmark_repeats=1,
@@ -94,8 +99,27 @@ def snakemake(snakefile,
               log_handler=None,
               keep_logger=False,
               max_jobs_per_second=None,
+              max_status_checks_per_second=100,
+              restart_times=0,
+              attempt=1,
               verbose=False,
-              force_use_threads=False):
+              force_use_threads=False,
+              use_conda=False,
+              use_singularity=False,
+              singularity_args="",
+              conda_prefix=None,
+              list_conda_envs=False,
+              singularity_prefix=None,
+              create_envs_only=False,
+              mode=Mode.default,
+              wrapper_prefix=None,
+              kubernetes=None,
+              kubernetes_envvars=None,
+              container_image=None,
+              default_remote_provider=None,
+              default_remote_prefix="",
+              assume_shared_fs=True,
+              cluster_status=None):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -130,11 +154,12 @@ def snakemake(snakefile,
         cluster_config (str,list):  configuration file for cluster options, or list thereof (default None)
         cluster_sync (str):         blocking cluster submission command (like SGE 'qsub -sync y')  (default None)
         drmaa (str):                if not None use DRMAA for cluster support, str specifies native args passed to the cluster when submitting a job
+        drmaa_log_dir (str):        the path to stdout and stderr output of DRMAA jobs (default None)
         jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
         standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False) (deprecated)
         ignore_ambiguity (bool):    ignore ambiguous rules and always take the first possible one (default False)
-        snakemakepath (str):        path to the snakemake executable (default None)
+        snakemakepath (str):        Deprecated parameter whose value is ignored. Do not use.
         lock (bool):                lock the working directory when executing the workflow (default True)
         unlock (bool):              just unlock the working directory (default False)
         cleanup_metadata (bool):    just cleanup metadata of output files (default False)
@@ -145,6 +170,7 @@ def snakemake(snakefile,
         list_input_changes (bool):  list output files with changed input files (default False)
         list_params_changes (bool): list output files with changed params (default False)
         summary (bool):             list summary of all output files and their status (default False)
+        archive (str):              archive workflow into the given tarball
         latency_wait (int):         how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
         benchmark_repeats (int):    number of repeated runs of a job if declared for benchmarking (default 1)
         wait_for_files (list):      wait for given files to be present before executing the workflow
@@ -164,10 +190,28 @@ def snakemake(snakefile,
         greediness (float):         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
         overwrite_shellcmd (str):   a shell command that shall be executed instead of those given in the workflow. This is for debugging purposes only.
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
-        verbose(bool):              show additional debug output (default False)
+        verbose (bool):             show additional debug output (default False)
+        max_jobs_per_second (int):  maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
+        restart_times (int):        number of times to restart failing jobs (default 0)
+        attempt (int):              initial value of Job.attempt. This is intended for internal use only (default 1).
+        force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
+        use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
+        use_singularity (bool):     run jobs in singularity containers (if defined with singularity directive)
+        singularity_args (str):     additional arguments to pass to singularity
+        conda_prefix (str):         the directory in which conda environments will be created (default None)
+        singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
+        create_envs_only (bool):    If specified, only builds the conda environments specified for each job, then exits.
+        list_conda_envs (bool):     List conda environments and their location on disk.
+        mode (snakemake.common.Mode): Execution mode
+        wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
+        kubernetes (str):           Submit jobs to kubernetes, using the given namespace.
+        kubernetes_env (list):      Environment variables that shall be passed to kubernetes jobs.
+        container_image (str):         Docker image to use, e.g., for kubernetes.
+        default_remote_provider (str): Default remote provider to use instead of local files (e.g. S3, GS)
+        default_remote_prefix (str): Prefix for default remote provider (e.g. name of the bucket).
+        assume_shared_fs (bool):    Assume that cluster nodes share a common filesystem (default true).
+        cluster_status (str):       Status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
-        max_jobs_per_second:        maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
-        force_use_threads:         whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -212,6 +256,7 @@ def snakemake(snakefile,
         bool:   True if workflow execution was successful.
 
     """
+    assert not immediate_submit or (immediate_submit and notemp), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
 
     if updated_files is None:
         updated_files = list()
@@ -230,24 +275,30 @@ def snakemake(snakefile,
         configs = [load_configfile(f) for f in cluster_config]
         # Merge in the order as specified, overriding earlier values with
         # later ones
-        cluster_config = configs[0]
+        cluster_config_content = configs[0]
         for other in configs[1:]:
-            update_config(cluster_config, other)
+            update_config(cluster_config_content, other)
     else:
-        cluster_config = dict()
+        cluster_config_content = dict()
 
     # force thread use for any kind of cluster
     use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
     if not keep_logger:
+        stdout = (
+            (dryrun and not (printdag or printd3dag or printrulegraph)) or
+            listrules or list_target_rules or list_resources
+        )
         setup_logger(handler=log_handler,
                      quiet=quiet,
                      printreason=printreason,
                      printshellcmds=printshellcmds,
+                     debug_dag=debug_dag,
                      nocolor=nocolor,
-                     stdout=dryrun and not (printdag or printd3dag or printrulegraph),
+                     stdout=stdout,
                      debug=verbose,
                      timestamp=timestamp,
-                     use_threads=use_threads)
+                     use_threads=use_threads,
+                     mode=mode)
 
     if greediness is None:
         greediness = 0.5 if prioritytargets else 1.0
@@ -274,8 +325,11 @@ def snakemake(snakefile,
     overwrite_config = dict()
     if configfile:
         overwrite_config.update(load_configfile(configfile))
+        configfile = os.path.abspath(configfile)
     if config:
         overwrite_config.update(config)
+        if config_args is None:
+            config_args = unparse_config(config)
 
     if workdir:
         olddir = os.getcwd()
@@ -285,18 +339,44 @@ def snakemake(snakefile,
             os.makedirs(workdir)
         workdir = os.path.abspath(workdir)
         os.chdir(workdir)
-    workflow = Workflow(snakefile=snakefile,
-                        snakemakepath=snakemakepath,
+
+    try:
+        # handle default remote provider
+        _default_remote_provider = None
+        if default_remote_provider is not None:
+            try:
+                rmt = importlib.import_module("snakemake.remote." +
+                                              default_remote_provider)
+            except ImportError as e:
+                raise WorkflowError("Unknown default remote provider.")
+            if rmt.RemoteProvider.supports_default:
+                _default_remote_provider = rmt.RemoteProvider()
+            else:
+                raise WorkflowError("Remote provider {} does not (yet) support to "
+                                    "be used as default provider.")
+
+        workflow = Workflow(snakefile=snakefile,
                         jobscript=jobscript,
                         overwrite_shellcmd=overwrite_shellcmd,
                         overwrite_config=overwrite_config,
                         overwrite_workdir=workdir,
                         overwrite_configfile=configfile,
-                        overwrite_clusterconfig=cluster_config,
+                        overwrite_clusterconfig=cluster_config_content,
                         config_args=config_args,
-                        debug=debug)
-    success = True
-    try:
+                        debug=debug,
+                        use_conda=use_conda,
+                        use_singularity=use_singularity,
+                        conda_prefix=conda_prefix,
+                        singularity_prefix=singularity_prefix,
+                        singularity_args=singularity_args,
+                        mode=mode,
+                        wrapper_prefix=wrapper_prefix,
+                        printshellcmds=printshellcmds,
+                        restart_times=restart_times,
+                        attempt=attempt,
+                        default_remote_provider=_default_remote_provider,
+                        default_remote_prefix=default_remote_prefix)
+        success = True
         workflow.include(snakefile,
                          overwrite_first_rule=True,
                          print_compilation=print_compilation)
@@ -321,17 +401,20 @@ def snakemake(snakefile,
                                        touch=touch,
                                        printreason=printreason,
                                        printshellcmds=printshellcmds,
+                                       debug_dag=debug_dag,
                                        nocolor=nocolor,
                                        quiet=quiet,
                                        keepgoing=keepgoing,
                                        cluster=cluster,
                                        cluster_sync=cluster_sync,
                                        drmaa=drmaa,
+                                       drmaa_log_dir=drmaa_log_dir,
                                        jobname=jobname,
                                        immediate_submit=immediate_submit,
                                        standalone=standalone,
                                        ignore_ambiguity=ignore_ambiguity,
-                                       snakemakepath=snakemakepath,
+                                       restart_times=restart_times,
+                                       attempt=attempt,
                                        lock=lock,
                                        unlock=unlock,
                                        cleanup_metadata=cleanup_metadata,
@@ -350,9 +433,27 @@ def snakemake(snakefile,
                                        overwrite_shellcmd=overwrite_shellcmd,
                                        config=config,
                                        config_args=config_args,
+                                       cluster_config=cluster_config,
                                        keep_logger=True,
                                        keep_shadow=True,
-                                       force_use_threads=use_threads)
+                                       force_use_threads=use_threads,
+                                       use_conda=use_conda,
+                                       use_singularity=use_singularity,
+                                       conda_prefix=conda_prefix,
+                                       singularity_prefix=singularity_prefix,
+                                       singularity_args=singularity_args,
+                                       list_conda_envs=list_conda_envs,
+                                       kubernetes=kubernetes,
+                                       kubernetes_envvars=kubernetes_envvars,
+                                       container_image=container_image,
+                                       create_envs_only=create_envs_only,
+                                       default_remote_provider=default_remote_provider,
+                                       default_remote_prefix=default_remote_prefix,
+                                       assume_shared_fs=assume_shared_fs,
+                                       cluster_status=cluster_status,
+                                       max_jobs_per_second=max_jobs_per_second,
+                                       max_status_checks_per_second=max_status_checks_per_second)
+
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
@@ -376,7 +477,12 @@ def snakemake(snakefile,
                     cluster_sync=cluster_sync,
                     jobname=jobname,
                     drmaa=drmaa,
+                    drmaa_log_dir=drmaa_log_dir,
+                    kubernetes=kubernetes,
+                    kubernetes_envvars=kubernetes_envvars,
+                    container_image=container_image,
                     max_jobs_per_second=max_jobs_per_second,
+                    max_status_checks_per_second=max_status_checks_per_second,
                     printd3dag=printd3dag,
                     immediate_submit=immediate_submit,
                     ignore_ambiguity=ignore_ambiguity,
@@ -387,7 +493,9 @@ def snakemake(snakefile,
                     list_code_changes=list_code_changes,
                     list_input_changes=list_input_changes,
                     list_params_changes=list_params_changes,
+                    list_conda_envs=list_conda_envs,
                     summary=summary,
+                    archive=archive,
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
                     wait_for_files=wait_for_files,
@@ -406,7 +514,10 @@ def snakemake(snakefile,
                     allowed_rules=allowed_rules,
                     greediness=greediness,
                     no_hooks=no_hooks,
-                    force_use_threads=use_threads)
+                    force_use_threads=use_threads,
+                    create_envs_only=create_envs_only,
+                    assume_shared_fs=assume_shared_fs,
+                    cluster_status=cluster_status)
 
     except BrokenPipeError:
         # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
@@ -415,6 +526,7 @@ def snakemake(snakefile,
     except (Exception, BaseException) as ex:
         print_exception(ex, workflow.linemaps)
         success = False
+
     if workdir:
         os.chdir(olddir)
     if workflow.persistence:
@@ -425,6 +537,7 @@ def snakemake(snakefile,
 
 
 def parse_resources(args):
+    """Parse resources from args."""
     resources = dict()
     if args.resources is not None:
         valid = re.compile("[a-zA-Z_]\w*$")
@@ -450,6 +563,7 @@ def parse_resources(args):
 
 
 def parse_config(args):
+    """Parse config from args."""
     parsers = [int, float, eval, str]
     config = dict()
     if args.config is not None:
@@ -468,7 +582,7 @@ def parse_config(args):
                 try:
                     v = parser(val)
                     # avoid accidental interpretation as function
-                    if not isinstance(v, callable):
+                    if not callable(v):
                         break
                 except:
                     pass
@@ -477,15 +591,98 @@ def parse_config(args):
     return config
 
 
-def get_argument_parser():
-    parser = argparse.ArgumentParser(
+def unparse_config(config):
+    if not isinstance(config, dict):
+        raise ValueError("config is not a dict")
+    items = []
+    for key, value in config.items():
+        if isinstance(value, dict):
+            raise ValueError("config may only be a flat dict")
+        encoded = "'{}'".format(value) if isinstance(value, str) else value
+        items.append("{}={}".format(key, encoded))
+    return items
+
+
+APPDIRS = None
+
+
+def get_appdirs():
+    global APPDIRS
+    if APPDIRS is None:
+        from appdirs import AppDirs
+        APPDIRS = AppDirs("snakemake", "snakemake")
+    return APPDIRS
+
+
+def get_profile_file(profile, file, return_default=False):
+    dirs = get_appdirs()
+    if os.path.isabs(profile):
+        search_dirs = [os.path.dirname(profile)]
+        profile = os.path.basename(profile)
+    else:
+        search_dirs = [os.getcwd(),
+                       dirs.user_config_dir,
+                       dirs.site_config_dir]
+    get_path = lambda d: os.path.join(d, profile, file)
+    for d in search_dirs:
+        p = get_path(d)
+        if os.path.exists(p):
+            return p
+
+    if return_default:
+        return file
+    return None
+
+
+def get_argument_parser(profile=None):
+    """Generate and return argument parser."""
+    import configargparse
+    from configargparse import YAMLConfigFileParser
+
+    dirs = get_appdirs()
+    config_files = []
+    if profile:
+        if profile == "":
+            print("Error: invalid profile name.", file=sys.stderr)
+            exit(1)
+
+        config_file = get_profile_file(profile, "config.yaml")
+        if config_file is None:
+            print("Error: profile given but no config.yaml found. "
+                  "Profile has to be given as either absolute path, relative "
+                  "path or name of a directory available in either "
+                  "{site} or {user}.".format(
+                      site=dirs.site_config_dir,
+                      user=dirs.user_config_dir), file=sys.stderr)
+            exit(1)
+        config_files = [config_file]
+
+    parser = configargparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
-        "environment for GNU Make-like workflows.")
+        "environment for GNU Make-like workflows.",
+        default_config_files=config_files,
+        config_file_parser_class=YAMLConfigFileParser)
 
     parser.add_argument("target",
                         nargs="*",
                         default=None,
                         help="Targets to build. May be rules or files.")
+
+    parser.add_argument("--profile",
+                        help="""
+                        Name of profile to use for configuring
+                        Snakemake. Snakemake will search for a corresponding
+                        folder in {} and {}. Alternatively, this can be an
+                        absolute or relative path.
+                        The profile folder has to contain a file 'config.yaml'.
+                        This file can be used to set default values for command
+                        line options in YAML format. For example,
+                        '--cluster qsub' becomes 'cluster: qsub' in the YAML
+                        file. Profiles can be obtained from
+                        https://github.com/snakemake-profiles.
+                        """.format(dirs.site_config_dir,
+                                   dirs.user_config_dir))
+
     parser.add_argument("--snakefile", "-s",
                         metavar="FILE",
                         default="Snakefile",
@@ -495,9 +692,14 @@ def get_argument_parser():
         nargs="?",
         const="8000",
         metavar="PORT",
-        type=int,
-        help="Serve an HTML based user interface to the given port "
-        "(default: 8000). If possible, a browser window is opened.")
+        type=str,
+        help="Serve an HTML based user interface to the given network and "
+        "port e.g. 168.129.10.15:8000. By default Snakemake is only "
+        "available in the local network (default port: 8000). To make "
+        "Snakemake listen to all ip addresses add the special host address "
+        "0.0.0.0 to the url (0.0.0.0:8000). This is important if Snakemake "
+        "is used in a virtualised environment like Docker. If possible, a "
+        "browser window is opened.")
     parser.add_argument(
         "--cores", "--jobs", "-j",
         action="store",
@@ -563,6 +765,11 @@ def get_argument_parser():
         action="store_true",
         help="Print out the shell commands that will be executed.")
     parser.add_argument(
+        "--debug-dag",
+        action="store_true",
+        help="Print candidate and selected jobs (including their wildcards) while "
+        "inferring DAG. This can help to debug unexpected DAG topology or errors.")
+    parser.add_argument(
         "--dag",
         action="store_true",
         help="Do not execute anything and print the directed "
@@ -611,6 +818,20 @@ def get_argument_parser():
         "file creation. The input file and shell command columns are self"
         "explanatory. Finally the last column denotes whether the file "
         "will be updated or created during the next workflow execution.")
+    parser.add_argument(
+        "--archive",
+        metavar="FILE",
+        help="Archive the workflow into the given tar archive FILE. The archive "
+        "will be created such that the workflow can be re-executed on a vanilla "
+        "system. The function needs conda and git to be installed. "
+        "It will archive every file that is under git version control. "
+        "Note that it is best practice to have the Snakefile, config files, and "
+        "scripts under version control. Hence, they will be included in the archive. "
+        "Further, it will add input files that are not generated by "
+        "by the workflow itself and conda environments. Note that symlinks are "
+        "dereferenced. Supported "
+        "formats are .tar, .tar.gz, .tar.bz2 and .tar.xz."
+    )
     parser.add_argument(
         "--touch", "-t",
         action="store_true",
@@ -705,6 +926,16 @@ def get_argument_parser():
         "with a leading whitespace.")
 
     parser.add_argument(
+        "--drmaa-log-dir",
+        metavar="DIR",
+        help="Specify a directory in which stdout and stderr files of DRMAA"
+        " jobs will be written. The value may be given as a relative path,"
+        " in which case Snakemake will use the current invocation directory"
+        " as the origin. If given, this will override any given '-o' and/or"
+        " '-e' native specification. If not given, all DRMAA stdout and"
+        " stderr files are written to the current working directory.")
+
+    parser.add_argument(
         "--cluster-config", "-u",
         metavar="FILE",
         default=[],
@@ -739,6 +970,40 @@ def get_argument_parser():
         help="Provide a custom name for the jobscript that is submitted to the "
         "cluster (see --cluster). NAME is \"snakejob.{rulename}.{jobid}.sh\" "
         "per default. The wildcard {jobid} has to be present in the name.")
+    parser.add_argument(
+        "--cluster-status",
+        help="Status command for cluster execution. This is only considered "
+        "in combination with the --cluster flag. If provided, Snakemake will "
+        "use the status command to determine if a job has finished successfully "
+        "or failed. For this it is necessary that the submit command provided "
+        "to --cluster returns the cluster job id. Then, the status command "
+        "will be invoked with the job id. Snakemake expects it to return "
+        "'success' if the job was successfull, 'failed' if the job failed and "
+        "'running' if the job still runs."
+    )
+
+    parser.add_argument(
+        "--kubernetes", metavar="NAMESPACE",
+        nargs="?", const="default",
+        help="Execute workflow in a kubernetes cluster (in the cloud). "
+        "NAMESPACE is the namespace you want to use for your job (if nothing "
+        "specified: 'default'). "
+        "Usually, this requires --default-remote-provider and "
+        "--default-remote-prefix to be set to a S3 or GS bucket where your . "
+        "data shall be stored. It is further advisable to activate conda "
+        "integration via --use-conda.")
+    parser.add_argument(
+        "--kubernetes-env", nargs="+", metavar="ENVVAR", default=[],
+        help="Specify environment variables to pass to the kubernetes job.")
+    parser.add_argument(
+        "--container-image", metavar="IMAGE", help=
+        "Docker image to use, e.g., when submitting jobs to kubernetes. "
+        "By default, this is 'quay.io/snakemake/snakemake', tagged with "
+        "the same version as the currently running Snakemake instance. "
+        "Note that overwriting this value is up to your responsibility. "
+        "Any used image has to contain a working snakemake installation "
+        "that is compatible with (or ideally the same as) the currently "
+        "running version.")
     parser.add_argument("--reason", "-r",
                         action="store_true",
                         help="Print the reason for each executed rule.")
@@ -845,11 +1110,27 @@ def get_argument_parser():
         "--allowed-rules",
         nargs="+",
         help=
-        "Only use given rules. If omitted, all rules in Snakefile are used.")
+        "Only consider given rules. If omitted, all rules in Snakefile are "
+        "used. Note that this is intended primarily for internal use and may "
+        "lead to unexpected results otherwise.")
     parser.add_argument(
-        "--max-jobs-per-second", default=None, type=float,
+        "--max-jobs-per-second", default=10, type=float,
         help=
-        "Maximal number of cluster/drmaa jobs per second, default is no limit")
+        "Maximal number of cluster/drmaa jobs per second, default is 10, "
+        "fractions allowed.")
+    parser.add_argument(
+        "--max-status-checks-per-second", default=10, type=float,
+        help=
+        "Maximal number of job status checks per second, default is 10, "
+        "fractions allowed.")
+    parser.add_argument(
+        "--restart-times", default=0, type=int,
+        help=
+        "Number of times to restart failing jobs (defaults to 0).")
+    parser.add_argument(
+        "--attempt", default=1, type=int,
+        help="Internal use only: define the initial value of the attempt "
+        "parameter (default: 1).")
     parser.add_argument('--timestamp', '-T',
                         action='store_true',
                         help='Add a timestamp to all logging output')
@@ -882,11 +1163,18 @@ def get_argument_parser():
                         help="Allow to debug rules with e.g. PDB. This flag "
                         "allows to set breakpoints in run blocks.")
     parser.add_argument(
-        "--profile",
+        "--runtime-profile",
         metavar="FILE",
         help=
         "Profile Snakemake and write the output to FILE. This requires yappi "
         "to be installed.")
+    parser.add_argument(
+        "--mode",
+        choices=[Mode.default, Mode.subprocess, Mode.cluster],
+        default=Mode.default,
+        type=int,
+        help="Set execution mode of Snakemake (internal use only)."
+    )
     parser.add_argument(
         "--bash-completion",
         action="store_true",
@@ -894,22 +1182,116 @@ def get_argument_parser():
         "following in your .bashrc (including the accents): "
         "`snakemake --bash-completion` or issue it in an open terminal "
         "session.")
+    parser.add_argument(
+        "--use-conda",
+        action="store_true",
+        help="If defined in the rule, run job in a conda environment. "
+        "If this flag is not set, the conda directive is ignored.")
+    parser.add_argument(
+        "--conda-prefix",
+        metavar="DIR",
+        help="Specify a directory in which the 'conda' and 'conda-archive' "
+        "directories are created. These are used to store conda environments "
+        "and their archives, respectively. If not supplied, the value is set "
+        "to the '.snakemake' directory relative to the invocation directory. "
+        "If supplied, the `--use-conda` flag must also be set. The value may "
+        "be given as a relative path, which will be extrapolated to the "
+        "invocation directory, or as an absolute path.")
+    parser.add_argument("--create-envs-only",
+                        action="store_true",
+                        help="If specified, only creates the job-specific "
+                        "conda environments then exits. The `--use-conda` "
+                        "flag must also be set.")
+    parser.add_argument("--list-conda-envs",
+                        action="store_true",
+                        help="List all conda environments and their location on "
+                        "disk.")
+    parser.add_argument(
+        "--use-singularity",
+        action="store_true",
+        help="If defined in the rule, run job within a singularity container. "
+        "If this flag is not set, the singularity directive is ignored."
+    )
+    parser.add_argument(
+        "--singularity-prefix",
+        metavar="DIR",
+        help="Specify a directory in which singularity images will be stored."
+        "If not supplied, the value is set "
+        "to the '.snakemake' directory relative to the invocation directory. "
+        "If supplied, the `--use-singularity` flag must also be set. The value "
+        "may be given as a relative path, which will be extrapolated to the "
+        "invocation directory, or as an absolute path.")
+    parser.add_argument(
+        "--singularity-args",
+        default="",
+        metavar="ARGS",
+        help="Pass additional args to singularity.")
+    parser.add_argument(
+        "--wrapper-prefix",
+        default="https://bitbucket.org/snakemake/snakemake-wrappers/raw/",
+        help="Prefix for URL created from wrapper directive (default: "
+        "https://bitbucket.org/snakemake/snakemake-wrappers/raw/). Set this to "
+        "a different URL to use your fork or a local clone of the repository."
+    )
+    parser.add_argument("--default-remote-provider",
+                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp"],
+                        help="Specify default remote provider to be used for "
+                        "all input and output files that don't yet specify "
+                        "one.")
+    parser.add_argument("--default-remote-prefix",
+                        default="",
+                        help="Specify prefix for default remote provider. E.g. "
+                        "a bucket name.")
+    parser.add_argument("--no-shared-fs",
+                        action="store_true",
+                        help="Do not assume that jobs share a common file "
+                        "system. When this flag is activated, Snakemake will "
+                        "assume that the filesystem on a cluster node is not "
+                        "shared with other nodes. For example, this will lead "
+                        "to downloading remote files on each cluster node "
+                        "separately. Further, it won't take special measures "
+                        "to deal with filesystem latency issues. This option "
+                        "will in most cases only make sense in combination with "
+                        "--default-remote-provider. Further, when using --cluster "
+                        "you will have to also provide --cluster-status. "
+                        "Only activate this if you "
+                        "know what you are doing.")
     parser.add_argument("--version", "-v",
                         action="version",
                         version=__version__)
     return parser
 
 
-def main():
+def main(argv=None):
+    """Main entry point."""
     parser = get_argument_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    if args.profile:
+        # reparse args while inferring config file from profile
+        parser = get_argument_parser(args.profile)
+        args = parser.parse_args(argv)
+        def adjust_path(f):
+            if os.path.exists(f) or os.path.isabs(f):
+                return f
+            else:
+                return get_profile_file(args.profile, f, return_default=True)
+
+        # update file paths to be relative to the profile
+        # (if they do not exist relative to CWD)
+        if args.jobscript:
+            args.jobscript = adjust_path(args.jobscript)
+        if args.cluster:
+            args.cluster = adjust_path(args.cluster)
+        if args.cluster_sync:
+            args.cluster_sync = adjust_path(args.cluster_sync)
+        if args.cluster_status:
+            args.cluster_status = adjust_path(args.cluster_status)
 
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
         sys.stdout.buffer.write(cmd)
         sys.exit(0)
-
-    snakemakepath = sys.argv[0]
 
     try:
         resources = parse_resources(args)
@@ -933,9 +1315,32 @@ def main():
     elif args.cores is None:
         args.cores = 1
 
-    if args.profile:
+    if args.drmaa_log_dir is not None:
+        if not os.path.isabs(args.drmaa_log_dir):
+            args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
+
+    if args.runtime_profile:
         import yappi
         yappi.start()
+
+    if args.immediate_submit and not args.notemp:
+        print(
+            "Error: --immediate-submit has to be combined with --notemp, "
+            "because temp file handling is not supported in this mode.",
+            file=sys.stderr)
+        sys.exit(1)
+
+    if (args.conda_prefix or args.create_envs_only) and not args.use_conda:
+        print(
+            "Error: --use-conda must be set if --conda-prefix or "
+            "--create-envs-only is set.",
+            file=sys.stderr)
+        sys.exit(1)
+
+    if args.singularity_prefix and not args.use_singularity:
+        print("Error: --use_singularity must be set if --singularity-prefix "
+              "is set.", file=sys.stderr)
+        sys.exit(1)
 
     if args.gui is not None:
         try:
@@ -948,10 +1353,16 @@ def main():
 
         _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
 
-        _snakemake = partial(snakemake, os.path.abspath(args.snakefile),
-                             snakemakepath=snakemakepath)
+        _snakemake = partial(snakemake, os.path.abspath(args.snakefile))
         gui.register(_snakemake, args)
-        url = "http://127.0.0.1:{}".format(args.gui)
+
+        if ":" in args.gui:
+            host, port = args.gui.split(":")
+        else:
+            port = args.gui
+            host = "127.0.0.1"
+
+        url = "http://{}:{}".format(host, port)
         print("Listening on {}.".format(url), file=sys.stderr)
 
         def open_browser():
@@ -964,8 +1375,10 @@ def main():
               file=sys.stderr)
         threading.Timer(0.5, open_browser).start()
         success = True
+
         try:
-            gui.app.run(debug=False, threaded=True, port=args.gui)
+            gui.app.run(debug=False, threaded=True, port=int(port), host=host)
+
         except (KeyboardInterrupt, SystemExit):
             # silently close
             pass
@@ -974,6 +1387,7 @@ def main():
                             listrules=args.list,
                             list_target_rules=args.list_target_rules,
                             cores=args.cores,
+                            local_cores=args.local_cores,
                             nodes=args.cores,
                             resources=resources,
                             config=config,
@@ -984,6 +1398,7 @@ def main():
                             dryrun=args.dryrun,
                             printshellcmds=args.printshellcmds,
                             printreason=args.reason,
+                            debug_dag=args.debug_dag,
                             printdag=args.dag,
                             printrulegraph=args.rulegraph,
                             printd3dag=args.d3dag,
@@ -1002,11 +1417,14 @@ def main():
                             cluster_config=args.cluster_config,
                             cluster_sync=args.cluster_sync,
                             drmaa=args.drmaa,
+                            drmaa_log_dir=args.drmaa_log_dir,
+                            kubernetes=args.kubernetes,
+                            kubernetes_envvars=args.kubernetes_env,
+                            container_image=args.container_image,
                             jobname=args.jobname,
                             immediate_submit=args.immediate_submit,
                             standalone=True,
                             ignore_ambiguity=args.allow_ambiguity,
-                            snakemakepath=snakemakepath,
                             lock=not args.nolock,
                             unlock=args.unlock,
                             cleanup_metadata=args.cleanup_metadata,
@@ -1018,6 +1436,7 @@ def main():
                             list_params_changes=args.list_params_changes,
                             summary=args.summary,
                             detailed_summary=args.detailed_summary,
+                            archive=args.archive,
                             print_compilation=args.print_compilation,
                             verbose=args.verbose,
                             debug=args.debug,
@@ -1035,10 +1454,26 @@ def main():
                             keep_shadow=args.keep_shadow,
                             allowed_rules=args.allowed_rules,
                             max_jobs_per_second=args.max_jobs_per_second,
-                            force_use_threads=args.force_use_threads)
+                            max_status_checks_per_second=args.max_status_checks_per_second,
+                            restart_times=args.restart_times,
+                            attempt=args.attempt,
+                            force_use_threads=args.force_use_threads,
+                            use_conda=args.use_conda,
+                            conda_prefix=args.conda_prefix,
+                            list_conda_envs=args.list_conda_envs,
+                            use_singularity=args.use_singularity,
+                            singularity_prefix=args.singularity_prefix,
+                            singularity_args=args.singularity_args,
+                            create_envs_only=args.create_envs_only,
+                            mode=args.mode,
+                            wrapper_prefix=args.wrapper_prefix,
+                            default_remote_provider=args.default_remote_provider,
+                            default_remote_prefix=args.default_remote_prefix,
+                            assume_shared_fs=not args.no_shared_fs,
+                            cluster_status=args.cluster_status)
 
-    if args.profile:
-        with open(args.profile, "w") as out:
+    if args.runtime_profile:
+        with open(args.runtime_profile, "w") as out:
             profile = yappi.get_func_stats()
             profile.sort("totaltime")
             profile.print_all(out=out)
@@ -1047,6 +1482,7 @@ def main():
 
 
 def bash_completion(snakefile="Snakefile"):
+    """Entry point for bash completion."""
     if not len(sys.argv) >= 2:
         print(
             "Calculate bash completion for snakemake. This tool shall not be invoked by hand.")
@@ -1070,7 +1506,7 @@ def bash_completion(snakefile="Snakefile"):
         if files:
             print_candidates(files)
         elif os.path.exists(snakefile):
-            workflow = Workflow(snakefile=snakefile, snakemakepath="snakemake")
+            workflow = Workflow(snakefile=snakefile)
             workflow.include(snakefile)
 
             print_candidates([file

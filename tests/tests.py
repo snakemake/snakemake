@@ -7,22 +7,26 @@ import sys
 import os
 from os.path import join
 from subprocess import call
-from tempfile import mkdtemp
+import tempfile
 import hashlib
 import urllib
-from shutil import rmtree
+from shutil import rmtree, which
 from shlex import quote
+from nose.tools import nottest
 
 from snakemake import snakemake
+
+
+if not which("snakemake"):
+    raise Exception("snakemake not in PATH. For testing, install snakemake with "
+                    "'pip install -e .'. You should do this in a separate environment "
+                    "(via conda or virtualenv).")
 
 
 def dpath(path):
     """get path to a data file (relative to the directory this
 	test lives in)"""
     return os.path.realpath(join(os.path.dirname(__file__), path))
-
-
-SCRIPTPATH = dpath("../bin/snakemake")
 
 
 def md5sum(filename):
@@ -59,8 +63,7 @@ def run(path,
     assert os.path.exists(snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir), '{} does not exist'.format(results_dir)
-    tmpdir = mkdtemp()
-    try:
+    with tempfile.TemporaryDirectory(prefix=".test", dir=os.path.abspath(".")) as tmpdir:
         config = {}
         if subpath is not None:
             # set up a working directory for the subworkflow and pass it in `config`
@@ -69,19 +72,18 @@ def run(path,
                 subpath), '{} does not exist'.format(subpath)
             subworkdir = os.path.join(tmpdir, "subworkdir")
             os.mkdir(subworkdir)
-            call('find {} -maxdepth 1 -type f -print0 | xargs -0 cp -t {}'.format(
+            call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
                 quote(subpath), quote(subworkdir)),
                  shell=True)
             config['subworkdir'] = subworkdir
 
-        call('find {} -maxdepth 1 -type f -print0 | xargs -0 cp -t {}'.format(
+        call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp -r %% {}'.format(
             quote(path), quote(tmpdir)),
              shell=True)
         success = snakemake(snakefile,
                             cores=cores,
                             workdir=tmpdir,
                             stats="stats.txt",
-                            snakemakepath=SCRIPTPATH,
                             config=config, **params)
         if shouldfail:
             assert not success, "expected error on execution"
@@ -98,11 +100,11 @@ def run(path,
                     targetfile), 'expected file "{}" not produced'.format(
                         resultfile)
                 if check_md5:
+                    # if md5sum(targetfile) != md5sum(expectedfile):
+                    #     import pdb; pdb.set_trace()
                     assert md5sum(targetfile) == md5sum(
                         expectedfile), 'wrong result produced for file "{}"'.format(
                             resultfile)
-    finally:
-        rmtree(tmpdir)
 
 
 def test01():
@@ -164,6 +166,8 @@ def test14():
 def test15():
     run(dpath("test15"))
 
+def test_ancient():
+    run(dpath("test_ancient"), targets=['D'])
 
 def test_report():
     run(dpath("test_report"), check_md5=False)
@@ -184,6 +188,14 @@ def test_same_wildcard():
 def test_conditional():
     run(dpath("test_conditional"),
         targets="test.out test.0.out test.1.out test.2.out".split())
+
+
+def test_unpack_dict():
+    run(dpath("test_unpack_dict"))
+
+
+def test_unpack_list():
+    run(dpath("test_unpack_list"))
 
 
 def test_shell():
@@ -217,7 +229,11 @@ def test_ruledeps():
 
 
 def test_persistent_dict():
-    run(dpath("test_persistent_dict"))
+    try:
+        import pytools
+        run(dpath("test_persistent_dict"))
+    except ImportError:
+        pass
 
 
 def test_url_include():
@@ -272,17 +288,18 @@ def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
-def test_remote():
-    try:
-        import moto
-        import boto
-        import filechunkio
-
-        # only run the remote file test if the dependencies
-        # are installed, otherwise do nothing
-        run(dpath("test_remote"), cores=1)
-    except ImportError:
-        pass
+# TODO reenable once S3Mocked works with boto3
+# def test_remote():
+#     try:
+#         import moto
+#         import boto3
+#         import filechunkio
+#
+#         # only run the remote file test if the dependencies
+#         # are installed, otherwise do nothing
+#         run(dpath("test_remote"), cores=1)
+#     except ImportError:
+#         pass
 
 
 def test_cluster_sync():
@@ -326,7 +343,7 @@ def test_nonstr_params():
 
 
 def test_delete_output():
-    run(dpath("test_delete_output"))
+    run(dpath("test_delete_output"), cores=1)
 
 
 def test_input_generator():
@@ -340,7 +357,32 @@ def test_symlink_time_handling():
 
 
 def test_issue328():
-    run(dpath("test_issue328"), forcerun=["split"])
+    try:
+        import pytools
+        run(dpath("test_issue328"), forcerun=["split"])
+    except ImportError:
+        # skip test if import fails
+        pass
+
+
+def test_conda():
+    if conda_available():
+        run(dpath("test_conda"), use_conda=True)
+
+
+def test_conda_custom_prefix():
+    if conda_available():
+        run(dpath("test_conda_custom_prefix"),
+            use_conda=True, conda_prefix="custom")
+
+
+def test_wrapper():
+    if conda_available():
+        run(dpath("test_wrapper"), use_conda=True)
+
+
+def conda_available():
+    return which("conda")
 
 
 def test_get_log_none():
@@ -371,18 +413,38 @@ def test_spaces_in_fnames():
         printshellcmds=True)
 
 
-def test_static_remote():
+# TODO deactivate because of problems with moto and boto3.
+# def test_static_remote():
+#     import importlib
+#     try:
+#         importlib.reload(boto3)
+#         importlib.reload(moto)
+#         # only run the remote file test if the dependencies
+#         # are installed, otherwise do nothing
+#         run(dpath("test_static_remote"), cores=1)
+#     except ImportError:
+#         pass
+
+
+def test_remote_ncbi_simple():
     try:
-        import moto
-        import boto
-        import filechunkio
+        import Bio
 
         # only run the remote file test if the dependencies
         # are installed, otherwise do nothing
-        run(dpath("test_static_remote"), cores=1)
+        run(dpath("test_remote_ncbi_simple"))
     except ImportError:
         pass
 
+def test_remote_ncbi():
+    try:
+        import Bio
+
+        # only run the remote file test if the dependencies
+        # are installed, otherwise do nothing
+        run(dpath("test_remote_ncbi"))
+    except ImportError:
+        pass
 
 def test_deferred_func_eval():
     run(dpath("test_deferred_func_eval"))
@@ -390,6 +452,119 @@ def test_deferred_func_eval():
 
 def test_format_params():
     run(dpath("test_format_params"), check_md5=True)
+
+
+def test_rule_defined_in_for_loop():
+    # issue 257
+    run(dpath("test_rule_defined_in_for_loop"))
+
+
+def test_issue381():
+    run(dpath("test_issue381"))
+
+
+def test_format_wildcards():
+    run(dpath("test_format_wildcards"))
+
+
+def test_with_parentheses():
+    run(dpath("test (with parentheses)"))
+
+
+def test_dup_out_patterns():
+    """Duplicate output patterns should emit an error
+
+    Duplicate output patterns can be detected on the rule level
+    """
+    run(dpath("test_dup_out_patterns"), shouldfail=True)
+
+
+def test_restartable_job_cmd_exit_1():
+    """Test the restartable job feature on ``exit 1``
+
+    The shell snippet in the Snakemake file will fail the first time
+    and succeed the second time.
+    """
+    # Even two consecutive times should fail as files are cleared
+    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    # Restarting once is enough
+    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
+        restart_times=1, printshellcmds=True)
+
+
+def test_restartable_job_qsub_exit_1():
+    """Test the restartable job feature when qsub fails
+
+    The qsub in the sub directory will fail the first time and succeed the
+    second time.
+    """
+    # Even two consecutive times should fail as files are cleared
+    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
+        restart_times=0, shouldfail=True)
+    # Restarting once is enough
+    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
+        restart_times=1, shouldfail=False)
+
+
+def test_threads():
+    run(dpath("test_threads"), cores=20)
+
+
+def test_dynamic_temp():
+    run(dpath("test_dynamic_temp"))
+
+
+# TODO this currently hangs. Has to be investigated (issue #660).
+#def test_ftp_immediate_close():
+#    try:
+#        import ftputil
+#
+#        # only run the remote file test if the dependencies
+#        # are installed, otherwise do nothing
+#        run(dpath("test_ftp_immediate_close"))
+#    except ImportError:
+#        pass
+
+
+def test_issue260():
+   run(dpath("test_issue260"))
+
+
+# TODO reenable once S3Mocked works again with boto3
+# def test_default_remote():
+#     run(dpath("test_default_remote"),
+#         default_remote_provider="S3Mocked",
+#         default_remote_prefix="test-remote-bucket")
+
+
+def test_run_namedlist():
+    run(dpath("test_run_namedlist"))
+
+
+def test_remote_gs():
+    run(dpath("test_remote_gs"))
+
+
+def test_remote_log():
+    run(dpath("test_remote_log"), shouldfail=True)
+
+
+def test_profile():
+    run(dpath("test_profile"))
+
+
+# TODO reenable once we run tests in a VM instead of Docker (maybe go back to codeship)?
+# def test_singularity():
+#     run(dpath("test_singularity"), use_singularity=True)
+
+
+def test_issue612():
+    run(dpath("test_issue612"), dryrun=True)
 
 
 if __name__ == '__main__':

@@ -7,9 +7,12 @@ import _io
 import sys
 import os
 import subprocess as sp
+import inspect
 
 from snakemake.utils import format
 from snakemake.logging import logger
+from snakemake import singularity, conda
+
 
 __author__ = "Johannes Köster"
 
@@ -42,10 +45,12 @@ class shell:
     def __new__(cls, cmd, *args,
                 async=False,
                 iterable=False,
-                read=False, **kwargs):
+                read=False, bench_record=None,
+                **kwargs):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
         cmd = format(cmd, *args, stepout=2, **kwargs)
+        context = inspect.currentframe().f_back.f_locals
 
         logger.shellcmd(cmd)
 
@@ -53,10 +58,25 @@ class shell:
 
         close_fds = sys.platform != 'win32'
 
-        proc = sp.Popen("{} {} {}".format(
+        env_prefix = ""
+        conda_env = context.get("conda_env", None)
+        singularity_img = context.get("singularity_img", None)
+        if singularity_img:
+            args = context.get("singularity_args", "")
+            cmd = singularity.shellcmd(singularity_img, cmd, args)
+            logger.info("Activating singularity image {}".format(singularity_img))
+        else:
+            # use conda if no singularity image is defined
+            if conda_env:
+                env_prefix = conda.shellcmd(conda_env)
+                logger.info("Activating conda environment {}.".format(conda_env))
+
+        cmd = "{} {} {} {}".format(
+                            env_prefix,
                             cls._process_prefix,
                             cmd.rstrip(),
-                            cls._process_suffix),
+                            cls._process_suffix)
+        proc = sp.Popen(cmd,
                         bufsize=-1,
                         shell=True,
                         stdout=stdout,
@@ -69,7 +89,13 @@ class shell:
             ret = proc.stdout.read()
         elif async:
             return proc
-        retcode = proc.wait()
+        if bench_record is not None:
+            from snakemake.benchmark import benchmarked
+            # Note: benchmarking does not work in case of async=True
+            with benchmarked(proc.pid, bench_record):
+                retcode = proc.wait()
+        else:
+            retcode = proc.wait()
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
         return ret
