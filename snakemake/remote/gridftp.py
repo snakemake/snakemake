@@ -67,5 +67,9 @@ class RemoteObject(gfal.RemoteObject):
         target = self.remote_file()
         source = "file://" + os.path.abspath(self.local_file())
 
+        if self.exists():
+            # first delete file, such that globus does not fail
+            self._gfal("rm", target)
+
         self._globus("-parallel", "4", "-create-dest", "-recurse", "-dp",
                      source, target)

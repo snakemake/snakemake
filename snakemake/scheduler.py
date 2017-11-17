@@ -16,7 +16,7 @@ from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
     GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor,
     KubernetesExecutor)
-from snakemake.exceptions import RuleException, WorkflowError
+from snakemake.exceptions import RuleException, WorkflowError, print_exception
 
 from snakemake.logging import logger
 
@@ -321,6 +321,7 @@ class JobScheduler:
             except (RuleException, WorkflowError) as e:
                 # if an error occurs while processing job output,
                 # we do the same as in case of errors during execution
+                print_exception(e, self.workflow.linemaps)
                 self._handle_error(job)
                 return
 
@@ -343,7 +344,7 @@ class JobScheduler:
     def _error(self, job):
         with self._lock:
             self._handle_error(job)
-   
+
     def _handle_error(self, job):
         """Clear jobs and stop the workflow.
 
