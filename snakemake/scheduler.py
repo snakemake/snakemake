@@ -176,8 +176,7 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 benchmark_repeats=benchmark_repeats,
-                cluster_config=cluster_config,
-                max_status_checks_per_second=max_status_checks_per_second)
+                cluster_config=cluster_config)
         else:
             # local execution or execution of cluster job
             # calculate how many parallel workers the executor shall spawn
