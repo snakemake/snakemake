@@ -128,6 +128,7 @@ class Workflow:
             files.add(f)
 
         # get git-managed files
+        # TODO allow a manifest file as alternative
         try:
             out = subprocess.check_output(["git", "ls-files", "."],
                                           stderr=subprocess.PIPE)
