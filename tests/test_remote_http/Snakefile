@@ -6,7 +6,7 @@ HTTP = HTTPRemoteProvider()
 rule compare:
     input:
         "landsat-data.txt",
-        "landsat-data_unzipped.txt"
+        "landsat-data-unzipped.txt"
     shell:
         "diff {input[0]} {input[1]}"
 
@@ -33,6 +33,6 @@ rule unizp:
     input:
         "landsat-data.txt.gz"
     output:
-        "landsat-data_unzipped.txt"
+        "landsat-data-unzipped.txt"
     shell:
         "gunzip -c {input} > {output}"
