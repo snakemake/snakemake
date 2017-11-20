@@ -386,7 +386,7 @@ class DAG:
             if os.path.realpath(shadow_output) == os.path.realpath(
                     real_output):
                 continue
-            logger.info("Moving shadow output {} to destination {}".format(
+            logger.debug("Moving shadow output {} to destination {}".format(
                 shadow_output, real_output))
             shutil.move(shadow_output, real_output)
         shutil.rmtree(job.shadow_dir)

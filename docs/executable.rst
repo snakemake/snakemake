@@ -114,6 +114,10 @@ Of course, if any input or output already defines a different remote location, t
 Importantly, this means that Snakemake does **not** require a shared network
 filesystem to work in the cloud.
 
+Currently, this mode requires that the Snakemake workflow is stored in a git repository.
+Snakemake uses git to query necessary source files (the Snakefile, scripts, config, ...)
+for workflow execution and encodes them into the kubernetes job.
+
 It is further possible to forward arbitrary environment variables to the kubernetes
 jobs via the flag ``--kubernetes-env`` (see ``snakemake --help``).
 
