@@ -128,8 +128,10 @@ class Workflow:
             files.add(f)
 
         # get git-managed files
+        # TODO allow a manifest file as alternative
         try:
-            out = subprocess.check_output(["git", "ls-files", "."])
+            out = subprocess.check_output(["git", "ls-files", "."],
+                                          stderr=subprocess.PIPE)
             for f in out.decode().split("\n"):
                 if f:
                     files.add(os.path.relpath(f))
@@ -583,8 +585,9 @@ class Workflow:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
                 logger.remove_logfile()
-            elif stats:
-                scheduler.stats.to_json(stats)
+            else:
+                if stats:
+                    scheduler.stats.to_json(stats)
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
