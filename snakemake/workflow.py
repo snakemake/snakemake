@@ -129,7 +129,8 @@ class Workflow:
 
         # get git-managed files
         try:
-            out = subprocess.check_output(["git", "ls-files", "."])
+            out = subprocess.check_output(["git", "ls-files", "."],
+                                          stderr=subprocess.PIPE)
             for f in out.decode().split("\n"):
                 if f:
                     files.add(os.path.relpath(f))
