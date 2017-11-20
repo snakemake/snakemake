@@ -3,6 +3,8 @@ from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
 HTTP = HTTPRemoteProvider()
 
 
+# The plain text version and the unzipped .gz version should have the same content.
+# The diff command returns exit code 0 for identical files, 1 for differing files and 2 for errors.
 rule compare:
     input:
         "landsat-data.txt",

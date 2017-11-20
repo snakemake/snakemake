@@ -553,8 +553,10 @@ def test_remote_gs():
 def test_remote_log():
     run(dpath("test_remote_log"), shouldfail=True)
 
+
 def test_remote_http():
     run(dpath("test_remote_http"))
+
 
 def test_profile():
     run(dpath("test_profile"))
