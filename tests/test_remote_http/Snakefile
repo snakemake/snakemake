@@ -2,9 +2,18 @@ from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
 
 HTTP = HTTPRemoteProvider()
 
+
+rule compare:
+    input:
+        "landsat-data.txt",
+        "landsat-data_unzipped.txt"
+    shell:
+        "diff {input[0]} {input[1]}"
+
+
 rule copy:
     input:
-        http.remote("https://bitbucket.org/snakemake/snakemake/raw/master/tests/test_remote_http/expected-results/landsat-data.txt")
+        HTTP.remote("bitbucket.org/HenningTimm/snakemake-fork/raw/http-gzip-autodecode/tests/test_remote_http/expected-results/landsat-data.txt")
     output:
         "landsat-data.txt"
     shell:
@@ -13,8 +22,17 @@ rule copy:
 
 rule copy_gz:
     input:
-        http.remote("https://bitbucket.org/snakemake/snakemake/raw/master/tests/test_remote_http/expected-results/landsat-data.txt.gz")
+        HTTP.remote("bitbucket.org/HenningTimm/snakemake-fork/raw/http-gzip-autodecode/tests/test_remote_http/expected-results/landsat-data.txt.gz")
     output:
         "landsat-data.txt.gz"
     shell:
         "cp {input} {output}"
+
+
+rule unizp:
+    input:
+        "landsat-data.txt.gz"
+    output:
+        "landsat-data_unzipped.txt"
+    shell:
+        "gunzip -c {input} > {output}"
