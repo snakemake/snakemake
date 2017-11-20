@@ -1,0 +1,20 @@
+from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+
+HTTP = HTTPRemoteProvider()
+
+rule copy:
+    input:
+        http.remote("https://bitbucket.org/snakemake/snakemake/raw/master/tests/test_remote_http/expected-results/landsat-data.txt")
+    output:
+        "landsat-data.txt"
+    shell:
+        "cp {input} {output}"
+
+
+rule copy_gz:
+    input:
+        http.remote("https://bitbucket.org/snakemake/snakemake/raw/master/tests/test_remote_http/expected-results/landsat-data.txt.gz")
+    output:
+        "landsat-data.txt.gz"
+    shell:
+        "cp {input} {output}"
