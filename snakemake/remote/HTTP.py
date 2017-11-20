@@ -152,14 +152,28 @@ class RemoteObject(DomainObject):
     def download(self, make_dest_dirs=True):
         with self.httpr(stream=True) as httpr:
             if self.exists():
+                # Find out if the target file is gzip compressed in order to keep
+                # compression intact after the download.
+                # Per default requests decompresses .gz files.
+                # More detials can be found here: https://stackoverflow.com/questions/25749345/how-to-download-gz-files-with-requests-in-python-without-decoding-it?noredirect=1&lq=1
+                if self.name.endswith(".gz"):
+                    compressed_target = True
+                else:
+                    compressed_target = False
                 # if the destination path does not exist
                 if make_dest_dirs:
                     os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
-
                     with open(self.local_path, 'wb') as f:
-                        for chunk in httpr.iter_content(chunk_size=1024):
-                            if chunk: # filter out keep-alives
-                                f.write(chunk)
+                        if compressed_target:
+                            # This keeps the gzip compression intact, but does not allow to change the chunk size
+                            for chunk in httpr.raw:
+                                if chunk: # filter out keep-alives
+                                    f.write(chunk)
+                        else:
+                            # This would automatically decompresses gzipped files when downloading them.
+                            for chunk in httpr.iter_content(chunk_size=1024):
+                                if chunk: # filter out keep-alives
+                                    f.write(chunk)
                     os.sync() # ensure flush to disk
             else:
                 raise HTTPFileException("The file does not seem to exist remotely: %s" % self.remote_file())

@@ -29,6 +29,8 @@ rule copy_gz:
         "cp {input} {output}"
 
 
+# This only works if the input file is a gzipped file.
+# Hence, it will fail, if the .txt.gz file is automagically decompressed by the requests module.
 rule unizp:
     input:
         "landsat-data.txt.gz"
