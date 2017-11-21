@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 import re
 import collections
+import shutil
 import email.utils
 from contextlib import contextmanager
 
@@ -165,10 +166,7 @@ class RemoteObject(DomainObject):
                     os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
                     with open(self.local_path, 'wb') as f:
                         if compressed_target:
-                            # This keeps the gzip compression intact, but does not allow to change the chunk size
-                            for chunk in httpr.raw:
-                                if chunk: # filter out keep-alives
-                                    f.write(chunk)
+                            shutil.copyfileobj(httpr.raw, f)
                         else:
                             # This would automatically decompresses gzipped files when downloading them.
                             for chunk in httpr.iter_content(chunk_size=1024):
