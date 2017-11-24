@@ -24,8 +24,8 @@ class Image:
             raise WorkflowError(
                 "Failed to get singularity version:\n{}".format(
                     e.stderr.decode()))
-        if not LooseVersion(v) >= LooseVersion("2.4"):
-            raise WorkflowError("Minimum singularity version is 2.4.")
+        if not LooseVersion(v) >= LooseVersion("2.4.1"):
+            raise WorkflowError("Minimum singularity version is 2.4.1.")
 
         self.url = url
         self._img_dir = dag.workflow.persistence.singularity_img_path
@@ -52,14 +52,13 @@ class Image:
             logger.info("Pulling singularity image {}.".format(self.url))
             try:
                 p = subprocess.check_output(["singularity", "pull",
-                                         "--name", self.hash, self.url],
-                                        cwd=self._img_dir,
-                                        stderr=subprocess.STDOUT)
+                    "--name {}.simg".format(self.hash), self.url],
+                    cwd=self._img_dir,
+                    stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 raise WorkflowError("Failed to pull singularity image "
                                     "from {}:\n{}".format(self.url,
                                                           e.stdout.decode()))
-
 
     @property
     def path(self):
