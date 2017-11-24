@@ -52,7 +52,7 @@ class Image:
             logger.info("Pulling singularity image {}.".format(self.url))
             try:
                 p = subprocess.check_output(["singularity", "pull",
-                    "--name {}.simg".format(self.hash), self.url],
+                    "--name", "{}.simg".format(self.hash), self.url],
                     cwd=self._img_dir,
                     stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
