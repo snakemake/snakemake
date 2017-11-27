@@ -13,6 +13,7 @@ import json
 import threading
 import tempfile
 from functools import partial
+import inspect
 
 from snakemake.common import DYNAMIC_FILL
 from snakemake.common import Mode
@@ -70,9 +71,11 @@ class ColorizingStreamHandler(_logging.StreamHandler):
                 self.handleError(record)
 
     def decorate(self, record):
-        message = [record.message]
-        if self.timestamp:
-            message.insert(0, "[{}] ".format(time.asctime()))
+        message = record.message
+        if self.timestamp and message:
+            stamp = "[{}] {{}}".format(time.asctime()).format
+            message = "".join(map(stamp, message.splitlines(True)))
+        message = [message]
         if not self.nocolor and record.levelname in self.colors:
             message.insert(0, self.COLOR_SEQ %
                            (30 + self.colors[record.levelname]))
@@ -97,7 +100,8 @@ class Logger:
         os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
         self.logfile = os.path.abspath(os.path.join(".snakemake",
                                     "log",
-                                    datetime.datetime.now().isoformat() +
+                                    datetime.datetime.now().isoformat()
+                                                           .replace(":", "") +
                                     ".snakemake.log"))
 
         self.logfile_handler = _logging.FileHandler(self.logfile)
@@ -136,6 +140,12 @@ class Logger:
             # relative path is not "simple to read", use absolute path
             logfile = self.get_logfile()
         self.info("Complete log: {}".format(logfile))
+
+    def location(self, msg):
+        callerframerecord = inspect.stack()[1]
+        frame = callerframerecord[0]
+        info = inspect.getframeinfo(frame)
+        self.debug("{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info))
 
     def info(self, msg):
         self.handler(dict(level="info", msg=msg))
@@ -252,6 +262,8 @@ class Logger:
                 self.logger.error("    {}: {}".format(*item))
             self.logger.error("")
         else:
+            # TODO not printing info on quiet is a problem with shadow messages
+            # They are not printed as well.
             if level == "info" and not self.quiet:
                 self.logger.warning(msg["msg"])
             if level == "warning":

@@ -28,7 +28,7 @@ from snakemake.exceptions import UnexpectedOutputException, InputFunctionExcepti
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.common import DYNAMIC_FILL
-from snakemake import conda
+from snakemake import conda, singularity
 from snakemake import utils
 
 # Workaround for Py <3.5 prior to existence of RecursionError
@@ -66,7 +66,6 @@ class DAG:
         self._needrun = set()
         self._priority = dict()
         self._downstream_size = dict()
-        self._temp_input_count = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
         self._dynamic = set()
@@ -86,6 +85,7 @@ class DAG:
         self._jobid = dict()
         self.job_cache = dict()
         self.conda_envs = dict()
+        self._progress = 0
 
         self.forcerules = set()
         self.forcefiles = set()
@@ -118,14 +118,14 @@ class DAG:
 
         self.update_output_index()
 
-    def init(self):
+    def init(self, progress=False):
         """ Initialise the DAG. """
         for job in map(self.rule2job, self.targetrules):
-            job = self.update([job])
+            job = self.update([job], progress=progress)
             self.targetjobs.add(job)
 
         for file in self.targetfiles:
-            job = self.update(self.file2jobs(file), file=file)
+            job = self.update(self.file2jobs(file), file=file, progress=progress)
             self.targetjobs.add(job)
 
         self.cleanup()
@@ -154,23 +154,36 @@ class DAG:
             except KeyError:
                 pass
 
-    def create_conda_envs(self, dryrun=False):
+    def create_conda_envs(self, dryrun=False, forceall=False, init_only=False):
         conda.check_conda()
         # First deduplicate based on job.conda_env_file
-        env_set = {job.conda_env_file for job in self.needrun_jobs
+        jobs = self.jobs if forceall else self.needrun_jobs
+        env_set = {job.conda_env_file for job in jobs
                    if job.conda_env_file}
         # Then based on md5sum values
-        env_file_map = dict()
+        self.conda_envs = dict()
         hash_set = set()
         for env_file in env_set:
             env = conda.Env(env_file, self)
             hash = env.hash
-            env_file_map[env_file] = env
+            self.conda_envs[env_file] = env
             if hash not in hash_set:
-                env.create(dryrun)
+                if not init_only:
+                    env.create(dryrun)
                 hash_set.add(hash)
 
-        self.conda_envs = env_file_map
+    def pull_singularity_imgs(self, dryrun=False, forceall=False):
+        # First deduplicate based on job.conda_env_file
+        jobs = self.jobs if forceall else self.needrun_jobs
+        img_set = {job.singularity_img_url for job in jobs
+                   if job.singularity_img_url}
+
+        self.singularity_imgs = dict()
+        for img_url in img_set:
+            img = singularity.Image(img_url, self)
+            img.pull(dryrun)
+            self.singularity_imgs[img_url] = img
+
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -188,6 +201,24 @@ class DAG:
                     self.forcefiles.update(incomplete)
                 else:
                     raise IncompleteFilesException(incomplete)
+
+    def incomplete_external_jobid(self, job):
+        """Return the external jobid of the job if it is marked as incomplete.
+
+        Returns None, if job is not incomplete, or if no external jobid has been
+        registered or if force_incomplete is True.
+        """
+        if self.force_incomplete:
+            return None
+        jobids = self.workflow.persistence.external_jobids(job)
+        if len(jobids) == 1:
+            return jobids[0]
+        else:
+            raise WorkflowError(
+                "Multiple different external jobids registered "
+                "for output files of incomplete job {} ({}). This job "
+                "cannot be resumed. Execute Snakemake with --rerun-incomplete "
+                "to fix this issue.".format(job.jobid, jobids))
 
     def check_dynamic(self):
         """Check dynamic output and update downstream rules if necessary."""
@@ -250,10 +281,6 @@ class DAG:
         """Return the number of downstream jobs of a given job."""
         return self._downstream_size[job]
 
-    def temp_input_count(self, job):
-        """Return number of temporary input files of given job."""
-        return self._temp_input_count[job]
-
     def noneedrun_finished(self, job):
         """
         Return whether a given job is finished or was not
@@ -308,15 +335,22 @@ class DAG:
                 return True
         return False
 
-    def check_and_touch_output(self, job, wait=3, ignore_missing_output=False):
+    def check_and_touch_output(self,
+                               job,
+                               wait=3,
+                               ignore_missing_output=False,
+                               no_touch=False,
+                               force_stay_on_remote=False):
         """ Raise exception if output files of job are missing. """
         expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
         if job.benchmark:
             expanded_output.append(job.benchmark)
 
-        if ignore_missing_output is False:
+        if not ignore_missing_output:
             try:
-                wait_for_files(expanded_output, latency_wait=wait)
+                wait_for_files(expanded_output,
+                               latency_wait=wait,
+                               force_stay_on_remote=force_stay_on_remote)
             except IOError as e:
                 raise MissingOutputException(str(e) + "\nThis might be due to "
                 "filesystem latency. If that is the case, consider to increase the "
@@ -329,10 +363,11 @@ class DAG:
         #Note that if the input files somehow have a future date then this will
         #not currently be spotted and the job will always be re-run.
         #Also, don't touch directories, as we can't guarantee they were removed.
-        for f in expanded_output:
-            #This will neither create missing files nor touch directories
-            if os.path.isfile(f):
-                f.touch()
+        if not no_touch:
+            for f in expanded_output:
+                #This will neither create missing files nor touch directories
+                if os.path.isfile(f):
+                    f.touch()
 
     def unshadow_output(self, job):
         """ Move files from shadow directory to real output paths. """
@@ -351,7 +386,7 @@ class DAG:
             if os.path.realpath(shadow_output) == os.path.realpath(
                     real_output):
                 continue
-            logger.info("Moving shadow output {} to destination {}".format(
+            logger.debug("Moving shadow output {} to destination {}".format(
                 shadow_output, real_output))
             shutil.move(shadow_output, real_output)
         shutil.rmtree(job.shadow_dir)
@@ -390,20 +425,35 @@ class DAG:
             for f in filter(job_.temp_output.__contains__, files):
                 yield f
 
+    def temp_size(self, job):
+        """Return the total size of temporary input files of the job.
+        If none, return 0.
+        """
+        return sum(f.size for f in self.temp_input(job))
+
     def handle_temp(self, job):
-        """ Remove temp files if they are no longer needed. """
+        """ Remove temp files if they are no longer needed. Update temp_mtimes. """
         if self.notemp:
             return
+
+        is_temp = lambda f: is_flagged(f, "temp")
+
+        # handle temp input
 
         needed = lambda job_, f: any(
             f in files for j, files in self.depending[job_].items()
             if not self.finished(j) and self.needrun(j) and j != job)
 
         def unneeded_files():
+            # temp input
             for job_, files in self.dependencies[job].items():
-                yield from filterfalse(partial(needed, job_), job_.temp_output & files)
-            if job not in self.targetjobs:
-                yield from filterfalse(partial(needed, job), job.temp_output)
+                tempfiles = set(f for f in job_.expanded_output if is_temp(f))
+                yield from filterfalse(partial(needed, job_), tempfiles & files)
+
+            # temp output
+            if job not in self.targetjobs and not job.dynamic_output:
+                tempfiles = (f for f in job.expanded_output if is_temp(f))
+                yield from filterfalse(partial(needed, job), tempfiles)
 
         for f in unneeded_files():
             logger.info("Removing temporary output file {}.".format(f))
@@ -458,9 +508,12 @@ class DAG:
                     for f in filter(putative, files):
                         if not needed(job_, f):
                             yield f
-                for f in filter(putative, job.output):
-                    if not needed(job, f) and not f in self.targetfiles:
-                        for f_ in job.expand_dynamic(f):
+                for f, f_ in zip(job.output, job.rule.output):
+                    if putative(f) and not needed(job, f) and not f in self.targetfiles:
+                        if f in job.dynamic_output:
+                            for f_ in job.expand_dynamic(f_):
+                                yield f_
+                        else:
                             yield f
                 for f in filter(putative, job.input):
                     # TODO what about remote inputs that are used by multiple jobs?
@@ -478,7 +531,7 @@ class DAG:
         """Return job id of given job."""
         return self._jobid[job]
 
-    def update(self, jobs, file=None, visited=None, skip_until_dynamic=False):
+    def update(self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False):
         """ Update the DAG by adding given jobs and their dependencies. """
         if visited is None:
             visited = set()
@@ -500,7 +553,8 @@ class DAG:
                 self.check_periodic_wildcards(job)
                 self.update_(job,
                              visited=set(visited),
-                             skip_until_dynamic=skip_until_dynamic)
+                             skip_until_dynamic=skip_until_dynamic,
+                             progress=progress)
                 # TODO this might fail if a rule discarded here is needed
                 # elsewhere
                 if producer:
@@ -532,9 +586,14 @@ class DAG:
 
         logger.dag_debug(dict(status="selected", job=job))
 
+        n = len(self.dependencies)
+        if progress and n % 1000 == 0 and n and self._progress != n:
+            logger.info("Processed {} potential jobs.".format(n))
+            self._progress = n
+
         return producer
 
-    def update_(self, job, visited=None, skip_until_dynamic=False):
+    def update_(self, job, visited=None, skip_until_dynamic=False, progress=False):
         """ Update the DAG by adding the given job and its dependencies. """
         if job in self.dependencies:
             return
@@ -557,7 +616,8 @@ class DAG:
                     file=file,
                     visited=visited,
                     skip_until_dynamic=skip_until_dynamic or file in
-                    job.dynamic_input)
+                    job.dynamic_input,
+                    progress=progress)
                 producer[file] = selected_job
             except (MissingInputException, CyclicGraphException,
                     PeriodicWildcardError) as ex:
@@ -724,11 +784,6 @@ class DAG:
                                   job,
                                   stop=self.noneedrun_finished)) - 1
 
-    def update_temp_input_count(self):
-        """For each job update the number of temporary input files."""
-        for job in self.needrun_jobs:
-            self._temp_input_count[job] = sum(1 for _ in self.temp_input(job))
-
     def close_remote_objects(self):
         """Close all remote objects."""
         for job in self.jobs:
@@ -743,7 +798,6 @@ class DAG:
         self.update_priority()
         self.update_ready()
         self.update_downstream_size()
-        self.update_temp_input_count()
         self.close_remote_objects()
 
     def _ready(self, job):
@@ -1174,6 +1228,8 @@ class DAG:
         if os.path.exists(path):
             raise WorkflowError("Archive already exists:\n" + path)
 
+        self.create_conda_envs(forceall=True)
+
         try:
             workdir = Path(os.path.abspath(os.getcwd()))
             with tarfile.open(path, mode=mode, dereference=True) as archive:
@@ -1207,7 +1263,6 @@ class DAG:
                 envs = set()
                 for job in self.jobs:
                     if job.conda_env_file:
-                        job.create_conda_env()
                         env_archive = job.archive_conda_env()
                         envs.add(env_archive)
                 for env in envs:

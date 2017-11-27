@@ -15,6 +15,17 @@ from snakemake.common import strip_prefix
 from snakemake import utils
 
 
+def content(env_file):
+    if urlparse(env_file).scheme:
+        return urlopen(env_file).read()
+    else:
+        if not os.path.exists(env_file):
+            raise WorkflowError("Conda env file does not "
+                                "exist: {}".format(env_file))
+        with open(env_file, 'rb') as f:
+            return f.read()
+
+
 class Env:
 
     """Conda environment from a given specification file."""
@@ -33,13 +44,7 @@ class Env:
     @property
     def content(self):
         if self._content is None:
-            env_file = self.file
-            if urlparse(env_file).scheme:
-                content = urlopen(env_file).read()
-            else:
-                with open(env_file, 'rb') as f:
-                    content = f.read()
-            self._content = content
+            self._content = content(self.file)
         return self._content
 
     @property
@@ -169,6 +174,19 @@ class Env:
             os.remove(tmp_file)
 
         return env_path
+
+    def __hash__(self):
+        # this hash is only for object comparison, not for env paths
+        return hash(self.file)
+
+    def __eq__(self, other):
+        if isinstance(other, Env):
+            return self.file == other.file
+        return False
+
+
+def shellcmd(env_path):
+    return "source activate {};".format(env_path)
 
 
 def check_conda():

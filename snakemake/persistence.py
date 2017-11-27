@@ -19,7 +19,12 @@ from snakemake.utils import listfiles
 
 
 class Persistence:
-    def __init__(self, nolock=False, dag=None, conda_prefix=None, warn_only=False):
+    def __init__(self,
+                 nolock=False,
+                 dag=None,
+                 conda_prefix=None,
+                 singularity_prefix=None,
+                 warn_only=False):
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
             os.mkdir(self.path)
@@ -41,9 +46,16 @@ class Persistence:
         if conda_prefix is None:
             self.conda_env_path = os.path.join(self.path, "conda")
         else:
-            self.conda_env_path = os.path.abspath(os.path.expanduser(conda_prefix))
+            self.conda_env_path = os.path.abspath(
+                os.path.expanduser(conda_prefix))
+        if singularity_prefix is None:
+            self.singularity_img_path = os.path.join(self.path, "singularity")
+        else:
+            self.singularity_img_path = os.path.abspath(
+                os.path.expanduser(singularity_prefix))
 
         os.makedirs(self.conda_env_path, exist_ok=True)
+        os.makedirs(self.singularity_img_path, exist_ok=True)
 
         if nolock:
             self.lock = self.noop
@@ -51,6 +63,8 @@ class Persistence:
         if warn_only:
             self.lock = self.lock_warn_only
             self.unlock = self.noop
+
+        self._read_record = self._read_record_cached
 
     @property
     def files(self):
@@ -81,8 +95,8 @@ class Persistence:
         if self.locked:
             logger.info(
                 "Error: Directory cannot be locked. This usually "
-                "means that another Snakemake instance is running on this directory."
-                "Another possiblity is that a previous run exited unexpectedly.")
+                "means that another Snakemake instance is running on this directory. "
+                "Another possibility is that a previous run exited unexpectedly.")
 
     def lock(self):
         if self.locked:
@@ -113,9 +127,12 @@ class Persistence:
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
 
-    def started(self, job):
+    def started(self, job, external_jobid=None):
         for f in job.output:
-            self._record(self._metadata_path, {"incomplete": True}, f)
+            self._record(self._metadata_path, {
+                             "incomplete": True,
+                             "external_jobid": external_jobid
+                         }, f)
 
     def finished(self, job):
         version = str(
@@ -124,7 +141,7 @@ class Persistence:
         input = self._input(job)
         log = self._log(job)
         params = self._params(job)
-        shellcmd = self._shellcmd(job)
+        shellcmd = job.shellcmd
         for f in job.expanded_output:
             self._record(self._metadata_path, {
                 "version": version,
@@ -148,6 +165,12 @@ class Persistence:
         return any(
             map(lambda f: f.exists and marked_incomplete(f), job.output))
 
+    def external_jobids(self, job):
+        return list(set(
+            self._read_record(self._metadata_path, f)
+                .get("external_jobid", None)
+            for f in job.output))
+
     def version(self, path):
         return self._read_record(self._metadata_path, path).get("version")
 
@@ -164,24 +187,40 @@ class Persistence:
         return self._read_record(self._metadata_path, path).get("shellcmd")
 
     def params(self, path):
-        return self._read_record(self.metadata_path, path).get("params")
+        return self._read_record(self._metadata_path, path).get("params")
 
     def code(self, path):
-        return self._read_record(self.metadata_path, path).get("code")
+        return self._read_record(self._metadata_path, path).get("code")
 
     def version_changed(self, job, file=None):
+        """Yields output files with changed versions of bool if file given."""
+        return _bool_or_gen(self._version_changed, job, file=file)
+
+    def code_changed(self, job, file=None):
+        """Yields output files with changed code of bool if file given."""
+        return _bool_or_gen(self._code_changed, job, file=file)
+
+    def input_changed(self, job, file=None):
+        """Yields output files with changed input of bool if file given."""
+        return _bool_or_gen(self._input_changed, job, file=file)
+
+    def params_changed(self, job, file=None):
+        """Yields output files with changed params of bool if file given."""
+        return _bool_or_gen(self._params_changed, job, file=file)
+
+    def _version_changed(self, job, file=None):
         assert file is not None
         return self.version(file) != job.rule.version
 
-    def code_changed(self, job, file=None):
+    def _code_changed(self, job, file=None):
         assert file is not None
         return self.code(file) != self._code(job.rule)
 
-    def input_changed(self, job, file=None):
+    def _input_changed(self, job, file=None):
         assert file is not None
         return self.input(file) != self._input(job)
 
-    def params_changed(self, job, file=None):
+    def _params_changed(self, job, file=None):
         assert file is not None
         return self.params(file) != self._params(job)
 
@@ -212,10 +251,6 @@ class Persistence:
     def _output(self, job):
         return sorted(job.output)
 
-    @lru_cache()
-    def _shellcmd(self, job):
-        return job.shellcmd
-
     def _record(self, subject, json_value, id):
         recpath = self._record_path(subject, id)
         os.makedirs(os.path.dirname(recpath), exist_ok=True)
@@ -234,7 +269,10 @@ class Persistence:
                 raise e
 
     @lru_cache()
-    def _read_record(self, subject, id):
+    def _read_record_cached(self, subject, id):
+        return self._read_record_uncached(subject, id)
+
+    def _read_record_uncached(self, subject, id):
         if not self._exists_record(subject, id):
             return dict()
         with open(self._record_path(subject, id), "r") as f:
@@ -281,6 +319,17 @@ class Persistence:
     def all_inputfiles(self):
         # we consider all input files, also of not running jobs
         return jobfiles(self.dag.jobs, "input")
+
+    def deactivate_cache(self):
+        self._read_record_cached.cache_clear()
+        self._read_record = self._read_record_uncached
+
+
+def _bool_or_gen(func, job, file=None):
+    if file is None:
+        return (f for f in job.expanded_output if func(job, file=f))
+    else:
+        return func(job, file=file)
 
 
 def pickle_code(code):

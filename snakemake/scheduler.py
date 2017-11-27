@@ -3,20 +3,20 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-import os, signal
+import os, signal, sys
 import threading
 import operator
 from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate
 from contextlib import contextmanager
-
-from ratelimiter import RateLimiter
+import time
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
     GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor,
     KubernetesExecutor)
+from snakemake.exceptions import RuleException, WorkflowError, print_exception
 
 from snakemake.logging import logger
 
@@ -47,18 +47,22 @@ class JobScheduler:
                  drmaa_log_dir=None,
                  kubernetes=None,
                  kubernetes_envvars=None,
+                 container_image=None,
                  jobname=None,
                  quiet=False,
                  printreason=False,
                  printshellcmds=False,
                  keepgoing=False,
                  max_jobs_per_second=None,
+                 max_status_checks_per_second=100,
                  latency_wait=3,
                  benchmark_repeats=1,
                  greediness=1.0,
                  force_use_threads=False,
                  assume_shared_fs=True):
         """ Create a new instance of KnapsackJobScheduler. """
+        from ratelimiter import RateLimiter
+
         self.cluster = cluster
         self.cluster_config = cluster_config
         self.cluster_sync = cluster_sync
@@ -77,7 +81,7 @@ class JobScheduler:
         self.resources = dict(self.workflow.global_resources)
 
         use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
-        self._open_jobs = threading.Event()
+        self._open_jobs = threading.Semaphore(0)
         self._lock = threading.Lock()
 
         self._errors = False
@@ -96,7 +100,6 @@ class JobScheduler:
                                             quiet=quiet,
                                             printshellcmds=printshellcmds,
                                             latency_wait=latency_wait)
-            self.job_reward = self.dryrun_job_reward
         elif touch:
             self._executor = TouchExecutor(workflow, dag,
                                            printreason=printreason,
@@ -119,7 +122,8 @@ class JobScheduler:
                     constructor = SynchronousClusterExecutor
                 else:
                     constructor = partial(GenericClusterExecutor,
-                                          statuscmd=cluster_status)
+                                          statuscmd=cluster_status,
+                                          max_status_checks_per_second=max_status_checks_per_second)
 
                 self._executor = constructor(
                     workflow, dag, None,
@@ -133,7 +137,6 @@ class JobScheduler:
                     benchmark_repeats=benchmark_repeats,
                     assume_shared_fs=assume_shared_fs)
                 if workflow.immediate_submit:
-                    self.job_reward = self.dryrun_job_reward
                     self._submit_callback = partial(self._proceed,
                                                     update_dynamic=False,
                                                     print_progress=False,
@@ -150,7 +153,8 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     benchmark_repeats=benchmark_repeats,
                     cluster_config=cluster_config,
-                    assume_shared_fs=assume_shared_fs)
+                    assume_shared_fs=assume_shared_fs,
+                    max_status_checks_per_second=max_status_checks_per_second)
         elif kubernetes:
             workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)),
                           local_cores)
@@ -166,6 +170,7 @@ class JobScheduler:
 
             self._executor = KubernetesExecutor(
                 workflow, dag, kubernetes, kubernetes_envvars,
+                container_image=container_image,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
@@ -186,14 +191,16 @@ class JobScheduler:
                                          latency_wait=latency_wait,
                                          benchmark_repeats=benchmark_repeats,
                                          cores=cores)
-        self._open_jobs.set()
 
-    def rate_limiter(self):
         if self.max_jobs_per_second:
-            return RateLimiter(max_calls=self.max_jobs_per_second,
+            self.rate_limiter = RateLimiter(max_calls=self.max_jobs_per_second,
                                             period=1)
         else:
-            return dummy_rate_limiter()
+            # essentially no rate limit
+            self.rate_limiter = RateLimiter(max_calls=sys.maxsize,
+                                            period=1)
+
+        self._open_jobs.release()
 
     @property
     def stats(self):
@@ -219,18 +226,18 @@ class JobScheduler:
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
-                while not self._open_jobs.wait(1):
-                    pass
+                #while not self._open_jobs.acquire(False):
+                #    time.sleep(1)
+                self._open_jobs.acquire()
 
                 # obtain needrun and running jobs in a thread-safe way
                 with self._lock:
                     needrun = list(self.open_jobs)
                     running = list(self.running)
-                # free the event
-                self._open_jobs.clear()
+                    errors = self._errors
 
                 # handle errors
-                if not self.keepgoing and self._errors:
+                if not self.keepgoing and errors:
                     logger.info("Will exit after finishing "
                                 "currently running jobs.")
 
@@ -242,9 +249,9 @@ class JobScheduler:
                 # normal shutdown because all jobs have been finished
                 if not needrun and not running:
                     self._executor.shutdown()
-                    if self._errors:
+                    if errors:
                         logger.error(_ERROR_MSG_FINAL)
-                    return not self._errors
+                    return not errors
 
                 # continue if no new job needs to be executed
                 if not needrun:
@@ -266,7 +273,7 @@ class JobScheduler:
                     "Resources after job selection: {}".format(self.resources))
                 # actually run jobs
                 for job in run:
-                    with self.rate_limiter():
+                    with self.rate_limiter:
                         self.run(job)
         except (KeyboardInterrupt, SystemExit):
             logger.info("Terminating processes on user request.")
@@ -308,7 +315,15 @@ class JobScheduler:
         """ Do stuff after job is finished. """
         with self._lock:
             # by calling this behind the lock, we avoid race conditions
-            self.get_executor(job).handle_job_success(job)
+            try:
+                self.get_executor(job).handle_job_success(job)
+            except (RuleException, WorkflowError) as e:
+                # if an error occurs while processing job output,
+                # we do the same as in case of errors during execution
+                print_exception(e, self.workflow.linemaps)
+                self._handle_error(job)
+                return
+
             self.dag.finish(job, update_dynamic=update_dynamic)
 
             if update_resources:
@@ -323,30 +338,33 @@ class JobScheduler:
 
             if any(self.open_jobs) or not self.running:
                 # go on scheduling if open jobs are ready or no job is running
-                self._open_jobs.set()
+                self._open_jobs.release()
 
     def _error(self, job):
+        with self._lock:
+            self._handle_error(job)
+
+    def _handle_error(self, job):
         """Clear jobs and stop the workflow.
 
         If Snakemake is configured to restart jobs then the job might have
         "restart_times" left and we just decrement and let the scheduler
         try to run the job again.
         """
-        with self._lock:
-            self.get_executor(job).handle_job_error(job)
-            self.running.remove(job)
-            self._free_resources(job)
-            self._open_jobs.set()
-            # attempt starts counting from 1, but the first attempt is not
-            # a restart, hence we subtract 1.
-            if job.rule.restart_times > job.attempt - 1:
-                logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
-                job.attempt += 1
-            else:
-                self._errors = True
-                self.failed.add(job)
-                if self.keepgoing:
-                    logger.info("Job failed, going on with independent jobs.")
+        self.get_executor(job).handle_job_error(job)
+        self.running.remove(job)
+        self._free_resources(job)
+        # attempt starts counting from 1, but the first attempt is not
+        # a restart, hence we subtract 1.
+        if job.rule.restart_times > job.attempt - 1:
+            logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
+            job.attempt += 1
+        else:
+            self._errors = True
+            self.failed.add(job)
+            if self.keepgoing:
+                logger.info("Job failed, going on with independent jobs.")
+        self._open_jobs.release()
 
     def job_selector(self, jobs):
         """
@@ -419,11 +437,25 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 for name in self.workflow.global_resources]
 
     def job_reward(self, job):
-        return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job),
-                0 if self.touch else job.inputsize)
+        if self.touch or self.dryrun or self.workflow.immediate_submit:
+            temp_size = 0
+            input_size = 0
+        else:
+            temp_size = self.dag.temp_size(job)
+            input_size = job.inputsize
 
-    def dryrun_job_reward(self, job):
-        return (self.dag.priority(job), self.dag.temp_input_count(job), self.dag.downstream_size(job))
+        # Usually, this should guide the scheduler to first schedule all jobs
+        # that remove the largest temp file, then the second largest and so on.
+        # Since the weight is summed up, it can in theory be that it sometimes
+        # prefers a set of many jobs that all depend on smaller temp files though.
+        # A real solution to the problem is therefore to use dummy jobs that
+        # ensure selection of groups of jobs that together delete the same temp
+        # file.
+
+        return (self.dag.priority(job),
+                temp_size,
+                self.dag.downstream_size(job),
+                input_size)
 
     def progress(self):
         """ Display the progress. """

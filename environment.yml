@@ -1,14 +1,13 @@
 channels:
   - bioconda
-  - r
-  - anaconda
   - conda-forge
+  - defaults
 dependencies:
-  - python >=3.3
-  - boto
-  - moto
+  - python >=3.5
+  - boto3
+  - moto >=1.0.1
   - httpretty
-  - filechunkio
+  - wrapt
   - pyyaml
   - ftputil
   - pysftp
@@ -22,3 +21,5 @@ dependencies:
   - nomkl
   - google-cloud-storage
   - ratelimiter
+  - configargparse
+  - appdirs

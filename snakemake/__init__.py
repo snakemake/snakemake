@@ -6,7 +6,6 @@ __license__ = "MIT"
 import os
 import subprocess
 import glob
-import argparse
 from argparse import ArgumentError
 import logging as _logging
 import re
@@ -25,6 +24,7 @@ from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import Mode
+
 
 def snakemake(snakefile,
               listrules=False,
@@ -99,17 +99,23 @@ def snakemake(snakefile,
               log_handler=None,
               keep_logger=False,
               max_jobs_per_second=None,
+              max_status_checks_per_second=100,
               restart_times=0,
               attempt=1,
               verbose=False,
               force_use_threads=False,
               use_conda=False,
+              use_singularity=False,
+              singularity_args="",
               conda_prefix=None,
+              list_conda_envs=False,
+              singularity_prefix=None,
               create_envs_only=False,
               mode=Mode.default,
               wrapper_prefix=None,
               kubernetes=None,
               kubernetes_envvars=None,
+              container_image=None,
               default_remote_provider=None,
               default_remote_prefix="",
               assume_shared_fs=True,
@@ -190,10 +196,17 @@ def snakemake(snakefile,
         attempt (int):              initial value of Job.attempt. This is intended for internal use only (default 1).
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
-        conda_prefix (str):         the directories in which conda environments will be created (default None)
-        create_envs_only (bool):   If specified, only builds the conda environments specified for each job, then exits.
+        use_singularity (bool):     run jobs in singularity containers (if defined with singularity directive)
+        singularity_args (str):     additional arguments to pass to singularity
+        conda_prefix (str):         the directory in which conda environments will be created (default None)
+        singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
+        create_envs_only (bool):    If specified, only builds the conda environments specified for each job, then exits.
+        list_conda_envs (bool):     List conda environments and their location on disk.
         mode (snakemake.common.Mode): Execution mode
         wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
+        kubernetes (str):           Submit jobs to kubernetes, using the given namespace.
+        kubernetes_env (list):      Environment variables that shall be passed to kubernetes jobs.
+        container_image (str):         Docker image to use, e.g., for kubernetes.
         default_remote_provider (str): Default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): Prefix for default remote provider (e.g. name of the bucket).
         assume_shared_fs (bool):    Assume that cluster nodes share a common filesystem (default true).
@@ -352,7 +365,10 @@ def snakemake(snakefile,
                         config_args=config_args,
                         debug=debug,
                         use_conda=use_conda,
+                        use_singularity=use_singularity,
                         conda_prefix=conda_prefix,
+                        singularity_prefix=singularity_prefix,
+                        singularity_args=singularity_args,
                         mode=mode,
                         wrapper_prefix=wrapper_prefix,
                         printshellcmds=printshellcmds,
@@ -422,14 +438,21 @@ def snakemake(snakefile,
                                        keep_shadow=True,
                                        force_use_threads=use_threads,
                                        use_conda=use_conda,
+                                       use_singularity=use_singularity,
                                        conda_prefix=conda_prefix,
+                                       singularity_prefix=singularity_prefix,
+                                       singularity_args=singularity_args,
+                                       list_conda_envs=list_conda_envs,
                                        kubernetes=kubernetes,
                                        kubernetes_envvars=kubernetes_envvars,
+                                       container_image=container_image,
                                        create_envs_only=create_envs_only,
                                        default_remote_provider=default_remote_provider,
                                        default_remote_prefix=default_remote_prefix,
                                        assume_shared_fs=assume_shared_fs,
-                                       cluster_status=cluster_status)
+                                       cluster_status=cluster_status,
+                                       max_jobs_per_second=max_jobs_per_second,
+                                       max_status_checks_per_second=max_status_checks_per_second)
 
                 success = workflow.execute(
                     targets=targets,
@@ -457,7 +480,9 @@ def snakemake(snakefile,
                     drmaa_log_dir=drmaa_log_dir,
                     kubernetes=kubernetes,
                     kubernetes_envvars=kubernetes_envvars,
+                    container_image=container_image,
                     max_jobs_per_second=max_jobs_per_second,
+                    max_status_checks_per_second=max_status_checks_per_second,
                     printd3dag=printd3dag,
                     immediate_submit=immediate_submit,
                     ignore_ambiguity=ignore_ambiguity,
@@ -468,6 +493,7 @@ def snakemake(snakefile,
                     list_code_changes=list_code_changes,
                     list_input_changes=list_input_changes,
                     list_params_changes=list_params_changes,
+                    list_conda_envs=list_conda_envs,
                     summary=summary,
                     archive=archive,
                     latency_wait=latency_wait,
@@ -577,16 +603,86 @@ def unparse_config(config):
     return items
 
 
-def get_argument_parser():
+APPDIRS = None
+
+
+def get_appdirs():
+    global APPDIRS
+    if APPDIRS is None:
+        from appdirs import AppDirs
+        APPDIRS = AppDirs("snakemake", "snakemake")
+    return APPDIRS
+
+
+def get_profile_file(profile, file, return_default=False):
+    dirs = get_appdirs()
+    if os.path.isabs(profile):
+        search_dirs = [os.path.dirname(profile)]
+        profile = os.path.basename(profile)
+    else:
+        search_dirs = [os.getcwd(),
+                       dirs.user_config_dir,
+                       dirs.site_config_dir]
+    get_path = lambda d: os.path.join(d, profile, file)
+    for d in search_dirs:
+        p = get_path(d)
+        if os.path.exists(p):
+            return p
+
+    if return_default:
+        return file
+    return None
+
+
+def get_argument_parser(profile=None):
     """Generate and return argument parser."""
-    parser = argparse.ArgumentParser(
+    import configargparse
+    from configargparse import YAMLConfigFileParser
+
+    dirs = get_appdirs()
+    config_files = []
+    if profile:
+        if profile == "":
+            print("Error: invalid profile name.", file=sys.stderr)
+            exit(1)
+
+        config_file = get_profile_file(profile, "config.yaml")
+        if config_file is None:
+            print("Error: profile given but no config.yaml found. "
+                  "Profile has to be given as either absolute path, relative "
+                  "path or name of a directory available in either "
+                  "{site} or {user}.".format(
+                      site=dirs.site_config_dir,
+                      user=dirs.user_config_dir), file=sys.stderr)
+            exit(1)
+        config_files = [config_file]
+
+    parser = configargparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
-        "environment for GNU Make-like workflows.")
+        "environment for GNU Make-like workflows.",
+        default_config_files=config_files,
+        config_file_parser_class=YAMLConfigFileParser)
 
     parser.add_argument("target",
                         nargs="*",
                         default=None,
                         help="Targets to build. May be rules or files.")
+
+    parser.add_argument("--profile",
+                        help="""
+                        Name of profile to use for configuring
+                        Snakemake. Snakemake will search for a corresponding
+                        folder in {} and {}. Alternatively, this can be an
+                        absolute or relative path.
+                        The profile folder has to contain a file 'config.yaml'.
+                        This file can be used to set default values for command
+                        line options in YAML format. For example,
+                        '--cluster qsub' becomes 'cluster: qsub' in the YAML
+                        file. Profiles can be obtained from
+                        https://github.com/snakemake-profiles.
+                        """.format(dirs.site_config_dir,
+                                   dirs.user_config_dir))
+
     parser.add_argument("--snakefile", "-s",
                         metavar="FILE",
                         default="Snakefile",
@@ -899,6 +995,15 @@ def get_argument_parser():
     parser.add_argument(
         "--kubernetes-env", nargs="+", metavar="ENVVAR", default=[],
         help="Specify environment variables to pass to the kubernetes job.")
+    parser.add_argument(
+        "--container-image", metavar="IMAGE", help=
+        "Docker image to use, e.g., when submitting jobs to kubernetes. "
+        "By default, this is 'quay.io/snakemake/snakemake', tagged with "
+        "the same version as the currently running Snakemake instance. "
+        "Note that overwriting this value is up to your responsibility. "
+        "Any used image has to contain a working snakemake installation "
+        "that is compatible with (or ideally the same as) the currently "
+        "running version.")
     parser.add_argument("--reason", "-r",
                         action="store_true",
                         help="Print the reason for each executed rule.")
@@ -1009,9 +1114,15 @@ def get_argument_parser():
         "used. Note that this is intended primarily for internal use and may "
         "lead to unexpected results otherwise.")
     parser.add_argument(
-        "--max-jobs-per-second", default=None, type=float,
+        "--max-jobs-per-second", default=10, type=float,
         help=
-        "Maximal number of cluster/drmaa jobs per second, default is no limit")
+        "Maximal number of cluster/drmaa jobs per second, default is 10, "
+        "fractions allowed.")
+    parser.add_argument(
+        "--max-status-checks-per-second", default=10, type=float,
+        help=
+        "Maximal number of job status checks per second, default is 10, "
+        "fractions allowed.")
     parser.add_argument(
         "--restart-times", default=0, type=int,
         help=
@@ -1052,7 +1163,7 @@ def get_argument_parser():
                         help="Allow to debug rules with e.g. PDB. This flag "
                         "allows to set breakpoints in run blocks.")
     parser.add_argument(
-        "--profile",
+        "--runtime-profile",
         metavar="FILE",
         help=
         "Profile Snakemake and write the output to FILE. This requires yappi "
@@ -1074,7 +1185,7 @@ def get_argument_parser():
     parser.add_argument(
         "--use-conda",
         action="store_true",
-        help="If defined in the rule, create job specific conda environments. "
+        help="If defined in the rule, run job in a conda environment. "
         "If this flag is not set, the conda directive is ignored.")
     parser.add_argument(
         "--conda-prefix",
@@ -1091,6 +1202,30 @@ def get_argument_parser():
                         help="If specified, only creates the job-specific "
                         "conda environments then exits. The `--use-conda` "
                         "flag must also be set.")
+    parser.add_argument("--list-conda-envs",
+                        action="store_true",
+                        help="List all conda environments and their location on "
+                        "disk.")
+    parser.add_argument(
+        "--use-singularity",
+        action="store_true",
+        help="If defined in the rule, run job within a singularity container. "
+        "If this flag is not set, the singularity directive is ignored."
+    )
+    parser.add_argument(
+        "--singularity-prefix",
+        metavar="DIR",
+        help="Specify a directory in which singularity images will be stored."
+        "If not supplied, the value is set "
+        "to the '.snakemake' directory relative to the invocation directory. "
+        "If supplied, the `--use-singularity` flag must also be set. The value "
+        "may be given as a relative path, which will be extrapolated to the "
+        "invocation directory, or as an absolute path.")
+    parser.add_argument(
+        "--singularity-args",
+        default="",
+        metavar="ARGS",
+        help="Pass additional args to singularity.")
     parser.add_argument(
         "--wrapper-prefix",
         default="https://bitbucket.org/snakemake/snakemake-wrappers/raw/",
@@ -1099,7 +1234,7 @@ def get_argument_parser():
         "a different URL to use your fork or a local clone of the repository."
     )
     parser.add_argument("--default-remote-provider",
-                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gridftp"],
+                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp"],
                         help="Specify default remote provider to be used for "
                         "all input and output files that don't yet specify "
                         "one.")
@@ -1132,6 +1267,27 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
+    if args.profile:
+        # reparse args while inferring config file from profile
+        parser = get_argument_parser(args.profile)
+        args = parser.parse_args(argv)
+        def adjust_path(f):
+            if os.path.exists(f) or os.path.isabs(f):
+                return f
+            else:
+                return get_profile_file(args.profile, f, return_default=True)
+
+        # update file paths to be relative to the profile
+        # (if they do not exist relative to CWD)
+        if args.jobscript:
+            args.jobscript = adjust_path(args.jobscript)
+        if args.cluster:
+            args.cluster = adjust_path(args.cluster)
+        if args.cluster_sync:
+            args.cluster_sync = adjust_path(args.cluster_sync)
+        if args.cluster_status:
+            args.cluster_status = adjust_path(args.cluster_status)
+
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
         sys.stdout.buffer.write(cmd)
@@ -1163,7 +1319,7 @@ def main(argv=None):
         if not os.path.isabs(args.drmaa_log_dir):
             args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
 
-    if args.profile:
+    if args.runtime_profile:
         import yappi
         yappi.start()
 
@@ -1179,6 +1335,11 @@ def main(argv=None):
             "Error: --use-conda must be set if --conda-prefix or "
             "--create-envs-only is set.",
             file=sys.stderr)
+        sys.exit(1)
+
+    if args.singularity_prefix and not args.use_singularity:
+        print("Error: --use_singularity must be set if --singularity-prefix "
+              "is set.", file=sys.stderr)
         sys.exit(1)
 
     if args.gui is not None:
@@ -1259,6 +1420,7 @@ def main(argv=None):
                             drmaa_log_dir=args.drmaa_log_dir,
                             kubernetes=args.kubernetes,
                             kubernetes_envvars=args.kubernetes_env,
+                            container_image=args.container_image,
                             jobname=args.jobname,
                             immediate_submit=args.immediate_submit,
                             standalone=True,
@@ -1292,11 +1454,16 @@ def main(argv=None):
                             keep_shadow=args.keep_shadow,
                             allowed_rules=args.allowed_rules,
                             max_jobs_per_second=args.max_jobs_per_second,
+                            max_status_checks_per_second=args.max_status_checks_per_second,
                             restart_times=args.restart_times,
                             attempt=args.attempt,
                             force_use_threads=args.force_use_threads,
                             use_conda=args.use_conda,
                             conda_prefix=args.conda_prefix,
+                            list_conda_envs=args.list_conda_envs,
+                            use_singularity=args.use_singularity,
+                            singularity_prefix=args.singularity_prefix,
+                            singularity_args=args.singularity_args,
                             create_envs_only=args.create_envs_only,
                             mode=args.mode,
                             wrapper_prefix=args.wrapper_prefix,
@@ -1305,8 +1472,8 @@ def main(argv=None):
                             assume_shared_fs=not args.no_shared_fs,
                             cluster_status=args.cluster_status)
 
-    if args.profile:
-        with open(args.profile, "w") as out:
+    if args.runtime_profile:
+        with open(args.runtime_profile, "w") as out:
             profile = yappi.get_func_stats()
             profile.sort("totaltime")
             profile.print_all(out=out)

@@ -4,6 +4,8 @@ __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
 from functools import update_wrapper
+import inspect
+
 
 DYNAMIC_FILL = "__snakemake_dynamic__"
 
@@ -39,3 +41,10 @@ def strip_prefix(text, prefix):
     if text.startswith(prefix):
         return text[len(prefix):]
     return text
+
+
+def log_location(msg):
+    callerframerecord = inspect.stack()[1]
+    frame = callerframerecord[0]
+    info = inspect.getframeinfo(frame)
+    logger.debug("{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info))

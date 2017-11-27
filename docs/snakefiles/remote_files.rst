@@ -21,6 +21,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * XRootD: ``snakemake.remote.XRootD``
 * GenBank / NCBI Entrez: ``snakemake.remote.NCBI``
 * WebDAV: ``snakemake.remote.webdav``
+* GFAL: ``snakemake.remote.gfal``
 * GridFTP: ``snakemake.remote.gridftp``
 
 
@@ -108,6 +109,19 @@ The remote provider also supports a new ``glob_wildcards()`` (see :ref:`glob-wil
     S3.glob_wildcards("bucket-name/{file_prefix}.txt")
 
     # (result looks just like as if the local glob_wildcards() function were used on a locally with a folder called "bucket-name")
+
+If the AWS CLI is installed it is possible to configure your keys globally. This removes the necessity of hardcoding the keys in the Snakefile. The interactive AWS credentials setup can be done using the following command:
+
+.. code-block:: python
+
+    aws configure
+    
+S3 then can be used without the keys.  
+
+.. code-block:: python  
+
+    from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
+    S3 = S3RemoteProvider()
 
 Google Cloud Storage (GS)
 =========================
@@ -527,21 +541,51 @@ can be used by specifying ``protocol=="http://"``. Similarly, the port defaults 
             # do something
 
 
+GFAL
+====
+
+GFAL support is available in Snakemake 4.1 and later.
+
+Snakemake supports reading and writing remote files via the `GFAL <https://dmc.web.cern.ch/projects/gfal-2/home>`_ command line client (gfal-* commands).
+By this, it supports various grid storage protocols like `GridFTP <https://en.wikipedia.org/wiki/GridFTP>`_.
+In general, if you are able to use the `gfal-*` commands directly, Snakemake support for GFAL will work as well.
+
+.. code-block:: python
+
+    from snakemake.remote import gfal
+
+    gfal = gfal.RemoteProvider(retry=5)
+
+    rule a:
+        input:
+            gfal.remote("gridftp.grid.sara.nl:2811/path/to/infile.txt")
+        output:
+            gfal.remote("gridftp.grid.sara.nl:2811/path/to/outfile.txt")
+        shell:
+            # do something
+
+Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
+Usually, this is already the case and no action has to be taken.
+The keyword argument to the remote provider allows to set the number of retries (10 per default) in case of failed commands (the GRID is usually relatively unreliable).
+The latter may be unsupported depending on the system configuration.
+
+Note that GFAL support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
+to transparently use Snakemake in a grid computing environment without a shared network filesystem.
+For an example see the `surfsara-grid configuration profile <https://github.com/Snakemake-Profiles/surfsara-grid>`_.
+
 GridFTP
 =======
 
-GridFTP support is available in Snakemake 4.1 and later.
+GridFTP support is available in Snakemake 4.3.0 and later.
 
-Snakemake supports reading and writing remote files via the `GridFTP protocol <https://en.wikipedia.org/wiki/GridFTP>`_.
-GridFTP is an extension of the FTP protocol that is often used in grid computing environments.
-The implementation uses the `UberFTP <https://github.com/JasonAlt/UberFTP/wiki>`_ client, which has to be available in the `$PATH` and configured correctly.
-In general, if you are able to use the `uberftp` directly, Snakemake support for GridFTP will work as well.
+As a more specialized alternative to the GFAL remote provider, Snakemake provides a `GridFTP <https://en.wikipedia.org/wiki/GridFTP>`_ remote provider.
+This provider only supports the GridFTP protocol. Internally, it uses the `globus-url-copy <http://toolkit.globus.org/toolkit/docs/latest-stable/gridftp/user/#globus-url-copy>`_ command for downloads and uploads, while all other tasks are delegated to the GFAL remote provider.
 
 .. code-block:: python
 
     from snakemake.remote import gridftp
 
-    gridftp = gridftp.RemoteProvider()
+    gridftp = gridftp.RemoteProvider(retry=5)
 
     rule a:
         input:
@@ -553,9 +597,12 @@ In general, if you are able to use the `uberftp` directly, Snakemake support for
 
 Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
 Usually, this is already the case and no action has to be taken.
+The keyword argument to the remote provider allows to set the number of retries (10 per default) in case of failed commands (the GRID is usually relatively unreliable).
+The latter may be unsupported depending on the system configuration.
 
 Note that GridFTP support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
 to transparently use Snakemake in a grid computing environment without a shared network filesystem.
+For an example see the `surfsara-grid configuration profile <https://github.com/Snakemake-Profiles/surfsara-grid>`_.
 
 
 Remote cross-provider transfers

@@ -114,6 +114,10 @@ Of course, if any input or output already defines a different remote location, t
 Importantly, this means that Snakemake does **not** require a shared network
 filesystem to work in the cloud.
 
+Currently, this mode requires that the Snakemake workflow is stored in a git repository.
+Snakemake uses git to query necessary source files (the Snakefile, scripts, config, ...)
+for workflow execution and encodes them into the kubernetes job.
+
 It is further possible to forward arbitrary environment variables to the kubernetes
 jobs via the flag ``--kubernetes-env`` (see ``snakemake --help``).
 
@@ -199,8 +203,34 @@ When executing a workflow on a cluster using the ``--cluster`` parameter (see be
     os.system("qsub -t {threads} {script}".format(threads=threads, script=jobscript))
 
 
-.. _getting_started-all_options:
+--------
+Profiles
+--------
 
+Adapting Snakemake to a particular environment can entail many flags and options.
+Therefore, since Snakemake 4.1, it is possible to specify a configuration profile
+to be used to obtain default options:
+
+.. code-block:: console
+
+   $ snakemake --profile myprofile
+
+Here, a folder ``myprofile`` is searched in per-user and global configuration directories (on Linux, this will be ``$HOME/.config/snakemake`` and ``/etc/xdg/snakemake``, you can find the answer for your system via ``snakemake --help``).
+Alternatively, an absolute or relative path to the folder can be given.
+The profile folder is expected to contain a file ``config.yaml`` that defines default values for the Snakemake command line arguments.
+For example, the file
+
+.. code-block:: yaml
+
+    cluster: qsub
+    jobs: 100
+
+would setup Snakemake to always submit to the cluster via the ``qsub`` command, and never use more than 100 parallel jobs in total.
+Under https://github.com/snakemake-profiles/doc, you can find publicly available profiles.
+Feel free to contribute your own.
+
+The profile folder can additionally contain auxilliary files, e.g., jobscripts, or any kind of wrappers.
+See https://github.com/snakemake-profiles/doc for examples.
 
 .. _getting_started-visualization:
 

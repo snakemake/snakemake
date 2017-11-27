@@ -20,7 +20,7 @@ from snakemake.logging import logger
 
 try:
     # third-party
-    import boto
+    import boto3
     from moto import mock_s3
     import filechunkio
 except ImportError as e:
@@ -90,9 +90,8 @@ class RemoteObject(S3RemoteObject):
         bucket_name = 'test-static-remote-bucket'
         test_files = ('test.txt', 'out1.txt', 'out2.txt')
 
-        conn = boto.connect_s3()
-        if bucket_name not in [b.name for b in conn.get_all_buckets()]:
-            conn.create_bucket(bucket_name)
+        s3 = boto3.resource('s3')
+        s3.create_bucket(Bucket=bucket_name)
 
         # "Upload" files that should be in S3 before tests...
         s3c = S3Helper()

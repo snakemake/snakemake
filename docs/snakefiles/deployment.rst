@@ -13,11 +13,11 @@ following structure:
     ├── README.md
     ├── LICENSE.md
     ├── config.yaml
-    ├── environment.yaml
     ├── scripts
-    │   ├── __init__.py
     │   ├── script1.py
     │   └── script2.R
+    ├── envs
+    │   └── myenv.yaml
     └── Snakefile
 
 Then, a workflow can be deployed to a new system via the following steps
@@ -31,16 +31,18 @@ Then, a workflow can be deployed to a new system via the following steps
     # edit config and workflow as needed
     vim config.yaml
 
-    # install dependencies into isolated environment
-    conda env create -n myworkflow --file environment.yaml
-
-    # activate environment
-    source activate myworkflow
-
-    # execute workflow
-    snakemake -n
+    # execute workflow, deploy software dependencies via conda
+    snakemake -n --use-conda
 
 Importantly, git branching and pull requests can be used to modify and possibly re-integrate workflows.
+A `cookiecutter <https://github.com/audreyr/cookiecutter>`_ template for creating this structure can be found `here <https://github.com/snakemake-workflows/cookiecutter-snakemake-workflow>`_.
+Given that cookiecutter is installed, you can use it via:
+
+.. code-block:: bash
+
+    cookiecutter gh:snakemake-workflows/cookiecutter-snakemake-workflow
+
+Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for best-practice workflows.
 
 .. _integrated_package_management:
 
@@ -80,6 +82,35 @@ with the following `environment definition <http://conda.pydata.org/docs/using/e
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
 Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
 
+
+--------------------------
+Running jobs in containers
+--------------------------
+
+As an alternative to using Conda (see above), it is possible to define, for each rule, a docker or singularity container to use, e.g.,
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "table.txt"
+        output:
+            "plots/myplot.pdf"
+        singularity:
+            "docker://joseespinosa/docker-r-ggplot2"
+        script:
+            "scripts/plot-stuff.R"
+
+When executing Snakemake with
+
+.. code-block:: bash
+
+    snakemake --use-singularity
+
+it will execute the job within a singularity container that is spawned from the given image.
+Allowed image urls entail everything supported by singularity (e.g., ``shub://`` and ``docker://``).
+When ``--use-singularity`` is combined with ``--kubernetes`` (see :ref:`kubernetes`), cloud jobs will be automatically configured to run in priviledged mode, because this is a current requirement of the singularity executable.
+Importantly, those privileges won't be shared by the actual code that is executed in the singularity container though.
 
 --------------------------------------
 Sustainable and reproducible archiving

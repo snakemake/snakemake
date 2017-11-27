@@ -3,101 +3,73 @@ __copyright__ = "Copyright 2017, Johannes Köster"
 __email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
-import os
-import re
-import shutil
-import subprocess as sp
-from datetime import datetime
 
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+import os
+import subprocess as sp
+import time
+import shutil
+
 from snakemake.exceptions import WorkflowError
-from snakemake.common import lazy_property
 from snakemake.logging import logger
 
 
-if not shutil.which("uberftp"):
-    raise WorkflowError("The uberftp command needs to be available for GridFTP support")
+if not shutil.which("globus-url-copy"):
+    raise WorkflowError("The globus-url-copy command has to be available for "
+                        "gridftp remote support.")
+
+if not shutil.which("gfal-ls"):
+    raise WorkflowError("The gfal-* commands need to be available for "
+                        "gridftp remote support.")
 
 
-class RemoteProvider(AbstractRemoteProvider):
-
-    supports_default = True
-
-    def __init__(self, *args, stay_on_remote=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
-
-    @property
-    def default_protocol(self):
-        """The protocol that is prepended to the path when no protocol is specified."""
-        return "gsiftp://"
-
-    @property
-    def available_protocols(self):
-        """List of valid protocols for this remote provider."""
-        return ["gsiftp://"]
+from snakemake.remote import gfal
 
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteProvider(gfal.RemoteProvider):
+    pass
 
-    def __init__(self, *args, keep_local=False, provider=None, **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
 
-    def _uberftp(self, *args, **kwargs):
-        cmd = ["uberftp"] + list(args)
-        logger.debug(" ".join(cmd))
-        try:
-            return sp.run(cmd, **kwargs)
-        except sp.CalledProcessError as e:
-            raise WorkflowError("Error calling uberftp.", e)
-
-    def _uberftp_exists(self, url):
-        res = self._uberftp("-ls", url, stdout=sp.PIPE, stderr=sp.STDOUT)
-        return "No match for" not in res.stdout.decode()
-
-    # === Implementations of abstract class members ===
-
-    def exists(self):
-        return self._uberftp_exists(self.remote_file())
-
-    def mtime(self):
-        assert self.exists()
-        res = self._uberftp("-ls", self.remote_file(), check=True, stdout=sp.PIPE)
-        date = " ".join(res.stdout.decode().split()[-4:-1])
-        # first, try minute resolution
-        try:
-            date = datetime.strptime(date, "%b %d %Y")
-        except:
-            date = datetime.strptime(date, "%b %d %H:%M")
-            date.replace(year=datetime.now().year)
-        return date.timestamp()
-
-    def size(self):
-        assert self.exists()
-        res = self._uberftp("-size", self.remote_file(), check=True, stdout=sp.PIPE)
-        return int(res.stdout.decode())
+class RemoteObject(gfal.RemoteObject):
+    def _globus(self,
+                *args):
+        retry = self.provider.retry
+        cmd = ["globus-url-copy"] + list(args)
+        for i in range(retry + 1):
+            try:
+                logger.debug(" ".join(cmd))
+                return sp.run(cmd,
+                              check=True,
+                              stderr=sp.PIPE,
+                              stdout=sp.PIPE).stdout.decode()
+            except sp.CalledProcessError as e:
+                if i == retry:
+                    raise WorkflowError("Error calling globus-url-copy:\n{}".format(
+                        cmd, e.stderr.decode()))
+                else:
+                    # try again after some seconds
+                    time.sleep(1)
+                    continue
 
     def download(self):
         if self.exists():
-            os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
-            self._uberftp(self.remote_file(),
-                          "file://" + os.path.abspath(self.local_file()),
-                          check=True)
+            # Download file. Wait for staging.
+            source = self.remote_file()
+            target = "file://" + os.path.abspath(self.local_file())
+
+            self._globus("-parallel", "4", "-create-dest", "-recurse", "-dp",
+                         source, target)
+
             os.sync()
             return self.local_file()
         return None
 
     def upload(self):
-        if self.exists():
-            self._uberftp("-rm", self.remote_file(), check=True)
-        prefix = self.protocol[:-1] # remove last slash
-        for d in self.local_file().split("/")[:-1]:
-            prefix += "/" + d
-            if not self._uberftp_exists(prefix):
-                self._uberftp("-mkdir", prefix, check=True)
-        self._uberftp("file://" + os.path.abspath(self.local_file()),
-                      self.remote_file(), check=True)
+        target = self.remote_file()
+        source = "file://" + os.path.abspath(self.local_file())
 
-    @property
-    def list(self):
-        # TODO implement listing of remote files with patterns
-        return []
+        if self.exists():
+            # first delete file, such that globus does not fail
+            self._gfal("rm", target)
+
+        self._globus("-parallel", "4", "-create-dest", "-recurse", "-dp",
+                     source, target)

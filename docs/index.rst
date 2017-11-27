@@ -1,8 +1,8 @@
 .. _manual-main:
 
-=====================================
-Welcome to Snakemake's documentation!
-=====================================
+=========
+Snakemake
+=========
 
 .. image:: https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg
     :target: https://bioconda.github.io/recipes/snakemake/README.html
@@ -22,9 +22,13 @@ Welcome to Snakemake's documentation!
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
     :target: http://stackoverflow.com/questions/tagged/snakemake
 
-Snakemake is an MIT-licensed workflow management system that aims to reduce the complexity of creating workflows by providing a fast and comfortable execution environment, together with a clean and modern specification language in python style.
-Snakemake workflows are essentially Python scripts extended by declarative code to define **rules**.
-Rules describe how to create **output files** from **input files**.
+.. image:: https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow
+    :target: https://twitter.com/johanneskoester
+
+The Snakemake workflow management system is a tool to create **reproducible and scalable** data analyses.
+Workflows are described via a human readable, Python based language.
+They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
+Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
 
 .. _manual-quick_example:
@@ -32,6 +36,9 @@ Rules describe how to create **output files** from **input files**.
 -------------
 Quick Example
 -------------
+
+Snakemake workflows are essentially Python scripts extended by declarative code to define **rules**.
+Rules describe how to create **output files** from **input files**.
 
 .. code-block:: python
 
@@ -54,7 +61,8 @@ Quick Example
 * Snakemake determines the rule dependencies by matching file names.
 * Input and output files can contain multiple named wildcards.
 * Rules can either use shell commands, plain Python code or external Python or R scripts to create output files from input files.
-* Snakemake workflows can be easily executed on **workstations**, **clusters** and **in the cloud** without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
+* Snakemake workflows can be easily executed on **workstations**, **clusters**, **the grid**, and **in the cloud** without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
+* Snakemake can automatically deploy required software dependencies of a workflow using `Conda <https://conda.io>`_ or `Singularity <http://singularity.lbl.gov/>`_.
 * Snakemake can use Amazon S3, Google Storage, Dropbox, FTP, WebDAV and SFTP to access input or output files and further access input files via HTTP and HTTPS.
 
 .. _main-getting-started:
@@ -71,8 +79,9 @@ To get started, consider the :ref:`tutorial`, the `introductory slides <http://s
 Support
 -------
 
+* First, check the :ref:`FAQ <project_info-faq>`.
 * In case of questions, please post on `stack overflow <http://stackoverflow.com/questions/tagged/snakemake>`_.
-* To discuss with other Snakemake users, you can use the `mailing list <https://groups.google.com/forum/#!forum/snakemake>`_.
+* To discuss with other Snakemake users, you can use the `mailing list <https://groups.google.com/forum/#!forum/snakemake>`_. **Please do not post questions there. Use stack overflow for questions.**
 * For bugs and feature requests, please use the `issue tracker <https://bitbucket.org/snakemake/snakemake/issues>`_.
 * For contributions, visit Snakemake on `bitbucket <https://bitbucket.org/snakemake/snakemake>`_ and read the :ref:`guidelines <project_info-contributing>`.
 
@@ -84,20 +93,24 @@ Citation
 
 See :doc:`Citations <project_info/citations>` for more information.
 
-----------------
-Related Projects
-----------------
+---------
+Resources
+---------
 
 `Snakemake Wrappers Repository <https://snakemake-wrappers.readthedocs.org>`_
-    The Snakemake Wrapper Repository is a collection of reusable wrappers that allow to quickly use popular command line tools from Snakemake rules and workflows.
+    The Snakemake Wrapper Repository is a collection of reusable wrappers that allow to quickly use popular tools from Snakemake rules and workflows.
 
-`Snakemake Workflow Repository <https://bitbucket.org/snakemake/snakemake-workflows>`_
-    This repository provides a collection of high quality modularized and re-usable rules and workflows.
+`Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_
+    This project provides a collection of high quality modularized and re-usable workflows.
     The provided code should also serve as a best-practices of how to build production ready workflows with Snakemake.
     Everybody is invited to contribute.
 
+`Snakemake Profiles Project <https://github.com/snakemake-profiles/doc`_
+    This project provides Snakemake configuration profiles for various execution environments.
+    Please consider contributing your own if it is still missing.
+
 `Bioconda <https://bioconda.github.io/>`_
-    Bioconda can be used from Snakemake for creating completely reproducible workflows by pin pointing the used software version and providing binaries.
+    Bioconda can be used from Snakemake for creating completely reproducible workflows by defining the used software versions and providing binaries.
 
 
 .. project_info-publications_using:

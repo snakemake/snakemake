@@ -173,14 +173,32 @@ class Job:
             logger.debug("Accessing conda environment {}.".format(self._conda_env))
             if self._conda_env is None:
                 raise ValueError("Conda environment {} not found in DAG.".format(self.conda_env_file))
-            return self._conda_env.path
+            return self._conda_env
         return None
+
+    @property
+    def conda_env_path(self):
+        return self.conda_env.path if self.conda_env else None
 
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""
         if self.conda_env_file:
             return self.conda_env.create_archive()
         return None
+
+    @property
+    def singularity_img_url(self):
+        return self.rule.singularity_img
+
+    @property
+    def singularity_img(self):
+        if self.singularity_img_url:
+            return self.dag.singularity_imgs[self.singularity_img_url]
+        return None
+
+    @property
+    def singularity_img_path(self):
+        return self.singularity_img.path if self.singularity_img else None
 
     @property
     def is_shadow(self):
@@ -504,8 +522,27 @@ class Job:
         self.shadow_dir = tempfile.mkdtemp(
             dir=self.rule.workflow.persistence.shadow_path)
         cwd = os.getcwd()
+
+        if self.rule.shadow_depth == "minimal":
+            # Re-create the directory structure in the shadow directory
+            for (f,d) in set([(item, os.path.dirname(item)) for sublist in [self.input, self.output, self.log] if sublist is not None for item in sublist]):
+                if d and not os.path.isabs(d):
+                    rel_path = os.path.relpath(d)
+                    # Only create subdirectories
+                    if not rel_path.split(os.path.sep)[0] == "..":
+                        os.makedirs(os.path.join(self.shadow_dir, rel_path), exist_ok = True)
+                    else:
+                        raise RuleException("The following file name references a parent directory relative to your workdir.\n"
+                                            "This isn't supported for shadow: \"minimal\". Consider using an absolute path instead.\n{}".format(f),rule = self.rule)
+
+            # Symlink the input files
+            for rel_path in set([os.path.relpath(f) for f in self.input if not os.path.isabs(f)]):
+                link = os.path.join(self.shadow_dir, rel_path)
+                original = os.path.relpath(rel_path, os.path.dirname(link))
+                os.symlink(original, link)
+
         # Shallow simply symlink everything in the working directory.
-        if self.rule.shadow_depth == "shallow":
+        elif self.rule.shadow_depth == "shallow":
             for source in os.listdir(cwd):
                 link = os.path.join(self.shadow_dir, source)
                 os.symlink(os.path.abspath(source), link)
