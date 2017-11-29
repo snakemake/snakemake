@@ -10,7 +10,7 @@ from pytz import timezone
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
-from snakemake.exceptions import iRODSFileException, WorkflowError
+from snakemake.exceptions import WorkflowError
 
 try:
     # third-party modules
@@ -19,7 +19,7 @@ try:
     from irods.models import DataObject
     import irods.keywords as kw
 except ImportError as e:
-    raise WorkflowError("The Python 3 package 'python.irods' " +
+    raise WorkflowError("The Python 3 package 'python-irodsclient' " +
         "must be installed to use iRODS remote() file functionality. %s" % e.msg)
 
 
@@ -93,7 +93,7 @@ class RemoteObject(DomainObject):
                 except:
                     return False
         else:
-            raise iRODSFileException("The file cannot be parsed as an iRODS path in form 'host:port/path/to/file': %s" % self.local_file())
+            raise WorkflowError("The file cannot be parsed as an iRODS path in form 'host:port/path/to/file': %s" % self.local_file())
 
     def _convert_time(self, timestamp, tz=None):
         dt = timestamp.replace(tzinfo=timezone('UTC'))
@@ -121,7 +121,7 @@ class RemoteObject(DomainObject):
                 
                 return int(mtime)
         else:
-            raise iRODSFileException("The file does not seem to exist remotely: %s" % self.local_file())
+            raise WorkflowError("The file does not seem to exist remotely: %s" % self.local_file())
 
     def atime(self):
         if self.exists():
@@ -140,10 +140,10 @@ class RemoteObject(DomainObject):
                     dt = self._convert_time(obj.modify_time, self.provider.kwargs.get('timezone', None))
                     utc2 = self._convert_time(utc)
                     atime = (dt - utc2).total_seconds()
-                
+
                 return int(atime)
         else:
-            raise iRODSFileException("File doesn't exist remotely: %s" % self.local_file())
+            raise WorkflowError("File doesn't exist remotely: %s" % self.local_file())
 
     def is_newer(self, time):
         """ Returns true of the file is newer than time, or if it is
@@ -166,7 +166,7 @@ class RemoteObject(DomainObject):
 
                 # force irods to overwrite existing file if this option is set
                 opt = {}
-                if self.kwargs.get('overwrite', None):
+                if self.kwargs.get('overwrite'):
                     opt[kw.FORCE_FLAG_KW] = ''
 
                 # get object and change timestamp
@@ -174,7 +174,7 @@ class RemoteObject(DomainObject):
                 os.utime(self.local_path, (self.atime(), self.mtime()))
                 os.sync()
             else:
-                raise iRODSFileException("The file does not seem to exist remotely: %s" % self.local_file())
+                raise WorkflowError("The file does not seem to exist remotely: %s" % self.local_file())
 
     def upload(self):
         with self.irods_session() as session:
@@ -189,15 +189,19 @@ class RemoteObject(DomainObject):
                 collpath = os.path.join(collpath, folder)
 
                 try:
-                    print("trying to get {}".format(collpath))
                     session.collections.get(collpath)
                 except:
-                    print("creating {}".format(collpath))
                     session.collections.create(collpath)
 
             # upload file and store local timestamp in metadata since irods sets the files modification time to
             # the upload time rather than retaining the local modification time
             session.data_objects.put(self.local_path, self.remote_path)
+
+            # erase meta data (if exists) before adding it. there is no update routine available in the API
+            for m in session.metadata.get(DataObject, self.remote_path):
+                if m.name in ('mtime', 'atime', 'ctime'):
+                    session.metadata.remove(DataObject, self.remote_path, iRODSMeta(m.name, m.value, m.units))
+
             session.metadata.add(DataObject, self.remote_path, iRODSMeta('mtime', str(stat.st_mtime), 's'))
             session.metadata.add(DataObject, self.remote_path, iRODSMeta('atime', str(stat.st_atime), 's'))
             session.metadata.add(DataObject, self.remote_path, iRODSMeta('ctime', str(stat.st_ctime), 's'))
