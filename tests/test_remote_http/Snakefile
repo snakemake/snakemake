@@ -15,7 +15,7 @@ rule compare:
 
 rule copy:
     input:
-        HTTP.remote("bitbucket.org/snakemake/snakemake-fork/raw/http-gzip-autodecode/tests/test_remote_http/expected-results/landsat-data.txt")
+        HTTP.remote("bitbucket.org/snakemake/snakemake/raw/http-gzip-autodecode/tests/test_remote_http/expected-results/landsat-data.txt")
     output:
         "landsat-data.txt"
     shell:
@@ -24,7 +24,7 @@ rule copy:
 
 rule copy_gz:
     input:
-        HTTP.remote("bitbucket.org/snakemake/snakemake-fork/raw/http-gzip-autodecode/tests/test_remote_http/expected-results/landsat-data.txt.gz")
+        HTTP.remote("bitbucket.org/snakemake/snakemake/raw/http-gzip-autodecode/tests/test_remote_http/expected-results/landsat-data.txt.gz")
     output:
         "landsat-data.txt.gz"
     shell:
