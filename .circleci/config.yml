@@ -9,7 +9,7 @@ jobs:
           command: |
             wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
             bash miniconda.sh -b -p miniconda
-            export PATH="miniconda/bin:$PATH"
+            echo 'export PATH="miniconda/bin:$PATH"' >> ~/.bashrc
       - run:
           name: Setup Snakemake
           command: |
