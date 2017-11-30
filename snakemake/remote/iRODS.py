@@ -65,22 +65,38 @@ class RemoteObject(DomainObject):
         # use kwargs passed in to remote() to override those given to the RemoteProvider()
         # default to the host and port given as part of the file, falling back to one specified
         # as a kwarg to remote() or the RemoteProvider (overriding the latter with the former if both)
-        kwargs_to_use = {}
-        kwargs_to_use["host"] = self.host
-        kwargs_to_use["port"] = int(self.port) if self.port else 1247
-        kwargs_to_use["zone"] = self.provider.kwargs.get('zone', zone)
-        kwargs_to_use["user"] = self.provider.kwargs['user']
-        kwargs_to_use["password"] = self.provider.kwargs['password']
+        irods_env_file = os.path.expanduser('~/.irods/irods_environment.json')
+        irods_passwd_file = os.path.expanduser('~/.irods/.irodsA')
 
-        # do no take everything from provider.kwargs because then it also passes the timezone
-        for k,v in self.kwargs.items():
-            # allow only for the previously defined parameters
-            # otherwise the 'overwrite' parameter would also be passed
-            if k not in kwargs_to_use.keys():
-                continue
-            kwargs_to_use[k] = v
+        if not 'user' in self.provider.kwargs:
+            #print("%s: '%s' as host is ignored, using host from %s" % (self.local_file(), self.host, irods_env_file))
+            try:
+                irods_env_file = os.environ['IRODS_ENVIRONMENT_FILE']
+            except:
+                if not os.path.isfile(irods_env_file):
+                    raise WorkflowError("Expecting %s but none found" % irods_env_file)
 
-        session = iRODSSession(**kwargs_to_use)
+            if not os.path.isfile(irods_passwd_file):
+                raise WorkflowError("Expecting %s but none found. Did you perfom iinit?" % irods_passwd_file)\
+
+            session = iRODSSession(irods_env_file=irods_env_file)
+        else:
+            kwargs_to_use = {}
+            kwargs_to_use["host"] = self.host
+            kwargs_to_use["port"] = int(self.port) if self.port else 1247
+            kwargs_to_use["zone"] = self.provider.kwargs.get('zone', zone)
+            kwargs_to_use["user"] = self.provider.kwargs['user']
+            kwargs_to_use["password"] = self.provider.kwargs['password']
+
+            # do no take everything from provider.kwargs because then it also passes the timezone
+            for k,v in self.kwargs.items():
+                # allow only for the previously defined parameters
+                # otherwise the 'overwrite' parameter would also be passed
+                if k not in kwargs_to_use.keys():
+                    continue
+                kwargs_to_use[k] = v
+
+            session = iRODSSession(**kwargs_to_use)
         yield session
         session.cleanup()
 

@@ -642,14 +642,27 @@ then to your timezone by providing the ``timezone`` parameter such that
 timestamps coming from iRODS are converted to the correct time.
 
 iRODS actually does not save the timestamp from your original file but creates
-its own timestamp of the upload time. When downloading it does not take the
-timestamp from the remote file, the file will have the timestamp when it was
-downloaded. Such we create a metadata entry to store the original file stamp
-from your system and alter the timestamp of the downloaded file accordingly.
-While uploading, the metadata entries ``atime``, ``ctime`` and ``mtime`` are
-added. When this entry does not exist (because this module didn't upload the
-file), we fall back to the timestamp provided by IRODS with the above mentioned
-strategy.
+its own timestamp of the upload time. When iRODS downloads the file for
+processing, it does not take the timestamp from the remote file. Instead,
+the file will have the timestamp when it was downloaded. To get around this,
+we create a metadata entry to store the original file stamp from your system
+and alter the timestamp of the downloaded file accordingly. While uploading,
+the metadata entries ``atime``, ``ctime`` and ``mtime`` are added. When this
+entry does not exist (because this module didn't upload the file), we fall back
+to the timestamp provided by iRODS with the above mentioned strategy.
+
+To access the iRODS server you can pass your username and password as
+parameters as shown in the example below. If you have ``iCommands`` installed
+on the machine you are running Snakemake from, you can omit the credentials and
+the implementation will assume that you have a working configuration in
+``~/.irods/irods_environment.json`` or the environment variable
+``IRODS_ENVIRONMENT_FILE`` is exported. The password should be initialized with the ``iinit``
+command (see also the `iRODS documentation
+<https://docs.irods.org/master/system_overview/configuration/#irodsirods_environmentjson>`_).
+
+**Attention:** When the environment file is used, the server and
+port given in ``irods.remote`` are overridden by the settings in the
+environment file!
 
 The ``glob_wildcards()`` function is supported.
 
@@ -675,6 +688,30 @@ The ``glob_wildcards()`` function is supported.
                          # optional parameters: overwrite=True (False by default)
         output:
             irods.remote('localhost:1247/tempZone/home/rods/testfile.out')
+        shell:
+            r"""
+            touch {output}
+            """
+
+If you are using the iRODS environment file, it would look like the following.
+Please note that the ``whatever`` is replaced by the host configured in the
+environment file.
+
+.. code-block:: python
+
+    from snakemake.remote.iRODS import RemoteProvider
+
+    irods = RemoteProvider(timezone="Europe/Berlin")
+
+    rule all:
+        input:
+            irods.remote('whatever/tempZone/home/rods/testfile.out'),
+
+    rule gen:
+        input:
+            irods.remote('whatever/tempZone/home/rods/testfile.in')
+        output:
+            irods.remote('whatever/tempZone/home/rods/testfile.out')
         shell:
             r"""
             touch {output}
