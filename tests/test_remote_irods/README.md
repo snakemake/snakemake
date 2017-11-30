@@ -15,3 +15,10 @@ docker run \
         -i run_irods
 docker exec -u irods provider iput /incoming/infile
 ```
+
+To touch the input file for a new timestamp, issue:
+
+```
+docker exec -u irods provider iput /incoming/infile -f
+```
+
