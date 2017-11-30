@@ -4,14 +4,20 @@ jobs:
     machine: true
     steps:
       - checkout
-      - run: |
-          wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-          bash miniconda.sh -b -p miniconda
-          export PATH="miniconda/bin:$PATH"
-          conda env create --name snakemake --file test-environment.yml
-      - run: |
-          source activate snakemake
-          pip install -e .
-      - run: |
-          source activate snakemake
-          python setup.py nosetests -sx
+      - run:
+          name: Setup Conda
+          command: |
+            wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+            bash miniconda.sh -b -p miniconda
+            export PATH="miniconda/bin:$PATH"
+      - run:
+          name: Setup Snakemake
+          command: |
+            conda env create --name snakemake --file test-environment.yml
+            source activate snakemake
+            pip install -e .
+      - run:
+          name: Run tests
+          command: |
+            source activate snakemake
+            python setup.py nosetests -sx
