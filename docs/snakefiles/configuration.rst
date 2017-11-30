@@ -27,7 +27,7 @@ In the workflow, the configuration is accessible via the global variable `config
 
     rule all:
         input:
-            expand("{sample}.{yourparam}.output.pdf", sample=config["samples"], yourparam=config["yourparam"])
+            expand("{sample}.{param}.output.pdf", sample=config["samples"], param=config["yourparam"])
 
 If the `configfile` statement is not used, the config variable provides an empty array.
 In addition to the `configfile` statement, config values can be overwritten via the command line or the :ref:`api_reference_snakemake`, e.g.:
