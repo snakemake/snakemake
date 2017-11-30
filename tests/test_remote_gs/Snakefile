@@ -10,6 +10,6 @@ try:
             "landsat-data.txt"
         shell:
             "cp {input} {output}"
-except google.auth.exceptions.DefaultCredentialsError, google.auth.exceptions.TransportError:
+except (google.auth.exceptions.DefaultCredentialsError, google.auth.exceptions.TransportError) as e:
     # ignore the test if not authenticated
     print("skipping test_remote_gs because we are not authenticated with gcloud")
