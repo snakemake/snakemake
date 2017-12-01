@@ -19,7 +19,7 @@ jobs:
       - run:
           name: Setup iRODS Docker image
           command: |
-            docker build -t irods tests/test_remote_irods
+            docker build -t irods-server tests/test_remote_irods
             docker run -d -p 1247:1247 --name provider irods-server -i run_irods
             docker exec -u irods provider iput /incoming/infile
       - run:
