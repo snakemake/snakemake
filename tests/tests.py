@@ -446,6 +446,11 @@ def test_remote_ncbi():
     except ImportError:
         pass
 
+
+def test_remote_irods():
+    run(dpath("test_remote_irods"))
+
+
 def test_deferred_func_eval():
     run(dpath("test_deferred_func_eval"))
 
