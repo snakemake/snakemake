@@ -23,6 +23,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * WebDAV: ``snakemake.remote.webdav``
 * GFAL: ``snakemake.remote.gfal``
 * GridFTP: ``snakemake.remote.gridftp``
+* iRODS: ``snakemake.remote.iRODS``
 
 
 Amazon Simple Storage Service (S3)
@@ -629,3 +630,98 @@ It is possible to use Snakemake to transfer files between remote providers (usin
             GS.remote( expand("destination-bucket/{file}.bam", file=fileList) )
         run:
             shell("cp {input} {output}")
+
+
+iRODS
+=====
+
+You can access an iRODS server to retrieve data from and upload data to it.
+If your iRODS server is not set to a certain timezone, it is using UTC. It is
+advised to shift the modification time provided by iRODS (``modify_time``)
+then to your timezone by providing the ``timezone`` parameter such that
+timestamps coming from iRODS are converted to the correct time.
+
+iRODS actually does not save the timestamp from your original file but creates
+its own timestamp of the upload time. When iRODS downloads the file for
+processing, it does not take the timestamp from the remote file. Instead,
+the file will have the timestamp when it was downloaded. To get around this,
+we create a metadata entry to store the original file stamp from your system
+and alter the timestamp of the downloaded file accordingly. While uploading,
+the metadata entries ``atime``, ``ctime`` and ``mtime`` are added. When this
+entry does not exist (because this module didn't upload the file), we fall back
+to the timestamp provided by iRODS with the above mentioned strategy.
+
+To access the iRODS server you can pass your username and password as
+parameters as shown in the example below. If you have ``iCommands`` installed
+on the machine you are running Snakemake from, you can omit the credentials and
+the implementation will assume that you have a working configuration in
+``~/.irods/irods_environment.json`` or the environment variable
+``IRODS_ENVIRONMENT_FILE`` is exported. The password should be initialized with the ``iinit``
+command (see also the `iRODS documentation
+<https://docs.irods.org/master/system_overview/configuration/#irodsirods_environmentjson>`_).
+
+**Attention:** When the environment file is used, the server and
+port given in ``irods.remote`` are overridden by the settings in the
+environment file!
+
+The ``glob_wildcards()`` function is supported.
+
+.. code-block:: python
+
+    from snakemake.remote.iRODS import RemoteProvider
+
+    irods = RemoteProvider(user='rods', password='rods', timezone="Europe/Berlin")
+                           # optional parameters: timezone='wherever'
+                           #                      zone='whatever'
+
+    # please note the comma after the variable name!
+    # access: irods.remote(expand('localhost:1247/tempZone/home/rods/{f}), f=files))
+    files, = irods.glob_wildcards('localhost:1247/tempZone/home/rods/{files})
+
+    rule all:
+        input:
+            irods.remote('localhost:1247/tempZone/home/rods/testfile.out'),
+
+    rule gen:
+        input:
+            irods.remote('localhost:1247/tempZone/home/rods/testfile.in')
+                         # optional parameters: overwrite=True (False by default)
+        output:
+            irods.remote('localhost:1247/tempZone/home/rods/testfile.out')
+        shell:
+            r"""
+            touch {output}
+            """
+
+If you are using the iRODS environment file, it would look like the following.
+Please note that the ``whatever`` is replaced by the host configured in the
+environment file.
+
+.. code-block:: python
+
+    from snakemake.remote.iRODS import RemoteProvider
+
+    irods = RemoteProvider(timezone="Europe/Berlin")
+
+    rule all:
+        input:
+            irods.remote('whatever/tempZone/home/rods/testfile.out'),
+
+    rule gen:
+        input:
+            irods.remote('whatever/tempZone/home/rods/testfile.in')
+        output:
+            irods.remote('whatever/tempZone/home/rods/testfile.out')
+        shell:
+            r"""
+            touch {output}
+            """
+
+Since one has to define the full path on the iRODS server, the ``zone``
+parameter is determined from that path (the first parent folder) and such it is
+an optional parameter, existing only for completeness.
+
+By default, temporary stored local files are removed. You can specify anyway
+the parameter ``overwrite`` to tell iRODS to overwrite existing files that are
+downloaded, because iRODS complains if a local file already exists when a
+download attempt is issued.
