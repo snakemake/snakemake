@@ -1,0 +1,23 @@
+version: 2
+jobs:
+  build:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Setup Conda
+          command: |
+            wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+            bash miniconda.sh -b -p miniconda
+            echo 'export PATH="miniconda/bin:$PATH"' >> $BASH_ENV
+      - run:
+          name: Setup Snakemake
+          command: |
+            conda env create --name snakemake --file test-environment.yml
+            source activate snakemake
+            pip install -e .
+      - run:
+          name: Run tests
+          command: |
+            source activate snakemake
+            python setup.py nosetests -sx

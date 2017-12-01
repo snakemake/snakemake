@@ -1,4 +1,4 @@
-[![wercker status](https://app.wercker.com/status/5b4faec0485e3b6ed5497f3e8e551b34/s/master "wercker status")](https://app.wercker.com/project/byKey/5b4faec0485e3b6ed5497f3e8e551b34)
+[![CircleCI](https://circleci.com/bb/snakemake/snakemake/tree/master.svg?style=shield)](https://circleci.com/bb/snakemake/snakemake/tree/master)
 
 # Snakemake - a pythonic workflow system
 

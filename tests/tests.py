@@ -547,11 +547,18 @@ def test_run_namedlist():
 
 
 def test_remote_gs():
-    run(dpath("test_remote_gs"))
+    if not "CI" in os.environ:
+        run(dpath("test_remote_gs"))
+    else:
+        print("skipping test_remove_gs in CI")
 
 
 def test_remote_log():
     run(dpath("test_remote_log"), shouldfail=True)
+
+
+def test_remote_http():
+    run(dpath("test_remote_http"))
 
 
 def test_profile():
