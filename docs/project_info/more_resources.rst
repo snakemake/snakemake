@@ -27,6 +27,7 @@ External Resources
 
 These resources are not part of the official documentation.
 
+* `A number of tutorials on the subject "Tools for reproducible research" <http://nbis-reproducible-research.readthedocs.io>`_
 * `Snakemake workflow used for the Kallisto paper <https://github.com/pachterlab/kallisto_paper_analysis>`_
 * `An alternative tutorial for Snakemake <http://slowkow.com/notes/snakemake-tutorial/>`_
 * `An Emacs mode for Snakemake <http://melpa.milkbox.net/#/snakemake-mode>`_
