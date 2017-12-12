@@ -460,6 +460,9 @@ class ClusterExecutor(RealExecutor):
             if self.workflow.singularity_prefix:
                 self.exec_job += " --singularity-prefix {} ".format(
                     self.workflow.singularity_prefix)
+            if self.workflow.singularity_args:
+                self.exec_job += " --singularity-args \"{}\"".format(
+                    self.workflow.singularity_args)
 
         self.exec_job += self.get_default_remote_provider_args()
 
