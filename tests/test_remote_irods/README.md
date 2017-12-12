@@ -1,24 +1,45 @@
 # Test Remote iRODS
 
-## Run Docker
+These are the instructions for testing Snakemake remote iRODS support locally
+on your computer.
 
-To set up the iRODS server for the test, make sure that the `Dockerfile` is
-available and run the following commands:
+## Prerequisites
 
-```
-docker build -t irods-server .
-docker run \
-    -d \
-    -p 1247:1247 \
-    --name provider \
-    irods-server \
-        -i run_irods
-docker exec -u irods provider iput /incoming/infile
-```
+This requires the latest Docker installation (a.k.a. not the one from the
+Ubuntu 16.04 repository). Follow the instructions on
+https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/
 
-To touch the input file for a new timestamp, issue:
+## Build and run the Docker container
 
 ```
-docker exec -u irods provider iput /incoming/infile -f
+make run
 ```
 
+## Stop and delete the Docker container
+
+```
+make stop
+```
+
+## Run the test
+
+```
+snakemake
+```
+
+## Touch the input file (for a new test)
+
+```
+make touch
+```
+
+## Example
+
+```
+make run
+snakemake
+snakemake
+# nothing to do here
+make touch
+snakemake
+```
