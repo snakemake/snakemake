@@ -24,3 +24,6 @@ stop:
 	| cut -d ' ' -f 1 \
 	| xargs -I{} \
 		bash -c "docker stop {}; docker rm {}"
+
+ls:
+	docker exec -u irods provider ils -l

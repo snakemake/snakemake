@@ -33,11 +33,19 @@ snakemake
 make touch
 ```
 
+## Show iRODS content
+
+```
+make ls
+```
+
 ## Example
 
 ```
 make run
+make ls
 snakemake
+make ls
 snakemake
 # nothing to do here
 make touch
