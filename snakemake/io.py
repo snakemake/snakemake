@@ -320,6 +320,8 @@ class _IOFile(str):
         try:
             self.touch()
         except MissingOutputException:
+            # first create containing directory if it does not yet exist
+            os.makedirs(os.path.dirname(self.file), exist_ok=True)
             # create empty file
             with open(self.file, "w") as f:
                 pass

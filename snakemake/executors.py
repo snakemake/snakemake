@@ -177,10 +177,16 @@ class RealExecutor(AbstractExecutor):
                 "Please ensure write permissions for the "
                 "directory {}".format(e, self.workflow.persistence.path))
 
-    def handle_job_success(self, job, upload_remote=True, ignore_missing_output=False):
+    def handle_job_success(self, job,
+                           upload_remote=True,
+                           handle_log=True,
+                           handle_touch=True,
+                           ignore_missing_output=False):
         if self.assume_shared_fs:
-            self.dag.handle_touch(job)
-            self.dag.handle_log(job)
+            if handle_touch:
+                self.dag.handle_touch(job)
+            if handle_log:
+                self.dag.handle_log(job)
             self.dag.check_and_touch_output(
                 job,
                 wait=self.latency_wait,
@@ -580,7 +586,8 @@ class ClusterExecutor(RealExecutor):
         return Wildcards(fromdict=self.cluster_params(job))
 
     def handle_job_success(self, job):
-        super().handle_job_success(job, upload_remote=False)
+        super().handle_job_success(job, upload_remote=False,
+                                   handle_log=False, handle_touch=False)
 
     def handle_job_error(self, job):
         # TODO what about removing empty remote dirs?? This cannot be decided
