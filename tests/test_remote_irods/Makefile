@@ -19,7 +19,7 @@ touch:
 		iput /incoming/infile -f
 
 stop:
-	docker ps \
+	docker ps -a \
 	| grep irods-server \
 	| cut -d ' ' -f 1 \
 	| xargs -I{} \
