@@ -13,6 +13,8 @@ run: build
 	sleep 10
 	docker exec -u irods provider \
 		iput /incoming/infile
+	mkdir -p ~/.irods
+	cp setup-data/.irodsA ~/.irods
 
 touch:
 	docker exec -u irods provider \
@@ -20,7 +22,7 @@ touch:
 
 stop:
 	docker ps -a \
-	| grep irods-server \
+	| grep provider \
 	| cut -d ' ' -f 1 \
 	| xargs -I{} \
 		bash -c "docker stop {}; docker rm {}"
