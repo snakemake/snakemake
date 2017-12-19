@@ -651,18 +651,28 @@ the metadata entries ``atime``, ``ctime`` and ``mtime`` are added. When this
 entry does not exist (because this module didn't upload the file), we fall back
 to the timestamp provided by iRODS with the above mentioned strategy.
 
-To access the iRODS server you can pass your username and password as
-parameters as shown in the example below. If you have ``iCommands`` installed
-on the machine you are running Snakemake from, you can omit the credentials and
-the implementation will assume that you have a working configuration in
-``~/.irods/irods_environment.json`` or the environment variable
-``IRODS_ENVIRONMENT_FILE`` is exported. The password should be initialized with the ``iinit``
-command (see also the `iRODS documentation
+To access the iRODS server you need to have an iRODS environment configuration
+file available and in this file the authentication needs to be configured.
+The iRODS configuration file can be created by following the `official
+instructions
 <https://docs.irods.org/master/system_overview/configuration/#irodsirods_environmentjson>`_).
 
-**Attention:** When the environment file is used, the server and
-port given in ``irods.remote`` are overridden by the settings in the
-environment file!
+The default location for the configuration file is
+``~/.irods/irods_environment.json``.  The ``RemoteProvider()`` class accepts
+the parameter ``irods_env_file`` where an alternative path to the
+``irods_environment.json`` file can be specified.  Another way is to export the
+environment variable ``IRODS_ENVIRONMENT_FILE`` in your shell to specify the
+location.
+
+There are several ways to configure the authentication against the iRODS
+server, depending on what your iRODS server offers. If you are using the
+authentication via password, the default location of the authentication file is
+``~/.irods/.irodsA``. Usually this file is generated with the ``iinit`` command
+from the ``iCommands`` program suite. Inside the ``irods_environment.json``
+file, the parameter ``"irods_authentication_file"`` can be set to specifiy an
+alternative location for the ``.irodsA`` file. Another possibility to change
+the location is to export the environment variable
+``IRODS_AUTHENTICATION_FILE``.
 
 The ``glob_wildcards()`` function is supported.
 
@@ -670,58 +680,48 @@ The ``glob_wildcards()`` function is supported.
 
     from snakemake.remote.iRODS import RemoteProvider
 
-    irods = RemoteProvider(user='rods', password='rods', timezone="Europe/Berlin")
-                           # optional parameters: timezone='wherever'
-                           #                      zone='whatever'
+    irods = RemoteProvider(irods_env_file='setup-data/irods_environment.json',
+                           timezone="Europe/Berlin") # all parameters are optional
 
     # please note the comma after the variable name!
-    # access: irods.remote(expand('localhost:1247/tempZone/home/rods/{f}), f=files))
-    files, = irods.glob_wildcards('localhost:1247/tempZone/home/rods/{files})
+    # access: irods.remote(expand('home/rods/{f}), f=files))
+    files, = irods.glob_wildcards('home/rods/{files})
 
     rule all:
         input:
-            irods.remote('localhost:1247/tempZone/home/rods/testfile.out'),
+            irods.remote('home/rods/testfile.out'),
 
     rule gen:
         input:
-            irods.remote('localhost:1247/tempZone/home/rods/testfile.in')
-                         # optional parameters: overwrite=True (False by default)
+            irods.remote('home/rods/testfile.in')
         output:
-            irods.remote('localhost:1247/tempZone/home/rods/testfile.out')
+            irods.remote('home/rods/testfile.out')
         shell:
             r"""
             touch {output}
             """
 
-If you are using the iRODS environment file, it would look like the following.
-Please note that the ``whatever`` is replaced by the host configured in the
-environment file.
+An example for the iRODS configuration file (``irods_environment.json``):
 
-.. code-block:: python
+.. code-block:: json
+    
+    {
+        "irods_host": "localhost",
+        "irods_port": 1247,
+        "irods_user_name": "rods",
+        "irods_zone_name": "tempZone",
+        "irods_authentication_file": "setup-data/.irodsA"
+    }
 
-    from snakemake.remote.iRODS import RemoteProvider
 
-    irods = RemoteProvider(timezone="Europe/Berlin")
+Please note that the ``zone`` folder is not included in the path as it will be
+taken from the configuration file. The path also must not start with a ``/``.
 
-    rule all:
-        input:
-            irods.remote('whatever/tempZone/home/rods/testfile.out'),
-
-    rule gen:
-        input:
-            irods.remote('whatever/tempZone/home/rods/testfile.in')
-        output:
-            irods.remote('whatever/tempZone/home/rods/testfile.out')
-        shell:
-            r"""
-            touch {output}
-            """
-
-Since one has to define the full path on the iRODS server, the ``zone``
-parameter is determined from that path (the first parent folder) and such it is
-an optional parameter, existing only for completeness.
-
-By default, temporary stored local files are removed. You can specify anyway
+By default, temporarily stored local files are removed. You can specify anyway
 the parameter ``overwrite`` to tell iRODS to overwrite existing files that are
 downloaded, because iRODS complains if a local file already exists when a
-download attempt is issued.
+download attempt is issued (uploading is not a problem, though).
+
+In the Snakemake source directory in ``snakemake/tests/test_remote_irods`` you
+can find a working example.
+

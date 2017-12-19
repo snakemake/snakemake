@@ -1,7 +1,7 @@
 from snakemake.remote.iRODS import RemoteProvider
 
 irods = RemoteProvider(timezone="Europe/Berlin",
-                       env="setup-data/irods_environment.json")
+                       irods_env_file="setup-data/irods_environment.json")
 
 rule all:
     input:

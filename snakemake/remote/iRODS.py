@@ -19,7 +19,7 @@ try:
     from irods.session import iRODSSession
     from irods.meta import iRODSMeta
     from irods.models import DataObject
-    from irods.exception import CollectionDoesNotExist
+    from irods.exception import CollectionDoesNotExist, DataObjectDoesNotExist
     import irods.keywords as kw
 except ImportError as e:
     raise WorkflowError("The Python 3 package 'python-irodsclient' " +
@@ -33,16 +33,10 @@ def _irods_session(*args, **kwargs):
     try:
         irods_env_file = os.environ['IRODS_ENVIRONMENT_FILE']
     except KeyError:
-        irods_env_file = kwargs.get('env', os.path.expanduser('~/.irods/irods_environment.json'))
+        irods_env_file = kwargs.get('irods_env_file', os.path.expanduser('~/.irods/irods_environment.json'))
 
     if not os.path.isfile(irods_env_file):
-        raise WorkflowError("Expecting %s but none found." % irods_env_file)
-    
-    # 1. add the .irodsA password file  via irods_environment.json, e.g.
-    #    "irods_authentication_file": "path-to-file/.irodsA"
-    # 2. have it available at ~/.irods/.irodsA
-    # 3. define environment variable IRODS_ENVIRONMENT_FILE, e.g.
-    #    export IRODS_ENVIRONMENT_FILE=path-to-file/.irodsA
+        raise WorkflowError("Expecting iRODS configuration file in %s, but none found." % kwargs['irods_env_file'])
 
     with iRODSSession(irods_env_file=irods_env_file) as session:
         try:
@@ -83,7 +77,7 @@ class RemoteObject(AbstractRemoteObject):
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
         if provider:
             self._irods_session = provider.remote_interface()
-            self._timezone = provider.kwargs.get('timezone', None)
+            self._timezone = provider.kwargs.get('timezone')
         else:
             self._irods_session = _irods_session(*args, **kwargs)
 
@@ -91,7 +85,7 @@ class RemoteObject(AbstractRemoteObject):
         try:
             self._irods_session.data_objects.get(self.remote_path)
             return True
-        except CollectionDoesNotExist:
+        except (CollectionDoesNotExist, DataObjectDoesNotExist):
             return False
 
     def _convert_time(self, timestamp, tz=None):
