@@ -107,7 +107,3 @@ class shell:
         retcode = proc.wait()
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
-
-
-if "SHELL" in os.environ:
-    shell.executable(os.environ["SHELL"])
