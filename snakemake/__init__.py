@@ -340,6 +340,8 @@ def snakemake(snakefile,
         workdir = os.path.abspath(workdir)
         os.chdir(workdir)
 
+    logger.setup_logfile()
+
     try:
         # handle default remote provider
         _default_remote_provider = None
