@@ -15,6 +15,7 @@ import threading
 import webbrowser
 from functools import partial
 import importlib
+import shutil
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception, WorkflowError
