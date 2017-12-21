@@ -4,7 +4,7 @@
 Snakemake
 =========
 
-.. image:: https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg
+.. image:: https://img.shields.io/conda/dn/bioconda/snakemake.svg?label=Bioconda
     :target: https://bioconda.github.io/recipes/snakemake/README.html
 
 .. image:: https://img.shields.io/pypi/pyversions/snakemake.svg
@@ -16,9 +16,6 @@ Snakemake
 .. image:: https://quay.io/repository/snakemake/snakemake/status
        :target: https://quay.io/repository/snakemake/snakemake
 
-.. image:: https://app.wercker.com/status/5b4faec0485e3b6ed5497f3e8e551b34/s/master
-    :target: https://app.wercker.com/project/byKey/5b4faec0485e3b6ed5497f3e8e551b34
-
 .. image:: https://circleci.com/bb/snakemake/snakemake/tree/master.svg?style=shield
     :target: https://circleci.com/bb/snakemake/snakemake/tree/master
 
@@ -26,7 +23,7 @@ Snakemake
     :target: http://stackoverflow.com/questions/tagged/snakemake
 
 .. image:: https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow
-    :target: https://twitter.com/johanneskoester
+    :target: https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester
 
 The Snakemake workflow management system is a tool to create **reproducible and scalable** data analyses.
 Workflows are described via a human readable, Python based language.
@@ -74,6 +71,7 @@ Rules describe how to create **output files** from **input files**.
 Getting started
 ---------------
 
+News about Snakemake are published via `Twitter <https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester>`_.
 To get started, consider the :ref:`tutorial`, the `introductory slides <http://slides.com/johanneskoester/snakemake-tutorial-2016>`_, and the :ref:`FAQ <project_info-faq>`.
 
 .. _main-support:
@@ -108,7 +106,7 @@ Resources
     The provided code should also serve as a best-practices of how to build production ready workflows with Snakemake.
     Everybody is invited to contribute.
 
-`Snakemake Profiles Project <https://github.com/snakemake-profiles/doc`_
+`Snakemake Profiles Project <https://github.com/snakemake-profiles/doc>`_
     This project provides Snakemake configuration profiles for various execution environments.
     Please consider contributing your own if it is still missing.
 

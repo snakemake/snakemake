@@ -1,8 +1,12 @@
 # Change Log
 
-## [4.4.0] - unreleased
+## [4.4.0] - 2017-12-21
+### Added
+- A new shadow mode (minimal) that only symlinks input files has been added.
 ### Changed
 - The default shell is now bash on linux and maxOS. If bash is not installed, we fall back to sh. Previously, Snakemake used the default shell of the user, which defeats the purpose of portability. If the developer decides so, the shell can be always overwritten using shell.executable().
+- Snakemake now requires Singularity 2.4.1 at least (only when running with --use-singularity).
+- HTTP remote provider no longer automatically unpacks gzipped files.
 - Fixed various smaller bugs.
 
 ## [4.3.1] - 2017-11-16
