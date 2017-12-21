@@ -1,5 +1,10 @@
 # Change Log
 
+## [4.4.0] - unreleased
+### Changed
+- The default shell is now bash on linux and maxOS. If bash is not installed, we fall back to sh. Previously, Snakemake used the default shell of the user, which defeats the purpose of portability. If the developer decides so, the shell can be always overwritten using shell.executable().
+- Fixed various smaller bugs.
+
 ## [4.3.1] - 2017-11-16
 ### Added
 - List all conda environments with their location on disk via --list-conda-envs.
