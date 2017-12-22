@@ -3,5 +3,5 @@
     "irods_port": 1247,
     "irods_user_name": "rods",
     "irods_zone_name": "tempZone",
-    "irods_authentication_file": "/home/circleci/projects/tests/test_remote_irods/setup-data/.irodsA"
+    "irods_authentication_file": "/home/circleci/project/tests/test_remote_irods/setup-data/.irodsA"
 }
