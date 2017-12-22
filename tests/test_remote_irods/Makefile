@@ -13,8 +13,6 @@ run: build
 	sleep 10
 	docker exec -u irods provider \
 		iput /incoming/infile
-	mkdir -p ~/.irods
-	cp setup-data/.irodsA ~/.irods
 
 touch:
 	docker exec -u irods provider \
