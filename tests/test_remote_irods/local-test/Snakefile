@@ -1,0 +1,32 @@
+from snakemake.remote.iRODS import RemoteProvider
+
+irods = RemoteProvider(timezone="Europe/Berlin",
+                       irods_env_file="setup-data/irods_environment.json")
+
+rule all:
+    input:
+        'outfile',
+        irods.remote("home/rods/out/subfolder/outfile")
+
+rule step_one:
+    input:
+        irods.remote('home/rods/infile')
+    output:
+        irods.remote('home/rods/tmp/intermediate')
+    shell:
+        r"""
+        cp {input} {output}
+        """
+
+rule step_two:
+    input:
+        irods.remote('home/rods/tmp/intermediate')
+    output:
+        local='outfile',
+        remote=irods.remote('home/rods/out/subfolder/outfile')
+    shell:
+        r"""
+        cp {input} {output.local}
+        cp {input} {output.remote}
+        """
+

@@ -1,4 +1,4 @@
-.PHONY: run build touch stop
+.PHONY: run build touch stop test
 
 build:
 	docker build -t irods-server .
@@ -17,6 +17,9 @@ run: build
 touch:
 	docker exec -u irods provider \
 		iput /incoming/infile -f
+
+test:
+	cd local-test && snakemake
 
 stop:
 	docker ps -a \
