@@ -18,9 +18,6 @@ touch:
 	docker exec -u irods provider \
 		iput /incoming/infile -f
 
-test:
-	cd local-test && snakemake
-
 stop:
 	docker ps -a \
 	| grep provider \
