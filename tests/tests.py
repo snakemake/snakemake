@@ -448,7 +448,8 @@ def test_remote_ncbi():
 
 
 def test_remote_irods():
-    run(dpath("test_remote_irods"))
+    if os.environ.get("CI") == "true":
+        run(dpath("test_remote_irods"))
 
 
 def test_deferred_func_eval():
