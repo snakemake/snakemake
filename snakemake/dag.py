@@ -213,7 +213,7 @@ class DAG:
         jobids = self.workflow.persistence.external_jobids(job)
         if len(jobids) == 1:
             return jobids[0]
-        else:
+        elif len(jobids) > 1:
             raise WorkflowError(
                 "Multiple different external jobids registered "
                 "for output files of incomplete job {} ({}). This job "
