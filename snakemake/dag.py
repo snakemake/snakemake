@@ -1,5 +1,5 @@
-__author__ = "Johannes KÃ¶ster"
-__copyright__ = "Copyright 2015, Johannes KÃ¶ster"
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -213,7 +213,7 @@ class DAG:
         jobids = self.workflow.persistence.external_jobids(job)
         if len(jobids) == 1:
             return jobids[0]
-        else:
+        elif len(jobids) > 1:
             raise WorkflowError(
                 "Multiple different external jobids registered "
                 "for output files of incomplete job {} ({}). This job "
