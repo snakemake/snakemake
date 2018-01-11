@@ -580,6 +580,10 @@ def test_issue612():
     run(dpath("test_issue612"), dryrun=True)
 
 
+def test_bash():
+    run(dpath("test_bash"))
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
