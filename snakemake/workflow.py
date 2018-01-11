@@ -413,6 +413,8 @@ class Workflow:
             # execute subworkflows
             for subworkflow in self.subworkflows:
                 subworkflow_targets = subworkflow.targets(dag)
+                logger.debug("Files requested from subworkflow:\n    {}".format(
+                    "\n    ".join(subworkflow_targets)))
                 updated = list()
                 if subworkflow_targets:
                     logger.info(
