@@ -372,7 +372,7 @@ class Rule:
                         raise WorkflowError("The input file {} is ambiguously "
                                             "associated with two subworkflows "
                                             "{} and {}.".format(
-                                                item, sub, other))
+                                                item, sub, other), rule=self)
                     self.subworkflow_input[_item] = sub
             inoutput.append(_item)
             if name:

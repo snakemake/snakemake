@@ -91,7 +91,8 @@ class Job:
                     other = self.subworkflow_input[f]
                     raise WorkflowError("The input file {} is ambiguously "
                                         "associated with two subworkflows {} "
-                                        "and {}.".format(f, sub, other))
+                                        "and {}.".format(f, sub, other),
+                                        rule=self.rule)
                 self.subworkflow_input[f] = sub
         self._hash = self.rule.__hash__()
         for o in self.output:
