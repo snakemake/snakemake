@@ -30,6 +30,7 @@ class shell:
 
     @classmethod
     def executable(cls, cmd):
+        logger.info("Setting shell to {}".format(cmd))
         if os.path.split(cmd)[-1] == "bash":
             cls._process_prefix = "set -euo pipefail; "
         cls._process_args["executable"] = cmd
