@@ -17,6 +17,14 @@ jobs:
             source activate snakemake
             pip install -e .
       - run:
+          name: Setup iRODS Docker image
+          command: |
+            docker build -t irods-server tests/test_remote_irods
+            docker run -d -p 1247:1247 --name provider irods-server -i run_irods
+            sleep 10
+            docker exec -u irods provider iput /incoming/infile
+            cp -r tests/test_remote_irods/setup-data ~/.irods
+      - run:
           name: Run tests
           command: |
             source activate snakemake

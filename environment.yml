@@ -23,3 +23,4 @@ dependencies:
   - ratelimiter
   - configargparse
   - appdirs
+  - python-irodsclient
