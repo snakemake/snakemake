@@ -3,4 +3,4 @@ rule a:
     output:
         "test.out"
     shell:
-        "echo $BASH > {output}"
+        "basename $BASH > {output}"
