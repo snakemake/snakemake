@@ -301,16 +301,6 @@ def snakemake(snakefile,
                      use_threads=use_threads,
                      mode=mode)
 
-    # set bash as default shell on linux and macOS
-    if sys.platform == "linux" or sys.platform == "darwin":
-        if not shutil.which("bash"):
-            logger.warning("Cannot set bash as default shell because it is not "
-                           "available in your PATH. Falling back to sh.")
-            shellpath = shutil.which("sh")
-        else:
-            shellpath = shutil.which("bash")
-        shell.executable(shellpath)
-
     if greediness is None:
         greediness = 0.5 if prioritytargets else 1.0
     else:

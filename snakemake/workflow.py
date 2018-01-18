@@ -554,6 +554,9 @@ class Workflow:
 
         if not dryrun:
             if len(dag):
+                shell_exec = shell.get_executable()
+                if shell_exec is not None:
+                    logger.info("Using shell: {}".format(shell_exec))
                 if cluster or cluster_sync or drmaa:
                     logger.resources_info(
                         "Provided cluster nodes: {}".format(nodes))
