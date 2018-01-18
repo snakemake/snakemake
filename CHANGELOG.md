@@ -1,5 +1,12 @@
 # Change Log
 
+# [4.5.0] - 2018-01-18
+### Added
+- iRODS remote provider
+### Changed
+- Bug fix in shell usage of scripts and wrappers.
+- Bug fixes for cluster execution, --immediate-submit and subworkflows.
+
 ## [4.4.0] - 2017-12-21
 ### Added
 - A new shadow mode (minimal) that only symlinks input files has been added.

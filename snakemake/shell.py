@@ -35,6 +35,9 @@ class shell:
 
     @classmethod
     def executable(cls, cmd):
+        if os.name == "posix" and not os.path.isabs(cmd):
+            # always enforce absolute path
+            cmd = shutil.which(cmd)
         if os.path.split(cmd)[-1] == "bash":
             cls._process_prefix = "set -euo pipefail; "
         cls._process_args["executable"] = cmd
@@ -119,7 +122,7 @@ if os.name == "posix":
     if not shutil.which("bash"):
         logger.warning("Cannot set bash as default shell because it is not "
                        "available in your PATH. Falling back to sh.")
-        shellpath = shutil.which("sh")
+        shell_exec = "sh"
     else:
-        shellpath = shutil.which("bash")
-    shell.executable(shellpath)
+        shell_exec = "bash"
+    shell.executable(shell_exec)
