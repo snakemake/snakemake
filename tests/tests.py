@@ -446,6 +446,12 @@ def test_remote_ncbi():
     except ImportError:
         pass
 
+
+def test_remote_irods():
+    if os.environ.get("CI") == "true":
+        run(dpath("test_remote_irods"))
+
+
 def test_deferred_func_eval():
     run(dpath("test_deferred_func_eval"))
 
@@ -547,11 +553,18 @@ def test_run_namedlist():
 
 
 def test_remote_gs():
-    run(dpath("test_remote_gs"))
+    if not "CI" in os.environ:
+        run(dpath("test_remote_gs"))
+    else:
+        print("skipping test_remove_gs in CI")
 
 
 def test_remote_log():
     run(dpath("test_remote_log"), shouldfail=True)
+
+
+def test_remote_http():
+    run(dpath("test_remote_http"))
 
 
 def test_profile():
@@ -565,6 +578,10 @@ def test_profile():
 
 def test_issue612():
     run(dpath("test_issue612"), dryrun=True)
+
+
+def test_bash():
+    run(dpath("test_bash"))
 
 
 if __name__ == '__main__':

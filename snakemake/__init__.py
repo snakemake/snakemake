@@ -15,6 +15,7 @@ import threading
 import webbrowser
 from functools import partial
 import importlib
+import shutil
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception, WorkflowError
@@ -108,6 +109,7 @@ def snakemake(snakefile,
               use_singularity=False,
               singularity_args="",
               conda_prefix=None,
+              list_conda_envs=False,
               singularity_prefix=None,
               create_envs_only=False,
               mode=Mode.default,
@@ -199,7 +201,8 @@ def snakemake(snakefile,
         singularity_args (str):     additional arguments to pass to singularity
         conda_prefix (str):         the directory in which conda environments will be created (default None)
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
-        create_envs_only (bool):   If specified, only builds the conda environments specified for each job, then exits.
+        create_envs_only (bool):    If specified, only builds the conda environments specified for each job, then exits.
+        list_conda_envs (bool):     List conda environments and their location on disk.
         mode (snakemake.common.Mode): Execution mode
         wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
         kubernetes (str):           Submit jobs to kubernetes, using the given namespace.
@@ -338,6 +341,8 @@ def snakemake(snakefile,
         workdir = os.path.abspath(workdir)
         os.chdir(workdir)
 
+    logger.setup_logfile()
+
     try:
         # handle default remote provider
         _default_remote_provider = None
@@ -440,6 +445,7 @@ def snakemake(snakefile,
                                        conda_prefix=conda_prefix,
                                        singularity_prefix=singularity_prefix,
                                        singularity_args=singularity_args,
+                                       list_conda_envs=list_conda_envs,
                                        kubernetes=kubernetes,
                                        kubernetes_envvars=kubernetes_envvars,
                                        container_image=container_image,
@@ -490,6 +496,7 @@ def snakemake(snakefile,
                     list_code_changes=list_code_changes,
                     list_input_changes=list_input_changes,
                     list_params_changes=list_params_changes,
+                    list_conda_envs=list_conda_envs,
                     summary=summary,
                     archive=archive,
                     latency_wait=latency_wait,
@@ -1198,6 +1205,10 @@ def get_argument_parser(profile=None):
                         help="If specified, only creates the job-specific "
                         "conda environments then exits. The `--use-conda` "
                         "flag must also be set.")
+    parser.add_argument("--list-conda-envs",
+                        action="store_true",
+                        help="List all conda environments and their location on "
+                        "disk.")
     parser.add_argument(
         "--use-singularity",
         action="store_true",
@@ -1226,7 +1237,7 @@ def get_argument_parser(profile=None):
         "a different URL to use your fork or a local clone of the repository."
     )
     parser.add_argument("--default-remote-provider",
-                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp"],
+                        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp", "iRODS"],
                         help="Specify default remote provider to be used for "
                         "all input and output files that don't yet specify "
                         "one.")
@@ -1452,6 +1463,7 @@ def main(argv=None):
                             force_use_threads=args.force_use_threads,
                             use_conda=args.use_conda,
                             conda_prefix=args.conda_prefix,
+                            list_conda_envs=args.list_conda_envs,
                             use_singularity=args.use_singularity,
                             singularity_prefix=args.singularity_prefix,
                             singularity_args=args.singularity_args,

@@ -175,6 +175,15 @@ class Env:
 
         return env_path
 
+    def __hash__(self):
+        # this hash is only for object comparison, not for env paths
+        return hash(self.file)
+
+    def __eq__(self, other):
+        if isinstance(other, Env):
+            return self.file == other.file
+        return False
+
 
 def shellcmd(env_path):
     return "source activate {};".format(env_path)

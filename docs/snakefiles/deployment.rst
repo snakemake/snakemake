@@ -13,11 +13,11 @@ following structure:
     ├── README.md
     ├── LICENSE.md
     ├── config.yaml
-    ├── environment.yaml
     ├── scripts
-    │   ├── __init__.py
     │   ├── script1.py
     │   └── script2.R
+    ├── envs
+    │   └── myenv.yaml
     └── Snakefile
 
 Then, a workflow can be deployed to a new system via the following steps
@@ -31,16 +31,18 @@ Then, a workflow can be deployed to a new system via the following steps
     # edit config and workflow as needed
     vim config.yaml
 
-    # install dependencies into isolated environment
-    conda env create -n myworkflow --file environment.yaml
-
-    # activate environment
-    source activate myworkflow
-
-    # execute workflow
-    snakemake -n
+    # execute workflow, deploy software dependencies via conda
+    snakemake -n --use-conda
 
 Importantly, git branching and pull requests can be used to modify and possibly re-integrate workflows.
+A `cookiecutter <https://github.com/audreyr/cookiecutter>`_ template for creating this structure can be found `here <https://github.com/snakemake-workflows/cookiecutter-snakemake-workflow>`_.
+Given that cookiecutter is installed, you can use it via:
+
+.. code-block:: bash
+
+    cookiecutter gh:snakemake-workflows/cookiecutter-snakemake-workflow
+
+Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for best-practice workflows.
 
 .. _integrated_package_management:
 

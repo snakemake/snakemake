@@ -1,0 +1,31 @@
+version: 2
+jobs:
+  build:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Setup Conda
+          command: |
+            wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+            bash miniconda.sh -b -p miniconda
+            echo 'export PATH="miniconda/bin:$PATH"' >> $BASH_ENV
+      - run:
+          name: Setup Snakemake
+          command: |
+            conda env create --name snakemake --file test-environment.yml
+            source activate snakemake
+            pip install -e .
+      - run:
+          name: Setup iRODS Docker image
+          command: |
+            docker build -t irods-server tests/test_remote_irods
+            docker run -d -p 1247:1247 --name provider irods-server -i run_irods
+            sleep 10
+            docker exec -u irods provider iput /incoming/infile
+            cp -r tests/test_remote_irods/setup-data ~/.irods
+      - run:
+          name: Run tests
+          command: |
+            source activate snakemake
+            python setup.py nosetests -sx

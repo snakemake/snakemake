@@ -1,0 +1,6 @@
+
+rule a:
+    output:
+        "test.out"
+    shell:
+        "basename $BASH > {output}"

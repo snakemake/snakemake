@@ -1,0 +1,6 @@
+{
+    "irods_host": "localhost",
+    "irods_port": 1247,
+    "irods_user_name": "rods",
+    "irods_zone_name": "tempZone"
+}

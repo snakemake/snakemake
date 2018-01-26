@@ -86,7 +86,14 @@ class Job:
             if f_ in self.rule.subworkflow_input:
                 self.subworkflow_input[f] = self.rule.subworkflow_input[f_]
             elif "subworkflow" in f.flags:
-                self.subworkflow_input[f] = f.flags["subworkflow"]
+                sub = f.flags["subworkflow"]
+                if f in self.subworkflow_input:
+                    other = self.subworkflow_input[f]
+                    raise WorkflowError("The input file {} is ambiguously "
+                                        "associated with two subworkflows {} "
+                                        "and {}.".format(f, sub, other),
+                                        rule=self.rule)
+                self.subworkflow_input[f] = sub
         self._hash = self.rule.__hash__()
         for o in self.output:
             self._hash ^= o.__hash__()
@@ -522,8 +529,27 @@ class Job:
         self.shadow_dir = tempfile.mkdtemp(
             dir=self.rule.workflow.persistence.shadow_path)
         cwd = os.getcwd()
+
+        if self.rule.shadow_depth == "minimal":
+            # Re-create the directory structure in the shadow directory
+            for (f,d) in set([(item, os.path.dirname(item)) for sublist in [self.input, self.output, self.log] if sublist is not None for item in sublist]):
+                if d and not os.path.isabs(d):
+                    rel_path = os.path.relpath(d)
+                    # Only create subdirectories
+                    if not rel_path.split(os.path.sep)[0] == "..":
+                        os.makedirs(os.path.join(self.shadow_dir, rel_path), exist_ok = True)
+                    else:
+                        raise RuleException("The following file name references a parent directory relative to your workdir.\n"
+                                            "This isn't supported for shadow: \"minimal\". Consider using an absolute path instead.\n{}".format(f),rule = self.rule)
+
+            # Symlink the input files
+            for rel_path in set([os.path.relpath(f) for f in self.input if not os.path.isabs(f)]):
+                link = os.path.join(self.shadow_dir, rel_path)
+                original = os.path.relpath(rel_path, os.path.dirname(link))
+                os.symlink(original, link)
+
         # Shallow simply symlink everything in the working directory.
-        if self.rule.shadow_depth == "shallow":
+        elif self.rule.shadow_depth == "shallow":
             for source in os.listdir(cwd):
                 link = os.path.join(self.shadow_dir, source)
                 os.symlink(os.path.abspath(source), link)

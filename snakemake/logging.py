@@ -95,7 +95,7 @@ class Logger:
         self.logfile = None
         self.last_msg_was_job_info = False
 
-    def setup(self):
+    def setup_logfile(self):
         # logfile output is done always
         os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
         self.logfile = os.path.abspath(os.path.join(".snakemake",
@@ -135,10 +135,7 @@ class Logger:
         self.logger.setLevel(level)
 
     def logfile_hint(self):
-        logfile = os.path.relpath(self.get_logfile())
-        if logfile.startswith(".."):
-            # relative path is not "simple to read", use absolute path
-            logfile = self.get_logfile()
+        logfile = self.get_logfile()
         self.info("Complete log: {}".format(logfile))
 
     def location(self, msg):
@@ -262,6 +259,8 @@ class Logger:
                 self.logger.error("    {}: {}".format(*item))
             self.logger.error("")
         else:
+            # TODO not printing info on quiet is a problem with shadow messages
+            # They are not printed as well.
             if level == "info" and not self.quiet:
                 self.logger.warning(msg["msg"])
             if level == "warning":
@@ -333,7 +332,6 @@ def setup_logger(handler=None,
                  timestamp=False,
                  use_threads=False,
                  mode=Mode.default):
-    logger.setup()
     if handler is not None:
         # custom log handler
         logger.log_handler.append(handler)

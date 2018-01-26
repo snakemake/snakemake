@@ -16,7 +16,7 @@ from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
     GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor,
     KubernetesExecutor)
-from snakemake.exceptions import RuleException, WorkflowError
+from snakemake.exceptions import RuleException, WorkflowError, print_exception
 
 from snakemake.logging import logger
 
@@ -108,15 +108,18 @@ class JobScheduler:
                                            latency_wait=latency_wait)
         elif cluster or cluster_sync or (drmaa is not None):
             workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)), local_cores)
-            self._local_executor = CPUExecutor(
-                workflow, dag, workers,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                use_threads=use_threads,
-                latency_wait=latency_wait,
-                benchmark_repeats=benchmark_repeats,
-                cores=local_cores)
+            if not workflow.immediate_submit:
+                # No local jobs when using immediate submit!
+                # Otherwise, they will fail due to missing input
+                self._local_executor = CPUExecutor(
+                    workflow, dag, workers,
+                    printreason=printreason,
+                    quiet=quiet,
+                    printshellcmds=printshellcmds,
+                    use_threads=use_threads,
+                    latency_wait=latency_wait,
+                    benchmark_repeats=benchmark_repeats,
+                    cores=local_cores)
             if cluster or cluster_sync:
                 if cluster_sync:
                     constructor = SynchronousClusterExecutor
@@ -140,7 +143,8 @@ class JobScheduler:
                     self._submit_callback = partial(self._proceed,
                                                     update_dynamic=False,
                                                     print_progress=False,
-                                                    update_resources=False, )
+                                                    update_resources=False,
+                                                    handle_job_success=False)
             else:
                 self._executor = DRMAAExecutor(
                     workflow, dag, None,
@@ -176,8 +180,7 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 benchmark_repeats=benchmark_repeats,
-                cluster_config=cluster_config,
-                max_status_checks_per_second=max_status_checks_per_second)
+                cluster_config=cluster_config)
         else:
             # local execution or execution of cluster job
             # calculate how many parallel workers the executor shall spawn
@@ -243,12 +246,14 @@ class JobScheduler:
                                 "currently running jobs.")
 
                     if not running:
+                        logger.info("Shutting down, this might take some time.")
                         self._executor.shutdown()
                         logger.error(_ERROR_MSG_FINAL)
                         return False
                     continue
                 # normal shutdown because all jobs have been finished
-                if not needrun and not running:
+                if not needrun and (not running or self.workflow.immediate_submit):
+                    logger.info("Shutting down, this might take some time.")
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
@@ -279,10 +284,6 @@ class JobScheduler:
         except (KeyboardInterrupt, SystemExit):
             logger.info("Terminating processes on user request.")
             self._executor.cancel()
-            with self._lock:
-                running = list(self.running)
-            for job in running:
-                job.cleanup()
             return False
 
     def get_executor(self, job):
@@ -312,17 +313,20 @@ class JobScheduler:
     def _proceed(self, job,
                  update_dynamic=True,
                  print_progress=False,
-                 update_resources=True):
+                 update_resources=True,
+                 handle_job_success=True):
         """ Do stuff after job is finished. """
         with self._lock:
-            # by calling this behind the lock, we avoid race conditions
-            try:
-                self.get_executor(job).handle_job_success(job)
-            except (RuleException, WorkflowError) as e:
-                # if an error occurs while processing job output,
-                # we do the same as in case of errors during execution
-                self._handle_error(job)
-                return
+            if handle_job_success:
+                # by calling this behind the lock, we avoid race conditions
+                try:
+                    self.get_executor(job).handle_job_success(job)
+                except (RuleException, WorkflowError) as e:
+                    # if an error occurs while processing job output,
+                    # we do the same as in case of errors during execution
+                    print_exception(e, self.workflow.linemaps)
+                    self._handle_error(job)
+                    return
 
             self.dag.finish(job, update_dynamic=update_dynamic)
 
@@ -336,14 +340,14 @@ class JobScheduler:
                 logger.job_finished(jobid=self.dag.jobid(job))
                 self.progress()
 
-            if any(self.open_jobs) or not self.running:
+            if any(self.open_jobs) or not self.running or self.workflow.immediate_submit:
                 # go on scheduling if open jobs are ready or no job is running
                 self._open_jobs.release()
 
     def _error(self, job):
         with self._lock:
             self._handle_error(job)
-   
+
     def _handle_error(self, job):
         """Clear jobs and stop the workflow.
 

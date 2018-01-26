@@ -8,6 +8,7 @@ import sys
 import os
 import subprocess as sp
 import inspect
+import shutil
 
 from snakemake.utils import format
 from snakemake.logging import logger
@@ -29,7 +30,14 @@ class shell:
     _process_suffix = ""
 
     @classmethod
+    def get_executable(cls):
+        return cls._process_args.get("executable", None)
+
+    @classmethod
     def executable(cls, cmd):
+        if os.name == "posix" and not os.path.isabs(cmd):
+            # always enforce absolute path
+            cmd = shutil.which(cmd)
         if os.path.split(cmd)[-1] == "bash":
             cls._process_prefix = "set -euo pipefail; "
         cls._process_args["executable"] = cmd
@@ -109,5 +117,12 @@ class shell:
             raise sp.CalledProcessError(retcode, cmd)
 
 
-if "SHELL" in os.environ:
-    shell.executable(os.environ["SHELL"])
+# set bash as default shell on posix compatible OS
+if os.name == "posix":
+    if not shutil.which("bash"):
+        logger.warning("Cannot set bash as default shell because it is not "
+                       "available in your PATH. Falling back to sh.")
+        shell_exec = "sh"
+    else:
+        shell_exec = "bash"
+    shell.executable(shell_exec)

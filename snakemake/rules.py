@@ -366,7 +366,14 @@ class Rule:
                         "Only input files may refer to a subworkflow")
                 else:
                     # record the workflow this item comes from
-                    self.subworkflow_input[_item] = item.flags["subworkflow"]
+                    sub = item.flags["subworkflow"]
+                    if _item in self.subworkflow_input:
+                        other = self.subworkflow_input[_item]
+                        raise WorkflowError("The input file {} is ambiguously "
+                                            "associated with two subworkflows "
+                                            "{} and {}.".format(
+                                                item, sub, other), rule=self)
+                    self.subworkflow_input[_item] = sub
             inoutput.append(_item)
             if name:
                 inoutput.add_name(name)

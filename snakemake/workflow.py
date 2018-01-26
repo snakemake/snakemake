@@ -128,8 +128,10 @@ class Workflow:
             files.add(f)
 
         # get git-managed files
+        # TODO allow a manifest file as alternative
         try:
-            out = subprocess.check_output(["git", "ls-files", "."])
+            out = subprocess.check_output(["git", "ls-files", "."],
+                                          stderr=subprocess.PIPE)
             for f in out.decode().split("\n"):
                 if f:
                     files.add(os.path.relpath(f))
@@ -256,6 +258,7 @@ class Workflow:
                 list_code_changes=False,
                 list_input_changes=False,
                 list_params_changes=False,
+                list_conda_envs=False,
                 summary=False,
                 archive=None,
                 detailed_summary=False,
@@ -410,6 +413,8 @@ class Workflow:
             # execute subworkflows
             for subworkflow in self.subworkflows:
                 subworkflow_targets = subworkflow.targets(dag)
+                logger.debug("Files requested from subworkflow:\n    {}".format(
+                    "\n    ".join(subworkflow_targets)))
                 updated = list()
                 if subworkflow_targets:
                     logger.info(
@@ -500,6 +505,14 @@ class Workflow:
             if items:
                 print(*items, sep="\n")
             return True
+        elif list_conda_envs:
+            from snakemake.utils import simplify_path
+            dag.create_conda_envs(init_only=True, forceall=True)
+            print("environment", "location", sep="\t")
+            for env in set(job.conda_env for job in dag.jobs):
+                if env:
+                    print(simplify_path(env.file), simplify_path(env.path), sep="\t")
+            return True
 
         if not keep_shadow and not dryrun:
             self.persistence.cleanup_shadow()
@@ -541,6 +554,9 @@ class Workflow:
 
         if not dryrun:
             if len(dag):
+                shell_exec = shell.get_executable()
+                if shell_exec is not None:
+                    logger.info("Using shell: {}".format(shell_exec))
                 if cluster or cluster_sync or drmaa:
                     logger.resources_info(
                         "Provided cluster nodes: {}".format(nodes))
@@ -574,8 +590,9 @@ class Workflow:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
                 logger.remove_logfile()
-            elif stats:
-                scheduler.stats.to_json(stats)
+            else:
+                if stats:
+                    scheduler.stats.to_json(stats)
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
@@ -703,9 +720,9 @@ class Workflow:
                                         rule=rule)
                 rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.shadow_depth:
-                if ruleinfo.shadow_depth not in (True, "shallow", "full"):
+                if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
                     raise RuleException(
-                        "Shadow must either be 'shallow', 'full', "
+                        "Shadow must either be 'shallow', 'full', 'minimal', "
                         "or True (equivalent to 'full')", rule=rule)
                 if ruleinfo.shadow_depth is True:
                     rule.shadow_depth = 'full'
