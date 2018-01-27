@@ -10,6 +10,7 @@ import inspect
 import sre_constants
 from collections import defaultdict, Iterable
 from urllib.parse import urljoin
+from pathlib import Path
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
@@ -316,10 +317,13 @@ class Rule:
 
         Arguments
         item     -- the item
-        inoutput -- either a Namedlist of input or output items
+        inoutput -- a Namedlist of either input or output items
         name     -- an optional name for the item
         """
         inoutput = self.output if output else self.input
+        # Check to see if the item is a path, if so, just make it a string
+        if isinstance(item, Path):
+            item = str(item)
         if isinstance(item, str):
             item = self.apply_default_remote(item)
 
