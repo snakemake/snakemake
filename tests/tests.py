@@ -584,6 +584,9 @@ def test_bash():
     run(dpath("test_bash"))
 
 
+def test_inoutput_is_path():
+    run(dpath("test_inoutput_is_path"))
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
