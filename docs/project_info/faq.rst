@@ -177,6 +177,12 @@ You can use the entire Python `format minilanguage <http://docs.python.org/3/lib
 
 Here the double braces are escapes, i.e. there will remain single braces in the final command. In contrast, ``{input}`` is replaced with an input filename.
 
+In addition, if your shell command has literal slashes, `\`, you must escape them with a slash, `\\`. For example:
+
+.. code-block:: python
+
+    shell: """printf \\">%s\\"" {{input}}""" 
+    
 How do I incorporate files that do not follow a consistent naming scheme?
 -------------------------------------------------------------------------
 
