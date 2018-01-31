@@ -347,7 +347,7 @@ class TerminatedException(Exception):
     pass
 
 
-class CreateCondaEnvironmentException(Exception):
+class CreateCondaEnvironmentException(WorkflowError):
     pass
 
 

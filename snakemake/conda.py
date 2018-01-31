@@ -118,6 +118,8 @@ class Env:
                     pkg_name = os.path.basename(parsed.path)
                     with open(os.path.join(env_archive, pkg_name), "wb") as copy:
                         copy.write(requests.get(pkg_url).content)
+        except requests.exceptions.ChunkedEncodingError as e:
+            raise WorkflowError("Error downloading conda package {}.".format(pkg_url))
         except (Exception, BaseException) as e:
             shutil.rmtree(env_archive)
             raise e
