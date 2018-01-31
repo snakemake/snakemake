@@ -586,9 +586,8 @@ def test_bash():
 def test_inoutput_is_path():
     run(dpath("test_inoutput_is_path"))
 
-# TODO only check filename and enable again
-# def test_archive():
-#     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
+def test_archive():
+    run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
 
 if __name__ == '__main__':
