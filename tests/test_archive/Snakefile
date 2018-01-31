@@ -1,0 +1,7 @@
+rule a:
+    output:
+        "test.out"
+    conda:
+        "test-env.yaml"
+    shell:
+        "touch {output}"

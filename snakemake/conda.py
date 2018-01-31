@@ -37,6 +37,7 @@ class Env:
         self._env_archive_dir = dag.workflow.persistence.conda_env_archive_path
 
         self._hash = None
+        self._content_hash = None
         self._content = None
         self._path = None
         self._archive_file = None
@@ -62,6 +63,14 @@ class Env:
         return self._hash
 
     @property
+    def content_hash(self):
+        if self._content_hash is None:
+            md5hash = hashlib.md5()
+            md5hash.update(self.content)
+            self._content_hash = md5hash.hexdigest()
+        return self._content_hash
+
+    @property
     def path(self):
         """Path to directory of the conda environment.
 
@@ -81,7 +90,7 @@ class Env:
     def archive_file(self):
         """Path to archive of the conda environment, which may or may not exist."""
         if self._archive_file is None:
-            self._archive_file = os.path.join(self._env_archive_dir, self.hash)
+            self._archive_file = os.path.join(self._env_archive_dir, self.content_hash)
         return self._archive_file
 
     def create_archive(self):
@@ -151,12 +160,14 @@ class Env:
             env_archive = self.archive_file
             try:
                 if os.path.exists(env_archive):
+                    logger.info("Using archived local conda packages.")
                     # install packages manually from env archive
                     out = subprocess.check_output(["conda", "create", "--copy", "--prefix", env_path] +
                         glob(os.path.join(env_archive, "*.tar.bz2")),
                         stderr=subprocess.STDOUT
                     )
                 else:
+                    logger.info("Downloading remote packages.")
                     out = subprocess.check_output(["conda", "env", "create",
                                                 "--file", env_file,
                                                 "--prefix", env_path],
