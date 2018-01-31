@@ -258,7 +258,10 @@ class _IOFile(str):
             #is the best we can do.
             return self.mtime > time
         else:
-            return os.stat(self, follow_symlinks=True).st_mtime > time or self.mtime > time
+            try:
+                return os.stat(self, follow_symlinks=True).st_mtime > time or self.mtime > time
+            except FileNotFoundError:
+                raise WorkflowError("File {} not found although it existed before. Is there another active process that might have deleted it?")
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
