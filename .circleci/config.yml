@@ -25,6 +25,16 @@ jobs:
             docker exec -u irods provider iput /incoming/infile
             cp -r tests/test_remote_irods/setup-data ~/.irods
       - run:
+          name: Setup singularity
+          command: |
+            VER=2.4.2
+            wget https://github.com/singularityware/singularity/releases/download/$VER/singularity-$VER.tar.gz
+            tar xvf singularity-$VER.tar.gz
+            cd singularity-$VER
+            ./configure --prefix=/usr/local --sysconfdir=/etc
+            make
+            make install
+      - run:
           name: Run tests
           command: |
             source activate snakemake

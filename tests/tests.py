@@ -571,9 +571,8 @@ def test_profile():
     run(dpath("test_profile"))
 
 
-# TODO reenable once we run tests in a VM instead of Docker (maybe go back to codeship)?
-# def test_singularity():
-#     run(dpath("test_singularity"), use_singularity=True)
+def test_singularity():
+    run(dpath("test_singularity"), use_singularity=True)
 
 
 def test_issue612():
