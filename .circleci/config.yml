@@ -33,7 +33,7 @@ jobs:
             cd singularity-$VER
             ./configure --prefix=/usr/local --sysconfdir=/etc
             make
-            make install
+            sudo make install
       - run:
           name: Run tests
           command: |
