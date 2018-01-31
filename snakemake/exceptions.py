@@ -236,6 +236,7 @@ class UnexpectedOutputException(IOException):
                          lineno=lineno,
                          snakefile=snakefile)
 
+
 class ImproperShadowException(RuleException):
     def __init__(self, rule, lineno=None, snakefile=None):
         super().__init__("Rule cannot shadow if using ThreadPoolExecutor",
@@ -256,7 +257,10 @@ class AmbiguousRuleException(RuleException):
             "\t{job_b}: {wildcards_b}\n"
             "Expected input files:\n"
             "\t{job_a}: {job_a.input}\n"
-            "\t{job_b}: {job_b.input}".format(job_a=job_a,
+            "\t{job_b}: {job_b.input}"
+            "Expected output files:\n"
+            "\t{job_a}: {job_a.output}\n"
+            "\t{job_b}: {job_b.output}".format(job_a=job_a,
                                               job_b=job_b,
                                               f=filename,
                                               wildcards_a=wildcards_a,
