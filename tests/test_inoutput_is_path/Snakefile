@@ -1,0 +1,11 @@
+from pathlib import Path
+
+rule:
+	input: Path("test.in").resolve() # absolute, must exist
+	output: Path("test.out") # relative, does not have to exist (yet)
+	run:
+		test = shell("echo 42;", read=True)
+		assert int(test) == 42
+		with open(output[0], "w") as f:
+			for l in shell("cat {input}", iterable=True):
+				print(l, file=f)
