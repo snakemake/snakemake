@@ -588,7 +588,7 @@ def test_inoutput_is_path():
 
 
 def test_archive():
-    run(dpath("test_archive", archive="workflow-archive.tar.gz"))
+    run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
 
 if __name__ == '__main__':
