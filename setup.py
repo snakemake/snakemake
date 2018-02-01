@@ -49,13 +49,6 @@ setup(
     package_data={'': ['*.css', '*.sh', '*.html']},
     install_requires=['wrapt', 'requests', 'ratelimiter', 'pyyaml',
                       'configargparse', 'appdirs'],
-    tests_require=['pytools', 'rpy2', 'httpretty', 'docutils',
-                   'boto3',
-                   'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8',
-                   'requests>=2.8.1', 'dropbox>=5.2', 'pyyaml',
-                   'google-cloud-storage', 'ratelimiter'],
-    test_suite='all',
-    cmdclass={'test': NoseTestCommand},
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",
      "Intended Audience :: Science/Research",
