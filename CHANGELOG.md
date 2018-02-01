@@ -1,5 +1,11 @@
 # Change Log
 
+# [4.5.1] - 2018-02-01
+### Added
+- Input and output files can now tag pathlib objects.
+### Changed
+- Various minor bug fixes.
+
 # [4.5.0] - 2018-01-18
 ### Added
 - iRODS remote provider
