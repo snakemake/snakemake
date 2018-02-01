@@ -26,20 +26,6 @@ except ImportError:
     exit(1)
 
 
-class NoseTestCommand(TestCommand):
-    user_options = [
-        ('test-suite=', 's', "Test to run (e.g. test_shadow)")
-    ]
-
-    def run_tests(self):
-        # Run nose ensuring that argv simulates running nosetests directly
-        argv = ['nosetests']
-        if self.test_suite != 'all':
-            argv.append('tests/tests.py:' + self.test_suite)
-        import nose
-        nose.run_exit(argv=argv)
-
-
 setup(
     name='snakemake',
     version=__version__,
@@ -64,7 +50,7 @@ setup(
     install_requires=['wrapt', 'requests', 'ratelimiter', 'pyyaml',
                       'configargparse', 'appdirs'],
     tests_require=['pytools', 'rpy2', 'httpretty', 'docutils',
-                   'nose>=1.3', 'boto3',
+                   'boto3',
                    'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8',
                    'requests>=2.8.1', 'dropbox>=5.2', 'pyyaml',
                    'google-cloud-storage', 'ratelimiter'],

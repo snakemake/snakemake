@@ -10,7 +10,7 @@ dependencies:
   - httpretty
   - wrapt
   - pyyaml
-  - nose
+  - pytest
   - ftputil
   - pysftp
   - requests
