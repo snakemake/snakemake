@@ -12,7 +12,6 @@ import hashlib
 import urllib
 from shutil import rmtree, which
 from shlex import quote
-from nose.tools import nottest
 
 from snakemake import snakemake
 
