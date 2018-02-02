@@ -1147,11 +1147,7 @@ class KubernetesExecutor(ClusterExecutor):
         body.metadata = kubernetes.client.V1ObjectMeta()
         body.metadata.name = jobid
 
-        body.spec = kubernetes.client.V1PodSpec()
-        # fail on first error
-        body.spec.restart_policy = "Never"
-
-        # container
+       # container
         container = kubernetes.client.V1Container()
         container.image = self.container_image
         container.command = shlex.split(exec_job)
@@ -1159,8 +1155,11 @@ class KubernetesExecutor(ClusterExecutor):
         container.working_dir = "/workdir"
         container.volume_mounts = [kubernetes.client.V1VolumeMount(
             name="workdir", mount_path="/workdir")]
-        body.spec.containers = [container]
 
+        body.spec = kubernetes.client.V1PodSpec(containers=[container])
+        # fail on first error
+        body.spec.restart_policy = "Never"
+ 
         # source files
         secret_volume = kubernetes.client.V1Volume()
         secret_volume.name = "workdir"
