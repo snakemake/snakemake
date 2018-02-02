@@ -8,6 +8,7 @@ import shutil
 from distutils.version import StrictVersion
 import json
 from glob import glob
+import tarfile
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
@@ -125,13 +126,21 @@ class Env:
                     logger.info(pkg_url)
                     parsed = urlparse(pkg_url)
                     pkg_name = os.path.basename(parsed.path)
-                    with open(os.path.join(env_archive, pkg_name), "wb") as copy:
-                        copy.write(requests.get(pkg_url).content)
-        except requests.exceptions.ChunkedEncodingError as e:
+                    pkg_path = os.path.join(env_archive, pkg_name)
+                    with open(pkg_path, "wb") as copy:
+                        r = requests.get(pkg_url)
+                        r.raise_for_status()
+                        copy.write(r.content)
+                    try:
+                        tarfile.open(pkg_path)
+                    except:
+                        raise WorkflowError("Package is invalid tar archive: {}".format(pkg_url))
+        except (requests.exceptions.ChunkedEncodingError, requests.exceptions.HTTPError) as e:
             raise WorkflowError("Error downloading conda package {}.".format(pkg_url))
         except (Exception, BaseException) as e:
-            shutil.rmtree(env_archive)
             raise e
+        finally:
+            shutil.rmtree(env_archive)
         return env_archive
 
     def create(self, dryrun=False):
