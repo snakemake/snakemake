@@ -1221,7 +1221,7 @@ class DAG:
         elif path.endswith("tar.xz"):
             mode = "x:xz"
         elif path.endswith("tar.gz"):
-            mode = "x:xz"
+            mode = "x:gz"
         else:
             raise WorkflowError("Unsupported archive format "
                                 "(supported: .tar, .tar.gz, .tar.bz2, .tar.xz)")
