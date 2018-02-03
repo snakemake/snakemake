@@ -90,13 +90,15 @@ class REncoder:
 class Snakemake:
     def __init__(self, input, output, params, wildcards, threads, resources,
                  log, config, rulename):
-        self.input = input
-        self.output = output
+        # convert input and output to plain strings as some remote objects cannot
+        # be pickled
+        self.input = input.plainstrings()
+        self.output = output.plainstrings()
         self.params = params
         self.wildcards = wildcards
         self.threads = threads
         self.resources = resources
-        self.log = log
+        self.log = log.plainstrings()
         self.config = config
         self.rule = rulename
 
