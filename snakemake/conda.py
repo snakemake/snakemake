@@ -136,11 +136,11 @@ class Env:
                     except:
                         raise WorkflowError("Package is invalid tar archive: {}".format(pkg_url))
         except (requests.exceptions.ChunkedEncodingError, requests.exceptions.HTTPError) as e:
+            shutil.rmtree(env_archive)
             raise WorkflowError("Error downloading conda package {}.".format(pkg_url))
         except (Exception, BaseException) as e:
-            raise e
-        finally:
             shutil.rmtree(env_archive)
+            raise e
         return env_archive
 
     def create(self, dryrun=False):
