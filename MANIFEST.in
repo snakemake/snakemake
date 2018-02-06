@@ -1,0 +1,2 @@
+include versioneer.py
+include snakemake/_version.py

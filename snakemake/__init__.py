@@ -1519,3 +1519,7 @@ def bash_completion(snakefile="Snakefile"):
                               for rule in workflow.rules
                               if rule.name.startswith(prefix)])
     sys.exit(0)
+
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions

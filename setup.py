@@ -5,12 +5,8 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-from setuptools.command.test import test as TestCommand
 import sys
-
-
-# load version info
-exec(open("snakemake/version.py").read())
+import versioneer
 
 
 if sys.version_info < (3, 5):
@@ -28,7 +24,8 @@ except ImportError:
 
 setup(
     name='snakemake',
-    version=__version__,
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     author='Johannes Köster',
     author_email='johannes.koester@tu-dortmund.de',
     description=
