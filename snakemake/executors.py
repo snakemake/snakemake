@@ -125,7 +125,7 @@ class AbstractExecutor:
                          output=list(format_files(job, job.output,
                                                   job.dynamic_output)),
                          log=list(job.log),
-                         conda_env=job.conda_env.path,
+                         conda_env=job.conda_env.path if job.conda_env else None,
                          aux=kwargs)
         if msg is not None:
             logger.error(msg)
