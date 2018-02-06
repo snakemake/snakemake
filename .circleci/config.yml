@@ -24,8 +24,7 @@ jobs:
             make
             sudo make install
       - save_cache:
-          keys:
-            - snakemake-{{ checksum ".circleci/config.yml" }}
+          key: snakemake-{{ checksum ".circleci/config.yml" }}
           paths:
             - /tmp/miniconda
             - /usr/local
