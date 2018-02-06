@@ -249,7 +249,7 @@ class Rule:
     @property
     def products(self):
         if self.benchmark:
-            return chain(self.output, self.log, self.benchmark)
+            return chain(self.output, self.log, [self.benchmark])
         else:
             return chain(self.output, self.log)
 
