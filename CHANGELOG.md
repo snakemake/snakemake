@@ -1,5 +1,11 @@
 # Change Log
 
+# [4.6.0] - 2018-02-06
+### Changed
+- Log files can now be used as input files for other rules.
+- Adapted to changes in Kubernetes client API.
+- Fixed minor issues in --archive option.
+
 # [4.5.1] - 2018-02-01
 ### Added
 - Input and output files can now tag pathlib objects.

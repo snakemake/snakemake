@@ -315,7 +315,12 @@ Each rule can specify a log file where information about the execution is writte
         log: "logs/abc.log"
         shell: "somecommand --log {log} {input} {output}"
 
-The variable ``log`` can be used inside a shell command to tell the used tool to which file to write the logging information. Of course the log file can use the same wildcards as input and output files, e.g.
+Log files can be used as input for other rules, just like any other output file.
+However, unlike output files, log files are not deleted upon error.
+This is obviously necessary in order to discover causes of errors which might become visible in the log file.
+
+The variable ``log`` can be used inside a shell command to tell the used tool to which file to write the logging information.
+The log file has to use the same wildcards as output files, e.g.
 
 .. code-block:: python
 
@@ -332,7 +337,6 @@ Note that it is also supported to have multiple (named) log files being specifie
         output: "output.txt"
         log: log1="logs/abc.log", log2="logs/xyz.log"
         shell: "somecommand --log {log.log1} METRICS_FILE={log.log2} {input} {output}"
-
 
 
 
@@ -903,15 +907,15 @@ With the `benchmark` keyword, a rule can be declared to store a benchmark of its
         output:
             "path/to/output.{sample}.txt"
         benchmark:
-            "benchmarks/somecommand/{sample}.txt"
+            "benchmarks/somecommand/{sample}.tsv"
         shell:
             "somecommand {input} {output}"
 
 benchmarks the CPU and wall clock time of the command ``somecommand`` for the given output and input files.
-For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark txt file (which will contain a tab-separated table of run times and memory usage in MiB).
+For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark tsv file (which will contain a tab-separated table of run times and memory usage in MiB).
 Per default, Snakemake executes the job once, generating one run time.
 With ``snakemake --benchmark-repeats``, this number can be changed to e.g. generate timings for two or three runs.
-The resulting txt file can be used as input for other rules, just like any other output file.
+The resulting tsv file can be used as input for other rules, just like any other output file.
 
 .. note::
 
