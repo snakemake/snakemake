@@ -585,8 +585,13 @@ def test_bash():
 def test_inoutput_is_path():
     run(dpath("test_inoutput_is_path"))
 
+
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
+
+
+def test_log_input():
+    run(dpath("test_log_input"))
 
 
 if __name__ == '__main__':

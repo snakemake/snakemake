@@ -386,6 +386,11 @@ class Job:
                         files.add("{} (dynamic)".format(f_))
                 elif not f.exists:
                     files.add(f)
+
+        for f in self.log:
+            if requested and f in requested:
+                files.add(f)
+
         return files
 
     @property

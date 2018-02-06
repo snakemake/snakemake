@@ -32,11 +32,8 @@ class OutputIndex:
         self.root = Node()
 
         for rule in rules:
-            output = list(rule.output)
-            if rule.benchmark:
-                output.append(rule.benchmark)
             for constant_prefix in sorted(map(_IOFile.constant_prefix,
-                                              output)):
+                                              rule.products)):
                 self.add_output(rule, constant_prefix)
 
     def add_output(self, rule, constant_prefix):

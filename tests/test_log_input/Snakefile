@@ -1,0 +1,22 @@
+
+rule all:
+    input:
+        "test.a.txt"
+
+
+rule a:
+    output:
+        "unused.{sample}.txt"
+    log:
+        "logs/{sample}.txt"
+    shell:
+        "echo {wildcards.sample} > {log}; touch {output}"
+
+
+rule b:
+    input:
+        "logs/{sample}.txt"
+    output:
+        "test.{sample}.txt"
+    shell:
+        "cp {input} {output}"
