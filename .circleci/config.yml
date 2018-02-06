@@ -31,7 +31,7 @@ jobs:
           name: Setup test environment
           command: conda env create --name snakemake --file test-environment.yml
       - save_cache:
-          key: snakemake-{{ checksum ".circleci/config.yml" }}
+          key: snakemake-{{ checksum ".circleci/config.yml" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
           paths:
             - /tmp/miniconda
             - /usr/local
