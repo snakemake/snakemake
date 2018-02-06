@@ -27,6 +27,9 @@ from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import Mode
 
 
+MIN_PY_VERSION = (3, 5)
+
+
 def snakemake(snakefile,
               listrules=False,
               list_target_rules=False,
