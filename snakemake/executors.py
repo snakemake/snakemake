@@ -35,8 +35,7 @@ from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError, ImproperShadowException, SpawnedJobError
-from snakemake.common import Mode
-from snakemake.version import __version__
+from snakemake.common import Mode, __version__
 
 
 def format_files(job, io, dynamicio):
@@ -1158,7 +1157,7 @@ class KubernetesExecutor(ClusterExecutor):
         body.spec = kubernetes.client.V1PodSpec(containers=[container])
         # fail on first error
         body.spec.restart_policy = "Never"
- 
+
         # source files
         secret_volume = kubernetes.client.V1Volume(name="workdir")
         secret_volume.secret = kubernetes.client.V1SecretVolumeSource()

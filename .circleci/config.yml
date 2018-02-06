@@ -6,7 +6,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - snakemake-{{ checksum ".circleci/config.yml" }}
+            - snakemake-{{ checksum ".circleci/config.yml" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
       - run:
           name: Setup Conda
           command: |
@@ -20,13 +20,16 @@ jobs:
           command: |
             # only install if singularity is not yet present
             if ! type singularity > /dev/null; then exit 0; fi
-            VER=2.4.2
-            wget https://github.com/singularityware/singularity/releases/download/$VER/singularity-$VER.tar.gz
-            tar xvf singularity-$VER.tar.gz
-            cd singularity-$VER
+            source .circleci/common.sh
+            wget https://github.com/singularityware/singularity/releases/download/$SINGULARITY_VER/singularity-$SINGULARITY_VER.tar.gz
+            tar xvf singularity-$SINGULARITY_VER.tar.gz
+            cd singularity-$SINGULARITY_VER
             ./configure --prefix=/usr/local --sysconfdir=/etc
             make
             sudo make install
+      - run:
+          name: Setup test environment
+          command: conda env create --name snakemake --file test-environment.yml
       - save_cache:
           key: snakemake-{{ checksum ".circleci/config.yml" }}
           paths:
@@ -35,7 +38,6 @@ jobs:
       - run:
           name: Setup Snakemake
           command: |
-            conda env create --name snakemake --file test-environment.yml
             source activate snakemake
             pip install -e .
       - run:

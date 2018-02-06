@@ -20,11 +20,10 @@ import shutil
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception, WorkflowError
 from snakemake.logging import setup_logger, logger
-from snakemake.version import __version__
 from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
-from snakemake.common import Mode
+from snakemake.common import Mode, __version__
 
 
 def snakemake(snakefile,
@@ -1519,7 +1518,3 @@ def bash_completion(snakefile="Snakefile"):
                               for rule in workflow.rules
                               if rule.name.startswith(prefix)])
     sys.exit(0)
-
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
