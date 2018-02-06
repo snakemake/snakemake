@@ -11,6 +11,7 @@ import sre_constants
 from collections import defaultdict, Iterable
 from urllib.parse import urljoin
 from pathlib import Path
+from itertools import chain
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
@@ -247,10 +248,10 @@ class Rule:
 
     @property
     def products(self):
-        products = list(self.output)
         if self.benchmark:
-            products.append(self.benchmark)
-        return products
+            return chain(self.output, self.log, self.benchmark)
+        else:
+            return chain(self.output, self.log)
 
     def set_output(self, *output, **kwoutput):
         """
