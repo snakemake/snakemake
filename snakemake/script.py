@@ -20,7 +20,7 @@ from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake import MIN_PY_VERSION
+from snakemake.common import MIN_PY_VERSION
 
 
 PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")

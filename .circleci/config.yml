@@ -4,12 +4,31 @@ jobs:
     machine: true
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - snakemake-{{ checksum ".circleci/config.yml" }}
       - run:
           name: Setup Conda
           command: |
             wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-            bash miniconda.sh -b -p miniconda
-            echo 'export PATH="miniconda/bin:$PATH"' >> $BASH_ENV
+            bash miniconda.sh -b -p /tmp/miniconda
+            echo 'export PATH="/tmp/miniconda/bin:$PATH"' >> $BASH_ENV
+      - run:
+          name: Setup singularity
+          command: |
+            VER=2.4.2
+            wget https://github.com/singularityware/singularity/releases/download/$VER/singularity-$VER.tar.gz
+            tar xvf singularity-$VER.tar.gz
+            cd singularity-$VER
+            ./configure --prefix=/usr/local --sysconfdir=/etc
+            make
+            sudo make install
+      - save_cache:
+          keys:
+            - snakemake-{{ checksum ".circleci/config.yml" }}
+          paths:
+            - /tmp/miniconda
+            - /usr/local
       - run:
           name: Setup Snakemake
           command: |
@@ -24,16 +43,6 @@ jobs:
             sleep 10
             docker exec -u irods provider iput /incoming/infile
             cp -r tests/test_remote_irods/setup-data ~/.irods
-      - run:
-          name: Setup singularity
-          command: |
-            VER=2.4.2
-            wget https://github.com/singularityware/singularity/releases/download/$VER/singularity-$VER.tar.gz
-            tar xvf singularity-$VER.tar.gz
-            cd singularity-$VER
-            ./configure --prefix=/usr/local --sysconfdir=/etc
-            make
-            sudo make install
       - run:
           name: Run tests
           command: |

@@ -7,6 +7,7 @@ from functools import update_wrapper
 import inspect
 
 
+MIN_PY_VERSION = (3, 5)
 DYNAMIC_FILL = "__snakemake_dynamic__"
 
 
