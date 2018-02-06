@@ -12,14 +12,14 @@ jobs:
           command: |
             echo 'export PATH="/tmp/miniconda/bin:$PATH"' >> $BASH_ENV
             # only install if conda is not yet present
-            if ! type conda > /dev/null; then exit 0; fi
+            if type conda > /dev/null; then exit 0; fi
             wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
             bash miniconda.sh -b -p /tmp/miniconda
       - run:
           name: Setup singularity
           command: |
             # only install if singularity is not yet present
-            if ! type singularity > /dev/null; then exit 0; fi
+            if type singularity > /dev/null; then exit 0; fi
             source .circleci/common.sh
             wget https://github.com/singularityware/singularity/releases/download/$SINGULARITY_VER/singularity-$SINGULARITY_VER.tar.gz
             tar xvf singularity-$SINGULARITY_VER.tar.gz
