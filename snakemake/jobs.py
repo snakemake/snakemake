@@ -177,7 +177,6 @@ class Job:
         if self.conda_env_file:
             if self._conda_env is None:
                 self._conda_env = self.dag.conda_envs.get(self.conda_env_file)
-            logger.debug("Accessing conda environment {}.".format(self._conda_env))
             if self._conda_env is None:
                 raise ValueError("Conda environment {} not found in DAG.".format(self.conda_env_file))
             return self._conda_env

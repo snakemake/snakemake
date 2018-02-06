@@ -255,6 +255,8 @@ class Logger:
                 self.logger.error("    output: {}".format(", ".join(msg["output"])))
             if msg["log"]:
                 self.logger.error("    log: {}".format(", ".join(msg["log"])))
+            if msg["conda_env"]:
+                self.logger.error("    conda-env: {}".format(msg["conda_env"]))
             for item in msg["aux"].items():
                 self.logger.error("    {}: {}".format(*item))
             self.logger.error("")
