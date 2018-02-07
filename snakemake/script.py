@@ -180,12 +180,14 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 snakemake = Snakemake(input, output, params, wildcards,
                                       threads, resources, log, config, rulename)
                 snakemake = pickle.dumps(snakemake)
-                # obtain search path for current snakemake module
-                # the module is needed for unpickling in the script
+                # Obtain search path for current snakemake module.
+                # The module is needed for unpickling in the script.
+                # We insert it at the second position (as a fallback), the first
+                # is the conda env or the normal search path.
                 searchpath = os.path.dirname(os.path.dirname(__file__))
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
-                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
+                import sys; sys.path.insert(1, "{}"); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
                 ######## Original script #########
                 """).format(searchpath, snakemake, logger.printshellcmds)
             elif path.endswith(".R") or path.endswith(".Rmd"):
