@@ -34,7 +34,9 @@ jobs:
           key: snakemake-{{ checksum ".circleci/config.yml" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
           paths:
             - /tmp/miniconda
-            - /usr/local
+            - /usr/local/bin/singularity
+            - /usr/local/bin/run-singularity
+            - /usr/local/*/singularity
       - run:
           name: Setup Snakemake
           command: |
