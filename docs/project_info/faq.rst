@@ -66,6 +66,20 @@ he quick fix for virtualenv is to temporarily deactivate the check for unbound v
 
 For more details on bash strict mode, see the `here <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_.
 
+
+My shell command fails with exit code != 0 from within a pipe, what's wrong?
+----------------------------------------------------------------------------
+
+Snakemake is using `bash strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_ to ensure best practice error reporting in shell commands.
+This entails the pipefail option, which reports errors from within a pipe to outside. If you don't want this, e.g., to handle empty output in the pipe, you can disable pipefail via prepending
+
+.. code-block:: bash
+
+    set +o pipefile; 
+
+to your shell command in the problematic rule.
+
+
 .. _glob-wildcards:
 
 How do I run my rule on all files of a certain directory?
