@@ -9,14 +9,19 @@ jobs:
             - snakemake-{{ checksum ".circleci/config.yml" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
       - run:
           name: Update PATH
-          command: echo 'export PATH="/tmp/miniconda/bin:$PATH"' >> $BASH_ENV
+          command: echo 'export PATH="`pwd`/miniconda/bin:$PATH"' >> $BASH_ENV
       - run:
           name: Setup Conda
           command: |
             # only install if conda is not yet present
             if type conda > /dev/null; then exit 0; fi
             wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-            bash miniconda.sh -b -p /tmp/miniconda
+            bash miniconda.sh -b -p miniconda
+            conda env create --name snakemake --file test-environment.yml
+      - save_cache:
+          key: snakemake-{{ checksum ".circleci/config.yml" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
+          paths:
+            - miniconda
       - run:
           name: Setup singularity
           command: |
@@ -29,13 +34,6 @@ jobs:
             ./configure --prefix=/usr/local --sysconfdir=/etc
             make
             sudo make install
-      - run:
-          name: Setup test environment
-          command: conda env create --name snakemake --file test-environment.yml
-      - save_cache:
-          key: snakemake-{{ checksum ".circleci/config.yml" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
-          paths:
-            - /tmp/miniconda
       - run:
           name: Setup Snakemake
           command: |
