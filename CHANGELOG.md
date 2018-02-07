@@ -5,6 +5,7 @@
 - Log files can now be used as input files for other rules.
 - Adapted to changes in Kubernetes client API.
 - Fixed minor issues in --archive option.
+- Search path order in scripts was changed to fix a bug with leaked packages from root env when using script directive together with conda.
 
 # [4.5.1] - 2018-02-01
 ### Added
