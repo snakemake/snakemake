@@ -18,8 +18,8 @@ jobs:
       - run:
           name: Setup singularity
           command: |
-            # only install if singularity is not yet present
-            if type singularity > /dev/null; then exit 0; fi
+            # TODO only install if singularity is not yet present
+            # if type singularity > /dev/null; then exit 0; fi
             source .circleci/common.sh
             wget https://github.com/singularityware/singularity/releases/download/$SINGULARITY_VER/singularity-$SINGULARITY_VER.tar.gz
             tar xvf singularity-$SINGULARITY_VER.tar.gz
@@ -34,9 +34,6 @@ jobs:
           key: snakemake-{{ checksum ".circleci/config.yml" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
           paths:
             - /tmp/miniconda
-            - /usr/local/bin/singularity
-            - /usr/local/bin/run-singularity
-            - /usr/local/*/singularity
       - run:
           name: Setup Snakemake
           command: |
