@@ -493,6 +493,9 @@ class Job:
                 #No file == no problem
                 pass
 
+        for f in self.log:
+            f.remove(remove_non_empty_dir=False)
+
     def download_remote_input(self):
         for f in self.files_to_download:
             f.download_from_remote()
@@ -529,6 +532,7 @@ class Job:
 
         if not self.is_shadow:
             return
+
         # Create shadow directory structure
         self.shadow_dir = tempfile.mkdtemp(
             dir=self.rule.workflow.persistence.shadow_path)

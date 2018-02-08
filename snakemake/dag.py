@@ -369,11 +369,13 @@ class DAG:
                 if os.path.isfile(f):
                     f.touch()
 
-    def unshadow_output(self, job):
+    def unshadow_output(self, job, only_log=False):
         """ Move files from shadow directory to real output paths. """
         if not job.shadow_dir or not job.expanded_output:
             return
-        for real_output in chain(job.expanded_output, job.log):
+        files = job.log if only_log else chain(job.expanded_output, job.log)
+        print(files)
+        for real_output in files:
             shadow_output = job.shadowed_path(real_output).file
             # Remake absolute symlinks as relative
             if os.path.islink(shadow_output):
