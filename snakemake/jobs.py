@@ -95,8 +95,8 @@ class Job:
                                         rule=self.rule)
                 self.subworkflow_input[f] = sub
         self._hash = self.rule.__hash__()
-        for f in chain(self.output, self.log):
-            self._hash ^= o.__hash__()
+        for wildcard_value in self.wildcards_dict.values():
+            self._hash ^= wildcard_value.__hash__()
 
     def is_valid(self):
         """Check if job is valid"""
@@ -673,9 +673,8 @@ class Job:
         if other is None:
             return False
         return (self.rule == other.rule and
-                (self.dynamic_output or
-                 self.wildcards_dict == other.wildcards_dict) and
-                (self.dynamic_input or self.input == other.input))
+                (self.wildcards_dict == other.wildcards_dict) and
+                (self.input == other.input))
 
     def __lt__(self, other):
         return self.rule.__lt__(other.rule)

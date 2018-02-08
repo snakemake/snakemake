@@ -51,4 +51,4 @@ jobs:
           name: Run tests
           command: |
             source activate snakemake
-            py.test tests/test*.py -v --tb=line
+            py.test tests/test*.py -v -x
