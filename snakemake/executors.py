@@ -503,7 +503,12 @@ class ClusterExecutor(RealExecutor):
         with self.lock:
             self.wait = False
         self.wait_thread.join()
-        shutil.rmtree(self.tmpdir)
+        if not self.workflow.immediate_submit:
+            # Only delete tmpdir (containing jobscripts) if not using
+            # immediate_submit. With immediate_submit, jobs can be scheduled
+            # after this method is completed. Hence we have to keep the
+            # directory.
+            shutil.rmtree(self.tmpdir)
 
     def cancel(self):
         self.shutdown()
