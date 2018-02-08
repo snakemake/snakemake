@@ -586,8 +586,8 @@ class DAG:
                 raise CyclicGraphException(job.rule, file, rule=job.rule)
             if exceptions:
                 raise exceptions[0]
-
-        logger.dag_debug(dict(status="selected", job=job))
+        else:
+            logger.dag_debug(dict(status="selected", job=producer))
 
         n = len(self.dependencies)
         if progress and n % 1000 == 0 and n and self._progress != n:
