@@ -95,7 +95,7 @@ class Job:
                                         rule=self.rule)
                 self.subworkflow_input[f] = sub
         self._hash = self.rule.__hash__()
-        for o in self.output:
+        for f in chain(self.output, self.log):
             self._hash ^= o.__hash__()
 
     def is_valid(self):
