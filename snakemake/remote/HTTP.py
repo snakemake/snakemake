@@ -130,11 +130,17 @@ class RemoteObject(DomainObject):
         if self.exists():
             with self.httpr(verb="HEAD") as httpr:
 
-                file_mtime = self.get_header_item(httpr, "last-modified", default=0)
-                logger.debug("HTTP mtime: {}".format(file_mtime))
+                file_mtime = self.get_header_item(httpr, "last-modified", default=None)
+                logger.debug("HTTP last-modified: {}".format(file_mtime))
 
-                modified_tuple = email.utils.parsedate_tz(file_mtime)
-                epochTime = email.utils.mktime_tz(modified_tuple)
+                epochTime = 0
+
+                if file_mtime is not None:
+                    modified_tuple = email.utils.parsedate_tz(file_mtime)
+                    if modified_tuple is None:
+                        logger.debug("HTTP last-modified not in RFC2822 format: `{}`".format(file_mtime))
+                    else:
+                        epochTime = email.utils.mktime_tz(modified_tuple)
 
                 return epochTime
         else:
