@@ -295,7 +295,7 @@ class CPUExecutor(RealExecutor):
         self.exec_job = '\\\n'.join((
             'cd {workflow.workdir_init} && ',
             '{sys.executable} -m snakemake {target} --snakefile {snakefile} ',
-            '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
+            '--force -j{cores} --keep-target-files --keep-remote ',
             '--benchmark-repeats {benchmark_repeats} --attempt {attempt} ',
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
             '--latency-wait {latency_wait} ',
@@ -446,7 +446,7 @@ class ClusterExecutor(RealExecutor):
                 'cd {workflow.workdir_init} && ' if assume_shared_fs else '',
                 '{sys.executable} ' if assume_shared_fs else 'python ',
                 '-m snakemake {target} --snakefile {snakefile} ',
-                '--force -j{cores} --keep-target-files --keep-shadow --keep-remote ',
+                '--force -j{cores} --keep-target-files --keep-remote ',
                 '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
                 '--benchmark-repeats {benchmark_repeats} --attempt {attempt} ',
                 '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
@@ -1056,7 +1056,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         exec_job = (
             'snakemake {target} --snakefile {snakefile} '
-            '--force -j{cores} --keep-target-files --keep-shadow --keep-remote '
+            '--force -j{cores} --keep-target-files  --keep-remote '
             '--latency-wait 0 '
             '--benchmark-repeats {benchmark_repeats} --attempt {attempt} '
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} '
