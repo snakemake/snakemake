@@ -514,9 +514,6 @@ class Workflow:
                     print(simplify_path(env.file), simplify_path(env.path), sep="\t")
             return True
 
-        if not keep_shadow and not dryrun:
-            self.persistence.cleanup_shadow()
-
         if self.use_conda:
             if assume_shared_fs:
                 dag.create_conda_envs(dryrun=dryrun)
