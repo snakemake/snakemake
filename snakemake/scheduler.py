@@ -204,6 +204,8 @@ class JobScheduler:
             self.rate_limiter = RateLimiter(max_calls=sys.maxsize,
                                             period=1)
 
+        self._user_kill = None
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
         self._open_jobs.release()
 
     @property
@@ -239,18 +241,22 @@ class JobScheduler:
                     needrun = list(self.open_jobs)
                     running = list(self.running)
                     errors = self._errors
+                    user_kill = self._user_kill
 
                 # handle errors
-                if not self.keepgoing and errors:
-                    logger.info("Will exit after finishing "
-                                "currently running jobs.")
+                if user_kill or (not self.keepgoing and errors):
+                    if user_kill == "graceful":
+                        logger.info("Will exit after finishing "
+                                    "currently running jobs.")
 
                     if not running:
                         logger.info("Shutting down, this might take some time.")
                         self._executor.shutdown()
-                        logger.error(_ERROR_MSG_FINAL)
+                        if not user_kill:
+                            logger.error(_ERROR_MSG_FINAL)
                         return False
                     continue
+
                 # normal shutdown because all jobs have been finished
                 if not needrun and (not running or self.workflow.immediate_submit):
                     logger.info("Shutting down, this might take some time.")
@@ -368,6 +374,11 @@ class JobScheduler:
             self.failed.add(job)
             if self.keepgoing:
                 logger.info("Job failed, going on with independent jobs.")
+        self._open_jobs.release()
+
+    def exit_gracefully(self, *args):
+        with self._lock:
+            self._user_kill = "graceful"
         self._open_jobs.release()
 
     def job_selector(self, jobs):

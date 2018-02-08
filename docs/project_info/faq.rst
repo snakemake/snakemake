@@ -454,3 +454,15 @@ Git is messing up the modification times of my input files, what can I do?
 --------------------------------------------------------------------------
 
 When you checkout a git repository, the modification times of updated files are set to the time of the checkout. If you rely on these files as input **and** output files in your workflow, this can cause trouble. For example, Snakemake could think that a certain (git-tracked) output has to be re-executed, just because its input has been checked out a bit later. In such cases, it is advisable to set the file modification dates to the last commit date after an update has been pulled. See `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_ for a solution to achieve this.
+
+How do I exit a running Snakemake workflow?
+-------------------------------------------
+
+There are two ways to exit a currently running workflow.
+
+1. If you want to kill all running jobs, hit Ctrl+C. Note that when using --cluster, this will only cancel the main Snakemake process.
+2. If you want to stop the scheduling of new jobs and wait for all running jobs to be finished, you can send a TERM signal, e.g., via
+   
+   .. code-block:: bash
+
+       killall -TERM snakemake
