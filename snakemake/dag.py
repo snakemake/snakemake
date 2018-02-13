@@ -16,6 +16,8 @@ from operator import itemgetter, attrgetter
 from pathlib import Path
 import subprocess
 
+import datrie
+
 from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
 from snakemake.jobs import Job, Reason
 from snakemake.exceptions import RuleException, MissingInputException
@@ -26,7 +28,6 @@ from snakemake.exceptions import PeriodicWildcardError, WildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
-from snakemake.output_index import OutputIndex
 from snakemake.common import DYNAMIC_FILL
 from snakemake import conda, singularity
 from snakemake import utils
@@ -187,7 +188,18 @@ class DAG:
 
     def update_output_index(self):
         """Update the OutputIndex."""
-        self.output_index = OutputIndex(self.rules)
+        def prefixes(rule):
+            return map(_IOFile.constant_prefix, rule.products)
+
+        self.output_index = datrie.Trie("".join(prefix
+                                                for rule in self.rules
+                                                for prefix in prefixes(rule)))
+        for rule in self.rules:
+            for constant_prefix in prefixes(rule):
+                if constant_prefix not in self.output_index:
+                    self.output_index[constant_prefix] = [rule]
+                else:
+                    self.output_index[constant_prefix].append(rule)
 
     def check_incomplete(self):
         """Check if any output files are incomplete. This is done by looking up
@@ -1043,7 +1055,8 @@ class DAG:
         return self.new_job(targetrule)
 
     def file2jobs(self, targetfile):
-        rules = self.output_index.match(targetfile)
+        rules = chain.from_iterable(
+            self.output_index.iter_prefix_values(str(targetfile)))
         jobs = []
         exceptions = list()
         for rule in rules:

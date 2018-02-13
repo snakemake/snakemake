@@ -65,6 +65,7 @@ class Job:
 
         self._attempt = self.dag.workflow.attempt
 
+        # TODO get rid of these
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
