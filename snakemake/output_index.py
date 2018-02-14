@@ -1,3 +1,8 @@
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2018, Johannes Köster"
+__email__ = "johannes.koester@protonmail.com"
+__license__ = "MIT"
+
 from itertools import chain
 
 import datrie
