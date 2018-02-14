@@ -579,6 +579,9 @@ class Workflow:
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
+            if quiet:
+                # in case of dryrun and quiet, just print above info and exit
+                return True
 
         if not dryrun and not no_hooks:
             self._onstart(logger.get_logfile())

@@ -261,9 +261,7 @@ class Logger:
                 self.logger.error("    {}: {}".format(*item))
             self.logger.error("")
         else:
-            # TODO not printing info on quiet is a problem with shadow messages
-            # They are not printed as well.
-            if level == "info" and not self.quiet:
+            if level == "info":
                 self.logger.warning(msg["msg"])
             if level == "warning":
                 self.logger.warning(msg["msg"])
