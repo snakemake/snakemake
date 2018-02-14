@@ -9,7 +9,7 @@ import operator
 from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate
-from contextlib import contextmanager
+from contextlib import ContextDecorator
 import time
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
@@ -29,9 +29,12 @@ _ERROR_MSG_FINAL = ("Exiting because a job execution failed. "
                     "Look above for error message")
 
 
-@contextmanager
-def dummy_rate_limiter():
-    yield
+class DummyRateLimiter(ContextDecorator):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
 
 
 class JobScheduler:
@@ -196,13 +199,12 @@ class JobScheduler:
                                          benchmark_repeats=benchmark_repeats,
                                          cores=cores)
 
-        if self.max_jobs_per_second:
+        if self.max_jobs_per_second and not self.dryrun:
             self.rate_limiter = RateLimiter(max_calls=self.max_jobs_per_second,
                                             period=1)
         else:
             # essentially no rate limit
-            self.rate_limiter = RateLimiter(max_calls=sys.maxsize,
-                                            period=1)
+            self.rate_limiter = DummyRateLimiter()
 
         self._user_kill = None
         signal.signal(signal.SIGTERM, self.exit_gracefully)
@@ -274,8 +276,8 @@ class JobScheduler:
                 logger.debug("Ready jobs ({}):\n\t".format(len(needrun)) +
                              "\n\t".join(map(str, needrun)))
 
-                # select jobs by solving knapsack problem
-                run = self.job_selector(needrun)
+                # select jobs by solving knapsack problem (omit with dryrun)
+                run = needrun if self.dryrun else self.job_selector(needrun)
                 logger.debug("Selected jobs ({}):\n\t".format(len(run)) +
                              "\n\t".join(map(str, run)))
                 # update running jobs
