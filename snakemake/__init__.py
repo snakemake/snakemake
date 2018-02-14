@@ -757,7 +757,9 @@ def get_argument_parser(profile=None):
                               "the snakefile will use this as their origin)."))
     parser.add_argument("--dryrun", "-n",
                         action="store_true",
-                        help="Do not execute anything.")
+                        help="Do not execute anything, and display what would be done. "
+                             "If you have a very large workflow, use --dryrun --quiet to just "
+                             "print a summary of the DAG of jobs.")
     parser.add_argument(
         "--printshellcmds", "-p",
         action="store_true",
