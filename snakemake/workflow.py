@@ -574,8 +574,11 @@ class Workflow:
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
-        if dryrun and not len(dag):
-            logger.info("Nothing to be done.")
+        else:
+            if len(dag):
+                logger.run_info("\n".join(dag.stats()))
+            else:
+                logger.info("Nothing to be done.")
 
         if not dryrun and not no_hooks:
             self._onstart(logger.get_logfile())
