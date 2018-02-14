@@ -1,60 +1,48 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2018, Johannes Köster"
+__email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
-from collections import defaultdict
+from itertools import chain
+
+import datrie
 
 from snakemake.io import _IOFile
 
 
-class Node:
-    __slots__ = ["rules", "children"]
-
-    def __init__(self):
-        self.rules = set()
-        self.children = defaultdict(Node)
-
-    def __repr__(self):
-        return "({}) -> {}".format(list(map(str, self.rules)), dict(self.children))
-
-
 class OutputIndex:
-    """The output file index is a prefix tree
-    over the constant prefixes (i.e. the prefix until the first wildcard
-    occurs) of all output files of the rules. Instead of having to match
-    all rules against a particular target file, we walk through the tree and
-    only match a relevant subset. This also means that it is desirable to have
-    unique prefixes per rule.
-    TODO this could be ported to a C/Rust/Cython module to gain further speedups.
-    """
     def __init__(self, rules):
-        self.root = Node()
+        def prefixes(rule):
+            return (str(o.constant_prefix()) for o in rule.products)
+        def reverse_suffixes(rule):
+            return (str(o.constant_suffix())[::-1] for o in rule.products)
+        def calc_trie(subpatterns):
+            t = datrie.Trie("".join(p for rule in rules
+                                    for p in subpatterns(rule)))
+            empty = list()
+            for rule in rules:
+                has_empty = False
+                for p in subpatterns(rule):
+                    if not p:
+                        has_empty = True
+                    if p not in t:
+                        t[p] = [rule]
+                    else:
+                        t[p].append(rule)
+                if has_empty:
+                    empty.append(rule)
+            return t, empty
 
-        for rule in rules:
-            for constant_prefix in sorted(map(_IOFile.constant_prefix,
-                                              rule.products)):
-                self.add_output(rule, constant_prefix)
+        self.prefix_trie, self.empty_prefix = calc_trie(prefixes)
+        self.suffix_trie, self.empty_suffix = calc_trie(reverse_suffixes)
 
-    def add_output(self, rule, constant_prefix):
-        node = self.root
-        for c in constant_prefix:
-            node = node.children[c]
-            if rule in node.rules:
-                # a prefix of file f is already recorded for this rule
-                # hence we can stop here
-                return
-        node.rules.add(rule)
+    def match(self, targetfile):
+        def match_pattern(pattern, trie, empty):
+            return chain(chain.from_iterable(trie.iter_prefix_values(pattern)),
+                         empty)
 
-    def match(self, f):
-        node = self.root
-        rules = set()
-        for c in f:
-            for rule in node.rules:
-                rules.add(rule)
-            node = node.children.get(c, None)
-            if node is None:
-                return rules
-        for rule in node.rules:
-            rules.add(rule)
-        return rules
+        f = str(targetfile)
+        hits = set(match_pattern(f, self.prefix_trie, self.empty_prefix))
+        return hits.intersection(match_pattern(f[::-1],
+                                               self.suffix_trie,
+                                               self.empty_suffix))

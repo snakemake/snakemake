@@ -26,16 +26,11 @@ from snakemake.exceptions import PeriodicWildcardError, WildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
-from snakemake.output_index import OutputIndex
 from snakemake.common import DYNAMIC_FILL
 from snakemake import conda, singularity
 from snakemake import utils
+from snakemake.output_index import OutputIndex
 
-# Workaround for Py <3.5 prior to existence of RecursionError
-try:
-    RecursionError
-except NameError:
-    RecursionError = RuntimeError
 
 class DAG:
     """Directed acyclic graph of jobs."""

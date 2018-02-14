@@ -5,6 +5,7 @@ channels:
 dependencies:
   - python >=3.5
   - rpy2 >=0.7.6
+  - datrie
   - boto3
   - moto >=1.0.1
   - httpretty

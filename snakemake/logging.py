@@ -273,7 +273,7 @@ class Logger:
                 self.logger.debug(msg["msg"])
             elif level == "resources_info" and not self.quiet:
                 self.logger.warning(msg["msg"])
-            elif level == "run_info" and not self.quiet:
+            elif level == "run_info":
                 self.logger.warning(msg["msg"])
             elif level == "progress" and not self.quiet:
                 done = msg["done"]

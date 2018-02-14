@@ -371,6 +371,15 @@ class _IOFile(str):
             return self.file[:first_wildcard.start()]
         return self.file
 
+    def constant_suffix(self):
+        m = None
+        for m in _wildcard_regex.finditer(self.file):
+            pass
+        last_wildcard = m
+        if last_wildcard:
+            return self.file[last_wildcard.end():]
+        return self.file
+
     def match(self, target):
         return self.regex().match(target) or None
 
