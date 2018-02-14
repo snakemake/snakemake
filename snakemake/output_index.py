@@ -8,9 +8,9 @@ from snakemake.io import _IOFile
 class OutputIndex:
     def __init__(self, rules):
         def prefixes(rule):
-            return map(_IOFile.constant_prefix, rule.products)
+            return (str(o.constant_prefix()) for o in rule.products)
         def reverse_suffixes(rule):
-            return (_IOFile.constant_suffix(o)[::-1] for o in rule.products)
+            return (str(o.constant_suffix())[::-1] for o in rule.products)
         def calc_trie(subpatterns):
             t = datrie.Trie("".join(p for rule in rules
                                     for p in subpatterns(rule)))
@@ -36,9 +36,8 @@ class OutputIndex:
             return chain(chain.from_iterable(trie.iter_prefix_values(pattern)),
                          empty)
 
-        hits = set(match_pattern(str(targetfile),
-                   self.prefix_trie, self.empty_prefix))
-        hits = hits.intersection(match_pattern(targetfile[::-1],
+        f = str(targetfile)
+        hits = set(match_pattern(f, self.prefix_trie, self.empty_prefix))
+        return hits.intersection(match_pattern(f[::-1],
                                                self.suffix_trie,
                                                self.empty_suffix))
-        return hits
