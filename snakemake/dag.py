@@ -16,8 +16,6 @@ from operator import itemgetter, attrgetter
 from pathlib import Path
 import subprocess
 
-import datrie
-
 from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
 from snakemake.jobs import Job, Reason
 from snakemake.exceptions import RuleException, MissingInputException
@@ -31,12 +29,8 @@ from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
 from snakemake import conda, singularity
 from snakemake import utils
+from snakemake.output_index import OutputIndex
 
-# Workaround for Py <3.5 prior to existence of RecursionError
-try:
-    RecursionError
-except NameError:
-    RecursionError = RuntimeError
 
 class DAG:
     """Directed acyclic graph of jobs."""
@@ -188,18 +182,7 @@ class DAG:
 
     def update_output_index(self):
         """Update the OutputIndex."""
-        def prefixes(rule):
-            return map(_IOFile.constant_prefix, rule.products)
-
-        self.output_index = datrie.Trie("".join(prefix
-                                                for rule in self.rules
-                                                for prefix in prefixes(rule)))
-        for rule in self.rules:
-            for constant_prefix in prefixes(rule):
-                if constant_prefix not in self.output_index:
-                    self.output_index[constant_prefix] = [rule]
-                else:
-                    self.output_index[constant_prefix].append(rule)
+        self.output_index = OutputIndex(self.rules)
 
     def check_incomplete(self):
         """Check if any output files are incomplete. This is done by looking up
@@ -1055,8 +1038,7 @@ class DAG:
         return self.new_job(targetrule)
 
     def file2jobs(self, targetfile):
-        rules = chain.from_iterable(
-            self.output_index.iter_prefix_values(str(targetfile)))
+        rules = self.output_index.match(targetfile)
         jobs = []
         exceptions = list()
         for rule in rules:
