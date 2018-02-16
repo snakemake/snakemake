@@ -14,6 +14,7 @@ from shutil import rmtree, which
 from shlex import quote
 
 from snakemake import snakemake
+from snakemake.shell import shell
 
 
 if not which("snakemake"):
