@@ -48,7 +48,6 @@ jobs:
           name: Setup gcloud
           command: |
             echo $GCLOUD_SERVICE_KEY | base64 --decode --ignore-garbage > ${HOME}/gcloud-service-key.json
-            #gcloud --quiet components update
             sudo $GCLOUD components install kubectl
             sudo $GCLOUD auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
             sudo $GCLOUD config set project snakemake-testing
@@ -56,5 +55,6 @@ jobs:
       - run:
           name: Run tests
           command: |
+            export GCLOUD_CLUSTER=snakemake-test-cluster-`uuidgen`
             source activate snakemake
             py.test tests/test*.py -v -x
