@@ -597,14 +597,15 @@ def test_log_input():
 
 def test_gcloud():
     if "CI" in os.environ and "GCLOUD_SERVICE_KEY" in os.environ:
+        cluster = os.environ["GCLOUD_CLUSTER"]
         try:
             shell("""
-            sudo $GCLOUD container clusters create snakemake-test-cluster --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
-            sudo $GCLOUD container clusters get-credentials snakemake-test-cluster --zone us-central1-a
+            sudo $GCLOUD container clusters create {cluster} --num-nodes 3 --scopes storage-rw compute-rw --zone us-central1-a --machine-type f1-micro
+            sudo $GCLOUD container clusters get-credentials {cluster} --zone us-central1-a
             """)
             run(dpath("test_kubernetes"))
         finally:
-            shell("sudo $GCLOUD container clusters delete snakemake-test-cluster --zone us-central1-a")
+            shell("sudo $GCLOUD container clusters delete {cluster} --zone us-central1-a --quiet")
     print("Skipping google cloud test")
 
 
