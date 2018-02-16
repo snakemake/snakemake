@@ -44,7 +44,7 @@ rule rule1:
 	threads: 4
 	shell: 
 		'if [ {threads} -ne 3 ]; then echo "This test has to be run with -j3 in order to succeed!"; exit 1; fi; ' \
-		'sleep 20; echo {TEST}; echo {version}; cp {input[0]} {output[0]}; ' # append a comment
+		'echo {TEST}; echo {version}; cp {input[0]} {output[0]}; ' # append a comment
 		'echo test > {log.a}'
 
 rule rule2:
