@@ -63,4 +63,4 @@ jobs:
           name: Shutdown gcloud
           when: always
           command: |
-            sudo $GCLOUD container clusters delete snakemake-test-cluster
+            sudo $GCLOUD container clusters delete snakemake-test-cluster --zone us-east4-a
