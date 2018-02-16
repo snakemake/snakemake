@@ -53,7 +53,7 @@ jobs:
             sudo $GCLOUD auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
             sudo $GCLOUD config set project snakemake-testing
             sudo $GCLOUD container clusters create snakemake-test-cluster --num-nodes 1 --scopes storage-rw --zone us-east4-a
-            sudo $GCLOUD container clusters get-creidentials snakemake-test-cluster
+            sudo $GCLOUD container clusters get-credentials snakemake-test-cluster
       - run:
           name: Run tests
           command: |
