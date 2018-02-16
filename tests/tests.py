@@ -600,7 +600,7 @@ def test_gcloud():
         cluster = os.environ["GCLOUD_CLUSTER"]
         try:
             shell("""
-            sudo $GCLOUD container clusters create {cluster} --num-nodes 3 --scopes storage-rw compute-rw --zone us-central1-a --machine-type f1-micro
+            sudo $GCLOUD container clusters create {cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
             sudo $GCLOUD container clusters get-credentials {cluster} --zone us-central1-a
             """)
             run(dpath("test_kubernetes"))
