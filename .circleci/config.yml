@@ -48,6 +48,13 @@ jobs:
             docker exec -u irods provider iput /incoming/infile
             cp -r tests/test_remote_irods/setup-data ~/.irods
       - run:
+          name: Setup gcloud
+          command: |
+            echo $GCLOUD_SERVICE_KEY | base64 --decode --ignore-garbage > ${HOME}/gcloud-service-key.json
+            sudo /opt/google-cloud-sdk/bin/gcloud --quiet components update
+            sudo /opt/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+            sudo /opt/google-cloud-sdk/bin/gcloud config set project snakemake-testing
+      - run:
           name: Run tests
           command: |
             source activate snakemake
