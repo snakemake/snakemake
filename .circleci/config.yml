@@ -55,5 +55,6 @@ jobs:
           name: Run tests
           command: |
             export GCLOUD_CLUSTER=t-`uuidgen`
+            export GOOGLE_APPLICATION_CREDENTIALS=${HOME}/gcloud-service-key.json
             source activate snakemake
             py.test tests/test*.py -v -x
