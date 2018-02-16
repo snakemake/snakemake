@@ -8,20 +8,15 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - snakemake-{{ checksum ".circleci/config.yml" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
+            - snakemake-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
       - run:
           name: Update PATH
           command: echo 'export PATH="`pwd`/miniconda/bin:$PATH"' >> $BASH_ENV
       - run:
           name: Setup Conda
-          command: |
-            # only install if conda is not yet present
-            if type conda > /dev/null; then exit 0; fi
-            wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-            bash miniconda.sh -b -p miniconda
-            conda env create --name snakemake --file test-environment.yml
+          command: .circleci/setup.sh
       - save_cache:
-          key: snakemake-{{ checksum ".circleci/config.yml" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
+          key: snakemake-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
           paths:
             - miniconda
       - run:
@@ -54,10 +49,10 @@ jobs:
           command: |
             echo $GCLOUD_SERVICE_KEY | base64 --decode --ignore-garbage > ${HOME}/gcloud-service-key.json
             #gcloud --quiet components update
-            sudo $GCLOUD components install kubectl
+            $GCLOUD components install kubectl
             $GCLOUD auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
             $GCLOUD config set project snakemake-testing
-            $GCLOUD container clusters create snakemake-test-cluster --num-nodes 1 --scopes storage-rw --zone us-east
+            $GCLOUD container clusters create snakemake-test-cluster --num-nodes 1 --scopes storage-rw --zone us-east4-a
             $GCLOUD container clusters get-creidentials snakemake-test-cluster
       - run:
           name: Run tests
