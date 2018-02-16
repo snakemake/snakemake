@@ -52,15 +52,9 @@ jobs:
             sudo $GCLOUD components install kubectl
             sudo $GCLOUD auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
             sudo $GCLOUD config set project snakemake-testing
-            sudo $GCLOUD container clusters create snakemake-test-cluster --num-nodes 1 --scopes storage-rw --zone us-east4-a
             sudo $GCLOUD container clusters get-credentials snakemake-test-cluster
       - run:
           name: Run tests
           command: |
             source activate snakemake
             py.test tests/test*.py -v -x
-      - run:
-          name: Shutdown gcloud
-          when: always
-          command: |
-            sudo $GCLOUD container clusters delete snakemake-test-cluster --zone us-east4-a --quiet
