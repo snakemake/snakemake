@@ -54,6 +54,6 @@ jobs:
       - run:
           name: Run tests
           command: |
-            export GCLOUD_CLUSTER=snakemake-test-cluster-`uuidgen`
+            export GCLOUD_CLUSTER=`uuidgen`
             source activate snakemake
             py.test tests/test*.py -v -x
