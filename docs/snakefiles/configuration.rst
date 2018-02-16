@@ -60,6 +60,9 @@ Snakemake supports a separate configuration file for execution on a cluster.
 A cluster config file allows you to specify cluster submission parameters outside the Snakefile.
 The cluster config is a JSON- or YAML-formatted file that contains objects that match names of rules in the Snakefile.
 The parameters in the cluster config are then accessed by the ``cluster.*`` wildcard when you are submitting jobs.
+Note that a workflow shall never depend on a cluster configuration, because this would limit its portability.
+Therefore, it is also not intended to access the cluster configuration from **within** the workflow.
+
 For example, say that you have the following Snakefile:
 
 .. code-block:: python
