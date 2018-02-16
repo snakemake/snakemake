@@ -54,7 +54,7 @@ jobs:
           command: |
             echo $GCLOUD_SERVICE_KEY | base64 --decode --ignore-garbage > ${HOME}/gcloud-service-key.json
             #gcloud --quiet components update
-            gcloud components install kubectl
+            sudo gcloud components install kubectl
             gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
             gcloud config set project snakemake-testing
             gcloud container clusters create snakemake-test-cluster --num-nodes 1 --scopes storage-rw --zone us-east
