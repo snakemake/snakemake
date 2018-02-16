@@ -388,7 +388,7 @@ class Job:
                     files.add(f)
 
         for f in self.log:
-            if requested and f in requested:
+            if requested and f in requested and not f.exists:
                 files.add(f)
 
         return files
