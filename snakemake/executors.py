@@ -38,6 +38,12 @@ from snakemake.exceptions import ClusterJobException, ProtectedOutputException, 
 from snakemake.common import Mode, __version__
 
 
+def sleep():
+    # do not sleep on CI. In that case we just want to quickly test everything.
+    if os.environ.get("CIRCLECI") != "true":
+        time.sleep(10)
+
+
 def format_files(job, io, dynamicio):
     for f in io:
         if f in dynamicio:
@@ -785,7 +791,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         still_running.append(active_job)
             with self.lock:
                 self.active_jobs.extend(still_running)
-            time.sleep(10)
+            sleep()
 
 
 SynchronousClusterJob = namedtuple("SynchronousClusterJob", "job jobid callback error_callback jobscript process")
@@ -884,7 +890,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
                         active_job.error_callback(active_job.job)
             with self.lock:
                 self.active_jobs.extend(still_running)
-            time.sleep(10)
+            sleep()
 
 
 DRMAAClusterJob = namedtuple("DRMAAClusterJob", "job jobid callback error_callback jobscript")
@@ -1025,7 +1031,7 @@ class DRMAAExecutor(ClusterExecutor):
                         active_job.error_callback(active_job.job)
             with self.lock:
                 self.active_jobs.extend(still_running)
-            time.sleep(10)
+            sleep()
 
 
 @contextlib.contextmanager
@@ -1248,7 +1254,7 @@ class KubernetesExecutor(ClusterExecutor):
                         still_running.append(j)
             with self.lock:
                 self.active_jobs.extend(still_running)
-            time.sleep(10)
+            sleep()
 
 
 def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, log,
