@@ -69,11 +69,7 @@ class shell:
         env_prefix = ""
         conda_env = context.get("conda_env", None)
         singularity_img = context.get("singularity_img", None)
-        if singularity_img:
-            args = context.get("singularity_args", "")
-            cmd = singularity.shellcmd(singularity_img, cmd, args)
-            logger.info("Activating singularity image {}".format(singularity_img))
-        else:
+        if not singularity_img:
             # use conda if no singularity image is defined
             if conda_env:
                 env_prefix = conda.shellcmd(conda_env)
@@ -84,6 +80,12 @@ class shell:
                             cls._process_prefix,
                             cmd.rstrip(),
                             cls._process_suffix)
+
+        if singularity_img:
+            args = context.get("singularity_args", "")
+            cmd = singularity.shellcmd(singularity_img, cmd, args)
+            logger.info("Activating singularity image {}".format(singularity_img))
+
         proc = sp.Popen(cmd,
                         bufsize=-1,
                         shell=True,

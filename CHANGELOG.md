@@ -1,5 +1,12 @@
 # Change Log
 
+# [4.7.0] - 2018-02-19
+### Changed
+- Massive speedups when calculating dry-runs.
+- Massive speedups for workflows with many rules when calculating the DAG.
+- Accept SIGTERM to gracefully finish all running jobs and exit.
+- Various minor bug fixes.
+
 # [4.6.0] - 2018-02-06
 ### Changed
 - Log files can now be used as input files for other rules.
