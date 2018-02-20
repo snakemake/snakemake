@@ -654,12 +654,16 @@ class GenericClusterExecutor(ClusterExecutor):
                          assume_shared_fs=assume_shared_fs,
                          max_status_checks_per_second=max_status_checks_per_second)
 
-        if assume_shared_fs:
+        if statuscmd:
+            self.exec_job += ' && exit 0 || exit 1'
+        elif assume_shared_fs:
             # TODO wrap with watch and touch {jobrunning}
             # check modification date of {jobrunning} in the wait_for_job method
             self.exec_job += ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
         else:
-            self.exec_job += ' && exit 0 || exit 1'
+            raise WorkflowError("If no shared filesystem is used, you have to "
+                                "specify a cluster status command.")
+
 
     def cancel(self):
         logger.info("Will exit after finishing currently running jobs.")
