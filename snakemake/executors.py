@@ -608,10 +608,12 @@ class ClusterExecutor(RealExecutor):
         # TODO what about removing empty remote dirs?? This cannot be decided
         # on the cluster node.
         super().handle_job_error(job, upload_remote=False)
-        if not self.assume_shared_fs:
-            logger.debug("Cleanup job metadata.")
-            # if no shared fs, we have to remove metadata here as well
-            self.workflow.persistence.cleanup(job)
+        logger.debug("Cleanup job metadata.")
+        # We have to remove metadata here as well.
+        # It will be removed by the CPUExecutor in case of a shared FS,
+        # but we might not see the removal due to filesystem latency.
+        # By removing it again, we make sure that it is gone on the host FS.
+        self.workflow.persistence.cleanup(job)
 
 
 GenericClusterJob = namedtuple("GenericClusterJob", "job jobid callback error_callback jobscript jobfinished jobfailed")
@@ -689,7 +691,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 # Job is incomplete and still running.
                 # We simply register it and wait for completion or failure.
                 logger.info(
-                    "Resume incomplete job {} with external jobid '{}'.".format(
+                    "Resuming incomplete job {} with external jobid '{}'.".format(
                     jobid, ext_jobid))
                 submit_callback(job)
                 with self.lock:
