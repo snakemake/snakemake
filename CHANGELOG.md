@@ -2,8 +2,8 @@
 
 # [4.7.0] - 2018-02-19
 ### Changed
-- Massive speedups when calculating dry-runs.
-- Massive speedups for workflows with many rules when calculating the DAG.
+- Speedups when calculating dry-runs.
+- Speedups for workflows with many rules when calculating the DAG.
 - Accept SIGTERM to gracefully finish all running jobs and exit.
 - Various minor bug fixes.
 
