@@ -261,7 +261,6 @@ class JobScheduler:
 
                 # normal shutdown because all jobs have been finished
                 if not needrun and (not running or self.workflow.immediate_submit):
-                    logger.info("Shutting down, this might take some time.")
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
@@ -290,7 +289,7 @@ class JobScheduler:
                     with self.rate_limiter:
                         self.run(job)
         except (KeyboardInterrupt, SystemExit):
-            logger.info("Terminating processes on user request.")
+            logger.info("Terminating processes on user request, this might take some time.")
             self._executor.cancel()
             return False
 
