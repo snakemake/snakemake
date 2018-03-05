@@ -169,7 +169,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
         path = "file://" + path
     path = format(path, stepout=1)
     if path.startswith("file://"):
-        sourceurl = "file:"+pathname2url(path[7:])
+        sourceurl = "file:" + pathname2url(path[7:])
     else:
         sourceurl = path
 

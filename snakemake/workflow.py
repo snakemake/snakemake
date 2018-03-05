@@ -30,6 +30,7 @@ from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.wrapper import wrapper
+from snakemake.cwl import cwl
 import snakemake.wrapper
 from snakemake.common import Mode
 
@@ -765,18 +766,18 @@ class Workflow:
                                     "mutually exclusive.")
 
             if ruleinfo.conda_env:
-                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
+                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd or ruleinfo.cwl):
                     raise RuleException("Conda environments are only allowed "
-                        "with shell, script or wrapper directives "
+                        "with shell, script, cwl, or wrapper directives "
                         "(not with run).", rule=rule)
                 if not os.path.isabs(ruleinfo.conda_env):
                     ruleinfo.conda_env = os.path.join(self.current_basedir, ruleinfo.conda_env)
                 rule.conda_env = ruleinfo.conda_env
 
             if ruleinfo.singularity_img:
-                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
+                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd or ruleinfo.cwl):
                     raise RuleException("Singularity directive is only allowed "
-                        "with shell, script or wrapper directives "
+                        "with shell, script cwl, or wrapper directives "
                         "(not with run).", rule=rule)
                 rule.singularity_img = ruleinfo.singularity_img
 
@@ -786,6 +787,7 @@ class Workflow:
             rule.shellcmd = ruleinfo.shellcmd
             rule.script = ruleinfo.script
             rule.wrapper = ruleinfo.wrapper
+            rule.cwl = ruleinfo.cwl
             rule.restart_times=self.restart_times
 
             ruleinfo.func.__name__ = "__{}".format(name)
@@ -921,6 +923,13 @@ class Workflow:
 
         return decorate
 
+    def cwl(self, cwl):
+        def decorate(ruleinfo):
+            ruleinfo.cwl = cwl
+            return ruleinfo
+
+        return decorate
+
     def norun(self):
         def decorate(ruleinfo):
             ruleinfo.norun = True
@@ -958,6 +967,7 @@ class RuleInfo:
         self.docstring = None
         self.script = None
         self.wrapper = None
+        self.cwl = None
 
 
 class Subworkflow:

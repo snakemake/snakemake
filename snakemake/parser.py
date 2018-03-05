@@ -548,6 +548,11 @@ class Wrapper(Script):
                "bench_record, workflow.wrapper_prefix")
 
 
+class CWL(Script):
+    start_func = "@workflow.cwl"
+    end_func = "cwl"
+
+
 class Rule(GlobalKeywordState):
     subautomata = dict(input=Input,
                        output=Output,
@@ -566,7 +571,8 @@ class Rule(GlobalKeywordState):
                        run=Run,
                        shell=Shell,
                        script=Script,
-                       wrapper=Wrapper)
+                       wrapper=Wrapper,
+                       cwl=CWL)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,

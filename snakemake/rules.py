@@ -62,6 +62,7 @@ class Rule:
             self.shellcmd = None
             self.script = None
             self.wrapper = None
+            self.cwl = None
             self.norun = False
             self.is_branched = False
             self.restart_times = 0
@@ -97,6 +98,7 @@ class Rule:
             self.shellcmd = other.shellcmd
             self.script = other.script
             self.wrapper = other.wrapper
+            self.cwl = other.cwl
             self.norun = other.norun
             self.is_branched = True
             self.restart_times = other.restart_times
