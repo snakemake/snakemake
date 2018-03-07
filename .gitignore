@@ -9,3 +9,5 @@ dist/
 *.egg
 .eggs/
 .snakemake*
+
+.idea
