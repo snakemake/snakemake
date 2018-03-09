@@ -620,7 +620,7 @@ class Rule(GlobalKeywordState):
     def block_content(self, token):
         if is_name(token):
             try:
-                if token.string == "run" or token.string == "shell" or token.string == "script" or token.string == "wrapper":
+                if token.string == "run" or token.string == "shell" or token.string == "script" or token.string == "wrapper" or token.string == "cwl":
                     if self.run:
                         raise self.error(
                             "Multiple run or shell keywords in rule {}.".format(
