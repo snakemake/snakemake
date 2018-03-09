@@ -69,11 +69,9 @@ class shell:
         env_prefix = ""
         conda_env = context.get("conda_env", None)
         singularity_img = context.get("singularity_img", None)
-        if not singularity_img:
-            # use conda if no singularity image is defined
-            if conda_env:
-                env_prefix = conda.shellcmd(conda_env)
-                logger.info("Activating conda environment {}.".format(conda_env))
+        if conda_env:
+            env_prefix = conda.shellcmd(conda_env)
+            logger.info("Activating conda environment {}.".format(conda_env))
 
         cmd = "{} {} {} {}".format(
                             env_prefix,

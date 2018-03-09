@@ -162,8 +162,11 @@ class DAG:
             self.conda_envs[(env_file, simg)] = env
 
         if not init_only:
-            for env in self.conda_envs.values():
-                env.create(dryrun)
+            for env, simg in self.conda_envs.items():
+                if simg:
+                    assert simg in self.singularity_imgs, "bug: must first pull singularity images"
+                    simg = self.singularity_imgs[simg]
+                env.create(dryrun, singularity_img=simg)
 
     def pull_singularity_imgs(self, dryrun=False, forceall=False):
         # First deduplicate based on job.conda_env_file

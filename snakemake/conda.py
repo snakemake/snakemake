@@ -145,8 +145,11 @@ class Env:
             raise e
         return env_archive
 
-    def create(self, dryrun=False):
+    def create(self, dryrun=False, singularity_img=None):
         """ Create the conda enviroment."""
+        if singularity_img:
+            check_conda(singularity_img)
+
         # Read env file and create hash.
         env_file = self.file
         tmp_file = None
@@ -173,16 +176,24 @@ class Env:
                 if os.path.exists(env_archive):
                     logger.info("Using archived local conda packages.")
                     # install packages manually from env archive
-                    out = subprocess.check_output(["conda", "create", "--copy", "--prefix", env_path] +
-                        glob(os.path.join(env_archive, "*.tar.bz2")),
-                        stderr=subprocess.STDOUT
+                    cmd = " ".join(
+                        ["conda", "create", "--copy", "--prefix", env_path] +
+                        glob(os.path.join(env_archive, "*.tar.bz2")
                     )
+                    if singularity_img:
+                        cmd = singularity.shellcmd(self.singularity_img.path, cmd)
+                    out = subprocess.check_output(cmd, shell=True,
+                                                  stderr=subprocess.STDOUT)
+
                 else:
                     logger.info("Downloading remote packages.")
-                    out = subprocess.check_output(["conda", "env", "create",
+                    cmd = " ".join(["conda", "env", "create",
                                                 "--file", env_file,
-                                                "--prefix", env_path],
-                                                stderr=subprocess.STDOUT)
+                                                "--prefix", env_path])
+                    if singularity_img:
+                        cmd = singularity.shellcmd(self.singularity_img.path, cmd)
+                    out = subprocess.check_output(cmd, shell=True,
+                                                  stderr=subprocess.STDOUT)
                 logger.debug(out.decode())
                 logger.info("Environment for {} created (location: {})".format(
                             os.path.relpath(env_file), os.path.relpath(env_path)))
@@ -213,11 +224,24 @@ def shellcmd(env_path):
     return "source activate {};".format(env_path)
 
 
-def check_conda():
-    if shutil.which("conda") is None:
+def check_conda(singularity_img=None):
+    def get_cmd(cmd, singularity_img=None):
+        if singularity_img:
+            return singularity.shellcmd(self.singularity_img.path, cmd)
+        return cmd
+
+    if singularity_img:
+        try:
+            subprocess.check_call(, shell=True)
+        except subprocess.CalledProcessError:
+            missing_conda = True
+    if subprocess.check_call(get_cmd("which conda"), shell=True) is None:
         raise CreateCondaEnvironmentException("The 'conda' command is not available in $PATH.")
     try:
-        version = subprocess.check_output(["conda", "--version"], stderr=subprocess.STDOUT).decode().split()[1]
+        version = subprocess.check_output(get_cmd("conda --version"),
+                                          shell=True,
+                                          stderr=subprocess.STDOUT).decode()
+                                                                   .split()[1]
         if StrictVersion(version) < StrictVersion("4.2"):
             raise CreateCondaEnvironmentException(
                 "Conda must be version 4.2 or later."
