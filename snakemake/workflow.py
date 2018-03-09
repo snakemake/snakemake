@@ -760,11 +760,7 @@ class Workflow:
                     ruleinfo.wrapper, prefix=self.wrapper_prefix)
                 # TODO retrieve suitable singularity image
 
-            if ruleinfo.conda_env and ruleinfo.singularity_img:
-                raise RuleException("Conda and singularity directive are "
-                                    "mutually exclusive.")
-
-            if ruleinfo.conda_env:
+            if ruleinfo.conda_env and self.use_conda:
                 if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
                     raise RuleException("Conda environments are only allowed "
                         "with shell, script or wrapper directives "
@@ -773,7 +769,7 @@ class Workflow:
                     ruleinfo.conda_env = os.path.join(self.current_basedir, ruleinfo.conda_env)
                 rule.conda_env = ruleinfo.conda_env
 
-            if ruleinfo.singularity_img:
+            if ruleinfo.singularity_img and self.use_singularity:
                 if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
                     raise RuleException("Singularity directive is only allowed "
                         "with shell, script or wrapper directives "

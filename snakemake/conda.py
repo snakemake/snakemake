@@ -31,7 +31,7 @@ class Env:
 
     """Conda environment from a given specification file."""
 
-    def __init__(self, env_file, dag):
+    def __init__(self, env_file, dag, singularity_img_url=None):
         self.file = env_file
 
         self._env_dir = dag.workflow.persistence.conda_env_path
@@ -42,6 +42,7 @@ class Env:
         self._content = None
         self._path = None
         self._archive_file = None
+        self._singularity_img_url = singularity_img_url
 
     @property
     def content(self):
@@ -59,6 +60,7 @@ class Env:
             # in conda environments can contain hardcoded absolute RPATHs.
             assert os.path.isabs(self._env_dir)
             md5hash.update(self._env_dir.encode())
+            md5hash.update(self._singularity_img_url)
             md5hash.update(self.content)
             self._hash = md5hash.hexdigest()
         return self._hash

@@ -153,19 +153,17 @@ class DAG:
         conda.check_conda()
         # First deduplicate based on job.conda_env_file
         jobs = self.jobs if forceall else self.needrun_jobs
-        env_set = {job.conda_env_file for job in jobs
-                   if job.conda_env_file}
+        env_set = {(job.conda_env_file, job.singularity_img_url)
+                   for job in jobs if job.conda_env_file}
         # Then based on md5sum values
         self.conda_envs = dict()
-        hash_set = set()
-        for env_file in env_set:
-            env = conda.Env(env_file, self)
-            hash = env.hash
-            self.conda_envs[env_file] = env
-            if hash not in hash_set:
-                if not init_only:
-                    env.create(dryrun)
-                hash_set.add(hash)
+        for (env_file, simg) in env_set:
+            env = conda.Env(env_file, self, singularity_img_url=simg)
+            self.conda_envs[(env_file, simg)] = env
+
+        if not init_only:
+            for env in self.conda_envs.values():
+                env.create(dryrun)
 
     def pull_singularity_imgs(self, dryrun=False, forceall=False):
         # First deduplicate based on job.conda_env_file
