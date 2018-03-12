@@ -32,6 +32,7 @@ from snakemake.script import script
 from snakemake.wrapper import wrapper
 import snakemake.wrapper
 from snakemake.common import Mode
+from snakemake.utils import simplify_path
 
 
 class Workflow:
@@ -506,24 +507,27 @@ class Workflow:
             if items:
                 print(*items, sep="\n")
             return True
-        elif list_conda_envs:
-            from snakemake.utils import simplify_path
-            dag.create_conda_envs(init_only=True, forceall=True)
-            print("environment", "location", sep="\t")
-            for env in set(job.conda_env for job in dag.jobs):
-                if env:
-                    print(simplify_path(env.file), simplify_path(env.path), sep="\t")
-            return True
 
 
         if self.use_singularity:
             if assume_shared_fs:
-                dag.pull_singularity_imgs(dryrun=dryrun)
+                dag.pull_singularity_imgs(dryrun=dryrun or list_conda_envs,
+                                          quiet=list_conda_envs)
         if self.use_conda:
             if assume_shared_fs:
-                dag.create_conda_envs(dryrun=dryrun)
+                dag.create_conda_envs(dryrun=dryrun or list_conda_envs,
+                                      quiet=list_conda_envs)
             if create_envs_only:
                 return True
+        if list_conda_envs:
+            print("environment", "container", "location", sep="\t")
+            for env in set(job.conda_env for job in dag.jobs):
+                if env:
+                    print(simplify_path(env.file),
+                          env.singularity_img_url or "",
+                          simplify_path(env.path),
+                          sep="\t")
+            return True
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,

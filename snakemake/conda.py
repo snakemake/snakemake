@@ -46,6 +46,10 @@ class Env:
         self._singularity_img = singularity_img
 
     @property
+    def singularity_img_url(self):
+        return self._singularity_img.url if self._singularity_img else None
+
+    @property
     def content(self):
         if self._content is None:
             self._content = content(self.file)
