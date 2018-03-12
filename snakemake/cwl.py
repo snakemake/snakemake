@@ -5,6 +5,10 @@ __license__ = "MIT"
 
 from urllib.request import pathname2url
 import os
+import subprocess
+import tempfile
+import json
+import shutil
 
 from snakemake.utils import format
 from snakemake.logging import logger
@@ -13,13 +17,12 @@ from snakemake.exceptions import WorkflowError
 
 
 def cwl(path, basedir, input, output, params, wildcards, threads, resources,
-        log, config, rulename, conda_env, singularity_img, singularity_args,
-        bench_record):
+        log, config, rulename, use_singularity, bench_record):
     """
-    Load a script from the given basedir + path and execute it.
-    Supports Python 3 and R.
+    Load cwl from the given basedir + path and execute it.
     """
-    import cwltool.factory
+    if shutil.which("cwltool") is None:
+        raise WorkflowError("'cwltool' must be in PATH in order to execute cwl directive.")
 
     if not path.startswith("http"):
         if path.startswith("file://"):
@@ -35,21 +38,32 @@ def cwl(path, basedir, input, output, params, wildcards, threads, resources,
     else:
         sourceurl = path
 
-    fac = cwltool.factory.Factory()
-
-    tool = fac.make(sourceurl)
-
     def file_spec(f):
-        return {
-            "path": f,
-            "class": "File",
-            "contents": None,
-            "basename": os.path.basename(f)
-        }
-    _input = dict()
-    for name, f in input.items():
-        _input[name] = [file_spec(f)]
-    for name, p in params.items():
-        _input[name] = [str(p)]
+        if isinstance(f, str):
+            return {"path": os.path.abspath(f), "class": "File"}
+        return [file_spec(f_) for f_ in f]
 
-    tool(output=output[0], **_input)
+    inputs = dict()
+    inputs.update({name: file_spec(f) for name, f in input.items()})
+    inputs.update({name: p for name, p in params.items()})
+    inputs.update({name: f for name, f in output.items()})
+    inputs.update({name: f for name, f in log.items()})
+
+    args = "--singularity" if use_singularity else ""
+
+    with tempfile.NamedTemporaryFile(mode="w") as input_file:
+        json.dump(inputs, input_file)
+        input_file.flush()
+        cmd = "cwltool {} {} {}".format(args, sourceurl, input_file.name)
+        try:
+            subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            raise WorkflowError("Error executing cwltool:\n" + e.stdout.decode())
+
+
+    # import cwltool.factory
+    # fac = cwltool.factory.Factory()
+    #
+    # tool = fac.make(sourceurl)
+    #
+    # tool(**inputs)

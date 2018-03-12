@@ -1,0 +1,9 @@
+rule a:
+    input:
+        input=["test.txt"]
+    output:
+        output="sorted.txt"
+    params:
+        key=["2"]
+    cwl:
+        "https://github.com/common-workflow-language/workflows/raw/master/tools/linux-sort.cwl"

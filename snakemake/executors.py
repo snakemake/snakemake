@@ -347,7 +347,7 @@ class CPUExecutor(RealExecutor):
                 job.output.plainstrings(), job.params, job.wildcards, job.threads,
                 job.resources, job.log.plainstrings(), benchmark,
                 self.benchmark_repeats, conda_env, singularity_img,
-                self.workflow.singularity_args,
+                self.workflow.singularity_args, self.workflow.use_singularity,
                 self.workflow.linemaps, self.workflow.debug,
                 shadow_dir=job.shadow_dir)
         else:
@@ -1265,7 +1265,8 @@ class KubernetesExecutor(ClusterExecutor):
 
 def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, log,
                 benchmark, benchmark_repeats, conda_env, singularity_img,
-                singularity_args, linemaps, debug=False, shadow_dir=None):
+                singularity_args, use_singularity, linemaps, debug=False,
+                shadow_dir=None):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
 
@@ -1306,7 +1307,7 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                         bench_record = BenchmarkRecord()
                         run(input, output, params, wildcards, threads, resources,
                             log, version, rule, conda_env, singularity_img,
-                            singularity_args, bench_record)
+                            singularity_args, use_singularity, bench_record)
                     else:
                         # The benchmarking is started here as we have a run section
                         # and the generated Python function is executed in this
@@ -1314,13 +1315,14 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                         with benchmarked() as bench_record:
                             run(input, output, params, wildcards, threads, resources,
                                 log, version, rule, conda_env, singularity_img,
-                                singularity_args, bench_record)
+                                singularity_args, use_singularity,
+                                bench_record)
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
             else:
                 run(input, output, params, wildcards, threads, resources,
                     log, version, rule, conda_env, singularity_img,
-                    singularity_args, None)
+                    singularity_args, use_singularity, None)
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it

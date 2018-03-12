@@ -609,6 +609,13 @@ def test_gcloud():
     print("Skipping google cloud test")
 
 
+def test_cwl():
+    run(dpath("test_cwl"))
+
+
+def test_cwl_singularity():
+    run(dpath("test_cwl"), use_singularity=True)
+
 
 if __name__ == '__main__':
     import nose
