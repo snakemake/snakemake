@@ -47,6 +47,9 @@ jobs:
       - run:
           name: Setup gcloud
           command: |
+            # skip if key is unset
+            if [ -z $GCLOUD_SERVICE_KEY ]; then exit 0; fi
+            # otherwise init cloud
             echo $GCLOUD_SERVICE_KEY | base64 --decode --ignore-garbage > ${HOME}/gcloud-service-key.json
             sudo $GCLOUD components install kubectl
             sudo $GCLOUD auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
