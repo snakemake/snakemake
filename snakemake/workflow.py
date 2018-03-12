@@ -762,8 +762,9 @@ class Workflow:
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
             if ruleinfo.wrapper:
-                rule.conda_env = snakemake.wrapper.get_conda_env(
-                    ruleinfo.wrapper, prefix=self.wrapper_prefix)
+                if self.use_conda:
+                    rule.conda_env = snakemake.wrapper.get_conda_env(
+                        ruleinfo.wrapper, prefix=self.wrapper_prefix)
                 # TODO retrieve suitable singularity image
 
             if ruleinfo.conda_env and self.use_conda:

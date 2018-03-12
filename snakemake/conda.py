@@ -235,7 +235,9 @@ def check_conda(singularity_img=None):
             return singularity.shellcmd(self.singularity_img.path, cmd)
         return cmd
 
-    if subprocess.check_call(get_cmd("which conda"), shell=True) is None:
+    if subprocess.check_output(get_cmd("which conda"),
+                               shell=True,
+                               stderr=subprocess.STDOUT) is None:
         raise CreateCondaEnvironmentException("The 'conda' command is not available in $PATH.")
     try:
         version = subprocess.check_output(get_cmd("conda --version"),
