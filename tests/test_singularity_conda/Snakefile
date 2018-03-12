@@ -1,0 +1,13 @@
+
+
+singularity: "docker://continuumio/miniconda3"
+
+
+rule a:
+    output:
+        "test.out"
+    conda:
+        "test-env.yaml"
+    shell:
+        "ls /singularity; " # this fails if not in singularity container
+        "bwa 2> {output} || true"

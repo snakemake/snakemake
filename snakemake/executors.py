@@ -332,12 +332,8 @@ class CPUExecutor(RealExecutor):
 
         if self.use_threads or (not job.is_shadow and (job.is_shell or job.is_norun or job.is_script or job.is_wrapper)):
             job.prepare()
-            conda_env = None
-            if self.workflow.use_conda:
-                conda_env = job.conda_env_path
-            singularity_img = None
-            if self.workflow.use_singularity:
-                singularity_img = job.singularity_img_path
+            conda_env = job.conda_env_path
+            singularity_img = job.singularity_img_path
 
             benchmark = None
             if job.benchmark is not None:

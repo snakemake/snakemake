@@ -33,6 +33,7 @@ from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
 from snakemake.common import Mode
+from snakemake.utils import simplify_path
 
 
 class Workflow:
@@ -96,6 +97,7 @@ class Workflow:
         self.use_singularity = use_singularity
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
+        self.global_singularity_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
@@ -506,23 +508,27 @@ class Workflow:
             if items:
                 print(*items, sep="\n")
             return True
-        elif list_conda_envs:
-            from snakemake.utils import simplify_path
-            dag.create_conda_envs(init_only=True, forceall=True)
-            print("environment", "location", sep="\t")
-            for env in set(job.conda_env for job in dag.jobs):
-                if env:
-                    print(simplify_path(env.file), simplify_path(env.path), sep="\t")
-            return True
 
-        if self.use_conda:
-            if assume_shared_fs:
-                dag.create_conda_envs(dryrun=dryrun)
-            if create_envs_only:
-                return True
+
         if self.use_singularity:
             if assume_shared_fs:
-                dag.pull_singularity_imgs(dryrun=dryrun)
+                dag.pull_singularity_imgs(dryrun=dryrun or list_conda_envs,
+                                          quiet=list_conda_envs)
+        if self.use_conda:
+            if assume_shared_fs:
+                dag.create_conda_envs(dryrun=dryrun or list_conda_envs,
+                                      quiet=list_conda_envs)
+            if create_envs_only:
+                return True
+        if list_conda_envs:
+            print("environment", "container", "location", sep="\t")
+            for env in set(job.conda_env for job in dag.jobs):
+                if env:
+                    print(simplify_path(env.file),
+                          env.singularity_img_url or "",
+                          simplify_path(env.path),
+                          sep="\t")
+            return True
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
@@ -757,29 +763,32 @@ class Workflow:
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
             if ruleinfo.wrapper:
-                rule.conda_env = snakemake.wrapper.get_conda_env(
-                    ruleinfo.wrapper, prefix=self.wrapper_prefix)
+                if self.use_conda:
+                    rule.conda_env = snakemake.wrapper.get_conda_env(
+                        ruleinfo.wrapper, prefix=self.wrapper_prefix)
                 # TODO retrieve suitable singularity image
 
-            if ruleinfo.conda_env and ruleinfo.singularity_img:
-                raise RuleException("Conda and singularity directive are "
-                                    "mutually exclusive.")
-
-            if ruleinfo.conda_env:
-                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd or ruleinfo.cwl):
+            if ruleinfo.conda_env and self.use_conda:
+                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
                     raise RuleException("Conda environments are only allowed "
-                        "with shell, script, cwl, or wrapper directives "
+                        "with shell, script, or wrapper directives "
                         "(not with run).", rule=rule)
                 if not os.path.isabs(ruleinfo.conda_env):
                     ruleinfo.conda_env = os.path.join(self.current_basedir, ruleinfo.conda_env)
                 rule.conda_env = ruleinfo.conda_env
 
-            if ruleinfo.singularity_img:
-                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd or ruleinfo.cwl):
-                    raise RuleException("Singularity directive is only allowed "
-                        "with shell, script cwl, or wrapper directives "
-                        "(not with run).", rule=rule)
-                rule.singularity_img = ruleinfo.singularity_img
+            if self.use_singularity:
+                invalid_rule = not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd)
+                if ruleinfo.singularity_img:
+                    if invalid_rule:
+                        raise RuleException("Singularity directive is only allowed "
+                            "with shell, script or wrapper directives "
+                            "(not with run).", rule=rule)
+                    rule.singularity_img = ruleinfo.singularity_img
+                elif self.global_singularity_img:
+                    if not invalid_rule:
+                        # skip rules with run directive
+                        rule.singularity_img = self.global_singularity_img
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
@@ -859,6 +868,9 @@ class Workflow:
             return ruleinfo
 
         return decorate
+
+    def global_singularity(self, singularity_img):
+        self.global_singularity_img = singularity_img
 
     def threads(self, threads):
         def decorate(ruleinfo):
