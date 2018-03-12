@@ -71,7 +71,6 @@ class shell:
         singularity_img = context.get("singularity_img", None)
         if conda_env:
             env_prefix = conda.shellcmd(conda_env)
-            logger.info("Activating conda environment {}.".format(conda_env))
 
         cmd = "{} {} {} {}".format(
                             env_prefix,
@@ -83,6 +82,9 @@ class shell:
             args = context.get("singularity_args", "")
             cmd = singularity.shellcmd(singularity_img, cmd, args)
             logger.info("Activating singularity image {}".format(singularity_img))
+
+        if conda_env:
+            logger.info("Activating conda environment {}.".format(conda_env))
 
         proc = sp.Popen(cmd,
                         bufsize=-1,

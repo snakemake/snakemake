@@ -80,6 +80,7 @@ class DAG:
         self._jobid = dict()
         self.job_cache = dict()
         self.conda_envs = dict()
+        self.singularity_imgs = dict()
         self._progress = 0
 
         self.forcerules = set()
@@ -157,16 +158,17 @@ class DAG:
                    for job in jobs if job.conda_env_file}
         # Then based on md5sum values
         self.conda_envs = dict()
-        for (env_file, simg) in env_set:
-            env = conda.Env(env_file, self, singularity_img_url=simg)
-            self.conda_envs[(env_file, simg)] = env
+        for (env_file, simg_url) in env_set:
+            simg = None
+            if simg_url:
+                assert simg_url in self.singularity_imgs, "bug: must first pull singularity images"
+                simg = self.singularity_imgs[simg_url]
+            env = conda.Env(env_file, self, singularity_img=simg)
+            self.conda_envs[(env_file, simg_url)] = env
 
         if not init_only:
-            for env, simg in self.conda_envs.items():
-                if simg:
-                    assert simg in self.singularity_imgs, "bug: must first pull singularity images"
-                    simg = self.singularity_imgs[simg]
-                env.create(dryrun, singularity_img=simg)
+            for env in self.conda_envs.values():
+                env.create(dryrun)
 
     def pull_singularity_imgs(self, dryrun=False, forceall=False):
         # First deduplicate based on job.conda_env_file
@@ -174,7 +176,6 @@ class DAG:
         img_set = {job.singularity_img_url for job in jobs
                    if job.singularity_img_url}
 
-        self.singularity_imgs = dict()
         for img_url in img_set:
             img = singularity.Image(img_url, self)
             img.pull(dryrun)

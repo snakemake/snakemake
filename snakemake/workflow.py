@@ -95,6 +95,7 @@ class Workflow:
         self.use_singularity = use_singularity
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
+        self.global_singularity_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
@@ -514,14 +515,15 @@ class Workflow:
                     print(simplify_path(env.file), simplify_path(env.path), sep="\t")
             return True
 
+
+        if self.use_singularity:
+            if assume_shared_fs:
+                dag.pull_singularity_imgs(dryrun=dryrun)
         if self.use_conda:
             if assume_shared_fs:
                 dag.create_conda_envs(dryrun=dryrun)
             if create_envs_only:
                 return True
-        if self.use_singularity:
-            if assume_shared_fs:
-                dag.pull_singularity_imgs(dryrun=dryrun)
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
@@ -769,12 +771,18 @@ class Workflow:
                     ruleinfo.conda_env = os.path.join(self.current_basedir, ruleinfo.conda_env)
                 rule.conda_env = ruleinfo.conda_env
 
-            if ruleinfo.singularity_img and self.use_singularity:
-                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
-                    raise RuleException("Singularity directive is only allowed "
-                        "with shell, script or wrapper directives "
-                        "(not with run).", rule=rule)
-                rule.singularity_img = ruleinfo.singularity_img
+            if self.use_singularity:
+                invalid_rule = not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd)
+                if ruleinfo.singularity_img:
+                    if invalid_rule:
+                        raise RuleException("Singularity directive is only allowed "
+                            "with shell, script or wrapper directives "
+                            "(not with run).", rule=rule)
+                    rule.singularity_img = ruleinfo.singularity_img
+                elif self.global_singularity_img:
+                    if not invalid_rule:
+                        # skip rules with run directive
+                        rule.singularity_img = self.global_singularity_img
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
@@ -853,6 +861,9 @@ class Workflow:
             return ruleinfo
 
         return decorate
+
+    def global_singularity(self, singularity_img):
+        self.global_singularity_img = singularity_img
 
     def threads(self, threads):
         def decorate(ruleinfo):

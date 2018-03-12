@@ -262,6 +262,10 @@ class GlobalWildcardConstraints(GlobalKeywordState):
     def keyword(self):
         return "global_wildcard_constraints"
 
+class GlobalSingularity:
+    @property
+    def keyword(self):
+        return "global_singularity"
 
 # subworkflows
 

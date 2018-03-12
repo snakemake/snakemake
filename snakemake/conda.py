@@ -14,6 +14,7 @@ from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import strip_prefix
 from snakemake import utils
+from snakemake import singularity
 
 
 def content(env_file):
@@ -31,7 +32,7 @@ class Env:
 
     """Conda environment from a given specification file."""
 
-    def __init__(self, env_file, dag, singularity_img_url=None):
+    def __init__(self, env_file, dag, singularity_img=None):
         self.file = env_file
 
         self._env_dir = dag.workflow.persistence.conda_env_path
@@ -42,7 +43,7 @@ class Env:
         self._content = None
         self._path = None
         self._archive_file = None
-        self._singularity_img_url = singularity_img_url
+        self._singularity_img = singularity_img
 
     @property
     def content(self):
@@ -60,7 +61,8 @@ class Env:
             # in conda environments can contain hardcoded absolute RPATHs.
             assert os.path.isabs(self._env_dir)
             md5hash.update(self._env_dir.encode())
-            md5hash.update(self._singularity_img_url)
+            if self._singularity_img:
+                md5hash.update(self._singularity_img.url.encode())
             md5hash.update(self.content)
             self._hash = md5hash.hexdigest()
         return self._hash
@@ -145,10 +147,10 @@ class Env:
             raise e
         return env_archive
 
-    def create(self, dryrun=False, singularity_img=None):
+    def create(self, dryrun=False):
         """ Create the conda enviroment."""
-        if singularity_img:
-            check_conda(singularity_img)
+        if self._singularity_img:
+            check_conda(self._singularity_img)
 
         # Read env file and create hash.
         env_file = self.file
@@ -178,10 +180,9 @@ class Env:
                     # install packages manually from env archive
                     cmd = " ".join(
                         ["conda", "create", "--copy", "--prefix", env_path] +
-                        glob(os.path.join(env_archive, "*.tar.bz2")
-                    )
-                    if singularity_img:
-                        cmd = singularity.shellcmd(self.singularity_img.path, cmd)
+                        glob(os.path.join(env_archive, "*.tar.bz2")))
+                    if self._singularity_img:
+                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
                     out = subprocess.check_output(cmd, shell=True,
                                                   stderr=subprocess.STDOUT)
 
@@ -190,8 +191,8 @@ class Env:
                     cmd = " ".join(["conda", "env", "create",
                                                 "--file", env_file,
                                                 "--prefix", env_path])
-                    if singularity_img:
-                        cmd = singularity.shellcmd(self.singularity_img.path, cmd)
+                    if self._singularity_img:
+                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
                     out = subprocess.check_output(cmd, shell=True,
                                                   stderr=subprocess.STDOUT)
                 logger.debug(out.decode())
@@ -230,17 +231,12 @@ def check_conda(singularity_img=None):
             return singularity.shellcmd(self.singularity_img.path, cmd)
         return cmd
 
-    if singularity_img:
-        try:
-            subprocess.check_call(, shell=True)
-        except subprocess.CalledProcessError:
-            missing_conda = True
     if subprocess.check_call(get_cmd("which conda"), shell=True) is None:
         raise CreateCondaEnvironmentException("The 'conda' command is not available in $PATH.")
     try:
         version = subprocess.check_output(get_cmd("conda --version"),
                                           shell=True,
-                                          stderr=subprocess.STDOUT).decode()
+                                          stderr=subprocess.STDOUT).decode() \
                                                                    .split()[1]
         if StrictVersion(version) < StrictVersion("4.2"):
             raise CreateCondaEnvironmentException(
