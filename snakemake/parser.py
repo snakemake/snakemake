@@ -263,8 +263,13 @@ class GlobalWildcardConstraints(GlobalKeywordState):
         return "global_wildcard_constraints"
 
 
-# subworkflows
+class GlobalSingularity(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "global_singularity"
 
+
+# subworkflows
 
 class SubworkflowSnakefile(SubworkflowKeywordState):
     pass
@@ -671,7 +676,8 @@ class Python(TokenAutomaton):
                        onsuccess=OnSuccess,
                        onerror=OnError,
                        onstart=OnStart,
-                       wildcard_constraints=GlobalWildcardConstraints)
+                       wildcard_constraints=GlobalWildcardConstraints,
+                       singularity=GlobalSingularity)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,
