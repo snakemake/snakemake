@@ -1,5 +1,11 @@
 # Change Log
 
+# [4.8.0] - 2018-03-13
+### Added
+- Integration with CWL: the `cwl` directive allows to use CWL tool definitions in addition to shell commands or Snakemake wrappers.
+- A global `singularity` directive allows to define a global singularity container to be used for all rules that don't specify their own.
+- Singularity and Conda can now be combined. This can be used to specify the operating system (via singularity), and the software stack (via conda), without the overhead of creating specialized container images for workflows or tasks.
+
 # [4.7.0] - 2018-02-19
 ### Changed
 - Speedups when calculating dry-runs.
