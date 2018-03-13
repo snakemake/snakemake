@@ -25,7 +25,7 @@ jobs:
             # TODO only install if singularity is not yet present
             # if type singularity > /dev/null; then exit 0; fi
             source .circleci/common.sh
-            sudo apt-get install squashfs-tools
+            sudo apt-get update; sudo apt-get install squashfs-tools
             wget https://github.com/singularityware/singularity/releases/download/$SINGULARITY_VER/singularity-$SINGULARITY_VER.tar.gz
             tar xvf singularity-$SINGULARITY_VER.tar.gz
             cd singularity-$SINGULARITY_VER
