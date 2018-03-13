@@ -125,7 +125,7 @@ For example, you can write
 
 .. code-block:: python
 
-    singularity: "docker://continuumio/miniconda3#4.4.10"
+    singularity: "docker://continuumio/miniconda3:4.4.10"
 
     rule NAME:
         input:
