@@ -1,8 +1,8 @@
 
 
-====================================
-Workflow Distribution and Deployment
-====================================
+================================
+Distribution and Reproducibility
+================================
 
 It is recommended to store each workflow in a dedicated git repository of the
 following structure:
