@@ -34,3 +34,4 @@ dependencies:
   - configargparse
   - appdirs
   - python-irodsclient
+  - cwltool

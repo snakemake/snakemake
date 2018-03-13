@@ -433,7 +433,7 @@ class Run(RuleKeywordState):
         yield "\n"
         yield ("def __rule_{rulename}(input, output, params, wildcards, threads, "
                "resources, log, version, rule, conda_env, singularity_img, "
-               "singularity_args, bench_record):".format(
+               "singularity_args, use_singularity, bench_record):".format(
                    rulename=self.rulename
                             if self.rulename is not None
                             else self.snakefile.rulecount))
@@ -553,6 +553,18 @@ class Wrapper(Script):
                "bench_record, workflow.wrapper_prefix")
 
 
+class CWL(Script):
+    start_func = "@workflow.cwl"
+    end_func = "cwl"
+
+    def args(self):
+        # basedir
+        yield ', "{}"'.format(
+            os.path.abspath(os.path.dirname(self.snakefile.path)))
+        # other args
+        yield (", input, output, params, wildcards, threads, resources, log, "
+               "config, rule, use_singularity, bench_record")
+
 class Rule(GlobalKeywordState):
     subautomata = dict(input=Input,
                        output=Output,
@@ -571,7 +583,8 @@ class Rule(GlobalKeywordState):
                        run=Run,
                        shell=Shell,
                        script=Script,
-                       wrapper=Wrapper)
+                       wrapper=Wrapper,
+                       cwl=CWL)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,
@@ -619,7 +632,7 @@ class Rule(GlobalKeywordState):
     def block_content(self, token):
         if is_name(token):
             try:
-                if token.string == "run" or token.string == "shell" or token.string == "script" or token.string == "wrapper":
+                if token.string == "run" or token.string == "shell" or token.string == "script" or token.string == "wrapper" or token.string == "cwl":
                     if self.run:
                         raise self.error(
                             "Multiple run or shell keywords in rule {}.".format(
