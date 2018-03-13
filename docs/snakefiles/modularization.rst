@@ -44,6 +44,39 @@ Examples for each wrapper can be found in the READMEs located in the wrapper sub
 The `Snakemake Wrapper Repository <https://bitbucket.org/snakemake/snakemake-wrappers>`_ is meant as a collaborative project and pull requests are very welcome.
 
 
+.. _cwl:
+
+--------------------------------------
+Common-Workflow-Language (CWL) support
+--------------------------------------
+
+With Snakemake 4.8.0, it is possible to refer to `CWL <http://www.commonwl.org/>`_ tool definitions in rules instead of specifying a wrapper or a plain shell command.
+A CWL tool definition can be used as follows.
+
+.. code-block:: python
+
+    rule samtools_sort:
+        input:
+            input="mapped/{sample}.bam"
+        output:
+            output_name="mapped/{sample}.sorted.bam"
+        params:
+            threads=lambda wildcards, threads: threads,
+            memory="4G"
+        threads: 8
+        cwl:
+            "https://github.com/common-workflow-language/workflows/blob/"
+            "fb406c95/tools/samtools-sort.cwl"
+
+It is advisable to use a github URL that includes the commit as above instead of a branch name, in order to ensure reproducible results.
+Snakemake will execute the rule by invoking `cwltool`, which has to be available via your `$PATH` variable, and can be, e.g., installed via `conda` or `pip`.
+When using in combination with :ref:`--use-singularity <singularity>`, Snakemake will instruct `cwltool` to execute the command via Singularity in user space.
+Otherwise, `cwltool` will in most cases use a Docker container, which requires Docker to be set up properly.
+
+The advantage is that predefined tools available via the `official repository <https://github.com/common-workflow-language/workflows/tree/master/tools>`_ can be used in any supporting workflow management system.
+In contrast to a :ref:`Snakemake wrapper <snakefiles-wrappers>`, CWL tool definitions are in general not suited to alter the behavior of a tool, e.g., by normalizing output names or special input handling.
+As you can see in comparison to the analog :ref:`wrapper declaration <snakefiles-wrappers>` above, the rule becomes slightly more verbose, because input, output, and params have to be dispatched to the specific expectations of the CWL tool definition.
+
 .. _snakefiles-includes:
 
 --------
