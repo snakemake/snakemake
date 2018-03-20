@@ -306,7 +306,7 @@ class CPUExecutor(RealExecutor):
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
             '--latency-wait {latency_wait} ',
             self.get_default_remote_provider_args(),
-            '{overwrite_workdir} {overwrite_config} ',
+            '{overwrite_workdir} {overwrite_config} {printshellcmds} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
 
         if self.workflow.use_conda:
@@ -457,8 +457,6 @@ class ClusterExecutor(RealExecutor):
         else:
             self.exec_job = exec_job
 
-        if printshellcmds:
-            self.exec_job += " --printshellcmds "
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
             if self.workflow.conda_prefix:
