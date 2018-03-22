@@ -617,6 +617,10 @@ def test_cwl_singularity():
     run(dpath("test_cwl"), use_singularity=True)
 
 
+def test_issue805():
+    run(dpath("test_issue805"))
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)

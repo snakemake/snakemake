@@ -1,0 +1,16 @@
+rule a:
+    output:
+        "test.out"
+    shell:
+        "echo {params.b} > {output}"
+    params:
+        b=1
+
+
+rule b:
+    input:
+        "test.out"
+    output:
+        "test2.out"
+    shell:
+        "touch {output}"

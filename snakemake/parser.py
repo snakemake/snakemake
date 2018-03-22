@@ -638,6 +638,10 @@ class Rule(GlobalKeywordState):
                             "Multiple run or shell keywords in rule {}.".format(
                                 self.rulename), token)
                     self.run = True
+                elif self.run:
+                    raise self.error("No rule keywords allowed after "
+                                     "run/shell/script/wrapper/cwl in "
+                                     "rule {}.".format(self.rulename), token)
                 for t in self.subautomaton(token.string,
                                            rulename=self.rulename).consume():
                     yield t
