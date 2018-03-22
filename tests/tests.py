@@ -618,7 +618,7 @@ def test_cwl_singularity():
 
 
 def test_issue805():
-    run(dpath("test_issue805"))
+    run(dpath("test_issue805"), shouldfail=True)
 
 
 if __name__ == '__main__':
