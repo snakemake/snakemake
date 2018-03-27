@@ -6,6 +6,7 @@ __license__ = "MIT"
 import collections
 import os
 import shutil
+from pathlib import Path
 import re
 import stat
 import time
@@ -65,6 +66,8 @@ class IOCache:
     def __init__(self):
         self.mtime = dict()
         self.exists = dict()
+        self.exists_local = dict()
+        self.exists_remote = dict()
         self.size = dict()
         self.active = True
 
@@ -197,16 +200,41 @@ class _IOFile(str):
 
     @property
     @iocache
-    @_refer_to_remote
     def exists(self):
-        return self.exists_local
+        if self.is_remote:
+            return self.exists_remote
+        else:
+            return self.exists_local
+
+    def parents(self, omit=0):
+        """Yield all parent paths, omitting the given number of ancenstors."""
+        for p in list(Path(self.file).parents)[::-1][omit:]:
+            p = IOFile(str(p), rule=self.rule)
+            p.clone_flags(self)
+            yield p
 
     @property
+    @iocache
     def exists_local(self):
+        if self.rule.workflow.iocache.active:
+            # The idea is to first check existence of parent directories and
+            # cache the results.
+            # We omit the last ancestor, because this is always "." or "/" or a
+            # drive letter.
+            if not all(p.exists_local for p in self.parents(omit=1)):
+                return False
         return os.path.exists(self.file)
 
     @property
+    @iocache
     def exists_remote(self):
+        if self.rule.workflow.iocache.active:
+            # The idea is to first check existence of parent directories and
+            # cache the results.
+            # We omit the last 2 ancestors, because these are "." and the host
+            # name of the remote location.
+            if not all(p.exists_remote for p in self.parents(omit=2)):
+                return False
         return (self.is_remote and self.remote_object.exists())
 
     @property
