@@ -65,7 +65,6 @@ def lchmod(f, mode):
 class IOCache:
     def __init__(self):
         self.mtime = dict()
-        self.exists = dict()
         self.exists_local = dict()
         self.exists_remote = dict()
         self.size = dict()
@@ -73,8 +72,9 @@ class IOCache:
 
     def clear(self):
         self.mtime.clear()
-        self.exists.clear()
         self.size.clear()
+        self.exists_local.clear()
+        self.exists_remove.clear()
 
     def deactivate(self):
         self.clear()
@@ -199,7 +199,6 @@ class _IOFile(str):
                     self._file, os.path.sep, hint))
 
     @property
-    @iocache
     def exists(self):
         if self.is_remote:
             return self.exists_remote
