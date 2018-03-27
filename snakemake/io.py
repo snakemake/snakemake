@@ -220,7 +220,7 @@ class _IOFile(str):
             # cache the results.
             # We omit the last ancestor, because this is always "." or "/" or a
             # drive letter.
-            for p in p in self.parents(omit=1):
+            for p in self.parents(omit=1):
                 try:
                     if not p.exists_local:
                         return False
