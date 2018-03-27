@@ -26,6 +26,7 @@ except ImportError as e:
 class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
+    allows_directories = True
 
     def __init__(self, *args, stay_on_remote=False, immediate_close=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)

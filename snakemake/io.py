@@ -228,14 +228,24 @@ class _IOFile(str):
     @property
     @iocache
     def exists_remote(self):
-        if self.rule.workflow.iocache.active:
+        if not self.is_remote:
+            return False
+        if (self.rule.workflow.iocache.active and
+            self.remote_object.provider.allows_directories):
             # The idea is to first check existence of parent directories and
             # cache the results.
             # We omit the last 2 ancestors, because these are "." and the host
             # name of the remote location.
-            if not all(p.exists_remote for p in self.parents(omit=2)):
-                return False
-        return (self.is_remote and self.remote_object.exists())
+            for p in self.parents(omit=2):
+                try:
+                    if not p.exists_remote:
+                        return False
+                except:
+                    # In case of an error, we continue, because it can be that
+                    # we simply don't have the permissions to access a parent
+                    # directory in the remote.
+                    continue
+        return self.remote_object.exists()
 
     @property
     def protected(self):

@@ -45,6 +45,9 @@ class AbstractRemoteProvider:
         and are then passed to RemoteObjects.
     """
     __metaclass__ = ABCMeta
+    
+    supports_default = False
+    allows_directories = False
 
     def __init__(self, *args, keep_local=False, stay_on_remote=False, **kwargs):
         self.args = args
