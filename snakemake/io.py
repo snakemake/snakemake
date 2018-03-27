@@ -221,8 +221,15 @@ class _IOFile(str):
             # cache the results.
             # We omit the last ancestor, because this is always "." or "/" or a
             # drive letter.
-            if not all(p.exists_local for p in self.parents(omit=1)):
-                return False
+            for p in p in self.parents(omit=1):
+                try:
+                    if not p.exists_local:
+                        return False
+                except:
+                    # In case of an error, we continue, because it can be that
+                    # we simply don't have the permissions to access a parent
+                    # directory.
+                    continue
         return os.path.exists(self.file)
 
     @property
