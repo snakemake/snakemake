@@ -179,9 +179,6 @@ class Job:
             if self._conda_env is None:
                 self._conda_env = self.dag.conda_envs.get(
                     (self.conda_env_file, self.singularity_img_url))
-            if self._conda_env is None:
-                raise ValueError("Conda environment {} not found.".format(
-                                 self.conda_env_file))
             return self._conda_env
         return None
 
