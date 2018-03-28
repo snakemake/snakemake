@@ -1090,7 +1090,11 @@ class KubernetesExecutor(ClusterExecutor):
         # use relative path to Snakefile
         self.snakefile = os.path.relpath(workflow.snakefile)
 
-        from kubernetes import config
+        try:
+            from kubernetes import config
+        except ImportError:
+            raise WorkflowError("The Python 3 package 'kubernetes' "
+                                "must be installed to use Kubernetes")
         config.load_kube_config()
 
         import kubernetes.client
@@ -1102,9 +1106,10 @@ class KubernetesExecutor(ClusterExecutor):
         self.run_namespace = str(uuid.uuid4())
         self.secret_envvars = {}
         self.register_secret()
+        last_stable_version = __version__.split("+")[0]
         self.container_image = (
             container_image or
-            "quay.io/snakemake/snakemake:{}".format(__version__))
+            "quay.io/snakemake/snakemake:{}".format(last_stable_version))
 
     def register_secret(self):
         import kubernetes.client
