@@ -5,13 +5,12 @@ __license__ = "MIT"
 
 from itertools import chain
 
-import datrie
-
 from snakemake.io import _IOFile
 
 
 class OutputIndex:
     def __init__(self, rules):
+        import datrie
         def prefixes(rule):
             return (str(o.constant_prefix()) for o in rule.products)
         def reverse_suffixes(rule):
