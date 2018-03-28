@@ -1,6 +1,6 @@
 FROM bitnami/minideb:stretch
 MAINTAINER Johannes Köster <johannes.koester@tu-dortmund.de>
-ENV SINGULARITY_VERSION=2.4.2
+ENV SINGULARITY_VERSION=2.4.5
 ADD . /tmp/repo
 RUN install_packages wget bzip2 ca-certificates gnupg2 squashfs-tools
 RUN wget -O- http://neuro.debian.net/lists/xenial.us-ca.full > /etc/apt/sources.list.d/neurodebian.sources.list

@@ -604,6 +604,9 @@ def test_gcloud():
             sudo $GCLOUD container clusters get-credentials {cluster} --zone us-central1-a
             """)
             run(dpath("test_kubernetes"))
+            run(dpath("test_kubernetes"), use_conda=True)
+            run(dpath("test_kubernetes"), use_singularity=True)
+            run(dpath("test_kubernetes"), use_singularity=True, use_conda=True)
         finally:
             shell("sudo $GCLOUD container clusters delete {cluster} --zone us-central1-a --quiet")
     print("Skipping google cloud test")
