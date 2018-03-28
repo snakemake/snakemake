@@ -74,7 +74,7 @@ class IOCache:
         self.mtime.clear()
         self.size.clear()
         self.exists_local.clear()
-        self.exists_remove.clear()
+        self.exists_remote.clear()
 
     def deactivate(self):
         self.clear()
