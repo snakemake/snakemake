@@ -37,7 +37,7 @@
 ### Added
 - A new shadow mode (minimal) that only symlinks input files has been added.
 ### Changed
-- The default shell is now bash on linux and maxOS. If bash is not installed, we fall back to sh. Previously, Snakemake used the default shell of the user, which defeats the purpose of portability. If the developer decides so, the shell can be always overwritten using shell.executable().
+- The default shell is now bash on linux and macOS. If bash is not installed, we fall back to sh. Previously, Snakemake used the default shell of the user, which defeats the purpose of portability. If the developer decides so, the shell can be always overwritten using shell.executable().
 - Snakemake now requires Singularity 2.4.1 at least (only when running with --use-singularity).
 - HTTP remote provider no longer automatically unpacks gzipped files.
 - Fixed various smaller bugs.
@@ -75,7 +75,7 @@
 ### Changed
 - The scheduler now tries to get rid of the largest temp files first.
 - The Docker image used for kubernetes support can now be configured at the command line.
-- Rate-limiting for cluster interaction has be unified.
+- Rate-limiting for cluster interaction has been unified.
 - S3 remote provider uses boto3.
 - Resource functions can now use an additional `attempt` parameter, that contains the number of times this job has already been tried.
 - Various minor fixes.
@@ -133,7 +133,7 @@
 ### Changed
 - Benchmark files now also include the maximal RSS and VMS size of the Snakemake process and all sub processes.
 - Speedup conda environment creation.
-- Allow specification, of DRMAA log dir.
+- Allow specification of DRMAA log dir.
 - Pass cluster config to subworkflow.
 
 
@@ -189,7 +189,7 @@
 
 ## [3.9.0] - 2016-11-15
 ### Added
-- Ability to define isolated conda software environments (YAML) per rule. Environment will be deployed by Snakemake upon workflow execution.
+- Ability to define isolated conda software environments (YAML) per rule. Environments will be deployed by Snakemake upon workflow execution.
 - Command line argument --wrapper-prefix in order to overwrite the default URL for looking up wrapper scripts.
 ### Changed
 - --summary now displays the log files correspoding to each output file.
