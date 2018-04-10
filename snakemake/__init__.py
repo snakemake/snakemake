@@ -746,7 +746,7 @@ def get_argument_parser(profile=None):
          "dictionary inside the workflow."))
     parser.add_argument("--list", "-l",
                         action="store_true",
-                        help="Show availiable rules in given Snakefile.")
+                        help="Show available rules in given Snakefile.")
     parser.add_argument("--list-target-rules", "--lt",
                         action="store_true",
                         help="Show available target rules in given Snakefile.")
