@@ -466,3 +466,40 @@ There are two ways to exit a currently running workflow.
    .. code-block:: bash
 
        killall -TERM snakemake
+
+How do I access elements of input or output by a variable index?
+----------------------------------------------------------------
+
+Assuming you have something like the following rule
+
+   .. code-block:: python
+
+      rule a:
+          output:
+              expand("test.{i}.out", i=range(20))
+          run:
+              for i in range(20):
+                  shell("echo test > {output[i]}")
+
+Snakemake will fail upon execution with the error ``'OutputFiles' object has no attribute 'i'``. The reason is that the shell command is using the `Python format mini language <https://docs.python.org/3/library/string.html#formatspec>`_, which does only allow indexing via constants, e.g., ``output[1]``, but not via variables. Variables are treated as attribute names instead. The solution is to write
+
+   .. code-block:: python
+
+      rule a:
+          output:
+              expand("test.{i}.out", i=range(20))
+          run:
+              for i in range(20):
+                  f = output[i]
+                  shell("echo test > {f}")
+
+or, more concise in this special case:
+
+   .. code-block:: python
+
+      rule a:
+          output:
+              expand("test.{i}.out", i=range(20))
+          run:
+              for f in output:
+                  shell("echo test > {f}")
