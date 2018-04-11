@@ -183,6 +183,14 @@ I get a NameError with my shell command. Are braces unsupported?
 
 You can use the entire Python `format minilanguage <http://docs.python.org/3/library/string.html#formatspec>`_ in shell commands. Braces in shell commands that are not intended to insert variable values thus have to be escaped by doubling them:
 
+This:
+
+.. code-block:: python
+
+    ...
+    shell: "awk '{print $1}' {input}"
+    
+becomes:
 
 .. code-block:: python
 
@@ -191,11 +199,19 @@ You can use the entire Python `format minilanguage <http://docs.python.org/3/lib
 
 Here the double braces are escapes, i.e. there will remain single braces in the final command. In contrast, ``{input}`` is replaced with an input filename.
 
-In addition, if your shell command has literal slashes, `\`, you must escape them with a slash, `\\`. For example:
+In addition, if your shell command has literal slashes, `\\ `, you must escape them with a slash, `\\\\ `. For example:
+
+This:
 
 .. code-block:: python
 
-    shell: """printf \\">%s\\"" {{input}}""" 
+    shell: """printf \">%s\"" {{input}}""" 
+
+becomes:
+
+.. code-block:: python
+
+    shell: """printf \\">%s\\"" {{input}}"""  
     
 How do I incorporate files that do not follow a consistent naming scheme?
 -------------------------------------------------------------------------
