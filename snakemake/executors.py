@@ -543,8 +543,8 @@ class ClusterExecutor(RealExecutor):
         if self.assume_shared_fs:
             wait_for_files.append(self.tmpdir)
             wait_for_files.extend(job.local_input)
-            wait_for_files.extend(f.local_file()
-                                  for f in job.remote_input if not f.stay_on_remote)
+            wait_for_files.extend(f for f in job.remote_input
+                                    if not f.should_stay_on_remote)
 
             if job.shadow_dir:
                 wait_for_files.append(job.shadow_dir)
