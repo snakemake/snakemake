@@ -150,17 +150,17 @@ class _IOFile(str):
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
-        remote_object = self.remote_object()
+        remote_object = self.remote_object
         if remote_object._file != self._file:
             remote_object._iofile = self
 
     @property
     def should_keep_local(self):
-        return self.remote_object().keep_local
+        return self.remote_object.keep_local
 
     @property
     def should_stay_on_remote(self):
-        return self.remote_object().stay_on_remote
+        return self.remote_object.stay_on_remote
 
     @property
     def remote_object(self):

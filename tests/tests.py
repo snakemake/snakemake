@@ -566,6 +566,8 @@ def test_remote_log():
 def test_remote_http():
     run(dpath("test_remote_http"))
 
+def test_remote_http_cluster():
+    run(dpath("test_remote_http"), cluster=os.path.abspath(dpath("test14/qsub")))
 
 def test_profile():
     run(dpath("test_profile"))
