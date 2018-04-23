@@ -1,7 +1,7 @@
 
 rule all:
     input:
-        expand("step3/{sample}.txt", sample=range(10000))
+        expand("step3/{sample}.txt", sample=range(100))
 
 
 rule a:

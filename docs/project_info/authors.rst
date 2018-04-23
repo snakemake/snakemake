@@ -19,6 +19,7 @@ Development Team
 - Manuel Holtgrewe
 - Christian Arnold
 - Wibowo Arindrarto
+- Rasmus Ågren
 
 Contributors
 ------------
