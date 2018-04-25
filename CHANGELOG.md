@@ -1,5 +1,16 @@
 # Change Log
 
+# [4.8.1] - 2018-04-25
+# Added
+- Allow URLs for the conda directive.
+# Changed
+- Various minor updates in the docs.
+- Several bug fixes with remote file handling.
+- Fix ImportError occuring with script directive.
+- Use latest singularity.
+- Improved caching for file existence checks. We first check existence of parent directories and cache these results. By this, large parts of the generated FS tree can be pruned if files are not yet present. If files are present, the overhead is minimal, since the checks for the parents are cached.
+- Various minor bug fixes.
+
 # [4.8.0] - 2018-03-13
 ### Added
 - Integration with CWL: the `cwl` directive allows to use CWL tool definitions in addition to shell commands or Snakemake wrappers.
