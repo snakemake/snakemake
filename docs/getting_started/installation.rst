@@ -25,7 +25,7 @@ Then, you can install Snakemake with
 
 .. code-block:: console
 
-    $ conda install -c bioconda snakemake
+    $ conda install -c bioconda -c conda-forge snakemake
 
 from the `Bioconda <https://bioconda.github.io>`_ channel.
 
