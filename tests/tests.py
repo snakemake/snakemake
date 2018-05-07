@@ -106,6 +106,8 @@ def run(path,
                         expectedfile), 'wrong result produced for file "{}"'.format(
                             resultfile)
 
+def test_delete_all_output():
+    run(dpath("test_delete_all_output"))
 
 def test01():
     run(dpath("test01"))

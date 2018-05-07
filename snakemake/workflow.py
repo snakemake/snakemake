@@ -264,6 +264,8 @@ class Workflow:
                 list_conda_envs=False,
                 summary=False,
                 archive=None,
+                delete_all_output=False,
+                delete_temp_output=False,
                 detailed_summary=False,
                 latency_wait=3,
                 benchmark_repeats=3,
@@ -376,7 +378,7 @@ class Workflow:
             singularity_prefix=self.singularity_prefix,
             warn_only=dryrun or printrulegraph or printdag or summary or archive or
             list_version_changes or list_code_changes or list_input_changes or
-            list_params_changes)
+            list_params_changes or delete_all_output or delete_temp_output)
 
         if cleanup_metadata:
             for f in cleanup_metadata:
@@ -483,6 +485,12 @@ class Workflow:
             return True
         elif archive:
             dag.archive(archive)
+            return True
+        elif delete_all_output:
+            dag.clean(only_temp=False, dryrun=dryrun)
+            return True
+        elif delete_temp_output:
+            dag.clean(only_temp=True, dryrun=dryrun)
             return True
         elif list_version_changes:
             items = list(
