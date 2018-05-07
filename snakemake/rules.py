@@ -436,6 +436,9 @@ class Rule:
             self._set_log_item(item, name=name)
 
     def _set_log_item(self, item, name=None):
+        # Pathlib compatibility
+        if isinstance(item, Path):
+            item = str(item)
         if isinstance(item, str) or callable(item):
             if not callable(item):
                 item = self.apply_default_remote(item)
@@ -573,6 +576,9 @@ class Rule:
 
     def expand_params(self, wildcards, input, output, resources, omit_callable=False):
         def concretize_param(p, wildcards):
+            # Pathlib compatibility
+            if isinstance(p, Path):
+                p = str(p)
             if isinstance(p, str):
                 return apply_wildcards(p, wildcards)
             return p
