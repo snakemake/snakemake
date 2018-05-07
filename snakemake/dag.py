@@ -17,7 +17,7 @@ from pathlib import Path
 import subprocess
 
 from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
-from snakemake.jobs import Job, Reason
+from snakemake.jobs import Job, Reason, GroupJob
 from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
@@ -53,8 +53,10 @@ class DAG:
                  force_incomplete=False,
                  ignore_incomplete=False,
                  notemp=False,
-                 keep_remote_local=False):
+                 keep_remote_local=False,
+                 nogroups=False):
 
+        self.nogroups = nogroups
         self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
@@ -229,6 +231,7 @@ class DAG:
                 lambda job: (job.dynamic_output and not self.needrun(job)),
                 self.jobs):
             self.update_dynamic(job)
+        self.postprocess()
 
     @property
     def dynamic_output_jobs(self):
@@ -267,10 +270,6 @@ class DAG:
     def ready_jobs(self):
         """Jobs that are ready to execute."""
         return self._ready_jobs
-
-    def ready(self, job):
-        """Return whether a given job is ready to execute."""
-        return job in self._ready_jobs
 
     def needrun(self, job):
         """Return whether a given job needs to be executed."""
@@ -775,11 +774,34 @@ class DAG:
                             stop=self.noneedrun_finished):
             self._priority[job] = Job.HIGHEST_PRIORITY
 
-    def update_ready(self):
+    def update_ready(self, jobs=None):
         """ Update information whether a job is ready to execute. """
-        for job in filter(self.needrun, self.jobs):
+        if jobs is None:
+            jobs = self.needrun_jobs
+
+        groups = dict()
+        for job in jobs:
             if not self.finished(job) and self._ready(job):
-                self._ready_jobs.add(job)
+                if self.nogroups or job.group is None:
+                    self._ready_jobs.add(job)
+                else:
+                    group = GroupJob(job.group,
+                                     self.bfs(self.depending, job,
+                                              stop=lambda j: j.group != job.group))
+
+                    # merge with previously determined group if present
+                    for j in group:
+                        if j in groups:
+                            other = groups[j]
+                            other.merge(group)
+                            group = other
+                            break
+                    # update assignment
+                    for j in group:
+                        if j not in groups:
+                            groups[j] = group
+
+        self._ready_jobs.update(groups.values())
 
     def update_downstream_size(self):
         """For each job, update number of downstream jobs."""
@@ -814,30 +836,34 @@ class DAG:
     def finish(self, job, update_dynamic=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
-        self._finished.add(job)
         try:
             self._ready_jobs.remove(job)
         except KeyError:
             pass
+
+        if not job.is_group():
+            jobs = [job]
+
+        self._finished.update(jobs)
+
         # mark depending jobs as ready
-        for job_ in self.depending[job]:
-            if self.needrun(job_) and self._ready(job_):
-                self._ready_jobs.add(job_)
+        self.update_ready(j for job in jobs for j in self.depending[job])
 
-        if update_dynamic and job.dynamic_output:
-            logger.info("Dynamically updating jobs")
-            newjob = self.update_dynamic(job)
-            if newjob:
-                # simulate that this job ran and was finished before
-                self.omitforce.add(newjob)
-                self._needrun.add(newjob)
-                self._finished.add(newjob)
+        for job in jobs:
+            if update_dynamic and job.dynamic_output:
+                logger.info("Dynamically updating jobs")
+                newjob = self.update_dynamic(job)
+                if newjob:
+                    # simulate that this job ran and was finished before
+                    self.omitforce.add(newjob)
+                    self._needrun.add(newjob)
+                    self._finished.add(newjob)
 
-                self.postprocess()
-                self.handle_protected(newjob)
-                self.handle_touch(newjob)
-                # add finished jobs to len as they are not counted after new postprocess
-                self._len += len(self._finished)
+                    self.postprocess()
+                    self.handle_protected(newjob)
+                    self.handle_touch(newjob)
+                    # add finished jobs to len as they are not counted after new postprocess
+                    self._len += len(self._finished)
 
     def new_job(self, rule, targetfile=None, format_wildcards=None):
         """Create new job for given rule and (optional) targetfile.

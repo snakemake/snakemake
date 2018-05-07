@@ -30,7 +30,12 @@ def jobfiles(jobs, type):
     return chain(*map(attrgetter(type), jobs))
 
 
-class Job:
+class AbstractJob:
+    def is_group(self):
+        raise UnimplementedError("bug: this has to be implemented")
+
+
+class Job(AbstractJob):
     HIGHEST_PRIORITY = sys.maxsize
 
     __slots__ = ["rule", "dag", "wildcards_dict", "wildcards",
@@ -39,7 +44,7 @@ class Job:
                  "_conda_env_file", "_conda_env", "shadow_dir", "_inputsize",
                  "dynamic_output", "dynamic_input",
                  "temp_output", "protected_output", "touch_output",
-                 "subworkflow_input", "_hash", "_attempt"]
+                 "subworkflow_input", "_hash", "_attempt", "_group"]
 
     def __init__(self, rule, dag, wildcards_dict=None, format_wildcards=None):
         self.rule = rule
@@ -59,6 +64,7 @@ class Job:
         self._resources = None
         self._conda_env_file = None
         self._conda_env = None
+        self._group = None
 
         self.shadow_dir = None
         self._inputsize = None
@@ -142,6 +148,12 @@ class Job:
         if self._benchmark is None:
             self._benchmark = self.rule.expand_benchmark(self.wildcards_dict)
         return self._benchmark
+
+    @property
+    def group(self):
+        if self._group is None:
+            self._group = self.rule.expand_group(self.wildcards_dict)
+        return self._group
 
     @property
     def attempt(self):
@@ -691,13 +703,32 @@ class Job:
                               restriction=self.wildcards,
                               omit_value=DYNAMIC_FILL))
 
+    def is_group(self):
+        return False
 
-class JobGroup:
+class GroupJob(AbstractJob):
 
-    __slots__ = ["jobs"]
+    __slots__ = ["id", "jobs"]
 
-    def __init__(self, jobs):
-        self.jobs = jobs
+    def __init__(self, id, jobs):
+        self.id = id
+        self.jobs = set(jobs)
+
+    def merge(self, other):
+        assert other.id == self.id
+        self.jobs.update(other.jobs)
+
+    def __iter__(self):
+        return iter(self.jobs)
+
+    def __repr__(self):
+        return "JobGroup({})" + repr(self.jobs)
+
+    def __contains__(self, job):
+        return job in self.jobs
+
+    def is_group(self):
+        True
 
 
 class Reason:

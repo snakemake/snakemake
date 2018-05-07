@@ -291,6 +291,8 @@ class Workflow:
                 assume_shared_fs=True,
                 cluster_status=None):
 
+        run_local = not (cluster or cluster_sync or drmaa or kubernetes)
+
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
@@ -369,7 +371,8 @@ class Workflow:
             force_incomplete=force_incomplete,
             ignore_incomplete=ignore_incomplete or printdag or printrulegraph,
             notemp=notemp,
-            keep_remote_local=keep_remote_local)
+            keep_remote_local=keep_remote_local,
+            nogroups=run_local)
 
         self.persistence = Persistence(
             nolock=nolock,
@@ -770,6 +773,8 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
+            if ruleinfo.group:
+                rule.group = ruleinfo.group
             if ruleinfo.wrapper:
                 if self.use_conda:
                     rule.conda_env = snakemake.wrapper.get_conda_env(
