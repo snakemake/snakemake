@@ -406,7 +406,12 @@ class Benchmark(RuleKeywordState):
 class Conda(RuleKeywordState):
     pass
 
+
 class Singularity(RuleKeywordState):
+    pass
+
+
+class Group(RuleKeywordState):
     pass
 
 
@@ -580,6 +585,7 @@ class Rule(GlobalKeywordState):
                        singularity=Singularity,
                        wildcard_constraints=WildcardConstraints,
                        shadow=Shadow,
+                       group=Group,
                        run=Run,
                        shell=Shell,
                        script=Script,

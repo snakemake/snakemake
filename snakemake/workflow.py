@@ -916,6 +916,13 @@ class Workflow:
 
         return decorate
 
+    def group(self, group):
+        def decorate(ruleinfo):
+            ruleinfo.group = group
+            return ruleinfo
+
+        return decorate
+
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
             ruleinfo.log = (logs, kwlogs)
@@ -986,6 +993,7 @@ class RuleInfo:
         self.version = None
         self.log = None
         self.docstring = None
+        self.group = None
         self.script = None
         self.wrapper = None
         self.cwl = None

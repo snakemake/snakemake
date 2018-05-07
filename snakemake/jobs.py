@@ -692,6 +692,14 @@ class Job:
                               omit_value=DYNAMIC_FILL))
 
 
+class JobGroup:
+
+    __slots__ = ["jobs"]
+
+    def __init__(self, jobs):
+        self.jobs = jobs
+
+
 class Reason:
 
     __slots__ = ["_updated_input", "_updated_input_run", "_missing_output",
