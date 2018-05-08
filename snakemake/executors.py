@@ -315,7 +315,8 @@ class CPUExecutor(RealExecutor):
         assert not job.is_group(), "bug: group jobs are not supported by CPU executor"
         super()._run(job)
 
-        if self.use_threads or (not job.is_shadow and (job.is_shell or job.is_norun or job.is_script or job.is_wrapper)):
+        if self.use_threads or (not job.is_shadow and
+           (job.is_shell or job.is_norun or job.is_script or job.is_wrapper)):
             job.prepare()
             conda_env = job.conda_env_path
             singularity_img = job.singularity_img_path
