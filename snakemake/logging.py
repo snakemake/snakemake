@@ -261,7 +261,7 @@ class Logger:
 
             self.last_msg_was_job_info = True
         elif level == "group_info":
-            self.logger.info("group job {}".format(msg["id"]))
+            self.logger.info("group job {}".format(msg["groupid"]))
         elif level == "job_error":
             self.logger.error(indent("Error in rule {}:".format(msg["name"])))
             self.logger.error(indent("    jobid: {}".format(msg["jobid"])))

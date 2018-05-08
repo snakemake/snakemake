@@ -37,6 +37,20 @@ class AbstractJob:
     def log_info(self, skip_dynamic=False):
         raise NotImplementedError()
 
+    def log_error(self, msg=None, **kwargs):
+        raise NotImplementedError()
+
+    def remove_existing_output(self):
+        raise NotImplementedError()
+
+    def download_remote_input(self):
+        raise NotImplementedError()
+
+    def properties(self,
+                   omit_resources=["_cores", "_nodes"],
+                   **aux_properties):
+        raise NotImplementedError()
+
 
 class Job(AbstractJob):
     HIGHEST_PRIORITY = sys.maxsize
@@ -658,7 +672,7 @@ class Job(AbstractJob):
             raise RuleException("IndexError: " + str(ex), rule=self.rule)
 
     def properties(self,
-                   omit_resources="_cores _nodes".split(),
+                   omit_resources=["_cores", "_nodes"],
                    **aux_properties):
         resources = {
             name: res
@@ -667,11 +681,12 @@ class Job(AbstractJob):
         }
         params = {name: value for name, value in self.params.items()}
         properties = {
+            "type": "single",
             "rule": self.rule.name,
             "local": self.dag.workflow.is_local(self.rule),
             "input": self.input,
             "output": self.output,
-            "wildcards": self.wildcards,
+            "wildcards": self.wildcards_dict,
             "params": params,
             "log": self.log,
             "threads": self.threads,
@@ -753,24 +768,48 @@ class Job(AbstractJob):
     def register(self):
         self.dag.workflow.persistence.started(self)
 
+    def get_wait_for_files(self):
+        wait_for_files = []
+        wait_for_files.extend(self.local_input)
+        wait_for_files.extend(f for f in self.remote_input
+                                if not f.should_stay_on_remote)
+
+
+        if self.shadow_dir:
+            wait_for_files.append(self.shadow_dir)
+        if self.dag.workflow.use_conda and self.conda_env:
+            wait_for_files.append(self.conda_env_path)
+
+    @property
+    def jobid(self):
+        return self.dag.jobid(self)
+
 
 class GroupJob(AbstractJob):
 
-    __slots__ = ["id", "jobs"]
+    __slots__ = ["groupid", "jobs", "_resources", "_input", "_output"]
 
     def __init__(self, id, jobs):
-        self.id = id
+        self.groupid = id
         self.jobs = set(jobs)
+        self._resources = None
+        self._input = None
+        self._output = None
+        self._all_output = set(f for job in self.jobs for f in job.output)
+
+    @property
+    def dag(self):
+        return self.jobs[0].dag
 
     def merge(self, other):
-        assert other.id == self.id
+        assert other.groupid == self.groupid
         self.jobs.update(other.jobs)
 
     def __iter__(self):
         return iter(self.jobs)
 
     def __repr__(self):
-        return "JobGroup({},{})".format(self.id, repr(self.jobs))
+        return "JobGroup({},{})".format(self.groupid, repr(self.jobs))
 
     def __contains__(self, job):
         return job in self.jobs
@@ -779,18 +818,99 @@ class GroupJob(AbstractJob):
         return True
 
     def log_info(self, skip_dynamic=False):
-        logger.group_info(id=self.id)
+        logger.group_info(groupid=self.groupid)
         for job in self.jobs:
             job.log_info(skip_dynamic, indent=True)
 
     def log_error(self, msg=None, **kwargs):
-        logger.group_error(id=self.id)
+        logger.group_error(groupid=self.groupid)
         for job in self.jobs:
             job.log_error(msg=msg, indent=True, **kwargs)
 
     def register(self):
         for job in self.jobs:
             self.register()
+
+    def remove_existing_output(self):
+        for job in self.jobs:
+            job.remove_existing_output()
+
+    def download_remote_input(self):
+        for job in self.jobs:
+            job.download_remote_input()
+
+    def _all_output(self):
+        for job in self.jobs:
+            yield from job.output
+
+    def get_wait_for_files(self):
+        local_input = [f for f in job.local_input if f not in self._all_output
+                       for job in self.jobs]
+        remote_input = [f for f in job.remote_input if f not in self._all_output
+                        for job in self.jobs]
+
+        wait_for_files = []
+        wait_for_files.extend(local_input)
+        wait_for_files.extend(f for f in remote_input
+                                if not f.should_stay_on_remote)
+
+        for job in self.jobs:
+            if job.shadow_dir:
+                wait_for_files.append(job.shadow_dir)
+            if self.dag.workflow.use_conda and job.conda_env:
+                wait_for_files.append(job.conda_env_path)
+
+    @property
+    def resources(self):
+        if self._resources is None:
+            self._resources = dict()
+            # take the maximum over all jobs
+            for job in self.jobs:
+                for res, value in job.resources.items():
+                    self._resources[res] = max(self._resources.get(res, value),
+                                               value)
+        return self._resources
+
+
+
+    @property
+    def input(self):
+        if self._input is None:
+            self._input = [f for job in self.jobs
+                             for f in job.input if f not in self._all_output]
+        return self._input
+
+    @property
+    def output(self):
+        all_input = set(f for job in self.jobs for f in job.output)
+        if self._output is None:
+            self._output = [f for job in self.jobs
+                              for f in job.output if f not in all_input]
+        return self._output
+
+    def properties(self,
+                   omit_resources=["_cores", "_nodes"],
+                   **aux_properties):
+        resources = {
+            name: res
+            for name, res in self.resources.items()
+            if name not in omit_resources
+        }
+        properties = {
+            "type": "group",
+            "groupid": self.groupid,
+            "local": all(self.dag.workflow.is_local(job.rule) for job in jobs),
+            "input": self.input,
+            "output": self.output,
+            "resources": resources,
+            "jobid": self.dag.jobid(self)
+        }
+        properties.update(aux_properties)
+        return properties
+
+    @property
+    def jobid(self):
+        return ",".join(str(job.jobid for job in self.jobs)
 
 
 class Reason:

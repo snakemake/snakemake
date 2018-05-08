@@ -971,10 +971,10 @@ def get_argument_parser(profile=None):
         "installation directory.")
     parser.add_argument(
         "--jobname", "--jn",
-        default="snakejob.{rulename}.{jobid}.sh",
+        default="snakejob.{name}.{jobid}.sh",
         metavar="NAME",
         help="Provide a custom name for the jobscript that is submitted to the "
-        "cluster (see --cluster). NAME is \"snakejob.{rulename}.{jobid}.sh\" "
+        "cluster (see --cluster). NAME is \"snakejob.{name}.{jobid}.sh\" "
         "per default. The wildcard {jobid} has to be present in the name.")
     parser.add_argument(
         "--cluster-status",

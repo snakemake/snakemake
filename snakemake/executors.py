@@ -52,6 +52,16 @@ def format_files(job, io, dynamicio):
             yield f
 
 
+def single_or_group_job(func):
+    def inner(job, **kwargs):
+        if job.is_group():
+            for j in job:
+                func(j, **kwargs)
+        else:
+            func(job, **kwargs)
+    return inner
+
+
 class AbstractExecutor:
     def __init__(self, workflow, dag,
                  printreason=False,
@@ -138,7 +148,12 @@ class RealExecutor(AbstractExecutor):
 
     def _run(self, job, callback=None, error_callback=None):
         super()._run(job)
-        self.stats.report_job_start(job)
+        if job.is_group():
+            for j in job:
+                self.stats.report_job_start(job)
+        else:
+            self.stats.report_job_start(job)
+
         try:
             self.register_job(job)
         except IOError as e:
@@ -149,6 +164,7 @@ class RealExecutor(AbstractExecutor):
                 "Please ensure write permissions for the "
                 "directory {}".format(e, self.workflow.persistence.path))
 
+    @single_or_group_job
     def handle_job_success(self, job,
                            upload_remote=True,
                            handle_log=True,
@@ -184,6 +200,7 @@ class RealExecutor(AbstractExecutor):
                         "directory {}".format(e,
                                               self.workflow.persistence.path))
 
+    @single_or_group_job
     def handle_job_error(self, job, upload_remote=True):
         if self.assume_shared_fs:
             self.dag.handle_log(job, upload_remote=upload_remote)
@@ -236,6 +253,7 @@ class TouchExecutor(RealExecutor):
             print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
+    @single_or_group_job
     def handle_job_success(self, job):
         super().handle_job_success(job, ignore_missing_output=True)
 
@@ -294,6 +312,7 @@ class CPUExecutor(RealExecutor):
             callback=None,
             submit_callback=None,
             error_callback=None):
+        assert not job.is_group(), "bug: group jobs are not supported by CPU executor"
         super()._run(job)
 
         if self.use_threads or (not job.is_shadow and (job.is_shell or job.is_norun or job.is_script or job.is_wrapper)):
@@ -354,9 +373,11 @@ class CPUExecutor(RealExecutor):
             print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
+    @single_or_group_job
     def handle_job_success(self, job):
         super().handle_job_success(job)
 
+    @single_or_group_job
     def handle_job_error(self, job):
         super().handle_job_error(job)
         job.cleanup()
@@ -368,7 +389,7 @@ class ClusterExecutor(RealExecutor):
     default_jobscript = "jobscript.sh"
 
     def __init__(self, workflow, dag, cores,
-                 jobname="snakejob.{rulename}.{jobid}.sh",
+                 jobname="snakejob.{name}.{jobid}.sh",
                  printreason=False,
                  quiet=False,
                  printshellcmds=False,
@@ -484,7 +505,6 @@ class ClusterExecutor(RealExecutor):
             job.remove_existing_output()
             job.download_remote_input()
         super()._run(job, callback=callback, error_callback=error_callback)
-        logger.shellcmd(job.shellcmd)
 
     @property
     def tmpdir(self):
@@ -493,10 +513,16 @@ class ClusterExecutor(RealExecutor):
         return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
+        def apply(func):
+            return ".".join(func(j) for j in job) if job.is_group() else func(job)
+        name = job.groupid if job.is_group() else job.rule.name
+
         f = job.format_wildcards(self.jobname,
-                             rulename=job.rule.name,
-                             jobid=self.dag.jobid(job),
+                             rulename=name,
+                             name=name,
+                             jobid=apply(self.dag.jobid),
                              cluster=self.cluster_wildcards(job))
+
         if os.path.sep in f:
             raise WorkflowError("Path separator ({}) found in job name {}. "
                                 "This is not supported.".format(
@@ -508,15 +534,9 @@ class ClusterExecutor(RealExecutor):
         wait_for_files = []
         if self.assume_shared_fs:
             wait_for_files.append(self.tmpdir)
-            wait_for_files.extend(job.local_input)
-            wait_for_files.extend(f for f in job.remote_input
-                                    if not f.should_stay_on_remote)
+            wait_for_files.extend(job.get_wait_for_files())
 
-            if job.shadow_dir:
-                wait_for_files.append(job.shadow_dir)
-            if self.workflow.use_conda and job.conda_env:
-                wait_for_files.append(job.conda_env_path)
-
+        # TODO go on from here support group jobs below
         format_p = partial(self.format_job_pattern,
                            job=job,
                            properties=json.dumps(job.properties(
@@ -547,9 +567,10 @@ class ClusterExecutor(RealExecutor):
 
     def cluster_params(self, job):
         """Return wildcards object for job from cluster_config."""
+        name = job.groupid if job.is_group() else job.rule.name
 
         cluster = self.cluster_config.get("__default__", dict()).copy()
-        cluster.update(self.cluster_config.get(job.rule.name, dict()))
+        cluster.update(self.cluster_config.get(name, dict()))
         # Format values with available parameters from the job.
         for key, value in list(cluster.items()):
             if isinstance(value, str):
@@ -560,6 +581,7 @@ class ClusterExecutor(RealExecutor):
     def cluster_wildcards(self, job):
         return Wildcards(fromdict=self.cluster_params(job))
 
+    @single_or_group_job
     def handle_job_success(self, job):
         super().handle_job_success(job, upload_remote=False,
                                    handle_log=False, handle_touch=False)
@@ -640,7 +662,7 @@ class GenericClusterExecutor(ClusterExecutor):
             error_callback=None):
         super()._run(job)
         workdir = os.getcwd()
-        jobid = self.dag.jobid(job)
+        jobid = job.jobid
 
         jobscript = self.get_jobscript(job)
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
@@ -677,7 +699,11 @@ class GenericClusterExecutor(ClusterExecutor):
                 dependencies=deps,
                 cluster=self.cluster_wildcards(job))
         except AttributeError as e:
-            raise WorkflowError(str(e), rule=job.rule)
+            if not job.is_group():
+                raise WorkflowError(str(e), rule=job.rule)
+            else:
+                raise WorkflowError(str(e))
+
         try:
             ext_jobid = subprocess.check_output(
                 '{submitcmd} "{jobscript}"'.format(submitcmd=submitcmd,
@@ -699,7 +725,9 @@ class GenericClusterExecutor(ClusterExecutor):
         submit_callback(job)
 
         with self.lock:
-            self.active_jobs.append(GenericClusterJob(job, ext_jobid, callback, error_callback, jobscript, jobfinished, jobfailed))
+            self.active_jobs.append(GenericClusterJob(
+                job, ext_jobid, callback, error_callback, jobscript,
+                jobfinished, jobfailed))
 
     def _wait_for_jobs(self):
         #logger.debug("Setup rate limiter")
@@ -805,7 +833,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
             error_callback=None):
         super()._run(job)
         workdir = os.getcwd()
-        jobid = self.dag.jobid(job)
+        jobid = job.jobid
 
         jobscript = self.get_jobscript(job)
         self.write_jobscript(job, jobscript)
@@ -818,14 +846,19 @@ class SynchronousClusterExecutor(ClusterExecutor):
                 dependencies=deps,
                 cluster=self.cluster_wildcards(job))
         except AttributeError as e:
-            raise WorkflowError(str(e), rule=job.rule)
+            if not job.is_group():
+                raise WorkflowError(str(e), rule=job.rule)
+            else:
+                raise WorkflowError(str(e))
 
         process = subprocess.Popen('{submitcmd} "{jobscript}"'.format(submitcmd=submitcmd,
                                            jobscript=jobscript), shell=True)
         submit_callback(job)
 
         with self.lock:
-            self.active_jobs.append(SynchronousClusterJob(job, process.pid, callback, error_callback, jobscript, process))
+            self.active_jobs.append(SynchronousClusterJob(
+                job, process.pid, callback, error_callback, jobscript,
+                process))
 
     def _wait_for_jobs(self):
         while True:
@@ -948,14 +981,15 @@ class DRMAAExecutor(ClusterExecutor):
                             self.workflow.linemaps)
             error_callback(job)
             return
-        logger.info("Submitted DRMAA job {} with external jobid {}.".format(self.dag.jobid(job), jobid))
+        logger.info("Submitted DRMAA job {} with external jobid {}.".format(job.jobid, jobid))
         self.submitted.append(jobid)
         self.session.deleteJobTemplate(jt)
 
         submit_callback(job)
 
         with self.lock:
-            self.active_jobs.append(DRMAAClusterJob(job, jobid, callback, error_callback, jobscript))
+            self.active_jobs.append(DRMAAClusterJob(
+                job, jobid, callback, error_callback, jobscript))
 
     def shutdown(self):
         super().shutdown()
@@ -1124,7 +1158,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         super()._run(job)
         exec_job = self.format_job(self.exec_job, job, _quote_all=True)
-        jobid = "snakejob-{}-{}".format(self.run_namespace, self.dag.jobid(job))
+        jobid = "snakejob-{}-{}".format(self.run_namespace, job.jobid)
 
         body = kubernetes.client.V1Pod()
         body.metadata = kubernetes.client.V1ObjectMeta()
