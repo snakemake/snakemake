@@ -99,42 +99,10 @@ class AbstractExecutor:
         return "local " if self.workflow.is_local(job.rule) else ""
 
     def printjob(self, job):
-        # skip dynamic jobs that will be "executed" only in dryrun mode
-        if self.dag.dynamic(job):
-            return
-
-        priority = self.dag.priority(job)
-        logger.job_info(jobid=self.dag.jobid(job),
-                        msg=job.message,
-                        name=job.rule.name,
-                        local=self.workflow.is_local(job.rule),
-                        input=list(format_files(job, job.input,
-                                                job.dynamic_input)),
-                        output=list(format_files(job, job.output,
-                                                 job.dynamic_output)),
-                        log=list(job.log),
-                        benchmark=job.benchmark,
-                        wildcards=job.wildcards_dict,
-                        reason=str(self.dag.reason(job)),
-                        resources=job.resources,
-                        priority="highest"
-                        if priority == Job.HIGHEST_PRIORITY else priority,
-                        threads=job.threads)
-
-        if job.dynamic_output:
-            logger.info("Subsequent jobs will be added dynamically "
-                        "depending on the output of this rule")
+        job.log_info(skip_dynamic=True)
 
     def print_job_error(self, job, msg=None, **kwargs):
-        logger.job_error(name=job.rule.name,
-                         jobid=self.dag.jobid(job),
-                         output=list(format_files(job, job.output,
-                                                  job.dynamic_output)),
-                         log=list(job.log),
-                         conda_env=job.conda_env.path if job.conda_env else None,
-                         aux=kwargs)
-        if msg is not None:
-            logger.error(msg)
+        job.log_error(msg)
 
     def handle_job_success(self, job):
         pass
@@ -144,9 +112,7 @@ class AbstractExecutor:
 
 
 class DryrunExecutor(AbstractExecutor):
-    def _run(self, job):
-        super()._run(job)
-        logger.shellcmd(job.shellcmd)
+    pass
 
 
 class RealExecutor(AbstractExecutor):
@@ -168,7 +134,7 @@ class RealExecutor(AbstractExecutor):
         self.snakefile = workflow.snakefile
 
     def register_job(self, job):
-        self.workflow.persistence.started(job)
+        job.register()
 
     def _run(self, job, callback=None, error_callback=None):
         super()._run(job)

@@ -32,7 +32,10 @@ def jobfiles(jobs, type):
 
 class AbstractJob:
     def is_group(self):
-        raise UnimplementedError("bug: this has to be implemented")
+        raise NotImplementedError()
+
+    def log_info(self, skip_dynamic=False):
+        raise NotImplementedError()
 
 
 class Job(AbstractJob):
@@ -706,6 +709,51 @@ class Job(AbstractJob):
     def is_group(self):
         return False
 
+    def log_info(self, skip_dynamic=False, indent=False):
+        # skip dynamic jobs that will be "executed" only in dryrun mode
+        if skip_dynamic and self.dag.dynamic(self):
+            return
+
+        priority = self.dag.priority(self)
+        logger.job_info(jobid=self.dag.jobid(self),
+                        msg=self.message,
+                        name=self.rule.name,
+                        local=self.workflow.is_local(self.rule),
+                        input=list(format_files(self, self.input,
+                                                self.dynamic_input)),
+                        output=list(format_files(job, self.output,
+                                                 self.dynamic_output)),
+                        log=list(self.log),
+                        benchmark=self.benchmark,
+                        wildcards=self.wildcards_dict,
+                        reason=str(self.dag.reason(self)),
+                        resources=self.resources,
+                        priority="highest"
+                        if priority == Job.HIGHEST_PRIORITY else priority,
+                        threads=self.threads,
+                        indent=indent)
+        logger.shellcmd(self.shellcmd, indent=indent)
+
+        if self.dynamic_output:
+            logger.info("Subsequent jobs will be added dynamically "
+                        "depending on the output of this job", indent=True)
+
+    def log_error(self, msg=None, indent=False, **kwargs):
+        logger.job_error(name=self.rule.name,
+                         jobid=self.dag.jobid(self),
+                         output=list(format_files(self, self.output,
+                                                  self.dynamic_output)),
+                         log=list(self.log),
+                         conda_env=self.conda_env.path if self.conda_env else None,
+                         aux=kwargs,
+                         indent=True)
+        if msg is not None:
+            logger.error(msg)
+
+    def register(self):
+        self.dag.workflow.persistence.started(self)
+
+
 class GroupJob(AbstractJob):
 
     __slots__ = ["id", "jobs"]
@@ -722,13 +770,27 @@ class GroupJob(AbstractJob):
         return iter(self.jobs)
 
     def __repr__(self):
-        return "JobGroup({})" + repr(self.jobs)
+        return "JobGroup({},{})".format(self.id, repr(self.jobs))
 
     def __contains__(self, job):
         return job in self.jobs
 
     def is_group(self):
-        True
+        return True
+
+    def log_info(self, skip_dynamic=False):
+        logger.group_info(id=self.id)
+        for job in self.jobs:
+            job.log_info(skip_dynamic, indent=True)
+
+    def log_error(self, msg=None, **kwargs):
+        logger.group_error(id=self.id)
+        for job in self.jobs:
+            job.log_error(msg=msg, indent=True, **kwargs)
+
+    def register(self):
+        for job in self.jobs:
+            self.register()
 
 
 class Reason:

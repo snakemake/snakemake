@@ -165,6 +165,10 @@ class Logger:
     def run_info(self, msg):
         self.handler(dict(level="run_info", msg=msg))
 
+    def group_info(self, **msg):
+        msg["level"] = "group_info"
+        self.handler(msg)
+
     def job_info(self, **msg):
         msg["level"] = "job_info"
         self.handler(msg)
@@ -176,9 +180,11 @@ class Logger:
     def dag_debug(self, msg):
         self.handler(dict(level="dag_debug", **msg))
 
-    def shellcmd(self, msg):
+    def shellcmd(self, msg, indent=False):
         if msg is not None:
-            self.handler(dict(level="shellcmd", msg=msg))
+            msg = dict(level="shellcmd", msg=msg)
+            msg["indent"] = indent
+            self.handler(msg)
 
     def job_finished(self, **msg):
         msg["level"] = "job_finished"
@@ -235,30 +241,38 @@ class Logger:
             if resources:
                 yield "    resources: " + resources
 
+        def indent(msg):
+            if msg.get("indent"):
+                return "    " + msg
+            else:
+                return msg
+
         level = msg["level"]
         if level == "job_info" and not self.quiet:
             if not self.last_msg_was_job_info:
                 self.logger.info("")
             if msg["msg"] is not None:
-                self.logger.info("Job {}: {}".format(msg["jobid"], msg["msg"]))
+                self.logger.info(indent("Job {}: {}".format(msg["jobid"], msg["msg"])))
                 if self.printreason:
-                    self.logger.info("Reason: {}".format(msg["reason"]))
+                    self.logger.info(indent("Reason: {}".format(msg["reason"])))
             else:
-                self.logger.info("\n".join(job_info(msg)))
+                self.logger.info("\n".join(map(indent, job_info(msg))))
             self.logger.info("")
 
             self.last_msg_was_job_info = True
+        elif level == "group_info":
+            self.logger.info("group job {}".format(msg["id"]))
         elif level == "job_error":
-            self.logger.error("Error in rule {}:".format(msg["name"]))
-            self.logger.error("    jobid: {}".format(msg["jobid"]))
+            self.logger.error(indent("Error in rule {}:".format(msg["name"])))
+            self.logger.error(indent("    jobid: {}".format(msg["jobid"])))
             if msg["output"]:
-                self.logger.error("    output: {}".format(", ".join(msg["output"])))
+                self.logger.error(indent("    output: {}".format(", ".join(msg["output"]))))
             if msg["log"]:
-                self.logger.error("    log: {}".format(", ".join(msg["log"])))
+                self.logger.error(indent("    log: {}".format(", ".join(msg["log"]))))
             if msg["conda_env"]:
-                self.logger.error("    conda-env: {}".format(msg["conda_env"]))
+                self.logger.error(indent("    conda-env: {}".format(msg["conda_env"])))
             for item in msg["aux"].items():
-                self.logger.error("    {}: {}".format(*item))
+                self.logger.error(indent("    {}: {}".format(*item)))
             self.logger.error("")
         else:
             if level == "info":
@@ -282,7 +296,7 @@ class Logger:
                     done, total, percent_fmt))
             elif level == "shellcmd":
                 if self.printshellcmds:
-                    self.logger.warning(msg["msg"])
+                    self.logger.warning(indent(msg["msg"]))
             elif level == "job_finished" and not self.quiet:
                 self.logger.info("Finished job {}.".format(msg["jobid"]))
                 pass
