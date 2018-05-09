@@ -52,16 +52,6 @@ def format_files(job, io, dynamicio):
             yield f
 
 
-def single_or_group_job(func):
-    def inner(job, **kwargs):
-        if job.is_group():
-            for j in job:
-                func(j, **kwargs)
-        else:
-            func(job, **kwargs)
-    return inner
-
-
 class AbstractExecutor:
     def __init__(self, workflow, dag,
                  printreason=False,
@@ -148,11 +138,7 @@ class RealExecutor(AbstractExecutor):
 
     def _run(self, job, callback=None, error_callback=None):
         super()._run(job)
-        if job.is_group():
-            for j in job:
-                self.stats.report_job_start(job)
-        else:
-            self.stats.report_job_start(job)
+        self.stats.report_job_start(job)
 
         try:
             self.register_job(job)
@@ -164,48 +150,23 @@ class RealExecutor(AbstractExecutor):
                 "Please ensure write permissions for the "
                 "directory {}".format(e, self.workflow.persistence.path))
 
-    @single_or_group_job
     def handle_job_success(self, job,
                            upload_remote=True,
                            handle_log=True,
                            handle_touch=True,
                            ignore_missing_output=False):
-        if self.assume_shared_fs:
-            if handle_touch:
-                self.dag.handle_touch(job)
-            if handle_log:
-                self.dag.handle_log(job)
-            self.dag.check_and_touch_output(
-                job,
-                wait=self.latency_wait,
-                ignore_missing_output=ignore_missing_output)
-            self.dag.unshadow_output(job)
-            self.dag.handle_remote(job, upload=upload_remote)
-            self.dag.handle_protected(job)
-            job.close_remote()
-        else:
-            self.dag.check_and_touch_output(
-                job,
-                wait=self.latency_wait,
-                no_touch=True,
-                force_stay_on_remote=True)
-        self.dag.handle_temp(job)
-
+        job.postprocess(upload_remote=upload_remote,
+                        handle_log=handle_log,
+                        handle_touch=handle_touch,
+                        ignore_missing_output=ignore_missing_output,
+                        latency_wait=self.latency_wait,
+                        assume_shared_fs=self.assume_shared_fs)
         self.stats.report_job_end(job)
-        try:
-            self.workflow.persistence.finished(job)
-        except IOError as e:
-            logger.info("Failed to remove marker file for job started "
-                        "({}). Please ensure write permissions for the "
-                        "directory {}".format(e,
-                                              self.workflow.persistence.path))
 
-    @single_or_group_job
     def handle_job_error(self, job, upload_remote=True):
-        if self.assume_shared_fs:
-            self.dag.handle_log(job, upload_remote=upload_remote)
-            self.dag.unshadow_output(job, only_log=True)
-            job.close_remote()
+        job.postprocess(error=True,
+                        assume_shared_fs=self.assume_shared_fs,
+                        latency_wait=self.latency_wait)
 
     def format_job_pattern(self, pattern, job=None, **kwargs):
         overwrite_workdir = []
@@ -253,7 +214,6 @@ class TouchExecutor(RealExecutor):
             print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
-    @single_or_group_job
     def handle_job_success(self, job):
         super().handle_job_success(job, ignore_missing_output=True)
 
@@ -374,11 +334,9 @@ class CPUExecutor(RealExecutor):
             print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
-    @single_or_group_job
     def handle_job_success(self, job):
         super().handle_job_success(job)
 
-    @single_or_group_job
     def handle_job_error(self, job):
         super().handle_job_error(job)
         job.cleanup()
@@ -514,14 +472,10 @@ class ClusterExecutor(RealExecutor):
         return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
-        def apply(func):
-            return ".".join(func(j) for j in job) if job.is_group() else func(job)
-        name = job.groupid if job.is_group() else job.rule.name
-
         f = job.format_wildcards(self.jobname,
-                             rulename=name,
-                             name=name,
-                             jobid=apply(self.dag.jobid),
+                             rulename=job.name,
+                             name=job.name,
+                             jobid=job.jobid,
                              cluster=self.cluster_wildcards(job))
 
         if os.path.sep in f:
@@ -568,10 +522,8 @@ class ClusterExecutor(RealExecutor):
 
     def cluster_params(self, job):
         """Return wildcards object for job from cluster_config."""
-        name = job.groupid if job.is_group() else job.rule.name
-
         cluster = self.cluster_config.get("__default__", dict()).copy()
-        cluster.update(self.cluster_config.get(name, dict()))
+        cluster.update(self.cluster_config.get(job.name, dict()))
         # Format values with available parameters from the job.
         for key, value in list(cluster.items()):
             if isinstance(value, str):
@@ -582,7 +534,6 @@ class ClusterExecutor(RealExecutor):
     def cluster_wildcards(self, job):
         return Wildcards(fromdict=self.cluster_params(job))
 
-    @single_or_group_job
     def handle_job_success(self, job):
         super().handle_job_success(job, upload_remote=False,
                                    handle_log=False, handle_touch=False)
@@ -700,10 +651,8 @@ class GenericClusterExecutor(ClusterExecutor):
                 dependencies=deps,
                 cluster=self.cluster_wildcards(job))
         except AttributeError as e:
-            if not job.is_group():
-                raise WorkflowError(str(e), rule=job.rule)
-            else:
-                raise WorkflowError(str(e))
+            raise WorkflowError(str(e),
+                                rule=job.rule if not job.is_group() else None)
 
         try:
             ext_jobid = subprocess.check_output(
@@ -847,10 +796,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
                 dependencies=deps,
                 cluster=self.cluster_wildcards(job))
         except AttributeError as e:
-            if not job.is_group():
-                raise WorkflowError(str(e), rule=job.rule)
-            else:
-                raise WorkflowError(str(e))
+            raise WorkflowError(str(e),
+                                rule=job.rule if not job.is_group() else None)
 
         process = subprocess.Popen('{submitcmd} "{jobscript}"'.format(submitcmd=submitcmd,
                                            jobscript=jobscript), shell=True)

@@ -11,3 +11,9 @@ dist/
 .snakemake*
 
 .idea
+
+.pytest*
+.cache
+.ipynb*
+.ropeproject
+.test*

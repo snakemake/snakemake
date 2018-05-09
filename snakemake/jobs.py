@@ -784,6 +784,50 @@ class Job(AbstractJob):
     def jobid(self):
         return self.dag.jobid(self)
 
+    def postprocess(self,
+                    upload_remote=True,
+                    handle_log=True,
+                    handle_touch=True,
+                    error=False,
+                    ignore_missing_output=False,
+                    assume_shared_fs=True,
+                    latency_wait=None):
+        if assume_shared_fs:
+            if not error and handle_touch:
+                self.dag.handle_touch(self)
+            if handle_log:
+                self.dag.handle_log(self)
+            if not error:
+                self.dag.check_and_touch_output(
+                    self,
+                    wait=latency_wait,
+                    ignore_missing_output=ignore_missing_output)
+            self.dag.unshadow_output(self, only_log=error)
+            if not error:
+                self.dag.handle_remote(self, upload=upload_remote)
+                self.dag.handle_protected(self)
+            self.close_remote()
+        else:
+            if not error:
+                self.dag.check_and_touch_output(
+                    self,
+                    wait=latency_wait,
+                    no_touch=True,
+                    force_stay_on_remote=True)
+        if not error:
+            self.dag.handle_temp(self)
+            try:
+                self.dag.workflow.persistence.finished(self)
+            except IOError as e:
+                logger.info("Failed to remove marker file for job started "
+                            "({}). Please ensure write permissions for the "
+                            "directory {}".format(
+                                e, self.dag.workflow.persistence.path))
+
+    @property
+    def name(self):
+        return self.rule.name
+
 
 class GroupJob(AbstractJob):
 
@@ -911,6 +955,19 @@ class GroupJob(AbstractJob):
     @property
     def jobid(self):
         return ",".join(str(job.jobid for job in self.jobs)
+
+    def cleanup(self):
+        for job in self.jobs:
+            job.cleanup()
+
+    def postprocess(self,
+                    **kwargs):
+        for job in self.jobs:
+            job.postprocess(**kwargs)
+
+    @property
+    def name(self):
+        return str(self.groupid)
 
 
 class Reason:

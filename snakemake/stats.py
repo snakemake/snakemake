@@ -19,10 +19,18 @@ class Stats:
         self.endtime = dict()
 
     def report_job_start(self, job):
-        self.starttime[job] = time.time()
+        if job.is_group():
+            for j in job:
+                self.starttime[j] = time.time()
+        else:
+            self.starttime[job] = time.time()
 
     def report_job_end(self, job):
-        self.endtime[job] = time.time()
+        if job.is_group():
+            for j in job:
+                self.endtime[j] = time.time()
+        else:
+            self.endtime[job] = time.time()
 
     @property
     def rule_stats(self):
