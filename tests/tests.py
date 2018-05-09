@@ -629,7 +629,12 @@ def test_issue805():
 
 
 def test_group_jobs():
-    run(dpath("test_group_jobs"))
+    run(dpath("test_group_jobs"), cluster="./qsub")
+
+
+def test_group_job_fail():
+    run(dpath("test_group_job_fail"), cluster="./qsub", shouldfail=True)
+
 
 
 if __name__ == '__main__':
