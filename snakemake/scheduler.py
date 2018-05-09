@@ -444,7 +444,17 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             return solution
 
     def calc_resource(self, name, value):
-        return min(value, self.workflow.global_resources[name])
+        gres = self.workflow.global_resources[name]
+        if value > gres:
+            if name == "_cores":
+                name = "threads"
+            raise WorkflowError("Job needs {name}={res} but only {name}={gres} "
+                                "are available. This is likely because a two jobs "
+                                "are connected via a pipe and have to run "
+                                "simultaneously. Consider providing more "
+                                "resources (e.g. via --cores).".format(
+                                    name=name, res=value, gres=gres))
+        return value
 
     def rule_weight(self, rule):
         res = rule.resources
