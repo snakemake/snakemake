@@ -839,7 +839,9 @@ class DAG:
         self._finished.update(jobs)
 
         # mark depending jobs as ready
-        self.update_ready(j for job in jobs for j in self.depending[job])
+        # skip jobs that are marked as until jobs
+        self.update_ready(j for job in jobs for j in self.depending[job]
+                            if not self.in_until(job))
 
         for job in jobs:
             if update_dynamic and job.dynamic_output:
