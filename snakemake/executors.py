@@ -88,7 +88,7 @@ class AbstractExecutor:
         self.printjob(job)
 
     def rule_prefix(self, job):
-        return "local " if self.workflow.is_local(job.rule) else ""
+        return "local " if job.is_local else ""
 
     def printjob(self, job):
         job.log_info(skip_dynamic=True)
@@ -176,8 +176,6 @@ class RealExecutor(AbstractExecutor):
         if self.workflow.printshellcmds:
             printshellcmds = "-p"
 
-        target = job.output if job.output else job.rule.name
-
         return format(pattern,
                       job=job,
                       attempt=job.attempt,
@@ -188,7 +186,7 @@ class RealExecutor(AbstractExecutor):
                       snakefile=self.snakefile,
                       cores=self.cores,
                       benchmark_repeats=self.benchmark_repeats,
-                      target=target,
+                      target=" ".join(job.get_targets()),
                       **kwargs)
 
 
@@ -293,8 +291,8 @@ class CPUExecutor(RealExecutor):
 
     def spawn_job(self, job):
         exec_job = self.exec_job
-        if not job.rule.is_branched:
-            exec_job += " --allowed-rules {}".format(job.rule)
+        if not job.is_branched:
+            exec_job += " --allowed-rules {}".format(" ".join(job.rules))
         cmd = self.format_job_pattern(exec_job, job=job,
                                       _quote_all=True,
                                       latency_wait=self.latency_wait)
@@ -391,7 +389,7 @@ class ClusterExecutor(RealExecutor):
                 '--benchmark-repeats {benchmark_repeats} --attempt {attempt} ',
                 '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
                 '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
-                '--notemp --no-hooks --nolock --timestamp '))
+                '--notemp --no-hooks --nolock --timestamp --mode {} '.format(Mode.cluster)))
         else:
             self.exec_job = exec_job
 
@@ -416,7 +414,7 @@ class ClusterExecutor(RealExecutor):
 
         if not any(dag.dynamic_output_jobs):
             # disable restiction to target rule in case of dynamic rules!
-            self.exec_job += " --allowed-rules {job.rule.name} "
+            self.exec_job += " --allowed-rules {rules} "
         self.jobname = jobname
         self._tmpdir = None
         self.cores = cores if cores else ""
@@ -503,6 +501,7 @@ class ClusterExecutor(RealExecutor):
         exec_job = self.format_job(self.exec_job,
                                    job,
                                    _quote_all=True,
+                                   rules=" ".join(job.rules),
                                    **kwargs)
         content = self.format_job(self.jobscript,
                                   job,

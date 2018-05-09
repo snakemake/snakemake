@@ -297,8 +297,7 @@ class JobScheduler:
         if self._local_executor is None:
             return self._executor
         else:
-            return self._local_executor if self.workflow.is_local(
-                job.rule) else self._executor
+            return self._local_executor if job.is_local else self._executor
 
     def run(self, job):
         self.get_executor(job).run(job,
@@ -338,13 +337,18 @@ class JobScheduler:
             self.dag.finish(job, update_dynamic=update_dynamic)
 
             if update_resources:
-                self.finished_jobs += 1
+                # normal jobs have len=1, group jobs have len>1
+                self.finished_jobs += len(job)
                 self.running.remove(job)
                 self._free_resources(job)
 
 
             if print_progress:
-                logger.job_finished(jobid=self.dag.jobid(job))
+                if job.is_group():
+                    for j in job:
+                        logger.job_finished(jobid=j.jobid)
+                else:
+                    logger.job_finished(jobid=job.jobid)
                 self.progress()
 
             if any(self.open_jobs) or not self.running or self.workflow.immediate_submit:
@@ -468,9 +472,8 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         # ensure selection of groups of jobs that together delete the same temp
         # file.
 
-        return (self.dag.priority(job),
+        return (job.priority(),
                 temp_size,
-                self.dag.downstream_size(job),
                 input_size)
 
     def progress(self):

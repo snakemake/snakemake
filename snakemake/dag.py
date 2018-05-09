@@ -62,7 +62,6 @@ class DAG:
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
         self._priority = dict()
-        self._downstream_size = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
         self._dynamic = set()
@@ -256,7 +255,7 @@ class DAG:
     @property
     def local_needrun_jobs(self):
         """Iterate over all jobs that need to be run and are marked as local."""
-        return filter(lambda job: self.workflow.is_local(job.rule),
+        return filter(lambda job: job.is_local,
                       self.needrun_jobs)
 
     @property
@@ -279,10 +278,6 @@ class DAG:
         """Return priority of given job."""
         return self._priority[job]
 
-    def downstream_size(self, job):
-        """Return the number of downstream jobs of a given job."""
-        return self._downstream_size[job]
-
     def noneedrun_finished(self, job):
         """
         Return whether a given job is finished or was not
@@ -304,7 +299,12 @@ class DAG:
         for those that are created after the job with dynamic output has
         finished.
         """
-        return job in self._dynamic
+        if job.is_group():
+            for j in job:
+                if j in self._dynamic:
+                    return True
+        else:
+            return job in self._dynamic
 
     def requested_files(self, job):
         """Return the files a job requests."""
@@ -803,15 +803,6 @@ class DAG:
 
         self._ready_jobs.update(groups.values())
 
-    def update_downstream_size(self):
-        """For each job, update number of downstream jobs."""
-        for job in self.needrun_jobs:
-            self._downstream_size[job] = sum(
-                1
-                for _ in self.bfs(self.depending,
-                                  job,
-                                  stop=self.noneedrun_finished)) - 1
-
     def close_remote_objects(self):
         """Close all remote objects."""
         for job in self.jobs:
@@ -825,7 +816,6 @@ class DAG:
         self.update_needrun()
         self.update_priority()
         self.update_ready()
-        self.update_downstream_size()
         self.close_remote_objects()
 
     def _ready(self, job):

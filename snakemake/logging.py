@@ -94,22 +94,24 @@ class Logger:
         self.quiet = False
         self.logfile = None
         self.last_msg_was_job_info = False
+        self.mode = Mode.default
 
     def setup_logfile(self):
-        # logfile output is done always
-        os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
-        self.logfile = os.path.abspath(os.path.join(".snakemake",
-                                    "log",
-                                    datetime.datetime.now().isoformat()
-                                                           .replace(":", "") +
-                                    ".snakemake.log"))
+        if self.mode == Mode.default:
+            os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
+            self.logfile = os.path.abspath(os.path.join(".snakemake",
+                                        "log",
+                                        datetime.datetime.now().isoformat()
+                                                               .replace(":", "") +
+                                        ".snakemake.log"))
 
-        self.logfile_handler = _logging.FileHandler(self.logfile)
-        self.logger.addHandler(self.logfile_handler)
+            self.logfile_handler = _logging.FileHandler(self.logfile)
+            self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
-        self.logger.removeHandler(self.logfile_handler)
-        self.logfile_handler.close()
+        if self.mode == Mode.default:
+            self.logger.removeHandler(self.logfile_handler)
+            self.logfile_handler.close()
         self.log_handler = [self.text_handler]
 
     def get_logfile(self):
@@ -118,8 +120,9 @@ class Logger:
         return self.logfile
 
     def remove_logfile(self):
-        self.logfile_handler.close()
-        os.remove(self.logfile)
+        if self.mode == Mode.default:
+            self.logfile_handler.close()
+            os.remove(self.logfile)
 
     def handler(self, msg):
         for handler in self.log_handler:
@@ -135,8 +138,9 @@ class Logger:
         self.logger.setLevel(level)
 
     def logfile_hint(self):
-        logfile = self.get_logfile()
-        self.info("Complete log: {}".format(logfile))
+        if self.mode == Mode.default:
+            logfile = self.get_logfile()
+            self.info("Complete log: {}".format(logfile))
 
     def location(self, msg):
         callerframerecord = inspect.stack()[1]
@@ -364,3 +368,4 @@ def setup_logger(handler=None,
     logger.printshellcmds = printshellcmds
     logger.printreason = printreason
     logger.debug_dag = debug_dag
+    logger.mode = mode

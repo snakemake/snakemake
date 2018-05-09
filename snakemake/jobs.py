@@ -691,7 +691,7 @@ class Job(AbstractJob):
         properties = {
             "type": "single",
             "rule": self.rule.name,
-            "local": self.dag.workflow.is_local(self.rule),
+            "local": self.is_local,
             "input": self.input,
             "output": self.output,
             "wildcards": self.wildcards_dict,
@@ -703,6 +703,10 @@ class Job(AbstractJob):
         }
         properties.update(aux_properties)
         return properties
+
+    @property
+    def is_local(self):
+        return self.dag.workflow.is_local(self.rule)
 
     def __repr__(self):
         return self.rule.name
@@ -787,6 +791,7 @@ class Job(AbstractJob):
             wait_for_files.append(self.shadow_dir)
         if self.dag.workflow.use_conda and self.conda_env:
             wait_for_files.append(self.conda_env_path)
+        return wait_for_files
 
     @property
     def jobid(self):
@@ -836,18 +841,46 @@ class Job(AbstractJob):
     def name(self):
         return self.rule.name
 
+    def priority(self):
+        return self.dag.priority(self)
+
+    @property
+    def products(self):
+        products = list(self.output)
+        if self.benchmark:
+            products.append(benchmark)
+        products.extend(self.log)
+        return products
+
+    def get_targets(self):
+        return self.products or [self.rule.name]
+
+    @property
+    def is_branched(self):
+        return self.rule.is_branched
+
+    @property
+    def rules(self):
+        yield self.rule.name
+
+    def __len__(self):
+        return 1
+
 
 class GroupJob(AbstractJob):
 
-    __slots__ = ["groupid", "jobs", "_resources", "_input", "_output"]
+    __slots__ = ["groupid", "jobs", "_resources", "_input", "_output",
+                 "_all_output", "_inputsize"]
 
     def __init__(self, id, jobs):
         self.groupid = id
-        self.jobs = set(jobs)
+        self.jobs = list(jobs)
         self._resources = None
         self._input = None
         self._output = None
-        self._all_output = set(f for job in self.jobs for f in job.output)
+        self._inputsize = None
+        self._all_products = set(f for job in self.jobs for f in job.products)
+        self._attempt = self.dag.workflow.attempt
 
     @property
     def dag(self):
@@ -891,15 +924,11 @@ class GroupJob(AbstractJob):
         for job in self.jobs:
             job.download_remote_input()
 
-    def _all_output(self):
-        for job in self.jobs:
-            yield from job.output
-
     def get_wait_for_files(self):
-        local_input = [f for f in job.local_input if f not in self._all_output
-                       for job in self.jobs]
-        remote_input = [f for f in job.remote_input if f not in self._all_output
-                        for job in self.jobs]
+        local_input = [f for job in self.jobs
+                       for f in job.local_input if f not in self._all_products]
+        remote_input = [f for job in self.jobs
+                        for f in job.remote_input if f not in self._all_products]
 
         wait_for_files = []
         wait_for_files.extend(local_input)
@@ -911,6 +940,7 @@ class GroupJob(AbstractJob):
                 wait_for_files.append(job.shadow_dir)
             if self.dag.workflow.use_conda and job.conda_env:
                 wait_for_files.append(job.conda_env_path)
+        return wait_for_files
 
     @property
     def resources(self):
@@ -923,22 +953,26 @@ class GroupJob(AbstractJob):
                                                value)
         return self._resources
 
-
-
     @property
     def input(self):
         if self._input is None:
             self._input = [f for job in self.jobs
-                             for f in job.input if f not in self._all_output]
+                             for f in job.input if f not in self._all_products]
         return self._input
 
     @property
     def output(self):
-        all_input = set(f for job in self.jobs for f in job.output)
+        all_input = set(f for job in self.jobs for f in job.input)
         if self._output is None:
             self._output = [f for job in self.jobs
                               for f in job.output if f not in all_input]
         return self._output
+
+    @property
+    def products(self):
+        all_input = set(f for job in self.jobs for f in job.input)
+        return [f for job in self.jobs
+                  for f in job.products if f not in all_input]
 
     def properties(self,
                    omit_resources=["_cores", "_nodes"],
@@ -951,11 +985,11 @@ class GroupJob(AbstractJob):
         properties = {
             "type": "group",
             "groupid": self.groupid,
-            "local": all(self.dag.workflow.is_local(job.rule) for job in jobs),
+            "local": self.is_local,
             "input": self.input,
             "output": self.output,
             "resources": resources,
-            "jobid": self.dag.jobid(self)
+            "jobid": self.jobid
         }
         properties.update(aux_properties)
         return properties
@@ -980,6 +1014,71 @@ class GroupJob(AbstractJob):
     def check_protected_output(self):
         for job in self.jobs:
             job.check_protected_output()
+
+    @property
+    def dynamic_input(self):
+        return [f for job in self.jobs for f in job.dynamic_input
+                if f not in self._all_products]
+
+    @property
+    def inputsize(self):
+        if self._inputsize is None:
+            self._inputsize = sum(f.size for f in self.input)
+        return self._inputsize
+
+    def priority(self):
+        return max(self.dag.priority(job) for job in self.jobs)
+
+    @property
+    def is_local(self):
+        return all(job.is_local for job in self.jobs)
+
+    def format_wildcards(self, string, **variables):
+        """ Format a string with variables from the job. """
+        _variables = dict()
+        _variables.update(self.dag.workflow.globals)
+        _variables.update(dict(input=self.input,
+                               output=self.output,
+                               threads=self.threads,
+                               resources=self.resources))
+        _variables.update(variables)
+        try:
+            return format(string, **_variables)
+        except NameError as ex:
+            raise WorkflowError("NameError: " + str(ex))
+        except IndexError as ex:
+            raise WorkflowError("IndexError: " + str(ex))
+
+    @property
+    def threads(self):
+        return self.resources["_cores"]
+
+    def get_targets(self):
+        # jobs without output are targeted by rule name
+        targets = [job.rule.name for job in self.jobs if not job.products]
+        targets.extend(self.products)
+        return targets
+
+    @property
+    def attempt(self):
+        return self._attempt
+
+    @attempt.setter
+    def attempt(self, attempt):
+        # reset resources
+        self._resources = None
+        self._attempt = attempt
+
+    @property
+    def is_branched(self):
+        return any(job.is_branched for job in self.jobs)
+
+    @property
+    def rules(self):
+        return (job.rule.name for job in self.jobs)
+
+    def __len__(self):
+        return len(self.jobs)
 
 
 class Reason:
