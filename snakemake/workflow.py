@@ -773,7 +773,7 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
-            if ruleinfo.group:
+            if ruleinfo.group is not None:
                 rule.group = ruleinfo.group
             if ruleinfo.wrapper:
                 if self.use_conda:

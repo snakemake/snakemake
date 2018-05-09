@@ -292,7 +292,7 @@ class CPUExecutor(RealExecutor):
     def spawn_job(self, job):
         exec_job = self.exec_job
         if not job.is_branched:
-            exec_job += " --allowed-rules {}".format(" ".join(job.rules))
+            exec_job += " --allowed-rules {}".format(job.rules)
         cmd = self.format_job_pattern(exec_job, job=job,
                                       _quote_all=True,
                                       latency_wait=self.latency_wait)
@@ -501,7 +501,7 @@ class ClusterExecutor(RealExecutor):
         exec_job = self.format_job(self.exec_job,
                                    job,
                                    _quote_all=True,
-                                   rules=" ".join(job.rules),
+                                   rules=job.rules,
                                    **kwargs)
         content = self.format_job(self.jobscript,
                                   job,
@@ -658,7 +658,8 @@ class GenericClusterExecutor(ClusterExecutor):
         if ext_jobid and ext_jobid[0]:
             ext_jobid = ext_jobid[0]
             self.external_jobid.update((f, ext_jobid) for f in job.output)
-            logger.info("Submitted job {} with external jobid '{}'.".format(
+            logger.info("Submitted {} {} with external jobid '{}'.".format(
+                "group job" if job.is_group() else "job",
                 jobid, ext_jobid))
             self.workflow.persistence.started(
                 job, external_jobid=ext_jobid)

@@ -861,7 +861,11 @@ class Job(AbstractJob):
 
     @property
     def rules(self):
-        yield self.rule.name
+        return [self.rule.name]
+
+    @property
+    def restart_times(self):
+        return self.rule.restart_times
 
     def __len__(self):
         return 1
@@ -1075,7 +1079,17 @@ class GroupJob(AbstractJob):
 
     @property
     def rules(self):
-        return (job.rule.name for job in self.jobs)
+        return [job.rule.name for job in self.jobs]
+
+    @property
+    def expanded_output(self):
+        """Yields the entire expanded output of all jobs"""
+        for job in self.jobs:
+            yield from job.expanded_output
+
+    @property
+    def restart_times(self):
+        return max(job.restart_times for job in self.jobs)
 
     def __len__(self):
         return len(self.jobs)

@@ -338,7 +338,7 @@ class JobScheduler:
 
             if update_resources:
                 # normal jobs have len=1, group jobs have len>1
-                self.finished_jobs += len(job)
+                self.finished_jobs += 1
                 self.running.remove(job)
                 self._free_resources(job)
 
@@ -371,7 +371,7 @@ class JobScheduler:
         self._free_resources(job)
         # attempt starts counting from 1, but the first attempt is not
         # a restart, hence we subtract 1.
-        if job.rule.restart_times > job.attempt - 1:
+        if job.restart_times > job.attempt - 1:
             logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
             job.attempt += 1
         else:
