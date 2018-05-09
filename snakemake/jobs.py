@@ -26,6 +26,14 @@ from snakemake.common import DYNAMIC_FILL, lazy_property
 from snakemake import conda, wrapper
 
 
+def format_files(job, io, dynamicio):
+    for f in io:
+        if f in dynamicio:
+            yield "{} (dynamic)".format(f.format_dynamic())
+        else:
+            yield f
+
+
 def jobfiles(jobs, type):
     return chain(*map(attrgetter(type), jobs))
 
@@ -733,10 +741,10 @@ class Job(AbstractJob):
         logger.job_info(jobid=self.dag.jobid(self),
                         msg=self.message,
                         name=self.rule.name,
-                        local=self.workflow.is_local(self.rule),
+                        local=self.dag.workflow.is_local(self.rule),
                         input=list(format_files(self, self.input,
                                                 self.dynamic_input)),
-                        output=list(format_files(job, self.output,
+                        output=list(format_files(self, self.output,
                                                  self.dynamic_output)),
                         log=list(self.log),
                         benchmark=self.benchmark,
@@ -954,7 +962,7 @@ class GroupJob(AbstractJob):
 
     @property
     def jobid(self):
-        return ",".join(str(job.jobid for job in self.jobs)
+        return ",".join(str(job.jobid) for job in self.jobs)
 
     def cleanup(self):
         for job in self.jobs:
@@ -968,6 +976,10 @@ class GroupJob(AbstractJob):
     @property
     def name(self):
         return str(self.groupid)
+
+    def check_protected_output(self):
+        for job in self.jobs:
+            job.check_protected_output()
 
 
 class Reason:

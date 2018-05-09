@@ -841,7 +841,9 @@ class DAG:
         except KeyError:
             pass
 
-        if not job.is_group():
+        if job.is_group():
+            jobs = job
+        else:
             jobs = [job]
 
         self._finished.update(jobs)

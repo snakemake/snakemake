@@ -44,14 +44,6 @@ def sleep():
         time.sleep(10)
 
 
-def format_files(job, io, dynamicio):
-    for f in io:
-        if f in dynamicio:
-            yield "{} (dynamic)".format(f.format_dynamic())
-        else:
-            yield f
-
-
 class AbstractExecutor:
     def __init__(self, workflow, dag,
                  printreason=False,

@@ -241,11 +241,11 @@ class Logger:
             if resources:
                 yield "    resources: " + resources
 
-        def indent(msg):
+        def indent(item):
             if msg.get("indent"):
-                return "    " + msg
+                return "    " + item
             else:
-                return msg
+                return item
 
         level = msg["level"]
         if level == "job_info" and not self.quiet:
