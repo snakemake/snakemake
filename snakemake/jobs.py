@@ -849,7 +849,7 @@ class Job(AbstractJob):
     def products(self):
         products = list(self.output)
         if self.benchmark:
-            products.append(benchmark)
+            products.append(self.benchmark)
         products.extend(self.log)
         return products
 
