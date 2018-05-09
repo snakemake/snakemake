@@ -878,7 +878,7 @@ class GroupJob(AbstractJob):
 
     def __init__(self, id, jobs):
         self.groupid = id
-        self.jobs = list(jobs)
+        self.jobs = frozenset(jobs)
         self._resources = None
         self._input = None
         self._output = None
@@ -888,11 +888,11 @@ class GroupJob(AbstractJob):
 
     @property
     def dag(self):
-        return self.jobs[0].dag
+        return next(iter(self.jobs)).dag
 
     def merge(self, other):
         assert other.groupid == self.groupid
-        self.jobs.update(other.jobs)
+        self.jobs = self.jobs | other.jobs
 
     def __iter__(self):
         return iter(self.jobs)
@@ -1093,6 +1093,15 @@ class GroupJob(AbstractJob):
 
     def __len__(self):
         return len(self.jobs)
+
+    def __hash__(self):
+        return hash(self.jobs)
+
+    def __eq__(self, other):
+        if other.is_group():
+            return self.jobs == other.jobs
+        else:
+            return False
 
 
 class Reason:

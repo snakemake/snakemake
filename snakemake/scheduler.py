@@ -338,7 +338,7 @@ class JobScheduler:
 
             if update_resources:
                 # normal jobs have len=1, group jobs have len>1
-                self.finished_jobs += 1
+                self.finished_jobs += len(job)
                 self.running.remove(job)
                 self._free_resources(job)
 
