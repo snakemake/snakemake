@@ -262,7 +262,6 @@ class CPUExecutor(RealExecutor):
             callback=None,
             submit_callback=None,
             error_callback=None):
-        assert not job.is_group(), "bug: group jobs are not supported by CPU executor"
         super()._run(job)
 
         if self.use_threads or (not job.is_shadow and

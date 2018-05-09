@@ -25,7 +25,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local
+from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
@@ -58,7 +58,8 @@ class Workflow:
                  restart_times=None,
                  attempt=1,
                  default_remote_provider=None,
-                 default_remote_prefix=""):
+                 default_remote_prefix="",
+                 run_local=True):
         """
         Create the controller.
         """
@@ -106,6 +107,7 @@ class Workflow:
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
         self.configfiles = []
+        self.run_local = run_local
 
         self.iocache = snakemake.io.IOCache()
 
@@ -291,8 +293,6 @@ class Workflow:
                 assume_shared_fs=True,
                 cluster_status=None):
 
-        run_local = not (cluster or cluster_sync or drmaa or kubernetes)
-
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
@@ -371,8 +371,7 @@ class Workflow:
             force_incomplete=force_incomplete,
             ignore_incomplete=ignore_incomplete or printdag or printrulegraph,
             notemp=notemp,
-            keep_remote_local=keep_remote_local,
-            nogroups=run_local)
+            keep_remote_local=keep_remote_local)
 
         self.persistence = Persistence(
             nolock=nolock,
@@ -773,7 +772,7 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
-            if ruleinfo.group is not None:
+            if not self.run_local and ruleinfo.group is not None:
                 rule.group = ruleinfo.group
             if ruleinfo.wrapper:
                 if self.use_conda:

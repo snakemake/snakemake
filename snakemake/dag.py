@@ -15,6 +15,7 @@ from inspect import isfunction, ismethod
 from operator import itemgetter, attrgetter
 from pathlib import Path
 import subprocess
+import uuid
 
 from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
 from snakemake.jobs import Job, Reason, GroupJob
@@ -53,10 +54,8 @@ class DAG:
                  force_incomplete=False,
                  ignore_incomplete=False,
                  notemp=False,
-                 keep_remote_local=False,
-                 nogroups=False):
+                 keep_remote_local=False):
 
-        self.nogroups = nogroups
         self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
@@ -782,7 +781,7 @@ class DAG:
         groups = dict()
         for job in jobs:
             if not self.finished(job) and self._ready(job):
-                if self.nogroups or job.group is None:
+                if job.group is None:
                     self._ready_jobs.add(job)
                 else:
                     group = GroupJob(job.group,
@@ -815,8 +814,60 @@ class DAG:
         self.update_jobids()
         self.update_needrun()
         self.update_priority()
+        self.handle_pipes()
         self.update_ready()
         self.close_remote_objects()
+
+    def handle_pipes(self):
+        """Use pipes to determine job groups. Check if every pipe has exactly
+           one consumer"""
+        for job in self.needrun_jobs:
+            candidate_groups = set()
+            if job.group is not None:
+                candidate_groups.add(job.group)
+            all_depending = set()
+            has_pipe = False
+            for f in job.output:
+                if is_flagged(f, "pipe"):
+                    has_pipe = True
+                    depending = [j for j, files in self.depending[job].items()
+                                   if f in files]
+                    if len(depending) > 1:
+                        raise WorkflowError("Output file {} is marked as pipe "
+                                            "but more than one job depends on "
+                                            "it. Make sure that any pipe "
+                                            "output is only consumed by one "
+                                            "job".format(f),
+                                            rule=job.rule)
+                    elif len(depending) == 0:
+                        raise WorkflowError("Output file {} is marked as pipe "
+                                            "but it has no consumer. This is "
+                                            "invalid because it can lead to "
+                                            "a dead lock.".format(f),
+                                            rule=job.rule)
+
+                    depending = depending[0]
+                    all_depending.add(depending)
+                    if depending.group is not None:
+                        candidate_groups.add(depending.group)
+            if not has_pipe:
+                continue
+
+            if len(candidate_groups) > 1:
+                raise WorkflowError("An output file is marked as "
+                                    "pipe, but consuming jobs "
+                                    "are part of conflicting "
+                                    "groups.",
+                                    rule=job.rule)
+            elif candidate_groups:
+                # extend the candidate group to all involved jobs
+                group = candidate_groups.pop()
+            else:
+                # generate a random unique group name
+                group = uuid.uuid4()
+            job.group = group
+            for j in all_depending:
+                j.group = group
 
     def _ready(self, job):
         """Return whether the given job is ready to execute."""

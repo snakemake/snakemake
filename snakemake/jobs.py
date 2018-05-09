@@ -30,6 +30,8 @@ def format_files(job, io, dynamicio):
     for f in io:
         if f in dynamicio:
             yield "{} (dynamic)".format(f.format_dynamic())
+        elif is_flagged(f, "pipe"):
+            yield "{} (pipe)".format(f)
         else:
             yield f
 
@@ -179,6 +181,10 @@ class Job(AbstractJob):
         if self._group is None:
             self._group = self.rule.expand_group(self.wildcards_dict)
         return self._group
+
+    @group.setter
+    def group(self, group):
+        self._group = group
 
     @property
     def attempt(self):
@@ -875,7 +881,7 @@ class Job(AbstractJob):
 class GroupJob(AbstractJob):
 
     __slots__ = ["groupid", "jobs", "_resources", "_input", "_output",
-                 "_all_output", "_inputsize"]
+                 "_all_output", "_inputsize", "type"]
 
     def __init__(self, id, jobs):
         self.groupid = id
@@ -919,7 +925,7 @@ class GroupJob(AbstractJob):
 
     def register(self):
         for job in self.jobs:
-            self.register()
+            job.register()
 
     def remove_existing_output(self):
         for job in self.jobs:
@@ -950,12 +956,18 @@ class GroupJob(AbstractJob):
     @property
     def resources(self):
         if self._resources is None:
-            self._resources = dict()
+            self._resources = defaultdict(int)
             # take the maximum over all jobs
             for job in self.jobs:
                 for res, value in job.resources.items():
-                    self._resources[res] = max(self._resources.get(res, value),
-                                               value)
+                    if self.dag.workflow.run_local:
+                        # in case of local execution, this must be a
+                        # group of jobs that are connected with pipes
+                        # and have to run simultaneously
+                        self._resources[res] += value
+                    else:
+                        self._resources[res] = max(self._resources.get(res, value),
+                                                   value)
         return self._resources
 
     @property
