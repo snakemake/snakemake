@@ -148,8 +148,8 @@ class Logger:
         info = inspect.getframeinfo(frame)
         self.debug("{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info))
 
-    def info(self, msg):
-        self.handler(dict(level="info", msg=msg))
+    def info(self, msg, indent=False):
+        self.handler(dict(level="info", msg=msg, indent=indent))
 
     def warning(self, msg):
         self.handler(dict(level="warning", msg=msg))
