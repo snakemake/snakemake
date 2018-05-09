@@ -186,7 +186,7 @@ class RealExecutor(AbstractExecutor):
                       snakefile=self.snakefile,
                       cores=self.cores,
                       benchmark_repeats=self.benchmark_repeats,
-                      target=" ".join(job.get_targets()),
+                      target=job.get_targets(),
                       **kwargs)
 
 
@@ -292,7 +292,7 @@ class CPUExecutor(RealExecutor):
     def spawn_job(self, job):
         exec_job = self.exec_job
         if not job.is_branched:
-            exec_job += " --allowed-rules {}".format(job.rules)
+            exec_job += " --allowed-rules {}".format(" ".join(job.rules))
         cmd = self.format_job_pattern(exec_job, job=job,
                                       _quote_all=True,
                                       latency_wait=self.latency_wait)
