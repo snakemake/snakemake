@@ -472,7 +472,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         # ensure selection of groups of jobs that together delete the same temp
         # file.
 
-        return (job.priority(),
+        return (job.priority,
                 temp_size,
                 input_size)
 

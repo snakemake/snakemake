@@ -76,7 +76,7 @@ class Stats:
             }
             for f, start, stop, duration, job in self.file_stats
         }
-
+        
         with open(path, "w") as f:
             json.dump({
                 "total_runtime": self.overall_runtime,

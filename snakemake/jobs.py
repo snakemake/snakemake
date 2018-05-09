@@ -741,7 +741,7 @@ class Job(AbstractJob):
         if skip_dynamic and self.dag.dynamic(self):
             return
 
-        priority = self.dag.priority(self)
+        priority = self.priority
         logger.job_info(jobid=self.dag.jobid(self),
                         msg=self.message,
                         name=self.rule.name,
@@ -841,6 +841,7 @@ class Job(AbstractJob):
     def name(self):
         return self.rule.name
 
+    @property
     def priority(self):
         return self.dag.priority(self)
 
@@ -1030,6 +1031,7 @@ class GroupJob(AbstractJob):
             self._inputsize = sum(f.size for f in self.input)
         return self._inputsize
 
+    @property
     def priority(self):
         return max(self.dag.priority(job) for job in self.jobs)
 
