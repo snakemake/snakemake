@@ -1,5 +1,14 @@
 # Change Log
 
+# [5.0.0] - 2018-05-11
+# Added
+- Group jobs for reduced queuing and network overhead, in particular with short running jobs.
+- Output files can be marked as pipes, such that producing and consuming job are executed simultaneously and interfomation is transferred directly without using disk.
+- Command line flags to clean output files.
+- Command line flag to list files in working directory that are not tracked by Snakemake.
+# Changes
+
+
 # [4.8.1] - 2018-04-25
 # Added
 - Allow URLs for the conda directive.
