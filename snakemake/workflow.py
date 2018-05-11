@@ -261,6 +261,7 @@ class Workflow:
                 list_code_changes=False,
                 list_input_changes=False,
                 list_params_changes=False,
+                list_untracked=False,
                 list_conda_envs=False,
                 summary=False,
                 archive=None,
@@ -378,7 +379,7 @@ class Workflow:
             singularity_prefix=self.singularity_prefix,
             warn_only=dryrun or printrulegraph or printdag or summary or archive or
             list_version_changes or list_code_changes or list_input_changes or
-            list_params_changes or delete_all_output or delete_temp_output)
+            list_params_changes or list_untracked or delete_all_output or delete_temp_output)
 
         if cleanup_metadata:
             for f in cleanup_metadata:
@@ -516,7 +517,9 @@ class Workflow:
             if items:
                 print(*items, sep="\n")
             return True
-
+        elif list_untracked:
+            dag.list_untracked()
+            return True
 
         if self.use_singularity:
             if assume_shared_fs:
