@@ -13,7 +13,7 @@ import shutil
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
-
+from snakemake.shell import shell
 
 
 def cwl(path, basedir, input, output, params, wildcards, threads, resources,
