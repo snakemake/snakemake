@@ -256,7 +256,7 @@ class CPUExecutor(RealExecutor):
 
         self.use_threads = use_threads
         self.cores = cores
-        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
+        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers + 1)
 
     def run(self, job,
             callback=None,
@@ -273,43 +273,57 @@ class CPUExecutor(RealExecutor):
         future.add_done_callback(partial(self._callback, job, callback,
                                          error_callback))
 
-    def run_single_job(self, job, pool=None):
-        if pool is None:
-            pool = self.pool
+    def job_args_and_prepare(self, job):
+        job.prepare()
 
-        if self.use_threads or (not job.is_shadow and
-           (job.is_shell or job.is_norun or job.is_script or job.is_wrapper)):
-            job.prepare()
-            conda_env = job.conda_env_path
-            singularity_img = job.singularity_img_path
+        conda_env = job.conda_env_path
+        singularity_img = job.singularity_img_path
 
-            benchmark = None
-            if job.benchmark is not None:
-                benchmark = str(job.benchmark)
-            future = pool.submit(
-                run_wrapper, job.rule, job.input.plainstrings(),
-                job.output.plainstrings(), job.params, job.wildcards, job.threads,
-                job.resources, job.log.plainstrings(), benchmark,
+        benchmark = None
+        if job.benchmark is not None:
+            benchmark = str(job.benchmark)
+        return (job.rule, job.input.plainstrings(),
+                job.output.plainstrings(), job.params, job.wildcards,
+                job.threads, job.resources, job.log.plainstrings(), benchmark,
                 self.benchmark_repeats, conda_env, singularity_img,
                 self.workflow.singularity_args, self.workflow.use_singularity,
                 self.workflow.linemaps, self.workflow.debug,
-                shadow_dir=job.shadow_dir)
+                job.shadow_dir, job.jobid)
+
+    def run_single_job(self, job):
+        if self.use_threads or (not job.is_shadow and not job.is_run):
+            future = self.pool.submit(
+                run_wrapper, *self.job_args_and_prepare(job))
         else:
             # run directive jobs are spawned into subprocesses
-            future = pool.submit(self.spawn_job, job)
+            future = self.pool.submit(self.spawn_job, job)
         return future
 
     def run_group_job(self, job):
-        """Run a group job.
+        """Run a pipe group job.
 
         This spawns a thread pool to have all items running simultaneously."""
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(job)) as group_pool:
-            futures = [self.run_single_job(j, pool=group_pool) for j in job]
-        exceptions = list(filter(lambda e: e is not None,
-                                 (future.exception() for future in futures)))
-        if exceptions:
-            # Raise all exceptions as WorkflowError
-            raise WorkflowError(*exceptions)
+        import asyncio
+        # we only have to consider pipe groups because in local running mode,
+        # these are the only groups that will occur
+
+        async def run(j):
+            f = self.run_single_job(j)
+            while True:
+                if f.done():
+                    ex = f.exception()
+                    if ex is not None:
+                        for j in job:
+                            shell.kill(j.jobid)
+                        raise ex
+                    else:
+                        return
+                await asyncio.sleep(1)
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(asyncio.gather(*[run(j) for j in job]))
+        loop.close()
 
     def spawn_job(self, job):
         exec_job = self.exec_job
@@ -332,7 +346,7 @@ class CPUExecutor(RealExecutor):
     def _callback(self, job, callback, error_callback, future):
         try:
             ex = future.exception()
-            if ex:
+            if ex is not None:
                 raise ex
             callback(job)
         except _ProcessPoolExceptions:
@@ -1226,8 +1240,8 @@ class KubernetesExecutor(ClusterExecutor):
 
 def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, log,
                 benchmark, benchmark_repeats, conda_env, singularity_img,
-                singularity_args, use_singularity, linemaps, debug=False,
-                shadow_dir=None):
+                singularity_args, use_singularity, linemaps, debug,
+                shadow_dir, jobid):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
 
@@ -1268,7 +1282,8 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                         bench_record = BenchmarkRecord()
                         run(input, output, params, wildcards, threads, resources,
                             log, version, rule, conda_env, singularity_img,
-                            singularity_args, use_singularity, bench_record)
+                            singularity_args, use_singularity, bench_record,
+                            jobid)
                     else:
                         # The benchmarking is started here as we have a run section
                         # and the generated Python function is executed in this
@@ -1277,13 +1292,13 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                             run(input, output, params, wildcards, threads, resources,
                                 log, version, rule, conda_env, singularity_img,
                                 singularity_args, use_singularity,
-                                bench_record)
+                                bench_record, jobid)
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
             else:
                 run(input, output, params, wildcards, threads, resources,
                     log, version, rule, conda_env, singularity_img,
-                    singularity_args, use_singularity, None)
+                    singularity_args, use_singularity, None, jobid)
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it

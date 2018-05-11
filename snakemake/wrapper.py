@@ -78,7 +78,8 @@ def wrapper(path,
             singularity_img,
             singularity_args,
             bench_record,
-            prefix):
+            prefix,
+            jobid):
     """
     Load a wrapper from https://bitbucket.org/snakemake/snakemake-wrappers under
     the given path + wrapper.(py|R|Rmd) and execute it.

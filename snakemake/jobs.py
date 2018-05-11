@@ -315,6 +315,15 @@ class Job(AbstractJob):
         return self.rule.wrapper is not None
 
     @property
+    def is_cwl(self):
+        return self.rule.cwl is not None
+
+    @property
+    def is_run(self):
+        return not (self.is_shell or self.is_norun or self.is_script or
+                    self.is_wrapper or self.is_cwl)
+
+    @property
     def expanded_output(self):
         """ Iterate over output files while dynamic output is expanded. """
         for f, f_ in zip(self.output, self.rule.output):

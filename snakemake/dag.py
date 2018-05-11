@@ -829,6 +829,13 @@ class DAG:
             has_pipe = False
             for f in job.output:
                 if is_flagged(f, "pipe"):
+                    if job.is_run:
+                        raise WorkflowError("Rule defines pipe output but "
+                                            "uses a 'run' directive. This is "
+                                            "not possible for technical "
+                                            "reasons. Consider using 'shell' or "
+                                            "'script'.", rule=job.rule)
+
                     has_pipe = True
                     depending = [j for j, files in self.depending[job].items()
                                    if f in files]
@@ -847,6 +854,14 @@ class DAG:
                                             rule=job.rule)
 
                     depending = depending[0]
+
+                    if depending.is_run:
+                        raise WorkflowError("Rule consumes pipe input but "
+                                            "uses a 'run' directive. This is "
+                                            "not possible for technical "
+                                            "reasons. Consider using 'shell' or "
+                                            "'script'.", rule=job.rule)
+
                     all_depending.add(depending)
                     if depending.group is not None:
                         candidate_groups.add(depending.group)

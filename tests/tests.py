@@ -636,6 +636,13 @@ def test_group_job_fail():
     run(dpath("test_group_job_fail"), cluster="./qsub", shouldfail=True)
 
 
+def test_pipes():
+    run(dpath("test_pipes"))
+
+
+def test_pipes_fail():
+    run(dpath("test_pipes_fail"))
+
 
 if __name__ == '__main__':
     import nose

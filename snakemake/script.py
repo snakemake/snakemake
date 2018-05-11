@@ -154,7 +154,7 @@ class Snakemake:
 
 def script(path, basedir, input, output, params, wildcards, threads, resources,
            log, config, rulename, conda_env, singularity_img, singularity_args,
-           bench_record):
+           bench_record, jobid):
     """
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.

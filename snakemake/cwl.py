@@ -17,7 +17,7 @@ from snakemake.exceptions import WorkflowError
 
 
 def cwl(path, basedir, input, output, params, wildcards, threads, resources,
-        log, config, rulename, use_singularity, bench_record):
+        log, config, rulename, use_singularity, bench_record, jobid):
     """
     Load cwl from the given basedir + path and execute it.
     """
@@ -55,15 +55,4 @@ def cwl(path, basedir, input, output, params, wildcards, threads, resources,
         json.dump(inputs, input_file)
         input_file.flush()
         cmd = "cwltool {} {} {}".format(args, sourceurl, input_file.name)
-        try:
-            subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            raise WorkflowError("Error executing cwltool:\n" + e.stdout.decode())
-
-
-    # import cwltool.factory
-    # fac = cwltool.factory.Factory()
-    #
-    # tool = fac.make(sourceurl)
-    #
-    # tool(**inputs)
+        shell(cmd, bench_record=bench_record)

@@ -17,6 +17,7 @@ from snakemake.executors import (
     GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor,
     KubernetesExecutor)
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
+from snakemake.shell import shell
 
 from snakemake.logging import logger
 
