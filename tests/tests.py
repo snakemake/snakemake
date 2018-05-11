@@ -543,11 +543,10 @@ def test_issue260():
    run(dpath("test_issue260"))
 
 
-# TODO reenable once S3Mocked works again with boto3
-# def test_default_remote():
-#     run(dpath("test_default_remote"),
-#         default_remote_provider="S3Mocked",
-#         default_remote_prefix="test-remote-bucket")
+def test_default_remote():
+     run(dpath("test_default_remote"),
+         default_remote_provider="S3Mocked",
+         default_remote_prefix="test-remote-bucket")
 
 
 def test_run_namedlist():

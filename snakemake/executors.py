@@ -1109,7 +1109,7 @@ class KubernetesExecutor(ClusterExecutor):
         last_stable_version = __version__.split("+")[0]
         self.container_image = (
             container_image or
-            "quay.io/snakemake/snakemake:{}".format(last_stable_version))
+            "quay.io/snakemake/snakemake:v{}".format(last_stable_version))
 
     def register_secret(self):
         import kubernetes.client
