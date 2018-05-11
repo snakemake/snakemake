@@ -302,28 +302,26 @@ class CPUExecutor(RealExecutor):
     def run_group_job(self, job):
         """Run a pipe group job.
 
-        This spawns a thread pool to have all items running simultaneously."""
-        import asyncio
+        This lets all items run simultaneously."""
         # we only have to consider pipe groups because in local running mode,
         # these are the only groups that will occur
 
-        async def run(j):
-            f = self.run_single_job(j)
-            while True:
+        futures = [self.run_single_job(j) for j in job]
+
+        while True:
+            for f in futures:
                 if f.done():
                     ex = f.exception()
                     if ex is not None:
+                        # kill all shell commands of the other group jobs
+                        # there can be only shell commands because the
+                        # run directive is not allowed for pipe jobs
                         for j in job:
                             shell.kill(j.jobid)
                         raise ex
                     else:
                         return
-                await asyncio.sleep(1)
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(asyncio.gather(*[run(j) for j in job]))
-        loop.close()
+            time.sleep(1)
 
     def spawn_job(self, job):
         exec_job = self.exec_job
