@@ -181,6 +181,10 @@ class Logger:
         msg["level"] = "job_error"
         self.handler(msg)
 
+    def group_error(self, **msg):
+        msg["level"] = "group_error"
+        self.handler(msg)
+
     def dag_debug(self, msg):
         self.handler(dict(level="dag_debug", **msg))
 
@@ -267,7 +271,7 @@ class Logger:
         elif level == "group_info":
             if not self.last_msg_was_job_info:
                 self.logger.info("")
-            self.logger.info("group job {}:".format(msg["groupid"]))
+            self.logger.info("group job {} (jobs in lexicogr. order):".format(msg["groupid"]))
         elif level == "job_error":
             self.logger.error(indent("Error in rule {}:".format(msg["name"])))
             self.logger.error(indent("    jobid: {}".format(msg["jobid"])))
@@ -280,6 +284,8 @@ class Logger:
             for item in msg["aux"].items():
                 self.logger.error(indent("    {}: {}".format(*item)))
             self.logger.error("")
+        elif level == "group_error":
+            self.logger.error("Error in group job {}:".format(msg["groupid"]))
         else:
             if level == "info":
                 self.logger.warning(msg["msg"])

@@ -264,6 +264,19 @@ class CPUExecutor(RealExecutor):
             error_callback=None):
         super()._run(job)
 
+        if job.is_group():
+            # the future waits for the entire group job
+            future = self.pool.submit(self.run_group_job, job)
+        else:
+            future = self.run_single_job(job)
+
+        future.add_done_callback(partial(self._callback, job, callback,
+                                         error_callback))
+
+    def run_single_job(self, job, pool=None):
+        if pool is None:
+            pool = self.pool
+
         if self.use_threads or (not job.is_shadow and
            (job.is_shell or job.is_norun or job.is_script or job.is_wrapper)):
             job.prepare()
@@ -273,7 +286,7 @@ class CPUExecutor(RealExecutor):
             benchmark = None
             if job.benchmark is not None:
                 benchmark = str(job.benchmark)
-            future = self.pool.submit(
+            future = pool.submit(
                 run_wrapper, job.rule, job.input.plainstrings(),
                 job.output.plainstrings(), job.params, job.wildcards, job.threads,
                 job.resources, job.log.plainstrings(), benchmark,
@@ -283,10 +296,20 @@ class CPUExecutor(RealExecutor):
                 shadow_dir=job.shadow_dir)
         else:
             # run directive jobs are spawned into subprocesses
-            future = self.pool.submit(self.spawn_job, job)
+            future = pool.submit(self.spawn_job, job)
+        return future
 
-        future.add_done_callback(partial(self._callback, job, callback,
-                                         error_callback))
+    def run_group_job(self, job):
+        """Run a group job.
+
+        This spawns a thread pool to have all items running simultaneously."""
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(job)) as group_pool:
+            futures = [self.run_single_job(j, pool=group_pool) for j in job]
+        exceptions = list(filter(lambda e: e is not None,
+                                 (future.exception() for future in futures)))
+        if exceptions:
+            # Raise all exceptions as WorkflowError
+            raise WorkflowError(*exceptions)
 
     def spawn_job(self, job):
         exec_job = self.exec_job

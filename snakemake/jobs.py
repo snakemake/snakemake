@@ -915,7 +915,7 @@ class GroupJob(AbstractJob):
 
     def log_info(self, skip_dynamic=False):
         logger.group_info(groupid=self.groupid)
-        for job in self.jobs:
+        for job in sorted(self.jobs, key=lambda j: j.rule.name):
             job.log_info(skip_dynamic, indent=True)
 
     def log_error(self, msg=None, **kwargs):
@@ -1023,6 +1023,12 @@ class GroupJob(AbstractJob):
                     **kwargs):
         for job in self.jobs:
             job.postprocess(**kwargs)
+        # remove all pipe outputs since all jobs of this group are done and the
+        # pipes are no longer needed
+        for job in self.jobs:
+            for f in job.output:
+                if is_flagged(f, "pipe"):
+                    f.remove()
 
     @property
     def name(self):
