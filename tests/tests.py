@@ -171,6 +171,9 @@ def test15():
 def test_ancient():
     run(dpath("test_ancient"), targets=['D'])
 
+def test_list_untracked():
+    run(dpath("test_list_untracked"))
+
 def test_report():
     run(dpath("test_report"), check_md5=False)
 
@@ -543,11 +546,10 @@ def test_issue260():
    run(dpath("test_issue260"))
 
 
-# TODO reenable once S3Mocked works again with boto3
-# def test_default_remote():
-#     run(dpath("test_default_remote"),
-#         default_remote_provider="S3Mocked",
-#         default_remote_prefix="test-remote-bucket")
+def test_default_remote():
+     run(dpath("test_default_remote"),
+         default_remote_provider="S3Mocked",
+         default_remote_prefix="test-remote-bucket")
 
 
 def test_run_namedlist():

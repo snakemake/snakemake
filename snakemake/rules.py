@@ -307,14 +307,29 @@ class Rule:
             seen[value] = name or idx
 
     def apply_default_remote(self, item):
+        def is_annotated_callable(value):
+            if isinstance(value, AnnotatedString):
+                return bool(value.callable)
+            
+        def apply(value):
+            if (not is_flagged(value, "remote_object") and
+                not is_flagged(value, "local") and
+                not is_annotated_callable(value) and
+                self.workflow.default_remote_provider is not None):
+                value = "{}/{}".format(self.workflow.default_remote_prefix, value)
+                value = os.path.normpath(value)
+                return self.workflow.default_remote_provider.remote(value)
+            else:
+                return value
+
         assert not callable(item)
-        if (not is_flagged(item, "remote_object") and
-            not is_flagged(item, "local") and
-            self.workflow.default_remote_provider is not None):
-            item = "{}/{}".format(self.workflow.default_remote_prefix, item)
-            item = os.path.normpath(item)
-            return self.workflow.default_remote_provider.remote(item)
-        return item
+        if isinstance(item, dict):
+            return {k: apply(v) for k, v in item.items()}
+        elif isinstance(item, Iterable) and not isinstance(item, str):
+            return [apply(e) for e in item]
+        else:
+            return apply(item)
+
 
     def _set_inoutput_item(self, item, output=False, name=None):
         """

@@ -7,7 +7,6 @@ dependencies:
   - rpy2 >=0.7.6
   - datrie
   - boto3
-  - moto >=1.0.1
   - httpretty
   - wrapt
   - pyyaml
@@ -35,3 +34,5 @@ dependencies:
   - appdirs
   - python-irodsclient
   - cwltool
+  - pip:
+      - moto==1.3.3

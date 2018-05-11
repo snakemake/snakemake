@@ -4,6 +4,7 @@ jobs:
     machine: true
     environment:
       - GCLOUD: /opt/google-cloud-sdk/bin/gcloud
+      - BOTO_CONFIG: /dev/null
     steps:
       - checkout
       - restore_cache:

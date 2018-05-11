@@ -1384,6 +1384,20 @@ class DAG:
                             # Remove non-empty dirs if flagged as temp()
                             f.remove(remove_non_empty_dir=only_temp)
 
+    def list_untracked(self):
+        """List files in the workdir that are not in the dag.
+        """
+        used_files = set()
+        files_in_cwd = set()
+        for job in self.jobs:
+            used_files.update(os.path.relpath(file) for file in chain(job.local_input, job.local_output, job.log))
+        for root, dirs, files in os.walk(os.getcwd()):
+            # Ignore hidden files and don't traverse into hidden dirs
+            files_in_cwd.update([os.path.relpath(os.path.join(root, f)) for f in files if not f[0] == '.'])
+            dirs[:] = [d for d in dirs if not d[0] == '.']
+        for f in sorted(list(files_in_cwd - used_files)):
+            logger.info(f)
+
     def d3dag(self, max_jobs=10000):
         def node(job):
             jobid = self.jobid(job)
