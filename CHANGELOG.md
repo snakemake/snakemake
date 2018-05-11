@@ -8,6 +8,7 @@
 - Command line flag to list files in working directory that are not tracked by Snakemake.
 # Changes
 - Fix of --default-remote-prefix in case of input functions returning lists or dicts.
+- Scheduler no longer prefers jobs with many downstream jobs.
 
 # [4.8.1] - 2018-04-25
 # Added
