@@ -75,7 +75,7 @@ class shell:
 
         close_fds = sys.platform != 'win32'
 
-        jobid = context["jobid"]
+        jobid = context.get("jobid")
 
         env_prefix = ""
         conda_env = context.get("conda_env", None)
@@ -103,8 +103,9 @@ class shell:
                         stdout=stdout,
                         close_fds=close_fds, **cls._process_args)
 
-        with cls._lock:
-            cls._processes[jobid] = proc
+        if jobid is not None:
+            with cls._lock:
+                cls._processes[jobid] = proc
 
         ret = None
         if iterable:
@@ -121,8 +122,9 @@ class shell:
         else:
             retcode = proc.wait()
 
-        with cls._lock:
-            del cls._processes[jobid]
+        if jobid is not None:
+            with cls._lock:
+                del cls._processes[jobid]
 
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
