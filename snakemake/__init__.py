@@ -285,6 +285,8 @@ def snakemake(snakefile,
     else:
         cluster_config_content = dict()
 
+    run_local = not (cluster or cluster_sync or drmaa or kubernetes)
+
     # force thread use for any kind of cluster
     use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
     if not keep_logger:
@@ -381,7 +383,8 @@ def snakemake(snakefile,
                         restart_times=restart_times,
                         attempt=attempt,
                         default_remote_provider=_default_remote_provider,
-                        default_remote_prefix=default_remote_prefix)
+                        default_remote_prefix=default_remote_prefix,
+                        run_local=run_local)
         success = True
         workflow.include(snakefile,
                          overwrite_first_rule=True,
@@ -974,10 +977,10 @@ def get_argument_parser(profile=None):
         "installation directory.")
     parser.add_argument(
         "--jobname", "--jn",
-        default="snakejob.{rulename}.{jobid}.sh",
+        default="snakejob.{name}.{jobid}.sh",
         metavar="NAME",
         help="Provide a custom name for the jobscript that is submitted to the "
-        "cluster (see --cluster). NAME is \"snakejob.{rulename}.{jobid}.sh\" "
+        "cluster (see --cluster). NAME is \"snakejob.{name}.{jobid}.sh\" "
         "per default. The wildcard {jobid} has to be present in the name.")
     parser.add_argument(
         "--cluster-status",

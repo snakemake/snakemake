@@ -9,6 +9,7 @@ import os
 import subprocess as sp
 import inspect
 import shutil
+import threading
 
 from snakemake.utils import format
 from snakemake.logging import logger
@@ -28,6 +29,8 @@ class shell:
     _process_args = {}
     _process_prefix = ""
     _process_suffix = ""
+    _lock = threading.Lock()
+    _processes = {}
 
     @classmethod
     def get_executable(cls):
@@ -50,6 +53,12 @@ class shell:
     def suffix(cls, suffix):
         cls._process_suffix = format(suffix, stepout=2)
 
+    @classmethod
+    def kill(cls, jobid):
+        with cls._lock:
+            if jobid in cls._processes:
+                cls._processes[jobid].kill()
+
     def __new__(cls, cmd, *args,
                 async=False,
                 iterable=False,
@@ -65,6 +74,8 @@ class shell:
         stdout = sp.PIPE if iterable or async or read else STDOUT
 
         close_fds = sys.platform != 'win32'
+
+        jobid = context.get("jobid")
 
         env_prefix = ""
         conda_env = context.get("conda_env", None)
@@ -92,6 +103,10 @@ class shell:
                         stdout=stdout,
                         close_fds=close_fds, **cls._process_args)
 
+        if jobid is not None:
+            with cls._lock:
+                cls._processes[jobid] = proc
+
         ret = None
         if iterable:
             return cls.iter_stdout(proc, cmd)
@@ -106,6 +121,11 @@ class shell:
                 retcode = proc.wait()
         else:
             retcode = proc.wait()
+
+        if jobid is not None:
+            with cls._lock:
+                del cls._processes[jobid]
+
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
         return ret

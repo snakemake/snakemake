@@ -94,22 +94,24 @@ class Logger:
         self.quiet = False
         self.logfile = None
         self.last_msg_was_job_info = False
+        self.mode = Mode.default
 
     def setup_logfile(self):
-        # logfile output is done always
-        os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
-        self.logfile = os.path.abspath(os.path.join(".snakemake",
-                                    "log",
-                                    datetime.datetime.now().isoformat()
-                                                           .replace(":", "") +
-                                    ".snakemake.log"))
+        if self.mode == Mode.default:
+            os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
+            self.logfile = os.path.abspath(os.path.join(".snakemake",
+                                        "log",
+                                        datetime.datetime.now().isoformat()
+                                                               .replace(":", "") +
+                                        ".snakemake.log"))
 
-        self.logfile_handler = _logging.FileHandler(self.logfile)
-        self.logger.addHandler(self.logfile_handler)
+            self.logfile_handler = _logging.FileHandler(self.logfile)
+            self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
-        self.logger.removeHandler(self.logfile_handler)
-        self.logfile_handler.close()
+        if self.mode == Mode.default:
+            self.logger.removeHandler(self.logfile_handler)
+            self.logfile_handler.close()
         self.log_handler = [self.text_handler]
 
     def get_logfile(self):
@@ -118,8 +120,9 @@ class Logger:
         return self.logfile
 
     def remove_logfile(self):
-        self.logfile_handler.close()
-        os.remove(self.logfile)
+        if self.mode == Mode.default:
+            self.logfile_handler.close()
+            os.remove(self.logfile)
 
     def handler(self, msg):
         for handler in self.log_handler:
@@ -135,8 +138,9 @@ class Logger:
         self.logger.setLevel(level)
 
     def logfile_hint(self):
-        logfile = self.get_logfile()
-        self.info("Complete log: {}".format(logfile))
+        if self.mode == Mode.default:
+            logfile = self.get_logfile()
+            self.info("Complete log: {}".format(logfile))
 
     def location(self, msg):
         callerframerecord = inspect.stack()[1]
@@ -144,8 +148,8 @@ class Logger:
         info = inspect.getframeinfo(frame)
         self.debug("{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info))
 
-    def info(self, msg):
-        self.handler(dict(level="info", msg=msg))
+    def info(self, msg, indent=False):
+        self.handler(dict(level="info", msg=msg, indent=indent))
 
     def warning(self, msg):
         self.handler(dict(level="warning", msg=msg))
@@ -165,6 +169,10 @@ class Logger:
     def run_info(self, msg):
         self.handler(dict(level="run_info", msg=msg))
 
+    def group_info(self, **msg):
+        msg["level"] = "group_info"
+        self.handler(msg)
+
     def job_info(self, **msg):
         msg["level"] = "job_info"
         self.handler(msg)
@@ -173,12 +181,18 @@ class Logger:
         msg["level"] = "job_error"
         self.handler(msg)
 
+    def group_error(self, **msg):
+        msg["level"] = "group_error"
+        self.handler(msg)
+
     def dag_debug(self, msg):
         self.handler(dict(level="dag_debug", **msg))
 
-    def shellcmd(self, msg):
+    def shellcmd(self, msg, indent=False):
         if msg is not None:
-            self.handler(dict(level="shellcmd", msg=msg))
+            msg = dict(level="shellcmd", msg=msg)
+            msg["indent"] = indent
+            self.handler(msg)
 
     def job_finished(self, **msg):
         msg["level"] = "job_finished"
@@ -235,31 +249,43 @@ class Logger:
             if resources:
                 yield "    resources: " + resources
 
+        def indent(item):
+            if msg.get("indent"):
+                return "    " + item
+            else:
+                return item
+
         level = msg["level"]
         if level == "job_info" and not self.quiet:
             if not self.last_msg_was_job_info:
                 self.logger.info("")
             if msg["msg"] is not None:
-                self.logger.info("Job {}: {}".format(msg["jobid"], msg["msg"]))
+                self.logger.info(indent("Job {}: {}".format(msg["jobid"], msg["msg"])))
                 if self.printreason:
-                    self.logger.info("Reason: {}".format(msg["reason"]))
+                    self.logger.info(indent("Reason: {}".format(msg["reason"])))
             else:
-                self.logger.info("\n".join(job_info(msg)))
+                self.logger.info("\n".join(map(indent, job_info(msg))))
             self.logger.info("")
 
             self.last_msg_was_job_info = True
+        elif level == "group_info":
+            if not self.last_msg_was_job_info:
+                self.logger.info("")
+            self.logger.info("group job {} (jobs in lexicogr. order):".format(msg["groupid"]))
         elif level == "job_error":
-            self.logger.error("Error in rule {}:".format(msg["name"]))
-            self.logger.error("    jobid: {}".format(msg["jobid"]))
+            self.logger.error(indent("Error in rule {}:".format(msg["name"])))
+            self.logger.error(indent("    jobid: {}".format(msg["jobid"])))
             if msg["output"]:
-                self.logger.error("    output: {}".format(", ".join(msg["output"])))
+                self.logger.error(indent("    output: {}".format(", ".join(msg["output"]))))
             if msg["log"]:
-                self.logger.error("    log: {}".format(", ".join(msg["log"])))
+                self.logger.error(indent("    log: {}".format(", ".join(msg["log"]))))
             if msg["conda_env"]:
-                self.logger.error("    conda-env: {}".format(msg["conda_env"]))
+                self.logger.error(indent("    conda-env: {}".format(msg["conda_env"])))
             for item in msg["aux"].items():
-                self.logger.error("    {}: {}".format(*item))
+                self.logger.error(indent("    {}: {}".format(*item)))
             self.logger.error("")
+        elif level == "group_error":
+            self.logger.error("Error in group job {}:".format(msg["groupid"]))
         else:
             if level == "info":
                 self.logger.warning(msg["msg"])
@@ -282,7 +308,7 @@ class Logger:
                     done, total, percent_fmt))
             elif level == "shellcmd":
                 if self.printshellcmds:
-                    self.logger.warning(msg["msg"])
+                    self.logger.warning(indent(msg["msg"]))
             elif level == "job_finished" and not self.quiet:
                 self.logger.info("Finished job {}.".format(msg["jobid"]))
                 pass
@@ -350,3 +376,4 @@ def setup_logger(handler=None,
     logger.printshellcmds = printshellcmds
     logger.printreason = printreason
     logger.debug_dag = debug_dag
+    logger.mode = mode

@@ -25,7 +25,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local
+from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
@@ -58,7 +58,8 @@ class Workflow:
                  restart_times=None,
                  attempt=1,
                  default_remote_provider=None,
-                 default_remote_prefix=""):
+                 default_remote_prefix="",
+                 run_local=True):
         """
         Create the controller.
         """
@@ -106,6 +107,7 @@ class Workflow:
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
         self.configfiles = []
+        self.run_local = run_local
 
         self.iocache = snakemake.io.IOCache()
 
@@ -773,6 +775,8 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
+            if not self.run_local and ruleinfo.group is not None:
+                rule.group = ruleinfo.group
             if ruleinfo.wrapper:
                 if self.use_conda:
                     rule.conda_env = snakemake.wrapper.get_conda_env(
@@ -919,6 +923,13 @@ class Workflow:
 
         return decorate
 
+    def group(self, group):
+        def decorate(ruleinfo):
+            ruleinfo.group = group
+            return ruleinfo
+
+        return decorate
+
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
             ruleinfo.log = (logs, kwlogs)
@@ -989,6 +1000,7 @@ class RuleInfo:
         self.version = None
         self.log = None
         self.docstring = None
+        self.group = None
         self.script = None
         self.wrapper = None
         self.cwl = None

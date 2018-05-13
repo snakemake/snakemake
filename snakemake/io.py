@@ -333,6 +333,9 @@ class _IOFile(str):
                 if e.errno != 17:
                     raise e
 
+        if is_flagged(self._file, "pipe"):
+            os.mkfifo(self._file)
+
     def protect(self):
         mode = (lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP
                 & ~stat.S_IWOTH)
@@ -646,6 +649,14 @@ def temp(value):
     if is_flagged(value, "remote"):
         raise SyntaxError("Remote and temporary flags are mutually exclusive.")
     return flag(value, "temp")
+
+
+def pipe(value):
+    if is_flagged(value, "protected"):
+        raise SyntaxError("Pipes may not be protected.")
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Pipes may not be remote files.")
+    return flag(value, "pipe")
 
 
 def temporary(value):

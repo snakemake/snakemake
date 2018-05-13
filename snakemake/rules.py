@@ -15,7 +15,7 @@ from itertools import chain
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
-from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable
+from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable, DYNAMIC_FILL
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import Mode
@@ -55,6 +55,7 @@ class Rule:
             self._benchmark = None
             self._conda_env = None
             self._singularity_img = None
+            self.group = None
             self.wildcard_names = set()
             self.lineno = lineno
             self.snakefile = snakefile
@@ -91,6 +92,7 @@ class Rule:
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
             self._singularity_img = other._singularity_img
+            self.group = other.group
             self.wildcard_names = set(other.wildcard_names)
             self.lineno = other.lineno
             self.snakefile = other.snakefile
@@ -695,6 +697,16 @@ class Rule:
                 resources[name] = apply(name, res)
         resources = Resources(fromdict=resources)
         return resources
+
+    def expand_group(self, wildcards):
+        """Expand the group given wildcards."""
+        if callable(self.group):
+            return self.apply_input_function(self.group, wildcards)
+        elif isinstance(self.group, str):
+            return apply_wildcards(self.group, wildcards,
+                                   dynamic_fill=DYNAMIC_FILL)
+        else:
+            return self.group
 
     def expand_conda_env(self, wildcards):
         try:

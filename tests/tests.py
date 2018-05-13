@@ -630,6 +630,22 @@ def test_issue805():
     run(dpath("test_issue805"), shouldfail=True)
 
 
+def test_group_jobs():
+    run(dpath("test_group_jobs"), cluster="./qsub")
+
+
+def test_group_job_fail():
+    run(dpath("test_group_job_fail"), cluster="./qsub", shouldfail=True)
+
+
+def test_pipes():
+    run(dpath("test_pipes"))
+
+
+def test_pipes_fail():
+    run(dpath("test_pipes_fail"), shouldfail=True)
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)

@@ -15,9 +15,10 @@ from inspect import isfunction, ismethod
 from operator import itemgetter, attrgetter
 from pathlib import Path
 import subprocess
+import uuid
 
 from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
-from snakemake.jobs import Job, Reason
+from snakemake.jobs import Job, Reason, GroupJob
 from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
@@ -60,7 +61,6 @@ class DAG:
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
         self._priority = dict()
-        self._downstream_size = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
         self._dynamic = set()
@@ -229,6 +229,7 @@ class DAG:
                 lambda job: (job.dynamic_output and not self.needrun(job)),
                 self.jobs):
             self.update_dynamic(job)
+        self.postprocess()
 
     @property
     def dynamic_output_jobs(self):
@@ -253,7 +254,7 @@ class DAG:
     @property
     def local_needrun_jobs(self):
         """Iterate over all jobs that need to be run and are marked as local."""
-        return filter(lambda job: self.workflow.is_local(job.rule),
+        return filter(lambda job: job.is_local,
                       self.needrun_jobs)
 
     @property
@@ -268,10 +269,6 @@ class DAG:
         """Jobs that are ready to execute."""
         return self._ready_jobs
 
-    def ready(self, job):
-        """Return whether a given job is ready to execute."""
-        return job in self._ready_jobs
-
     def needrun(self, job):
         """Return whether a given job needs to be executed."""
         return job in self._needrun
@@ -279,10 +276,6 @@ class DAG:
     def priority(self, job):
         """Return priority of given job."""
         return self._priority[job]
-
-    def downstream_size(self, job):
-        """Return the number of downstream jobs of a given job."""
-        return self._downstream_size[job]
 
     def noneedrun_finished(self, job):
         """
@@ -305,7 +298,12 @@ class DAG:
         for those that are created after the job with dynamic output has
         finished.
         """
-        return job in self._dynamic
+        if job.is_group():
+            for j in job:
+                if j in self._dynamic:
+                    return True
+        else:
+            return job in self._dynamic
 
     def requested_files(self, job):
         """Return the files a job requests."""
@@ -775,20 +773,34 @@ class DAG:
                             stop=self.noneedrun_finished):
             self._priority[job] = Job.HIGHEST_PRIORITY
 
-    def update_ready(self):
+    def update_ready(self, jobs=None):
         """ Update information whether a job is ready to execute. """
-        for job in filter(self.needrun, self.jobs):
-            if not self.finished(job) and self._ready(job):
-                self._ready_jobs.add(job)
+        if jobs is None:
+            jobs = self.needrun_jobs
 
-    def update_downstream_size(self):
-        """For each job, update number of downstream jobs."""
-        for job in self.needrun_jobs:
-            self._downstream_size[job] = sum(
-                1
-                for _ in self.bfs(self.depending,
-                                  job,
-                                  stop=self.noneedrun_finished)) - 1
+        groups = dict()
+        for job in jobs:
+            if not self.finished(job) and self._ready(job):
+                if job.group is None:
+                    self._ready_jobs.add(job)
+                else:
+                    group = GroupJob(job.group,
+                                     self.bfs(self.depending, job,
+                                              stop=lambda j: j.group != job.group))
+
+                    # merge with previously determined group if present
+                    for j in group:
+                        if j in groups:
+                            other = groups[j]
+                            other.merge(group)
+                            group = other
+                            break
+                    # update assignment
+                    for j in group:
+                        if j not in groups:
+                            groups[j] = group
+
+        self._ready_jobs.update(groups.values())
 
     def close_remote_objects(self):
         """Close all remote objects."""
@@ -802,9 +814,75 @@ class DAG:
         self.update_jobids()
         self.update_needrun()
         self.update_priority()
+        self.handle_pipes()
         self.update_ready()
-        self.update_downstream_size()
         self.close_remote_objects()
+
+    def handle_pipes(self):
+        """Use pipes to determine job groups. Check if every pipe has exactly
+           one consumer"""
+        for job in self.needrun_jobs:
+            candidate_groups = set()
+            if job.group is not None:
+                candidate_groups.add(job.group)
+            all_depending = set()
+            has_pipe = False
+            for f in job.output:
+                if is_flagged(f, "pipe"):
+                    if job.is_run:
+                        raise WorkflowError("Rule defines pipe output but "
+                                            "uses a 'run' directive. This is "
+                                            "not possible for technical "
+                                            "reasons. Consider using 'shell' or "
+                                            "'script'.", rule=job.rule)
+
+                    has_pipe = True
+                    depending = [j for j, files in self.depending[job].items()
+                                   if f in files]
+                    if len(depending) > 1:
+                        raise WorkflowError("Output file {} is marked as pipe "
+                                            "but more than one job depends on "
+                                            "it. Make sure that any pipe "
+                                            "output is only consumed by one "
+                                            "job".format(f),
+                                            rule=job.rule)
+                    elif len(depending) == 0:
+                        raise WorkflowError("Output file {} is marked as pipe "
+                                            "but it has no consumer. This is "
+                                            "invalid because it can lead to "
+                                            "a dead lock.".format(f),
+                                            rule=job.rule)
+
+                    depending = depending[0]
+
+                    if depending.is_run:
+                        raise WorkflowError("Rule consumes pipe input but "
+                                            "uses a 'run' directive. This is "
+                                            "not possible for technical "
+                                            "reasons. Consider using 'shell' or "
+                                            "'script'.", rule=job.rule)
+
+                    all_depending.add(depending)
+                    if depending.group is not None:
+                        candidate_groups.add(depending.group)
+            if not has_pipe:
+                continue
+
+            if len(candidate_groups) > 1:
+                raise WorkflowError("An output file is marked as "
+                                    "pipe, but consuming jobs "
+                                    "are part of conflicting "
+                                    "groups.",
+                                    rule=job.rule)
+            elif candidate_groups:
+                # extend the candidate group to all involved jobs
+                group = candidate_groups.pop()
+            else:
+                # generate a random unique group name
+                group = uuid.uuid4()
+            job.group = group
+            for j in all_depending:
+                j.group = group
 
     def _ready(self, job):
         """Return whether the given job is ready to execute."""
@@ -814,30 +892,38 @@ class DAG:
     def finish(self, job, update_dynamic=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
-        self._finished.add(job)
         try:
             self._ready_jobs.remove(job)
         except KeyError:
             pass
+
+        if job.is_group():
+            jobs = job
+        else:
+            jobs = [job]
+
+        self._finished.update(jobs)
+
         # mark depending jobs as ready
-        for job_ in self.depending[job]:
-            if self.needrun(job_) and self._ready(job_):
-                self._ready_jobs.add(job_)
+        # skip jobs that are marked as until jobs
+        self.update_ready(j for job in jobs for j in self.depending[job]
+                            if not self.in_until(job))
 
-        if update_dynamic and job.dynamic_output:
-            logger.info("Dynamically updating jobs")
-            newjob = self.update_dynamic(job)
-            if newjob:
-                # simulate that this job ran and was finished before
-                self.omitforce.add(newjob)
-                self._needrun.add(newjob)
-                self._finished.add(newjob)
+        for job in jobs:
+            if update_dynamic and job.dynamic_output:
+                logger.info("Dynamically updating jobs")
+                newjob = self.update_dynamic(job)
+                if newjob:
+                    # simulate that this job ran and was finished before
+                    self.omitforce.add(newjob)
+                    self._needrun.add(newjob)
+                    self._finished.add(newjob)
 
-                self.postprocess()
-                self.handle_protected(newjob)
-                self.handle_touch(newjob)
-                # add finished jobs to len as they are not counted after new postprocess
-                self._len += len(self._finished)
+                    self.postprocess()
+                    self.handle_protected(newjob)
+                    self.handle_touch(newjob)
+                    # add finished jobs to len as they are not counted after new postprocess
+                    self._len += len(self._finished)
 
     def new_job(self, rule, targetfile=None, format_wildcards=None):
         """Create new job for given rule and (optional) targetfile.
