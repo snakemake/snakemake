@@ -643,7 +643,7 @@ def test_pipes():
 
 
 def test_pipes_fail():
-    run(dpath("test_pipes_fail"))
+    run(dpath("test_pipes_fail"), shouldfail=True)
 
 
 if __name__ == '__main__':
