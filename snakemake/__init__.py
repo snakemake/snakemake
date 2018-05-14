@@ -69,6 +69,8 @@ def snakemake(snakefile,
               lock=True,
               unlock=False,
               cleanup_metadata=None,
+              cleanup_conda=False,
+              cleanup_shadow=False,
               force_incomplete=False,
               ignore_incomplete=False,
               list_version_changes=False,
@@ -164,7 +166,9 @@ def snakemake(snakefile,
         snakemakepath (str):        Deprecated parameter whose value is ignored. Do not use.
         lock (bool):                lock the working directory when executing the workflow (default True)
         unlock (bool):              just unlock the working directory (default False)
-        cleanup_metadata (bool):    just cleanup metadata of output files (default False)
+        cleanup_metadata (list):    just cleanup metadata of given list of output files (default None)
+        cleanup_conda (bool):       just cleanup unused conda environments (default False)
+        cleanup_shadow (bool):      just cleanup old shadow directories (default False)
         force_incomplete (bool):    force the re-creation of incomplete files (default False)
         ignore_incomplete (bool):   ignore incomplete files (default False)
         list_version_changes (bool): list output files with changed rule version (default False)
@@ -372,7 +376,7 @@ def snakemake(snakefile,
                         overwrite_clusterconfig=cluster_config_content,
                         config_args=config_args,
                         debug=debug,
-                        use_conda=use_conda or list_conda_envs,
+                        use_conda=use_conda or list_conda_envs or cleanup_conda,
                         use_singularity=use_singularity,
                         conda_prefix=conda_prefix,
                         singularity_prefix=singularity_prefix,
@@ -427,6 +431,8 @@ def snakemake(snakefile,
                                        lock=lock,
                                        unlock=unlock,
                                        cleanup_metadata=cleanup_metadata,
+                                       cleanup_conda=cleanup_conda,
+                                       cleanup_shadow=cleanup_shadow,
                                        force_incomplete=force_incomplete,
                                        ignore_incomplete=ignore_incomplete,
                                        latency_wait=latency_wait,
@@ -519,6 +525,8 @@ def snakemake(snakefile,
                     nodeps=nodeps,
                     keep_target_files=keep_target_files,
                     cleanup_metadata=cleanup_metadata,
+                    cleanup_conda=cleanup_conda,
+                    cleanup_shadow=cleanup_shadow,
                     subsnakemake=subsnakemake,
                     updated_files=updated_files,
                     allowed_rules=allowed_rules,
@@ -1044,6 +1052,13 @@ def get_argument_parser(profile=None):
         "of given files. That means that snakemake removes any tracked "
         "version info, and any marks that files are incomplete.")
     parser.add_argument(
+        "--cleanup-conda", action="store_true",
+        help="Cleanup unused conda environments.")
+    parser.add_argument(
+        "--cleanup-shadow", action="store_true",
+        help="Cleanup old shadow directories which have not been deleted due "
+             "to failures or power loss.")
+    parser.add_argument(
         "--rerun-incomplete", "--ri",
         action="store_true",
         help="Re-run all "
@@ -1461,6 +1476,8 @@ def main(argv=None):
                             lock=not args.nolock,
                             unlock=args.unlock,
                             cleanup_metadata=args.cleanup_metadata,
+                            cleanup_conda=args.cleanup_conda,
+                            cleanup_shadow=args.cleanup_shadow,
                             force_incomplete=args.rerun_incomplete,
                             ignore_incomplete=args.ignore_incomplete,
                             list_version_changes=args.list_version_changes,

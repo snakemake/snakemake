@@ -279,6 +279,8 @@ class Workflow:
                 notemp=False,
                 nodeps=False,
                 cleanup_metadata=None,
+                cleanup_conda=False,
+                cleanup_shadow=False,
                 subsnakemake=None,
                 updated_files=None,
                 keep_target_files=False,
@@ -359,7 +361,9 @@ class Workflow:
             dryrun=dryrun,
             targetfiles=targetfiles,
             targetrules=targetrules,
-            forceall=forceall,
+            # when cleaning up conda, we should enforce all possible jobs
+            # since their envs shall not be deleted
+            forceall=forceall or cleanup_conda,
             forcefiles=forcefiles,
             forcerules=forcerules,
             priorityfiles=priorityfiles,
@@ -414,6 +418,10 @@ class Workflow:
                 "a power loss. It can be removed with "
                 "the --unlock argument.".format(os.getcwd()))
             return False
+
+        if cleanup_shadow:
+            self.persistence.cleanup_shadow()
+            return True
 
         if self.subworkflows and not printdag and not printrulegraph:
             # backup globals
@@ -529,10 +537,13 @@ class Workflow:
                                           quiet=list_conda_envs)
         if self.use_conda:
             if assume_shared_fs:
-                dag.create_conda_envs(dryrun=dryrun or list_conda_envs,
+                dag.create_conda_envs(dryrun=dryrun or list_conda_envs or cleanup_conda,
                                       quiet=list_conda_envs)
             if create_envs_only:
                 return True
+
+
+
         if list_conda_envs:
             print("environment", "container", "location", sep="\t")
             for env in set(job.conda_env for job in dag.jobs):
@@ -541,6 +552,10 @@ class Workflow:
                           env.singularity_img_url or "",
                           simplify_path(env.path),
                           sep="\t")
+            return True
+
+        if cleanup_conda:
+            self.persistence.cleanup_conda()
             return True
 
         scheduler = JobScheduler(self, dag, cores,
