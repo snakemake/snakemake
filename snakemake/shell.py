@@ -58,6 +58,12 @@ class shell:
         with cls._lock:
             if jobid in cls._processes:
                 cls._processes[jobid].kill()
+                del cls._processes[jobid]
+
+    @classmethod
+    def cleanup(cls):
+        with cls._lock:
+            cls._processes.clear()
 
     def __new__(cls, cmd, *args,
                 async=False,

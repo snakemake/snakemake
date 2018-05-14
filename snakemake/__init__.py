@@ -264,6 +264,7 @@ def snakemake(snakefile,
         bool:   True if workflow execution was successful.
 
     """
+
     assert not immediate_submit or (immediate_submit and notemp), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
 
     if updated_files is None:
@@ -290,6 +291,9 @@ def snakemake(snakefile,
         cluster_config_content = dict()
 
     run_local = not (cluster or cluster_sync or drmaa or kubernetes)
+    if run_local and not dryrun:
+        # clean up all previously recorded jobids.
+        shell.cleanup()
 
     # force thread use for any kind of cluster
     use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
