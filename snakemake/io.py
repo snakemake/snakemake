@@ -970,7 +970,7 @@ class Log(Namedlist):
     pass
 
 
-def _load_configfile(configpath):
+def _load_configfile(configpath, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
     try:
         with open(configpath) as f:
@@ -981,9 +981,10 @@ def _load_configfile(configpath):
             try:
                 import yaml
             except ImportError:
-                raise WorkflowError("Config file is not valid JSON and PyYAML "
+                raise WorkflowError("{} file is not valid JSON and PyYAML "
                                     "has not been installed. Please install "
-                                    "PyYAML to use YAML config files.")
+                                    "PyYAML to use YAML config files.".format(
+                                    filetype))
             try:
                 # From http://stackoverflow.com/a/21912744/84349
                 class OrderedLoader(yaml.Loader):
@@ -999,9 +1000,10 @@ def _load_configfile(configpath):
             except yaml.YAMLError:
                 raise WorkflowError("Config file is not valid JSON or YAML. "
                                     "In case of YAML, make sure to not mix "
-                                    "whitespace and tab indentation.")
+                                    "whitespace and tab indentation.".format(
+                                    filetype))
     except FileNotFoundError:
-        raise WorkflowError("Config file {} not found.".format(configpath))
+        raise WorkflowError("{} file {} not found.".format(filetype, configpath))
 
 
 def load_configfile(configpath):

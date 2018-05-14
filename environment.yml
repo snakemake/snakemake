@@ -25,3 +25,4 @@ dependencies:
   - configargparse
   - appdirs
   - python-irodsclient
+  - jsonschema

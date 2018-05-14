@@ -646,6 +646,14 @@ def test_pipes_fail():
     run(dpath("test_pipes_fail"), shouldfail=True)
 
 
+def test_validate():
+    run(dpath("test_validate"))
+
+
+def test_validate_fail():
+    run(dpath("test_validate"), configfile=dpath("test_validate/config.fail.yaml"), shouldfail=True)
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
