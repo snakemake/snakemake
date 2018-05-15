@@ -17,7 +17,7 @@ from operator import attrgetter
 from urllib.request import urlopen
 from urllib.parse import urlparse
 
-from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard, lstat
+from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, get_flag_value, contains_wildcard, lstat
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, CreateCondaEnvironmentException
@@ -175,6 +175,11 @@ class Job(AbstractJob):
         if self._benchmark is None:
             self._benchmark = self.rule.expand_benchmark(self.wildcards_dict)
         return self._benchmark
+
+    @property
+    def benchmark_repeats(self):
+        if self.benchmark is not None:
+            return get_flag_value(self.benchmark, "repeat") or 1
 
     @property
     def group(self):

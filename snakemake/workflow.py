@@ -271,7 +271,6 @@ class Workflow:
                 delete_temp_output=False,
                 detailed_summary=False,
                 latency_wait=3,
-                benchmark_repeats=3,
                 wait_for_files=None,
                 nolock=False,
                 unlock=False,
@@ -579,7 +578,6 @@ class Workflow:
                                  printreason=printreason,
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
-                                 benchmark_repeats=benchmark_repeats,
                                  greediness=greediness,
                                  force_use_threads=force_use_threads,
                                  assume_shared_fs=assume_shared_fs)

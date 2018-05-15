@@ -700,6 +700,11 @@ def unpack(value):
     return flag(value, "unpack")
 
 
+def repeat(value, n_repeat):
+    """Flag benchmark records with the number of repeats."""
+    return flag(value, "repeat", n_repeat)
+
+
 def local(value):
     """Mark a file as local file. This disables application of a default remote
     provider.

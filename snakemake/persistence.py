@@ -39,6 +39,7 @@ class Persistence:
 
         self.shadow_path = os.path.join(self.path, "shadow")
         self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
+        self.benchmark_path = os.path.join(self.path, "benchmarks")
 
         for d in (self._metadata_path, self.shadow_path, self.conda_env_archive_path):
             os.makedirs(d, exist_ok=True)
@@ -144,7 +145,8 @@ class Persistence:
         for f in job.output:
             self._record(self._metadata_path, {
                              "incomplete": True,
-                             "external_jobid": external_jobid
+                             "external_jobid": external_jobid,
+                             "starttime": starttime
                          }, f)
 
     def finished(self, job):
@@ -156,6 +158,9 @@ class Persistence:
         params = self._params(job)
         shellcmd = job.shellcmd
         for f in job.expanded_output:
+            rec_path = self._record_path(self._metadata_path, f)
+            starttime = (os.path.getmtime(rec_path)
+                         if os.path.exists(rec_path) else None)
             self._record(self._metadata_path, {
                 "version": version,
                 "code": code,
@@ -164,7 +169,10 @@ class Persistence:
                 "log": log,
                 "params": params,
                 "shellcmd": shellcmd,
-                "incomplete": False
+                "incomplete": False,
+                "starttime": starttime,
+                "endtime": f.mtime,
+                "job_hash": hash(job)
             }, f)
 
     def cleanup(self, job):

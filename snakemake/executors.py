@@ -50,8 +50,7 @@ class AbstractExecutor:
                  quiet=False,
                  printshellcmds=False,
                  printthreads=True,
-                 latency_wait=3,
-                 benchmark_repeats=1):
+                 latency_wait=3):
         self.workflow = workflow
         self.dag = dag
         self.quiet = quiet
@@ -59,7 +58,6 @@ class AbstractExecutor:
         self.printshellcmds = printshellcmds
         self.printthreads = printthreads
         self.latency_wait = latency_wait
-        self.benchmark_repeats = benchmark_repeats
 
     def get_default_remote_provider_args(self):
         if self.workflow.default_remote_provider:
@@ -113,14 +111,12 @@ class RealExecutor(AbstractExecutor):
                  quiet=False,
                  printshellcmds=False,
                  latency_wait=3,
-                 benchmark_repeats=1,
                  assume_shared_fs=True):
         super().__init__(workflow, dag,
                          printreason=printreason,
                          quiet=quiet,
                          printshellcmds=printshellcmds,
-                         latency_wait=latency_wait,
-                         benchmark_repeats=benchmark_repeats)
+                         latency_wait=latency_wait)
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
         self.snakefile = workflow.snakefile
@@ -185,7 +181,7 @@ class RealExecutor(AbstractExecutor):
                       workflow=self.workflow,
                       snakefile=self.snakefile,
                       cores=self.cores,
-                      benchmark_repeats=self.benchmark_repeats,
+                      benchmark_repeats=job.benchmark_repeats,
                       target=job.get_targets(),
                       **kwargs)
 
@@ -223,20 +219,18 @@ class CPUExecutor(RealExecutor):
                  printshellcmds=False,
                  use_threads=False,
                  latency_wait=3,
-                 benchmark_repeats=1,
                  cores=1):
         super().__init__(workflow, dag,
                          printreason=printreason,
                          quiet=quiet,
                          printshellcmds=printshellcmds,
-                         latency_wait=latency_wait,
-                         benchmark_repeats=benchmark_repeats)
+                         latency_wait=latency_wait)
 
         self.exec_job = '\\\n'.join((
             'cd {workflow.workdir_init} && ',
             '{sys.executable} -m snakemake {target} --snakefile {snakefile} ',
             '--force -j{cores} --keep-target-files --keep-remote ',
-            '--benchmark-repeats {benchmark_repeats} --attempt {attempt} ',
+            '--attempt {attempt} ',
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
             '--latency-wait {latency_wait} ',
             self.get_default_remote_provider_args(),
@@ -280,12 +274,13 @@ class CPUExecutor(RealExecutor):
         singularity_img = job.singularity_img_path
 
         benchmark = None
+        benchmark_repeats = job.benchmark_repeats or 1
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
         return (job.rule, job.input.plainstrings(),
                 job.output.plainstrings(), job.params, job.wildcards,
                 job.threads, job.resources, job.log.plainstrings(), benchmark,
-                self.benchmark_repeats, conda_env, singularity_img,
+                benchmark_repeats, conda_env, singularity_img,
                 self.workflow.singularity_args, self.workflow.use_singularity,
                 self.workflow.linemaps, self.workflow.debug,
                 job.shadow_dir, job.jobid)
@@ -377,7 +372,6 @@ class ClusterExecutor(RealExecutor):
                  quiet=False,
                  printshellcmds=False,
                  latency_wait=3,
-                 benchmark_repeats=1,
                  cluster_config=None,
                  local_input=None,
                  restart_times=None,
@@ -392,7 +386,6 @@ class ClusterExecutor(RealExecutor):
                          quiet=quiet,
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
-                         benchmark_repeats=benchmark_repeats,
                          assume_shared_fs=assume_shared_fs)
 
         if not self.assume_shared_fs:
@@ -420,7 +413,7 @@ class ClusterExecutor(RealExecutor):
                 '-m snakemake {target} --snakefile {snakefile} ',
                 '--force -j{cores} --keep-target-files --keep-remote ',
                 '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
-                '--benchmark-repeats {benchmark_repeats} --attempt {attempt} ',
+                ' --attempt {attempt} ',
                 '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
                 '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
                 '--notemp --no-hooks --nolock --timestamp --mode {} '.format(Mode.cluster)))
@@ -588,7 +581,6 @@ class GenericClusterExecutor(ClusterExecutor):
                  quiet=False,
                  printshellcmds=False,
                  latency_wait=3,
-                 benchmark_repeats=1,
                  restart_times=0,
                  assume_shared_fs=True,
                  max_status_checks_per_second=1):
@@ -607,7 +599,6 @@ class GenericClusterExecutor(ClusterExecutor):
                          quiet=quiet,
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
-                         benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          restart_times=restart_times,
                          assume_shared_fs=assume_shared_fs,
@@ -782,7 +773,6 @@ class SynchronousClusterExecutor(ClusterExecutor):
                  quiet=False,
                  printshellcmds=False,
                  latency_wait=3,
-                 benchmark_repeats=1,
                  restart_times=0,
                  assume_shared_fs=True):
         super().__init__(workflow, dag, cores,
@@ -791,7 +781,6 @@ class SynchronousClusterExecutor(ClusterExecutor):
                          quiet=quiet,
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
-                         benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          restart_times=restart_times,
                          assume_shared_fs=assume_shared_fs,
@@ -878,7 +867,6 @@ class DRMAAExecutor(ClusterExecutor):
                  drmaa_args="",
                  drmaa_log_dir=None,
                  latency_wait=3,
-                 benchmark_repeats=1,
                  cluster_config=None,
                  restart_times=0,
                  assume_shared_fs=True,
@@ -889,7 +877,6 @@ class DRMAAExecutor(ClusterExecutor):
                          quiet=quiet,
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
-                         benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          restart_times=restart_times,
                          assume_shared_fs=assume_shared_fs,
@@ -1034,7 +1021,6 @@ class KubernetesExecutor(ClusterExecutor):
                  quiet=False,
                  printshellcmds=False,
                  latency_wait=3,
-                 benchmark_repeats=1,
                  cluster_config=None,
                  local_input=None,
                  restart_times=None):
@@ -1043,7 +1029,7 @@ class KubernetesExecutor(ClusterExecutor):
             'snakemake {target} --snakefile {snakefile} '
             '--force -j{cores} --keep-target-files  --keep-remote '
             '--latency-wait 0 '
-            '--benchmark-repeats {benchmark_repeats} --attempt {attempt} '
+            ' --attempt {attempt} '
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} '
             '{overwrite_config} {printshellcmds} --nocolor '
             '--notemp --no-hooks --nolock ')
@@ -1054,7 +1040,6 @@ class KubernetesExecutor(ClusterExecutor):
                          quiet=quiet,
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
-                         benchmark_repeats=benchmark_repeats,
                          cluster_config=cluster_config,
                          local_input=local_input,
                          restart_times=restart_times,
@@ -1272,7 +1257,8 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                     # benchmarking at all.  We benchmark this process unless the
                     # execution is done through the ``shell:``, ``script:``, or
                     # ``wrapper:`` stanza.
-                    is_sub = job_rule.shellcmd or job_rule.script or job_rule.wrapper
+                    is_sub = (job_rule.shellcmd or job_rule.script or
+                              job_rule.wrapper or job_rule.cwl)
                     if is_sub:
                         # The benchmarking through ``benchmarked()`` is started
                         # in the execution of the shell fragment, script, wrapper
