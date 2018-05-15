@@ -145,8 +145,7 @@ class Persistence:
         for f in job.output:
             self._record(self._metadata_path, {
                              "incomplete": True,
-                             "external_jobid": external_jobid,
-                             "starttime": starttime
+                             "external_jobid": external_jobid
                          }, f)
 
     def finished(self, job):
