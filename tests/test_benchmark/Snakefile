@@ -11,7 +11,7 @@ rule all:
 
 rule bench_shell:
     benchmark:
-        "test.benchmark_shell.txt"
+        repeat("test.benchmark_shell.txt", 2)
     shell:
         "sleep 1"
 
