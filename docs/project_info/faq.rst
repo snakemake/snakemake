@@ -75,7 +75,7 @@ This entails the pipefail option, which reports errors from within a pipe to out
 
 .. code-block:: bash
 
-    set +o pipefile; 
+    set +o pipefile;
 
 to your shell command in the problematic rule.
 
@@ -189,7 +189,7 @@ This:
 
     ...
     shell: "awk '{print $1}' {input}"
-    
+
 becomes:
 
 .. code-block:: python
@@ -205,14 +205,14 @@ This:
 
 .. code-block:: python
 
-    shell: """printf \">%s\"" {{input}}""" 
+    shell: """printf \">%s\"" {{input}}"""
 
 becomes:
 
 .. code-block:: python
 
-    shell: """printf \\">%s\\"" {{input}}"""  
-    
+    shell: """printf \\">%s\\"" {{input}}"""
+
 How do I incorporate files that do not follow a consistent naming scheme?
 -------------------------------------------------------------------------
 
@@ -437,6 +437,7 @@ and
 
 Again, the list commands in backticks return the list of output files with changes, which are fed into ``-R`` to trigger a re-run.
 
+
 How do I remove all files created by snakemake, i.e. like ``make clean``
 ------------------------------------------------------------------------
 
@@ -444,7 +445,12 @@ To remove all files created by snakemake as output files to start from scratch, 
 
 .. code-block:: console
 
-    rm $(snakemake --summary | tail -n+2 | cut -f1)
+    $ snakemake some_target --delete-all-output
+
+Only files that are output of snakemake rules will be removed, not those that serve as primary inputs to the workflow.
+Note that this will only affect the files involved in reaching the specified target(s).
+It is strongly advised to first run together with ``--dryrun`` to list the files that would be removed without actually deleting anything.
+The flag ``--delete-temp-output`` can be used in a similar manner to only delete files flagged as temporary.
 
 
 Why can't I use the conda directive with a run block?
@@ -478,7 +484,7 @@ There are two ways to exit a currently running workflow.
 
 1. If you want to kill all running jobs, hit Ctrl+C. Note that when using --cluster, this will only cancel the main Snakemake process.
 2. If you want to stop the scheduling of new jobs and wait for all running jobs to be finished, you can send a TERM signal, e.g., via
-   
+
    .. code-block:: bash
 
        killall -TERM snakemake

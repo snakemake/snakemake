@@ -15,7 +15,7 @@ from itertools import chain
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
-from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable
+from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable, DYNAMIC_FILL
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import Mode
@@ -55,6 +55,7 @@ class Rule:
             self._benchmark = None
             self._conda_env = None
             self._singularity_img = None
+            self.group = None
             self.wildcard_names = set()
             self.lineno = lineno
             self.snakefile = snakefile
@@ -91,6 +92,7 @@ class Rule:
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
             self._singularity_img = other._singularity_img
+            self.group = other.group
             self.wildcard_names = set(other.wildcard_names)
             self.lineno = other.lineno
             self.snakefile = other.snakefile
@@ -305,14 +307,29 @@ class Rule:
             seen[value] = name or idx
 
     def apply_default_remote(self, item):
+        def is_annotated_callable(value):
+            if isinstance(value, AnnotatedString):
+                return bool(value.callable)
+            
+        def apply(value):
+            if (not is_flagged(value, "remote_object") and
+                not is_flagged(value, "local") and
+                not is_annotated_callable(value) and
+                self.workflow.default_remote_provider is not None):
+                value = "{}/{}".format(self.workflow.default_remote_prefix, value)
+                value = os.path.normpath(value)
+                return self.workflow.default_remote_provider.remote(value)
+            else:
+                return value
+
         assert not callable(item)
-        if (not is_flagged(item, "remote_object") and
-            not is_flagged(item, "local") and
-            self.workflow.default_remote_provider is not None):
-            item = "{}/{}".format(self.workflow.default_remote_prefix, item)
-            item = os.path.normpath(item)
-            return self.workflow.default_remote_provider.remote(item)
-        return item
+        if isinstance(item, dict):
+            return {k: apply(v) for k, v in item.items()}
+        elif isinstance(item, Iterable) and not isinstance(item, str):
+            return [apply(e) for e in item]
+        else:
+            return apply(item)
+
 
     def _set_inoutput_item(self, item, output=False, name=None):
         """
@@ -686,6 +703,16 @@ class Rule:
                 resources[name] = apply(name, res)
         resources = Resources(fromdict=resources)
         return resources
+
+    def expand_group(self, wildcards):
+        """Expand the group given wildcards."""
+        if callable(self.group):
+            return self.apply_input_function(self.group, wildcards)
+        elif isinstance(self.group, str):
+            return apply_wildcards(self.group, wildcards,
+                                   dynamic_fill=DYNAMIC_FILL)
+        else:
+            return self.group
 
     def expand_conda_env(self, wildcards):
         try:

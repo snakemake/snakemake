@@ -25,7 +25,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local
+from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
@@ -58,7 +58,8 @@ class Workflow:
                  restart_times=None,
                  attempt=1,
                  default_remote_provider=None,
-                 default_remote_prefix=""):
+                 default_remote_prefix="",
+                 run_local=True):
         """
         Create the controller.
         """
@@ -106,6 +107,7 @@ class Workflow:
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
         self.configfiles = []
+        self.run_local = run_local
 
         self.iocache = snakemake.io.IOCache()
 
@@ -261,9 +263,12 @@ class Workflow:
                 list_code_changes=False,
                 list_input_changes=False,
                 list_params_changes=False,
+                list_untracked=False,
                 list_conda_envs=False,
                 summary=False,
                 archive=None,
+                delete_all_output=False,
+                delete_temp_output=False,
                 detailed_summary=False,
                 latency_wait=3,
                 benchmark_repeats=3,
@@ -274,6 +279,8 @@ class Workflow:
                 notemp=False,
                 nodeps=False,
                 cleanup_metadata=None,
+                cleanup_conda=False,
+                cleanup_shadow=False,
                 subsnakemake=None,
                 updated_files=None,
                 keep_target_files=False,
@@ -354,7 +361,9 @@ class Workflow:
             dryrun=dryrun,
             targetfiles=targetfiles,
             targetrules=targetrules,
-            forceall=forceall,
+            # when cleaning up conda, we should enforce all possible jobs
+            # since their envs shall not be deleted
+            forceall=forceall or cleanup_conda,
             forcefiles=forcefiles,
             forcerules=forcerules,
             priorityfiles=priorityfiles,
@@ -376,7 +385,7 @@ class Workflow:
             singularity_prefix=self.singularity_prefix,
             warn_only=dryrun or printrulegraph or printdag or summary or archive or
             list_version_changes or list_code_changes or list_input_changes or
-            list_params_changes)
+            list_params_changes or list_untracked or delete_all_output or delete_temp_output)
 
         if cleanup_metadata:
             for f in cleanup_metadata:
@@ -409,6 +418,10 @@ class Workflow:
                 "a power loss. It can be removed with "
                 "the --unlock argument.".format(os.getcwd()))
             return False
+
+        if cleanup_shadow:
+            self.persistence.cleanup_shadow()
+            return True
 
         if self.subworkflows and not printdag and not printrulegraph:
             # backup globals
@@ -484,6 +497,12 @@ class Workflow:
         elif archive:
             dag.archive(archive)
             return True
+        elif delete_all_output:
+            dag.clean(only_temp=False, dryrun=dryrun)
+            return True
+        elif delete_temp_output:
+            dag.clean(only_temp=True, dryrun=dryrun)
+            return True
         elif list_version_changes:
             items = list(
                 chain(*map(self.persistence.version_changed, dag.jobs)))
@@ -508,7 +527,9 @@ class Workflow:
             if items:
                 print(*items, sep="\n")
             return True
-
+        elif list_untracked:
+            dag.list_untracked()
+            return True
 
         if self.use_singularity:
             if assume_shared_fs:
@@ -516,10 +537,13 @@ class Workflow:
                                           quiet=list_conda_envs)
         if self.use_conda:
             if assume_shared_fs:
-                dag.create_conda_envs(dryrun=dryrun or list_conda_envs,
+                dag.create_conda_envs(dryrun=dryrun or list_conda_envs or cleanup_conda,
                                       quiet=list_conda_envs)
             if create_envs_only:
                 return True
+
+
+
         if list_conda_envs:
             print("environment", "container", "location", sep="\t")
             for env in set(job.conda_env for job in dag.jobs):
@@ -528,6 +552,10 @@ class Workflow:
                           env.singularity_img_url or "",
                           simplify_path(env.path),
                           sep="\t")
+            return True
+
+        if cleanup_conda:
+            self.persistence.cleanup_conda()
             return True
 
         scheduler = JobScheduler(self, dag, cores,
@@ -762,6 +790,8 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
+            if not self.run_local and ruleinfo.group is not None:
+                rule.group = ruleinfo.group
             if ruleinfo.wrapper:
                 if self.use_conda:
                     rule.conda_env = snakemake.wrapper.get_conda_env(
@@ -908,6 +938,13 @@ class Workflow:
 
         return decorate
 
+    def group(self, group):
+        def decorate(ruleinfo):
+            ruleinfo.group = group
+            return ruleinfo
+
+        return decorate
+
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
             ruleinfo.log = (logs, kwlogs)
@@ -978,6 +1015,7 @@ class RuleInfo:
         self.version = None
         self.log = None
         self.docstring = None
+        self.group = None
         self.script = None
         self.wrapper = None
         self.cwl = None

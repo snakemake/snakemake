@@ -922,3 +922,89 @@ The resulting tsv file can be used as input for other rules, just like any other
     Note that benchmarking is only possible in a reliable fashion for subprocesses (thus for tasks run through the ``shell``, ``script``, and ``wrapper`` directive).
     In the ``run`` block, the variable ``bench_record`` is available that you can pass to ``shell()`` as ``bench_record=bench_record``.
     When using ``shell(..., bench_record=bench_record)``, the maximum of all measurements of all ``shell()`` calls will be used but the running time of the rule execution including any Python code.
+
+
+.. _snakefiles-grouping:
+
+Defining groups for execution
+-----------------------------
+
+From Snakemake 5.0 on, it is possible to assign rules to groups.
+Such groups will be executed together in cluster or cloud mode, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node. By this, queueing and execution time can be
+safed, in particular if one or several short-running rules are involved.
+
+Groups can be defined via the ``group`` keyword, e.g.,
+
+.. code-block:: python
+
+  samples = [1,2,3,4,5]
+
+
+  rule all:
+      input:
+          "test.out"
+
+
+  rule a:
+      output:
+          "a/{sample}.out"
+      group: "mygroup"
+      shell:
+          "touch {output}"
+
+
+  rule b:
+      input:
+          "a/{sample}.out"
+      output:
+          "b/{sample}.out"
+      group: "mygroup"
+      shell:
+          "touch {output}"
+
+
+  rule c:
+      input:
+          expand("b/{sample}.out", sample=samples)
+      output:
+          "test.out"
+      shell:
+          "touch {output}"
+
+Here, jobs from rule ``a`` and ``b`` end up in one group ``mygroup``, whereas jobs from rule ``c`` are executed separately.
+Note that Snakemake always determines a **connected subgraph** with the same group id to be a **group job**.
+Here, this means that, e.g., the jobs creating ``a/1.out`` and ``b/1.out`` will be in one group, and the jobs creating ``a/2.out`` and ``b/2.out`` will be in a separate group.
+However, if we would add ``group: "mygroup"`` to rule ``c``, all jobs would end up in a single group, including the one spawned from rule ``c``, because ``c`` connects all the other jobs.
+
+Piped output
+------------
+
+From Snakemake 5.0 on, it is possible to mark output files as pipes, via the ``pipe`` flag, e.g.:
+
+.. code-block:: python
+
+  rule all:
+      input:
+          expand("test.{i}.out", i=range(2))
+
+
+  rule a:
+      output:
+          pipe("test.{i}.txt")
+      shell:
+          "for i in {{0..2}}; do echo {wildcards.i} >> {output}; done"
+
+
+  rule b:
+      input:
+          "test.{i}.txt"
+      output:
+          "test.{i}.out"
+      shell:
+          "grep {wildcards.i} < {input} > {output}"
+
+If an output file is marked to be a pipe, then Snakemake will first create a `named pipe <https://en.wikipedia.org/wiki/Named_pipe>`_ with the given name and then execute the creating job simultaneously with the consuming job, inside a **group job** (see above).
+Naturally, a pipe output may only have a single consumer.
+It is possible to combine explicit group definition as above with pipe outputs.
+Thereby, pipe jobs can live within, or (automatically) extend existing groups.
+However, the two jobs connected by a pipe may not exist in conflicting groups.

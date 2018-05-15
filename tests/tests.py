@@ -106,6 +106,8 @@ def run(path,
                         expectedfile), 'wrong result produced for file "{}"'.format(
                             resultfile)
 
+def test_delete_all_output():
+    run(dpath("test_delete_all_output"))
 
 def test01():
     run(dpath("test01"))
@@ -168,6 +170,9 @@ def test15():
 
 def test_ancient():
     run(dpath("test_ancient"), targets=['D'])
+
+def test_list_untracked():
+    run(dpath("test_list_untracked"))
 
 def test_report():
     run(dpath("test_report"), check_md5=False)
@@ -541,11 +546,10 @@ def test_issue260():
    run(dpath("test_issue260"))
 
 
-# TODO reenable once S3Mocked works again with boto3
-# def test_default_remote():
-#     run(dpath("test_default_remote"),
-#         default_remote_provider="S3Mocked",
-#         default_remote_prefix="test-remote-bucket")
+def test_default_remote():
+     run(dpath("test_default_remote"),
+         default_remote_provider="S3Mocked",
+         default_remote_prefix="test-remote-bucket")
 
 
 def test_run_namedlist():
@@ -624,6 +628,30 @@ def test_cwl_singularity():
 
 def test_issue805():
     run(dpath("test_issue805"), shouldfail=True)
+
+
+def test_group_jobs():
+    run(dpath("test_group_jobs"), cluster="./qsub")
+
+
+def test_group_job_fail():
+    run(dpath("test_group_job_fail"), cluster="./qsub", shouldfail=True)
+
+
+def test_pipes():
+    run(dpath("test_pipes"))
+
+
+def test_pipes_fail():
+    run(dpath("test_pipes_fail"), shouldfail=True)
+
+
+def test_validate():
+    run(dpath("test_validate"))
+
+
+def test_validate_fail():
+    run(dpath("test_validate"), configfile=dpath("test_validate/config.fail.yaml"), shouldfail=True)
 
 
 if __name__ == '__main__':

@@ -17,6 +17,7 @@ from snakemake.executors import (
     GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor,
     KubernetesExecutor)
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
+from snakemake.shell import shell
 
 from snakemake.logging import logger
 
@@ -226,7 +227,7 @@ class JobScheduler:
     @property
     def open_jobs(self):
         """ Return open jobs. """
-        return filter(self.candidate, list(self.dag.ready_jobs))
+        return filter(self.candidate, list(job for job in self.dag.ready_jobs))
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
@@ -297,8 +298,7 @@ class JobScheduler:
         if self._local_executor is None:
             return self._executor
         else:
-            return self._local_executor if self.workflow.is_local(
-                job.rule) else self._executor
+            return self._local_executor if job.is_local else self._executor
 
     def run(self, job):
         self.get_executor(job).run(job,
@@ -338,13 +338,18 @@ class JobScheduler:
             self.dag.finish(job, update_dynamic=update_dynamic)
 
             if update_resources:
-                self.finished_jobs += 1
+                # normal jobs have len=1, group jobs have len>1
+                self.finished_jobs += len(job)
                 self.running.remove(job)
                 self._free_resources(job)
 
 
             if print_progress:
-                logger.job_finished(jobid=self.dag.jobid(job))
+                if job.is_group():
+                    for j in job:
+                        logger.job_finished(jobid=j.jobid)
+                else:
+                    logger.job_finished(jobid=job.jobid)
                 self.progress()
 
             if any(self.open_jobs) or not self.running or self.workflow.immediate_submit:
@@ -367,7 +372,7 @@ class JobScheduler:
         self._free_resources(job)
         # attempt starts counting from 1, but the first attempt is not
         # a restart, hence we subtract 1.
-        if job.rule.restart_times > job.attempt - 1:
+        if job.restart_times > job.attempt - 1:
             logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
             job.attempt += 1
         else:
@@ -440,7 +445,17 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             return solution
 
     def calc_resource(self, name, value):
-        return min(value, self.workflow.global_resources[name])
+        gres = self.workflow.global_resources[name]
+        if value > gres:
+            if name == "_cores":
+                name = "threads"
+            raise WorkflowError("Job needs {name}={res} but only {name}={gres} "
+                                "are available. This is likely because a two jobs "
+                                "are connected via a pipe and have to run "
+                                "simultaneously. Consider providing more "
+                                "resources (e.g. via --cores).".format(
+                                    name=name, res=value, gres=gres))
+        return value
 
     def rule_weight(self, rule):
         res = rule.resources
@@ -468,9 +483,8 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         # ensure selection of groups of jobs that together delete the same temp
         # file.
 
-        return (self.dag.priority(job),
+        return (job.priority,
                 temp_size,
-                self.dag.downstream_size(job),
                 input_size)
 
     def progress(self):

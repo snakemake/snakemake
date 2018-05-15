@@ -127,6 +127,19 @@ class Persistence:
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
 
+    def cleanup_conda(self):
+        # cleanup envs
+        in_use = set(env.hash[:8] for env in self.dag.conda_envs.values())
+        for d in os.listdir(self.conda_env_path):
+            if d not in in_use:
+                shutil.rmtree(os.path.join(self.conda_env_path, d))
+
+        # cleanup env archives
+        in_use = set(env.content_hash for env in self.dag.conda_envs.values())
+        for d in os.listdir(self.conda_env_archive_path):
+            if d not in in_use:
+                shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
+
     def started(self, job, external_jobid=None):
         for f in job.output:
             self._record(self._metadata_path, {

@@ -1,0 +1,20 @@
+rule all:
+    input:
+        expand("test.{i}.out", i=range(2))
+
+
+rule a:
+    output:
+        pipe("test.{i}.txt")
+    shell:
+        "for i in {{0..2}}; do echo {wildcards.i} >> {output}; done"
+
+
+rule b:
+    input:
+        "test.{i}.txt"
+    output:
+        "test.{i}.out"
+    shell:
+        "grep {wildcards.i} < {input} > {output}"
+

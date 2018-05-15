@@ -1,11 +1,19 @@
 rule all:
     input:
-        "test.3.txt"
+        "test.3.txt", 'test.4.txt', 'test.5.txt'
 
 
 def check_remote(f):
     if not f.startswith("test-remote-bucket/"):
         raise ValueError("Input and output are not remote files.")
+
+
+def list_function(wildcards):
+    return ["test.2.txt", "test.txt"]
+
+
+def dict_function(wildcards):
+    return {'a': "test.2.txt", 'b': "test.txt"}
 
 
 rule a:
@@ -20,14 +28,37 @@ rule a:
 
 rule b:
     input:
-        "test.2.txt"
+        list_function
     output:
         "test.3.txt"
     run:
-        check_remote(input[0])
+        for e in input:
+            check_remote(e)
         check_remote(output[0])
-        shell("cp {input} {output}")
+        shell("cp {input[0]} {output}")
 
+rule c:
+    input:
+        **dict_function(None)
+    output:
+        "test.4.txt"
+    run:
+        for e in input:
+            check_remote(e)
+        check_remote(output[0])
+        shell("cp {input.a} {output}")
+
+rule d:
+    input:
+        unpack(dict_function)
+    output:
+        "test.5.txt"
+    run:
+        for e in input:
+            check_remote(e)
+        check_remote(output[0])
+        shell("cp {input.a} {output}")
+        
 
 # after we finish, we need to remove the pickle storing
 # the local moto "buckets" so we are starting fresh

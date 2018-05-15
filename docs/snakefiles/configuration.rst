@@ -49,6 +49,76 @@ For adding config placeholders into a shell command, Python string formatting sy
     shell:
         "mycommand {config[foo]} ..."
 
+---------------------
+Tabular configuration
+---------------------
+
+It is usually advisable to complement YAML based configuration (see above) by a sheet based approach for meta-data that is of tabular form. For example, such
+a sheet can contain per-sample information.
+With the `Pandas library <https://pandas.pydata.org/>`_ such data can be read and used with minimal overhead, e.g.,
+
+.. code-block:: python
+
+    import pandas as pd
+
+    samples = pd.read_table("samples.tsv").set_index("samples", drop=False)
+
+reads in a table ``samples.tsv`` in TSV format and makes every record accessible by the sample name.
+For details, see the `Pandas documentation <http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_table.html?highlight=read_table#pandas-read-table>`_.
+A fully working real-world example containing both types of configuration can be found `here <https://github.com/snakemake-workflows/rna-seq-star-deseq2>`_.
+
+----------
+Validation
+----------
+
+With Snakemake 5.1, it is possible to validate both types of configuration via `JSON schemas <http://json-schema.org>`_.
+The function ``snakemake.utils.validate`` takes a loaded configuration (a config dictionary or a Pandas data frame) and validates it with a given JSON schema.
+Thereby, the schema can be provided in JSON or YAML format.
+In case of the data frame, the schema should model the record that is expected in each row of the data frame.
+In the following example,
+
+.. code-block:: python
+
+  import pandas as pd
+  from snakemake.utils import validate
+
+  configfile: "config.yaml"
+  validate(config, "config.schema.yaml")
+
+  samples = pd.read_table(config["samples"]).set_index("sample", drop=False)
+  validate(samples, "samples.schema.yaml")
+
+
+  rule all:
+      input:
+          expand("test.{sample}.txt", sample=samples.index)
+
+
+  rule a:
+      output:
+          "test.{sample}.txt"
+      shell:
+          "touch {output}"
+
+the schema for validating the samples data frame looks like this:
+
+.. code-block:: yaml
+
+  $schema: "http://json-schema.org/draft-06/schema#"
+  description: an entry in the sample sheet
+  properties:
+    sample:
+      type: string
+      description: sample name/identifier
+    condition:
+      type: string
+      description: sample condition that will be compared during differential expression analysis (e.g. a treatment, a tissue time, a disease)
+
+  required:
+    - sample
+    - condition
+
+
 
 .. _snakefiles-cluster_configuration:
 
