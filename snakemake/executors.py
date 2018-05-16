@@ -181,7 +181,7 @@ class RealExecutor(AbstractExecutor):
                       workflow=self.workflow,
                       snakefile=self.snakefile,
                       cores=self.cores,
-                      benchmark_repeats=job.benchmark_repeats,
+                      benchmark_repeats=job.benchmark_repeats if not job.is_group() else None,
                       target=job.get_targets(),
                       **kwargs)
 
