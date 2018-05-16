@@ -27,6 +27,7 @@ from snakemake.common import Mode, __version__
 
 
 def snakemake(snakefile,
+              report=None,
               listrules=False,
               list_target_rules=False,
               cores=1,
@@ -129,6 +130,7 @@ def snakemake(snakefile,
 
     Args:
         snakefile (str):            the path to the snakefile
+        report (str):               create an HTML report for a previous run at the given path
         listrules (bool):           list rules (default False)
         list_target_rules (bool):   list target rules (default False)
         cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
@@ -535,7 +537,8 @@ def snakemake(snakefile,
                     force_use_threads=use_threads,
                     create_envs_only=create_envs_only,
                     assume_shared_fs=assume_shared_fs,
-                    cluster_status=cluster_status)
+                    cluster_status=cluster_status,
+                    report=report)
 
     except BrokenPipeError:
         # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
@@ -823,7 +826,9 @@ def get_argument_parser(profile=None):
 
     group_utils = parser.add_argument_group("UTILITIES")
 
-
+    group_utils.add_argument("--report",
+                        metavar="HTMLFILE",
+                        help="Create an HTML report with results and statistics.")
     group_utils.add_argument("--list", "-l",
                         action="store_true",
                         help="Show available rules in given Snakefile.")
@@ -1448,6 +1453,7 @@ def main(argv=None):
             pass
     else:
         success = snakemake(args.snakefile,
+                            report=args.report,
                             listrules=args.list,
                             list_target_rules=args.list_target_rules,
                             cores=args.cores,

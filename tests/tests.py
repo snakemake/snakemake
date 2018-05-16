@@ -175,7 +175,7 @@ def test_list_untracked():
     run(dpath("test_list_untracked"))
 
 def test_report():
-    run(dpath("test_report"), check_md5=False)
+    run(dpath("test_report"), report="report.html", check_md5=False)
 
 
 def test_dynamic():

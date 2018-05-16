@@ -171,7 +171,9 @@ class Persistence:
                 "incomplete": False,
                 "starttime": starttime,
                 "endtime": f.mtime,
-                "job_hash": hash(job)
+                "job_hash": hash(job),
+                "conda_env_file": job.conda_env_file,
+                "singularity_img_url": job.singularity_img_url
             }, f)
 
     def cleanup(self, job):
@@ -191,26 +193,29 @@ class Persistence:
                 .get("external_jobid", None)
             for f in job.output))
 
+    def metadata(self, path):
+        return self._read_record(self._metadata_path, path)
+
     def version(self, path):
-        return self._read_record(self._metadata_path, path).get("version")
+        return self.metadata(path).get("version")
 
     def rule(self, path):
-        return self._read_record(self._metadata_path, path).get("rule")
+        return self.metadata(path).get("rule")
 
     def input(self, path):
-        return self._read_record(self._metadata_path, path).get("input")
+        return self.metadata(path).get("input")
 
     def log(self, path):
-        return self._read_record(self._metadata_path, path).get("log")
+        return self.metadata(path).get("log")
 
     def shellcmd(self, path):
-        return self._read_record(self._metadata_path, path).get("shellcmd")
+        return self.metadata(path).get("shellcmd")
 
     def params(self, path):
-        return self._read_record(self._metadata_path, path).get("params")
+        return self.metadata(path).get("params")
 
     def code(self, path):
-        return self._read_record(self._metadata_path, path).get("code")
+        return self.metadata(path).get("code")
 
     def version_changed(self, job, file=None):
         """Yields output files with changed versions of bool if file given."""

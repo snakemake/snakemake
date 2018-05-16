@@ -25,7 +25,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe, repeat
+from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe, repeat, report
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
@@ -108,6 +108,7 @@ class Workflow:
         self.default_remote_prefix = default_remote_prefix
         self.configfiles = []
         self.run_local = run_local
+        self.report_text = None
 
         self.iocache = snakemake.io.IOCache()
 
@@ -293,7 +294,8 @@ class Workflow:
                 force_use_threads=False,
                 create_envs_only=False,
                 assume_shared_fs=True,
-                cluster_status=None):
+                cluster_status=None,
+                report=None):
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -478,7 +480,11 @@ class Workflow:
 
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
-        if printd3dag:
+        if report:
+            from snakemake.report import auto_report
+            auto_report(dag, report)
+            return True
+        elif printd3dag:
             dag.d3dag()
             return True
         elif printdag:
@@ -721,6 +727,10 @@ class Workflow:
         c = snakemake.io.load_configfile(jsonpath)
         update_config(config, c)
         update_config(config, self.overwrite_config)
+
+    def report(self, path):
+        """ Define a global report description in .rst format."""
+        self.report_text = os.path.join(self.current_basedir, path)
 
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)

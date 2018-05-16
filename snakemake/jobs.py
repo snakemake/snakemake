@@ -213,12 +213,13 @@ class Job(AbstractJob):
     def conda_env_file(self):
         if self._conda_env_file is None:
             expanded_env = self.rule.expand_conda_env(self.wildcards_dict)
-            scheme, _, path, *_ = urlparse(expanded_env)
-            # Normalize 'file:///my/path.yml' to '/my/path.yml'
-            if scheme == 'file' or not scheme:
-                self._conda_env_file = path
-            else:
-                self._conda_env_file = expanded_env
+            if expanded_env is not None:
+                scheme, _, path, *_ = urlparse(expanded_env)
+                # Normalize 'file:///my/path.yml' to '/my/path.yml'
+                if scheme == 'file' or not scheme:
+                    self._conda_env_file = path
+                else:
+                    self._conda_env_file = expanded_env
         return self._conda_env_file
 
     @property

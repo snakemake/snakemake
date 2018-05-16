@@ -246,6 +246,10 @@ class Configfile(GlobalKeywordState):
     pass
 
 
+class Report(GlobalKeywordState):
+    pass
+
+
 class Ruleorder(GlobalKeywordState):
     def block_content(self, token):
         if is_greater(token):
@@ -693,6 +697,7 @@ class Python(TokenAutomaton):
     subautomata = dict(include=Include,
                        workdir=Workdir,
                        configfile=Configfile,
+                       report=Report,
                        ruleorder=Ruleorder,
                        rule=Rule,
                        subworkflow=Subworkflow,
