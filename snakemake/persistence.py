@@ -156,6 +156,7 @@ class Persistence:
         log = self._log(job)
         params = self._params(job)
         shellcmd = job.shellcmd
+        conda_env = self._conda_env(job)
         for f in job.expanded_output:
             rec_path = self._record_path(self._metadata_path, f)
             starttime = (os.path.getmtime(rec_path)
@@ -172,7 +173,7 @@ class Persistence:
                 "starttime": starttime,
                 "endtime": f.mtime,
                 "job_hash": hash(job),
-                "conda_env_file": job.conda_env_file,
+                "conda_env": conda_env,
                 "singularity_img_url": job.singularity_img_url
             }, f)
 
@@ -259,6 +260,12 @@ class Persistence:
     def _code(self, rule):
         code = rule.run_func.__code__
         return b64encode(pickle_code(code)).decode()
+
+    @lru_cache()
+    def _conda_env(self, job):
+        if job.conda_env_file:
+            with open(job.conda_env_file, "rb") as f:
+                return b64encode(f.read()).decode()
 
     @lru_cache()
     def _input(self, job):

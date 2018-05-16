@@ -146,9 +146,12 @@ class RuleRecord:
     def __init__(self, job, job_rec):
         import yaml
         self.name = job_rec.rule
-        self.conda_env_file = os.path.basename(job_rec.conda_env_file) if job_rec.conda_env_file else None
         self.singularity_img_url = job_rec.singularity_img_url
-        self.conda_env = yaml.load(open(job_rec.conda_env_file)) if self.conda_env_file else None
+        self.conda_env = None
+        self._conda_env_raw = None
+        if job_rec.conda_env:
+            self._conda_env_raw = base64.b64decode(job_rec.conda_env).decode()
+            self.conda_env = yaml.load(self._conda_env_raw)
         self.n_jobs = 1
         self.output = list(job_rec.output)
         self.id = uuid.uuid4()
@@ -159,7 +162,7 @@ class RuleRecord:
 
     def __eq__(self, other):
         return (self.name == other.name and
-                self.conda_env_file == other.conda_env_file and
+                self.conda_env == other.conda_env and
                 self.singularity_img_url == other.singularity_img_url)
 
 
@@ -253,17 +256,23 @@ def auto_report(dag, path):
                 results.append(FileRecord(f, get_flag_value(f, "report")))
 
             meta = persistence.metadata(f)
-            if not meta or "job_hash" not in meta:
-                logger.warning("Missing (or too old) metadata for file {}".format(f))
+            if not meta:
+                logger.warning("Missing metadata for file {}".format(f))
                 continue
-            job = meta["job_hash"]
-            rec = records[job]
-            rec.rule = meta["rule"]
-            rec.starttime = min(rec.starttime, meta["starttime"])
-            rec.endtime = max(rec.endtime, meta["endtime"])
-            rec.conda_env_file = meta["conda_env_file"]
-            rec.singularity_img_url = meta["singularity_img_url"]
-            rec.output.append(f)
+            try:
+                job_hash = meta["job_hash"]
+                rule = meta["rule"]
+                rec = records[(job_hash, rule)]
+                rec.rule = rule
+                rec.starttime = min(rec.starttime, meta["starttime"])
+                rec.endtime = max(rec.endtime, meta["endtime"])
+                rec.conda_env_file = None
+                rec.conda_env = meta["conda_env"]
+                rec.singularity_img_url = meta["singularity_img_url"]
+                rec.output.append(f)
+            except KeyError as e:
+                logger.warning("Metadata for file {} was created with a too "
+                               "old Snakemake version.".format(f))
 
     results.sort(key=lambda res: res.name)
 

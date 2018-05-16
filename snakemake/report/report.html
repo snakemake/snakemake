@@ -127,6 +127,10 @@
         max-width: 100vw;
       }
 
+      .result .preview {
+        text-align: center;
+      }
+
       #rulegraph canvas {
         display: block;
         max-width: 100vw;
@@ -156,6 +160,14 @@
         text-align: center;
         font-size: 200%;
       }
+
+      #runtimes {
+        text-align: center;
+      }
+
+      .vega-actions .btn {
+        font-size: 100%;
+      }
     </style>
   </head>
 
@@ -164,7 +176,7 @@
 
     <nav class="navbar navbar-dark fixed-top bg-dark flex-md-nowrap p-0 shadow">
       <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="#">Snakemake Report</a>
-      <input id="searchbar" class="form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search">
+      <input id="searchbar" class="invisible form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search">
     </nav>
 
     <div class="container-fluid">
@@ -260,7 +272,7 @@
                 <td>{{ rule.name }}</td>
                 <td>{{ rule.n_jobs }}</td>
                 <td>
-                  <a data-toggle="collapse" role="button" href="#output-{{ rule.id }}" aria-expanded="false" aria-controls="collapseExample">Show</a>
+                  <a data-toggle="collapse" role="button" href="#output-{{ rule.id }}" aria-expanded="false" aria-controls="collapseExample"><span data-feather="plus-circle"></span></a>
                   <div class="collapse" id="output-{{ rule.id }}">
                     <ul class="list-group list-group-flush">
                     {% for f in rule.output %}
@@ -271,8 +283,8 @@
                 </td>
                 <td>{{ rule.singularity_img_url if rule.singularity_img_url is not none }}</td>
                 <td>
-                  {% if rule.conda_env_file %}
-                    <a data-toggle="collapse" href="#conda-env-{{ rule.id }}">{{ rule.conda_env_file }}</a>
+                  {% if rule.conda_env %}
+                    <a data-toggle="collapse" href="#conda-env-{{ rule.id }}"><span data-feather="plus-circle"></span></a>
                     <div class="collapse" id="conda-env-{{ rule.id }}">
                       <ul class="list-group list-group-flush">
                       {% for dep in rule.conda_env["dependencies"] %}
