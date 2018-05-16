@@ -36,5 +36,7 @@ dependencies:
   - cwltool
   - jsonschema
   - pandas
+  - networkx
+  - pygraphviz
   - pip:
       - moto==1.3.3
