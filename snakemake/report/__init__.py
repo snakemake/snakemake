@@ -202,7 +202,6 @@ class FileRecord:
 def rulegraph_d3_spec(dag):
     try:
         import networkx as nx
-        import pydot
         from networkx.drawing.nx_agraph import graphviz_layout
         from networkx.readwrite import json_graph
     except ImportError as e:

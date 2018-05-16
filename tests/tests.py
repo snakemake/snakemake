@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import sys
 import os
+import shutil
 from os.path import join
 from subprocess import call
 import tempfile
@@ -42,6 +43,13 @@ def is_connected():
         return False
 
 
+def copy(src, dst):
+    if os.path.isdir(src):
+        shutil.copytree(src, os.path.join(dst, os.path.basename(src)))
+    else:
+        shutil.copy(src, dst)
+
+
 def run(path,
         shouldfail=False,
         needs_connection=False,
@@ -53,6 +61,7 @@ def run(path,
     There must be a Snakefile in the path and a subdirectory named
     expected-results.
     """
+
     if needs_connection and not is_connected():
         print("Skipping test because of missing internet connection",
               file=sys.stderr)
@@ -65,6 +74,7 @@ def run(path,
         results_dir), '{} does not exist'.format(results_dir)
     with tempfile.TemporaryDirectory(prefix=".test", dir=os.path.abspath(".")) as tmpdir:
         config = {}
+        # handle subworkflow
         if subpath is not None:
             # set up a working directory for the subworkflow and pass it in `config`
             # for now, only one subworkflow is supported
@@ -72,14 +82,17 @@ def run(path,
                 subpath), '{} does not exist'.format(subpath)
             subworkdir = os.path.join(tmpdir, "subworkdir")
             os.mkdir(subworkdir)
-            call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
-                quote(subpath), quote(subworkdir)),
-                 shell=True)
+            # copy files
+            for f in os.listdir(subpath):
+                copy(os.path.join(subpath, f), subworkdir)
             config['subworkdir'] = subworkdir
 
-        call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp -r %% {}'.format(
-            quote(path), quote(tmpdir)),
-             shell=True)
+        # copy files
+        for f in os.listdir(path):
+            print(f)
+            copy(os.path.join(path, f), tmpdir)
+
+        # run snakemake
         success = snakemake(snakefile,
                             cores=cores,
                             workdir=tmpdir,
