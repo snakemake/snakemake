@@ -155,28 +155,44 @@
         padding-top: 50vh;
       }
 
-      #loading-screen p {
+      #loading-screen p#animation {
         animation: fadeinout 2.5s infinite;
         text-align: center;
         font-size: 200%;
       }
 
-      #runtimes {
+      #loading-screen p#info {
         text-align: center;
+        color: grey;
       }
 
       .vega-actions .btn {
         font-size: 100%;
       }
+
+      .plot {
+        text-align: center;
+      }
+
+      .navbar-dark .navbar-right a {
+        color: white;
+        padding-right: 10px;
+      }
     </style>
   </head>
 
   <body>
-    <div id="loading-screen"><p>Loading Snakemake Report...</p></div>
+    <div id="loading-screen">
+      <p id="animation">Loading Snakemake Report...</p>
+      <p id="info">Loading {{ results_size|filesizeformat }}. This can take a while.</p>
+    </div>
 
     <nav class="navbar navbar-dark fixed-top bg-dark flex-md-nowrap p-0 shadow">
       <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="#">Snakemake Report</a>
-      <input id="searchbar" class="invisible form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search">
+      <ul class="nav navbar-nav navbar-right">
+        <li><a href="https://snakemake.readthedocs.io">Snakemake {{ version }}</a></li>
+      </ul>
+      <!--<input id="searchbar" class="invisible form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search">-->
     </nav>
 
     <div class="container-fluid">
@@ -231,6 +247,8 @@
 
           {{ text }}
 
+          <p>Detailed software versions can be found under <a href="#rules">Rules</a></p>
+
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h2>Results</h2>
           </div>
@@ -252,7 +270,8 @@
             <h2 id="stats">Statistics</h2>
           </div>
           If the workflow has been executed in cluster/cloud, runtimes include the waiting time in the queue.
-          <div id="runtimes"></div>
+          <div id="runtimes" class="plot"></div>
+          <div id="timeline" class="plot"></div>
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
           <h2 id="rules">Rules</h2>
           </div>
@@ -415,7 +434,7 @@
             "from": {"data": "node-data"},
             "encode": {
               "enter": {
-                "stroke": {"value": "black"},
+                "fill": {"value": "black"},
                 "fontWeight": {"value": "normal"},
                 "text": {"field": "rule"},
                 "x": {"field": "fx", "scale": "x"},
@@ -455,17 +474,38 @@
         "$schema": "https://vega.github.io/schema/vega-lite/v2.json",
         "description": "Shows the relationship between horsepower and the numbver of cylinders using tick marks.",
         "data": {"values": {{ runtimes }}},
-        "mark": "tick",
+        "mark": "point",
         "encoding": {
           "x": {"field": "runtime", "type": "quantitative"},
-          "y": {"field": "rule", "type": "ordinal"},
-          "color": {"field": "rule", "type": "ordinal"}
+          "y": {"field": "rule", "type": "nominal"},
+          "color": {"value": "#007bff"}
         }
       };
       vegaEmbed("#runtimes", runtimes_spec);
-      $("#runtimes a").addClass("btn btn-outline-secondary");
-      $("#runtimes .vega-actions").addClass("btn-group");
 
+      var timeline_spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v2.json",
+        "description": "Timeline of job completions.",
+        "data": {
+          "values": {{ endtimes }}
+        },
+        "mark": "point",
+        "encoding": {
+          "x": {
+            "field": "endtime", "type": "temporal",
+            "timeUnit": "yearmonthdatehoursminutes",
+            "axis": {
+              "labelAngle": -90
+            }
+          },
+          "y": {"field": "rule", "type": "nominal"},
+          "color": {"value": "#007bff"}
+        }
+      };
+      vegaEmbed("#timeline", timeline_spec);
+
+      $(".vega-actions a").addClass("btn btn-outline-secondary");
+      $(".vega-actions").addClass("btn-group");
       $("#loading-screen").hide();
     </script>
   </body>

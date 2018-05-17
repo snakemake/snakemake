@@ -263,9 +263,8 @@ class Persistence:
 
     @lru_cache()
     def _conda_env(self, job):
-        if job.conda_env_file:
-            with open(job.conda_env_file, "rb") as f:
-                return b64encode(f.read()).decode()
+        if job.conda_env:
+            return b64encode(job.conda_env.content).decode()
 
     @lru_cache()
     def _input(self, job):

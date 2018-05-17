@@ -732,6 +732,11 @@ class Workflow:
         """ Define a global report description in .rst format."""
         self.report_text = os.path.join(self.current_basedir, path)
 
+    @property
+    def config(self):
+        global config
+        return config
+
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
 
