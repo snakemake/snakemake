@@ -30,13 +30,21 @@ def validate(data, schema):
     schema -- Path to JSON schema used for validation. The schema can also be
         in YAML format. If validating a pandas data frame, the schema has to
         describe a row record (i.e., a dict with column names as keys pointing
-        to row values). See http://json-schema.org.
+        to row values). See http://json-schema.org. The path is interpreted
+        relative to the Snakefile when this function is called.
     """
     try:
         import jsonschema
     except ImportError:
         raise WorkflowError("The Python 3 package jsonschema must be installed "
                             "in order to use the validate directive.")
+
+    if not os.path.isabs(schema):
+        frame = inspect.currentframe().f_back
+        # if workflow object is not available this has not been started from a workflow
+        if "workflow" in frame.f_globals:
+            workflow = frame.f_globals["workflow"]
+            schema = os.path.join(workflow.current_basedir, schema)
 
     schema = _load_configfile(schema, filetype="Schema")
 
@@ -45,6 +53,7 @@ def validate(data, schema):
             import pandas as pd
             if isinstance(data, pd.DataFrame):
                 for i, record in enumerate(data.to_dict("records")):
+                    record = {k: v for k, v in record.items() if not pd.isnull(v)}
                     try:
                         jsonschema.validate(record, schema)
                     except jsonschema.exceptions.ValidationError as e:
