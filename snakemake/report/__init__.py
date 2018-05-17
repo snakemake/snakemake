@@ -12,7 +12,10 @@ import datetime
 import io
 import uuid
 import json
+import time
 from collections import namedtuple, defaultdict
+
+import requests
 
 from docutils.parsers.rst.directives.images import Image, Figure
 from docutils.parsers.rst import directives
@@ -249,6 +252,14 @@ def rulegraph_d3_spec(dag):
     return {"nodes": nodes, "links": links}, xmax, ymax
 
 
+def get_resource_as_string(url):
+    r = requests.get(url)
+    if r.status_code == requests.codes.ok:
+        return r.text
+    raise WorkflowError("Failed to download resource needed for "
+                        "report: {}".format(url))
+
+
 def auto_report(dag, path):
     try:
         from jinja2 import Template, Environment, PackageLoader
@@ -321,13 +332,21 @@ def auto_report(dag, path):
     text = ""
     if dag.workflow.report_text:
         with open(dag.workflow.report_text) as f:
-            text = publish_parts(f.read(), writer_name="html")["body"]
+            class Snakemake:
+                config = dag.workflow.config
+            text = publish_parts(Template(f.read()).render(snakemake=Snakemake),
+                                 writer_name="html")["body"]
 
     # rulegraph
     rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
 
     # compose html
     env = Environment(loader=PackageLoader("snakemake", "report"))
+    env.filters["get_resource_as_string"] = get_resource_as_string
+
+    # record time
+    now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname)
+
     template = env.get_template("report.html")
     with open(path, "w") as out:
         out.write(template.render(results=results,
@@ -340,5 +359,6 @@ def auto_report(dag, path):
                                   runtimes=runtimes,
                                   endtimes=endtimes,
                                   rules=[rec for recs in rules.values() for rec in recs],
-                                  version=__version__.split("+")[0]))
+                                  version=__version__.split("+")[0],
+                                  now=now))
     logger.info("Report created.")

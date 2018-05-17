@@ -914,7 +914,21 @@ With the `benchmark` keyword, a rule can be declared to store a benchmark of its
 benchmarks the CPU and wall clock time of the command ``somecommand`` for the given output and input files.
 For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark tsv file (which will contain a tab-separated table of run times and memory usage in MiB).
 Per default, Snakemake executes the job once, generating one run time.
-With ``snakemake --benchmark-repeats``, this number can be changed to e.g. generate timings for two or three runs.
+However, the benchmark file can be annotated with the desired number of repeats, e.g.,
+
+.. code-block:: python
+
+    rule benchmark_command:
+        input:
+            "path/to/input.{sample}.txt"
+        output:
+            "path/to/output.{sample}.txt"
+        benchmark:
+            repeat("benchmarks/somecommand/{sample}.tsv", 3)
+        shell:
+            "somecommand {input} {output}"
+
+will instruct Snakemake to run each job of this rule three times and store all measurements in the benchmark file.
 The resulting tsv file can be used as input for other rules, just like any other output file.
 
 .. note::

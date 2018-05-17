@@ -145,6 +145,8 @@ def report(text, path,
            metadata=None, **files):
     """Create an HTML report using python docutils.
 
+    This is deprecated in favor of the --report flag.
+
     Attention: This function needs Python docutils to be installed for the
     python installation you use with Snakemake.
 
@@ -194,8 +196,9 @@ def report(text, path,
 
 
 def R(code):
-    """Execute R code
+    """Execute R code.
 
+    This is deprecated in favor of the ``script`` directive.
     This function executes the R code given as a string.
     The function requires rpy2 to be installed.
 

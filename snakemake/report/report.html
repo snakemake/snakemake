@@ -5,12 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="description" content="">
     <meta name="author" content="">
-    <link rel="icon" href="../../../../favicon.ico">
 
     <title>Snakemake Report</title>
 
     <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+    <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
 
     <!-- Custom styles for this template -->
     <style>
@@ -174,7 +173,7 @@
         text-align: center;
       }
 
-      .navbar-dark .navbar-right a {
+      .navbar-dark .navbar-right li,a {
         color: white;
         padding-right: 10px;
       }
@@ -190,6 +189,7 @@
     <nav class="navbar navbar-dark fixed-top bg-dark flex-md-nowrap p-0 shadow">
       <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="#">Snakemake Report</a>
       <ul class="nav navbar-nav navbar-right">
+        <li>{{ now }}</li>
         <li><a href="https://snakemake.readthedocs.io">Snakemake {{ version }}</a></li>
       </ul>
       <!--<input id="searchbar" class="invisible form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search">-->
@@ -323,18 +323,17 @@
 
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js" integrity="sha384-smHYKdLADwkXOn1EmN1qk/HfnUcbVRZyYmZ4qpPea6sjB/pTJ0euyQp0Mk8ck+5T" crossorigin="anonymous"></script>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega@3.3.1"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-lite@2.4.3"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-embed@3.9.0"></script>
+    <script>{{ "https://code.jquery.com/jquery-3.3.1.slim.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdn.jsdelivr.net/npm/vega@3.3.1"|get_resource_as_string }}</script>
+    <script>{{ "https://cdn.jsdelivr.net/npm/vega-lite@2.4.3"|get_resource_as_string }}</script>
+    <script>{{ "https://cdn.jsdelivr.net/npm/vega-embed@3.9.0"|get_resource_as_string }}</script>
+    <script>{{ "https://unpkg.com/feather-icons/dist/feather.min.js"|get_resource_as_string }}</script>
 
 
     <!-- Icons -->
-    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
     <script>
       feather.replace()
     </script>
