@@ -345,7 +345,7 @@ def auto_report(dag, path):
     env.filters["get_resource_as_string"] = get_resource_as_string
 
     # record time
-    now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname)
+    now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
 
     template = env.get_template("report.html")
     with open(path, "w") as out:

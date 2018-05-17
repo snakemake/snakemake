@@ -64,7 +64,7 @@ To create the report simply run
 after your workflow has finished.
 All other information contained in the report (e.g. runtime statistics) is automatically collected during creation.
 These statistics are obtained from the metadata that is stored in the ``.snakemake`` directory inside your working directory.
-The report for above example can be found `here <https://bitbucket.org/snakemake/snakemake/src/master/tests/test_report/report.html>`_.
+The report for above example can be found :download:`here <../../tests/test_report/report.html>`.
 
 Note that the report can be restricted to particular jobs and results by specifying targets at the command line, analog to normal Snakemake execution.
 For example, with

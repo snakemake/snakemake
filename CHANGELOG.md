@@ -1,5 +1,14 @@
 # Change Log
 
+# [5.1.0] - 2018-05-17
+## Added
+- A new framework for self-contained HTML reports, including results, statistics and topology information. In future releases this will be further extended.
+- A new utility snakemake.utils.validate() which allows to validate config and pandas data frames using JSON schemas.
+- Two new flags --cleanup-shadow and --cleanup-conda to clean up old unused conda and shadow data.
+## Changed
+- Benchmark repeats are now specified inside the workflow via a new flag repeat().
+- Command line interface help has been refactored into groups for better readability.
+
 # [5.0.0] - 2018-05-11
 # Added
 - Group jobs for reduced queuing and network overhead, in particular with short running jobs.

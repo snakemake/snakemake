@@ -14,7 +14,7 @@ The key idea is very similar to GNU Make. The workflow is determined automatical
 .. image:: img/idea.png
     :alt: Snakemake idea
 
-When you start using Snakemake, please make sure to walk through the :ref:`official tutorial <tutorial-welcome>`.
+When you start using Snakemake, please make sure to walk through the :ref:`official tutorial <tutorial>`.
 It is crucial to understand how to properly use the system.
 
 What is the recommended way to distribute a Snakemake workflow?
@@ -199,7 +199,7 @@ becomes:
 
 Here the double braces are escapes, i.e. there will remain single braces in the final command. In contrast, ``{input}`` is replaced with an input filename.
 
-In addition, if your shell command has literal slashes, `\\ `, you must escape them with a slash, `\\\\ `. For example:
+In addition, if your shell command has literal backslashes, ``\\``, you must escape them with a backslash, ``\\\\``. For example:
 
 This:
 
