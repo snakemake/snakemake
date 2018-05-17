@@ -17,7 +17,7 @@ from operator import attrgetter
 from urllib.request import urlopen
 from urllib.parse import urlparse
 
-from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard, lstat
+from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, get_flag_value, contains_wildcard, lstat
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, CreateCondaEnvironmentException
@@ -177,6 +177,11 @@ class Job(AbstractJob):
         return self._benchmark
 
     @property
+    def benchmark_repeats(self):
+        if self.benchmark is not None:
+            return get_flag_value(self.benchmark, "repeat") or 1
+
+    @property
     def group(self):
         if self._group is None:
             self._group = self.rule.expand_group(self.wildcards_dict)
@@ -208,12 +213,13 @@ class Job(AbstractJob):
     def conda_env_file(self):
         if self._conda_env_file is None:
             expanded_env = self.rule.expand_conda_env(self.wildcards_dict)
-            scheme, _, path, *_ = urlparse(expanded_env)
-            # Normalize 'file:///my/path.yml' to '/my/path.yml'
-            if scheme == 'file' or not scheme:
-                self._conda_env_file = path
-            else:
-                self._conda_env_file = expanded_env
+            if expanded_env is not None:
+                scheme, _, path, *_ = urlparse(expanded_env)
+                # Normalize 'file:///my/path.yml' to '/my/path.yml'
+                if scheme == 'file' or not scheme:
+                    self._conda_env_file = path
+                else:
+                    self._conda_env_file = expanded_env
         return self._conda_env_file
 
     @property

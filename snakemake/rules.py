@@ -310,7 +310,7 @@ class Rule:
         def is_annotated_callable(value):
             if isinstance(value, AnnotatedString):
                 return bool(value.callable)
-            
+
         def apply(value):
             if (not is_flagged(value, "remote_object") and
                 not is_flagged(value, "local") and
@@ -384,6 +384,9 @@ class Rule:
                     self.dynamic_output.add(_item)
                 else:
                     self.dynamic_input.add(_item)
+            if is_flagged(item, "report"):
+                item.flags["report"] = os.path.join(
+                    self.workflow.current_basedir, item.flags["report"])
             if is_flagged(item, "subworkflow"):
                 if output:
                     raise SyntaxError(

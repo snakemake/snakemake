@@ -26,3 +26,5 @@ dependencies:
   - appdirs
   - python-irodsclient
   - jsonschema
+  - networkx
+  - pygraphviz

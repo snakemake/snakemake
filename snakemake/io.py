@@ -622,7 +622,7 @@ def is_flagged(value, flag):
 
 
 def get_flag_value(value, flag_type):
-    if isinstance(value, AnnotatedString):
+    if isinstance(value, AnnotatedString) or isinstance(value, _IOFile):
         if flag_type in value.flags:
             return value.flags[flag_type]
         else:
@@ -698,6 +698,16 @@ def touch(value):
 
 def unpack(value):
     return flag(value, "unpack")
+
+
+def repeat(value, n_repeat):
+    """Flag benchmark records with the number of repeats."""
+    return flag(value, "repeat", n_repeat)
+
+
+def report(value, caption=None):
+    """Flag output file as to be included into reports."""
+    return flag(value, "report", caption)
 
 
 def local(value):
