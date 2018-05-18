@@ -172,11 +172,6 @@
       .plot {
         text-align: center;
       }
-
-      .navbar-dark .navbar-right li,a {
-        color: white;
-        padding-right: 10px;
-      }
     </style>
   </head>
 
@@ -188,9 +183,9 @@
 
     <nav class="navbar navbar-dark fixed-top bg-dark flex-md-nowrap p-0 shadow">
       <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="#">Snakemake Report</a>
-      <ul class="nav navbar-nav navbar-right">
-        <li>{{ now }}</li>
-        <li><a href="https://snakemake.readthedocs.io">Snakemake {{ version }}</a></li>
+      <ul class="nav navbar-nav navbar-right" style="padding-right: 10px;">
+        <li class="text-white">{{ now }}</li>
+        <li><a class="text-white" href="https://snakemake.readthedocs.io">Snakemake {{ version }}</a></li>
       </ul>
       <!--<input id="searchbar" class="invisible form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search">-->
     </nav>
