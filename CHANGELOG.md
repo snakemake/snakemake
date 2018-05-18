@@ -1,5 +1,9 @@
 # Change Log
 
+# [5.1.2] - 2018-05-18
+## Changed
+- Fixed a bug in the report stylesheet.
+
 # [5.1.0] - 2018-05-17
 ## Added
 - A new framework for self-contained HTML reports, including results, statistics and topology information. In future releases this will be further extended.
