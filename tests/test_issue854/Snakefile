@@ -1,0 +1,11 @@
+
+rule a:
+    output:
+        "test.{x}.txt"
+    benchmark:
+        "benchmarks/test.txt"
+    shell:
+        "touch {output}"
+
+
+

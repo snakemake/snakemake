@@ -56,7 +56,7 @@ class Rule:
             self._conda_env = None
             self._singularity_img = None
             self.group = None
-            self.wildcard_names = set()
+            self._wildcard_names = None
             self.lineno = lineno
             self.snakefile = snakefile
             self.run_func = None
@@ -93,7 +93,9 @@ class Rule:
             self._conda_env = other._conda_env
             self._singularity_img = other._singularity_img
             self.group = other.group
-            self.wildcard_names = set(other.wildcard_names)
+            self._wildcard_names = (set(other._wildcard_names)
+                                    if other._wildcard_names is not None
+                                    else None)
             self.lineno = other.lineno
             self.snakefile = other.snakefile
             self.run_func = other.run_func
@@ -213,6 +215,7 @@ class Rule:
         if not callable(benchmark):
             benchmark = self.apply_default_remote(benchmark)
         self._benchmark = IOFile(benchmark, rule=self)
+        self.register_wildcards(self._benchmark.get_wildcard_names())
 
     @property
     def conda_env(self):
@@ -257,6 +260,23 @@ class Rule:
         else:
             return chain(self.output, self.log)
 
+    def register_wildcards(self, wildcard_names):
+        if self._wildcard_names is None:
+            self._wildcard_names = wildcard_names
+        else:
+            if self.wildcard_names != wildcard_names:
+                raise SyntaxError("Not all output, log and benchmark files of "
+                                  "rule {} contain the same wildcards. "
+                                  "This is crucial though, in order to "
+                                  "avoid that two or more jobs write to the "
+                                  "same file.".format(self.name))
+
+    @property
+    def wildcard_names(self):
+        if self._wildcard_names is None:
+            return set()
+        return self._wildcard_names
+
     def set_output(self, *output, **kwoutput):
         """
         Add a list of output files. Recursive lists are flattened.
@@ -276,14 +296,7 @@ class Rule:
                 raise SyntaxError(
                     "A rule with dynamic output may not define any "
                     "non-dynamic output files.")
-            wildcards = item.get_wildcard_names()
-            if self.wildcard_names:
-                if self.wildcard_names != wildcards:
-                    raise SyntaxError("Not all output files of rule {} "
-                                      "contain the same wildcards.".format(
-                                          self.name))
-            else:
-                self.wildcard_names = wildcards
+            self.register_wildcards(item.get_wildcard_names())
         # Check output file name list for duplicates
         self.check_output_duplicates()
 
@@ -454,6 +467,9 @@ class Rule:
             self._set_log_item(item)
         for name, item in kwlogs.items():
             self._set_log_item(item, name=name)
+
+        for item in self.log:
+            self.register_wildcards(item.get_wildcard_names())
 
     def _set_log_item(self, item, name=None):
         if isinstance(item, str) or callable(item):

@@ -667,6 +667,12 @@ def test_validate_fail():
     run(dpath("test_validate"), configfile=dpath("test_validate/config.fail.yaml"), shouldfail=True)
 
 
+def test_issue854():
+    # output and benchmark have inconsistent wildcards
+    # this should fail when parsing
+    run(dpath("test_issue854"), shouldfail=True)
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)

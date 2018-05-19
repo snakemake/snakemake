@@ -508,7 +508,6 @@ class ClusterExecutor(RealExecutor):
             wait_for_files.append(self.tmpdir)
             wait_for_files.extend(job.get_wait_for_files())
 
-        # TODO go on from here support group jobs below
         format_p = partial(self.format_job_pattern,
                            job=job,
                            properties=json.dumps(job.properties(
