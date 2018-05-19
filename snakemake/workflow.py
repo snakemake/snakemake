@@ -227,6 +227,13 @@ class Workflow:
     def is_local(self, rule):
         return rule.name in self._localrules or rule.norun
 
+    def check_localrules(self):
+        undefined = self._localrules - set(rule.name for rule in self.rules)
+        if undefined:
+            logger.warning("localrules directive specifies rules that are not "
+                           "present in the Snakefile:\n{}\n".format(
+                               "\n".join(map("\t{}".format, undefined))))
+
     def execute(self,
                 targets=None,
                 dryrun=False,
@@ -296,6 +303,8 @@ class Workflow:
                 assume_shared_fs=True,
                 cluster_status=None,
                 report=None):
+
+        self.check_localrules()
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
