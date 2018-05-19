@@ -532,7 +532,8 @@ def remove(file, remove_non_empty_dir=False):
                     logger.warning(str(e))
     #Remember that dangling symlinks fail the os.path.exists() test, but
     #we definitely still want to zap them. try/except is the safest way.
-    else:
+    #Also, we don't want to remove the null device if it is an output.
+    elif os.devnull != str(file):
         try:
             os.remove(file)
         except FileNotFoundError:
