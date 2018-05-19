@@ -466,6 +466,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             input_size = 0
         else:
             temp_size = self.dag.temp_size(job)
+            print(job)
             input_size = job.inputsize
 
         # Usually, this should guide the scheduler to first schedule all jobs

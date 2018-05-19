@@ -896,7 +896,7 @@ class Job(AbstractJob):
 class GroupJob(AbstractJob):
 
     __slots__ = ["groupid", "jobs", "_resources", "_input", "_output",
-                 "_all_output", "_inputsize", "type"]
+                 "_inputsize", "_all_products", "_attempt"]
 
     def __init__(self, id, jobs):
         self.groupid = id
@@ -905,7 +905,7 @@ class GroupJob(AbstractJob):
         self._input = None
         self._output = None
         self._inputsize = None
-        self._all_products = set(f for job in self.jobs for f in job.products)
+        self._all_products = None
         self._attempt = self.dag.workflow.attempt
 
     @property
@@ -915,6 +915,12 @@ class GroupJob(AbstractJob):
     def merge(self, other):
         assert other.groupid == self.groupid
         self.jobs = self.jobs | other.jobs
+
+    @property
+    def all_products(self):
+        if self._all_products is None:
+            self._all_products = set(f for job in self.jobs for f in job.products)
+        return self._all_products
 
     def __iter__(self):
         return iter(self.jobs)
@@ -952,9 +958,9 @@ class GroupJob(AbstractJob):
 
     def get_wait_for_files(self):
         local_input = [f for job in self.jobs
-                       for f in job.local_input if f not in self._all_products]
+                       for f in job.local_input if f not in self.all_products]
         remote_input = [f for job in self.jobs
-                        for f in job.remote_input if f not in self._all_products]
+                        for f in job.remote_input if f not in self.all_products]
 
         wait_for_files = []
         wait_for_files.extend(local_input)
@@ -989,7 +995,7 @@ class GroupJob(AbstractJob):
     def input(self):
         if self._input is None:
             self._input = [f for job in self.jobs
-                             for f in job.input if f not in self._all_products]
+                             for f in job.input if f not in self.all_products]
         return self._input
 
     @property
@@ -1056,7 +1062,7 @@ class GroupJob(AbstractJob):
     @property
     def dynamic_input(self):
         return [f for job in self.jobs for f in job.dynamic_input
-                if f not in self._all_products]
+                if f not in self.all_products]
 
     @property
     def inputsize(self):
