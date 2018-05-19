@@ -54,3 +54,7 @@ def log_location(msg):
     frame = callerframerecord[0]
     info = inspect.getframeinfo(frame)
     logger.debug("{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info))
+
+
+def escape_backslash(path):
+    return path.replace("\\", "\\\\")

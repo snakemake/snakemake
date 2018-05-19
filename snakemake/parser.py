@@ -11,6 +11,7 @@ import urllib.request
 from io import TextIOWrapper
 
 from snakemake.exceptions import WorkflowError
+from snakemake.common import escape_backslash
 
 dd = textwrap.dedent
 
@@ -545,7 +546,7 @@ class Script(AbstractCmd):
     def args(self):
         # basedir
         yield ', "{}"'.format(
-            os.path.abspath(os.path.dirname(self.snakefile.path)))
+            escape_backslash(os.path.abspath(os.path.dirname(self.snakefile.path))))
         # other args
         yield (", input, output, params, wildcards, threads, resources, log, "
                "config, rule, conda_env, singularity_img, singularity_args, "
@@ -569,7 +570,7 @@ class CWL(Script):
     def args(self):
         # basedir
         yield ', "{}"'.format(
-            os.path.abspath(os.path.dirname(self.snakefile.path)))
+            escape_backslash(os.path.abspath(os.path.dirname(self.snakefile.path))))
         # other args
         yield (", input, output, params, wildcards, threads, resources, log, "
                "config, rule, use_singularity, bench_record, jobid")

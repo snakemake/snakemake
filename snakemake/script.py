@@ -20,7 +20,7 @@ from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import MIN_PY_VERSION
+from snakemake.common import MIN_PY_VERSION, escape_backslash
 
 
 PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
@@ -188,7 +188,9 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 ######## Snakemake header ########
                 import sys; sys.path.append("{}"); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
                 ######## Original script #########
-                """).format(searchpath, snakemake, logger.printshellcmds)
+                """).format(escape_backslash(searchpath),
+                            snakemake,
+                            logger.printshellcmds)
             elif path.endswith(".R") or path.endswith(".Rmd"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
