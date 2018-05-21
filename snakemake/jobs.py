@@ -123,10 +123,11 @@ class Job(AbstractJob):
                 sub = f.flags["subworkflow"]
                 if f in self.subworkflow_input:
                     other = self.subworkflow_input[f]
-                    raise WorkflowError("The input file {} is ambiguously "
-                                        "associated with two subworkflows {} "
-                                        "and {}.".format(f, sub, other),
-                                        rule=self.rule)
+                    if sub != other:
+                        raise WorkflowError("The input file {} is ambiguously "
+                                            "associated with two subworkflows {} "
+                                            "and {}.".format(f, sub, other),
+                                            rule=self.rule)
                 self.subworkflow_input[f] = sub
         self._hash = self.rule.__hash__()
         for wildcard_value in self.wildcards_dict.values():
