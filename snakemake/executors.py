@@ -1240,6 +1240,7 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
     run = job_rule.run_func
     version = job_rule.version
     rule = job_rule.name
+    is_shell = False #job_rule.shellcmd is not None
 
     if os.name == "posix" and debug:
         sys.stdin = open('/dev/stdin')

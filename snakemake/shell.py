@@ -75,13 +75,14 @@ class shell:
         cmd = format(cmd, *args, stepout=2, **kwargs)
         context = inspect.currentframe().f_back.f_locals
 
-        logger.shellcmd(cmd)
-
         stdout = sp.PIPE if iterable or async or read else STDOUT
 
         close_fds = sys.platform != 'win32'
 
         jobid = context.get("jobid")
+        if jobid is not None:
+            if not context.get("is_shell"):
+                logger.shellcmd(cmd)
 
         env_prefix = ""
         conda_env = context.get("conda_env", None)
