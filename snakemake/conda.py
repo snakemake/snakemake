@@ -191,9 +191,16 @@ class Env:
                                                   stderr=subprocess.STDOUT)
 
                 else:
+                    # Copy env file to env_path (because they can be on
+                    # different volumes and singularity should only mount one).
+                    # In addition, this allows to immediately see what an
+                    # environment in .snakemake/conda contains.
+                    target_env_file = env_path + ".yaml"
+                    shutil.copy(env_file, target_env_file)
+
                     logger.info("Downloading remote packages.")
                     cmd = " ".join(["conda", "env", "create",
-                                                "--file", env_file,
+                                                "--file", target_env_file,
                                                 "--prefix", env_path])
                     if self._singularity_img:
                         cmd = singularity.shellcmd(self._singularity_img.path, cmd)
