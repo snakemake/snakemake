@@ -775,7 +775,10 @@ class DAG:
             self._priority[job] = Job.HIGHEST_PRIORITY
 
     def update_ready(self, jobs=None):
-        """ Update information whether a job is ready to execute. """
+        """ Update information whether a job is ready to execute.
+
+        Given jobs must be needrun jobs!
+        """
         if jobs is None:
             jobs = self.needrun_jobs
 
@@ -908,7 +911,7 @@ class DAG:
         # mark depending jobs as ready
         # skip jobs that are marked as until jobs
         self.update_ready(j for job in jobs for j in self.depending[job]
-                            if not self.in_until(job))
+                            if not self.in_until(job) and self.needrun(j))
 
         for job in jobs:
             if update_dynamic and job.dynamic_output:
