@@ -413,8 +413,8 @@ class ClusterExecutor(RealExecutor):
                 '-m snakemake {target} --snakefile {snakefile} ',
                 '--force -j{cores} --keep-target-files --keep-remote ',
                 '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
-                ' --attempt {attempt} ',
-                '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
+                ' --attempt {attempt} {use_threads} ',
+                '--wrapper-prefix {workflow.wrapper_prefix} ',
                 '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
                 '--notemp --no-hooks --nolock --timestamp --mode {} '.format(Mode.cluster)))
         else:
@@ -435,9 +435,6 @@ class ClusterExecutor(RealExecutor):
                     self.workflow.singularity_args)
 
         self.exec_job += self.get_default_remote_provider_args()
-
-        # force threading.Lock() for cluster jobs
-        self.exec_job += " --force-use-threads "
 
         if not any(dag.dynamic_output_jobs):
             # disable restiction to target rule in case of dynamic rules!
@@ -515,7 +512,6 @@ class ClusterExecutor(RealExecutor):
                            latency_wait=self.latency_wait,
                            wait_for_files=wait_for_files,
                            **kwargs)
-        exec_job = self.exec_job
         try:
             return format_p(pattern)
         except KeyError as e:
@@ -524,10 +520,14 @@ class ClusterExecutor(RealExecutor):
                 "Make sure that your custom jobscript is up to date.".format(e))
 
     def write_jobscript(self, job, jobscript, **kwargs):
+        # only force threads if this is not a group job
+        # otherwise we want proper process handling
+        use_threads = "--force-use-threads" if not job.is_group() else ""
         exec_job = self.format_job(self.exec_job,
                                    job,
                                    _quote_all=True,
                                    rules=job.rules,
+                                   use_threads=use_threads,
                                    **kwargs)
         content = self.format_job(self.jobscript,
                                   job,
@@ -1028,8 +1028,8 @@ class KubernetesExecutor(ClusterExecutor):
             'snakemake {target} --snakefile {snakefile} '
             '--force -j{cores} --keep-target-files  --keep-remote '
             '--latency-wait 0 '
-            ' --attempt {attempt} '
-            '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} '
+            ' --attempt {attempt} {use_threads} '
+            '--wrapper-prefix {workflow.wrapper_prefix} '
             '{overwrite_config} {printshellcmds} --nocolor '
             '--notemp --no-hooks --nolock ')
 

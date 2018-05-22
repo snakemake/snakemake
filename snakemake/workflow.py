@@ -225,7 +225,8 @@ class Workflow:
                 logger.info(resource)
 
     def is_local(self, rule):
-        return rule.name in self._localrules or rule.norun
+        return rule.group is None and (
+            rule.name in self._localrules or rule.norun)
 
     def check_localrules(self):
         undefined = self._localrules - set(rule.name for rule in self.rules)

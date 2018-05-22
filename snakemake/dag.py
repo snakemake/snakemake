@@ -423,6 +423,7 @@ class DAG:
                 f = job.shadowed_path(f)
                 logger.info("Touching output file {}.".format(f))
                 f.touch_or_create()
+                assert os.path.exists(f)
 
     def temp_input(self, job):
         for job_, files in self.dependencies[job].items():

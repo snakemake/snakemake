@@ -677,6 +677,10 @@ def test_issue850():
     run(dpath("test_issue850"), cluster="./qsub")
 
 
+def test_issue860():
+    run(dpath("test_issue860"), cluster="./qsub", targets=["done"])
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
