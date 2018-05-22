@@ -823,7 +823,7 @@ class Job(AbstractJob):
                     upload_remote=True,
                     handle_log=True,
                     handle_touch=True,
-                    handle_temp=False,
+                    handle_temp=True,
                     error=False,
                     ignore_missing_output=False,
                     assume_shared_fs=True,
