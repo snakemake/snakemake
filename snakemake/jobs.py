@@ -823,6 +823,7 @@ class Job(AbstractJob):
                     upload_remote=True,
                     handle_log=True,
                     handle_touch=True,
+                    handle_temp=False,
                     error=False,
                     ignore_missing_output=False,
                     assume_shared_fs=True,
@@ -850,7 +851,9 @@ class Job(AbstractJob):
                     no_touch=True,
                     force_stay_on_remote=True)
         if not error:
-            self.dag.handle_temp(self)
+            if handle_temp:
+                self.dag.handle_temp(self)
+
             try:
                 self.dag.workflow.persistence.finished(self)
             except IOError as e:
@@ -916,6 +919,15 @@ class GroupJob(AbstractJob):
     def merge(self, other):
         assert other.groupid == self.groupid
         self.jobs = self.jobs | other.jobs
+
+    def finalize(self):
+        dag = {
+            job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
+            for job in self.jobs
+        }
+        from toposort import toposort
+        t = toposort(dag)
+        print(t)
 
     @property
     def all_products(self):
@@ -1041,10 +1053,16 @@ class GroupJob(AbstractJob):
         for job in self.jobs:
             job.cleanup()
 
-    def postprocess(self,
-                    **kwargs):
+    def postprocess(self, error=False, **kwargs):
         for job in self.jobs:
-            job.postprocess(**kwargs)
+            job.postprocess(handle_temp=False, error=error, **kwargs)
+        # Handle temp after per-job postprocess.
+        # This is necessary because group jobs are not topologically sorted,
+        # and we might otherwise delete a temp input file before it has been
+        # postprocessed by the outputting job in the same group.
+        if not error:
+            for job in self.jobs:
+                self.dag.handle_temp(job)
         # remove all pipe outputs since all jobs of this group are done and the
         # pipes are no longer needed
         for job in self.jobs:
