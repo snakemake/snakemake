@@ -444,7 +444,7 @@ class Run(RuleKeywordState):
         yield ("def __rule_{rulename}(input, output, params, wildcards, threads, "
                "resources, log, version, rule, conda_env, singularity_img, "
                "singularity_args, use_singularity, bench_record, jobid, "
-               "):".format(
+               "is_shell):".format(
                    rulename=self.rulename
                             if self.rulename is not None
                             else self.snakefile.rulecount))
