@@ -409,10 +409,11 @@ class Rule:
                     sub = item.flags["subworkflow"]
                     if _item in self.subworkflow_input:
                         other = self.subworkflow_input[_item]
-                        raise WorkflowError("The input file {} is ambiguously "
-                                            "associated with two subworkflows "
-                                            "{} and {}.".format(
-                                                item, sub, other), rule=self)
+                        if sub != other:
+                            raise WorkflowError("The input file {} is ambiguously "
+                                                "associated with two subworkflows "
+                                                "{} and {}.".format(
+                                                    item, sub, other), rule=self)
                     self.subworkflow_input[_item] = sub
             inoutput.append(_item)
             if name:
