@@ -1,5 +1,9 @@
 # Change Log
 
+# [5.1.3] - 2018-05-22
+## Changed
+- Fixed various bugs in job groups, shadow directive, singularity directive, and more.
+
 # [5.1.2] - 2018-05-18
 ## Changed
 - Fixed a bug in the report stylesheet.
