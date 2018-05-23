@@ -22,7 +22,7 @@ from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, CreateCondaEnvironmentException
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL, lazy_property
+from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid
 from snakemake import conda, wrapper
 
 
@@ -1047,7 +1047,7 @@ class GroupJob(AbstractJob):
 
     @property
     def jobid(self):
-        return ",".join(str(job.jobid) for job in self.jobs)
+        return str(get_uuid(",".join(str(job.jobid) for job in self.jobs)))
 
     def cleanup(self):
         for job in self.jobs:

@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 from functools import update_wrapper
 import inspect
+import uuid
 
 
 from ._version import get_versions
@@ -14,6 +15,13 @@ del get_versions
 
 MIN_PY_VERSION = (3, 5)
 DYNAMIC_FILL = "__snakemake_dynamic__"
+
+
+UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
+
+
+def get_uuid(name):
+    return uuid.uuid5(UUID_NAMESPACE, name)
 
 
 class Mode:
