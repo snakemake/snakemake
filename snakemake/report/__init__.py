@@ -78,7 +78,7 @@ def data_uri(file, defaultenc="utf8"):
            "".format(filename=os.path.basename(file),
                      mime=mime,
                      charset=encoding,
-                     data=data.decode()))
+                     data=data.decode("utf-8")))
     return uri, mime
 
 
