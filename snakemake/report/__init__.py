@@ -255,8 +255,8 @@ def rulegraph_d3_spec(dag):
 def get_resource_as_string(url):
     r = requests.get(url)
     if r.status_code == requests.codes.ok:
-        r.encoding = "utf-8"
-        return r.text
+        # decode from ascii, as utf-8 throws an error for vega.
+        return r.content.decode("ascii", "ignore")
     raise WorkflowError("Failed to download resource needed for "
                         "report: {}".format(url))
 
