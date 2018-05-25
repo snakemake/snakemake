@@ -181,6 +181,11 @@ class Env:
             try:
                 if os.path.exists(env_archive):
                     logger.info("Using archived local conda packages.")
+                    # index directory in order to obtain repodata.json
+                    subprocess.check_call(["conda", "index", env_archive])
+                    repodata = json.load(os.path.join(env_archive, "repodata.json"))
+                    
+
                     # install packages manually from env archive
                     cmd = " ".join(
                         ["conda", "create", "--copy", "--prefix", env_path] +

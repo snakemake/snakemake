@@ -45,7 +45,8 @@ setup(
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
     install_requires=['wrapt', 'requests', 'ratelimiter', 'pyyaml',
-                      'configargparse', 'appdirs', 'datrie', 'jsonschema', 'docutils', 'jinja2'],
+                      'configargparse', 'appdirs', 'datrie', 'jsonschema',
+                      'docutils', 'jinja2', 'networkx'],
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",
      "Intended Audience :: Science/Research",
