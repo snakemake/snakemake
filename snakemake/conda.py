@@ -128,21 +128,26 @@ class Env:
             except subprocess.CalledProcessError as e:
                 raise WorkflowError("Error exporting conda packages:\n" +
                                     e.output.decode())
-            for l in out.decode().split("\n"):
-                if l and not l.startswith("#") and not l.startswith("@"):
-                    pkg_url = l
-                    logger.info(pkg_url)
-                    parsed = urlparse(pkg_url)
-                    pkg_name = os.path.basename(parsed.path)
-                    pkg_path = os.path.join(env_archive, pkg_name)
-                    with open(pkg_path, "wb") as copy:
-                        r = requests.get(pkg_url)
-                        r.raise_for_status()
-                        copy.write(r.content)
-                    try:
-                        tarfile.open(pkg_path)
-                    except:
-                        raise WorkflowError("Package is invalid tar archive: {}".format(pkg_url))
+            with open(os.path.join(env_archive,
+                                   "packages.txt"), "w") as pkg_list:
+                for l in out.decode().split("\n"):
+                    if l and not l.startswith("#") and not l.startswith("@"):
+                        pkg_url = l
+                        logger.info(pkg_url)
+                        parsed = urlparse(pkg_url)
+                        pkg_name = os.path.basename(parsed.path)
+                        # write package name to list
+                        print(pkg_name, file=pkg_list)
+                        # download package
+                        pkg_path = os.path.join(env_archive, pkg_name)
+                        with open(pkg_path, "wb") as copy:
+                            r = requests.get(pkg_url)
+                            r.raise_for_status()
+                            copy.write(r.content)
+                        try:
+                            tarfile.open(pkg_path)
+                        except:
+                            raise WorkflowError("Package is invalid tar archive: {}".format(pkg_url))
         except (requests.exceptions.ChunkedEncodingError, requests.exceptions.HTTPError) as e:
             shutil.rmtree(env_archive)
             raise WorkflowError("Error downloading conda package {}.".format(pkg_url))
@@ -181,15 +186,21 @@ class Env:
             try:
                 if os.path.exists(env_archive):
                     logger.info("Using archived local conda packages.")
-                    # index directory in order to obtain repodata.json
-                    subprocess.check_call(["conda", "index", env_archive])
-                    repodata = json.load(os.path.join(env_archive, "repodata.json"))
-                    
+                    pkg_list = os.path.join(env_archive, "packages.txt")
+                    if os.path.exists(pkg_list):
+                        # read pacakges in correct order
+                        # this is for newer env archives where the package list
+                        # was stored
+                        packages = [os.path.join(env_archive, pkg)
+                                    for pkg in open(pkg_list)]
+                    else:
+                        # guess order
+                        packages = glob(os.path.join(env_archive, "*.tar.bz2"))
 
                     # install packages manually from env archive
                     cmd = " ".join(
                         ["conda", "create", "--copy", "--prefix", env_path] +
-                        glob(os.path.join(env_archive, "*.tar.bz2")))
+                        packages)
                     if self._singularity_img:
                         cmd = singularity.shellcmd(self._singularity_img.path, cmd)
                     out = subprocess.check_output(cmd, shell=True,
