@@ -255,8 +255,7 @@ def rulegraph_d3_spec(dag):
 def get_resource_as_string(url):
     r = requests.get(url)
     if r.status_code == requests.codes.ok:
-        # decode from ascii, as utf-8 throws an error for vega.
-        return r.content.decode("ascii", "ignore")
+        return r.text
     raise WorkflowError("Failed to download resource needed for "
                         "report: {}".format(url))
 
@@ -349,7 +348,7 @@ def auto_report(dag, path):
     now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
 
     template = env.get_template("report.html")
-    with open(path, "w") as out:
+    with open(path, "w", encoding="utf-8") as out:
         out.write(template.render(results=results,
                                   results_size=sum(res.size for res in results),
                                   text=text,
