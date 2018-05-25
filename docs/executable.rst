@@ -114,6 +114,11 @@ Of course, if any input or output already defines a different remote location, t
 Importantly, this means that Snakemake does **not** require a shared network
 filesystem to work in the cloud.
 
+
+.. sidebar:: Note
+
+  Consider to :ref:`group jobs <snakefiles-grouping>` in order to minimize overhead, in particular for short-running jobs.
+
 Currently, this mode requires that the Snakemake workflow is stored in a git repository.
 Snakemake uses git to query necessary source files (the Snakefile, scripts, config, ...)
 for workflow execution and encodes them into the kubernetes job.
@@ -143,6 +148,11 @@ In this case, Snakemake simply needs to be given a submit command that accepts a
 
 Here, ``-j`` denotes the number of jobs submitted being submitted to the cluster at the same time (here 32).
 The cluster command can be decorated with job specific information, e.g.
+
+.. sidebar:: Note
+
+  Consider to :ref:`group jobs <snakefiles-grouping>` in order to minimize overhead, in particular for short-running jobs.
+
 
 .. code-block:: console
 
@@ -176,8 +186,9 @@ With DRMAA, no ``qsub`` command needs to be provided, but system specific argume
 Note that the string has to contain a leading whitespace.
 Else, the arguments will be interpreted as part of the normal Snakemake arguments, and execution will fail.
 
+
 Job Properties
-..............
+~~~~~~~~~~~~~~
 
 When executing a workflow on a cluster using the ``--cluster`` parameter (see below), Snakemake creates a job script for each job to execute. This script is then invoked using the provided cluster submission command (e.g. ``qsub``). Sometimes you want to provide a custom wrapper for the cluster submission command that decides about additional parameters. As this might be based on properties of the job, Snakemake stores the job properties (e.g. rule name, threads, input files, params etc.) as JSON inside the job script. For convenience, there exists a parser function `snakemake.utils.read_job_properties` that can be used to access the properties. The following shows an example job submission wrapper:
 

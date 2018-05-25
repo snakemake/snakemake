@@ -9,3 +9,11 @@ dist/
 *.egg
 .eggs/
 .snakemake*
+
+.idea
+
+.pytest*
+.cache
+.ipynb*
+.ropeproject
+.test*

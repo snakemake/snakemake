@@ -39,6 +39,7 @@ class Persistence:
 
         self.shadow_path = os.path.join(self.path, "shadow")
         self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
+        self.benchmark_path = os.path.join(self.path, "benchmarks")
 
         for d in (self._metadata_path, self.shadow_path, self.conda_env_archive_path):
             os.makedirs(d, exist_ok=True)
@@ -127,6 +128,19 @@ class Persistence:
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
 
+    def cleanup_conda(self):
+        # cleanup envs
+        in_use = set(env.hash[:8] for env in self.dag.conda_envs.values())
+        for d in os.listdir(self.conda_env_path):
+            if d not in in_use:
+                shutil.rmtree(os.path.join(self.conda_env_path, d))
+
+        # cleanup env archives
+        in_use = set(env.content_hash for env in self.dag.conda_envs.values())
+        for d in os.listdir(self.conda_env_archive_path):
+            if d not in in_use:
+                shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
+
     def started(self, job, external_jobid=None):
         for f in job.output:
             self._record(self._metadata_path, {
@@ -142,7 +156,11 @@ class Persistence:
         log = self._log(job)
         params = self._params(job)
         shellcmd = job.shellcmd
+        conda_env = self._conda_env(job)
         for f in job.expanded_output:
+            rec_path = self._record_path(self._metadata_path, f)
+            starttime = (os.path.getmtime(rec_path)
+                         if os.path.exists(rec_path) else None)
             self._record(self._metadata_path, {
                 "version": version,
                 "code": code,
@@ -151,7 +169,12 @@ class Persistence:
                 "log": log,
                 "params": params,
                 "shellcmd": shellcmd,
-                "incomplete": False
+                "incomplete": False,
+                "starttime": starttime,
+                "endtime": f.mtime,
+                "job_hash": hash(job),
+                "conda_env": conda_env,
+                "singularity_img_url": job.singularity_img_url
             }, f)
 
     def cleanup(self, job):
@@ -171,26 +194,29 @@ class Persistence:
                 .get("external_jobid", None)
             for f in job.output))
 
+    def metadata(self, path):
+        return self._read_record(self._metadata_path, path)
+
     def version(self, path):
-        return self._read_record(self._metadata_path, path).get("version")
+        return self.metadata(path).get("version")
 
     def rule(self, path):
-        return self._read_record(self._metadata_path, path).get("rule")
+        return self.metadata(path).get("rule")
 
     def input(self, path):
-        return self._read_record(self._metadata_path, path).get("input")
+        return self.metadata(path).get("input")
 
     def log(self, path):
-        return self._read_record(self._metadata_path, path).get("log")
+        return self.metadata(path).get("log")
 
     def shellcmd(self, path):
-        return self._read_record(self._metadata_path, path).get("shellcmd")
+        return self.metadata(path).get("shellcmd")
 
     def params(self, path):
-        return self._read_record(self._metadata_path, path).get("params")
+        return self.metadata(path).get("params")
 
     def code(self, path):
-        return self._read_record(self._metadata_path, path).get("code")
+        return self.metadata(path).get("code")
 
     def version_changed(self, job, file=None):
         """Yields output files with changed versions of bool if file given."""
@@ -234,6 +260,11 @@ class Persistence:
     def _code(self, rule):
         code = rule.run_func.__code__
         return b64encode(pickle_code(code)).decode()
+
+    @lru_cache()
+    def _conda_env(self, job):
+        if job.conda_env:
+            return b64encode(job.conda_env.content).decode()
 
     @lru_cache()
     def _input(self, job):

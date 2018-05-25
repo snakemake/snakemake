@@ -8,11 +8,13 @@ import shutil
 from distutils.version import StrictVersion
 import json
 from glob import glob
+import tarfile
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import strip_prefix
 from snakemake import utils
+from snakemake import singularity
 
 
 def content(env_file):
@@ -30,16 +32,22 @@ class Env:
 
     """Conda environment from a given specification file."""
 
-    def __init__(self, env_file, dag):
+    def __init__(self, env_file, dag, singularity_img=None):
         self.file = env_file
 
         self._env_dir = dag.workflow.persistence.conda_env_path
         self._env_archive_dir = dag.workflow.persistence.conda_env_archive_path
 
         self._hash = None
+        self._content_hash = None
         self._content = None
         self._path = None
         self._archive_file = None
+        self._singularity_img = singularity_img
+
+    @property
+    def singularity_img_url(self):
+        return self._singularity_img.url if self._singularity_img else None
 
     @property
     def content(self):
@@ -57,9 +65,19 @@ class Env:
             # in conda environments can contain hardcoded absolute RPATHs.
             assert os.path.isabs(self._env_dir)
             md5hash.update(self._env_dir.encode())
+            if self._singularity_img:
+                md5hash.update(self._singularity_img.url.encode())
             md5hash.update(self.content)
             self._hash = md5hash.hexdigest()
         return self._hash
+
+    @property
+    def content_hash(self):
+        if self._content_hash is None:
+            md5hash = hashlib.md5()
+            md5hash.update(self.content)
+            self._content_hash = md5hash.hexdigest()
+        return self._content_hash
 
     @property
     def path(self):
@@ -81,7 +99,7 @@ class Env:
     def archive_file(self):
         """Path to archive of the conda environment, which may or may not exist."""
         if self._archive_file is None:
-            self._archive_file = os.path.join(self._env_archive_dir, self.hash)
+            self._archive_file = os.path.join(self._env_archive_dir, self.content_hash)
         return self._archive_file
 
     def create_archive(self):
@@ -110,14 +128,29 @@ class Env:
             except subprocess.CalledProcessError as e:
                 raise WorkflowError("Error exporting conda packages:\n" +
                                     e.output.decode())
-            for l in out.decode().split("\n"):
-                if l and not l.startswith("#") and not l.startswith("@"):
-                    pkg_url = l
-                    logger.info(pkg_url)
-                    parsed = urlparse(pkg_url)
-                    pkg_name = os.path.basename(parsed.path)
-                    with open(os.path.join(env_archive, pkg_name), "wb") as copy:
-                        copy.write(requests.get(pkg_url).content)
+            with open(os.path.join(env_archive,
+                                   "packages.txt"), "w") as pkg_list:
+                for l in out.decode().split("\n"):
+                    if l and not l.startswith("#") and not l.startswith("@"):
+                        pkg_url = l
+                        logger.info(pkg_url)
+                        parsed = urlparse(pkg_url)
+                        pkg_name = os.path.basename(parsed.path)
+                        # write package name to list
+                        print(pkg_name, file=pkg_list)
+                        # download package
+                        pkg_path = os.path.join(env_archive, pkg_name)
+                        with open(pkg_path, "wb") as copy:
+                            r = requests.get(pkg_url)
+                            r.raise_for_status()
+                            copy.write(r.content)
+                        try:
+                            tarfile.open(pkg_path)
+                        except:
+                            raise WorkflowError("Package is invalid tar archive: {}".format(pkg_url))
+        except (requests.exceptions.ChunkedEncodingError, requests.exceptions.HTTPError) as e:
+            shutil.rmtree(env_archive)
+            raise WorkflowError("Error downloading conda package {}.".format(pkg_url))
         except (Exception, BaseException) as e:
             shutil.rmtree(env_archive)
             raise e
@@ -125,6 +158,9 @@ class Env:
 
     def create(self, dryrun=False):
         """ Create the conda enviroment."""
+        if self._singularity_img:
+            check_conda(self._singularity_img)
+
         # Read env file and create hash.
         env_file = self.file
         tmp_file = None
@@ -149,16 +185,43 @@ class Env:
             env_archive = self.archive_file
             try:
                 if os.path.exists(env_archive):
+                    logger.info("Using archived local conda packages.")
+                    pkg_list = os.path.join(env_archive, "packages.txt")
+                    if os.path.exists(pkg_list):
+                        # read pacakges in correct order
+                        # this is for newer env archives where the package list
+                        # was stored
+                        packages = [os.path.join(env_archive, pkg.rstrip())
+                                    for pkg in open(pkg_list)]
+                    else:
+                        # guess order
+                        packages = glob(os.path.join(env_archive, "*.tar.bz2"))
+
                     # install packages manually from env archive
-                    out = subprocess.check_output(["conda", "create", "--copy", "--prefix", env_path] +
-                        glob(os.path.join(env_archive, "*.tar.bz2")),
-                        stderr=subprocess.STDOUT
-                    )
+                    cmd = " ".join(
+                        ["conda", "create", "--copy", "--prefix", env_path] +
+                        packages)
+                    if self._singularity_img:
+                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
+                    out = subprocess.check_output(cmd, shell=True,
+                                                  stderr=subprocess.STDOUT)
+
                 else:
-                    out = subprocess.check_output(["conda", "env", "create",
-                                                "--file", env_file,
-                                                "--prefix", env_path],
-                                                stderr=subprocess.STDOUT)
+                    # Copy env file to env_path (because they can be on
+                    # different volumes and singularity should only mount one).
+                    # In addition, this allows to immediately see what an
+                    # environment in .snakemake/conda contains.
+                    target_env_file = env_path + ".yaml"
+                    shutil.copy(env_file, target_env_file)
+
+                    logger.info("Downloading remote packages.")
+                    cmd = " ".join(["conda", "env", "create",
+                                                "--file", target_env_file,
+                                                "--prefix", env_path])
+                    if self._singularity_img:
+                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
+                    out = subprocess.check_output(cmd, shell=True,
+                                                  stderr=subprocess.STDOUT)
                 logger.debug(out.decode())
                 logger.info("Environment for {} created (location: {})".format(
                             os.path.relpath(env_file), os.path.relpath(env_path)))
@@ -189,11 +252,21 @@ def shellcmd(env_path):
     return "source activate {};".format(env_path)
 
 
-def check_conda():
-    if shutil.which("conda") is None:
+def check_conda(singularity_img=None):
+    def get_cmd(cmd, singularity_img=None):
+        if singularity_img:
+            return singularity.shellcmd(self.singularity_img.path, cmd)
+        return cmd
+
+    if subprocess.check_output(get_cmd("which conda"),
+                               shell=True,
+                               stderr=subprocess.STDOUT) is None:
         raise CreateCondaEnvironmentException("The 'conda' command is not available in $PATH.")
     try:
-        version = subprocess.check_output(["conda", "--version"], stderr=subprocess.STDOUT).decode().split()[1]
+        version = subprocess.check_output(get_cmd("conda --version"),
+                                          shell=True,
+                                          stderr=subprocess.STDOUT).decode() \
+                                                                   .split()[1]
         if StrictVersion(version) < StrictVersion("4.2"):
             raise CreateCondaEnvironmentException(
                 "Conda must be version 4.2 or later."

@@ -26,6 +26,7 @@ except ImportError as e:
 class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
+    allows_directories = True
 
     def __init__(self, *args, stay_on_remote=False, immediate_close=False, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
@@ -65,7 +66,15 @@ class RemoteProvider(AbstractRemoteProvider):
                     values[i] = 'ftp://' + file
 
         should_close = immediate_close if immediate_close else self.immediate_close
-        return super(RemoteProvider, self).remote(values, *args, encrypt_data_channel=encrypt_data_channel, immediate_close=should_close, **kwargs)
+        values = [super(RemoteProvider, self).remote(
+                    value, *args,
+                    encrypt_data_channel=encrypt_data_channel,
+                    immediate_close=should_close, **kwargs)
+                  for value in values]
+        if len(values) == 1:
+            return values[0]
+        else:
+            return values
 
 
 class RemoteObject(DomainObject):

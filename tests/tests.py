@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import sys
 import os
+import shutil
 from os.path import join
 from subprocess import call
 import tempfile
@@ -12,9 +13,9 @@ import hashlib
 import urllib
 from shutil import rmtree, which
 from shlex import quote
-from nose.tools import nottest
 
 from snakemake import snakemake
+from snakemake.shell import shell
 
 
 if not which("snakemake"):
@@ -42,6 +43,13 @@ def is_connected():
         return False
 
 
+def copy(src, dst):
+    if os.path.isdir(src):
+        shutil.copytree(src, os.path.join(dst, os.path.basename(src)))
+    else:
+        shutil.copy(src, dst)
+
+
 def run(path,
         shouldfail=False,
         needs_connection=False,
@@ -53,6 +61,7 @@ def run(path,
     There must be a Snakefile in the path and a subdirectory named
     expected-results.
     """
+
     if needs_connection and not is_connected():
         print("Skipping test because of missing internet connection",
               file=sys.stderr)
@@ -65,6 +74,7 @@ def run(path,
         results_dir), '{} does not exist'.format(results_dir)
     with tempfile.TemporaryDirectory(prefix=".test", dir=os.path.abspath(".")) as tmpdir:
         config = {}
+        # handle subworkflow
         if subpath is not None:
             # set up a working directory for the subworkflow and pass it in `config`
             # for now, only one subworkflow is supported
@@ -72,14 +82,17 @@ def run(path,
                 subpath), '{} does not exist'.format(subpath)
             subworkdir = os.path.join(tmpdir, "subworkdir")
             os.mkdir(subworkdir)
-            call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
-                quote(subpath), quote(subworkdir)),
-                 shell=True)
+            # copy files
+            for f in os.listdir(subpath):
+                copy(os.path.join(subpath, f), subworkdir)
             config['subworkdir'] = subworkdir
 
-        call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp -r %% {}'.format(
-            quote(path), quote(tmpdir)),
-             shell=True)
+        # copy files
+        for f in os.listdir(path):
+            print(f)
+            copy(os.path.join(path, f), tmpdir)
+
+        # run snakemake
         success = snakemake(snakefile,
                             cores=cores,
                             workdir=tmpdir,
@@ -106,6 +119,8 @@ def run(path,
                         expectedfile), 'wrong result produced for file "{}"'.format(
                             resultfile)
 
+def test_delete_all_output():
+    run(dpath("test_delete_all_output"))
 
 def test01():
     run(dpath("test01"))
@@ -169,8 +184,11 @@ def test15():
 def test_ancient():
     run(dpath("test_ancient"), targets=['D'])
 
+def test_list_untracked():
+    run(dpath("test_list_untracked"))
+
 def test_report():
-    run(dpath("test_report"), check_md5=False)
+    run(dpath("test_report"), report="report.html", check_md5=False)
 
 
 def test_dynamic():
@@ -541,11 +559,10 @@ def test_issue260():
    run(dpath("test_issue260"))
 
 
-# TODO reenable once S3Mocked works again with boto3
-# def test_default_remote():
-#     run(dpath("test_default_remote"),
-#         default_remote_provider="S3Mocked",
-#         default_remote_prefix="test-remote-bucket")
+def test_default_remote():
+     run(dpath("test_default_remote"),
+         default_remote_provider="S3Mocked",
+         default_remote_prefix="test-remote-bucket")
 
 
 def test_run_namedlist():
@@ -566,14 +583,15 @@ def test_remote_log():
 def test_remote_http():
     run(dpath("test_remote_http"))
 
+def test_remote_http_cluster():
+    run(dpath("test_remote_http"), cluster=os.path.abspath(dpath("test14/qsub")))
 
 def test_profile():
     run(dpath("test_profile"))
 
 
-# TODO reenable once we run tests in a VM instead of Docker (maybe go back to codeship)?
-# def test_singularity():
-#     run(dpath("test_singularity"), use_singularity=True)
+def test_singularity():
+    run(dpath("test_singularity"), use_singularity=True)
 
 
 def test_issue612():
@@ -582,6 +600,85 @@ def test_issue612():
 
 def test_bash():
     run(dpath("test_bash"))
+
+
+def test_inoutput_is_path():
+    run(dpath("test_inoutput_is_path"))
+
+
+def test_archive():
+    run(dpath("test_archive"), archive="workflow-archive.tar.gz")
+
+
+def test_log_input():
+    run(dpath("test_log_input"))
+
+
+def test_gcloud():
+    if "CI" in os.environ and "GCLOUD_SERVICE_KEY" in os.environ:
+        cluster = os.environ["GCLOUD_CLUSTER"]
+        try:
+            shell("""
+            sudo $GCLOUD container clusters create {cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
+            sudo $GCLOUD container clusters get-credentials {cluster} --zone us-central1-a
+            """)
+            run(dpath("test_kubernetes"))
+            run(dpath("test_kubernetes"), use_conda=True)
+            run(dpath("test_kubernetes"), use_singularity=True)
+            run(dpath("test_kubernetes"), use_singularity=True, use_conda=True)
+        finally:
+            shell("sudo $GCLOUD container clusters delete {cluster} --zone us-central1-a --quiet")
+    print("Skipping google cloud test")
+
+
+def test_cwl():
+    run(dpath("test_cwl"))
+
+
+def test_cwl_singularity():
+    run(dpath("test_cwl"), use_singularity=True)
+
+
+def test_issue805():
+    run(dpath("test_issue805"), shouldfail=True)
+
+
+def test_group_jobs():
+    run(dpath("test_group_jobs"), cluster="./qsub")
+
+
+def test_group_job_fail():
+    run(dpath("test_group_job_fail"), cluster="./qsub", shouldfail=True)
+
+
+def test_pipes():
+    run(dpath("test_pipes"))
+
+
+def test_pipes_fail():
+    run(dpath("test_pipes_fail"), shouldfail=True)
+
+
+def test_validate():
+    run(dpath("test_validate"))
+
+
+def test_validate_fail():
+    run(dpath("test_validate"), configfile=dpath("test_validate/config.fail.yaml"), shouldfail=True)
+
+
+def test_issue854():
+    # output and benchmark have inconsistent wildcards
+    # this should fail when parsing
+    run(dpath("test_issue854"), shouldfail=True)
+
+
+def test_issue850():
+    run(dpath("test_issue850"), cluster="./qsub")
+
+
+def test_issue860():
+    run(dpath("test_issue860"), cluster="./qsub", targets=["done"])
 
 
 if __name__ == '__main__':

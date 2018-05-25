@@ -24,6 +24,7 @@ if not shutil.which("gfal-copy"):
 class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
+    allows_directories = True
 
     def __init__(self, *args, stay_on_remote=False, retry=5, **kwargs):
         super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)

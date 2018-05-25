@@ -10,10 +10,12 @@ import inspect
 import sre_constants
 from collections import defaultdict, Iterable
 from urllib.parse import urljoin
+from pathlib import Path
+from itertools import chain
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
-from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable
+from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable, DYNAMIC_FILL
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import Mode
@@ -53,13 +55,15 @@ class Rule:
             self._benchmark = None
             self._conda_env = None
             self._singularity_img = None
-            self.wildcard_names = set()
+            self.group = None
+            self._wildcard_names = None
             self.lineno = lineno
             self.snakefile = snakefile
             self.run_func = None
             self.shellcmd = None
             self.script = None
             self.wrapper = None
+            self.cwl = None
             self.norun = False
             self.is_branched = False
             self.restart_times = 0
@@ -88,13 +92,17 @@ class Rule:
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
             self._singularity_img = other._singularity_img
-            self.wildcard_names = set(other.wildcard_names)
+            self.group = other.group
+            self._wildcard_names = (set(other._wildcard_names)
+                                    if other._wildcard_names is not None
+                                    else None)
             self.lineno = other.lineno
             self.snakefile = other.snakefile
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
             self.script = other.script
             self.wrapper = other.wrapper
+            self.cwl = other.cwl
             self.norun = other.norun
             self.is_branched = True
             self.restart_times = other.restart_times
@@ -207,6 +215,7 @@ class Rule:
         if not callable(benchmark):
             benchmark = self.apply_default_remote(benchmark)
         self._benchmark = IOFile(benchmark, rule=self)
+        self.register_wildcards(self._benchmark.get_wildcard_names())
 
     @property
     def conda_env(self):
@@ -246,10 +255,27 @@ class Rule:
 
     @property
     def products(self):
-        products = list(self.output)
         if self.benchmark:
-            products.append(self.benchmark)
-        return products
+            return chain(self.output, self.log, [self.benchmark])
+        else:
+            return chain(self.output, self.log)
+
+    def register_wildcards(self, wildcard_names):
+        if self._wildcard_names is None:
+            self._wildcard_names = wildcard_names
+        else:
+            if self.wildcard_names != wildcard_names:
+                raise SyntaxError("Not all output, log and benchmark files of "
+                                  "rule {} contain the same wildcards. "
+                                  "This is crucial though, in order to "
+                                  "avoid that two or more jobs write to the "
+                                  "same file.".format(self.name))
+
+    @property
+    def wildcard_names(self):
+        if self._wildcard_names is None:
+            return set()
+        return self._wildcard_names
 
     def set_output(self, *output, **kwoutput):
         """
@@ -270,14 +296,7 @@ class Rule:
                 raise SyntaxError(
                     "A rule with dynamic output may not define any "
                     "non-dynamic output files.")
-            wildcards = item.get_wildcard_names()
-            if self.wildcard_names:
-                if self.wildcard_names != wildcards:
-                    raise SyntaxError("Not all output files of rule {} "
-                                      "contain the same wildcards.".format(
-                                          self.name))
-            else:
-                self.wildcard_names = wildcards
+            self.register_wildcards(item.get_wildcard_names())
         # Check output file name list for duplicates
         self.check_output_duplicates()
 
@@ -301,14 +320,29 @@ class Rule:
             seen[value] = name or idx
 
     def apply_default_remote(self, item):
+        def is_annotated_callable(value):
+            if isinstance(value, AnnotatedString):
+                return bool(value.callable)
+
+        def apply(value):
+            if (not is_flagged(value, "remote_object") and
+                not is_flagged(value, "local") and
+                not is_annotated_callable(value) and
+                self.workflow.default_remote_provider is not None):
+                value = "{}/{}".format(self.workflow.default_remote_prefix, value)
+                value = os.path.normpath(value)
+                return self.workflow.default_remote_provider.remote(value)
+            else:
+                return value
+
         assert not callable(item)
-        if (not is_flagged(item, "remote_object") and
-            not is_flagged(item, "local") and
-            self.workflow.default_remote_provider is not None):
-            item = "{}/{}".format(self.workflow.default_remote_prefix, item)
-            item = os.path.normpath(item)
-            return self.workflow.default_remote_provider.remote(item)
-        return item
+        if isinstance(item, dict):
+            return {k: apply(v) for k, v in item.items()}
+        elif isinstance(item, Iterable) and not isinstance(item, str):
+            return [apply(e) for e in item]
+        else:
+            return apply(item)
+
 
     def _set_inoutput_item(self, item, output=False, name=None):
         """
@@ -316,10 +350,13 @@ class Rule:
 
         Arguments
         item     -- the item
-        inoutput -- either a Namedlist of input or output items
+        inoutput -- a Namedlist of either input or output items
         name     -- an optional name for the item
         """
         inoutput = self.output if output else self.input
+        # Check to see if the item is a path, if so, just make it a string
+        if isinstance(item, Path):
+            item = str(item)
         if isinstance(item, str):
             item = self.apply_default_remote(item)
 
@@ -360,6 +397,9 @@ class Rule:
                     self.dynamic_output.add(_item)
                 else:
                     self.dynamic_input.add(_item)
+            if is_flagged(item, "report"):
+                item.flags["report"] = os.path.join(
+                    self.workflow.current_basedir, item.flags["report"])
             if is_flagged(item, "subworkflow"):
                 if output:
                     raise SyntaxError(
@@ -369,10 +409,11 @@ class Rule:
                     sub = item.flags["subworkflow"]
                     if _item in self.subworkflow_input:
                         other = self.subworkflow_input[_item]
-                        raise WorkflowError("The input file {} is ambiguously "
-                                            "associated with two subworkflows "
-                                            "{} and {}.".format(
-                                                item, sub, other), rule=self)
+                        if sub != other:
+                            raise WorkflowError("The input file {} is ambiguously "
+                                                "associated with two subworkflows "
+                                                "{} and {}.".format(
+                                                    item, sub, other), rule=self)
                     self.subworkflow_input[_item] = sub
             inoutput.append(_item)
             if name:
@@ -427,6 +468,9 @@ class Rule:
             self._set_log_item(item)
         for name, item in kwlogs.items():
             self._set_log_item(item, name=name)
+
+        for item in self.log:
+            self.register_wildcards(item.get_wildcard_names())
 
     def _set_log_item(self, item, name=None):
         if isinstance(item, str) or callable(item):
@@ -673,6 +717,16 @@ class Rule:
                 resources[name] = apply(name, res)
         resources = Resources(fromdict=resources)
         return resources
+
+    def expand_group(self, wildcards):
+        """Expand the group given wildcards."""
+        if callable(self.group):
+            return self.apply_input_function(self.group, wildcards)
+        elif isinstance(self.group, str):
+            return apply_wildcards(self.group, wildcards,
+                                   dynamic_fill=DYNAMIC_FILL)
+        else:
+            return self.group
 
     def expand_conda_env(self, wildcards):
         try:

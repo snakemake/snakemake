@@ -66,7 +66,7 @@ For technical reasons, DNA sequencing cuts the DNA of a sample into millions
 of small pieces, called **reads**.
 In order to recover the genome of the sample, one has to map these reads against
 a known **reference genome** (e.g., the human one obtained during the famous
-`human genome genome project <https://en.wikipedia.org/wiki/Human_Genome_Project>`_).
+`human genome project <https://en.wikipedia.org/wiki/Human_Genome_Project>`_).
 This task is called **read mapping**.
 Often, it is of interest where an individual genome is different from the species-wide consensus
 represented with the reference genome.

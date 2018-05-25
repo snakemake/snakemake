@@ -5,12 +5,8 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-from setuptools.command.test import test as TestCommand
 import sys
-
-
-# load version info
-exec(open("snakemake/version.py").read())
+import versioneer
 
 
 if sys.version_info < (3, 5):
@@ -26,23 +22,10 @@ except ImportError:
     exit(1)
 
 
-class NoseTestCommand(TestCommand):
-    user_options = [
-        ('test-suite=', 's', "Test to run (e.g. test_shadow)")
-    ]
-
-    def run_tests(self):
-        # Run nose ensuring that argv simulates running nosetests directly
-        argv = ['nosetests']
-        if self.test_suite != 'all':
-            argv.append('tests/tests.py:' + self.test_suite)
-        import nose
-        nose.run_exit(argv=argv)
-
-
 setup(
     name='snakemake',
-    version=__version__,
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     author='Johannes Köster',
     author_email='johannes.koester@tu-dortmund.de',
     description=
@@ -54,7 +37,7 @@ setup(
     zip_safe=False,
     license='MIT',
     url='http://snakemake.bitbucket.io',
-    packages=['snakemake', 'snakemake.remote'],
+    packages=['snakemake', 'snakemake.remote', 'snakemake.report'],
     entry_points={
         "console_scripts":
         ["snakemake = snakemake:main",
@@ -62,14 +45,8 @@ setup(
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
     install_requires=['wrapt', 'requests', 'ratelimiter', 'pyyaml',
-                      'configargparse', 'appdirs'],
-    tests_require=['pytools', 'rpy2', 'httpretty', 'docutils',
-                   'nose>=1.3', 'boto3',
-                   'moto>=0.4.14', 'ftputil>=3.2', 'pysftp>=0.2.8',
-                   'requests>=2.8.1', 'dropbox>=5.2', 'pyyaml',
-                   'google-cloud-storage', 'ratelimiter'],
-    test_suite='all',
-    cmdclass={'test': NoseTestCommand},
+                      'configargparse', 'appdirs', 'datrie', 'jsonschema',
+                      'docutils', 'jinja2', 'networkx'],
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",
      "Intended Audience :: Science/Research",

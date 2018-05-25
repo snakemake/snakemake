@@ -25,13 +25,15 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local
+from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe, repeat, report
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.wrapper import wrapper
+from snakemake.cwl import cwl
 import snakemake.wrapper
 from snakemake.common import Mode
+from snakemake.utils import simplify_path
 
 
 class Workflow:
@@ -56,7 +58,8 @@ class Workflow:
                  restart_times=None,
                  attempt=1,
                  default_remote_provider=None,
-                 default_remote_prefix=""):
+                 default_remote_prefix="",
+                 run_local=True):
         """
         Create the controller.
         """
@@ -95,6 +98,7 @@ class Workflow:
         self.use_singularity = use_singularity
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
+        self.global_singularity_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
@@ -103,6 +107,8 @@ class Workflow:
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
         self.configfiles = []
+        self.run_local = run_local
+        self.report_text = None
 
         self.iocache = snakemake.io.IOCache()
 
@@ -219,7 +225,15 @@ class Workflow:
                 logger.info(resource)
 
     def is_local(self, rule):
-        return rule.name in self._localrules or rule.norun
+        return rule.group is None and (
+            rule.name in self._localrules or rule.norun)
+
+    def check_localrules(self):
+        undefined = self._localrules - set(rule.name for rule in self.rules)
+        if undefined:
+            logger.warning("localrules directive specifies rules that are not "
+                           "present in the Snakefile:\n{}\n".format(
+                               "\n".join(map("\t{}".format, undefined))))
 
     def execute(self,
                 targets=None,
@@ -258,12 +272,14 @@ class Workflow:
                 list_code_changes=False,
                 list_input_changes=False,
                 list_params_changes=False,
+                list_untracked=False,
                 list_conda_envs=False,
                 summary=False,
                 archive=None,
+                delete_all_output=False,
+                delete_temp_output=False,
                 detailed_summary=False,
                 latency_wait=3,
-                benchmark_repeats=3,
                 wait_for_files=None,
                 nolock=False,
                 unlock=False,
@@ -271,6 +287,8 @@ class Workflow:
                 notemp=False,
                 nodeps=False,
                 cleanup_metadata=None,
+                cleanup_conda=False,
+                cleanup_shadow=False,
                 subsnakemake=None,
                 updated_files=None,
                 keep_target_files=False,
@@ -284,7 +302,10 @@ class Workflow:
                 force_use_threads=False,
                 create_envs_only=False,
                 assume_shared_fs=True,
-                cluster_status=None):
+                cluster_status=None,
+                report=None):
+
+        self.check_localrules()
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -351,7 +372,9 @@ class Workflow:
             dryrun=dryrun,
             targetfiles=targetfiles,
             targetrules=targetrules,
-            forceall=forceall,
+            # when cleaning up conda, we should enforce all possible jobs
+            # since their envs shall not be deleted
+            forceall=forceall or cleanup_conda,
             forcefiles=forcefiles,
             forcerules=forcerules,
             priorityfiles=priorityfiles,
@@ -373,7 +396,7 @@ class Workflow:
             singularity_prefix=self.singularity_prefix,
             warn_only=dryrun or printrulegraph or printdag or summary or archive or
             list_version_changes or list_code_changes or list_input_changes or
-            list_params_changes)
+            list_params_changes or list_untracked or delete_all_output or delete_temp_output)
 
         if cleanup_metadata:
             for f in cleanup_metadata:
@@ -406,6 +429,10 @@ class Workflow:
                 "a power loss. It can be removed with "
                 "the --unlock argument.".format(os.getcwd()))
             return False
+
+        if cleanup_shadow:
+            self.persistence.cleanup_shadow()
+            return True
 
         if self.subworkflows and not printdag and not printrulegraph:
             # backup globals
@@ -463,7 +490,11 @@ class Workflow:
 
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
-        if printd3dag:
+        if report:
+            from snakemake.report import auto_report
+            auto_report(dag, report)
+            return True
+        elif printd3dag:
             dag.d3dag()
             return True
         elif printdag:
@@ -480,6 +511,12 @@ class Workflow:
             return True
         elif archive:
             dag.archive(archive)
+            return True
+        elif delete_all_output:
+            dag.clean(only_temp=False, dryrun=dryrun)
+            return True
+        elif delete_temp_output:
+            dag.clean(only_temp=True, dryrun=dryrun)
             return True
         elif list_version_changes:
             items = list(
@@ -505,26 +542,36 @@ class Workflow:
             if items:
                 print(*items, sep="\n")
             return True
-        elif list_conda_envs:
-            from snakemake.utils import simplify_path
-            dag.create_conda_envs(init_only=True, forceall=True)
-            print("environment", "location", sep="\t")
-            for env in set(job.conda_env for job in dag.jobs):
-                if env:
-                    print(simplify_path(env.file), simplify_path(env.path), sep="\t")
+        elif list_untracked:
+            dag.list_untracked()
             return True
 
-        if not keep_shadow and not dryrun:
-            self.persistence.cleanup_shadow()
-
-        if self.use_conda:
-            if assume_shared_fs:
-                dag.create_conda_envs(dryrun=dryrun)
-            if create_envs_only:
-                return True
         if self.use_singularity:
             if assume_shared_fs:
-                dag.pull_singularity_imgs(dryrun=dryrun)
+                dag.pull_singularity_imgs(dryrun=dryrun or list_conda_envs,
+                                          quiet=list_conda_envs)
+        if self.use_conda:
+            if assume_shared_fs:
+                dag.create_conda_envs(dryrun=dryrun or list_conda_envs or cleanup_conda,
+                                      quiet=list_conda_envs)
+            if create_envs_only:
+                return True
+
+
+
+        if list_conda_envs:
+            print("environment", "container", "location", sep="\t")
+            for env in set(job.conda_env for job in dag.jobs):
+                if env:
+                    print(simplify_path(env.file),
+                          env.singularity_img_url or "",
+                          simplify_path(env.path),
+                          sep="\t")
+            return True
+
+        if cleanup_conda:
+            self.persistence.cleanup_conda()
+            return True
 
         scheduler = JobScheduler(self, dag, cores,
                                  local_cores=local_cores,
@@ -547,7 +594,6 @@ class Workflow:
                                  printreason=printreason,
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
-                                 benchmark_repeats=benchmark_repeats,
                                  greediness=greediness,
                                  force_use_threads=force_use_threads,
                                  assume_shared_fs=assume_shared_fs)
@@ -577,8 +623,14 @@ class Workflow:
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
-        if dryrun and not len(dag):
-            logger.info("Nothing to be done.")
+        else:
+            if len(dag):
+                logger.run_info("\n".join(dag.stats()))
+            else:
+                logger.info("Nothing to be done.")
+            if quiet:
+                # in case of dryrun and quiet, just print above info and exit
+                return True
 
         if not dryrun and not no_hooks:
             self._onstart(logger.get_logfile())
@@ -686,6 +738,15 @@ class Workflow:
         update_config(config, c)
         update_config(config, self.overwrite_config)
 
+    def report(self, path):
+        """ Define a global report description in .rst format."""
+        self.report_text = os.path.join(self.current_basedir, path)
+
+    @property
+    def config(self):
+        global config
+        return config
+
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
 
@@ -752,30 +813,36 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
+            if not self.run_local and ruleinfo.group is not None:
+                rule.group = ruleinfo.group
             if ruleinfo.wrapper:
-                rule.conda_env = snakemake.wrapper.get_conda_env(
-                    ruleinfo.wrapper, prefix=self.wrapper_prefix)
+                if self.use_conda:
+                    rule.conda_env = snakemake.wrapper.get_conda_env(
+                        ruleinfo.wrapper, prefix=self.wrapper_prefix)
                 # TODO retrieve suitable singularity image
 
-            if ruleinfo.conda_env and ruleinfo.singularity_img:
-                raise RuleException("Conda and singularity directive are "
-                                    "mutually exclusive.")
-
-            if ruleinfo.conda_env:
+            if ruleinfo.conda_env and self.use_conda:
                 if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
                     raise RuleException("Conda environments are only allowed "
-                        "with shell, script or wrapper directives "
+                        "with shell, script, or wrapper directives "
                         "(not with run).", rule=rule)
-                if not os.path.isabs(ruleinfo.conda_env):
+                if not (urllib.parse.urlparse(ruleinfo.conda_env).scheme
+                        or os.path.isabs(ruleinfo.conda_env)):
                     ruleinfo.conda_env = os.path.join(self.current_basedir, ruleinfo.conda_env)
                 rule.conda_env = ruleinfo.conda_env
 
-            if ruleinfo.singularity_img:
-                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
-                    raise RuleException("Singularity directive is only allowed "
-                        "with shell, script or wrapper directives "
-                        "(not with run).", rule=rule)
-                rule.singularity_img = ruleinfo.singularity_img
+            if self.use_singularity:
+                invalid_rule = not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd)
+                if ruleinfo.singularity_img:
+                    if invalid_rule:
+                        raise RuleException("Singularity directive is only allowed "
+                            "with shell, script or wrapper directives "
+                            "(not with run).", rule=rule)
+                    rule.singularity_img = ruleinfo.singularity_img
+                elif self.global_singularity_img:
+                    if not invalid_rule:
+                        # skip rules with run directive
+                        rule.singularity_img = self.global_singularity_img
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
@@ -783,6 +850,7 @@ class Workflow:
             rule.shellcmd = ruleinfo.shellcmd
             rule.script = ruleinfo.script
             rule.wrapper = ruleinfo.wrapper
+            rule.cwl = ruleinfo.cwl
             rule.restart_times=self.restart_times
 
             ruleinfo.func.__name__ = "__{}".format(name)
@@ -855,6 +923,9 @@ class Workflow:
 
         return decorate
 
+    def global_singularity(self, singularity_img):
+        self.global_singularity_img = singularity_img
+
     def threads(self, threads):
         def decorate(ruleinfo):
             ruleinfo.threads = threads
@@ -890,6 +961,13 @@ class Workflow:
 
         return decorate
 
+    def group(self, group):
+        def decorate(ruleinfo):
+            ruleinfo.group = group
+            return ruleinfo
+
+        return decorate
+
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
             ruleinfo.log = (logs, kwlogs)
@@ -914,6 +992,13 @@ class Workflow:
     def wrapper(self, wrapper):
         def decorate(ruleinfo):
             ruleinfo.wrapper = wrapper
+            return ruleinfo
+
+        return decorate
+
+    def cwl(self, cwl):
+        def decorate(ruleinfo):
+            ruleinfo.cwl = cwl
             return ruleinfo
 
         return decorate
@@ -953,8 +1038,10 @@ class RuleInfo:
         self.version = None
         self.log = None
         self.docstring = None
+        self.group = None
         self.script = None
         self.wrapper = None
+        self.cwl = None
 
 
 class Subworkflow:

@@ -46,6 +46,9 @@ class AbstractRemoteProvider:
     """
     __metaclass__ = ABCMeta
 
+    supports_default = False
+    allows_directories = False
+
     def __init__(self, *args, keep_local=False, stay_on_remote=False, **kwargs):
         self.args = args
         self.stay_on_remote = stay_on_remote
@@ -103,12 +106,13 @@ class AbstractRemoteProvider:
         args = self.args if not args else args
         kwargs = self.kwargs if not kwargs else kwargs
 
-        referenceObj = snakemake.io.IOFile(self.remote(pattern, *args, **kwargs))
-        if not referenceObj.remote_object.stay_on_remote:
-            pattern = "./" + referenceObj.remote_object.name
+        referenceObj = snakemake.io._IOFile(self.remote(pattern, *args, **kwargs))
+        remote_object = snakemake.io.get_flag_value(referenceObj, "remote_object")
+        if not remote_object.stay_on_remote:
+            pattern = "./" + remote_object.name
             pattern = os.path.normpath(pattern)
 
-        key_list = [k for k in referenceObj.remote_object.list]
+        key_list = [k for k in remote_object.list]
 
         return snakemake.io.glob_wildcards(pattern, files=key_list)
 

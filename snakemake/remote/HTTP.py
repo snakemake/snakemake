@@ -130,11 +130,17 @@ class RemoteObject(DomainObject):
         if self.exists():
             with self.httpr(verb="HEAD") as httpr:
 
-                file_mtime = self.get_header_item(httpr, "last-modified", default=0)
-                logger.debug("HTTP mtime: {}".format(file_mtime))
+                file_mtime = self.get_header_item(httpr, "last-modified", default=None)
+                logger.debug("HTTP last-modified: {}".format(file_mtime))
 
-                modified_tuple = email.utils.parsedate_tz(file_mtime)
-                epochTime = email.utils.mktime_tz(modified_tuple)
+                epochTime = 0
+
+                if file_mtime is not None:
+                    modified_tuple = email.utils.parsedate_tz(file_mtime)
+                    if modified_tuple is None:
+                        logger.debug("HTTP last-modified not in RFC2822 format: `{}`".format(file_mtime))
+                    else:
+                        epochTime = email.utils.mktime_tz(modified_tuple)
 
                 return epochTime
         else:
@@ -159,7 +165,7 @@ class RemoteObject(DomainObject):
                 # More detials can be found here: https://stackoverflow.com/questions/25749345/how-to-download-gz-files-with-requests-in-python-without-decoding-it?noredirect=1&lq=1
                 # Since data transferred with HTTP compression need to be decompressed automatically
                 # check the header and decode if the content is encoded.
-                if not self.name.endswith(".gz") and httpr.headers["Content-Encoding"] == "gzip":
+                if not self.name.endswith(".gz") and httpr.headers.get("Content-Encoding") == "gzip":
                     # Decode non-gzipped sourcefiles automatically.
                     # This is needed to decompress uncompressed files that are compressed
                     # for the transfer by HTTP compression.

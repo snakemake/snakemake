@@ -23,6 +23,8 @@ rule pack:
         "landsat-data.txt.bz2"
     conda:
         "envs/gzip.yaml"
+    singularity:
+        "docker://continuumio/miniconda3:4.4.10"
     log:
         "logs/pack.log"
     shell:

@@ -1,5 +1,69 @@
 # Change Log
 
+# [5.1.3] - 2018-05-22
+## Changed
+- Fixed various bugs in job groups, shadow directive, singularity directive, and more.
+
+# [5.1.2] - 2018-05-18
+## Changed
+- Fixed a bug in the report stylesheet.
+
+# [5.1.0] - 2018-05-17
+## Added
+- A new framework for self-contained HTML reports, including results, statistics and topology information. In future releases this will be further extended.
+- A new utility snakemake.utils.validate() which allows to validate config and pandas data frames using JSON schemas.
+- Two new flags --cleanup-shadow and --cleanup-conda to clean up old unused conda and shadow data.
+## Changed
+- Benchmark repeats are now specified inside the workflow via a new flag repeat().
+- Command line interface help has been refactored into groups for better readability.
+
+# [5.0.0] - 2018-05-11
+# Added
+- Group jobs for reduced queuing and network overhead, in particular with short running jobs.
+- Output files can be marked as pipes, such that producing and consuming job are executed simultaneously and interfomation is transferred directly without using disk.
+- Command line flags to clean output files.
+- Command line flag to list files in working directory that are not tracked by Snakemake.
+# Changes
+- Fix of --default-remote-prefix in case of input functions returning lists or dicts.
+- Scheduler no longer prefers jobs with many downstream jobs.
+
+# [4.8.1] - 2018-04-25
+# Added
+- Allow URLs for the conda directive.
+# Changed
+- Various minor updates in the docs.
+- Several bug fixes with remote file handling.
+- Fix ImportError occuring with script directive.
+- Use latest singularity.
+- Improved caching for file existence checks. We first check existence of parent directories and cache these results. By this, large parts of the generated FS tree can be pruned if files are not yet present. If files are present, the overhead is minimal, since the checks for the parents are cached.
+- Various minor bug fixes.
+
+# [4.8.0] - 2018-03-13
+### Added
+- Integration with CWL: the `cwl` directive allows to use CWL tool definitions in addition to shell commands or Snakemake wrappers.
+- A global `singularity` directive allows to define a global singularity container to be used for all rules that don't specify their own.
+- Singularity and Conda can now be combined. This can be used to specify the operating system (via singularity), and the software stack (via conda), without the overhead of creating specialized container images for workflows or tasks.
+
+# [4.7.0] - 2018-02-19
+### Changed
+- Speedups when calculating dry-runs.
+- Speedups for workflows with many rules when calculating the DAG.
+- Accept SIGTERM to gracefully finish all running jobs and exit.
+- Various minor bug fixes.
+
+# [4.6.0] - 2018-02-06
+### Changed
+- Log files can now be used as input files for other rules.
+- Adapted to changes in Kubernetes client API.
+- Fixed minor issues in --archive option.
+- Search path order in scripts was changed to fix a bug with leaked packages from root env when using script directive together with conda.
+
+# [4.5.1] - 2018-02-01
+### Added
+- Input and output files can now tag pathlib objects.
+### Changed
+- Various minor bug fixes.
+
 # [4.5.0] - 2018-01-18
 ### Added
 - iRODS remote provider
@@ -11,7 +75,7 @@
 ### Added
 - A new shadow mode (minimal) that only symlinks input files has been added.
 ### Changed
-- The default shell is now bash on linux and maxOS. If bash is not installed, we fall back to sh. Previously, Snakemake used the default shell of the user, which defeats the purpose of portability. If the developer decides so, the shell can be always overwritten using shell.executable().
+- The default shell is now bash on linux and macOS. If bash is not installed, we fall back to sh. Previously, Snakemake used the default shell of the user, which defeats the purpose of portability. If the developer decides so, the shell can be always overwritten using shell.executable().
 - Snakemake now requires Singularity 2.4.1 at least (only when running with --use-singularity).
 - HTTP remote provider no longer automatically unpacks gzipped files.
 - Fixed various smaller bugs.
@@ -49,7 +113,7 @@
 ### Changed
 - The scheduler now tries to get rid of the largest temp files first.
 - The Docker image used for kubernetes support can now be configured at the command line.
-- Rate-limiting for cluster interaction has be unified.
+- Rate-limiting for cluster interaction has been unified.
 - S3 remote provider uses boto3.
 - Resource functions can now use an additional `attempt` parameter, that contains the number of times this job has already been tried.
 - Various minor fixes.
@@ -107,7 +171,7 @@
 ### Changed
 - Benchmark files now also include the maximal RSS and VMS size of the Snakemake process and all sub processes.
 - Speedup conda environment creation.
-- Allow specification, of DRMAA log dir.
+- Allow specification of DRMAA log dir.
 - Pass cluster config to subworkflow.
 
 
@@ -163,7 +227,7 @@
 
 ## [3.9.0] - 2016-11-15
 ### Added
-- Ability to define isolated conda software environments (YAML) per rule. Environment will be deployed by Snakemake upon workflow execution.
+- Ability to define isolated conda software environments (YAML) per rule. Environments will be deployed by Snakemake upon workflow execution.
 - Command line argument --wrapper-prefix in order to overwrite the default URL for looking up wrapper scripts.
 ### Changed
 - --summary now displays the log files correspoding to each output file.

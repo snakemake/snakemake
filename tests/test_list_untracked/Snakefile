@@ -1,0 +1,3 @@
+rule run_test:
+    output: "leftover_files"
+    shell:  "snakemake -s Snakefile_inner --list-untracked 2> {output}"

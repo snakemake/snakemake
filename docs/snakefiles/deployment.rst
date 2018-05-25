@@ -1,8 +1,8 @@
 
 
-====================================
-Workflow Distribution and Deployment
-====================================
+================================
+Distribution and Reproducibility
+================================
 
 It is recommended to store each workflow in a dedicated git repository of the
 following structure:
@@ -82,6 +82,7 @@ with the following `environment definition <http://conda.pydata.org/docs/using/e
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
 Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
 
+.. _singularity:
 
 --------------------------
 Running jobs in containers
@@ -111,6 +112,52 @@ it will execute the job within a singularity container that is spawned from the 
 Allowed image urls entail everything supported by singularity (e.g., ``shub://`` and ``docker://``).
 When ``--use-singularity`` is combined with ``--kubernetes`` (see :ref:`kubernetes`), cloud jobs will be automatically configured to run in priviledged mode, because this is a current requirement of the singularity executable.
 Importantly, those privileges won't be shared by the actual code that is executed in the singularity container though.
+
+--------------------------------------------------
+Combining Conda package management with containers
+--------------------------------------------------
+
+While :ref:`integrated_package_management` provides control over the used software in exactly
+the desired versions, it does not control the underlying operating system.
+Here, it becomes handy that Snakemake >=4.8.0 allows to combine Conda-based package management
+with :ref:`singularity`.
+For example, you can write
+
+.. code-block:: python
+
+    singularity: "docker://continuumio/miniconda3:4.4.10"
+
+    rule NAME:
+        input:
+            "table.txt"
+        output:
+            "plots/myplot.pdf"
+        conda:
+            "envs/ggplot.yaml"
+        script:
+            "scripts/plot-stuff.R"
+
+in other words, a global definition of a container image can be combined with a
+per-rule conda directive.
+Then, upon invocation with
+
+.. code-block:: bash
+
+    snakemake --use-conda --use-singularity
+
+Snakemake will first pull the defined container image, and then create the requested conda environment from within the container.
+The conda environments will still be stored in your working environment, such that they don't have to be recreated unless they have changed.
+The hash under which the environments are stored includes the used container image url, such that changes to the container image also lead to new environments to be created.
+When a job is executed, Snakemake will first enter the container and then activate the conda environment.
+
+By this, both packages and OS can be easily controlled without the overhead of creating and distributing specialized container images.
+Of course, it is also possible (though less common) to define a container image per rule in this scenario.
+
+The user can, upon execution, freely choose the desired level of reproducibility:
+
+* no package management (use whatever is on the system)
+* Conda based package management (use versions defined by the workflow developer)
+* Conda based package management in containerized OS (use versions and OS defined by the workflow developer)
 
 --------------------------------------
 Sustainable and reproducible archiving

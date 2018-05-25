@@ -9,6 +9,7 @@ import os
 import subprocess as sp
 import inspect
 import shutil
+import threading
 
 from snakemake.utils import format
 from snakemake.logging import logger
@@ -28,6 +29,8 @@ class shell:
     _process_args = {}
     _process_prefix = ""
     _process_suffix = ""
+    _lock = threading.Lock()
+    _processes = {}
 
     @classmethod
     def get_executable(cls):
@@ -50,6 +53,18 @@ class shell:
     def suffix(cls, suffix):
         cls._process_suffix = format(suffix, stepout=2)
 
+    @classmethod
+    def kill(cls, jobid):
+        with cls._lock:
+            if jobid in cls._processes:
+                cls._processes[jobid].kill()
+                del cls._processes[jobid]
+
+    @classmethod
+    def cleanup(cls):
+        with cls._lock:
+            cls._processes.clear()
+
     def __new__(cls, cmd, *args,
                 async=False,
                 iterable=False,
@@ -60,35 +75,44 @@ class shell:
         cmd = format(cmd, *args, stepout=2, **kwargs)
         context = inspect.currentframe().f_back.f_locals
 
-        logger.shellcmd(cmd)
-
         stdout = sp.PIPE if iterable or async or read else STDOUT
 
         close_fds = sys.platform != 'win32'
 
+        jobid = context.get("jobid")
+        if jobid is not None:
+            if not context.get("is_shell"):
+                logger.shellcmd(cmd)
+
         env_prefix = ""
         conda_env = context.get("conda_env", None)
         singularity_img = context.get("singularity_img", None)
-        if singularity_img:
-            args = context.get("singularity_args", "")
-            cmd = singularity.shellcmd(singularity_img, cmd, args)
-            logger.info("Activating singularity image {}".format(singularity_img))
-        else:
-            # use conda if no singularity image is defined
-            if conda_env:
-                env_prefix = conda.shellcmd(conda_env)
-                logger.info("Activating conda environment {}.".format(conda_env))
+        if conda_env:
+            env_prefix = conda.shellcmd(conda_env)
 
         cmd = "{} {} {} {}".format(
                             env_prefix,
                             cls._process_prefix,
                             cmd.rstrip(),
                             cls._process_suffix)
+
+        if singularity_img:
+            args = context.get("singularity_args", "")
+            cmd = singularity.shellcmd(singularity_img, cmd, args)
+            logger.info("Activating singularity image {}".format(singularity_img))
+
+        if conda_env:
+            logger.info("Activating conda environment {}.".format(conda_env))
+
         proc = sp.Popen(cmd,
                         bufsize=-1,
                         shell=True,
                         stdout=stdout,
                         close_fds=close_fds, **cls._process_args)
+
+        if jobid is not None:
+            with cls._lock:
+                cls._processes[jobid] = proc
 
         ret = None
         if iterable:
@@ -104,6 +128,11 @@ class shell:
                 retcode = proc.wait()
         else:
             retcode = proc.wait()
+
+        if jobid is not None:
+            with cls._lock:
+                del cls._processes[jobid]
+
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
         return ret

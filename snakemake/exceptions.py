@@ -234,13 +234,23 @@ class ImproperShadowException(RuleException):
 
 class AmbiguousRuleException(RuleException):
     def __init__(self, filename, job_a, job_b, lineno=None, snakefile=None):
+        from snakemake import utils
+        wildcards_a = utils.format("{}", job_a._format_wildcards)
+        wildcards_b = utils.format("{}", job_b._format_wildcards)
         super().__init__(
             "Rules {job_a} and {job_b} are ambiguous for the file {f}.\n"
+            "Consider starting rule output with a unique prefix or constrain "
+            "your wildcards.\n"
+            "Wildcards:\n"
+            "\t{job_a}: {wildcards_a}\n"
+            "\t{job_b}: {wildcards_b}\n"
             "Expected input files:\n"
             "\t{job_a}: {job_a.input}\n"
             "\t{job_b}: {job_b.input}".format(job_a=job_a,
                                               job_b=job_b,
-                                              f=filename),
+                                              f=filename,
+                                              wildcards_a=wildcards_a,
+                                              wildcards_b=wildcards_b),
             lineno=lineno,
             snakefile=snakefile)
         self.rule1, self.rule2 = job_a.rule, job_b.rule
@@ -347,7 +357,7 @@ class TerminatedException(Exception):
     pass
 
 
-class CreateCondaEnvironmentException(Exception):
+class CreateCondaEnvironmentException(WorkflowError):
     pass
 
 

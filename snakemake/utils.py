@@ -16,10 +16,59 @@ import string
 import shlex
 import sys
 
-from snakemake.io import regex, Namedlist, Wildcards
+from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 import snakemake
+
+
+def validate(data, schema):
+    """Validate data with JSON schema at given path.
+
+    Arguments
+    data -- data to validate. Can be a config dict or a pandas data frame.
+    schema -- Path to JSON schema used for validation. The schema can also be
+        in YAML format. If validating a pandas data frame, the schema has to
+        describe a row record (i.e., a dict with column names as keys pointing
+        to row values). See http://json-schema.org. The path is interpreted
+        relative to the Snakefile when this function is called.
+    """
+    try:
+        import jsonschema
+    except ImportError:
+        raise WorkflowError("The Python 3 package jsonschema must be installed "
+                            "in order to use the validate directive.")
+
+    if not os.path.isabs(schema):
+        frame = inspect.currentframe().f_back
+        # if workflow object is not available this has not been started from a workflow
+        if "workflow" in frame.f_globals:
+            workflow = frame.f_globals["workflow"]
+            schema = os.path.join(workflow.current_basedir, schema)
+
+    schema = _load_configfile(schema, filetype="Schema")
+
+    if not isinstance(data, dict):
+        try:
+            import pandas as pd
+            if isinstance(data, pd.DataFrame):
+                for i, record in enumerate(data.to_dict("records")):
+                    record = {k: v for k, v in record.items() if not pd.isnull(v)}
+                    try:
+                        jsonschema.validate(record, schema)
+                    except jsonschema.exceptions.ValidationError as e:
+                        raise WorkflowError(
+                            "Error validating row {} of data frame.".format(i),
+                            e)
+                return
+        except ImportError:
+            pass
+        raise WorkflowError("Unsupported data type for validation.")
+    else:
+        try:
+            jsonschema.validate(data, schema)
+        except jsonschema.exceptions.ValidationError as e:
+            raise WorkflowError("Error validating config file.", e)
 
 
 def simplify_path(path):
@@ -96,6 +145,8 @@ def report(text, path,
            metadata=None, **files):
     """Create an HTML report using python docutils.
 
+    This is deprecated in favor of the --report flag.
+
     Attention: This function needs Python docutils to be installed for the
     python installation you use with Snakemake.
 
@@ -145,8 +196,9 @@ def report(text, path,
 
 
 def R(code):
-    """Execute R code
+    """Execute R code.
 
+    This is deprecated in favor of the ``script`` directive.
     This function executes the R code given as a string.
     The function requires rpy2 to be installed.
 
@@ -331,22 +383,6 @@ def update_config(config, overwrite_config):
         return d
 
     _update(config, overwrite_config)
-
-
-def set_temporary_output(*rules):
-    """Set the output of rules to temporary"""
-    for rule in rules:
-        logger.debug(
-            "setting output of rule '{rule}' to temporary".format(rule=rule))
-        rule.temp_output = set(rule.output)
-
-
-def set_protected_output(*rules):
-    """Set the output of rules to protected"""
-    for rule in rules:
-        logger.debug(
-            "setting output of rule '{rule}' to protected".format(rule=rule))
-        rule.protected_output = set(rule.output)
 
 
 def available_cpu_count():

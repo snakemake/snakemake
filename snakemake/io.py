@@ -6,6 +6,7 @@ __license__ = "MIT"
 import collections
 import os
 import shutil
+from pathlib import Path
 import re
 import stat
 import time
@@ -19,7 +20,6 @@ from collections import Iterable, namedtuple
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
-from copy import deepcopy
 
 from snakemake.common import DYNAMIC_FILL
 
@@ -65,14 +65,16 @@ def lchmod(f, mode):
 class IOCache:
     def __init__(self):
         self.mtime = dict()
-        self.exists = dict()
+        self.exists_local = dict()
+        self.exists_remote = dict()
         self.size = dict()
         self.active = True
 
     def clear(self):
         self.mtime.clear()
-        self.exists.clear()
         self.size.clear()
+        self.exists_local.clear()
+        self.exists_remote.clear()
 
     def deactivate(self):
         self.clear()
@@ -148,17 +150,17 @@ class _IOFile(str):
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
-        remote_object = get_flag_value(self._file, "remote_object")
+        remote_object = self.remote_object
         if remote_object._file != self._file:
             remote_object._iofile = self
 
     @property
     def should_keep_local(self):
-        return get_flag_value(self._file, "remote_object").keep_local
+        return self.remote_object.keep_local
 
     @property
     def should_stay_on_remote(self):
-        return get_flag_value(self._file, "remote_object").stay_on_remote
+        return self.remote_object.stay_on_remote
 
     @property
     def remote_object(self):
@@ -197,18 +199,59 @@ class _IOFile(str):
                     self._file, os.path.sep, hint))
 
     @property
-    @iocache
-    @_refer_to_remote
     def exists(self):
-        return self.exists_local
+        if self.is_remote:
+            return self.exists_remote
+        else:
+            return self.exists_local
+
+    def parents(self, omit=0):
+        """Yield all parent paths, omitting the given number of ancenstors."""
+        for p in list(Path(self.file).parents)[::-1][omit:]:
+            p = IOFile(str(p), rule=self.rule)
+            p.clone_flags(self)
+            yield p
 
     @property
+    @iocache
     def exists_local(self):
+        if self.rule.workflow.iocache.active:
+            # The idea is to first check existence of parent directories and
+            # cache the results.
+            # We omit the last ancestor, because this is always "." or "/" or a
+            # drive letter.
+            for p in self.parents(omit=1):
+                try:
+                    if not p.exists_local:
+                        return False
+                except:
+                    # In case of an error, we continue, because it can be that
+                    # we simply don't have the permissions to access a parent
+                    # directory.
+                    continue
         return os.path.exists(self.file)
 
     @property
+    @iocache
     def exists_remote(self):
-        return (self.is_remote and self.remote_object.exists())
+        if not self.is_remote:
+            return False
+        if (self.rule.workflow.iocache.active and
+            self.remote_object.provider.allows_directories):
+            # The idea is to first check existence of parent directories and
+            # cache the results.
+            # We omit the last 2 ancestors, because these are "." and the host
+            # name of the remote location.
+            for p in self.parents(omit=2):
+                try:
+                    if not p.exists_remote:
+                        return False
+                except:
+                    # In case of an error, we continue, because it can be that
+                    # we simply don't have the permissions to access a parent
+                    # directory in the remote.
+                    continue
+        return self.remote_object.exists()
 
     @property
     def protected(self):
@@ -258,7 +301,10 @@ class _IOFile(str):
             #is the best we can do.
             return self.mtime > time
         else:
-            return os.stat(self, follow_symlinks=True).st_mtime > time or self.mtime > time
+            try:
+                return os.stat(self, follow_symlinks=True).st_mtime > time or self.mtime > time
+            except FileNotFoundError:
+                raise WorkflowError("File {} not found although it existed before. Is there another active process that might have deleted it?")
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
@@ -286,6 +332,9 @@ class _IOFile(str):
                 # ignore Errno 17 "File exists" (reason: multiprocessing)
                 if e.errno != 17:
                     raise e
+
+        if is_flagged(self._file, "pipe"):
+            os.mkfifo(self._file)
 
     def protect(self):
         mode = (lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP
@@ -367,6 +416,15 @@ class _IOFile(str):
         first_wildcard = _wildcard_regex.search(self.file)
         if first_wildcard:
             return self.file[:first_wildcard.start()]
+        return self.file
+
+    def constant_suffix(self):
+        m = None
+        for m in _wildcard_regex.finditer(self.file):
+            pass
+        last_wildcard = m
+        if last_wildcard:
+            return self.file[last_wildcard.end():]
         return self.file
 
     def match(self, target):
@@ -474,7 +532,8 @@ def remove(file, remove_non_empty_dir=False):
                     logger.warning(str(e))
     #Remember that dangling symlinks fail the os.path.exists() test, but
     #we definitely still want to zap them. try/except is the safest way.
-    else:
+    #Also, we don't want to remove the null device if it is an output.
+    elif os.devnull != str(file):
         try:
             os.remove(file)
         except FileNotFoundError:
@@ -564,7 +623,7 @@ def is_flagged(value, flag):
 
 
 def get_flag_value(value, flag_type):
-    if isinstance(value, AnnotatedString):
+    if isinstance(value, AnnotatedString) or isinstance(value, _IOFile):
         if flag_type in value.flags:
             return value.flags[flag_type]
         else:
@@ -591,6 +650,14 @@ def temp(value):
     if is_flagged(value, "remote"):
         raise SyntaxError("Remote and temporary flags are mutually exclusive.")
     return flag(value, "temp")
+
+
+def pipe(value):
+    if is_flagged(value, "protected"):
+        raise SyntaxError("Pipes may not be protected.")
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Pipes may not be remote files.")
+    return flag(value, "pipe")
 
 
 def temporary(value):
@@ -632,6 +699,16 @@ def touch(value):
 
 def unpack(value):
     return flag(value, "unpack")
+
+
+def repeat(value, n_repeat):
+    """Flag benchmark records with the number of repeats."""
+    return flag(value, "repeat", n_repeat)
+
+
+def report(value, caption=None):
+    """Flag output file as to be included into reports."""
+    return flag(value, "report", caption)
 
 
 def local(value):
@@ -756,7 +833,7 @@ def update_wildcard_constraints(pattern,
     # inherit flags
     if isinstance(pattern, AnnotatedString):
         updated = AnnotatedString(updated)
-        updated.flags = deepcopy(pattern.flags)
+        updated.flags = dict(pattern.flags)
     return updated
 
 
@@ -904,7 +981,7 @@ class Log(Namedlist):
     pass
 
 
-def _load_configfile(configpath):
+def _load_configfile(configpath, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
     try:
         with open(configpath) as f:
@@ -915,9 +992,10 @@ def _load_configfile(configpath):
             try:
                 import yaml
             except ImportError:
-                raise WorkflowError("Config file is not valid JSON and PyYAML "
+                raise WorkflowError("{} file is not valid JSON and PyYAML "
                                     "has not been installed. Please install "
-                                    "PyYAML to use YAML config files.")
+                                    "PyYAML to use YAML config files.".format(
+                                    filetype))
             try:
                 # From http://stackoverflow.com/a/21912744/84349
                 class OrderedLoader(yaml.Loader):
@@ -933,9 +1011,10 @@ def _load_configfile(configpath):
             except yaml.YAMLError:
                 raise WorkflowError("Config file is not valid JSON or YAML. "
                                     "In case of YAML, make sure to not mix "
-                                    "whitespace and tab indentation.")
+                                    "whitespace and tab indentation.".format(
+                                    filetype))
     except FileNotFoundError:
-        raise WorkflowError("Config file {} not found.".format(configpath))
+        raise WorkflowError("{} file {} not found.".format(filetype, configpath))
 
 
 def load_configfile(configpath):

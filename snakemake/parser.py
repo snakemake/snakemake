@@ -11,6 +11,7 @@ import urllib.request
 from io import TextIOWrapper
 
 from snakemake.exceptions import WorkflowError
+from snakemake.common import escape_backslash
 
 dd = textwrap.dedent
 
@@ -246,6 +247,10 @@ class Configfile(GlobalKeywordState):
     pass
 
 
+class Report(GlobalKeywordState):
+    pass
+
+
 class Ruleorder(GlobalKeywordState):
     def block_content(self, token):
         if is_greater(token):
@@ -263,8 +268,13 @@ class GlobalWildcardConstraints(GlobalKeywordState):
         return "global_wildcard_constraints"
 
 
-# subworkflows
+class GlobalSingularity(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "global_singularity"
 
+
+# subworkflows
 
 class SubworkflowSnakefile(SubworkflowKeywordState):
     pass
@@ -401,7 +411,12 @@ class Benchmark(RuleKeywordState):
 class Conda(RuleKeywordState):
     pass
 
+
 class Singularity(RuleKeywordState):
+    pass
+
+
+class Group(RuleKeywordState):
     pass
 
 
@@ -428,7 +443,8 @@ class Run(RuleKeywordState):
         yield "\n"
         yield ("def __rule_{rulename}(input, output, params, wildcards, threads, "
                "resources, log, version, rule, conda_env, singularity_img, "
-               "singularity_args, bench_record):".format(
+               "singularity_args, use_singularity, bench_record, jobid, "
+               "is_shell):".format(
                    rulename=self.rulename
                             if self.rulename is not None
                             else self.snakefile.rulecount))
@@ -531,11 +547,11 @@ class Script(AbstractCmd):
     def args(self):
         # basedir
         yield ', "{}"'.format(
-            os.path.abspath(os.path.dirname(self.snakefile.path)))
+            escape_backslash(os.path.abspath(os.path.dirname(self.snakefile.path))))
         # other args
         yield (", input, output, params, wildcards, threads, resources, log, "
                "config, rule, conda_env, singularity_img, singularity_args, "
-               "bench_record")
+               "bench_record, jobid")
 
 
 class Wrapper(Script):
@@ -545,7 +561,20 @@ class Wrapper(Script):
     def args(self):
         yield (", input, output, params, wildcards, threads, resources, log, "
                "config, rule, conda_env, singularity_img, singularity_args, "
-               "bench_record, workflow.wrapper_prefix")
+               "bench_record, workflow.wrapper_prefix, jobid")
+
+
+class CWL(Script):
+    start_func = "@workflow.cwl"
+    end_func = "cwl"
+
+    def args(self):
+        # basedir
+        yield ', "{}"'.format(
+            escape_backslash(os.path.abspath(os.path.dirname(self.snakefile.path))))
+        # other args
+        yield (", input, output, params, wildcards, threads, resources, log, "
+               "config, rule, use_singularity, bench_record, jobid")
 
 
 class Rule(GlobalKeywordState):
@@ -563,10 +592,12 @@ class Rule(GlobalKeywordState):
                        singularity=Singularity,
                        wildcard_constraints=WildcardConstraints,
                        shadow=Shadow,
+                       group=Group,
                        run=Run,
                        shell=Shell,
                        script=Script,
-                       wrapper=Wrapper)
+                       wrapper=Wrapper,
+                       cwl=CWL)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,
@@ -614,12 +645,16 @@ class Rule(GlobalKeywordState):
     def block_content(self, token):
         if is_name(token):
             try:
-                if token.string == "run" or token.string == "shell" or token.string == "script" or token.string == "wrapper":
+                if token.string == "run" or token.string == "shell" or token.string == "script" or token.string == "wrapper" or token.string == "cwl":
                     if self.run:
                         raise self.error(
                             "Multiple run or shell keywords in rule {}.".format(
                                 self.rulename), token)
                     self.run = True
+                elif self.run:
+                    raise self.error("No rule keywords allowed after "
+                                     "run/shell/script/wrapper/cwl in "
+                                     "rule {}.".format(self.rulename), token)
                 for t in self.subautomaton(token.string,
                                            rulename=self.rulename).consume():
                     yield t
@@ -664,6 +699,7 @@ class Python(TokenAutomaton):
     subautomata = dict(include=Include,
                        workdir=Workdir,
                        configfile=Configfile,
+                       report=Report,
                        ruleorder=Ruleorder,
                        rule=Rule,
                        subworkflow=Subworkflow,
@@ -671,7 +707,8 @@ class Python(TokenAutomaton):
                        onsuccess=OnSuccess,
                        onerror=OnError,
                        onstart=OnStart,
-                       wildcard_constraints=GlobalWildcardConstraints)
+                       wildcard_constraints=GlobalWildcardConstraints,
+                       singularity=GlobalSingularity)
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile,

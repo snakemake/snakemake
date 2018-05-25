@@ -2,18 +2,40 @@ version: 2
 jobs:
   build:
     machine: true
+    environment:
+      - GCLOUD: /opt/google-cloud-sdk/bin/gcloud
+      - BOTO_CONFIG: /dev/null
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - snakemake-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
+      - run:
+          name: Update PATH
+          command: echo 'export PATH="`pwd`/miniconda/bin:$PATH"' >> $BASH_ENV
       - run:
           name: Setup Conda
+          command: .circleci/setup.sh
+      - save_cache:
+          key: snakemake-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
+          paths:
+            - miniconda
+      - run:
+          name: Setup singularity
           command: |
-            wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-            bash miniconda.sh -b -p miniconda
-            echo 'export PATH="miniconda/bin:$PATH"' >> $BASH_ENV
+            # TODO only install if singularity is not yet present
+            # if type singularity > /dev/null; then exit 0; fi
+            source .circleci/common.sh
+            sudo apt-get update; sudo apt-get install squashfs-tools
+            wget https://github.com/singularityware/singularity/releases/download/$SINGULARITY_VER/singularity-$SINGULARITY_VER.tar.gz
+            tar xvf singularity-$SINGULARITY_VER.tar.gz
+            cd singularity-$SINGULARITY_VER
+            ./configure --prefix=/usr/local --sysconfdir=/etc
+            make
+            sudo make install
       - run:
           name: Setup Snakemake
           command: |
-            conda env create --name snakemake --file test-environment.yml
             source activate snakemake
             pip install -e .
       - run:
@@ -25,7 +47,19 @@ jobs:
             docker exec -u irods provider iput /incoming/infile
             cp -r tests/test_remote_irods/setup-data ~/.irods
       - run:
+          name: Setup gcloud
+          command: |
+            # skip if key is unset
+            if [ -z $GCLOUD_SERVICE_KEY ]; then exit 0; fi
+            # otherwise init cloud
+            echo $GCLOUD_SERVICE_KEY | base64 --decode --ignore-garbage > ${HOME}/gcloud-service-key.json
+            sudo $GCLOUD components install kubectl
+            sudo $GCLOUD auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+            sudo $GCLOUD config set project snakemake-testing
+      - run:
           name: Run tests
           command: |
+            export GCLOUD_CLUSTER=t-`uuidgen`
+            export GOOGLE_APPLICATION_CREDENTIALS=${HOME}/gcloud-service-key.json
             source activate snakemake
-            python setup.py nosetests -sx
+            py.test tests/test*.py -v -x

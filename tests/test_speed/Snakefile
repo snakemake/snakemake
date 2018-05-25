@@ -1,0 +1,29 @@
+
+rule all:
+    input:
+        expand("step3/{sample}.txt", sample=range(100))
+
+
+rule a:
+    output:
+        "step1/{sample}.txt"
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        "step1/{sample}.txt"
+    output:
+        "step2/{sample}.txt"
+    shell:
+        "cp {input} {output}"
+
+
+rule c:
+    input:
+        "step2/{sample}.txt"
+    output:
+        "step3/{sample}.txt"
+    shell:
+        "cp {input} {output}"

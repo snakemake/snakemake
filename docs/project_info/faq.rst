@@ -14,7 +14,7 @@ The key idea is very similar to GNU Make. The workflow is determined automatical
 .. image:: img/idea.png
     :alt: Snakemake idea
 
-When you start using Snakemake, please make sure to walk through the :ref:`official tutorial <tutorial-welcome>`.
+When you start using Snakemake, please make sure to walk through the :ref:`official tutorial <tutorial>`.
 It is crucial to understand how to properly use the system.
 
 What is the recommended way to distribute a Snakemake workflow?
@@ -65,6 +65,20 @@ he quick fix for virtualenv is to temporarily deactivate the check for unbound v
     set +u; source /path/to/venv/bin/activate; set -u
 
 For more details on bash strict mode, see the `here <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_.
+
+
+My shell command fails with exit code != 0 from within a pipe, what's wrong?
+----------------------------------------------------------------------------
+
+Snakemake is using `bash strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_ to ensure best practice error reporting in shell commands.
+This entails the pipefail option, which reports errors from within a pipe to outside. If you don't want this, e.g., to handle empty output in the pipe, you can disable pipefail via prepending
+
+.. code-block:: bash
+
+    set +o pipefile;
+
+to your shell command in the problematic rule.
+
 
 .. _glob-wildcards:
 
@@ -169,6 +183,14 @@ I get a NameError with my shell command. Are braces unsupported?
 
 You can use the entire Python `format minilanguage <http://docs.python.org/3/library/string.html#formatspec>`_ in shell commands. Braces in shell commands that are not intended to insert variable values thus have to be escaped by doubling them:
 
+This:
+
+.. code-block:: python
+
+    ...
+    shell: "awk '{print $1}' {input}"
+
+becomes:
 
 .. code-block:: python
 
@@ -176,6 +198,20 @@ You can use the entire Python `format minilanguage <http://docs.python.org/3/lib
     shell: "awk '{{print $1}}' {input}"
 
 Here the double braces are escapes, i.e. there will remain single braces in the final command. In contrast, ``{input}`` is replaced with an input filename.
+
+In addition, if your shell command has literal backslashes, ``\\``, you must escape them with a backslash, ``\\\\``. For example:
+
+This:
+
+.. code-block:: python
+
+    shell: """printf \">%s\"" {{input}}"""
+
+becomes:
+
+.. code-block:: python
+
+    shell: """printf \\">%s\\"" {{input}}"""
 
 How do I incorporate files that do not follow a consistent naming scheme?
 -------------------------------------------------------------------------
@@ -401,6 +437,7 @@ and
 
 Again, the list commands in backticks return the list of output files with changes, which are fed into ``-R`` to trigger a re-run.
 
+
 How do I remove all files created by snakemake, i.e. like ``make clean``
 ------------------------------------------------------------------------
 
@@ -408,7 +445,12 @@ To remove all files created by snakemake as output files to start from scratch, 
 
 .. code-block:: console
 
-    rm $(snakemake --summary | tail -n+2 | cut -f1)
+    $ snakemake some_target --delete-all-output
+
+Only files that are output of snakemake rules will be removed, not those that serve as primary inputs to the workflow.
+Note that this will only affect the files involved in reaching the specified target(s).
+It is strongly advised to first run together with ``--dryrun`` to list the files that would be removed without actually deleting anything.
+The flag ``--delete-temp-output`` can be used in a similar manner to only delete files flagged as temporary.
 
 
 Why can't I use the conda directive with a run block?
@@ -434,3 +476,52 @@ Git is messing up the modification times of my input files, what can I do?
 --------------------------------------------------------------------------
 
 When you checkout a git repository, the modification times of updated files are set to the time of the checkout. If you rely on these files as input **and** output files in your workflow, this can cause trouble. For example, Snakemake could think that a certain (git-tracked) output has to be re-executed, just because its input has been checked out a bit later. In such cases, it is advisable to set the file modification dates to the last commit date after an update has been pulled. See `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_ for a solution to achieve this.
+
+How do I exit a running Snakemake workflow?
+-------------------------------------------
+
+There are two ways to exit a currently running workflow.
+
+1. If you want to kill all running jobs, hit Ctrl+C. Note that when using --cluster, this will only cancel the main Snakemake process.
+2. If you want to stop the scheduling of new jobs and wait for all running jobs to be finished, you can send a TERM signal, e.g., via
+
+   .. code-block:: bash
+
+       killall -TERM snakemake
+
+How do I access elements of input or output by a variable index?
+----------------------------------------------------------------
+
+Assuming you have something like the following rule
+
+   .. code-block:: python
+
+      rule a:
+          output:
+              expand("test.{i}.out", i=range(20))
+          run:
+              for i in range(20):
+                  shell("echo test > {output[i]}")
+
+Snakemake will fail upon execution with the error ``'OutputFiles' object has no attribute 'i'``. The reason is that the shell command is using the `Python format mini language <https://docs.python.org/3/library/string.html#formatspec>`_, which does only allow indexing via constants, e.g., ``output[1]``, but not via variables. Variables are treated as attribute names instead. The solution is to write
+
+   .. code-block:: python
+
+      rule a:
+          output:
+              expand("test.{i}.out", i=range(20))
+          run:
+              for i in range(20):
+                  f = output[i]
+                  shell("echo test > {f}")
+
+or, more concise in this special case:
+
+   .. code-block:: python
+
+      rule a:
+          output:
+              expand("test.{i}.out", i=range(20))
+          run:
+              for f in output:
+                  shell("echo test > {f}")

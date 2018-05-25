@@ -67,6 +67,6 @@ class Image:
         return os.path.join(self._img_dir, self.hash) + ".simg"
 
 
-def shellcmd(img_path, cmd, args):
-    return "singularity exec {} {} bash -c \"{}\"".format(
-        args, img_path, cmd.replace("\"", r"\""))
+def shellcmd(img_path, cmd, args=""):
+    return "singularity exec --home {} {} {} bash -c \"{}\"".format(
+        os.getcwd(), args, img_path, cmd.replace("\"", r"\""))

@@ -9,7 +9,7 @@ import threading
 
 from flask import Flask, render_template, request
 
-from snakemake.version import __version__
+from snakemake.common import __version__
 
 LOCK = threading.Lock()
 

@@ -315,7 +315,12 @@ Each rule can specify a log file where information about the execution is writte
         log: "logs/abc.log"
         shell: "somecommand --log {log} {input} {output}"
 
-The variable ``log`` can be used inside a shell command to tell the used tool to which file to write the logging information. Of course the log file can use the same wildcards as input and output files, e.g.
+Log files can be used as input for other rules, just like any other output file.
+However, unlike output files, log files are not deleted upon error.
+This is obviously necessary in order to discover causes of errors which might become visible in the log file.
+
+The variable ``log`` can be used inside a shell command to tell the used tool to which file to write the logging information.
+The log file has to use the same wildcards as output files, e.g.
 
 .. code-block:: python
 
@@ -332,7 +337,6 @@ Note that it is also supported to have multiple (named) log files being specifie
         output: "output.txt"
         log: log1="logs/abc.log", log2="logs/xyz.log"
         shell: "somecommand --log {log.log1} METRICS_FILE={log.log2} {input} {output}"
-
 
 
 
@@ -492,9 +496,7 @@ In the R Markdown file you can insert output from a R command, and access variab
     <a download="report.Rmd" href="`r base64enc::dataURI(file = params$rmd, mime = 'text/rmd', encoding = 'base64')`">R Markdown source file (to produce this document)</a>
 
 A link to the R Markdown document with the snakemake object can be inserted. Therefore a variable called ``rmd`` needs to be added to the ``params`` section in the header of the ``report.Rmd`` file. The generated R Markdown file with snakemake object will be saved in the file specified in this ``rmd`` variable. This file can be embedded into the HTML document using base64 encoding and a link can be inserted as shown in the example above.
-Also other input and output files can be embedded in this way to make a portable report. Note that the above method with a data URI only works for small files. An experimental technology to embed larger files is using Javascript Blob object_.
-
-.. _object https://developer.mozilla.org/en-US/docs/Web/API/Blob
+Also other input and output files can be embedded in this way to make a portable report. Note that the above method with a data URI only works for small files. An experimental technology to embed larger files is using Javascript Blob `object <https://developer.mozilla.org/en-US/docs/Web/API/Blob>`_.
 
 Protected and Temporary Files
 -----------------------------
@@ -903,18 +905,118 @@ With the `benchmark` keyword, a rule can be declared to store a benchmark of its
         output:
             "path/to/output.{sample}.txt"
         benchmark:
-            "benchmarks/somecommand/{sample}.txt"
+            "benchmarks/somecommand/{sample}.tsv"
         shell:
             "somecommand {input} {output}"
 
 benchmarks the CPU and wall clock time of the command ``somecommand`` for the given output and input files.
-For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark txt file (which will contain a tab-separated table of run times and memory usage in MiB).
+For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark tsv file (which will contain a tab-separated table of run times and memory usage in MiB).
 Per default, Snakemake executes the job once, generating one run time.
-With ``snakemake --benchmark-repeats``, this number can be changed to e.g. generate timings for two or three runs.
-The resulting txt file can be used as input for other rules, just like any other output file.
+However, the benchmark file can be annotated with the desired number of repeats, e.g.,
+
+.. code-block:: python
+
+    rule benchmark_command:
+        input:
+            "path/to/input.{sample}.txt"
+        output:
+            "path/to/output.{sample}.txt"
+        benchmark:
+            repeat("benchmarks/somecommand/{sample}.tsv", 3)
+        shell:
+            "somecommand {input} {output}"
+
+will instruct Snakemake to run each job of this rule three times and store all measurements in the benchmark file.
+The resulting tsv file can be used as input for other rules, just like any other output file.
 
 .. note::
 
     Note that benchmarking is only possible in a reliable fashion for subprocesses (thus for tasks run through the ``shell``, ``script``, and ``wrapper`` directive).
     In the ``run`` block, the variable ``bench_record`` is available that you can pass to ``shell()`` as ``bench_record=bench_record``.
     When using ``shell(..., bench_record=bench_record)``, the maximum of all measurements of all ``shell()`` calls will be used but the running time of the rule execution including any Python code.
+
+
+.. _snakefiles-grouping:
+
+Defining groups for execution
+-----------------------------
+
+From Snakemake 5.0 on, it is possible to assign rules to groups.
+Such groups will be executed together in cluster or cloud mode, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node. By this, queueing and execution time can be
+safed, in particular if one or several short-running rules are involved.
+
+Groups can be defined via the ``group`` keyword, e.g.,
+
+.. code-block:: python
+
+  samples = [1,2,3,4,5]
+
+
+  rule all:
+      input:
+          "test.out"
+
+
+  rule a:
+      output:
+          "a/{sample}.out"
+      group: "mygroup"
+      shell:
+          "touch {output}"
+
+
+  rule b:
+      input:
+          "a/{sample}.out"
+      output:
+          "b/{sample}.out"
+      group: "mygroup"
+      shell:
+          "touch {output}"
+
+
+  rule c:
+      input:
+          expand("b/{sample}.out", sample=samples)
+      output:
+          "test.out"
+      shell:
+          "touch {output}"
+
+Here, jobs from rule ``a`` and ``b`` end up in one group ``mygroup``, whereas jobs from rule ``c`` are executed separately.
+Note that Snakemake always determines a **connected subgraph** with the same group id to be a **group job**.
+Here, this means that, e.g., the jobs creating ``a/1.out`` and ``b/1.out`` will be in one group, and the jobs creating ``a/2.out`` and ``b/2.out`` will be in a separate group.
+However, if we would add ``group: "mygroup"`` to rule ``c``, all jobs would end up in a single group, including the one spawned from rule ``c``, because ``c`` connects all the other jobs.
+
+Piped output
+------------
+
+From Snakemake 5.0 on, it is possible to mark output files as pipes, via the ``pipe`` flag, e.g.:
+
+.. code-block:: python
+
+  rule all:
+      input:
+          expand("test.{i}.out", i=range(2))
+
+
+  rule a:
+      output:
+          pipe("test.{i}.txt")
+      shell:
+          "for i in {{0..2}}; do echo {wildcards.i} >> {output}; done"
+
+
+  rule b:
+      input:
+          "test.{i}.txt"
+      output:
+          "test.{i}.out"
+      shell:
+          "grep {wildcards.i} < {input} > {output}"
+
+If an output file is marked to be a pipe, then Snakemake will first create a `named pipe <https://en.wikipedia.org/wiki/Named_pipe>`_ with the given name and then execute the creating job simultaneously with the consuming job, inside a **group job** (see above).
+Naturally, a pipe output may only have a single consumer.
+It is possible to combine explicit group definition as above with pipe outputs.
+Thereby, pipe jobs can live within, or (automatically) extend existing groups.
+However, the two jobs connected by a pipe may not exist in conflicting groups.

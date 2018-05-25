@@ -1,0 +1,25 @@
+rule all:
+    input: "delete_all_output", "delete_temp_output"
+    output: touch("all_ok")
+
+rule delete_all_output:
+    output: touch("delete_all_output")
+    shell:
+        """
+        snakemake -s Snakefile_inner all && \
+        rm nothere && \
+        snakemake -s Snakefile_inner --delete-all-output all && \
+        test -f infile && test ! -f intermediate && test ! -f somedir/final && \
+        test ! -d empty_dir && test ! -L dangling && test -d full_dir && \
+        test ! -f protected
+        """
+
+rule delete_temp_output:
+    output: touch("delete_temp_output")
+    shell:
+        """
+        snakemake -s Snakefile_inner --notemp temp && \
+        snakemake -s Snakefile_inner --delete-temp-output temp && \
+        test -f infile && test ! -f temp_intermediate && \
+        test ! -d temp_empty_dir && test ! -d temp_full_dir && test -f temp_keep
+        """

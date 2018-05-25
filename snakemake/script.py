@@ -20,7 +20,7 @@ from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.version import MIN_PY_VERSION
+from snakemake.common import MIN_PY_VERSION, escape_backslash
 
 
 PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
@@ -90,13 +90,15 @@ class REncoder:
 class Snakemake:
     def __init__(self, input, output, params, wildcards, threads, resources,
                  log, config, rulename):
-        self.input = input
-        self.output = output
+        # convert input and output to plain strings as some remote objects cannot
+        # be pickled
+        self.input = input.plainstrings()
+        self.output = output.plainstrings()
         self.params = params
         self.wildcards = wildcards
         self.threads = threads
         self.resources = resources
-        self.log = log
+        self.log = log.plainstrings()
         self.config = config
         self.rule = rulename
 
@@ -152,7 +154,7 @@ class Snakemake:
 
 def script(path, basedir, input, output, params, wildcards, threads, resources,
            log, config, rulename, conda_env, singularity_img, singularity_args,
-           bench_record):
+           bench_record, jobid):
     """
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
@@ -167,7 +169,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
         path = "file://" + path
     path = format(path, stepout=1)
     if path.startswith("file://"):
-        sourceurl = "file:"+pathname2url(path[7:])
+        sourceurl = "file:" + pathname2url(path[7:])
     else:
         sourceurl = path
 
@@ -178,14 +180,17 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 snakemake = Snakemake(input, output, params, wildcards,
                                       threads, resources, log, config, rulename)
                 snakemake = pickle.dumps(snakemake)
-                # obtain search path for current snakemake module
-                # the module is needed for unpickling in the script
+                # Obtain search path for current snakemake module.
+                # The module is needed for unpickling in the script.
+                # We append it at the end (as a fallback).
                 searchpath = os.path.dirname(os.path.dirname(__file__))
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
-                import sys; sys.path.insert(0, "{}"); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
+                import sys; sys.path.append("{}"); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
                 ######## Original script #########
-                """).format(searchpath, snakemake, logger.printshellcmds)
+                """).format(escape_backslash(searchpath),
+                            snakemake,
+                            logger.printshellcmds)
             elif path.endswith(".R") or path.endswith(".Rmd"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########

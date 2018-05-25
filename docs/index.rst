@@ -191,6 +191,7 @@ Please consider to add your own.
     snakefiles/remote_files
     snakefiles/utils
     snakefiles/deployment
+    snakefiles/reporting
 
 
 .. toctree::

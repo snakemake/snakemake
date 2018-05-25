@@ -8,7 +8,7 @@ rule a:
     conda:
         "test-env.yaml"
     shell:
-        "snakemake --help > {output}"
+        "bwa 2> {output} || true"
 
 
 rule b:
@@ -19,4 +19,4 @@ rule b:
     conda:
         "test-env.yaml"
     shell:
-        "snakemake --help > {output}"
+        "bwa 2> {output} || true"

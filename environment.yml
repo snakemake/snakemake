@@ -5,6 +5,7 @@ channels:
 dependencies:
   - python >=3.5
   - boto3
+  - datrie
   - moto >=1.0.1
   - httpretty
   - wrapt
@@ -24,3 +25,6 @@ dependencies:
   - configargparse
   - appdirs
   - python-irodsclient
+  - jsonschema
+  - networkx
+  - pygraphviz

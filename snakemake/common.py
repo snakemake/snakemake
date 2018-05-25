@@ -5,9 +5,23 @@ __license__ = "MIT"
 
 from functools import update_wrapper
 import inspect
+import uuid
 
 
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
+
+
+MIN_PY_VERSION = (3, 5)
 DYNAMIC_FILL = "__snakemake_dynamic__"
+
+
+UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
+
+
+def get_uuid(name):
+    return uuid.uuid5(UUID_NAMESPACE, name)
 
 
 class Mode:
@@ -48,3 +62,7 @@ def log_location(msg):
     frame = callerframerecord[0]
     info = inspect.getframeinfo(frame)
     logger.debug("{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info))
+
+
+def escape_backslash(path):
+    return path.replace("\\", "\\\\")

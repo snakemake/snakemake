@@ -17,20 +17,52 @@ from operator import attrgetter
 from urllib.request import urlopen
 from urllib.parse import urlparse
 
-from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, contains_wildcard, lstat
+from snakemake.io import IOFile, Wildcards, Resources, _IOFile, is_flagged, get_flag_value, contains_wildcard, lstat
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 from snakemake.exceptions import UnexpectedOutputException, CreateCondaEnvironmentException
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL, lazy_property
+from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid
 from snakemake import conda, wrapper
+
+
+def format_files(job, io, dynamicio):
+    for f in io:
+        if f in dynamicio:
+            yield "{} (dynamic)".format(f.format_dynamic())
+        elif is_flagged(f, "pipe"):
+            yield "{} (pipe)".format(f)
+        else:
+            yield f
 
 
 def jobfiles(jobs, type):
     return chain(*map(attrgetter(type), jobs))
 
 
-class Job:
+class AbstractJob:
+    def is_group(self):
+        raise NotImplementedError()
+
+    def log_info(self, skip_dynamic=False):
+        raise NotImplementedError()
+
+    def log_error(self, msg=None, **kwargs):
+        raise NotImplementedError()
+
+    def remove_existing_output(self):
+        raise NotImplementedError()
+
+    def download_remote_input(self):
+        raise NotImplementedError()
+
+    def properties(self,
+                   omit_resources=["_cores", "_nodes"],
+                   **aux_properties):
+        raise NotImplementedError()
+
+
+class Job(AbstractJob):
     HIGHEST_PRIORITY = sys.maxsize
 
     __slots__ = ["rule", "dag", "wildcards_dict", "wildcards",
@@ -39,7 +71,7 @@ class Job:
                  "_conda_env_file", "_conda_env", "shadow_dir", "_inputsize",
                  "dynamic_output", "dynamic_input",
                  "temp_output", "protected_output", "touch_output",
-                 "subworkflow_input", "_hash", "_attempt"]
+                 "subworkflow_input", "_hash", "_attempt", "_group"]
 
     def __init__(self, rule, dag, wildcards_dict=None, format_wildcards=None):
         self.rule = rule
@@ -59,12 +91,14 @@ class Job:
         self._resources = None
         self._conda_env_file = None
         self._conda_env = None
+        self._group = None
 
         self.shadow_dir = None
         self._inputsize = None
 
         self._attempt = self.dag.workflow.attempt
 
+        # TODO get rid of these
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
@@ -89,14 +123,15 @@ class Job:
                 sub = f.flags["subworkflow"]
                 if f in self.subworkflow_input:
                     other = self.subworkflow_input[f]
-                    raise WorkflowError("The input file {} is ambiguously "
-                                        "associated with two subworkflows {} "
-                                        "and {}.".format(f, sub, other),
-                                        rule=self.rule)
+                    if sub != other:
+                        raise WorkflowError("The input file {} is ambiguously "
+                                            "associated with two subworkflows {} "
+                                            "and {}.".format(f, sub, other),
+                                            rule=self.rule)
                 self.subworkflow_input[f] = sub
         self._hash = self.rule.__hash__()
-        for o in self.output:
-            self._hash ^= o.__hash__()
+        for wildcard_value in self.wildcards_dict.values():
+            self._hash ^= wildcard_value.__hash__()
 
     def is_valid(self):
         """Check if job is valid"""
@@ -143,6 +178,21 @@ class Job:
         return self._benchmark
 
     @property
+    def benchmark_repeats(self):
+        if self.benchmark is not None:
+            return get_flag_value(self.benchmark, "repeat") or 1
+
+    @property
+    def group(self):
+        if self._group is None:
+            self._group = self.rule.expand_group(self.wildcards_dict)
+        return self._group
+
+    @group.setter
+    def group(self, group):
+        self._group = group
+
+    @property
     def attempt(self):
         return self._attempt
 
@@ -164,22 +214,21 @@ class Job:
     def conda_env_file(self):
         if self._conda_env_file is None:
             expanded_env = self.rule.expand_conda_env(self.wildcards_dict)
-            scheme, _, path, *_ = urlparse(expanded_env)
-            # Normalize 'file:///my/path.yml' to '/my/path.yml'
-            if scheme == 'file' or not scheme:
-                self._conda_env_file = path
-            else:
-                self._conda_env_file = expanded_env
+            if expanded_env is not None:
+                scheme, _, path, *_ = urlparse(expanded_env)
+                # Normalize 'file:///my/path.yml' to '/my/path.yml'
+                if scheme == 'file' or not scheme:
+                    self._conda_env_file = path
+                else:
+                    self._conda_env_file = expanded_env
         return self._conda_env_file
 
     @property
     def conda_env(self):
         if self.conda_env_file:
             if self._conda_env is None:
-                self._conda_env = self.dag.conda_envs.get(self.conda_env_file)
-            logger.debug("Accessing conda environment {}.".format(self._conda_env))
-            if self._conda_env is None:
-                raise ValueError("Conda environment {} not found in DAG.".format(self.conda_env_file))
+                self._conda_env = self.dag.conda_envs.get(
+                    (self.conda_env_file, self.singularity_img_url))
             return self._conda_env
         return None
 
@@ -271,6 +320,15 @@ class Job:
     @property
     def is_wrapper(self):
         return self.rule.wrapper is not None
+
+    @property
+    def is_cwl(self):
+        return self.rule.cwl is not None
+
+    @property
+    def is_run(self):
+        return not (self.is_shell or self.is_norun or self.is_script or
+                    self.is_wrapper or self.is_cwl)
 
     @property
     def expanded_output(self):
@@ -386,6 +444,11 @@ class Job:
                         files.add("{} (dynamic)".format(f_))
                 elif not f.exists:
                     files.add(f)
+
+        for f in self.log:
+            if requested and f in requested and not f.exists:
+                files.add(f)
+
         return files
 
     @property
@@ -489,6 +552,9 @@ class Job:
                 #No file == no problem
                 pass
 
+        for f in self.log:
+            f.remove(remove_non_empty_dir=False)
+
     def download_remote_input(self):
         for f in self.files_to_download:
             f.download_from_remote()
@@ -525,6 +591,7 @@ class Job:
 
         if not self.is_shadow:
             return
+
         # Create shadow directory structure
         self.shadow_dir = tempfile.mkdtemp(
             dir=self.rule.workflow.persistence.shadow_path)
@@ -635,7 +702,7 @@ class Job:
             raise RuleException("IndexError: " + str(ex), rule=self.rule)
 
     def properties(self,
-                   omit_resources="_cores _nodes".split(),
+                   omit_resources=["_cores", "_nodes"],
                    **aux_properties):
         resources = {
             name: res
@@ -644,11 +711,12 @@ class Job:
         }
         params = {name: value for name, value in self.params.items()}
         properties = {
+            "type": "single",
             "rule": self.rule.name,
-            "local": self.dag.workflow.is_local(self.rule),
+            "local": self.is_local,
             "input": self.input,
             "output": self.output,
-            "wildcards": self.wildcards,
+            "wildcards": self.wildcards_dict,
             "params": params,
             "log": self.log,
             "threads": self.threads,
@@ -658,6 +726,10 @@ class Job:
         properties.update(aux_properties)
         return properties
 
+    @property
+    def is_local(self):
+        return self.dag.workflow.is_local(self.rule)
+
     def __repr__(self):
         return self.rule.name
 
@@ -665,9 +737,8 @@ class Job:
         if other is None:
             return False
         return (self.rule == other.rule and
-                (self.dynamic_output or
-                 self.wildcards_dict == other.wildcards_dict) and
-                (self.dynamic_input or self.input == other.input))
+                (self.wildcards_dict == other.wildcards_dict) and
+                (self.input == other.input))
 
     def __lt__(self, other):
         return self.rule.__lt__(other.rule)
@@ -683,6 +754,414 @@ class Job:
         return list(listfiles(pattern,
                               restriction=self.wildcards,
                               omit_value=DYNAMIC_FILL))
+
+    def is_group(self):
+        return False
+
+    def log_info(self, skip_dynamic=False, indent=False):
+        # skip dynamic jobs that will be "executed" only in dryrun mode
+        if skip_dynamic and self.dag.dynamic(self):
+            return
+
+        priority = self.priority
+        logger.job_info(jobid=self.dag.jobid(self),
+                        msg=self.message,
+                        name=self.rule.name,
+                        local=self.dag.workflow.is_local(self.rule),
+                        input=list(format_files(self, self.input,
+                                                self.dynamic_input)),
+                        output=list(format_files(self, self.output,
+                                                 self.dynamic_output)),
+                        log=list(self.log),
+                        benchmark=self.benchmark,
+                        wildcards=self.wildcards_dict,
+                        reason=str(self.dag.reason(self)),
+                        resources=self.resources,
+                        priority="highest"
+                        if priority == Job.HIGHEST_PRIORITY else priority,
+                        threads=self.threads,
+                        indent=indent)
+        logger.shellcmd(self.shellcmd, indent=indent)
+
+        if self.dynamic_output:
+            logger.info("Subsequent jobs will be added dynamically "
+                        "depending on the output of this job", indent=True)
+
+    def log_error(self, msg=None, indent=False, **kwargs):
+        logger.job_error(name=self.rule.name,
+                         jobid=self.dag.jobid(self),
+                         output=list(format_files(self, self.output,
+                                                  self.dynamic_output)),
+                         log=list(self.log),
+                         conda_env=self.conda_env.path if self.conda_env else None,
+                         aux=kwargs,
+                         indent=True)
+        if msg is not None:
+            logger.error(msg)
+
+    def register(self):
+        self.dag.workflow.persistence.started(self)
+
+    def get_wait_for_files(self):
+        wait_for_files = []
+        wait_for_files.extend(self.local_input)
+        wait_for_files.extend(f for f in self.remote_input
+                                if not f.should_stay_on_remote)
+
+
+        if self.shadow_dir:
+            wait_for_files.append(self.shadow_dir)
+        if self.dag.workflow.use_conda and self.conda_env:
+            wait_for_files.append(self.conda_env_path)
+        return wait_for_files
+
+    @property
+    def jobid(self):
+        return self.dag.jobid(self)
+
+    def postprocess(self,
+                    upload_remote=True,
+                    handle_log=True,
+                    handle_touch=True,
+                    handle_temp=True,
+                    error=False,
+                    ignore_missing_output=False,
+                    assume_shared_fs=True,
+                    latency_wait=None):
+        if assume_shared_fs:
+            if not error and handle_touch:
+                self.dag.handle_touch(self)
+            if handle_log:
+                self.dag.handle_log(self)
+            if not error:
+                self.dag.check_and_touch_output(
+                    self,
+                    wait=latency_wait,
+                    ignore_missing_output=ignore_missing_output)
+            self.dag.unshadow_output(self, only_log=error)
+            if not error:
+                self.dag.handle_remote(self, upload=upload_remote)
+                self.dag.handle_protected(self)
+            self.close_remote()
+        else:
+            if not error:
+                self.dag.check_and_touch_output(
+                    self,
+                    wait=latency_wait,
+                    no_touch=True,
+                    force_stay_on_remote=True)
+        if not error:
+            if handle_temp:
+                self.dag.handle_temp(self)
+
+            try:
+                self.dag.workflow.persistence.finished(self)
+            except IOError as e:
+                logger.info("Failed to remove marker file for job started "
+                            "({}). Please ensure write permissions for the "
+                            "directory {}".format(
+                                e, self.dag.workflow.persistence.path))
+
+    @property
+    def name(self):
+        return self.rule.name
+
+    @property
+    def priority(self):
+        return self.dag.priority(self)
+
+    @property
+    def products(self):
+        products = list(self.output)
+        if self.benchmark:
+            products.append(self.benchmark)
+        products.extend(self.log)
+        return products
+
+    def get_targets(self):
+        return self.products or [self.rule.name]
+
+    @property
+    def is_branched(self):
+        return self.rule.is_branched
+
+    @property
+    def rules(self):
+        return [self.rule.name]
+
+    @property
+    def restart_times(self):
+        return self.rule.restart_times
+
+    def __len__(self):
+        return 1
+
+
+class GroupJob(AbstractJob):
+
+    __slots__ = ["groupid", "jobs", "_resources", "_input", "_output",
+                 "_inputsize", "_all_products", "_attempt"]
+
+    def __init__(self, id, jobs):
+        self.groupid = id
+        self.jobs = frozenset(jobs)
+        self._resources = None
+        self._input = None
+        self._output = None
+        self._inputsize = None
+        self._all_products = None
+        self._attempt = self.dag.workflow.attempt
+
+    @property
+    def dag(self):
+        return next(iter(self.jobs)).dag
+
+    def merge(self, other):
+        assert other.groupid == self.groupid
+        self.jobs = self.jobs | other.jobs
+
+    def finalize(self):
+        dag = {
+            job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
+            for job in self.jobs
+        }
+        from toposort import toposort
+        t = toposort(dag)
+        print(t)
+
+    @property
+    def all_products(self):
+        if self._all_products is None:
+            self._all_products = set(f for job in self.jobs for f in job.products)
+        return self._all_products
+
+    def __iter__(self):
+        return iter(self.jobs)
+
+    def __repr__(self):
+        return "JobGroup({},{})".format(self.groupid, repr(self.jobs))
+
+    def __contains__(self, job):
+        return job in self.jobs
+
+    def is_group(self):
+        return True
+
+    def log_info(self, skip_dynamic=False):
+        logger.group_info(groupid=self.groupid)
+        for job in sorted(self.jobs, key=lambda j: j.rule.name):
+            job.log_info(skip_dynamic, indent=True)
+
+    def log_error(self, msg=None, **kwargs):
+        logger.group_error(groupid=self.groupid)
+        for job in self.jobs:
+            job.log_error(msg=msg, indent=True, **kwargs)
+
+    def register(self):
+        for job in self.jobs:
+            job.register()
+
+    def remove_existing_output(self):
+        for job in self.jobs:
+            job.remove_existing_output()
+
+    def download_remote_input(self):
+        for job in self.jobs:
+            job.download_remote_input()
+
+    def get_wait_for_files(self):
+        local_input = [f for job in self.jobs
+                       for f in job.local_input if f not in self.all_products]
+        remote_input = [f for job in self.jobs
+                        for f in job.remote_input if f not in self.all_products]
+
+        wait_for_files = []
+        wait_for_files.extend(local_input)
+        wait_for_files.extend(f for f in remote_input
+                                if not f.should_stay_on_remote)
+
+        for job in self.jobs:
+            if job.shadow_dir:
+                wait_for_files.append(job.shadow_dir)
+            if self.dag.workflow.use_conda and job.conda_env:
+                wait_for_files.append(job.conda_env_path)
+        return wait_for_files
+
+    @property
+    def resources(self):
+        if self._resources is None:
+            self._resources = defaultdict(int)
+            # take the maximum over all jobs
+            for job in self.jobs:
+                for res, value in job.resources.items():
+                    if self.dag.workflow.run_local:
+                        # in case of local execution, this must be a
+                        # group of jobs that are connected with pipes
+                        # and have to run simultaneously
+                        self._resources[res] += value
+                    else:
+                        self._resources[res] = max(self._resources.get(res, value),
+                                                   value)
+        return self._resources
+
+    @property
+    def input(self):
+        if self._input is None:
+            self._input = [f for job in self.jobs
+                             for f in job.input if f not in self.all_products]
+        return self._input
+
+    @property
+    def output(self):
+        all_input = set(f for job in self.jobs for f in job.input)
+        if self._output is None:
+            self._output = [f for job in self.jobs
+                              for f in job.output if f not in all_input]
+        return self._output
+
+    @property
+    def products(self):
+        all_input = set(f for job in self.jobs for f in job.input)
+        return [f for job in self.jobs
+                  for f in job.products if f not in all_input]
+
+    def properties(self,
+                   omit_resources=["_cores", "_nodes"],
+                   **aux_properties):
+        resources = {
+            name: res
+            for name, res in self.resources.items()
+            if name not in omit_resources
+        }
+        properties = {
+            "type": "group",
+            "groupid": self.groupid,
+            "local": self.is_local,
+            "input": self.input,
+            "output": self.output,
+            "resources": resources,
+            "jobid": self.jobid
+        }
+        properties.update(aux_properties)
+        return properties
+
+    @property
+    def jobid(self):
+        return str(get_uuid(",".join(str(job.jobid) for job in self.jobs)))
+
+    def cleanup(self):
+        for job in self.jobs:
+            job.cleanup()
+
+    def postprocess(self, error=False, **kwargs):
+        for job in self.jobs:
+            job.postprocess(handle_temp=False, error=error, **kwargs)
+        # Handle temp after per-job postprocess.
+        # This is necessary because group jobs are not topologically sorted,
+        # and we might otherwise delete a temp input file before it has been
+        # postprocessed by the outputting job in the same group.
+        if not error:
+            for job in self.jobs:
+                self.dag.handle_temp(job)
+        # remove all pipe outputs since all jobs of this group are done and the
+        # pipes are no longer needed
+        for job in self.jobs:
+            for f in job.output:
+                if is_flagged(f, "pipe"):
+                    f.remove()
+
+    @property
+    def name(self):
+        return str(self.groupid)
+
+    def check_protected_output(self):
+        for job in self.jobs:
+            job.check_protected_output()
+
+    @property
+    def dynamic_input(self):
+        return [f for job in self.jobs for f in job.dynamic_input
+                if f not in self.all_products]
+
+    @property
+    def inputsize(self):
+        if self._inputsize is None:
+            self._inputsize = sum(f.size for f in self.input)
+        return self._inputsize
+
+    @property
+    def priority(self):
+        return max(self.dag.priority(job) for job in self.jobs)
+
+    @property
+    def is_local(self):
+        return all(job.is_local for job in self.jobs)
+
+    def format_wildcards(self, string, **variables):
+        """ Format a string with variables from the job. """
+        _variables = dict()
+        _variables.update(self.dag.workflow.globals)
+        _variables.update(dict(input=self.input,
+                               output=self.output,
+                               threads=self.threads,
+                               resources=self.resources))
+        _variables.update(variables)
+        try:
+            return format(string, **_variables)
+        except NameError as ex:
+            raise WorkflowError("NameError: " + str(ex))
+        except IndexError as ex:
+            raise WorkflowError("IndexError: " + str(ex))
+
+    @property
+    def threads(self):
+        return self.resources["_cores"]
+
+    def get_targets(self):
+        # jobs without output are targeted by rule name
+        targets = [job.rule.name for job in self.jobs if not job.products]
+        targets.extend(self.products)
+        return targets
+
+    @property
+    def attempt(self):
+        return self._attempt
+
+    @attempt.setter
+    def attempt(self, attempt):
+        # reset resources
+        self._resources = None
+        self._attempt = attempt
+
+    @property
+    def is_branched(self):
+        return any(job.is_branched for job in self.jobs)
+
+    @property
+    def rules(self):
+        return [job.rule.name for job in self.jobs]
+
+    @property
+    def expanded_output(self):
+        """Yields the entire expanded output of all jobs"""
+        for job in self.jobs:
+            yield from job.expanded_output
+
+    @property
+    def restart_times(self):
+        return max(job.restart_times for job in self.jobs)
+
+    def __len__(self):
+        return len(self.jobs)
+
+    def __hash__(self):
+        return hash(self.jobs)
+
+    def __eq__(self, other):
+        if other.is_group():
+            return self.jobs == other.jobs
+        else:
+            return False
 
 
 class Reason:
