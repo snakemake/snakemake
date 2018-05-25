@@ -191,7 +191,7 @@ class Env:
                         # read pacakges in correct order
                         # this is for newer env archives where the package list
                         # was stored
-                        packages = [os.path.join(env_archive, pkg)
+                        packages = [os.path.join(env_archive, pkg.rstrip())
                                     for pkg in open(pkg_list)]
                     else:
                         # guess order
