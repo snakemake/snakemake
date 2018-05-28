@@ -184,25 +184,31 @@ class JobRecord:
 
 class FileRecord:
     def __init__(self, path, job, caption):
-        self.caption = ""
-        if caption is not None:
+        self.raw_caption = caption
+        self.data, self.mime = data_uri(path)
+        self.id = uuid.uuid4()
+        self.path = path
+        self.job = job
+
+    def render(self, env, rst_links, results):
+        if self.raw_caption is not None:
             try:
                 from jinja2 import Template
             except ImportError as e:
                 raise WorkflowError("Pyhton package jinja2 must be installed to create reports.")
 
+            job = self.job
             snakemake = Snakemake(job.input, job.output, job.params, job.wildcards,
                                   job.threads, job.resources, job.log,
                                   job.dag.workflow.config, job.rule.name)
             try:
-                caption = Template(open(caption).read()).render(snakemake=snakemake)
+                caption = open(self.raw_caption).read() + rst_links
+                caption = env.from_string(caption).render(snakemake=snakemake,
+                                                          results=results)
                 self.caption = publish_parts(caption, writer_name="html")["body"]
             except Exception as e:
                 raise WorkflowError("Error loading caption file of output "
                                     "marked for report.", e)
-        self.data, self.mime = data_uri(path)
-        self.id = uuid.uuid4()
-        self.path = path
 
     @property
     def is_img(self):
@@ -337,26 +343,47 @@ def auto_report(dag, path):
             if not merged:
                 rules[rec.rule].append(rule)
 
+    # rulegraph
+    rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
+
+    env = Environment(loader=PackageLoader("snakemake", "report"),
+                      trim_blocks=True,
+                      lstrip_blocks=True)
+    env.filters["get_resource_as_string"] = get_resource_as_string
+
+    rst_links = textwrap.dedent("""
+
+    .. _Results: #results
+    .. _Rules: #rules
+    {% for cat, catresults in results|dictsort %}
+    .. _{{ cat }}: #results-{{ cat|replace(" ", "_") }}
+    {% for res in catresults %}
+    .. _{{ res.name }}: #{{ res.id }}
+    {% endfor %}
+    {% endfor %}
+    .. _
+    """)
+    for cat, catresults in results.items():
+        for res in catresults:
+            res.render(env, rst_links, results)
+
     # global description
     text = ""
     if dag.workflow.report_text:
         with open(dag.workflow.report_text) as f:
             class Snakemake:
                 config = dag.workflow.config
-            text = publish_parts(Template(f.read()).render(snakemake=Snakemake),
+
+            text = f.read() + rst_links
+            text = publish_parts(env.from_string(text).render(
+                                    snakemake=Snakemake, results=results),
                                  writer_name="html")["body"]
-
-    # rulegraph
-    rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
-
-    # compose html
-    env = Environment(loader=PackageLoader("snakemake", "report"))
-    env.filters["get_resource_as_string"] = get_resource_as_string
 
     # record time
     now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
     results_size = sum(res.size for cat in results.values() for res in cat)
 
+    # render HTML
     template = env.get_template("report.html")
     with open(path, "w", encoding="utf-8") as out:
         out.write(template.render(results=results,
