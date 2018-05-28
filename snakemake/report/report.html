@@ -231,7 +231,7 @@
                 <span>Results</span>
               </a>
             </h5>
-            {% for cat, res in results.items() %}
+            {% for cat, res in results|dictsort %}
               <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
                 <a class="d-flex align-items-center text-muted" href="#results-{{ cat|replace(" ", "_") }}">
                   <span>{{ cat }}</span>
@@ -272,7 +272,7 @@
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h2 id="results">Results</h2>
           </div>
-          {% for cat, catresults in results.items() %}
+          {% for cat, catresults in results|dictsort %}
             <h3 id="results-{{ cat|replace(" ", "_") }}">{{ cat }}</h3>
             {% for res in catresults %}
             <div class="result">
