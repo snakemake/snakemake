@@ -499,7 +499,8 @@
         "mark": "point",
         "encoding": {
           "x": {"field": "runtime", "type": "quantitative",
-                "axis": {"title": "runtime [s]", "labelAngle": -90}
+                "axis": {"title": "runtime [s]", "labelAngle": -90},
+                "scale": {"type": "log"}
           },
           "y": {"field": "rule", "type": "nominal"},
           "color": {"value": "#007bff"}
@@ -509,9 +510,9 @@
 
       var timeline_spec = {
         "$schema": "https://vega.github.io/schema/vega-lite/v2.json",
-        "description": "Timeline of job completions.",
+        "description": "Timeline of jobs.",
         "data": {
-          "values": {{ endtimes }}
+          "values": {{ timeline }}
         },
         "mark": "point",
         "encoding": {

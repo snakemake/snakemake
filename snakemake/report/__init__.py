@@ -316,7 +316,8 @@ def auto_report(dag, path):
                 for rec in sorted(records.values(), key=lambda rec: rec.rule)]
 
     # prepare end times
-    endtimes = [{"rule": rec.rule,
+    timeline = [{"rule": rec.rule,
+                 "starttime": datetime.datetime.fromtimestamp(rec.starttime).isoformat(),
                  "endtime": datetime.datetime.fromtimestamp(rec.endtime).isoformat()}
                 for rec in sorted(records.values(), key=lambda rec: rec.rule)]
 
@@ -366,7 +367,7 @@ def auto_report(dag, path):
                                   rulegraph_width=xmax + 20,
                                   rulegraph_height=ymax + 20,
                                   runtimes=runtimes,
-                                  endtimes=endtimes,
+                                  timeline=timeline,
                                   rules=[rec for recs in rules.values() for rec in recs],
                                   version=__version__.split("+")[0],
                                   now=now))
