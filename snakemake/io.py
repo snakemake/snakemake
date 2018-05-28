@@ -706,9 +706,12 @@ def repeat(value, n_repeat):
     return flag(value, "repeat", n_repeat)
 
 
-def report(value, caption=None):
+ReportObject = namedtuple("ReportObject", ["caption", "category"])
+
+
+def report(value, caption=None, category=None):
     """Flag output file as to be included into reports."""
-    return flag(value, "report", caption)
+    return flag(value, "report", ReportObject(caption, category))
 
 
 def local(value):

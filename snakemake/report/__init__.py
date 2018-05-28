@@ -183,7 +183,7 @@ class JobRecord:
 
 
 class FileRecord:
-    def __init__(self, path, job, caption=None):
+    def __init__(self, path, job, caption):
         self.caption = ""
         if caption is not None:
             try:
@@ -208,6 +208,11 @@ class FileRecord:
     def is_img(self):
         web_safe = {"image/gif", "image/jpeg", "image/png", "image/svg+xml"}
         return self.mime in web_safe
+
+    @property
+    def is_text(self):
+        text = {"text/csv", "text/plain", "text/tab-separated-values"}
+        return self.mime in text
 
     @property
     def name(self):
@@ -270,7 +275,7 @@ def auto_report(dag, path):
         raise WorkflowError("Report file does not end with .html")
 
     persistence = dag.workflow.persistence
-    results = []
+    results = defaultdict(list)
     records = defaultdict(JobRecord)
     for job in dag.jobs:
         for f in job.expanded_output:
@@ -279,7 +284,9 @@ def auto_report(dag, path):
                     raise WorkflowError("Output file {} marked for report but does "
                                         "not exist.")
                 if os.path.isfile(f):
-                    results.append(FileRecord(f, job, get_flag_value(f, "report")))
+                    report_obj = get_flag_value(f, "report")
+                    results[report_obj.category].append(
+                        FileRecord(f, job, report_obj.caption))
 
             meta = persistence.metadata(f)
             if not meta:
@@ -301,7 +308,8 @@ def auto_report(dag, path):
                 logger.warning("Metadata for file {} was created with a too "
                                "old Snakemake version.".format(f))
 
-    results.sort(key=lambda res: res.name)
+    for catresults in results.values():
+        catresults.sort(key=lambda res: res.name)
 
     # prepare runtimes
     runtimes = [{"rule": rec.rule, "runtime": rec.endtime - rec.starttime}
@@ -346,11 +354,12 @@ def auto_report(dag, path):
 
     # record time
     now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
+    results_size = sum(res.size for cat in results.values() for res in cat)
 
     template = env.get_template("report.html")
     with open(path, "w", encoding="utf-8") as out:
         out.write(template.render(results=results,
-                                  results_size=sum(res.size for res in results),
+                                  results_size=results_size,
                                   text=text,
                                   rulegraph_nodes=rulegraph["nodes"],
                                   rulegraph_links=rulegraph["links"],

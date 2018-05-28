@@ -84,6 +84,13 @@
       [role="main"] {
       padding-top: 48px; /* Space for fixed navbar */
       }
+      *[id]:before {
+        display: block;
+        content: " ";
+        margin-top: -75px;
+        height: 75px;
+        visibility: hidden;
+      }
 
       /*
       * Navbar
@@ -172,6 +179,10 @@
       .plot {
         text-align: center;
       }
+
+      h6.sidebar-heading {
+        text-transform: none;
+      }
     </style>
   </head>
 
@@ -215,21 +226,35 @@
               </li>
             </ul>
 
-            <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-              <a class="d-flex align-items-center text-muted" href="#">
+            <h5 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+              <a class="d-flex align-items-center text-muted text-bold" href="#results">
                 <span>Results</span>
               </a>
-            </h6>
-            <ul class="nav flex-column mb-2">
-              {% for res in results %}
-              <li class="nav-item">
-                <a class="nav-link" href="#{{ res.id }}">
-                  <span data-feather="file"></span>
-                  {{ res.name }}
+            </h5>
+            {% for cat, res in results.items() %}
+              <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                <a class="d-flex align-items-center text-muted" href="#results-{{ cat|replace(" ", "_") }}">
+                  <span>{{ cat }}</span>
                 </a>
-              </li>
-              {% endfor %}
-            </ul>
+              </h6>
+              <ul class="nav flex-column mb-2">
+                {% for r in res %}
+                <li class="nav-item">
+                  <a class="nav-link" href="#{{ r.id }}">
+                    {% if r.is_img %}
+                      {% set resicon = "image" %}
+                    {% elif r.is_text %}
+                      {% set resicon = "file-text" %}
+                    {% else %}
+                      {% set resicon = "file" %}
+                    {% endif %}
+                    <span data-feather="{{ resicon }}"></span>
+                    {{ r.name }}
+                  </a>
+                </li>
+                {% endfor %}
+              </ul>
+            {% endfor %}
           </div>
         </nav>
 
@@ -245,20 +270,23 @@
           <p>Detailed software versions can be found under <a href="#rules">Rules</a></p>
 
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-            <h2>Results</h2>
+            <h2 id="results">Results</h2>
           </div>
-          {% for res in results %}
-          <div class="result">
-            <h3 id="{{ res.id }}">{{ res.name }}</h3>
-            {{ res.caption }}
-            <div class="preview">
-              {% if res.is_img %}
-              <a href="{{ res.data }}" download="{{ res.name }}"><img src="{{ res.data }}"></a>
-              {% else %}
-              <a class="btn btn-sm btn-outline-secondary" href="{{ res.data }}" download="{{ res.name }}">Download</a>
-              {% endif %}
+          {% for cat, catresults in results.items() %}
+            <h3 id="results-{{ cat|replace(" ", "_") }}">{{ cat }}</h3>
+            {% for res in catresults %}
+            <div class="result">
+              <h4 id="{{ res.id }}">{{ res.name }}</h4>
+              {{ res.caption }}
+              <div class="preview">
+                {% if res.is_img %}
+                <a href="{{ res.data }}" download="{{ res.name }}"><img src="{{ res.data }}"></a>
+                {% else %}
+                <a class="btn btn-sm btn-outline-secondary" href="{{ res.data }}" download="{{ res.name }}">Download</a>
+                {% endif %}
+              </div>
             </div>
-          </div>
+            {% endfor %}
           {% endfor %}
 
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -470,7 +498,9 @@
         "data": {"values": {{ runtimes }}},
         "mark": "point",
         "encoding": {
-          "x": {"field": "runtime", "type": "quantitative"},
+          "x": {"field": "runtime", "type": "quantitative",
+                "axis": {"title": "runtime [s]", "labelAngle": -90}
+          },
           "y": {"field": "rule", "type": "nominal"},
           "color": {"value": "#007bff"}
         }
