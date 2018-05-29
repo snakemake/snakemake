@@ -54,6 +54,15 @@ Note the paths to the ``.rst``-files are interpreted relative to the current Sna
 Inside the ``.rst``-files you can use `Jinja2 <http://jinja.pocoo.org>`_ templating to access context information.
 In case of the global description, you can access the config dictionary via ``{{ snakemake.config }}``, (e.g., use ``{{ snakemake.config["mykey"] }}`` to access the key ``mykey``).
 In case of output files, you can access the same values as available with the :ref:`script directive <snakefiles-external_scripts>`.
+Moreover, in every ``.rst`` document, you can link to
+
+* the **Rules** section (with ``Rules_``),
+* the **Statistics** section (with ``Statistics_``),
+* the **Results** section (with ``Results_``),
+* any **category** section (with ``Mycategory_``, while ``Mycategory`` is the name given for the category argument of the report flag). E.g., with above example, you could write ``see `Step 2`_`` in order to link to the section with the results that have been assigned to the category ``Step 2``.
+* any **file** marked with the report flag (with ``myfile.txt_``, while ``myfile.txt`` is the basename of the file, without any leading directories). E.g., with above example, you could write ``see fig2.png_`` in order to link to the result in the report document.
+
+For details about the hyperlink mechanism of restructured text see `here <http://docutils.sourceforge.net/docs/user/rst/quickref.html#hyperlink-targets>`_.
 
 To create the report simply run
 

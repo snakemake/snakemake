@@ -355,6 +355,7 @@ def auto_report(dag, path):
 
     .. _Results: #results
     .. _Rules: #rules
+    .. _Statistics: #stats
     {% for cat, catresults in results|dictsort %}
     .. _{{ cat }}: #results-{{ cat|replace(" ", "_") }}
     {% for res in catresults %}
