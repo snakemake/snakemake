@@ -634,9 +634,6 @@ def ancient(value):
     """
     A flag for an input file that shall be considered ancient; i.e. its timestamp shall have no effect on which jobs to run.
     """
-    if is_flagged(value, "remote"):
-        raise SyntaxError(
-            "Ancient and remote flags are mutually exclusive.")
     return flag(value, "ancient")
 
 

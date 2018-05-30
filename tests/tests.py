@@ -182,7 +182,7 @@ def test15():
     run(dpath("test15"))
 
 def test_ancient():
-    run(dpath("test_ancient"), targets=['D'])
+    run(dpath("test_ancient"), targets=['D', 'old_file'])
 
 def test_list_untracked():
     run(dpath("test_list_untracked"))

@@ -247,6 +247,9 @@ class CPUExecutor(RealExecutor):
             if self.workflow.singularity_prefix:
                 self.exec_job += " --singularity-prefix {} ".format(
                     self.workflow.singularity_prefix)
+            if self.workflow.singularity_args:
+                self.exec_job += " --singularity-args \"{}\"".format(
+                    self.workflow.singularity_args)
 
         self.use_threads = use_threads
         self.cores = cores

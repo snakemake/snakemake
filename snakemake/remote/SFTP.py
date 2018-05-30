@@ -88,11 +88,14 @@ class RemoteObject(DomainObject):
             raise SFTPFileException("The file does not seem to exist remotely: %s" % self.local_file())
 
     def is_newer(self, time):
-        """ Returns true of the file is newer than time, or if it is
+        """ Returns true if the file is newer than time, or if it is
             a symlink that points to a file newer than time. """
-        with self.sftpc() as sftpc:
-            return ( sftpc.stat( self.remote_path).st_mtime > time or
-                     sftpc.lstat(self.remote_path).st_mtime > time )
+        if self.is_ancient:
+            return False
+        else:
+            with self.sftpc() as sftpc:
+                return ( sftpc.stat( self.remote_path).st_mtime > time or
+                         sftpc.lstat(self.remote_path).st_mtime > time )
 
     def size(self):
         if self.exists():
