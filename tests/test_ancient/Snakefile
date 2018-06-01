@@ -1,4 +1,11 @@
-shell("touch C;sleep 1;touch B;sleep 1;touch A;touch D")
+from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+
+HTTP = HTTPRemoteProvider()
+
+shell("touch C && sleep 1 && touch B && sleep 1 && touch A && touch D && \
+    mkdir -p bitbucket.org/snakemake/snakemake/raw/http-gzip-autodecode/tests/test_remote_http/expected-results && \
+    touch bitbucket.org/snakemake/snakemake/raw/http-gzip-autodecode/tests/test_remote_http/expected-results/landsat-data.txt && \
+    touch -t 200101010101 old_file")
 
 #Will not be executed even though A is newer
 rule a:
@@ -26,3 +33,9 @@ rule c:
         "D"
     shell:
         "echo \"D recreated\" > {output}"
+
+# This should not run even though output is older than input
+rule remote_ancient:
+    input: ancient(HTTP.remote("bitbucket.org/snakemake/snakemake/raw/http-gzip-autodecode/tests/test_remote_http/expected-results/landsat-data.txt"))
+    output: "old_file"
+    shell: "cp {input} {output}"

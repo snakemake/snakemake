@@ -102,7 +102,7 @@ class shell:
             logger.info("Activating singularity image {}".format(singularity_img))
 
         if conda_env:
-            logger.info("Activating conda environment {}.".format(conda_env))
+            logger.info("Activating conda environment: {}".format(conda_env))
 
         proc = sp.Popen(cmd,
                         bufsize=-1,

@@ -80,7 +80,8 @@ To get started, consider the :ref:`tutorial`, the `introductory slides <http://s
 Support
 -------
 
-* First, check the :ref:`FAQ <project_info-faq>`.
+* For releases, see :ref:`Changelog <changelog>`.
+* Check :ref:`frequently asked questions (FAQ) <project_info-faq>`.
 * In case of questions, please post on `stack overflow <http://stackoverflow.com/questions/tagged/snakemake>`_.
 * To discuss with other Snakemake users, you can use the `mailing list <https://groups.google.com/forum/#!forum/snakemake>`_. **Please do not post questions there. Use stack overflow for questions.**
 * For bugs and feature requests, please use the `issue tracker <https://bitbucket.org/snakemake/snakemake/issues>`_.

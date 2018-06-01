@@ -15,7 +15,7 @@ from itertools import chain
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
-from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable, DYNAMIC_FILL
+from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable, DYNAMIC_FILL, ReportObject
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import Mode
@@ -398,8 +398,12 @@ class Rule:
                 else:
                     self.dynamic_input.add(_item)
             if is_flagged(item, "report"):
-                item.flags["report"] = os.path.join(
-                    self.workflow.current_basedir, item.flags["report"])
+                report_obj = item.flags["report"]
+                if report_obj.caption is not None:
+                    r = ReportObject(os.path.join(
+                        self.workflow.current_basedir, report_obj.caption),
+                        report_obj.category)
+                    item.flags["report"] = r
             if is_flagged(item, "subworkflow"):
                 if output:
                     raise SyntaxError(

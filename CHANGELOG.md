@@ -1,5 +1,12 @@
 # Change Log
 
+# [5.1.4] - 2018-05-28
+## Added
+- Allow `category` to be set.
+## Changed
+- Various cosmetic changes to reports.
+- Fixed encoding issues in reports.
+
 # [5.1.3] - 2018-05-22
 ## Changed
 - Fixed various bugs in job groups, shadow directive, singularity directive, and more.

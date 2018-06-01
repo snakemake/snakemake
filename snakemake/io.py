@@ -634,9 +634,6 @@ def ancient(value):
     """
     A flag for an input file that shall be considered ancient; i.e. its timestamp shall have no effect on which jobs to run.
     """
-    if is_flagged(value, "remote"):
-        raise SyntaxError(
-            "Ancient and remote flags are mutually exclusive.")
     return flag(value, "ancient")
 
 
@@ -706,9 +703,12 @@ def repeat(value, n_repeat):
     return flag(value, "repeat", n_repeat)
 
 
-def report(value, caption=None):
+ReportObject = namedtuple("ReportObject", ["caption", "category"])
+
+
+def report(value, caption=None, category=None):
     """Flag output file as to be included into reports."""
-    return flag(value, "report", caption)
+    return flag(value, "report", ReportObject(caption, category))
 
 
 def local(value):

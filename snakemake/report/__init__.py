@@ -183,31 +183,42 @@ class JobRecord:
 
 
 class FileRecord:
-    def __init__(self, path, job, caption=None):
-        self.caption = ""
-        if caption is not None:
+    def __init__(self, path, job, caption):
+        self.raw_caption = caption
+        self.data, self.mime = data_uri(path)
+        self.id = uuid.uuid4()
+        self.path = path
+        self.job = job
+
+    def render(self, env, rst_links, results):
+        if self.raw_caption is not None:
             try:
                 from jinja2 import Template
             except ImportError as e:
                 raise WorkflowError("Pyhton package jinja2 must be installed to create reports.")
 
+            job = self.job
             snakemake = Snakemake(job.input, job.output, job.params, job.wildcards,
                                   job.threads, job.resources, job.log,
                                   job.dag.workflow.config, job.rule.name)
             try:
-                caption = Template(open(caption).read()).render(snakemake=snakemake)
+                caption = open(self.raw_caption).read() + rst_links
+                caption = env.from_string(caption).render(snakemake=snakemake,
+                                                          results=results)
                 self.caption = publish_parts(caption, writer_name="html")["body"]
             except Exception as e:
                 raise WorkflowError("Error loading caption file of output "
                                     "marked for report.", e)
-        self.data, self.mime = data_uri(path)
-        self.id = uuid.uuid4()
-        self.path = path
 
     @property
     def is_img(self):
         web_safe = {"image/gif", "image/jpeg", "image/png", "image/svg+xml"}
         return self.mime in web_safe
+
+    @property
+    def is_text(self):
+        text = {"text/csv", "text/plain", "text/tab-separated-values"}
+        return self.mime in text
 
     @property
     def name(self):
@@ -270,7 +281,7 @@ def auto_report(dag, path):
         raise WorkflowError("Report file does not end with .html")
 
     persistence = dag.workflow.persistence
-    results = []
+    results = defaultdict(list)
     records = defaultdict(JobRecord)
     for job in dag.jobs:
         for f in job.expanded_output:
@@ -279,7 +290,9 @@ def auto_report(dag, path):
                     raise WorkflowError("Output file {} marked for report but does "
                                         "not exist.")
                 if os.path.isfile(f):
-                    results.append(FileRecord(f, job, get_flag_value(f, "report")))
+                    report_obj = get_flag_value(f, "report")
+                    results[report_obj.category].append(
+                        FileRecord(f, job, report_obj.caption))
 
             meta = persistence.metadata(f)
             if not meta:
@@ -301,14 +314,16 @@ def auto_report(dag, path):
                 logger.warning("Metadata for file {} was created with a too "
                                "old Snakemake version.".format(f))
 
-    results.sort(key=lambda res: res.name)
+    for catresults in results.values():
+        catresults.sort(key=lambda res: res.name)
 
     # prepare runtimes
     runtimes = [{"rule": rec.rule, "runtime": rec.endtime - rec.starttime}
                 for rec in sorted(records.values(), key=lambda rec: rec.rule)]
 
     # prepare end times
-    endtimes = [{"rule": rec.rule,
+    timeline = [{"rule": rec.rule,
+                 "starttime": datetime.datetime.fromtimestamp(rec.starttime).isoformat(),
                  "endtime": datetime.datetime.fromtimestamp(rec.endtime).isoformat()}
                 for rec in sorted(records.values(), key=lambda rec: rec.rule)]
 
@@ -328,36 +343,59 @@ def auto_report(dag, path):
             if not merged:
                 rules[rec.rule].append(rule)
 
+    # rulegraph
+    rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
+
+    env = Environment(loader=PackageLoader("snakemake", "report"),
+                      trim_blocks=True,
+                      lstrip_blocks=True)
+    env.filters["get_resource_as_string"] = get_resource_as_string
+
+    rst_links = textwrap.dedent("""
+
+    .. _Results: #results
+    .. _Rules: #rules
+    .. _Statistics: #stats
+    {% for cat, catresults in results|dictsort %}
+    .. _{{ cat }}: #results-{{ cat|replace(" ", "_") }}
+    {% for res in catresults %}
+    .. _{{ res.name }}: #{{ res.id }}
+    {% endfor %}
+    {% endfor %}
+    .. _
+    """)
+    for cat, catresults in results.items():
+        for res in catresults:
+            res.render(env, rst_links, results)
+
     # global description
     text = ""
     if dag.workflow.report_text:
         with open(dag.workflow.report_text) as f:
             class Snakemake:
                 config = dag.workflow.config
-            text = publish_parts(Template(f.read()).render(snakemake=Snakemake),
+
+            text = f.read() + rst_links
+            text = publish_parts(env.from_string(text).render(
+                                    snakemake=Snakemake, results=results),
                                  writer_name="html")["body"]
-
-    # rulegraph
-    rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
-
-    # compose html
-    env = Environment(loader=PackageLoader("snakemake", "report"))
-    env.filters["get_resource_as_string"] = get_resource_as_string
 
     # record time
     now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
+    results_size = sum(res.size for cat in results.values() for res in cat)
 
+    # render HTML
     template = env.get_template("report.html")
     with open(path, "w", encoding="utf-8") as out:
         out.write(template.render(results=results,
-                                  results_size=sum(res.size for res in results),
+                                  results_size=results_size,
                                   text=text,
                                   rulegraph_nodes=rulegraph["nodes"],
                                   rulegraph_links=rulegraph["links"],
                                   rulegraph_width=xmax + 20,
                                   rulegraph_height=ymax + 20,
                                   runtimes=runtimes,
-                                  endtimes=endtimes,
+                                  timeline=timeline,
                                   rules=[rec for recs in rules.values() for rec in recs],
                                   version=__version__.split("+")[0],
                                   now=now))
