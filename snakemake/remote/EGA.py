@@ -64,6 +64,9 @@ class RemoteProvider(AbstractRemoteProvider):
             raise WorkflowError(
                 "Login to EGA failed with: {}".format(r["header"]["userMessage"]))
 
+    def _expire_token(self):
+        self._expires = None
+
     @property
     def token(self):
         self._login()
@@ -97,8 +100,18 @@ class RemoteProvider(AbstractRemoteProvider):
         if r.status_code != 200:
             raise WorkflowError("Access to EGA API endpoint {} failed with:\n{}".format(url, r.text))
         if json:
+            msg = r.json()
             try:
-                return r.json()["response"]["result"]
+                if msg["header"]["code"] == "991":
+                    # session lost re-login
+                    self._expire_token()
+                    return self.api_request(
+                        url_suffix,
+                        url_prefix,
+                        json=json,
+                        post=post,
+                        **params)
+                return msg["response"]["result"]
             except KeyError as e:
                 raise WorkflowError("Invalid response from EGA:\n{}".format(r.text))
         else:
