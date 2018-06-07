@@ -20,9 +20,9 @@ from snakemake.common import lazy_property
 
 
 try:
-    import pyaes
+    import cryptography
 except ImportError:
-    raise WorkflowError("EGA remote provider needs pyaes to be installed.")
+    raise WorkflowError("EGA remote provider needs cryptography to be installed.")
 
 
 EGAFileInfo = namedtuple("EGAFileInfo", ["size", "status", "id"])
@@ -37,7 +37,6 @@ class RemoteProvider(AbstractRemoteProvider):
         self._expires = None
         self._key = str(uuid.uuid4())[:32]
         self._file_cache = dict()
-
 
     def _login(self):
         if self._expires is not None and self._expires > time.time():
@@ -89,16 +88,24 @@ class RemoteProvider(AbstractRemoteProvider):
         headers = {"Accept": "application/json"} if json else {
                    "Accept": "application/octet-stream"}
 
-        if post:
-            r = requests.post(url, stream=not json, data=params,
-                              params={"session": self.token}, headers=headers)
-        else:
-            params = dict(params)
-            params["session"] = self.token
-            r = requests.get(url, stream=not json,
-                             params=params, headers=headers)
+        for i in range(3):
+            try:
+                if post:
+                    r = requests.post(url, stream=not json, data=params,
+                                      params={"session": self.token},
+                                      headers=headers)
+                else:
+                    params = dict(params)
+                    params["session"] = self.token
+                    r = requests.get(url, stream=not json,
+                                     params=params, headers=headers)
+            except requests.exceptions.ConnectionError as e:
+                time.sleep(5)
+                if i == 2:
+                    raise WorkflowError("Error contacting EGA.", e)
         if r.status_code != 200:
-            raise WorkflowError("Access to EGA API endpoint {} failed with:\n{}".format(url, r.text))
+            raise WorkflowError("Access to EGA API endpoint {} failed "
+                                "with:\n{}".format(url, r.text))
         if json:
             msg = r.json()
             try:
@@ -174,7 +181,7 @@ class RemoteObject(AbstractRemoteObject):
         # request file
         reid = str(uuid.uuid4())
         # create request
-        self.provider.api_request(
+        r = self.provider.api_request(
             "requests/new/files/{}".format(self._stats().id),
             post=True,
             downloadrequest=json.dumps({"rekey": self.provider._key,
@@ -200,16 +207,24 @@ class RemoteObject(AbstractRemoteObject):
                         raise e
 
             local_md5 = hashlib.md5()
-            decrypter = pyaes.Decrypter(
-                pyaes.AESModeOfOperationCTR(self.provider._key.encode()))
+
+            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+            from cryptography.hazmat.backends import default_backend
+
+            key = self.provider._key.encode()
+            cipher = Cipher(algorithms.AES(key),
+                            modes.CTR(key), backend=default_backend())
+            decryptor = self.provider.cipher.decryptor()
+
 
             # download file in chunks, decrypt and calculate md5 on the fly
             os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
             with open(self.local_file(), "wb") as f:
                 for chunk in r.iter_content(chunk_size=512):
+                    print(chunk)
                     local_md5.update(chunk)
-                    f.write(decrypter.feed(chunk))
-                f.write(decrypter.feed())
+                    f.write(decryptor.update(chunk))
+                f.write(decryptor.finalize())
             local_md5 = local_md5.hexdigest()
 
             # check md5
