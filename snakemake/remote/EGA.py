@@ -25,7 +25,7 @@ except ImportError:
     raise WorkflowError("EGA remote provider needs cryptography to be installed.")
 
 
-EGAFileInfo = namedtuple("EGAFileInfo", ["size", "status", "id"])
+EGAFileInfo = namedtuple("EGAFileInfo", ["size", "status", "id", "checksum"])
 EGAFile = namedtuple("EGAFile", ["dataset", "path"])
 
 
@@ -36,6 +36,7 @@ class RemoteProvider(AbstractRemoteProvider):
         self._token = None
         self._expires = None
         self._key = str(uuid.uuid4())[:32]
+        self._key = "AMenuDLjVdVo4BSwi0QD54LL6NeVDEZRzEQUJ7hJOM3g4imDZBHHX0hNfKHPeQIGkskhtCmqAJtt_jm7EKq-rWw"
         self._file_cache = dict()
 
     def _login(self):
@@ -46,22 +47,35 @@ class RemoteProvider(AbstractRemoteProvider):
         # token will expire in 10 minutes
         # (we stop using it 10 seconds earlier to be sure)
         self._expires = time.time() + 10 * 60 * 60 - 10
-        auth = HTTPBasicAuth(self._username(), self._password())
-        r = requests.get(
-            "https://ega.ebi.ac.uk/ega/rest/access/v2/users/login",
-            headers={"Accept": "application/json"},
-            auth=auth)
+
+        data = {
+             "grant_type"   : "password",
+             "client_id"    : "f20cd2d3-682a-4568-a53e-4262ef54c8f4",
+             "scope"        : "openid",
+             "client_secret": self._key,
+             "username"     : self._username(),
+             "password"     : self._password()
+        }
+        for i in range(3):
+            try:
+                r = requests.post(
+                    "https://ega.ebi.ac.uk:8443/ega-openid-connect-server/token",
+                    headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                    data=data)
+            except requests.exceptions.ConnectionError as e:
+                time.sleep(5)
+                if i == 2:
+                    raise WorkflowError("Error contacting EGA.", e)
+                    
         if r.status_code != 200:
             raise WorkflowError(
                 "Login to EGA failed with:\n{}".format(r.text))
         r = r.json()
         # store session token
-        result = r["response"]["result"]
-        if result[0] == "success":
-            self._token = result[1]
-        else:
-            raise WorkflowError(
-                "Login to EGA failed with: {}".format(r["header"]["userMessage"]))
+        try:
+            self._token = r["access_token"]
+        except KeyError:
+            raise WorkflowError("Login to EGA failed:\n{}".format(r))
 
     def _expire_token(self):
         self._expires = None
@@ -73,20 +87,21 @@ class RemoteProvider(AbstractRemoteProvider):
 
     def api_request(self,
                     url_suffix,
-                    url_prefix="https://ega.ebi.ac.uk/ega/rest/access/v2/",
+                    url_prefix="https://ega.ebi.ac.uk:8051/elixir/",
                     json=True,
                     post=False,
                     **params):
         """Make an API request.
 
         Args:
-            url_suffix (str): Part of REST API URL right of https://ega.ebi.ac.uk/ega/rest/access/v2/
+            url_suffix (str): Part of REST API URL right of https://ega.ebi.ac.uk:8051/elixir/
             params (dict): Parameters to pass, except session
         """
 
         url = url_prefix + url_suffix
         headers = {"Accept": "application/json"} if json else {
                    "Accept": "application/octet-stream"}
+        headers["Authorization"] = "Bearer {}".format(self.token)
 
         for i in range(3):
             try:
@@ -108,19 +123,8 @@ class RemoteProvider(AbstractRemoteProvider):
                                 "with:\n{}".format(url, r.text))
         if json:
             msg = r.json()
-            try:
-                if msg["header"]["code"] == "991":
-                    # session lost re-login
-                    self._expire_token()
-                    return self.api_request(
-                        url_suffix,
-                        url_prefix,
-                        json=json,
-                        post=post,
-                        **params)
-                return msg["response"]["result"]
-            except KeyError as e:
-                raise WorkflowError("Invalid response from EGA:\n{}".format(r.text))
+            print(msg)
+            return msg
         else:
             return r
 
@@ -128,10 +132,10 @@ class RemoteProvider(AbstractRemoteProvider):
     def get_files(self, dataset):
         if dataset not in self._file_cache:
             files = self.api_request(
-                "datasets/{dataset}/files".format(dataset=dataset))
+                "data/metadata/datasets/{dataset}/files".format(dataset=dataset))
             self._file_cache[dataset] = {
                 os.path.basename(f["fileName"])[:-4]:
-                EGAFileInfo(int(f["fileSize"]), f["fileStatus"], f["fileID"])
+                EGAFileInfo(int(f["fileSize"]), f["fileStatus"], f["fileId"], f["checksum"])
                 for f in files}
         return self._file_cache[dataset]
 
@@ -178,66 +182,35 @@ class RemoteObject(AbstractRemoteObject):
         return 0
 
     def download(self):
-        # request file
-        reid = str(uuid.uuid4())
-        # create request
+        stats = self._stats()
+
         r = self.provider.api_request(
-            "requests/new/files/{}".format(self._stats().id),
-            post=True,
-            downloadrequest=json.dumps({"rekey": self.provider._key,
-                             "downloadType": "STREAM",
-                             "descriptor": reid}))
+            "data/files/{}?destinationFormat=plain".format(stats.id),
+            json=False)
 
-        try:
-            # get ticket
-            r = self.provider.api_request("requests/{}".format(reid))
-            ticket = r[0]["ticket"]
+        local_md5 = hashlib.md5()
 
-            # download ticket (try 3 times)
-            url_prefix = "http://ega.ebi.ac.uk/ega/rest/ds/v2/"
-            for i in range(3):
-                try:
-                    r = self.provider.api_request("downloads/{}".format(ticket),
-                                                  url_prefix=url_prefix,
-                                                  json=False)
-                except WorkflowError as e:
-                    if i < 2:
-                        continue
-                    else:
-                        raise e
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        from cryptography.hazmat.backends import default_backend
 
-            local_md5 = hashlib.md5()
+        cipher = Cipher(algorithms.AES(self.provider._key[:32]),
+                        modes.CTR(b"A" * 256), backend=default_backend())
+        decryptor = self.provider.cipher.decryptor()
 
-            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-            from cryptography.hazmat.backends import default_backend
+        # download file in chunks, decrypt and calculate md5 on the fly
+        os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
 
-            key = self.provider._key.encode()
-            cipher = Cipher(algorithms.AES(key),
-                            modes.CTR(key), backend=default_backend())
-            decryptor = self.provider.cipher.decryptor()
+        with open(self.local_file(), "wb") as f:
+            for chunk in r.iter_content(chunk_size=512):
+                print(chunk)
+                local_md5.update(chunk)
+                f.write(decryptor.update(chunk))
+            f.write(decryptor.finalize())
+        local_md5 = local_md5.hexdigest()
 
-
-            # download file in chunks, decrypt and calculate md5 on the fly
-            os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
-            with open(self.local_file(), "wb") as f:
-                for chunk in r.iter_content(chunk_size=512):
-                    print(chunk)
-                    local_md5.update(chunk)
-                    f.write(decryptor.update(chunk))
-                f.write(decryptor.finalize())
-            local_md5 = local_md5.hexdigest()
-
-            # check md5
-            remote_md5, size = self.provider.api_request(
-                "results/{}".format(ticket),
-                url_prefix=url_prefix)
-
-            if local_md5 != remote_md5:
-                raise WorkflowError("File checksums do not match for: {}".format(
-                    self.remote_file()))
-        finally:
-            self.provider.api_request("requests/delete/{}".format(reid))
-
+        if local_md5 != stats.checksum:
+            raise WorkflowError("File checksums do not match for: {}".format(
+                self.remote_file()))
 
     @lazy_property
     def parts(self):
