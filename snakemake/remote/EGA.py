@@ -35,8 +35,6 @@ class RemoteProvider(AbstractRemoteProvider):
         self.retry = retry
         self._token = None
         self._expires = None
-        self._key = str(uuid.uuid4())[:32]
-        self._key = "AMenuDLjVdVo4BSwi0QD54LL6NeVDEZRzEQUJ7hJOM3g4imDZBHHX0hNfKHPeQIGkskhtCmqAJtt_jm7EKq-rWw"
         self._file_cache = dict()
 
     def _login(self):
@@ -52,7 +50,7 @@ class RemoteProvider(AbstractRemoteProvider):
              "grant_type"   : "password",
              "client_id"    : "f20cd2d3-682a-4568-a53e-4262ef54c8f4",
              "scope"        : "openid",
-             "client_secret": self._key,
+             "client_secret": "AMenuDLjVdVo4BSwi0QD54LL6NeVDEZRzEQUJ7hJOM3g4imDZBHHX0hNfKHPeQIGkskhtCmqAJtt_jm7EKq-rWw",
              "username"     : self._username(),
              "password"     : self._password()
         }
@@ -66,7 +64,7 @@ class RemoteProvider(AbstractRemoteProvider):
                 time.sleep(5)
                 if i == 2:
                     raise WorkflowError("Error contacting EGA.", e)
-                    
+
         if r.status_code != 200:
             raise WorkflowError(
                 "Login to EGA failed with:\n{}".format(r.text))
@@ -123,7 +121,6 @@ class RemoteProvider(AbstractRemoteProvider):
                                 "with:\n{}".format(url, r.text))
         if json:
             msg = r.json()
-            print(msg)
             return msg
         else:
             return r
@@ -165,7 +162,6 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-
     # === Implementations of abstract class members ===
     def _stats(self):
         return self.provider.get_files(self.parts.dataset)[self.parts.path]
@@ -190,22 +186,13 @@ class RemoteObject(AbstractRemoteObject):
 
         local_md5 = hashlib.md5()
 
-        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-        from cryptography.hazmat.backends import default_backend
-
-        cipher = Cipher(algorithms.AES(self.provider._key[:32]),
-                        modes.CTR(b"A" * 256), backend=default_backend())
-        decryptor = self.provider.cipher.decryptor()
-
         # download file in chunks, decrypt and calculate md5 on the fly
         os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
 
         with open(self.local_file(), "wb") as f:
-            for chunk in r.iter_content(chunk_size=512):
-                print(chunk)
+            for chunk in r.iter_content(chunk_size=2048):
                 local_md5.update(chunk)
-                f.write(decryptor.update(chunk))
-            f.write(decryptor.finalize())
+                f.write(chunk)
         local_md5 = local_md5.hexdigest()
 
         if local_md5 != stats.checksum:
