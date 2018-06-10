@@ -42,9 +42,9 @@ class RemoteProvider(AbstractRemoteProvider):
 
         data = {
              "grant_type"   : "password",
-             "client_id"    : "f20cd2d3-682a-4568-a53e-4262ef54c8f4",
+             "client_id"    : self._client_id(),
              "scope"        : "openid",
-             "client_secret": "AMenuDLjVdVo4BSwi0QD54LL6NeVDEZRzEQUJ7hJOM3g4imDZBHHX0hNfKHPeQIGkskhtCmqAJtt_jm7EKq-rWw",
+             "client_secret": self._client_secret(),
              "username"     : self._username(),
              "password"     : self._password()
         }
@@ -140,18 +140,27 @@ class RemoteProvider(AbstractRemoteProvider):
 
     @classmethod
     def _username(cls):
-        try:
-            return os.environ["EGA_USERNAME"]
-        except KeyError:
-            raise WorkflowError("$EGA_USERNAME and $EGA_PASSWORD must be given "
-                                "as environment variables.")
+        return self._credentials("EGA_USERNAME")
 
     @classmethod
     def _password(cls):
+        return self._credentials("EGA_PASSWORD")
+
+    @classmethod
+    def _client_id(cls):
+        return self._credentials("EGA_CLIENT_ID")
+
+    @classmethod
+    def _client_secret(cls):
+        return self._credentials("EGA_CLIENT_SECRET")
+
+    @classmethod
+    def _credentials(cls, name):
         try:
-            return os.environ["EGA_PASSWORD"]
+            return os.environ[name]
         except KeyError:
-            raise WorkflowError("$EGA_USERNAME and $EGA_PASSWORD must be given "
+            raise WorkflowError("$EGA_USERNAME, $EGA_PASSWORD, $EGA_CLIENT_ID, "
+                                "$EGA_CLIENT_SECRET must be given "
                                 "as environment variables.")
 
 
