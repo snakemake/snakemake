@@ -19,12 +19,6 @@ from snakemake.exceptions import WorkflowError
 from snakemake.common import lazy_property
 
 
-try:
-    import cryptography
-except ImportError:
-    raise WorkflowError("EGA remote provider needs cryptography to be installed.")
-
-
 EGAFileInfo = namedtuple("EGAFileInfo", ["size", "status", "id", "checksum"])
 EGAFile = namedtuple("EGAFile", ["dataset", "path"])
 
@@ -186,11 +180,11 @@ class RemoteObject(AbstractRemoteObject):
 
         local_md5 = hashlib.md5()
 
-        # download file in chunks, decrypt and calculate md5 on the fly
+        # download file in chunks and calculate md5 on the fly
         os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
 
         with open(self.local_file(), "wb") as f:
-            for chunk in r.iter_content(chunk_size=2048):
+            for chunk in r.iter_content(chunk_size=1024 * 1024 * 10):
                 local_md5.update(chunk)
                 f.write(chunk)
         local_md5 = local_md5.hexdigest()
