@@ -1,0 +1,13 @@
+$schema: "http://json-schema.org/draft-07/schema#"
+description: Configuration schema
+type: object
+properties:
+  param:
+    type: object
+    description: parameter settings
+    # Necessary in case config is empty!
+    default: {}
+    properties:
+      foo:
+        type: string
+        default: bar
