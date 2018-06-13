@@ -25,13 +25,13 @@ import snakemake
 def validate(data, schema):
     """Validate data with JSON schema at given path.
 
-    Arguments
-    data -- data to validate. Can be a config dict or a pandas data frame.
-    schema -- Path to JSON schema used for validation. The schema can also be
-        in YAML format. If validating a pandas data frame, the schema has to
-        describe a row record (i.e., a dict with column names as keys pointing
-        to row values). See http://json-schema.org. The path is interpreted
-        relative to the Snakefile when this function is called.
+    Args:
+        data (object): data to validate. Can be a config dict or a pandas data frame.
+        schema (str): Path to JSON schema used for validation. The schema can also be
+            in YAML format. If validating a pandas data frame, the schema has to
+            describe a row record (i.e., a dict with column names as keys pointing
+            to row values). See http://json-schema.org. The path is interpreted
+            relative to the Snakefile when this function is called.
     """
     try:
         import jsonschema

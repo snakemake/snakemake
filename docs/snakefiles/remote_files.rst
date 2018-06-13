@@ -24,7 +24,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * GFAL: ``snakemake.remote.gfal``
 * GridFTP: ``snakemake.remote.gridftp``
 * iRODS: ``snakemake.remote.iRODS``
-
+* EGA: ``snakemake.remote.EGA``
 
 Amazon Simple Storage Service (S3)
 ==================================
@@ -116,10 +116,10 @@ If the AWS CLI is installed it is possible to configure your keys globally. This
 .. code-block:: python
 
     aws configure
-    
-S3 then can be used without the keys.  
 
-.. code-block:: python  
+S3 then can be used without the keys.
+
+.. code-block:: python
 
     from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
     S3 = S3RemoteProvider()
@@ -704,7 +704,7 @@ The ``glob_wildcards()`` function is supported.
 An example for the iRODS configuration file (``irods_environment.json``):
 
 .. code-block:: json
-    
+
     {
         "irods_host": "localhost",
         "irods_port": 1247,
@@ -725,3 +725,35 @@ download attempt is issued (uploading is not a problem, though).
 In the Snakemake source directory in ``snakemake/tests/test_remote_irods`` you
 can find a working example.
 
+
+EGA
+===
+
+The European Genome-phenome Archive (EGA) is a service for permanent archiving
+and sharing of all types of personally identifiable genetic and phenotypic data
+resulting from biomedical research projects.
+
+From version 5.2 on, Snakemake allows to use EGA as a remote provider, such that
+EGA hosted files can be transparently used as input.
+For this to work, you need to define your username and password as environment
+variables ``EGA_USERNAME`` and ``EGA_PASSWORD``.
+
+Files in a dataset are addressed via the pattern ``ega/<dataset_id>/<filename>``.
+Note that the filename should not include the ``.cip`` ending that is sometimes displayed in EGA listings:
+
+.. code-block:: python
+
+  import snakemake.remote.EGA as EGA
+
+  ega = EGA.RemoteProvider()
+
+
+  rule a:
+    input:
+        ega.remote("ega/EGAD00001002142/COLO_829_EPleasance_TGENPipe.bam.bai")
+    output:
+        "data/COLO_829BL_BCGSC_IlluminaPipe.bam.bai"
+    shell:
+        "cp {input} {output}"
+
+Upon download, Snakemake will automatically decrypt the file and check the MD5 hash.
