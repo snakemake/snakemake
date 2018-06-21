@@ -28,3 +28,6 @@ dependencies:
   - jsonschema
   - networkx
   - pygraphviz
+  # needed by graphviz
+  - xorg-libxrender
+  - xorg-libxpm
