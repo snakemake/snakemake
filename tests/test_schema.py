@@ -1,3 +1,4 @@
+import json
 import pytest
 from snakemake.utils import validate
 import pandas as pd
@@ -23,6 +24,8 @@ BAR_SCHEMA = """definitions:
     description: bar entry
     default: foo
 """
+
+BAR_JSON_SCHEMA = {"definitions": {"jsonbar": {"type": "string", "description": "bar entry", "default": "foo"}}}
 
 DF_SCHEMA = """$schema: "http://json-schema.org/draft-07/schema#"
 description: an entry in the sample sheet
@@ -57,6 +60,12 @@ def bar_schema(schemadir):
     return p
 
 @pytest.fixture
+def json_bar_schema(schemadir):
+    p = schemadir.join("bar.schema.json")
+    p.write(json.dumps(BAR_JSON_SCHEMA))
+    return p
+
+@pytest.fixture
 def df_schema(schemadir):
     p = schemadir.join("df.schema.yaml")
     p.write(DF_SCHEMA)
@@ -69,13 +78,20 @@ def config_schema(schemadir):
     return p
 
 @pytest.fixture
-def config_schema_ref(schemadir, bar_schema):
+def config_schema_ref(schemadir, bar_schema, json_bar_schema):
     p = schemadir.join("config.ref.schema.yaml")
     p.write(CONFIG_SCHEMA + "\n".join(
-        ["      bar:",
-         "        $ref: \"{bar}\"".format(bar=str(bar_schema))]))
+        [
+            "      bar:",
+            "        default: \"yaml\"",
+            "        $ref: \"{bar}\"".format(bar=str(bar_schema) + "#/definitions/bar"),
+            "      jsonbar:",
+            "        default: \"json\"",
+            "        $ref: \"{bar}\"".format(bar=str(json_bar_schema) + "#/definitions/jsonbar"),
+            "",
+        ]))
     return p
-    
+
 
 def test_config(config_schema):
     config = {}
@@ -86,7 +102,17 @@ def test_config(config_schema):
 
 
 def test_config_ref(config_schema_ref):
-    pass
+    config = {}
+    validate(config, str(config_schema_ref), True)
+    assert config['param']['foo'] == 'bar'
+    assert config['param']['bar'] == 'yaml'
+    assert config['param']['jsonbar'] == 'json'
+    # Make sure regular validator works
+    config['param']['bar'] = 1
+    config['param']['jsonbar'] = 2
+    from snakemake import WorkflowError
+    with pytest.raises(WorkflowError):
+        validate(config, str(config_schema_ref), False)
 
 
 def test_dataframe(df_schema):

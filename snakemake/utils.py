@@ -38,7 +38,7 @@ def validate(data, schema, set_default=True):
     """
     try:
         import jsonschema
-        from jsonschema import Draft4Validator, validators
+        from jsonschema import Draft4Validator, validators, RefResolver
     except ImportError:
         raise WorkflowError("The Python 3 package jsonschema must be installed "
                             "in order to use the validate directive.")
@@ -50,7 +50,11 @@ def validate(data, schema, set_default=True):
             workflow = frame.f_globals["workflow"]
             schema = os.path.join(workflow.current_basedir, schema)
 
+
+    schemafile = schema
     schema = _load_configfile(schema, filetype="Schema")
+    resolver = RefResolver('file://' + os.path.dirname(schemafile) + '/', schema,
+                           handlers={'file': lambda uri: _load_configfile(re.sub("^file://", "", uri))})
 
     # Taken from http://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
@@ -80,10 +84,10 @@ def validate(data, schema, set_default=True):
                     record = {k: v for k, v in record.items() if not pd.isnull(v)}
                     try:
                         if set_default:
-                            DefaultValidator(schema).validate(record)
+                            DefaultValidator(schema, resolver=resolver).validate(record)
                             recordlist.append(record)
                         else:
-                            jsonschema.validate(record, schema)
+                            jsonschema.validate(record, schema, resolver=resolver)
                     except jsonschema.exceptions.ValidationError as e:
                         raise WorkflowError(
                             "Error validating row {} of data frame.".format(i),
@@ -97,9 +101,9 @@ def validate(data, schema, set_default=True):
     else:
         try:
             if set_default:
-                DefaultValidator(schema).validate(data)
+                DefaultValidator(schema, resolver=resolver).validate(data)
             else:
-                jsonschema.validate(data, schema)
+                jsonschema.validate(data, schema, resolver=resolver)
         except jsonschema.exceptions.ValidationError as e:
             raise WorkflowError("Error validating config file.", e)
 
