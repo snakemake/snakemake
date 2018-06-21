@@ -22,7 +22,7 @@ from snakemake.exceptions import WorkflowError
 import snakemake
 
 
-def validate(data, schema, set_default=False):
+def validate(data, schema, set_default=True):
     """Validate data with JSON schema at given path.
 
     Args:
