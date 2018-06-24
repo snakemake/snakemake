@@ -733,7 +733,7 @@ The European Genome-phenome Archive (EGA) is a service for permanent archiving
 and sharing of all types of personally identifiable genetic and phenotypic data
 resulting from biomedical research projects.
 
-From version 5.2 on, Snakemake allows to use EGA as a remote provider, such that
+From version 5.2 on, Snakemake provides experimental support to use EGA as a remote provider, such that
 EGA hosted files can be transparently used as input.
 For this to work, you need to define your username and password as environment
 variables ``EGA_USERNAME`` and ``EGA_PASSWORD``.
