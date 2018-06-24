@@ -1,5 +1,10 @@
 # Change Log
 
+# [5.1.5] - 2018-06-24
+## Changed
+- fixed missing version info in docker image.
+- several minor fixes to EGA support.
+
 # [5.1.4] - 2018-05-28
 ## Added
 - Allow `category` to be set.
