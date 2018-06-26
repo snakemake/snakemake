@@ -92,7 +92,7 @@ class AbstractExecutor:
         job.log_info(skip_dynamic=True)
 
     def print_job_error(self, job, msg=None, **kwargs):
-        job.log_error(msg)
+        job.log_error(msg, **kwargs)
 
     def handle_job_success(self, job):
         pass
