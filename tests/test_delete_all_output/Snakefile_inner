@@ -14,11 +14,11 @@ rule b:
     output: touch("some_dir/final")
 
 rule c:
-    output: "empty_dir"
+    output: directory("empty_dir")
     shell: "mkdir empty_dir"
 
 rule d:
-    output: "full_dir"
+    output: directory("full_dir")
     shell: "mkdir full_dir && touch full_dir/somefile"
 
 rule e:
@@ -28,12 +28,12 @@ rule e:
 
 rule f:
     input: "temp_intermediate"
-    output: temp("temp_empty_dir")
+    output: directory(temp("temp_empty_dir"))
     shell: "mkdir temp_empty_dir"
 
 rule g:
     input: "temp_intermediate"
-    output: temp("temp_full_dir")
+    output: directory(temp("temp_full_dir"))
     shell: "mkdir temp_full_dir && touch temp_full_dir/somefile"
 
 rule temp:

@@ -147,6 +147,10 @@ class _IOFile(str):
     def is_ancient(self):
         return is_flagged(self._file, "ancient")
 
+    @property
+    def is_directory(self):
+        return is_flagged(self._file, "directory")
+
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
@@ -206,7 +210,7 @@ class _IOFile(str):
             return self.exists_local
 
     def parents(self, omit=0):
-        """Yield all parent paths, omitting the given number of ancenstors."""
+        """Yield all parent paths, omitting the given number of ancestors."""
         for p in list(Path(self.file).parents)[::-1][omit:]:
             p = IOFile(str(p), rule=self.rule)
             p.clone_flags(self)
@@ -266,7 +270,10 @@ class _IOFile(str):
     @property
     def mtime_local(self):
         # do not follow symlinks for modification time
-        return lstat(self.file).st_mtime
+        if os.path.isdir(self.file) and os.path.exists(os.path.join(self.file, ".snakemake_timestamp")):
+            return lstat(os.path.join(self.file, ".snakemake_timestamp")).st_mtime
+        else:
+            return lstat(self.file).st_mtime
 
     @property
     def flags(self):
@@ -301,8 +308,12 @@ class _IOFile(str):
             #is the best we can do.
             return self.mtime > time
         else:
+            if os.path.isdir(self.file) and os.path.exists(os.path.join(self.file, ".snakemake_timestamp")):
+                st_mtime_file = os.path.join(self.file, ".snakemake_timestamp")
+            else:
+                st_mtime_file = self.file
             try:
-                return os.stat(self, follow_symlinks=True).st_mtime > time or self.mtime > time
+                return os.stat(st_mtime_file, follow_symlinks=True).st_mtime > time or self.mtime > time
             except FileNotFoundError:
                 raise WorkflowError("File {} not found although it existed before. Is there another active process that might have deleted it?")
 
@@ -325,9 +336,9 @@ class _IOFile(str):
     def prepare(self):
         path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
         dir = os.path.dirname(path_until_wildcard)
-        if len(dir) > 0 and not os.path.exists(dir):
+        if len(dir) > 0:
             try:
-                os.makedirs(dir)
+                os.makedirs(dir, exist_ok = True)
             except OSError as e:
                 # ignore Errno 17 "File exists" (reason: multiprocessing)
                 if e.errno != 17:
@@ -345,16 +356,26 @@ class _IOFile(str):
                     lchmod(os.path.join(self.file, d), mode)
                 for f in files:
                     lchmod(os.path.join(self.file, f), mode)
-        else:
-            lchmod(self.file, mode)
+        lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
-        remove(self, remove_non_empty_dir=remove_non_empty_dir)
+        if self.is_directory:
+            remove(self, remove_non_empty_dir=True)
+        else:
+            remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
         """ times must be 2-tuple: (atime, mtime) """
         try:
-            lutime(self.file, times)
+            if self.is_directory:
+                file = os.path.join(self.file, ".snakemake_timestamp")
+                # Create the flag file if it doesn't exist
+                if not os.path.exists(file):
+                    with open(file, "w") as f:
+                        pass
+                lutime(file, times)
+            else:
+                lutime(self.file, times)
         except OSError as e:
             if e.errno == 2:
                 raise MissingOutputException(
@@ -369,12 +390,13 @@ class _IOFile(str):
         try:
             self.touch()
         except MissingOutputException:
-            # first create parent directory if it does not yet exist
-            parent = os.path.dirname(self.file)
-            if parent:
-                os.makedirs(parent, exist_ok=True)
+            # first create directory if it does not yet exist
+            dir = self.file if self.is_directory else os.path.dirname(self.file)
+            if dir:
+                os.makedirs(dir, exist_ok=True)
             # create empty file
-            with open(self.file, "w") as f:
+            file = os.path.join(self.file, ".snakemake_timestamp") if self.is_directory else self.file
+            with open(file, "w") as f:
                 pass
 
     def apply_wildcards(self,
@@ -636,6 +658,17 @@ def ancient(value):
     """
     return flag(value, "ancient")
 
+def directory(value):
+    """
+    A flag to specify that an output is a directory, rather than a file or named pipe.
+    """
+    if is_flagged(value, "pipe"):
+        raise SyntaxError("Pipe and directory flags are mutually exclusive.")
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Remote and directory flags are mutually exclusive.")
+    if is_flagged(value, "dynamic"):
+        raise SyntaxError("Dynamic and directory flags are mutually exclusive.")
+    return flag(value, "directory")
 
 def temp(value):
     """

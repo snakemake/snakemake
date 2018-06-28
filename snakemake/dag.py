@@ -22,9 +22,9 @@ from snakemake.jobs import Job, Reason, GroupJob
 from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
-from snakemake.exceptions import IncompleteFilesException
+from snakemake.exceptions import IncompleteFilesException, ImproperOutputException
 from snakemake.exceptions import PeriodicWildcardError, WildcardError
-from snakemake.exceptions import RemoteFileException, WorkflowError
+from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
@@ -130,6 +130,21 @@ class DAG:
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
         self.update_jobids()
+
+        # Check if there are files/dirs that are children of other outputs.
+        allfiles = {}
+
+        for job in self.jobs:
+            # This is to account also for targets of symlinks
+            allfiles.update({f(x):"input" for x in job.input for f in (os.path.abspath, os.path.realpath)})
+            allfiles.update({f(x):"output" for x in job.output for f in (os.path.abspath, os.path.realpath)})
+
+        sortedfiles = sorted(allfiles.keys())
+        for i in range(len(sortedfiles)-1):
+            if allfiles[sortedfiles[i]] == "output":
+                if os.path.commonpath([sortedfiles[i]]) == os.path.commonpath([sortedfiles[i], sortedfiles[i+1]]):
+                    raise ChildIOException(parent = sortedfiles[i], child = sortedfiles[i+1])
+
         # check if remaining jobs are valid
         for i, job in enumerate(self.jobs):
             job.is_valid()
@@ -357,18 +372,23 @@ class DAG:
                 "filesystem latency. If that is the case, consider to increase the "
                 "wait time with --latency-wait.", rule=job.rule)
 
+        # Ensure that outputs are of the correct type (those flagged with directory()
+        # are directories and not files and vice versa).
+        for f in expanded_output:
+            if (f.is_directory and not os.path.isdir(f)) or (os.path.isdir(f) and not f.is_directory):
+                raise ImproperOutputException(job.rule, [f])
+
         #It is possible, due to archive expansion or cluster clock skew, that
         #the files appear older than the input.  But we know they must be new,
         #so touch them to update timestamps. This also serves to touch outputs
         #when using the --touch flag.
         #Note that if the input files somehow have a future date then this will
         #not currently be spotted and the job will always be re-run.
-        #Also, don't touch directories, as we can't guarantee they were removed.
         if not no_touch:
             for f in expanded_output:
-                #This will neither create missing files nor touch directories
-                if os.path.isfile(f):
-                    f.touch()
+                # This won't create normal files if missing, but will create
+                # the flag file for directories.
+                f.touch()
 
     def unshadow_output(self, job, only_log=False):
         """ Move files from shadow directory to real output paths. """

@@ -25,7 +25,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe, repeat, report
+from snakemake.io import protected, temp, temporary, ancient, directory, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe, repeat, report
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script

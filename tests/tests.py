@@ -181,6 +181,12 @@ def test14():
 def test15():
     run(dpath("test15"))
 
+def test_directory():
+    run(dpath("test_directory"), targets=['downstream', 'symlinked_input', "child_to_input", "some/dir-child", "some/shadow"])
+    run(dpath("test_directory"), targets=['file_expecting_dir'], shouldfail = True)
+    run(dpath("test_directory"), targets=['dir_expecting_file'], shouldfail = True)
+    run(dpath("test_directory"), targets=['child_to_other'], shouldfail = True)
+
 def test_ancient():
     run(dpath("test_ancient"), targets=['D', 'old_file'])
 

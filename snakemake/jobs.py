@@ -547,6 +547,8 @@ class Job(AbstractJob):
 
         for f, f_ in zip(self.output, self.rule.output):
             try:
+                # remove_non_empty_dir only applies to directories which aren't
+                # flagged with directory().
                 f.remove(remove_non_empty_dir=False)
             except FileNotFoundError:
                 #No file == no problem
