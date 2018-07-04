@@ -1147,7 +1147,7 @@ class KubernetesExecutor(ClusterExecutor):
         if too_large:
             raise WorkflowError("The following source files exceed the maximum "
                                 "file size (1MB) that can be passed from host to "
-                                "kubernetes. These are likely not source code
+                                "kubernetes. These are likely not source code "
                                 "files. Consider adding them to your "
                                 "remote storage instead or (if software) use "
                                 "Conda packages or container images:\n{}".format(
