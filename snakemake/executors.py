@@ -1028,6 +1028,7 @@ class KubernetesExecutor(ClusterExecutor):
                  restart_times=None):
 
         exec_job = (
+            'cp -rf /source/. . && '
             'snakemake {target} --snakefile {snakefile} '
             '--force -j{cores} --keep-target-files  --keep-remote '
             '--latency-wait 0 '
@@ -1132,20 +1133,36 @@ class KubernetesExecutor(ClusterExecutor):
         container.working_dir = "/workdir"
         container.volume_mounts = [kubernetes.client.V1VolumeMount(
             name="workdir", mount_path="/workdir")]
+        container.volume_mounts = [kubernetes.client.V1VolumeMount(
+            name="source", mount_path="/source")]
 
         body.spec = kubernetes.client.V1PodSpec(containers=[container])
         # fail on first error
         body.spec.restart_policy = "Never"
 
-        # source files
-        secret_volume = kubernetes.client.V1Volume(name="workdir")
+        # source files as a secret volume
+        # we copy these files to the workdir before executing Snakemake
+        too_large = [path for path in self.secret_files.values()
+                     if os.path.getsize(path) > 1000000]
+        if too_large:
+            raise WorkflowError("The following source files exceed the maximum "
+                                "file size (1MB) that can be passed from host to "
+                                "kubernetes. These are likely not source code "
+                                "files. Consider adding them to your "
+                                "remote storage instead or (if software) use "
+                                "Conda packages or container images:\n{}".format(
+                                "\n".join(too_large)))
+        secret_volume = kubernetes.client.V1Volume(name="source")
         secret_volume.secret = kubernetes.client.V1SecretVolumeSource()
         secret_volume.secret.secret_name = self.run_namespace
         secret_volume.secret.items = [
             kubernetes.client.V1KeyToPath(key=key, path=path)
             for key, path in self.secret_files.items()
         ]
-        body.spec.volumes = [secret_volume]
+        # workdir as an emptyDir volume of undefined size
+        workdir_volume = kubernetes.client.V1Volume(name="workdir")
+        workdir_volume.empty_dir = kubernetes.client.V1EmptyDirVolumeSource()
+        body.spec.volumes = [secret_volume, workdir_volume]
 
         # env vars
         container.env = []
