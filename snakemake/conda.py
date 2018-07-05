@@ -3,6 +3,7 @@ import subprocess
 import tempfile
 from urllib.request import urlopen
 from urllib.parse import urlparse
+from urllib.error import URLError
 import hashlib
 import shutil
 from distutils.version import StrictVersion
@@ -19,7 +20,10 @@ from snakemake import singularity
 
 def content(env_file):
     if urlparse(env_file).scheme:
-        return urlopen(env_file).read()
+        try:
+            return urlopen(env_file).read()
+        except URLError as e:
+            raise WorkflowError("Failed to open environment file {}:".format(env_file), e)
     else:
         if not os.path.exists(env_file):
             raise WorkflowError("Conda env file does not "
