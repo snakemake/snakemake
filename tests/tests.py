@@ -55,6 +55,7 @@ def run(path,
         needs_connection=False,
         snakefile="Snakefile",
         subpath=None,
+        no_tmpdir=False,
         check_md5=True, cores=3, **params):
     """
     Test the Snakefile in path.
@@ -95,7 +96,7 @@ def run(path,
         # run snakemake
         success = snakemake(snakefile,
                             cores=cores,
-                            workdir=tmpdir,
+                            workdir=path if no_tmpdir else tmpdir,
                             stats="stats.txt",
                             config=config, **params)
         if shouldfail:
@@ -567,6 +568,7 @@ def test_issue260():
 
 def test_default_remote():
      run(dpath("test_default_remote"),
+         cores=1,
          default_remote_provider="S3Mocked",
          default_remote_prefix="test-remote-bucket")
 
@@ -623,18 +625,40 @@ def test_log_input():
 def test_gcloud():
     if "CI" in os.environ and "GCLOUD_SERVICE_KEY" in os.environ:
         cluster = os.environ["GCLOUD_CLUSTER"]
+        bucket_name = 'snakemake-testing-{}'.format(cluster)
+
+        def run_kubernetes(**kwargs):
+            run(dpath("test_kubernetes"),
+                kubernetes="default",
+                default_remote_provider="GS",
+                default_remote_prefix=bucket_name,
+                no_tmpdir=True)
+        def reset():
+            shell('$GSUTIL rm -r gs://{}/*'.format(bucket_name))
+
         try:
             shell("""
-            sudo $GCLOUD container clusters create {cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
-            sudo $GCLOUD container clusters get-credentials {cluster} --zone us-central1-a
+            $GCLOUD container clusters create {cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
+            $GCLOUD container clusters get-credentials {cluster} --zone us-central1-a
+            $GSUTIL mb gs://{bucket_name}
             """)
-            run(dpath("test_kubernetes"))
-            run(dpath("test_kubernetes"), use_conda=True)
-            run(dpath("test_kubernetes"), use_singularity=True)
-            run(dpath("test_kubernetes"), use_singularity=True, use_conda=True)
+            run_kubernetes()
+            reset()
+            run_kubernetes(use_conda=True)
+            reset()
+            run_kubernetes(use_singularity=True)
+            reset()
+            run_kubernetes(use_singularity=True, use_conda=True)
+            reset()
+        except:
+            shell("for p in `kubectl get pods | grep ^snakejob- | cut -f 1 -d ' '`; do kubectl logs $p; done")
         finally:
-            shell("sudo $GCLOUD container clusters delete {cluster} --zone us-central1-a --quiet")
-    print("Skipping google cloud test")
+            shell("""
+            $GCLOUD container clusters delete {cluster} --zone us-central1-a --quiet
+            $GSUTIL rm -r gs://{bucket_name}
+            """)
+    else:
+        print("Skipping google cloud test", file=sys.stderr)
 
 
 def test_cwl():

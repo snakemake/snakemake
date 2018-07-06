@@ -1063,7 +1063,7 @@ class KubernetesExecutor(ClusterExecutor):
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
-        self.envvars = envvars
+        self.envvars = envvars or []
         self.secret_files = {}
         self.run_namespace = str(uuid.uuid4())
         self.secret_envvars = {}
@@ -1085,7 +1085,7 @@ class KubernetesExecutor(ClusterExecutor):
         for i, f in enumerate(self.workflow.get_sources()):
             if f.startswith(".."):
                 logger.warning("Ignoring source file {}. Only files relative "
-                               "to the working directory are allowed.")
+                               "to the working directory are allowed.".format(f))
                 continue
             with open(f, "br") as content:
                 key = "f{}".format(i)
@@ -1119,7 +1119,9 @@ class KubernetesExecutor(ClusterExecutor):
         import kubernetes.client
 
         super()._run(job)
-        exec_job = self.format_job(self.exec_job, job, _quote_all=True)
+        exec_job = self.format_job(
+            self.exec_job, job, _quote_all=True, rules=job.rules,
+            use_threads="--force-use-threads" if not job.is_group() else "")
         jobid = "snakejob-{}-{}".format(self.run_namespace, job.jobid)
 
         body = kubernetes.client.V1Pod()
