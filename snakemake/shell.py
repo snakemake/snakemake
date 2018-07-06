@@ -66,7 +66,6 @@ class shell:
             cls._processes.clear()
 
     def __new__(cls, cmd, *args,
-                async=False,
                 iterable=False,
                 read=False, bench_record=None,
                 **kwargs):
@@ -75,7 +74,7 @@ class shell:
         cmd = format(cmd, *args, stepout=2, **kwargs)
         context = inspect.currentframe().f_back.f_locals
 
-        stdout = sp.PIPE if iterable or async or read else STDOUT
+        stdout = sp.PIPE if iterable or read else STDOUT
 
         close_fds = sys.platform != 'win32'
 
@@ -119,11 +118,8 @@ class shell:
             return cls.iter_stdout(proc, cmd)
         if read:
             ret = proc.stdout.read()
-        elif async:
-            return proc
         if bench_record is not None:
             from snakemake.benchmark import benchmarked
-            # Note: benchmarking does not work in case of async=True
             with benchmarked(proc.pid, bench_record):
                 retcode = proc.wait()
         else:
