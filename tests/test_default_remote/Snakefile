@@ -20,7 +20,7 @@ rule a:
     input:
         "test.txt"
     output:
-        "test.2.txt"
+        "{sample}.2.txt"
     run:
         check_remote(input[0])
         check_remote(output[0])
@@ -63,7 +63,7 @@ rule e:
     input:
         rules.a.output[0]
     output:
-        "test.6.txt"
+        "{sample}.6.txt"
     run:
         for e in input:
             check_remote(e)
