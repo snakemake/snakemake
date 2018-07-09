@@ -632,7 +632,8 @@ def test_gcloud():
                 kubernetes="default",
                 default_remote_provider="GS",
                 default_remote_prefix=bucket_name,
-                no_tmpdir=True)
+                no_tmpdir=True,
+                **kwargs)
         def reset():
             shell('$GSUTIL rm -r gs://{}/*'.format(bucket_name))
 
