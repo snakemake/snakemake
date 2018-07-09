@@ -545,12 +545,15 @@ def snakemake(snakefile,
         # in such a case, snakemake shall stop scheduling and quit with error 1
         success = False
     except (Exception, BaseException) as ex:
-        print_exception(ex, workflow.linemaps)
+        if "workflow" in locals():
+            print_exception(ex, workflow.linemaps)
+        else:
+            print_exception(ex, dict())
         success = False
 
     if workdir:
         os.chdir(olddir)
-    if workflow.persistence:
+    if "workflow" in locals() and workflow.persistence:
         workflow.persistence.unlock()
     if not keep_logger:
         logger.cleanup()
