@@ -343,6 +343,22 @@ class Rule:
         else:
             return apply(item)
 
+    def update_wildcard_constraints(self):
+        for i in range(len(self.output)):
+            self.output[i] = self._update_item_wildcard_constraints(
+                self.output[i])
+
+    def _update_item_wildcard_constraints(self, item):
+        try:
+            return update_wildcard_constraints(
+                item,
+                self.wildcard_constraints,
+                self.workflow._wildcard_constraints)
+        except ValueError as e:
+            raise IOFileException(
+                str(e),
+                snakefile=self.snakefile,
+                lineno=self.lineno)
 
     def _set_inoutput_item(self, item, output=False, name=None):
         """
@@ -367,15 +383,7 @@ class Rule:
             if output:
                 rule = self
                 if self.wildcard_constraints or self.workflow._wildcard_constraints:
-                    try:
-                        item = update_wildcard_constraints(
-                            item, self.wildcard_constraints,
-                            self.workflow._wildcard_constraints)
-                    except ValueError as e:
-                        raise IOFileException(
-                            str(e),
-                            snakefile=self.snakefile,
-                            lineno=self.lineno)
+                    item = self._update_item_wildcard_constraints(item)
             else:
                 rule = self
                 if contains_wildcard_constraints(item) and self.workflow.mode != Mode.subprocess:

@@ -722,6 +722,9 @@ class Workflow:
     def global_wildcard_constraints(self, **content):
         """Register global wildcard constraints."""
         self._wildcard_constraints.update(content)
+        # update all rules so far
+        for rule in self.rules:
+            rule.update_wildcard_constraints()
 
     def workdir(self, workdir):
         """Register workdir."""
