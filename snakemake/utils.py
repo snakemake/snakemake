@@ -242,9 +242,12 @@ class SequenceFormatter(string.Formatter):
 
     def format_field(self, value, format_spec):
         if isinstance(value, Wildcards):
-            return ",".join("{}={}".format(name, value.get(name)) for name in value.keys())
+            return ",".join("{}={}".format(name, value)
+                            for name, value in
+                            sorted(value.items(), key=lambda item: item[0]))
         if isinstance(value, (list, tuple, set, frozenset)):
-            return self.separator.join(self.format_element(v, format_spec) for v in value)
+            return self.separator.join(self.format_element(v, format_spec)
+                                       for v in value)
         else:
             return self.format_element(value, format_spec)
 
