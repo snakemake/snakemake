@@ -1,6 +1,6 @@
 
 rule all:
-    input: "stringbar.txt", "localbar.txt", "globalbar.txt"
+    input: "stringbar.txt", "localbar.txt", "globalbar.txt", "ambig.u.ous.log"
 
 
 ##: NB: setting output: "{foo}.in" only works for globalwildcard rule
@@ -15,8 +15,8 @@ rule stringwildcard:
     output: "{foo,stringbar}.txt"
     log: "{foo}.log"
     shell: "echo {input} {output} {log} > {output}; touch {log}"
-        
-        
+
+
 rule localwildcard:
     input: "{foo}.in"
     output: "{foo}.txt"
@@ -32,7 +32,13 @@ rule globalwildcard:
     shell: "echo {input} {output} {log} > {output}; touch {log}"
 
 
+rule ambigouslog:
+    output: "{foo}.{bar}.txt"
+    log: "{foo}.{bar}.log"
+    wildcard_constraints: foo="ambig", bar=".+"
+    shell: "echo a={wildcards.foo} b={wildcards.bar} > {output}; touch {log}"
+
+
 wildcard_constraints:
     foo='globalbar',
     bar='out/{SM,[a-z]+}_{PU,[0-9]+}'
-
