@@ -1,6 +1,3 @@
-wildcard_constraints:
-    foo='globalbar',
-    bar='out/{SM,[a-z]+}_{PU,[0-9]+}'
 
 rule all:
     input: "stringbar.txt", "localbar.txt", "globalbar.txt"
@@ -33,3 +30,9 @@ rule globalwildcard:
     output: "{foo}.txt"
     log: "{foo}.log"
     shell: "echo {input} {output} {log} > {output}; touch {log}"
+
+
+wildcard_constraints:
+    foo='globalbar',
+    bar='out/{SM,[a-z]+}_{PU,[0-9]+}'
+

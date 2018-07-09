@@ -345,8 +345,12 @@ class Rule:
 
     def update_wildcard_constraints(self):
         for i in range(len(self.output)):
-            self.output[i] = self._update_item_wildcard_constraints(
-                self.output[i])
+            item = self.output[i]
+            newitem = IOFile(self._update_item_wildcard_constraints(
+                self.output[i]), rule=self)
+            # the updated item has to have the same flags
+            newitem.clone_flags(item)
+            self.output[i] = newitem
 
     def _update_item_wildcard_constraints(self, item):
         try:
