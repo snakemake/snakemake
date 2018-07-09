@@ -958,8 +958,9 @@ Defining groups for execution
 -----------------------------
 
 From Snakemake 5.0 on, it is possible to assign rules to groups.
-Such groups will be executed together in cluster or cloud mode, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node. By this, queueing and execution time can be
-safed, in particular if one or several short-running rules are involved.
+Such groups will be executed together in **cluster** or **cloud mode**, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node.
+By this, queueing and execution time can be safed, in particular if one or several short-running rules are involved.
+When executing locally, group definitions are ignored.
 
 Groups can be defined via the ``group`` keyword, e.g.,
 
@@ -1032,6 +1033,7 @@ From Snakemake 5.0 on, it is possible to mark output files as pipes, via the ``p
           "grep {wildcards.i} < {input} > {output}"
 
 If an output file is marked to be a pipe, then Snakemake will first create a `named pipe <https://en.wikipedia.org/wiki/Named_pipe>`_ with the given name and then execute the creating job simultaneously with the consuming job, inside a **group job** (see above).
+This works in all execution modes, local, cluster, and cloud.
 Naturally, a pipe output may only have a single consumer.
 It is possible to combine explicit group definition as above with pipe outputs.
 Thereby, pipe jobs can live within, or (automatically) extend existing groups.

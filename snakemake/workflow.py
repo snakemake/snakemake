@@ -620,6 +620,9 @@ class Workflow:
                 if unlimited_resources:
                     logger.resources_info(
                         "Unlimited resources: " + unlimited_resources)
+                if self.run_local and any(rule.group for rule in self.rules):
+                    logger.info("Group definitions are omitted when running "
+                                "locally.")
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
