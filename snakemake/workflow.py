@@ -608,7 +608,9 @@ class Workflow:
                         "Provided cluster nodes: {}".format(nodes))
                 else:
                     logger.resources_info("Provided cores: {}".format(cores))
-                    logger.resources_info("Rules claiming more threads will be scaled down.")
+                    logger.resources_info("Rules claiming more threads "
+                                          "will be scaled down.")
+
                 provided_resources = format_resources(resources)
                 if provided_resources:
                     logger.resources_info(
@@ -617,12 +619,22 @@ class Workflow:
                     resource for job in dag.needrun_jobs
                     for resource in job.resources.keys()
                     if resource not in resources))
+
                 if unlimited_resources:
                     logger.resources_info(
                         "Unlimited resources: " + unlimited_resources)
+
                 if self.run_local and any(rule.group for rule in self.rules):
-                    logger.info("Group definitions are omitted when running "
-                                "locally.")
+                    logger.info("Group jobs: inactive (local execution)")
+
+                if not self.use_conda and any(rule.conda_env
+                                              for rule in self.rules):
+                    logger.info("Conda environments: ignored")
+
+                if not self.use_singularity and any(rule.singularity_img
+                                                    for rule in self.rules):
+                    logger.info("Singularity containers: ignored")
+
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
