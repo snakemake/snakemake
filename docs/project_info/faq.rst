@@ -80,6 +80,30 @@ This entails the pipefail option, which reports errors from within a pipe to out
 to your shell command in the problematic rule.
 
 
+I don't want Snakemake to detect an error if my shell command exits with an exitcode > 1. What can I do?
+---------------------------------------------------------------------------------------------------------
+
+Sometimes, tools encode information in exit codes bigger than 1. Snakemake by default treats anything > 0 as an error. Special cases have to be added by yourself. For example, you can write
+
+.. code-block:: python
+
+    shell:
+        """
+        set +e
+        somecommand ...
+        exitcode=$?
+        if [ $exitcode -eq 1 ]
+        then
+            exit 1
+        else
+            exit 0
+        fi
+        """
+
+This way, Snakemake only treats exit code 1 as an error, and thinks that everything else is fine.
+Note that such tools are an excellent use case for contributing a `wrapper <https://snakemake-wrappers.readthedocs.io>`_.
+
+
 .. _glob-wildcards:
 
 How do I run my rule on all files of a certain directory?
