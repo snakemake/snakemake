@@ -856,10 +856,10 @@ class Job(AbstractJob):
             try:
                 self.dag.workflow.persistence.finished(self)
             except IOError as e:
-                logger.info("Error recording metadata for finished job "
-                            "({}). Please ensure write permissions for the "
-                            "directory {}".format(
-                                e, self.dag.workflow.persistence.path))
+                logger.warning("Error recording metadata for finished job "
+                               "({}). Please ensure write permissions for the "
+                               "directory {}".format(
+                                    e, self.dag.workflow.persistence.path))
             if handle_temp:
                 # temp handling has to happen after calling finished(),
                 # because we need to access temp output files to record
