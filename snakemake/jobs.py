@@ -1115,10 +1115,10 @@ class GroupJob(AbstractJob):
             return format(string, **_variables)
         except NameError as ex:
             raise WorkflowError("NameError with group job {}: {}".format(
-                self.jobid, str(ex))
+                self.jobid, str(ex)))
         except IndexError as ex:
             raise WorkflowError("IndexError with group job {}: {}".format(
-                self.jobid, str(ex))
+                self.jobid, str(ex)))
 
     @property
     def threads(self):
