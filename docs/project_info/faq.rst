@@ -411,6 +411,26 @@ As a solution, you can put the `--config` at the end of your invocation, or prep
     $ snakemake mytarget --config foo=bar
 
 
+How do I enforce config values given at the command line to be interpreted as strings?
+--------------------------------------------------------------------------------------
+
+When passing config values like this
+
+.. code-block:: console
+
+    $ snakemake --config version=2018_1
+
+Snakemake will first try to interpret the given value as number.
+Only if that fails, it will interpret the value as string.
+Here, it does not fail, because the underscore `_` is interpreted as thousand separator.
+In order to ensure that the value is interpreted as string, you have to pass it in quotes.
+Since bash otherwise automatically removes quotes, you have to also wrap the entire entry into quotes, e.g.:
+
+.. code-block:: console
+
+    $ snakemake --config 'version="2018_1"'
+
+
 How do I make my rule fail if an output file is empty?
 ------------------------------------------------------
 
