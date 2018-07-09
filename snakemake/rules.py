@@ -214,6 +214,8 @@ class Rule:
     def benchmark(self, benchmark):
         if not callable(benchmark):
             benchmark = self.apply_default_remote(benchmark)
+            benchmark = self._update_item_wildcard_constraints(benchmark)
+
         self._benchmark = IOFile(benchmark, rule=self)
         self.register_wildcards(self._benchmark.get_wildcard_names())
 
@@ -353,6 +355,9 @@ class Rule:
             self.output[i] = newitem
 
     def _update_item_wildcard_constraints(self, item):
+        if not (self.wildcard_constraints or
+                self.workflow._wildcard_constraints):
+            return item
         try:
             return update_wildcard_constraints(
                 item,
@@ -385,16 +390,14 @@ class Rule:
                 and item in item.rule.output):
                 self.dependencies[item] = item.rule
             if output:
-                rule = self
-                if self.wildcard_constraints or self.workflow._wildcard_constraints:
-                    item = self._update_item_wildcard_constraints(item)
+                item = self._update_item_wildcard_constraints(item)
             else:
-                rule = self
-                if contains_wildcard_constraints(item) and self.workflow.mode != Mode.subprocess:
+                if (contains_wildcard_constraints(item) and
+                    self.workflow.mode != Mode.subprocess):
                     logger.warning(
                         "wildcard constraints in inputs are ignored")
             # record rule if this is an output file output
-            _item = IOFile(item, rule=rule)
+            _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
                 if output:
                     self.temp_output.add(_item)
@@ -492,6 +495,7 @@ class Rule:
         if isinstance(item, str) or callable(item):
             if not callable(item):
                 item = self.apply_default_remote(item)
+                item = self._update_item_wildcard_constraints(item)
 
             self.log.append(IOFile(item,
                                    rule=self) if isinstance(item, str) else
