@@ -72,7 +72,6 @@ class AbstractExecutor:
             callback=None,
             submit_callback=None,
             error_callback=None):
-        job.check_protected_output()
         self._run(job)
         callback(job)
 
@@ -83,6 +82,7 @@ class AbstractExecutor:
         pass
 
     def _run(self, job):
+        job.check_protected_output()
         self.printjob(job)
 
     def rule_prefix(self, job):
