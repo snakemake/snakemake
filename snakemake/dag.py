@@ -464,7 +464,6 @@ class DAG:
         is_temp = lambda f: is_flagged(f, "temp")
 
         # handle temp input
-
         needed = lambda job_, f: any(
             f in files for j, files in self.depending[job_].items()
             if not self.finished(j) and self.needrun(j) and j != job)
@@ -476,8 +475,9 @@ class DAG:
                 yield from filterfalse(partial(needed, job_), tempfiles & files)
 
             # temp output
-            if job not in self.targetjobs and not job.dynamic_output:
-                tempfiles = (f for f in job.expanded_output if is_temp(f))
+            if not job.dynamic_output:
+                tempfiles = (f for f in job.expanded_output
+                               if is_temp(f) and f not in self.targetfiles)
                 yield from filterfalse(partial(needed, job), tempfiles)
 
         for f in unneeded_files():
