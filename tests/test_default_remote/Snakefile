@@ -1,6 +1,6 @@
 rule all:
     input:
-        "test.3.txt", 'test.4.txt', 'test.5.txt'
+        "test.3.txt", 'test.4.txt', 'test.5.txt', 'test.6.txt'
 
 
 def check_remote(f):
@@ -58,6 +58,17 @@ rule d:
             check_remote(e)
         check_remote(output[0])
         shell("cp {input.a} {output}")
+
+rule e:
+    input:
+        rules.a.output[0]
+    output:
+        "test.6.txt"
+    run:
+        for e in input:
+            check_remote(e)
+        check_remote(output[0])
+        shell("cp {input} {output}")
         
 
 # after we finish, we need to remove the pickle storing
