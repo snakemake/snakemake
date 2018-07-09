@@ -534,7 +534,7 @@ class Rule:
         return value
 
     def _apply_wildcards(self, newitems, olditems, wildcards,
-                         concretize=apply_wildcards,
+                         concretize=None,
                          check_return_type=True,
                          omit_callable=False,
                          mapping=None,
@@ -547,8 +547,9 @@ class Rule:
             start = len(newitems)
             is_iterable = True
             is_unpack = is_flagged(item, "unpack")
+            _is_callable = is_callable(item)
 
-            if is_callable(item):
+            if _is_callable:
                 if omit_callable:
                     continue
                 item = self.apply_input_function(item, wildcards, **aux_params)
@@ -581,7 +582,7 @@ class Rule:
                     if check_return_type and not isinstance(item_, str):
                         raise WorkflowError("Function did not return str or list "
                                             "of str.", rule=self)
-                    concrete = concretize(item_, wildcards)
+                    concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)
                     if mapping is not None:
                         mapping[concrete] = item_
@@ -593,8 +594,8 @@ class Rule:
                     start = len(newitems)
 
     def expand_input(self, wildcards):
-        def concretize_iofile(f, wildcards):
-            if not isinstance(f, _IOFile):
+        def concretize_iofile(f, wildcards, is_from_callable):
+            if is_from_callable:
                 return IOFile(f, rule=self)
             else:
                 return f.apply_wildcards(wildcards,
@@ -629,8 +630,8 @@ class Rule:
         return input, mapping, dependencies
 
     def expand_params(self, wildcards, input, output, resources, omit_callable=False):
-        def concretize_param(p, wildcards):
-            if isinstance(p, str):
+        def concretize_param(p, wildcards, is_from_callable):
+            if not is_from_callable and isinstance(p, str):
                 return apply_wildcards(p, wildcards)
             return p
 
@@ -651,7 +652,11 @@ class Rule:
         except WildcardError as e:
             raise WildcardError(
                 "Wildcards in params cannot be "
-                "determined from output files:",
+                "determined from output files. Note that you have "
+                "to use a function to deactivate automatic wildcard expansion "
+                "in params strings, e.g., `lambda wildcards: '{test}'`. Also "
+                "see https://snakemake.readthedocs.io/en/stable/snakefiles/"
+                "rules.html#non-file-parameters-for-rules:",
                 str(e), rule=self)
         return params
 
@@ -672,8 +677,8 @@ class Rule:
 
 
     def expand_log(self, wildcards):
-        def concretize_logfile(f, wildcards):
-            if not isinstance(f, _IOFile):
+        def concretize_logfile(f, wildcards, is_from_callable):
+            if is_from_callable:
                 return IOFile(f, rule=self)
             else:
                 return f.apply_wildcards(wildcards,
