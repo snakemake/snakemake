@@ -925,6 +925,7 @@ class GroupJob(AbstractJob):
         self.jobs = self.jobs | other.jobs
 
     def finalize(self):
+        # TODO determine resources based on toposort
         dag = {
             job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
             for job in self.jobs
@@ -1113,9 +1114,11 @@ class GroupJob(AbstractJob):
         try:
             return format(string, **_variables)
         except NameError as ex:
-            raise WorkflowError("NameError: " + str(ex))
+            raise WorkflowError("NameError with group job {}: {}".format(
+                self.jobid, str(ex))
         except IndexError as ex:
-            raise WorkflowError("IndexError: " + str(ex))
+            raise WorkflowError("IndexError with group job {}: {}".format(
+                self.jobid, str(ex))
 
     @property
     def threads(self):
