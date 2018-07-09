@@ -853,16 +853,18 @@ class Job(AbstractJob):
                     no_touch=True,
                     force_stay_on_remote=True)
         if not error:
-            if handle_temp:
-                self.dag.handle_temp(self)
-
             try:
                 self.dag.workflow.persistence.finished(self)
             except IOError as e:
-                logger.info("Failed to remove marker file for job started "
+                logger.info("Error recording metadata for finished job "
                             "({}). Please ensure write permissions for the "
                             "directory {}".format(
                                 e, self.dag.workflow.persistence.path))
+            if handle_temp:
+                # temp handling has to happen after calling finished(),
+                # because we need to access temp output files to record
+                # start and end times.
+                self.dag.handle_temp(self)
 
     @property
     def name(self):
