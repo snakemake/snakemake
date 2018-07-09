@@ -13,6 +13,7 @@ import hashlib
 import urllib
 from shutil import rmtree, which
 from shlex import quote
+import pytest
 
 from snakemake import snakemake
 from snakemake.shell import shell
@@ -43,6 +44,18 @@ def is_connected():
         return False
 
 
+def is_ci():
+    return "CI" in os.environ
+
+
+def has_gcloud_service_key():
+    return "GCLOUD_SERVICE_KEY" in os.environ
+
+
+def has_gcloud_cluster():
+    return "GCLOUD_CLUSTER" in os.environ
+
+
 def copy(src, dst):
     if os.path.isdir(src):
         shutil.copytree(src, os.path.join(dst, os.path.basename(src)))
@@ -52,7 +65,6 @@ def copy(src, dst):
 
 def run(path,
         shouldfail=False,
-        needs_connection=False,
         snakefile="Snakefile",
         subpath=None,
         no_tmpdir=False,
@@ -62,12 +74,6 @@ def run(path,
     There must be a Snakefile in the path and a subdirectory named
     expected-results.
     """
-
-    if needs_connection and not is_connected():
-        print("Skipping test because of missing internet connection",
-              file=sys.stderr)
-        return False
-
     results_dir = join(path, 'expected-results')
     snakefile = join(path, snakefile)
     assert os.path.exists(snakefile)
@@ -261,8 +267,9 @@ def test_persistent_dict():
         pass
 
 
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
 def test_url_include():
-    run(dpath("test_url_include"), needs_connection=True)
+    run(dpath("test_url_include"))
 
 
 def test_touch():
@@ -451,6 +458,7 @@ def test_spaces_in_fnames():
 #         pass
 
 
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
 def test_remote_ncbi_simple():
     try:
         import Bio
@@ -461,6 +469,7 @@ def test_remote_ncbi_simple():
     except ImportError:
         pass
 
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
 def test_remote_ncbi():
     try:
         import Bio
@@ -472,6 +481,7 @@ def test_remote_ncbi():
         pass
 
 
+@pytest.mark.skipif(not is_ci(), reason="not in CI")
 def test_remote_irods():
     if os.environ.get("CI") == "true":
         run(dpath("test_remote_irods"))
@@ -577,6 +587,8 @@ def test_run_namedlist():
     run(dpath("test_run_namedlist"))
 
 
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
+@pytest.mark.skipif(not is_ci(), reason="not in CI")
 def test_remote_gs():
     if not "CI" in os.environ:
         run(dpath("test_remote_gs"))
@@ -584,13 +596,17 @@ def test_remote_gs():
         print("skipping test_remove_gs in CI")
 
 
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
 def test_remote_log():
     run(dpath("test_remote_log"), shouldfail=True)
 
 
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
 def test_remote_http():
     run(dpath("test_remote_http"))
 
+
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
 def test_remote_http_cluster():
     run(dpath("test_remote_http"), cluster=os.path.abspath(dpath("test14/qsub")))
 
@@ -598,6 +614,7 @@ def test_profile():
     run(dpath("test_profile"))
 
 
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
 def test_singularity():
     run(dpath("test_singularity"), use_singularity=True)
 
@@ -622,50 +639,53 @@ def test_log_input():
     run(dpath("test_log_input"))
 
 
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
+@pytest.mark.skipif(not is_ci(), reason="no in CI")
+@pytest.mark.skipif(not has_gcloud_service_key(), reason="GCLOUD_SERVICE_KEY undefined")
+@pytest.mark.skipif(not has_gcloud_cluster(), reason="GCLOUD_CLUSTER undefined")
 def test_gcloud():
-    if "CI" in os.environ and "GCLOUD_SERVICE_KEY" in os.environ:
-        cluster = os.environ["GCLOUD_CLUSTER"]
-        bucket_name = 'snakemake-testing-{}'.format(cluster)
+    cluster = os.environ["GCLOUD_CLUSTER"]
+    bucket_name = 'snakemake-testing-{}'.format(cluster)
 
-        def run_kubernetes(**kwargs):
-            run(dpath("test_kubernetes"),
-                kubernetes="default",
-                default_remote_provider="GS",
-                default_remote_prefix=bucket_name,
-                no_tmpdir=True,
-                **kwargs)
-        def reset():
-            shell('$GSUTIL rm -r gs://{}/*'.format(bucket_name))
+    def run_kubernetes(**kwargs):
+        run(dpath("test_kubernetes"),
+            kubernetes="default",
+            default_remote_provider="GS",
+            default_remote_prefix=bucket_name,
+            no_tmpdir=True,
+            **kwargs)
+    def reset():
+        shell('$GSUTIL rm -r gs://{}/*'.format(bucket_name))
 
-        try:
-            shell("""
-            $GCLOUD container clusters create {cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
-            $GCLOUD container clusters get-credentials {cluster} --zone us-central1-a
-            $GSUTIL mb gs://{bucket_name}
-            """)
-            run_kubernetes()
-            reset()
-            run_kubernetes(use_conda=True)
-            reset()
-            run_kubernetes(use_singularity=True)
-            reset()
-            run_kubernetes(use_singularity=True, use_conda=True)
-            reset()
-        except:
-            shell("for p in `kubectl get pods | grep ^snakejob- | cut -f 1 -d ' '`; do kubectl logs $p; done")
-        finally:
-            shell("""
-            $GCLOUD container clusters delete {cluster} --zone us-central1-a --quiet
-            $GSUTIL rm -r gs://{bucket_name}
-            """)
-    else:
-        print("Skipping google cloud test", file=sys.stderr)
+    try:
+        shell("""
+        $GCLOUD container clusters create {cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
+        $GCLOUD container clusters get-credentials {cluster} --zone us-central1-a
+        $GSUTIL mb gs://{bucket_name}
+        """)
+        run_kubernetes()
+        reset()
+        run_kubernetes(use_conda=True)
+        reset()
+        run_kubernetes(use_singularity=True)
+        reset()
+        run_kubernetes(use_singularity=True, use_conda=True)
+        reset()
+    except:
+        shell("for p in `kubectl get pods | grep ^snakejob- | cut -f 1 -d ' '`; do kubectl logs $p; done")
+    finally:
+        shell("""
+        $GCLOUD container clusters delete {cluster} --zone us-central1-a --quiet
+        $GSUTIL rm -r gs://{bucket_name}
+        """)
 
 
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
 def test_cwl():
     run(dpath("test_cwl"))
 
 
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
 def test_cwl_singularity():
     run(dpath("test_cwl"), use_singularity=True)
 
