@@ -871,7 +871,7 @@ def update_wildcard_constraints(pattern,
 def strip_wildcard_constraints(pattern):
     """Return a string that does not contain any wildcard constraints."""
     def strip_constraint(match):
-        return match.group("name")
+        return "{{{}}}".format(match.group("name"))
     return _wildcard_regex.sub(strip_constraint, pattern)
 
 
