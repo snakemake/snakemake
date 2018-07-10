@@ -195,7 +195,7 @@ class FileRecord:
             try:
                 from jinja2 import Template
             except ImportError as e:
-                raise WorkflowError("Pyhton package jinja2 must be installed to create reports.")
+                raise WorkflowError("Python package jinja2 must be installed to create reports.")
 
             job = self.job
             snakemake = Snakemake(job.input, job.output, job.params, job.wildcards,
@@ -275,7 +275,7 @@ def auto_report(dag, path):
     try:
         from jinja2 import Template, Environment, PackageLoader
     except ImportError as e:
-        raise WorkflowError("Pyhton package jinja2 must be installed to create reports.")
+        raise WorkflowError("Python package jinja2 must be installed to create reports.")
 
     if not path.endswith(".html"):
         raise WorkflowError("Report file does not end with .html")
