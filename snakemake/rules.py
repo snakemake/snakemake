@@ -14,11 +14,11 @@ from pathlib import Path
 from itertools import chain
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
-from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
+from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources, strip_wildcard_constraints
 from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable, DYNAMIC_FILL, ReportObject
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import Mode
+from snakemake.common import Mode, lazy_property
 
 
 class Rule:
@@ -880,3 +880,34 @@ class Ruleorder:
 
     def __iter__(self):
         return self.order.__iter__()
+
+
+class RuleProxy:
+    def __init__(self, rule):
+        self.rule = rule
+
+    @lazy_property
+    def output(self):
+        return self._to_iofile(self.rule.output.stripped_constraints())
+
+    @lazy_property
+    def input(self):
+        return self.rule.input.stripped_constraints()
+
+    @lazy_property
+    def params(self):
+        return self.rule.params.clone()
+
+    @property
+    def benchmark(self):
+        return IOFile(strip_wildcard_constraints(self.rule.benchmark),
+                      rule=self.rule)
+
+    @lazy_property
+    def log(self):
+        return self._to_iofile(self.rule.log.stripped_constraints())
+
+    def _to_iofile(self, files):
+        for i in range(len(files)):
+            files[i] = IOFile(files[i], rule=self.rule)
+        return files

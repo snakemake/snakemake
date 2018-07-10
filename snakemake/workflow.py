@@ -17,7 +17,7 @@ import copy
 import subprocess
 
 from snakemake.logging import logger, format_resources, format_resource_names
-from snakemake.rules import Rule, Ruleorder
+from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import RuleException, CreateRuleException, \
     UnknownRuleException, NoRulesException, print_exception, WorkflowError
 from snakemake.shell import shell
@@ -873,7 +873,7 @@ class Workflow:
 
             ruleinfo.func.__name__ = "__{}".format(name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
-            setattr(rules, name, rule)
+            setattr(rules, name, RuleProxy(rule))
             return ruleinfo.func
 
         return decorate

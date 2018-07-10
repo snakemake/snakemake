@@ -868,6 +868,13 @@ def update_wildcard_constraints(pattern,
     return updated
 
 
+def strip_wildcard_constraints(pattern):
+    """Return a string that does not contain any wildcard constraints."""
+    def strip_constraint(match):
+        return match.group("name")
+    return _wildcard_regex.sub(strip_constraint, pattern)
+
+
 # TODO rewrite Namedlist!
 class Namedlist(list):
     """
@@ -875,7 +882,8 @@ class Namedlist(list):
     it is hashable, however the hash does not consider the item names.
     """
 
-    def __init__(self, toclone=None, fromdict=None, plainstr=False):
+    def __init__(self, toclone=None, fromdict=None,
+                 plainstr=False, strip_constraints=False):
         """
         Create the object.
 
@@ -888,7 +896,12 @@ class Namedlist(list):
         self._names = dict()
 
         if toclone:
-            self.extend(map(str, toclone) if plainstr else toclone)
+            if plainstr:
+                self.extend(map(str, toclone))
+            elif strip_constraints:
+                self.extend(map(strip_wildcard_constraints, toclone))
+            else:
+                self.extend(toclone)
             if isinstance(toclone, Namedlist):
                 self.take_names(toclone.get_names())
         if fromdict:
@@ -970,6 +983,12 @@ class Namedlist(list):
 
     def plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)
+
+    def stripped_constraints(self):
+        return self.__class__.__call__(toclone=self, strip_constraints=True)
+
+    def clone(self):
+        return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):
         return self.__dict__.get(key, default_value)
