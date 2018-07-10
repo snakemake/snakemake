@@ -699,11 +699,6 @@ class GenericClusterExecutor(ClusterExecutor):
                 jobfinished, jobfailed))
 
     def _wait_for_jobs(self):
-        #logger.debug("Setup rate limiter")
-        #status_rate_limiter = RateLimiter(
-        #    max_calls=self.max_status_checks_per_second,
-        #    period=1)
-        #logger.debug("Done setup rate limiter")
         success = "success"
         failed = "failed"
         running = "running"
@@ -716,8 +711,17 @@ class GenericClusterExecutor(ClusterExecutor):
                                                      statuscmd=self.statuscmd),
                         shell=True).decode().split("\n")[0]
                 except subprocess.CalledProcessError as e:
-                    raise WorkflowError("Failed to obtain job status. "
-                                        "See above for error message.")
+                    if e.returncode < 0:
+                        # Ignore SIGINT and all other issues due to signals
+                        # because it will be caused by hitting e.g.
+                        # Ctrl-C on the main process or sending killall to
+                        # snakemake.
+                        # Snakemake will handle the signal in
+                        # the master process.
+                        pass
+                    else:
+                        raise WorkflowError("Failed to obtain job status. "
+                                            "See above for error message.")
         else:
             def job_status(job):
                 if os.path.exists(active_job.jobfinished):
