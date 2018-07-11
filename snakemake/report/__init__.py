@@ -221,6 +221,15 @@ class FileRecord:
         return self.mime in text
 
     @property
+    def icon(self):
+        if self.is_img:
+            return "image"
+        elif self.is_text:
+            return "file-text"
+        else:
+            return "file"
+
+    @property
     def name(self):
         return os.path.basename(self.path)
 
@@ -248,7 +257,7 @@ def rulegraph_d3_spec(dag):
             source = dep.rule.name
             g.add_edge(source, target)
 
-    pos = graphviz_layout(g, "dot", args="-Grankdir=LR")
+    pos = graphviz_layout(g, "dot")
     xmax = max(x for x, y in pos.values())
     ymax = max(y for x, y in pos.values())
 
