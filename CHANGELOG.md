@@ -1,9 +1,12 @@
 # Change Log
 
-# [unreleased] - 2018-06-28
+# [5.2.0] - 2018-06-28
 ## Changed
 - Directory outputs have to marked with `directory`. This ensures proper handling of timestamps and cleanup. This is a breaking change. Implemented by Rasmus Ågren. 
 - Fixed kubernetes tests, fixed kubernetes volume handling. Implemented by Andrew Schriefer.
+- jinja2 and networkx are not optional dependencies when installing via pip.
+- When conda or singularity directives are used and the corresponding CLI flags are not specified, the user is notified at the beginning of the log output.
+- Fixed numerous small bugs and papercuts and extended documentation.
 
 # [5.1.5] - 2018-06-24
 ## Changed
