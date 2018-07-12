@@ -257,8 +257,8 @@ def rulegraph_d3_spec(dag):
             source = dep.rule.name
             g.add_edge(source, target)
 
-    pos = graphviz_layout(g, "dot")
-    xmax = max(x for x, y in pos.values())
+    pos = graphviz_layout(g, "dot", args="-Grankdir=BT")
+    xmax = max(x for x, y in pos.values()) + 100 # add offset to account for labels
     ymax = max(y for x, y in pos.values())
 
     def encode_node(node):
@@ -406,6 +406,6 @@ def auto_report(dag, path):
                                   runtimes=runtimes,
                                   timeline=timeline,
                                   rules=[rec for recs in rules.values() for rec in recs],
-                                  version=__version__.split("+")[0],
+                                  version=__version__,
                                   now=now))
     logger.info("Report created.")
