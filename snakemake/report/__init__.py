@@ -300,7 +300,8 @@ def auto_report(dag, path):
                                         "not exist.")
                 if os.path.isfile(f):
                     report_obj = get_flag_value(f, "report")
-                    results[report_obj.category].append(
+                    category = report_obj.category or " "
+                    results[category].append(
                         FileRecord(f, job, report_obj.caption))
 
             meta = persistence.metadata(f)
