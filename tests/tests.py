@@ -639,11 +639,7 @@ def test_log_input():
     run(dpath("test_log_input"))
 
 
-@pytest.mark.skipif(not is_connected(), reason="no internet connection")
-@pytest.mark.skipif(not is_ci(), reason="no in CI")
-@pytest.mark.skipif(not has_gcloud_service_key(), reason="GCLOUD_SERVICE_KEY undefined")
-@pytest.mark.skipif(not has_gcloud_cluster(), reason="GCLOUD_CLUSTER undefined")
-def test_gcloud():
+def _gcloud(use_conda=False, use_singularity=False):
     cluster = os.environ["GCLOUD_CLUSTER"]
     bucket_name = 'snakemake-testing-{}'.format(cluster)
 
@@ -663,13 +659,7 @@ def test_gcloud():
         $GCLOUD container clusters get-credentials {cluster} --zone us-central1-a
         $GSUTIL mb gs://{bucket_name}
         """)
-        run_kubernetes()
-        reset()
-        run_kubernetes(use_conda=True)
-        reset()
-        run_kubernetes(use_singularity=True)
-        reset()
-        run_kubernetes(use_singularity=True, use_conda=True)
+        run_kubernetes(use_singularity=use_singularity, use_conda=use_conda)
         reset()
     except Exception as e:
         shell("for p in `kubectl get pods | grep ^snakejob- | cut -f 1 -d ' '`; do kubectl logs $p; done")
@@ -679,6 +669,38 @@ def test_gcloud():
         $GCLOUD container clusters delete {cluster} --zone us-central1-a --quiet
         $GSUTIL rm -r gs://{bucket_name}
         """)
+
+
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
+@pytest.mark.skipif(not is_ci(), reason="no in CI")
+@pytest.mark.skipif(not has_gcloud_service_key(), reason="GCLOUD_SERVICE_KEY undefined")
+@pytest.mark.skipif(not has_gcloud_cluster(), reason="GCLOUD_CLUSTER undefined")
+def test_gcloud_plain():
+    _test_gcloud()
+
+
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
+@pytest.mark.skipif(not is_ci(), reason="no in CI")
+@pytest.mark.skipif(not has_gcloud_service_key(), reason="GCLOUD_SERVICE_KEY undefined")
+@pytest.mark.skipif(not has_gcloud_cluster(), reason="GCLOUD_CLUSTER undefined")
+def test_gcloud_conda():
+    _test_gcloud(use_conda=True)
+
+
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
+@pytest.mark.skipif(not is_ci(), reason="no in CI")
+@pytest.mark.skipif(not has_gcloud_service_key(), reason="GCLOUD_SERVICE_KEY undefined")
+@pytest.mark.skipif(not has_gcloud_cluster(), reason="GCLOUD_CLUSTER undefined")
+def test_gcloud_singularity():
+    _test_gcloud(use_singularity=True)
+
+
+@pytest.mark.skipif(not is_connected(), reason="no internet connection")
+@pytest.mark.skipif(not is_ci(), reason="no in CI")
+@pytest.mark.skipif(not has_gcloud_service_key(), reason="GCLOUD_SERVICE_KEY undefined")
+@pytest.mark.skipif(not has_gcloud_cluster(), reason="GCLOUD_CLUSTER undefined")
+def test_gcloud_conda_singularity():
+    _test_gcloud(use_singularity=True, use_conda=True)
 
 
 @pytest.mark.skipif(not is_connected(), reason="no internet connection")
