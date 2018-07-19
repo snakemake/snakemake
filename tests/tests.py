@@ -671,8 +671,9 @@ def test_gcloud():
         reset()
         run_kubernetes(use_singularity=True, use_conda=True)
         reset()
-    except:
+    except Exception as e:
         shell("for p in `kubectl get pods | grep ^snakejob- | cut -f 1 -d ' '`; do kubectl logs $p; done")
+        raise e
     finally:
         shell("""
         $GCLOUD container clusters delete {cluster} --zone us-central1-a --quiet
