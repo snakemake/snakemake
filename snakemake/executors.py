@@ -1135,7 +1135,8 @@ class KubernetesExecutor(ClusterExecutor):
         # container
         container = kubernetes.client.V1Container(name=jobid)
         container.image = self.container_image
-        container.command = shlex.split(exec_job)
+        container.command = shlex.split("/bin/sh")
+        container.args = ["-c", exec_job]
         container.working_dir = "/workdir"
         container.volume_mounts = [kubernetes.client.V1VolumeMount(
             name="workdir", mount_path="/workdir")]
