@@ -536,7 +536,7 @@ class ClusterExecutor(RealExecutor):
                                   job,
                                   exec_job=exec_job,
                                   **kwargs)
-        logger.debug("Jobscript:\n{}".format(content)
+        logger.debug("Jobscript:\n{}".format(content))
         with open(jobscript, "w") as f:
             print(content, file=f)
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
