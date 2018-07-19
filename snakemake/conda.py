@@ -257,15 +257,24 @@ def shellcmd(env_path):
 
 
 def check_conda(singularity_img=None):
-    def get_cmd(cmd, singularity_img=None):
+    def get_cmd(cmd):
         if singularity_img:
             return singularity.shellcmd(self.singularity_img.path, cmd)
         return cmd
 
-    if subprocess.check_output(get_cmd("which conda"),
-                               shell=True,
-                               stderr=subprocess.STDOUT) is None:
-        raise CreateCondaEnvironmentException("The 'conda' command is not available in $PATH.")
+    try:
+        subprocess.check_output(get_cmd("which conda"),
+                                shell=True,
+                                stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError:
+        if singularity_img:
+            raise CreateCondaEnvironmentException("The 'conda' command is not "
+                                                  "available inside "
+                                                  "your singularity container "
+                                                  "image.")
+        else:
+            raise CreateCondaEnvironmentException("The 'conda' command is not "
+                                                  "available.")
     try:
         version = subprocess.check_output(get_cmd("conda --version"),
                                           shell=True,
