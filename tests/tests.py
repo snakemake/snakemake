@@ -676,7 +676,7 @@ def _gcloud(use_conda=False, use_singularity=False):
 @pytest.mark.skipif(not has_gcloud_service_key(), reason="GCLOUD_SERVICE_KEY undefined")
 @pytest.mark.skipif(not has_gcloud_cluster(), reason="GCLOUD_CLUSTER undefined")
 def test_gcloud_plain():
-    _test_gcloud()
+    _gcloud()
 
 
 @pytest.mark.skipif(not is_connected(), reason="no internet connection")
@@ -684,7 +684,7 @@ def test_gcloud_plain():
 @pytest.mark.skipif(not has_gcloud_service_key(), reason="GCLOUD_SERVICE_KEY undefined")
 @pytest.mark.skipif(not has_gcloud_cluster(), reason="GCLOUD_CLUSTER undefined")
 def test_gcloud_conda():
-    _test_gcloud(use_conda=True)
+    _gcloud(use_conda=True)
 
 
 @pytest.mark.skipif(not is_connected(), reason="no internet connection")
@@ -692,7 +692,7 @@ def test_gcloud_conda():
 @pytest.mark.skipif(not has_gcloud_service_key(), reason="GCLOUD_SERVICE_KEY undefined")
 @pytest.mark.skipif(not has_gcloud_cluster(), reason="GCLOUD_CLUSTER undefined")
 def test_gcloud_singularity():
-    _test_gcloud(use_singularity=True)
+    _gcloud(use_singularity=True)
 
 
 @pytest.mark.skipif(not is_connected(), reason="no internet connection")
@@ -700,7 +700,7 @@ def test_gcloud_singularity():
 @pytest.mark.skipif(not has_gcloud_service_key(), reason="GCLOUD_SERVICE_KEY undefined")
 @pytest.mark.skipif(not has_gcloud_cluster(), reason="GCLOUD_CLUSTER undefined")
 def test_gcloud_conda_singularity():
-    _test_gcloud(use_singularity=True, use_conda=True)
+    _gcloud(use_singularity=True, use_conda=True)
 
 
 @pytest.mark.skipif(not is_connected(), reason="no internet connection")
