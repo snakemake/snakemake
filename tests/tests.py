@@ -677,7 +677,7 @@ def gcloud_cluster():
                     default_remote_prefix=self.bucket_name,
                     no_tmpdir=True,
                     **kwargs)
-            except Exception:
+            except Exception as e:
                 shell("for p in `kubectl get pods | grep ^snakejob- | cut -f 1 -d ' '`; do kubectl logs $p; done")
                 raise e
 
