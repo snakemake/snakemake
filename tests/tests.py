@@ -666,7 +666,7 @@ def gcloud_cluster():
         def __del__(self):
             shell("""
             $GCLOUD container clusters delete {self.cluster} --zone us-central1-a --quiet
-            $GSUTIL rm -r gs://{self.bucket_name}
+            $GSUTIL rm -r gs://{self.bucket_name} || true
             """)
 
         def run(self, **kwargs):
@@ -682,7 +682,7 @@ def gcloud_cluster():
                 raise e
 
         def reset(self):
-            shell('$GSUTIL rm -r gs://{self.bucket_name}/*')
+            shell('$GSUTIL rm -r gs://{self.bucket_name}/* || true')
     return Cluster()
 
 
