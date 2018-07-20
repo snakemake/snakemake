@@ -683,6 +683,7 @@ def gcloud_cluster():
 
         def reset(self):
             shell('$GSUTIL rm -r gs://{self.bucket_name}/*')
+    return Cluster()
 
 
 
