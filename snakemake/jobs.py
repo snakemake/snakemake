@@ -9,6 +9,7 @@ import sys
 import base64
 import tempfile
 import subprocess
+import json
 
 from collections import defaultdict
 from itertools import chain
@@ -726,7 +727,12 @@ class Job(AbstractJob):
             "jobid": self.dag.jobid(self)
         }
         properties.update(aux_properties)
-        return properties
+
+        try:
+            return json.dumps(properties)
+        except TypeError:
+            del properties["params"]
+            return json.dumps(properties)
 
     @property
     def is_local(self):
