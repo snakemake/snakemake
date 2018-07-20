@@ -665,7 +665,7 @@ def gcloud_cluster():
 
         def __del__(self):
             shell("""
-            $GCLOUD container clusters delete {self.cluster} --zone us-central1-a --quiet
+            $GCLOUD container clusters delete {self.cluster} --zone us-central1-a --quiet || true
             $GSUTIL rm -r gs://{self.bucket_name} || true
             """)
 
