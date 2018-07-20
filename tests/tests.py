@@ -674,7 +674,7 @@ def gcloud_cluster():
                 run(dpath("test_kubernetes"),
                     kubernetes="default",
                     default_remote_provider="GS",
-                    default_remote_prefix=bucket_name,
+                    default_remote_prefix=self.bucket_name,
                     no_tmpdir=True,
                     **kwargs)
             except Exception:
