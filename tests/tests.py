@@ -655,7 +655,7 @@ def gcloud_cluster():
     class Cluster:
         def __init__(self):
             self.cluster = os.environ["GCLOUD_CLUSTER"]
-            self.bucket_name = 'snakemake-testing-{}'.format(cluster)
+            self.bucket_name = 'snakemake-testing-{}'.format(self.cluster)
 
             shell("""
             $GCLOUD container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
