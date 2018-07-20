@@ -72,12 +72,20 @@ class Job(AbstractJob):
                  "_conda_env_file", "_conda_env", "shadow_dir", "_inputsize",
                  "dynamic_output", "dynamic_input",
                  "temp_output", "protected_output", "touch_output",
-                 "subworkflow_input", "_hash", "_attempt", "_group"]
+                 "subworkflow_input", "_hash", "_attempt", "_group",
+                 "targetfile"]
 
-    def __init__(self, rule, dag, wildcards_dict=None, format_wildcards=None):
+    def __init__(self, rule, dag,
+                 wildcards_dict=None, format_wildcards=None, targetfile=None):
         self.rule = rule
         self.dag = dag
 
+        # the targetfile that led to the job
+        # it is important to record this, since we need it to submit the
+        # job on a cluster. In contrast, an arbitrary targetfile could
+        # lead to a different composition of wildcard values (in case of
+        # ambiguity in matching).
+        self.targetfile = targetfile
         self.wildcards_dict = wildcards_dict
         self.wildcards = Wildcards(fromdict=self.wildcards_dict)
         self._format_wildcards = (self.wildcards if format_wildcards is None
@@ -889,7 +897,7 @@ class Job(AbstractJob):
         return products
 
     def get_targets(self):
-        return self.products or [self.rule.name]
+        return self.targetfile or [self.rule.name]
 
     @property
     def is_branched(self):

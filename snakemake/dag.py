@@ -957,8 +957,9 @@ class DAG:
             assert targetfile is not None
             return self.job_cache[key]
         wildcards_dict = rule.get_wildcards(targetfile)
-        job = Job(rule, self, wildcards_dict=wildcards_dict, format_wildcards=format_wildcards)
-        for f in job.output:
+        job = Job(rule, self, wildcards_dict=wildcards_dict,
+                  format_wildcards=format_wildcards, targetfile=targetfile)
+        for f in job.products:
             self.job_cache[(rule, f)] = job
         return job
 

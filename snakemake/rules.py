@@ -788,11 +788,10 @@ class Rule:
 
     def get_wildcards(self, requested_output):
         """
-        Update the given wildcard dictionary by matching regular expression
+        Return wildcard dictionary by matching regular expression
         output files to the requested concrete ones.
 
         Arguments
-        wildcards -- a dictionary of wildcards
         requested_output -- a concrete filepath
         """
         if requested_output is None:

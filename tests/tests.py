@@ -761,6 +761,9 @@ def test_issue894():
 def test_issue584():
     run(dpath("test_issue584"))
 
+def test_issue912():
+    run(dpath("test_issue912"))
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)
