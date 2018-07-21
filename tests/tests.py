@@ -650,7 +650,7 @@ def test_log_input():
     run(dpath("test_log_input"))
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def gcloud_cluster():
     class Cluster:
         def __init__(self):
