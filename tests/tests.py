@@ -694,12 +694,14 @@ def test_gcloud_plain(gcloud_cluster):
 
 
 @gcloud
+@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
 def test_gcloud_conda(gcloud_cluster):
     gcloud_cluster.reset()
     gcloud_cluster.run(use_conda=True)
 
 
 @gcloud
+@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
 def test_gcloud_singularity(gcloud_cluster):
     gcloud_cluster.reset()
     gcloud_cluster.run(use_singularity=True)
