@@ -259,7 +259,7 @@ def shellcmd(env_path):
 def check_conda(singularity_img=None):
     def get_cmd(cmd):
         if singularity_img:
-            return singularity.shellcmd(self.singularity_img.path, cmd)
+            return singularity.shellcmd(singularity_img.path, cmd)
         return cmd
 
     try:

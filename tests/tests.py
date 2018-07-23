@@ -629,6 +629,10 @@ def test_profile():
 def test_singularity():
     run(dpath("test_singularity"), use_singularity=True)
 
+@connected
+def test_singularity_conda():
+    run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True)
+
 
 def test_issue612():
     run(dpath("test_issue612"), dryrun=True)
@@ -708,6 +712,7 @@ def test_gcloud_singularity(gcloud_cluster):
 
 
 @gcloud
+@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
 def test_gcloud_conda_singularity(gcloud_cluster):
     gcloud_cluster.reset()
     gcloud_cluster.run(use_singularity=True, use_conda=True)
