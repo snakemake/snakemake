@@ -270,7 +270,7 @@ class Logger:
             self.logger.info("")
 
             self.last_msg_was_job_info = True
-        elif level == "group_info":
+        elif level == "group_info" and not self.quiet:
             timestamp()
             if not self.last_msg_was_job_info:
                 self.logger.info("")
@@ -292,7 +292,7 @@ class Logger:
             timestamp()
             self.logger.error("Error in group job {}:".format(msg["groupid"]))
         else:
-            if level == "info":
+            if level == "info" and not self.quiet:
                 self.logger.warning(msg["msg"])
             if level == "warning":
                 self.logger.warning(msg["msg"])
