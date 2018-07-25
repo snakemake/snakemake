@@ -95,7 +95,6 @@ def snakemake(snakefile,
               keep_target_files=False,
               allowed_rules=None,
               jobscript=None,
-              timestamp=False,
               greediness=None,
               no_hooks=False,
               overwrite_shellcmd=None,
@@ -194,7 +193,6 @@ def snakemake(snakefile,
         keep_target_files (bool):   Do not adjust the paths of given target files relative to the working directory.
         allowed_rules (set):        Restrict allowed rules to the given set. If None or empty, all rules are used.
         jobscript (str):            path to a custom shell script template for cluster jobs (default None)
-        timestamp (bool):           print time stamps in front of any output (default False)
         greediness (float):         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
         overwrite_shellcmd (str):   a shell command that shall be executed instead of those given in the workflow. This is for debugging purposes only.
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
@@ -310,7 +308,6 @@ def snakemake(snakefile,
                      nocolor=nocolor,
                      stdout=stdout,
                      debug=verbose,
-                     timestamp=timestamp,
                      use_threads=use_threads,
                      mode=mode)
 
@@ -445,7 +442,6 @@ def snakemake(snakefile,
                                        keep_remote_local=keep_remote_local,
                                        nodeps=nodeps,
                                        jobscript=jobscript,
-                                       timestamp=timestamp,
                                        greediness=greediness,
                                        no_hooks=no_hooks,
                                        overwrite_shellcmd=overwrite_shellcmd,
@@ -1004,9 +1000,6 @@ def get_argument_parser(profile=None):
     group_output.add_argument("--quiet", "-q",
                         action="store_true",
                         help="Do not output any progress or rule information.")
-    group_output.add_argument('--timestamp', '-T',
-                        action='store_true',
-                        help='Add a timestamp to all logging output')
     group_output.add_argument(
         "--print-compilation",
         action="store_true",
@@ -1521,7 +1514,6 @@ def main(argv=None):
                             jobscript=args.jobscript,
                             notemp=args.notemp,
                             keep_remote_local=args.keep_remote,
-                            timestamp=args.timestamp,
                             greediness=args.greediness,
                             no_hooks=args.no_hooks,
                             overwrite_shellcmd=args.overwrite_shellcmd,
