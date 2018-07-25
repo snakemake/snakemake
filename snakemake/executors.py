@@ -419,7 +419,7 @@ class ClusterExecutor(RealExecutor):
                 ' --attempt {attempt} {use_threads} ',
                 '--wrapper-prefix {workflow.wrapper_prefix} ',
                 '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
-                '--notemp --no-hooks --nolock --timestamp --mode {} '.format(Mode.cluster)))
+                '--notemp --no-hooks --nolock --mode {} '.format(Mode.cluster)))
         else:
             self.exec_job = exec_job
 
