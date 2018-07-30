@@ -79,8 +79,10 @@ with the following `environment definition <http://conda.pydata.org/docs/using/e
      - r=3.3.1
      - r-ggplot2=2.1.0
 
+The path to the environment definition is interpreted as **relative to the Snakefile that contains the rule** (unless it is an absolute path, which is discouraged).
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
 Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
+
 
 .. _singularity:
 
