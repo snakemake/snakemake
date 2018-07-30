@@ -82,6 +82,7 @@ class DAG:
         self.conda_envs = dict()
         self.singularity_imgs = dict()
         self._progress = 0
+        self._group = dict()
 
         self.forcerules = set()
         self.forcefiles = set()
@@ -794,6 +795,28 @@ class DAG:
                             stop=self.noneedrun_finished):
             self._priority[job] = Job.HIGHEST_PRIORITY
 
+    def update_groups(self):
+        groups = dict()
+        for job in self.needrun_jobs:
+            if job.group is None:
+                continue
+            group = GroupJob(job.group,
+                             self.bfs(self.depending, job,
+                                      stop=lambda j: j.group != job.group))
+
+            # merge with previously determined group if present
+            for j in group:
+                if j in groups:
+                    other = groups[j]
+                    other.merge(group)
+                    group = other
+                    break
+            # update assignment
+            for j in group:
+                if j not in groups:
+                    groups[j] = group
+        self._group = groups
+
     def update_ready(self, jobs=None):
         """ Update information whether a job is ready to execute.
 
@@ -802,29 +825,20 @@ class DAG:
         if jobs is None:
             jobs = self.needrun_jobs
 
-        groups = dict()
+        candidate_groups = set()
         for job in jobs:
             if not self.finished(job) and self._ready(job):
                 if job.group is None:
                     self._ready_jobs.add(job)
                 else:
-                    group = GroupJob(job.group,
-                                     self.bfs(self.depending, job,
-                                              stop=lambda j: j.group != job.group))
+                    candidate_groups.add(self._group[job])
 
-                    # merge with previously determined group if present
-                    for j in group:
-                        if j in groups:
-                            other = groups[j]
-                            other.merge(group)
-                            group = other
-                            break
-                    # update assignment
-                    for j in group:
-                        if j not in groups:
-                            groups[j] = group
 
-        self._ready_jobs.update(groups.values())
+        self._ready_jobs.update(
+            group for group in candidate_groups
+            if all(self._ready(job) for job in group))
+
+
 
     def close_remote_objects(self):
         """Close all remote objects."""
@@ -839,6 +853,7 @@ class DAG:
         self.update_needrun()
         self.update_priority()
         self.handle_pipes()
+        self.update_groups()
         self.update_ready()
         self.close_remote_objects()
 
@@ -910,7 +925,15 @@ class DAG:
 
     def _ready(self, job):
         """Return whether the given job is ready to execute."""
-        return self._finished.issuperset(filter(self.needrun,
+        group = self._group.get(job, None)
+        if group is None:
+            is_external_needrun_dep = self.needrun
+        else:
+            def is_external_needrun_dep(j):
+                g = self._group.get(j, None)
+                return self.needrun(j) and g is None or g != group
+
+        return self._finished.issuperset(filter(is_external_needrun_dep,
                                                 self.dependencies[job]))
 
     def finish(self, job, update_dynamic=True):

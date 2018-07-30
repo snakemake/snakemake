@@ -252,7 +252,7 @@ class Logger:
                 return item
 
         def timestamp():
-            self.logger.info("[{}]".format(time.asctime()))
+            self.logger.info(indent("[{}]".format(time.asctime())))
 
         level = msg["level"]
 
