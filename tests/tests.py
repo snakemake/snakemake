@@ -779,6 +779,10 @@ def test_issue584():
 def test_issue912():
     run(dpath("test_issue912"))
 
+def test_job_properties():
+    run(dpath("test_job_properties"), cluster="./qsub.py")
+
+
 if __name__ == '__main__':
     import nose
     nose.run(defaultTest=__name__)

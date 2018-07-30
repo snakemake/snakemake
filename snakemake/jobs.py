@@ -1062,7 +1062,8 @@ class GroupJob(AbstractJob):
             "jobid": self.jobid
         }
         properties.update(aux_properties)
-        return properties
+
+        return json.dumps(properties)
 
     @property
     def jobid(self):
