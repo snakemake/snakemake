@@ -800,9 +800,11 @@ class DAG:
         for job in self.needrun_jobs:
             if job.group is None:
                 continue
+            stop = lambda j: j.group != job.group
             group = GroupJob(job.group,
-                             self.bfs(self.depending, job,
-                                      stop=lambda j: j.group != job.group))
+                             chain(self.bfs(self.depending, job, stop=stop),
+                                   self.bfs(self.dependencies, job, stop=stop)))
+
 
             # merge with previously determined group if present
             for j in group:
@@ -822,6 +824,7 @@ class DAG:
 
         Given jobs must be needrun jobs!
         """
+
         if jobs is None:
             jobs = self.needrun_jobs
 
@@ -832,7 +835,6 @@ class DAG:
                     self._ready_jobs.add(job)
                 else:
                     candidate_groups.add(self._group[job])
-
 
         self._ready_jobs.update(
             group for group in candidate_groups
@@ -931,7 +933,7 @@ class DAG:
         else:
             def is_external_needrun_dep(j):
                 g = self._group.get(j, None)
-                return self.needrun(j) and g is None or g != group
+                return self.needrun(j) and (g is None or g != group)
 
         return self._finished.issuperset(filter(is_external_needrun_dep,
                                                 self.dependencies[job]))
