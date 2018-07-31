@@ -263,7 +263,9 @@ def check_conda(singularity_img=None):
         return cmd
 
     try:
-        subprocess.check_output(get_cmd("which conda"),
+        # Use type here since conda now is a function.
+        # type allows to check for both functions and regular commands.
+        subprocess.check_output(get_cmd("type conda"),
                                 shell=True,
                                 stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError:
