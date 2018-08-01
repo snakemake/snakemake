@@ -1,5 +1,12 @@
 # Change Log
 
+# [5.2.2] - 2018-08-01
+## Changed
+- Always print timestamps, removed the --timestamps CLI option.
+- more robust detection of conda command
+- Fixed bug in RMarkdown script execution.
+- Fixed a bug in detection of group jobs.
+
 # [5.2.0] - 2018-06-28
 ## Changed
 - Directory outputs have to marked with `directory`. This ensures proper handling of timestamps and cleanup. This is a breaking change. Implemented by Rasmus Ågren. 
