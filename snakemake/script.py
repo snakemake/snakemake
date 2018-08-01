@@ -297,8 +297,9 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 if len(output) != 1:
                     raise WorkflowError("RMarkdown scripts (.Rmd) may only have a single output file.")
                 out = os.path.abspath(output[0])
-                shell("Rscript -e 'rmarkdown::render(\"{f.name}\", output_file=\"{out}\", quiet=TRUE, params = list(rmd=\"{f.name}\"))'",
-                    bench_record=bench_record)
+                shell("Rscript -e 'rmarkdown::render(\"{f.name}\", output_file=\"{out}\", quiet=TRUE, knit_root_dir = \"{workdir}\", params = list(rmd=\"{f.name}\"))'",
+                    bench_record=bench_record,
+                    workdir=os.getcwd())
 
     except URLError as e:
         raise WorkflowError(e)
