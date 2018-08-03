@@ -569,3 +569,12 @@ or, more concise in this special case:
           run:
               for f in output:
                   shell("echo test > {f}")
+
+There is a compiler error when installing Snakemake with pip or easy_install, what shall I do?
+----------------------------------------------------------------------------------------------
+
+Snakemake itself is plain Python, hence the compiler error must come from one of the dependencies, like e.g., datrie.
+You should have a look if maybe you are missing some library or a certain compiler package.
+If everything seems fine, please report to the upstream developers of the failing dependency.
+
+Note that in general it is recommended to install Snakemake via `Conda <https://conda.io>`_ which gives you precompiled packages and the additional benefit of having :ref:`automatic software deployment <integrated_package_management>` integrated into your workflow execution.
