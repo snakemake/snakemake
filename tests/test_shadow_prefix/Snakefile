@@ -1,0 +1,5 @@
+rule all:
+    input:  "test.in"
+    output: "shadow_prefix"
+    shadow: "shallow"
+    shell: "test -h shadowdir && cp -L {input} {output}"

@@ -366,6 +366,9 @@ def test_script():
 def test_shadow():
     run(dpath("test_shadow"))
 
+def test_shadow_prefix():
+    run(dpath("test_shadow_prefix"), shadow_prefix = "shadowdir")
+    run(dpath("test_shadow_prefix"), shadow_prefix = "shadowdir", cluster="./qsub")
 
 def test_until():
     run(dpath("test_until"),

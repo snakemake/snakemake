@@ -113,6 +113,7 @@ def snakemake(snakefile,
               conda_prefix=None,
               list_conda_envs=False,
               singularity_prefix=None,
+              shadow_prefix=None,
               create_envs_only=False,
               mode=Mode.default,
               wrapper_prefix=None,
@@ -163,7 +164,7 @@ def snakemake(snakefile,
         immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
         standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False) (deprecated)
         ignore_ambiguity (bool):    ignore ambiguous rules and always take the first possible one (default False)
-        snakemakepath (str):        Deprecated parameter whose value is ignored. Do not use.
+        snakemakepath (str):        deprecated parameter whose value is ignored. Do not use.
         lock (bool):                lock the working directory when executing the workflow (default True)
         unlock (bool):              just unlock the working directory (default False)
         cleanup_metadata (list):    just cleanup metadata of given list of output files (default None)
@@ -190,8 +191,8 @@ def snakemake(snakefile,
         notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
         keep_remote_local (bool):   keep local copies of remote files (default False)
         nodeps (bool):              ignore dependencies (default False)
-        keep_target_files (bool):   Do not adjust the paths of given target files relative to the working directory.
-        allowed_rules (set):        Restrict allowed rules to the given set. If None or empty, all rules are used.
+        keep_target_files (bool):   do not adjust the paths of given target files relative to the working directory.
+        allowed_rules (set):        restrict allowed rules to the given set. If None or empty, all rules are used.
         jobscript (str):            path to a custom shell script template for cluster jobs (default None)
         greediness (float):         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
         overwrite_shellcmd (str):   a shell command that shall be executed instead of those given in the workflow. This is for debugging purposes only.
@@ -206,17 +207,18 @@ def snakemake(snakefile,
         singularity_args (str):     additional arguments to pass to singularity
         conda_prefix (str):         the directory in which conda environments will be created (default None)
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
-        create_envs_only (bool):    If specified, only builds the conda environments specified for each job, then exits.
-        list_conda_envs (bool):     List conda environments and their location on disk.
-        mode (snakemake.common.Mode): Execution mode
-        wrapper_prefix (str):       Prefix for wrapper script URLs (default None)
-        kubernetes (str):           Submit jobs to kubernetes, using the given namespace.
-        kubernetes_env (list):      Environment variables that shall be passed to kubernetes jobs.
+        shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
+        create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
+        list_conda_envs (bool):     list conda environments and their location on disk.
+        mode (snakemake.common.Mode): execution mode
+        wrapper_prefix (str):       prefix for wrapper script URLs (default None)
+        kubernetes (str):           submit jobs to kubernetes, using the given namespace.
+        kubernetes_env (list):      environment variables that shall be passed to kubernetes jobs.
         container_image (str):      Docker image to use, e.g., for kubernetes.
-        default_remote_provider (str): Default remote provider to use instead of local files (e.g. S3, GS)
-        default_remote_prefix (str): Prefix for default remote provider (e.g. name of the bucket).
-        assume_shared_fs (bool):    Assume that cluster nodes share a common filesystem (default true).
-        cluster_status (str):       Status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
+        default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
+        default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
+        assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
+        cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
 
             :level:
@@ -381,6 +383,7 @@ def snakemake(snakefile,
                         use_singularity=use_singularity,
                         conda_prefix=conda_prefix,
                         singularity_prefix=singularity_prefix,
+                        shadow_prefix=shadow_prefix,
                         singularity_args=singularity_args,
                         mode=mode,
                         wrapper_prefix=wrapper_prefix,
@@ -454,6 +457,7 @@ def snakemake(snakefile,
                                        use_singularity=use_singularity,
                                        conda_prefix=conda_prefix,
                                        singularity_prefix=singularity_prefix,
+                                       shadow_prefix=shadow_prefix,
                                        singularity_args=singularity_args,
                                        list_conda_envs=list_conda_envs,
                                        kubernetes=kubernetes,
@@ -819,9 +823,14 @@ def get_argument_parser(profile=None):
     group_exec.add_argument(
         "--rerun-incomplete", "--ri",
         action="store_true",
-        help="Re-run all "
-        "jobs the output of which is recognized as incomplete.")
-
+        help=("Re-run all "
+                "jobs the output of which is recognized as incomplete."))
+    group_exec.add_argument(
+        "--shadow-prefix",
+        metavar="DIR",
+        help=("Specify a directory in which the 'shadow' directory is created. "
+                "If not supplied, the value is set to the '.snakemake' directory relative "
+                "to the working directory."))
 
     group_utils = parser.add_argument_group("UTILITIES")
 
@@ -1531,6 +1540,7 @@ def main(argv=None):
                             list_conda_envs=args.list_conda_envs,
                             use_singularity=args.use_singularity,
                             singularity_prefix=args.singularity_prefix,
+                            shadow_prefix=args.shadow_prefix,
                             singularity_args=args.singularity_args,
                             create_envs_only=args.create_envs_only,
                             mode=args.mode,

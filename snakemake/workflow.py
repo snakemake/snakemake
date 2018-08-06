@@ -52,6 +52,7 @@ class Workflow:
                  use_singularity=False,
                  singularity_prefix=None,
                  singularity_args="",
+                 shadow_prefix=None,
                  mode=Mode.default,
                  wrapper_prefix=None,
                  printshellcmds=False,
@@ -98,6 +99,7 @@ class Workflow:
         self.use_singularity = use_singularity
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
+        self.shadow_prefix = shadow_prefix
         self.global_singularity_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
@@ -394,6 +396,7 @@ class Workflow:
             dag=dag,
             conda_prefix=self.conda_prefix,
             singularity_prefix=self.singularity_prefix,
+            shadow_prefix=self.shadow_prefix,
             warn_only=dryrun or printrulegraph or printdag or summary or archive or
             list_version_changes or list_code_changes or list_input_changes or
             list_params_changes or list_untracked or delete_all_output or delete_temp_output)

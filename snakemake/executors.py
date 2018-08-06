@@ -237,6 +237,9 @@ class CPUExecutor(RealExecutor):
             '{overwrite_workdir} {overwrite_config} {printshellcmds} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
 
+        if self.workflow.shadow_prefix:
+            self.exec_job += " --shadow-prefix {} ".format(
+                self.workflow.shadow_prefix)
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
             if self.workflow.conda_prefix:
@@ -423,6 +426,9 @@ class ClusterExecutor(RealExecutor):
         else:
             self.exec_job = exec_job
 
+        if self.workflow.shadow_prefix:
+            self.exec_job += " --shadow-prefix {} ".format(
+                self.workflow.shadow_prefix)
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
             if self.workflow.conda_prefix:
