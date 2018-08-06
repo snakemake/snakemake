@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import tempfile
 from urllib.request import urlopen
@@ -16,10 +17,13 @@ from snakemake.logging import logger
 from snakemake.common import strip_prefix
 from snakemake import utils
 from snakemake import singularity
+from snakemake.io import git_content
 
 
 def content(env_file):
-    if urlparse(env_file).scheme:
+    if env_file.startswith("git+file:"):
+        return git_content(env_file).encode('utf-8')
+    elif urlparse(env_file).scheme:
         try:
             return urlopen(env_file).read()
         except URLError as e:
@@ -170,7 +174,8 @@ class Env:
         tmp_file = None
 
         url_scheme, *_ = urlparse(env_file)
-        if url_scheme and not url_scheme == 'file':
+        if (url_scheme and not url_scheme == 'file') or \
+            (not url_scheme and env_file.startswith("git+file:/")):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as tmp:
                 tmp.write(self.content)
                 env_file = tmp.name

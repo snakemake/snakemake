@@ -4,6 +4,7 @@ __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import collections
+import git
 import os
 import shutil
 from pathlib import Path
@@ -867,6 +868,47 @@ def update_wildcard_constraints(pattern,
         updated.flags = dict(pattern.flags)
     return updated
 
+def split_git_path(path):
+    file_sub = re.sub("^git\+file:/+",'/',path)
+    (file_path, version) = file_sub.split("@")
+    root_path = get_git_root(file_path)
+    if file_path.startswith(root_path):
+        file_path = file_path[len(root_path):].lstrip("/")
+    return (root_path, file_path, version)
+
+
+
+def get_git_root(path):
+    """
+        Args:
+            path: (str) Path a to a directory/file that is located inside the repo
+        Returns:
+            path to root folder for git repo
+    """
+    git_repo = git.Repo(path, search_parent_directories=True)
+    return git_repo.git.rev_parse("--show-toplevel")
+
+def git_content(git_file):
+    """
+        This function will extract a file from a git repository, one located on
+        the filesystem.
+        Expected format is git+file:///path/to/your/repo/path_to_file@@version
+
+        Args:
+          env_file (str): consist of path to repo, @, version and file information
+                          Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
+        Returns:
+            file content or None if the expected format isn't meet
+    """
+    if git_file.startswith("git+file:"):
+        (root_path, file_path, version) = split_git_path(git_file)
+        return git.Repo(root_path).git.show('{}:{}'.format(version, file_path))
+    else:
+        raise WorkflowError("Provided git path ({}) doesn't meet the "
+                        "expected format:".format(git_file) +
+                        ", expected format is "
+                        "git+file://PATH_TO_REPO/PATH_TO_FILE_INSIDE_REPO@VERSION")
+    return None
 
 def strip_wildcard_constraints(pattern):
     """Return a string that does not contain any wildcard constraints."""

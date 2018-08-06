@@ -31,3 +31,4 @@ dependencies:
   # needed by graphviz
   - xorg-libxrender
   - xorg-libxpm
+  - gitpython

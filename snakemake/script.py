@@ -21,6 +21,7 @@ from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import MIN_PY_VERSION, escape_backslash
+from snakemake.io import git_content, split_git_path
 
 
 PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
@@ -159,7 +160,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
     """
-    if not path.startswith("http"):
+    if not path.startswith("http") and not path.startswith("git+file"):
         if path.startswith("file://"):
             path = path[7:]
         elif path.startswith("file:"):
@@ -169,7 +170,16 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
         path = "file://" + path
     path = format(path, stepout=1)
     if path.startswith("file://"):
-        sourceurl = "file:" + pathname2url(path[7:])
+        sourceurl = "file:"+pathname2url(path[7:])
+    elif path.startswith("git+file"):
+        (root_path, file_path, version) = split_git_path(path)
+        dir = ".snakemake/wrappers"
+        os.makedirs(dir, exist_ok=True)
+        new_path = os.path.join(dir, version + "-"+ "-".join(file_path.split("/")))
+        with open(new_path,'w') as wrapper:
+            wrapper.write(git_content(path))
+            sourceurl = "file:" + new_path
+            path = path.rstrip("@" + version)
     else:
         sourceurl = path
 
