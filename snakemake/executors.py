@@ -1133,7 +1133,8 @@ class KubernetesExecutor(ClusterExecutor):
         exec_job = self.format_job(
             self.exec_job, job, _quote_all=True, rules=job.rules,
             use_threads="--force-use-threads" if not job.is_group() else "")
-        jobid = "snakejob-{}-{}".format(self.run_namespace, job.jobid)
+        jobid = "snakejob-{}-{}-{}".format(
+            self.run_namespace, job.jobid, job.attempt)
 
         body = kubernetes.client.V1Pod()
         body.metadata = kubernetes.client.V1ObjectMeta()
@@ -1217,14 +1218,37 @@ class KubernetesExecutor(ClusterExecutor):
             container.security_context = kubernetes.client.V1SecurityContext(
                 privileged=True)
 
-        pod = self.kubeapi.create_namespaced_pod(self.namespace, body)
+        pod = self._kubernetes_retry(
+            lambda: self.kubeapi.create_namespaced_pod(self.namespace, body))
+
         logger.info("Get status with:\n"
                     "kubectl describe pod {jobid}\n"
                     "kubectl logs {jobid}".format(jobid=jobid))
         self.active_jobs.append(KubernetesJob(
             job, jobid, callback, error_callback, pod, None))
 
+    def _kubernetes_retry(self, func):
+        import kubernetes
+        try:
+            with self.lock:
+                return func()
+        except kubernetes.client.rest.ApiException as e:
+            if e.status == 401:
+                # Unauthorized.
+                # Reload config in order to ensure token is
+                # refreshed. Then try again.
+                with self.lock:
+                    kubernetes.config.load_kube_config()
+                try:
+                    with self.lock:
+                        return func()
+                except kubernetes.client.rest.ApiException as e:
+                    # Both attempts failed, raise error.
+                    raise WorkflowError(e)
+
+
     def _wait_for_jobs(self):
+        import kubernetes
         while True:
             with self.lock:
                 if not self.wait:
@@ -1234,8 +1258,19 @@ class KubernetesExecutor(ClusterExecutor):
                 still_running = list()
             for j in active_jobs:
                 with self.status_rate_limiter:
-                    res = self.kubeapi.read_namespaced_pod_status(
-                        j.jobid, self.namespace)
+                    logger.debug("Checking status for pod {}".format(j.jobid))
+                    job_not_found = False
+                    try:
+                        res = self._kubernetes_retry(
+                            lambda: self.kubeapi.read_namespaced_pod_status(j.jobid, self.namespace))
+                    except kubernetes.client.rest.ApiException as e:
+                        if e.status == 404:
+                            # Jobid not found
+                            # The job is likely already done and was deleted on
+                            # the server.
+                            j.callback(j.job)
+                            continue
+
                     if res.status.phase == "Failed":
                         msg = ("For details, please issue:\n"
                                "kubectl describe pod {jobid}\n"

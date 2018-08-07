@@ -841,7 +841,6 @@ class DAG:
             if all(self._ready(job) for job in group))
 
 
-
     def close_remote_objects(self):
         """Close all remote objects."""
         for job in self.jobs:
