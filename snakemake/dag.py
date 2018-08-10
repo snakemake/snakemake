@@ -389,7 +389,8 @@ class DAG:
             for f in expanded_output:
                 # This won't create normal files if missing, but will create
                 # the flag file for directories.
-                f.touch()
+                if f.exists_local:
+                    f.touch()
 
     def unshadow_output(self, job, only_log=False):
         """ Move files from shadow directory to real output paths. """
