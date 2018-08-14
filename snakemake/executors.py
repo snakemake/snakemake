@@ -1229,22 +1229,22 @@ class KubernetesExecutor(ClusterExecutor):
 
     def _kubernetes_retry(self, func):
         import kubernetes
-        try:
-            with self.lock:
+        with self.lock:
+            try:
                 return func()
-        except kubernetes.client.rest.ApiException as e:
-            if e.status == 401:
-                # Unauthorized.
-                # Reload config in order to ensure token is
-                # refreshed. Then try again.
-                with self.lock:
+            except kubernetes.client.rest.ApiException as e:
+                if e.status == 401:
+                    # Unauthorized.
+                    # Reload config in order to ensure token is
+                    # refreshed. Then try again.
                     kubernetes.config.load_kube_config()
-                try:
-                    with self.lock:
+                    try:
                         return func()
-                except kubernetes.client.rest.ApiException as e:
-                    # Both attempts failed, raise error.
-                    raise WorkflowError(e, "This is likely a bug in https://github.com/kubernetes-client/python.")
+                    except kubernetes.client.rest.ApiException as e:
+                        # Both attempts failed, raise error.
+                        raise WorkflowError(e,
+                            "This is likely a bug in "
+                            "https://github.com/kubernetes-client/python.")
 
     def _wait_for_jobs(self):
         import kubernetes
