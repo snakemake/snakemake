@@ -1244,8 +1244,7 @@ class KubernetesExecutor(ClusterExecutor):
                         return func()
                 except kubernetes.client.rest.ApiException as e:
                     # Both attempts failed, raise error.
-                    raise WorkflowError(e)
-
+                    raise WorkflowError(e, "This is likely a bug in https://github.com/kubernetes-client/python.")
 
     def _wait_for_jobs(self):
         import kubernetes
@@ -1270,6 +1269,9 @@ class KubernetesExecutor(ClusterExecutor):
                             # the server.
                             j.callback(j.job)
                             continue
+                    except WorkflowError as e:
+                        print_exception(e, self.workflow.linemaps)
+                        j.error_callback(j.job)
 
                     if res.status.phase == "Failed":
                         msg = ("For details, please issue:\n"
