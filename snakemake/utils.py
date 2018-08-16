@@ -38,7 +38,7 @@ def validate(data, schema, set_default=True):
     """
     try:
         import jsonschema
-        from jsonschema import Draft4Validator, validators, RefResolver
+        from jsonschema import validators, RefResolver
     except ImportError:
         raise WorkflowError("The Python 3 package jsonschema must be installed "
                             "in order to use the validate directive.")
@@ -73,7 +73,9 @@ def validate(data, schema, set_default=True):
         return validators.extend(
             validator_class, {"properties" : set_defaults},
         )
-    DefaultValidator = extend_with_default(Draft4Validator)
+
+    Validator = validators.validator_for(schema)
+    DefaultValidator = extend_with_default(Validator)
 
     if not isinstance(data, dict):
         try:
