@@ -3,7 +3,7 @@ import pytest
 from snakemake.utils import validate
 import pandas as pd
 
-CONFIG_SCHEMA = """$schema: "http://json-schema.org/draft-07/schema#"
+CONFIG_SCHEMA = """$schema: "http://json-schema.org/draft-04/schema#"
 description: Configuration schema
 type: object
 properties:
@@ -25,9 +25,11 @@ BAR_SCHEMA = """definitions:
     default: foo
 """
 
-BAR_JSON_SCHEMA = {"definitions": {"jsonbar": {"type": "string", "description": "bar entry", "default": "foo"}}}
+BAR_JSON_SCHEMA = {"definitions": {"jsonbar": {"type": "string",
+                                               "description": "bar entry",
+                                               "default": "foo"}}}
 
-DF_SCHEMA = """$schema: "http://json-schema.org/draft-07/schema#"
+DF_SCHEMA = """$schema: "http://json-schema.org/draft-04/schema#"
 description: an entry in the sample sheet
 properties:
   sample:
