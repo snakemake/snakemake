@@ -52,6 +52,11 @@ class RemoteObject(gfal.RemoteObject):
 
     def download(self):
         if self.exists():
+            if self.size() == 0:
+                # Globus erroneously thinks that a transfer is incomplete if a
+                # file is empty. Hence we manually touch the local file.
+                self.local_touch()
+                return self.local_file()
             # Download file. Wait for staging.
             source = self.remote_file()
             target = "file://" + os.path.abspath(self.local_file())
