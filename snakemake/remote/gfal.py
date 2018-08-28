@@ -113,7 +113,7 @@ class RemoteObject(AbstractRemoteObject):
             if self.size() == 0:
                 # Globus erroneously thinks that a transfer is incomplete if a
                 # file is empty. Hence we manually touch the local file.
-                self.local_touch()
+                self.local_touch_or_create()
                 return self.local_file()
             # Download file. Wait for staging.
             source = self.remote_file()
