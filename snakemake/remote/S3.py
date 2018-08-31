@@ -332,4 +332,4 @@ class S3Helper(object):
 
     def list_keys(self, bucket_name):
         b = self.s3.Bucket(bucket_name)
-        return [o.key for o in b.objects]
+        return [o.key for o in b.objects.iterator()]
