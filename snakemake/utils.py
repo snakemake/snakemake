@@ -15,6 +15,7 @@ import multiprocessing
 import string
 import shlex
 import sys
+from urllib.parse import urljoin
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
@@ -53,7 +54,7 @@ def validate(data, schema, set_default=True):
 
     schemafile = schema
     schema = _load_configfile(schema, filetype="Schema")
-    resolver = RefResolver('file://' + os.path.dirname(schemafile) + '/', schema,
+    resolver = RefResolver(urljoin('file:', os.path.dirname(schemafile)), schema,
                            handlers={'file': lambda uri: _load_configfile(re.sub("^file://", "", uri))})
 
     # Taken from http://python-jsonschema.readthedocs.io/en/latest/faq/
