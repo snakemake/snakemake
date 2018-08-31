@@ -16,7 +16,7 @@ import re
 from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
-from snakemake.utils import format, find_next_occurence
+from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
