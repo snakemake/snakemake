@@ -16,7 +16,7 @@ import re
 from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
-from snakemake.utils import format
+from snakemake.utils import format, find_next_occurence
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
@@ -265,15 +265,18 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 else:
                     # Insert Snakemake object after the RMarkdown header
                     code = source.read().decode()
-                    pos = code.rfind("---")
-                    f.write(str.encode(code[:pos+3]))
+                    matcher = "---\n"
+                    fndr = find_next_occurence(code, matcher)
+                    for _ in range(2):
+                        pos = next(fndr)
+                    f.write(str.encode(code[:pos]))
                     preamble = textwrap.dedent("""
                         ```{r, echo=FALSE, message=FALSE, warning=FALSE}
                         %s
                         ```
                         """ % preamble)
                     f.write(preamble.encode())
-                    f.write(str.encode(code[pos+3:]))
+                    f.write(str.encode(code[pos:]))
 
             if path.endswith(".py"):
                 py_exec = sys.executable

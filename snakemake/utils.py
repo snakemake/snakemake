@@ -409,3 +409,12 @@ def available_cpu_count():
         pass
 
     return multiprocessing.cpu_count()
+
+def find_next_occurence(text, pattern):
+    """Yield end positon of successive matches of pattern in text"""
+    offset = len(pattern)
+    pos = 0
+    while True:
+        pos = text.find(pattern, pos)
+        pos += offset
+        yield pos
