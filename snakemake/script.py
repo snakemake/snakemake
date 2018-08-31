@@ -265,18 +265,15 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 else:
                     # Insert Snakemake object after the RMarkdown header
                     code = source.read().decode()
-                    matcher = "---\n"
-                    fndr = find_next_occurence(code, matcher)
-                    for _ in range(2):
-                        pos = next(fndr)
-                    f.write(str.encode(code[:pos]))
+                    pos = next(islice(re.finditer(r"---\n", code), 1, 2))
+                    f.write(str.encode(code[:pos+3]))
                     preamble = textwrap.dedent("""
                         ```{r, echo=FALSE, message=FALSE, warning=FALSE}
                         %s
                         ```
                         """ % preamble)
                     f.write(preamble.encode())
-                    f.write(str.encode(code[pos:]))
+                    f.write(str.encode(code[pos+3:]))
 
             if path.endswith(".py"):
                 py_exec = sys.executable
