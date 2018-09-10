@@ -3,7 +3,7 @@ import pytest
 from snakemake.utils import validate
 import pandas as pd
 
-CONFIG_SCHEMA = """$schema: "http://json-schema.org/draft-04/schema#"
+CONFIG_SCHEMA = """$schema: "http://json-schema.org/draft-07/schema#"
 description: Configuration schema
 type: object
 properties:

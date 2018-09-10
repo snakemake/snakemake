@@ -51,11 +51,11 @@ def validate(data, schema, set_default=True):
             workflow = frame.f_globals["workflow"]
             schema = os.path.join(workflow.current_basedir, schema)
 
-
     schemafile = schema
     schema = _load_configfile(schema, filetype="Schema")
-    resolver = RefResolver(urljoin('file:', os.path.dirname(schemafile)), schema,
-                           handlers={'file': lambda uri: _load_configfile(re.sub("^file://", "", uri))})
+    resolver = RefResolver(
+        urljoin('file:', os.path.dirname(schemafile)), schema,
+        handlers={'file': lambda uri: _load_configfile(re.sub("^file://", "", uri))})
 
     # Taken from http://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
@@ -72,10 +72,14 @@ def validate(data, schema, set_default=True):
                 yield error
 
         return validators.extend(
-            validator_class, {"properties" : set_defaults},
+            validator_class, {"properties": set_defaults},
         )
 
     Validator = validators.validator_for(schema)
+    if Validator.META_SCHEMA['$schema'] != schema['$schema']:
+        logger.warning("No validator found for JSON Schema version identifier '{}'".format(schema['$schema']))
+        logger.warning("Defaulting to validator for JSON Schema version '{}'".format(Validator.META_SCHEMA['$schema']))
+        logger.warning("Note that schema file may not be validated correctly.")
     DefaultValidator = extend_with_default(Validator)
 
     if not isinstance(data, dict):
