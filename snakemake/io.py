@@ -885,8 +885,8 @@ def get_git_root(path):
     """
     try:
         import git
-    except ImportError:
-        raise WorkflowError("The Python package gitpython has to be installed.")
+    except ImportError as e:
+        raise WorkflowError("The Python package gitpython has to be installed.", e)
 
     git_repo = git.Repo(path, search_parent_directories=True)
     return git_repo.git.rev_parse("--show-toplevel")
