@@ -73,7 +73,7 @@ Validation
 
 With Snakemake 5.1, it is possible to validate both types of configuration via `JSON schemas <http://json-schema.org>`_.
 The function ``snakemake.utils.validate`` takes a loaded configuration (a config dictionary or a Pandas data frame) and validates it with a given JSON schema.
-Thereby, the schema can be provided in JSON or YAML format.
+Thereby, the schema can be provided in JSON or YAML format. Also, by using the defaults property it is possible to populate entries with default values. See `jsonschema FAQ on setting default values <https://python-jsonschema.readthedocs.io/en/latest/faq/>`_ for details.
 In case of the data frame, the schema should model the record that is expected in each row of the data frame.
 In the following example,
 
@@ -113,12 +113,17 @@ the schema for validating the samples data frame looks like this:
     condition:
       type: string
       description: sample condition that will be compared during differential expression analysis (e.g. a treatment, a tissue time, a disease)
+    case:
+      type: boolean
+      default: true
+      description: boolean that indicates if sample is case or control
 
   required:
     - sample
     - condition
 
-
+Here, in case the case column is missing, the validate function will
+populate it with True for all entries.
 
 .. _snakefiles-cluster_configuration:
 

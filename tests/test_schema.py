@@ -111,7 +111,7 @@ def test_config(config_schema):
 
 def test_config_ref(config_schema_ref):
     config = {}
-    validate(config, str(config_schema_ref), True)
+    validate(config, str(config_schema_ref))
     assert config['param']['foo'] == 'bar'
     assert config['param']['bar'] == 'yaml'
     assert config['param']['jsonbar'] == 'json'
@@ -125,8 +125,8 @@ def test_config_ref(config_schema_ref):
 
 def test_dataframe(df_schema):
     df = pd.DataFrame([{'sample': 'foo', 'condition': 'bar'}])
-    validate(df, str(df_schema))
+    validate(df, str(df_schema), False)
     assert sorted(df.columns) == sorted(['sample', 'condition'])
-    df = validate(df, str(df_schema), True)
+    validate(df, str(df_schema))
     assert sorted(df.columns) == sorted(['sample', 'condition', 'case'])
     assert df.case.loc[0]
