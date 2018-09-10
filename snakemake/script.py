@@ -194,10 +194,13 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 # Obtain search path for current snakemake module.
                 # The module is needed for unpickling in the script.
                 # We append it at the end (as a fallback).
-                searchpath = os.path.dirname(os.path.dirname(__file__))
+                searchpath = '"{}"'.format(os.path.dirname(os.path.dirname(__file__)))
+                # For local scripts, add their location to the path in case they use path-based imports
+                if path.startswith("file://"):
+                    searchpath += ', "{}"'.format(os.path.dirname(path[7:]))
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
-                import sys; sys.path.append("{}"); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
+                import sys; sys.path.extend([{}]); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
                 ######## Original script #########
                 """).format(escape_backslash(searchpath),
                             snakemake,
@@ -246,18 +249,11 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 raise ValueError(
                     "Unsupported script: Expecting either Python (.py), R (.R) or RMarkdown (.Rmd) script.")
 
-            if path.startswith("file://"):
-                # in case of local path, use the same directory
-                dir = os.path.dirname(path)[7:]
-                prefix = ".snakemake."
-            else:
-                dir = ".snakemake/scripts"
-                prefix = ""
-                os.makedirs(dir, exist_ok=True)
+            dir = ".snakemake/scripts"
+            os.makedirs(dir, exist_ok=True)
 
             with tempfile.NamedTemporaryFile(
                 suffix="." + os.path.basename(path),
-                prefix=prefix,
                 dir=dir,
                 delete=False) as f:
                 if not path.endswith(".Rmd"):

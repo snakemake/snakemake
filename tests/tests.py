@@ -785,6 +785,9 @@ def test_issue912():
 def test_job_properties():
     run(dpath("test_job_properties"), cluster="./qsub.py")
 
+def test_issue916():
+    run(dpath("test_issue916"))
+
 def test_issue930():
     run(dpath("test_issue930"), cluster="./qsub")
 

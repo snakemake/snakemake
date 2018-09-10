@@ -1,0 +1,6 @@
+rule all:
+    input: "pythonTest"
+
+rule testIssue916:
+    output: "pythonTest"
+    script: "pythonTest.py"
