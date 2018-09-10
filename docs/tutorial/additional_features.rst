@@ -166,7 +166,7 @@ with ``envs/samtools.yaml`` defined as
   channels:
     - bioconda
   dependencies:
-    - samtools =1.3
+    - samtools =1.9
 
 .. sidebar:: Note
 
