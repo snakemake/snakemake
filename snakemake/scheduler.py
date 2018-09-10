@@ -264,20 +264,22 @@ class JobScheduler:
                 if not needrun:
                     continue
 
-                logger.debug("Resources before job selection: {}".format(
-                    self.resources))
-                logger.debug("Ready jobs ({}):\n\t".format(len(needrun)) +
-                             "\n\t".join(map(str, needrun)))
-
                 # select jobs by solving knapsack problem (omit with dryrun)
-                run = needrun if self.dryrun else self.job_selector(needrun)
-                logger.debug("Selected jobs ({}):\n\t".format(len(run)) +
-                             "\n\t".join(map(str, run)))
+                if self.dryrun:
+                    run = needrun
+                else:
+                    logger.debug("Resources before job selection: {}".format(
+                        self.resources))
+                    logger.debug("Ready jobs ({}):\n\t".format(len(needrun)) +
+                                 "\n\t".join(map(str, needrun)))
+                    run = self.job_selector(needrun)
+                    logger.debug("Selected jobs ({}):\n\t".format(len(run)) +
+                                 "\n\t".join(map(str, run)))
+                    logger.debug(
+                        "Resources after job selection: {}".format(self.resources))
                 # update running jobs
                 with self._lock:
                     self.running.update(run)
-                logger.debug(
-                    "Resources after job selection: {}".format(self.resources))
                 # actually run jobs
                 for job in run:
                     with self.rate_limiter:
@@ -307,8 +309,6 @@ class JobScheduler:
             if name in self.resources:
                 value = self.calc_resource(name, value)
                 self.resources[name] += value
-                logger.debug("Releasing {} {} (now {}).".format(
-                    value, name, self.resources[name]))
 
     def _proceed(self, job,
                  update_dynamic=True,
@@ -443,8 +443,8 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             if name == "_cores":
                 name = "threads"
             raise WorkflowError("Job needs {name}={res} but only {name}={gres} "
-                                "are available. This is likely because a two jobs "
-                                "are connected via a pipe and have to run "
+                                "are available. This is likely because two "
+                                "jobs are connected via a pipe and have to run "
                                 "simultaneously. Consider providing more "
                                 "resources (e.g. via --cores).".format(
                                     name=name, res=value, gres=gres))

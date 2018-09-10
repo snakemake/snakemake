@@ -4,6 +4,7 @@ __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import collections
+import git
 import os
 import shutil
 from pathlib import Path
@@ -147,6 +148,10 @@ class _IOFile(str):
     def is_ancient(self):
         return is_flagged(self._file, "ancient")
 
+    @property
+    def is_directory(self):
+        return is_flagged(self._file, "directory")
+
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
@@ -206,7 +211,7 @@ class _IOFile(str):
             return self.exists_local
 
     def parents(self, omit=0):
-        """Yield all parent paths, omitting the given number of ancenstors."""
+        """Yield all parent paths, omitting the given number of ancestors."""
         for p in list(Path(self.file).parents)[::-1][omit:]:
             p = IOFile(str(p), rule=self.rule)
             p.clone_flags(self)
@@ -266,7 +271,10 @@ class _IOFile(str):
     @property
     def mtime_local(self):
         # do not follow symlinks for modification time
-        return lstat(self.file).st_mtime
+        if os.path.isdir(self.file) and os.path.exists(os.path.join(self.file, ".snakemake_timestamp")):
+            return lstat(os.path.join(self.file, ".snakemake_timestamp")).st_mtime
+        else:
+            return lstat(self.file).st_mtime
 
     @property
     def flags(self):
@@ -301,8 +309,12 @@ class _IOFile(str):
             #is the best we can do.
             return self.mtime > time
         else:
+            if os.path.isdir(self.file) and os.path.exists(os.path.join(self.file, ".snakemake_timestamp")):
+                st_mtime_file = os.path.join(self.file, ".snakemake_timestamp")
+            else:
+                st_mtime_file = self.file
             try:
-                return os.stat(self, follow_symlinks=True).st_mtime > time or self.mtime > time
+                return os.stat(st_mtime_file, follow_symlinks=True).st_mtime > time or self.mtime > time
             except FileNotFoundError:
                 raise WorkflowError("File {} not found although it existed before. Is there another active process that might have deleted it?")
 
@@ -325,9 +337,9 @@ class _IOFile(str):
     def prepare(self):
         path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
         dir = os.path.dirname(path_until_wildcard)
-        if len(dir) > 0 and not os.path.exists(dir):
+        if len(dir) > 0:
             try:
-                os.makedirs(dir)
+                os.makedirs(dir, exist_ok = True)
             except OSError as e:
                 # ignore Errno 17 "File exists" (reason: multiprocessing)
                 if e.errno != 17:
@@ -345,16 +357,26 @@ class _IOFile(str):
                     lchmod(os.path.join(self.file, d), mode)
                 for f in files:
                     lchmod(os.path.join(self.file, f), mode)
-        else:
-            lchmod(self.file, mode)
+        lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
-        remove(self, remove_non_empty_dir=remove_non_empty_dir)
+        if self.is_directory:
+            remove(self, remove_non_empty_dir=True)
+        else:
+            remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
         """ times must be 2-tuple: (atime, mtime) """
         try:
-            lutime(self.file, times)
+            if self.is_directory:
+                file = os.path.join(self.file, ".snakemake_timestamp")
+                # Create the flag file if it doesn't exist
+                if not os.path.exists(file):
+                    with open(file, "w") as f:
+                        pass
+                lutime(file, times)
+            else:
+                lutime(self.file, times)
         except OSError as e:
             if e.errno == 2:
                 raise MissingOutputException(
@@ -369,12 +391,13 @@ class _IOFile(str):
         try:
             self.touch()
         except MissingOutputException:
-            # first create parent directory if it does not yet exist
-            parent = os.path.dirname(self.file)
-            if parent:
-                os.makedirs(parent, exist_ok=True)
+            # first create directory if it does not yet exist
+            dir = self.file if self.is_directory else os.path.dirname(self.file)
+            if dir:
+                os.makedirs(dir, exist_ok=True)
             # create empty file
-            with open(self.file, "w") as f:
+            file = os.path.join(self.file, ".snakemake_timestamp") if self.is_directory else self.file
+            with open(file, "w") as f:
                 pass
 
     def apply_wildcards(self,
@@ -636,6 +659,17 @@ def ancient(value):
     """
     return flag(value, "ancient")
 
+def directory(value):
+    """
+    A flag to specify that an output is a directory, rather than a file or named pipe.
+    """
+    if is_flagged(value, "pipe"):
+        raise SyntaxError("Pipe and directory flags are mutually exclusive.")
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Remote and directory flags are mutually exclusive.")
+    if is_flagged(value, "dynamic"):
+        raise SyntaxError("Dynamic and directory flags are mutually exclusive.")
+    return flag(value, "directory")
 
 def temp(value):
     """
@@ -818,8 +852,6 @@ def update_wildcard_constraints(pattern,
         examined_names.add(name)
         # Don't override if constraint already set
         if constraint is not None:
-            if name in wildcard_constraints:
-                raise ValueError("Wildcard {} is constrained by both the rule and the file pattern. Consider removing one of the constraints.")
             return match.group(0)
         # Only update if a new constraint has actually been set
         elif newconstraint is not None:
@@ -836,6 +868,54 @@ def update_wildcard_constraints(pattern,
         updated.flags = dict(pattern.flags)
     return updated
 
+def split_git_path(path):
+    file_sub = re.sub("^git\+file:/+",'/',path)
+    (file_path, version) = file_sub.split("@")
+    root_path = get_git_root(file_path)
+    if file_path.startswith(root_path):
+        file_path = file_path[len(root_path):].lstrip("/")
+    return (root_path, file_path, version)
+
+
+
+def get_git_root(path):
+    """
+        Args:
+            path: (str) Path a to a directory/file that is located inside the repo
+        Returns:
+            path to root folder for git repo
+    """
+    git_repo = git.Repo(path, search_parent_directories=True)
+    return git_repo.git.rev_parse("--show-toplevel")
+
+def git_content(git_file):
+    """
+        This function will extract a file from a git repository, one located on
+        the filesystem.
+        Expected format is git+file:///path/to/your/repo/path_to_file@@version
+
+        Args:
+          env_file (str): consist of path to repo, @, version and file information
+                          Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
+        Returns:
+            file content or None if the expected format isn't meet
+    """
+    if git_file.startswith("git+file:"):
+        (root_path, file_path, version) = split_git_path(git_file)
+        return git.Repo(root_path).git.show('{}:{}'.format(version, file_path))
+    else:
+        raise WorkflowError("Provided git path ({}) doesn't meet the "
+                        "expected format:".format(git_file) +
+                        ", expected format is "
+                        "git+file://PATH_TO_REPO/PATH_TO_FILE_INSIDE_REPO@VERSION")
+    return None
+
+def strip_wildcard_constraints(pattern):
+    """Return a string that does not contain any wildcard constraints."""
+    def strip_constraint(match):
+        return "{{{}}}".format(match.group("name"))
+    return _wildcard_regex.sub(strip_constraint, pattern)
+
 
 # TODO rewrite Namedlist!
 class Namedlist(list):
@@ -844,7 +924,8 @@ class Namedlist(list):
     it is hashable, however the hash does not consider the item names.
     """
 
-    def __init__(self, toclone=None, fromdict=None, plainstr=False):
+    def __init__(self, toclone=None, fromdict=None,
+                 plainstr=False, strip_constraints=False):
         """
         Create the object.
 
@@ -857,7 +938,12 @@ class Namedlist(list):
         self._names = dict()
 
         if toclone:
-            self.extend(map(str, toclone) if plainstr else toclone)
+            if plainstr:
+                self.extend(map(str, toclone))
+            elif strip_constraints:
+                self.extend(map(strip_wildcard_constraints, toclone))
+            else:
+                self.extend(toclone)
             if isinstance(toclone, Namedlist):
                 self.take_names(toclone.get_names())
         if fromdict:
@@ -939,6 +1025,12 @@ class Namedlist(list):
 
     def plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)
+
+    def stripped_constraints(self):
+        return self.__class__.__call__(toclone=self, strip_constraints=True)
+
+    def clone(self):
+        return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):
         return self.__dict__.get(key, default_value)

@@ -527,6 +527,22 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
         shell:
             "somecommand {input} {output}"
 
+Directories as outputs
+----------------------
+
+There are situations where it can be convenient to have directories, rather than files, as outputs of a rule. For example, some tools generate different output files based on which settings they are run with. Rather than covering all these cases with conditional statements in the Snakemake rule, you can let the rule output a directory that contains all the output files regardless of settings. Another use case could be when the number of outputs is large or unknown, say one file per identified species in a metagenomics sample or one file per cluster from a clustering algorithm. If all downstream rules rely on the whole sets of outputs, rather than on the individual species/clusters, then having a directory as an output can be a faster and easier solution compared to using the ``dynamic`` keyword.
+As of version 5.2.0, directories as outputs have to be explicitly marked with ``directory``. This is primarily for safety reasons; since all outputs are deleted before a job is executed, we don't want to risk deleting important directories if the user makes some mistake. Marking the output as ``directory`` makes the intent clear, and the output can be safely removed. Another reason comes down to how modification time for directories work. The modification time on a directory changes when a file or a subdirectory is added, removed or renamed. This can easily happen in not-quite-intended ways, such as when Apple macOS or MS Windows add ``.DS_Store`` or ``thumbs.db`` files to store parameters for how the directory contents should be displayed. When the ``directory`` flag is used, then a hidden file called ``.snakemake_timestamp`` is created in the output directory, and the modification time of that file is used when determining whether the rule output is up to date or if it needs to be rerun.
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile"
+        output:
+            directory("path/to/outputdir")
+        shell:
+            "somecommand {input} {output}"
+
 Ignoring timestamps
 -------------------
 
@@ -552,7 +568,7 @@ Shadow rules
 
 Shadow rules result in each execution of the rule to be run in isolated temporary directories. This "shadow" directory contains symlinks to files and directories in the current workdir. This is useful for running programs that generate lots of unused files which you don't want to manually cleanup in your snakemake workflow. It can also be useful if you want to keep your workdir clean while the program executes, or simplify your workflow by not having to worry about unique filenames for all outputs of all rules.
 
-By setting ``shadow: "shallow"``, the top level files and directories are symlinked, so that any relative paths in a subdirectory will be real paths in the filesystem. The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir. Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
+By setting ``shadow: "shallow"``, the top level files and directories are symlinked, so that any relative paths in a subdirectory will be real paths in the filesystem. The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir. The setting ``shadow: "minimal"`` only symlinks the inputs to the rule. Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
 
 Shadow directories are stored one per rule execution in ``.snakemake/shadow/``, and are cleared on subsequent snakemake invocations unless the ``--keep-shadow`` command line argument is used.
 
@@ -622,7 +638,7 @@ Dynamic Files
 
 Snakemake provides experimental support for dynamic files.
 Dynamic files can be used whenever one has a rule, for which the number of output files is unknown before the rule was executed.
-This is useful for example with cetain clustering algorithms:
+This is useful for example with certain clustering algorithms:
 
 .. code-block:: python
 
@@ -942,8 +958,9 @@ Defining groups for execution
 -----------------------------
 
 From Snakemake 5.0 on, it is possible to assign rules to groups.
-Such groups will be executed together in cluster or cloud mode, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node. By this, queueing and execution time can be
-safed, in particular if one or several short-running rules are involved.
+Such groups will be executed together in **cluster** or **cloud mode**, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node.
+By this, queueing and execution time can be safed, in particular if one or several short-running rules are involved.
+When executing locally, group definitions are ignored.
 
 Groups can be defined via the ``group`` keyword, e.g.,
 
@@ -1016,6 +1033,7 @@ From Snakemake 5.0 on, it is possible to mark output files as pipes, via the ``p
           "grep {wildcards.i} < {input} > {output}"
 
 If an output file is marked to be a pipe, then Snakemake will first create a `named pipe <https://en.wikipedia.org/wiki/Named_pipe>`_ with the given name and then execute the creating job simultaneously with the consuming job, inside a **group job** (see above).
+This works in all execution modes, local, cluster, and cloud.
 Naturally, a pipe output may only have a single consumer.
 It is possible to combine explicit group definition as above with pipe outputs.
 Thereby, pipe jobs can live within, or (automatically) extend existing groups.

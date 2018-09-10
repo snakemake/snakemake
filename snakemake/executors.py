@@ -72,7 +72,6 @@ class AbstractExecutor:
             callback=None,
             submit_callback=None,
             error_callback=None):
-        job.check_protected_output()
         self._run(job)
         callback(job)
 
@@ -83,6 +82,7 @@ class AbstractExecutor:
         pass
 
     def _run(self, job):
+        job.check_protected_output()
         self.printjob(job)
 
     def rule_prefix(self, job):
@@ -92,7 +92,7 @@ class AbstractExecutor:
         job.log_info(skip_dynamic=True)
 
     def print_job_error(self, job, msg=None, **kwargs):
-        job.log_error(msg)
+        job.log_error(msg, **kwargs)
 
     def handle_job_success(self, job):
         pass
@@ -237,6 +237,9 @@ class CPUExecutor(RealExecutor):
             '{overwrite_workdir} {overwrite_config} {printshellcmds} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
 
+        if self.workflow.shadow_prefix:
+            self.exec_job += " --shadow-prefix {} ".format(
+                self.workflow.shadow_prefix)
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
             if self.workflow.conda_prefix:
@@ -419,10 +422,13 @@ class ClusterExecutor(RealExecutor):
                 ' --attempt {attempt} {use_threads} ',
                 '--wrapper-prefix {workflow.wrapper_prefix} ',
                 '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
-                '--notemp --no-hooks --nolock --timestamp --mode {} '.format(Mode.cluster)))
+                '--notemp --no-hooks --nolock --mode {} '.format(Mode.cluster)))
         else:
             self.exec_job = exec_job
 
+        if self.workflow.shadow_prefix:
+            self.exec_job += " --shadow-prefix {} ".format(
+                self.workflow.shadow_prefix)
         if self.workflow.use_conda:
             self.exec_job += " --use-conda "
             if self.workflow.conda_prefix:
@@ -510,8 +516,8 @@ class ClusterExecutor(RealExecutor):
 
         format_p = partial(self.format_job_pattern,
                            job=job,
-                           properties=json.dumps(job.properties(
-                               cluster=self.cluster_params(job))),
+                           properties=job.properties(
+                               cluster=self.cluster_params(job)),
                            latency_wait=self.latency_wait,
                            wait_for_files=wait_for_files,
                            **kwargs)
@@ -536,6 +542,7 @@ class ClusterExecutor(RealExecutor):
                                   job,
                                   exec_job=exec_job,
                                   **kwargs)
+        logger.debug("Jobscript:\n{}".format(content))
         with open(jobscript, "w") as f:
             print(content, file=f)
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
@@ -699,11 +706,6 @@ class GenericClusterExecutor(ClusterExecutor):
                 jobfinished, jobfailed))
 
     def _wait_for_jobs(self):
-        #logger.debug("Setup rate limiter")
-        #status_rate_limiter = RateLimiter(
-        #    max_calls=self.max_status_checks_per_second,
-        #    period=1)
-        #logger.debug("Done setup rate limiter")
         success = "success"
         failed = "failed"
         running = "running"
@@ -716,8 +718,17 @@ class GenericClusterExecutor(ClusterExecutor):
                                                      statuscmd=self.statuscmd),
                         shell=True).decode().split("\n")[0]
                 except subprocess.CalledProcessError as e:
-                    raise WorkflowError("Failed to obtain job status. "
-                                        "See above for error message.")
+                    if e.returncode < 0:
+                        # Ignore SIGINT and all other issues due to signals
+                        # because it will be caused by hitting e.g.
+                        # Ctrl-C on the main process or sending killall to
+                        # snakemake.
+                        # Snakemake will handle the signal in
+                        # the master process.
+                        pass
+                    else:
+                        raise WorkflowError("Failed to obtain job status. "
+                                            "See above for error message.")
         else:
             def job_status(job):
                 if os.path.exists(active_job.jobfinished):
@@ -1028,6 +1039,7 @@ class KubernetesExecutor(ClusterExecutor):
                  restart_times=None):
 
         exec_job = (
+            'cp -rf /source/. . && '
             'snakemake {target} --snakefile {snakefile} '
             '--force -j{cores} --keep-target-files  --keep-remote '
             '--latency-wait 0 '
@@ -1062,7 +1074,7 @@ class KubernetesExecutor(ClusterExecutor):
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
-        self.envvars = envvars
+        self.envvars = envvars or []
         self.secret_files = {}
         self.run_namespace = str(uuid.uuid4())
         self.secret_envvars = {}
@@ -1084,7 +1096,7 @@ class KubernetesExecutor(ClusterExecutor):
         for i, f in enumerate(self.workflow.get_sources()):
             if f.startswith(".."):
                 logger.warning("Ignoring source file {}. Only files relative "
-                               "to the working directory are allowed.")
+                               "to the working directory are allowed.".format(f))
                 continue
             with open(f, "br") as content:
                 key = "f{}".format(i)
@@ -1118,8 +1130,11 @@ class KubernetesExecutor(ClusterExecutor):
         import kubernetes.client
 
         super()._run(job)
-        exec_job = self.format_job(self.exec_job, job, _quote_all=True)
-        jobid = "snakejob-{}-{}".format(self.run_namespace, job.jobid)
+        exec_job = self.format_job(
+            self.exec_job, job, _quote_all=True, rules=job.rules,
+            use_threads="--force-use-threads" if not job.is_group() else "")
+        jobid = "snakejob-{}-{}-{}".format(
+            self.run_namespace, job.jobid, job.attempt)
 
         body = kubernetes.client.V1Pod()
         body.metadata = kubernetes.client.V1ObjectMeta()
@@ -1128,24 +1143,41 @@ class KubernetesExecutor(ClusterExecutor):
         # container
         container = kubernetes.client.V1Container(name=jobid)
         container.image = self.container_image
-        container.command = shlex.split(exec_job)
+        container.command = shlex.split("/bin/sh")
+        container.args = ["-c", exec_job]
         container.working_dir = "/workdir"
         container.volume_mounts = [kubernetes.client.V1VolumeMount(
             name="workdir", mount_path="/workdir")]
+        container.volume_mounts = [kubernetes.client.V1VolumeMount(
+            name="source", mount_path="/source")]
 
         body.spec = kubernetes.client.V1PodSpec(containers=[container])
         # fail on first error
         body.spec.restart_policy = "Never"
 
-        # source files
-        secret_volume = kubernetes.client.V1Volume(name="workdir")
+        # source files as a secret volume
+        # we copy these files to the workdir before executing Snakemake
+        too_large = [path for path in self.secret_files.values()
+                     if os.path.getsize(path) > 1000000]
+        if too_large:
+            raise WorkflowError("The following source files exceed the maximum "
+                                "file size (1MB) that can be passed from host to "
+                                "kubernetes. These are likely not source code "
+                                "files. Consider adding them to your "
+                                "remote storage instead or (if software) use "
+                                "Conda packages or container images:\n{}".format(
+                                "\n".join(too_large)))
+        secret_volume = kubernetes.client.V1Volume(name="source")
         secret_volume.secret = kubernetes.client.V1SecretVolumeSource()
         secret_volume.secret.secret_name = self.run_namespace
         secret_volume.secret.items = [
             kubernetes.client.V1KeyToPath(key=key, path=path)
             for key, path in self.secret_files.items()
         ]
-        body.spec.volumes = [secret_volume]
+        # workdir as an emptyDir volume of undefined size
+        workdir_volume = kubernetes.client.V1Volume(name="workdir")
+        workdir_volume.empty_dir = kubernetes.client.V1EmptyDirVolumeSource()
+        body.spec.volumes = [secret_volume, workdir_volume]
 
         # env vars
         container.env = []
@@ -1186,14 +1218,36 @@ class KubernetesExecutor(ClusterExecutor):
             container.security_context = kubernetes.client.V1SecurityContext(
                 privileged=True)
 
-        pod = self.kubeapi.create_namespaced_pod(self.namespace, body)
+        pod = self._kubernetes_retry(
+            lambda: self.kubeapi.create_namespaced_pod(self.namespace, body))
+
         logger.info("Get status with:\n"
                     "kubectl describe pod {jobid}\n"
                     "kubectl logs {jobid}".format(jobid=jobid))
         self.active_jobs.append(KubernetesJob(
             job, jobid, callback, error_callback, pod, None))
 
+    def _kubernetes_retry(self, func):
+        import kubernetes
+        with self.lock:
+            try:
+                return func()
+            except kubernetes.client.rest.ApiException as e:
+                if e.status == 401:
+                    # Unauthorized.
+                    # Reload config in order to ensure token is
+                    # refreshed. Then try again.
+                    kubernetes.config.load_kube_config()
+                    try:
+                        return func()
+                    except kubernetes.client.rest.ApiException as e:
+                        # Both attempts failed, raise error.
+                        raise WorkflowError(e,
+                            "This is likely a bug in "
+                            "https://github.com/kubernetes-client/python.")
+
     def _wait_for_jobs(self):
+        import kubernetes
         while True:
             with self.lock:
                 if not self.wait:
@@ -1203,8 +1257,22 @@ class KubernetesExecutor(ClusterExecutor):
                 still_running = list()
             for j in active_jobs:
                 with self.status_rate_limiter:
-                    res = self.kubeapi.read_namespaced_pod_status(
-                        j.jobid, self.namespace)
+                    logger.debug("Checking status for pod {}".format(j.jobid))
+                    job_not_found = False
+                    try:
+                        res = self._kubernetes_retry(
+                            lambda: self.kubeapi.read_namespaced_pod_status(j.jobid, self.namespace))
+                    except kubernetes.client.rest.ApiException as e:
+                        if e.status == 404:
+                            # Jobid not found
+                            # The job is likely already done and was deleted on
+                            # the server.
+                            j.callback(j.job)
+                            continue
+                    except WorkflowError as e:
+                        print_exception(e, self.workflow.linemaps)
+                        j.error_callback(j.job)
+
                     if res.status.phase == "Failed":
                         msg = ("For details, please issue:\n"
                                "kubectl describe pod {jobid}\n"

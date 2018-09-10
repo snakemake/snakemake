@@ -24,6 +24,7 @@ class Persistence:
                  dag=None,
                  conda_prefix=None,
                  singularity_prefix=None,
+                 shadow_prefix=None,
                  warn_only=False):
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
@@ -36,13 +37,8 @@ class Persistence:
         self._lockfile = dict()
 
         self._metadata_path = os.path.join(self.path, "metadata")
-
-        self.shadow_path = os.path.join(self.path, "shadow")
         self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
         self.benchmark_path = os.path.join(self.path, "benchmarks")
-
-        for d in (self._metadata_path, self.shadow_path, self.conda_env_archive_path):
-            os.makedirs(d, exist_ok=True)
 
         if conda_prefix is None:
             self.conda_env_path = os.path.join(self.path, "conda")
@@ -54,9 +50,13 @@ class Persistence:
         else:
             self.singularity_img_path = os.path.abspath(
                 os.path.expanduser(singularity_prefix))
+        if shadow_prefix is None:
+            self.shadow_path = os.path.join(self.path, "shadow")
+        else:
+            self.shadow_path = os.path.join(shadow_prefix, "shadow")
 
-        os.makedirs(self.conda_env_path, exist_ok=True)
-        os.makedirs(self.singularity_img_path, exist_ok=True)
+        for d in (self._metadata_path, self.shadow_path, self.conda_env_archive_path, self.conda_env_path, self.singularity_img_path):
+            os.makedirs(d, exist_ok=True)
 
         if nolock:
             self.lock = self.noop

@@ -1,0 +1,6 @@
+onsuccess:
+    assert not os.path.exists("b")
+
+rule a:
+    output: "a", temp("b")
+    shell: "touch a b"

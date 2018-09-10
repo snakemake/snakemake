@@ -80,6 +80,30 @@ This entails the pipefail option, which reports errors from within a pipe to out
 to your shell command in the problematic rule.
 
 
+I don't want Snakemake to detect an error if my shell command exits with an exitcode > 1. What can I do?
+---------------------------------------------------------------------------------------------------------
+
+Sometimes, tools encode information in exit codes bigger than 1. Snakemake by default treats anything > 0 as an error. Special cases have to be added by yourself. For example, you can write
+
+.. code-block:: python
+
+    shell:
+        """
+        set +e
+        somecommand ...
+        exitcode=$?
+        if [ $exitcode -eq 1 ]
+        then
+            exit 1
+        else
+            exit 0
+        fi
+        """
+
+This way, Snakemake only treats exit code 1 as an error, and thinks that everything else is fine.
+Note that such tools are an excellent use case for contributing a `wrapper <https://snakemake-wrappers.readthedocs.io>`_.
+
+
 .. _glob-wildcards:
 
 How do I run my rule on all files of a certain directory?
@@ -387,6 +411,26 @@ As a solution, you can put the `--config` at the end of your invocation, or prep
     $ snakemake mytarget --config foo=bar
 
 
+How do I enforce config values given at the command line to be interpreted as strings?
+--------------------------------------------------------------------------------------
+
+When passing config values like this
+
+.. code-block:: console
+
+    $ snakemake --config version=2018_1
+
+Snakemake will first try to interpret the given value as number.
+Only if that fails, it will interpret the value as string.
+Here, it does not fail, because the underscore `_` is interpreted as thousand separator.
+In order to ensure that the value is interpreted as string, you have to pass it in quotes.
+Since bash otherwise automatically removes quotes, you have to also wrap the entire entry into quotes, e.g.:
+
+.. code-block:: console
+
+    $ snakemake --config 'version="2018_1"'
+
+
 How do I make my rule fail if an output file is empty?
 ------------------------------------------------------
 
@@ -525,3 +569,12 @@ or, more concise in this special case:
           run:
               for f in output:
                   shell("echo test > {f}")
+
+There is a compiler error when installing Snakemake with pip or easy_install, what shall I do?
+----------------------------------------------------------------------------------------------
+
+Snakemake itself is plain Python, hence the compiler error must come from one of the dependencies, like e.g., datrie.
+You should have a look if maybe you are missing some library or a certain compiler package.
+If everything seems fine, please report to the upstream developers of the failing dependency.
+
+Note that in general it is recommended to install Snakemake via `Conda <https://conda.io>`_ which gives you precompiled packages and the additional benefit of having :ref:`automatic software deployment <integrated_package_management>` integrated into your workflow execution.

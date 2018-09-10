@@ -58,17 +58,6 @@ Expand still works as expected, just wrap the expansion:
         input:
             S3.remote(expand("bucket-name/{letter}-2.txt", letter=["A", "B", "C"]))
 
-It is possible to use S3-compatible storage by specifying a different endpoint address as the `host` kwarg in the provider, as the kwargs used in instantiating the provider are passed in to `boto <https://boto.readthedocs.org/en/latest/ref/s3.html#boto.s3.connection.S3Connection>`_:
-
-.. code-block:: python
-
-    from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
-    S3 = S3RemoteProvider(access_key_id="MYACCESSKEY", secret_access_key="MYSECRET", host="mystorage.example.com")
-
-    rule all:
-        input:
-            S3.remote("bucket-name/file.txt")
-
 Only remote files needed to satisfy the DAG build are downloaded for the workflow. By default, remote files are downloaded prior to rule execution and are removed locally as soon as no rules depend on them. Remote files can be explicitly kept by setting the ``keep_local=True`` keyword argument:
 
 .. code-block:: python
@@ -733,7 +722,7 @@ The European Genome-phenome Archive (EGA) is a service for permanent archiving
 and sharing of all types of personally identifiable genetic and phenotypic data
 resulting from biomedical research projects.
 
-From version 5.2 on, Snakemake allows to use EGA as a remote provider, such that
+From version 5.2 on, Snakemake provides experimental support to use EGA as a remote provider, such that
 EGA hosted files can be transparently used as input.
 For this to work, you need to define your username and password as environment
 variables ``EGA_USERNAME`` and ``EGA_PASSWORD``.

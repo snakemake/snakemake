@@ -50,7 +50,6 @@ In alphabetical order
 - Mattias Franberg
 - Matt Shirley
 - Paul Moore
-- percyfal
 - Per Unneberg
 - Ryan C. Thompson
 - Ryan Dale

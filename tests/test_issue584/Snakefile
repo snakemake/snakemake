@@ -1,0 +1,10 @@
+rule all: 
+    input: 
+        "out1"
+
+rule generate:
+    output: 
+        "out1"
+    params:
+        test=lambda wildcards: "{test}"
+    shell: "echo "" > out1"

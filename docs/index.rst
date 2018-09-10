@@ -30,6 +30,7 @@ Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
+To get a first impression, see our `introductory slides <https://slides.com/johanneskoester/snakemake-short>`_.
 
 .. _manual-quick_example:
 
@@ -65,6 +66,7 @@ Rules describe how to create **output files** from **input files**.
 * Snakemake can automatically deploy required software dependencies of a workflow using `Conda <https://conda.io>`_ or `Singularity <http://singularity.lbl.gov/>`_.
 * Snakemake can use Amazon S3, Google Storage, Dropbox, FTP, WebDAV, SFTP and iRODS to access input or output files and further access input files via HTTP and HTTPS.
 
+
 .. _main-getting-started:
 
 ---------------
@@ -72,7 +74,7 @@ Getting started
 ---------------
 
 News about Snakemake are published via `Twitter <https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester>`_.
-To get started, consider the :ref:`tutorial`, the `introductory slides <http://slides.com/johanneskoester/snakemake-tutorial-2016>`_, and the :ref:`FAQ <project_info-faq>`.
+To get started, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
 
 .. _main-support:
 
@@ -121,18 +123,24 @@ Resources
 Publications using Snakemake
 ----------------------------
 
-In the following you find an incomplete list of publications making use of Snakemake for their analyses.
+In the following you find an **incomplete list** of publications making use of Snakemake for their analyses.
 Please consider to add your own.
 
+* Karlsson et al. 2018. `Four evolutionary trajectories underlie genetic intratumoral variation in childhood cancer <https://www.nature.com/articles/s41588-018-0131-y>`_. Nature Genetics.
+* Planchard et al. 2018. `The translational landscape of Arabidopsis mitochondria <https://academic.oup.com/nar/advance-article/doi/10.1093/nar/gky489/5033161>`_. Nucleic acids research.
+* Schult et al. 2018. `Effect of UV irradiation on Sulfolobus acidocaldarius and involvement of the general transcription factor TFB3 in the early UV response <https://academic.oup.com/nar/article/46/14/7179/5047281>`_. Nucleic acids research.
+* Goormaghtigh et al. 2018. `Reassessing the Role of Type II Toxin-Antitoxin Systems in Formation of Escherichia coli Type II Persister Cells <https://mbio.asm.org/content/mbio/9/3/e00640-18.full.pdf>`_. mBio.
+* Ramirez et al. 2018. `Detecting macroecological patterns in bacterial communities across independent studies of global soils <https://www.nature.com/articles/s41564-017-0062-x>`_. Nature microbiology.
+* Amato et al. 2018. `Evolutionary trends in host physiology outweigh dietary niche in structuring primate gut microbiomes <https://www.nature.com/articles/s41396-018-0175-0>`_. The ISME journal.
 * Uhlitz et al. 2017. `An immediate–late gene expression module decodes ERK signal duration <http://msb.embopress.org/content/13/5/928>`_. Molecular Systems Biology.
 * Akkouche et al. 2017. `Piwi Is Required during Drosophila Embryogenesis to License Dual-Strand piRNA Clusters for Transposon Repression in Adult Ovaries <http://www.sciencedirect.com/science/article/pii/S1097276517302071>`_. Molecular Cell.
-* Beatty et al. 2017. `Giardia duodenalis induces pathogenic dysbiosis of human intestinal microbiota biofilms <>`_. International Journal for Parasitology.
+* Beatty et al. 2017. `Giardia duodenalis induces pathogenic dysbiosis of human intestinal microbiota biofilms <https://www.ncbi.nlm.nih.gov/pubmed/28237889>`_. International Journal for Parasitology.
 * Meyer et al. 2017. `Differential Gene Expression in the Human Brain Is Associated with Conserved, but Not Accelerated, Noncoding Sequences <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5400397/>`_. Molecular Biology and Evolution.
 * Lonardo et al. 2017. `Priming of soil organic matter: Chemical structure of added compounds is more important than the energy content <http://www.sciencedirect.com/science/article/pii/S0038071716304539>`_. Soil Biology and Biochemistry.
 * Beisser et al. 2017. `Comprehensive transcriptome analysis provides new insights into nutritional strategies and phylogenetic relationships of chrysophytes <https://peerj.com/articles/2832/>`_. PeerJ.
 * Dimitrov et al 2017. `Successive DNA extractions improve characterization of soil microbial communities <https://peerj.com/articles/2915/>`_. PeerJ.
 * de Bourcy et al. 2016. `Phylogenetic analysis of the human antibody repertoire reveals quantitative signatures of immune senescence and aging <http://www.pnas.org/content/114/5/1105.short>`_. PNAS.
-* Bray et al. 2016. `Near-optimal probabilistic RNA-seq quantification<http://www.nature.com/nbt/journal/v34/n5/abs/nbt.3519.html>`_. Nature Biotechnology.
+* Bray et al. 2016. `Near-optimal probabilistic RNA-seq quantification <http://www.nature.com/nbt/journal/v34/n5/abs/nbt.3519.html>`_. Nature Biotechnology.
 * Etournay et al. 2016. `TissueMiner: a multiscale analysis toolkit to quantify how cellular processes create tissue dynamics <https://elifesciences.org/content/5/e14334>`_. eLife Sciences.
 * Townsend et al. 2016. `The Public Repository of Xenografts Enables Discovery and Randomized Phase II-like Trials in Mice <http://www.cell.com/cancer-cell/abstract/S1535-6108%2816%2930090-3>`_. Cancer Cell.
 * Burrows et al. 2016. `Genetic Variation, Not Cell Type of Origin, Underlies the Majority of Identifiable Regulatory Differences in iPSCs <http://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.1005793>`_. PLOS Genetics.

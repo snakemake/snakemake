@@ -15,12 +15,14 @@ import collections
 import re
 from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
+from itertools import islice
 
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import MIN_PY_VERSION, escape_backslash
+from snakemake.io import git_content, split_git_path
 
 
 PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
@@ -159,7 +161,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
     """
-    if not path.startswith("http"):
+    if not path.startswith("http") and not path.startswith("git+file"):
         if path.startswith("file://"):
             path = path[7:]
         elif path.startswith("file:"):
@@ -169,7 +171,16 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
         path = "file://" + path
     path = format(path, stepout=1)
     if path.startswith("file://"):
-        sourceurl = "file:" + pathname2url(path[7:])
+        sourceurl = "file:"+pathname2url(path[7:])
+    elif path.startswith("git+file"):
+        (root_path, file_path, version) = split_git_path(path)
+        dir = ".snakemake/wrappers"
+        os.makedirs(dir, exist_ok=True)
+        new_path = os.path.join(dir, version + "-"+ "-".join(file_path.split("/")))
+        with open(new_path,'w') as wrapper:
+            wrapper.write(git_content(path))
+            sourceurl = "file:" + new_path
+            path = path.rstrip("@" + version)
     else:
         sourceurl = path
 
@@ -183,10 +194,13 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 # Obtain search path for current snakemake module.
                 # The module is needed for unpickling in the script.
                 # We append it at the end (as a fallback).
-                searchpath = os.path.dirname(os.path.dirname(__file__))
+                searchpath = '"{}"'.format(os.path.dirname(os.path.dirname(__file__)))
+                # For local scripts, add their location to the path in case they use path-based imports
+                if path.startswith("file://"):
+                    searchpath += ', "{}"'.format(os.path.dirname(path[7:]))
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
-                import sys; sys.path.append("{}"); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
+                import sys; sys.path.extend([{}]); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
                 ######## Original script #########
                 """).format(escape_backslash(searchpath),
                             snakemake,
@@ -235,18 +249,11 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 raise ValueError(
                     "Unsupported script: Expecting either Python (.py), R (.R) or RMarkdown (.Rmd) script.")
 
-            if path.startswith("file://"):
-                # in case of local path, use the same directory
-                dir = os.path.dirname(path)[7:]
-                prefix = ".snakemake."
-            else:
-                dir = ".snakemake/scripts"
-                prefix = ""
-                os.makedirs(dir, exist_ok=True)
+            dir = ".snakemake/scripts"
+            os.makedirs(dir, exist_ok=True)
 
             with tempfile.NamedTemporaryFile(
                 suffix="." + os.path.basename(path),
-                prefix=prefix,
                 dir=dir,
                 delete=False) as f:
                 if not path.endswith(".Rmd"):
@@ -255,15 +262,15 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 else:
                     # Insert Snakemake object after the RMarkdown header
                     code = source.read().decode()
-                    pos = code.rfind("---")
-                    f.write(str.encode(code[:pos+3]))
+                    pos = next(islice(re.finditer(r"---\n", code), 1, 2)).start() + 3
+                    f.write(str.encode(code[:pos]))
                     preamble = textwrap.dedent("""
                         ```{r, echo=FALSE, message=FALSE, warning=FALSE}
                         %s
                         ```
                         """ % preamble)
                     f.write(preamble.encode())
-                    f.write(str.encode(code[pos+3:]))
+                    f.write(str.encode(code[pos:]))
 
             if path.endswith(".py"):
                 py_exec = sys.executable
@@ -297,8 +304,9 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 if len(output) != 1:
                     raise WorkflowError("RMarkdown scripts (.Rmd) may only have a single output file.")
                 out = os.path.abspath(output[0])
-                shell("Rscript -e 'rmarkdown::render(\"{f.name}\", output_file=\"{out}\", quiet=TRUE, params = list(rmd=\"{f.name}\"))'",
-                    bench_record=bench_record)
+                shell("Rscript -e 'rmarkdown::render(\"{f.name}\", output_file=\"{out}\", quiet=TRUE, knit_root_dir = \"{workdir}\", params = list(rmd=\"{f.name}\"))'",
+                    bench_record=bench_record,
+                    workdir=os.getcwd())
 
     except URLError as e:
         raise WorkflowError(e)
