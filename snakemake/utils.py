@@ -100,7 +100,12 @@ def validate(data, schema, set_default=True):
                             "Error validating row {} of data frame.".format(i),
                             e)
                 if set_default:
-                    return pd.DataFrame(recordlist, data.index)
+                    newdata = pd.DataFrame(recordlist, data.index)
+                    newcol = ~newdata.columns.isin(data.columns)
+                    n = len(data.columns)
+                    for col in newdata.loc[:, newcol].columns:
+                        data.insert(n, col, newdata.loc[:, newcol])
+                        n = n + 1
                 return
         except ImportError:
             pass
