@@ -208,6 +208,9 @@ class AbstractRemoteObject:
     def remove(self):
         raise NotImplementedError("Removal of files is unavailable for this remote")
 
+    def local_touch_or_create(self):
+        self._iofile.touch_or_create()
+
 
 class DomainObject(AbstractRemoteObject):
     """This is a mixin related to parsing components

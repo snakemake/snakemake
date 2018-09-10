@@ -18,16 +18,20 @@ def is_script(path):
 
 
 def get_path(path, prefix=None):
-    if not (path.startswith("http") or path.startswith("file:")):
+    if not (path.startswith("http") or path.startswith("file:") or path.startswith("git+file")):
         if prefix is None:
             prefix = "https://bitbucket.org/snakemake/snakemake-wrappers/raw/"
+        elif prefix.startswith("git+file"):
+            parts = path.split("/")
+            path = "/" + "/".join(parts[1:]) + "@" + parts[0]
         path = prefix + path
     return path
-
 
 def is_local(path):
     return path.startswith("file:")
 
+def is_git_path(path):
+    return path.startswith("git+file:")
 
 def find_extension(path, extensions=[".py", ".R", ".Rmd"]):
     for ext in extensions:
@@ -48,7 +52,11 @@ def find_extension(path, extensions=[".py", ".R", ".Rmd"]):
                 return path + script
             except URLError:
                 continue
-    return path + "/wrapper.py"  # default case
+    if is_git_path(path):
+        path, version = path.split("@")
+        return os.path.join(path, "wrapper.py") + "@" + version
+    else:
+        return path + "/wrapper.py"  # default case
 
 
 def get_script(path, prefix=None):
@@ -61,6 +69,9 @@ def get_conda_env(path, prefix=None):
     if is_script(path):
         # URLs and posixpaths share the same separator. Hence use posixpath here.
         path = posixpath.dirname(path)
+    if is_git_path(path):
+        path, version = path.split("@")
+        return os.path.join(path, "environment.yaml") + "@" + version
     return path + "/environment.yaml"
 
 

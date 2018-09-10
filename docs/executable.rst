@@ -82,6 +82,20 @@ Next, you configure Kubernetes to use the new cluster via
     $ gcloud container clusters get-credentials $CLUSTER_NAME
 
 
+If you are having issues with authentication, please refer to the help text:
+
+.. code-block:: console
+
+    $ gcloud container clusters get-credentials --help
+
+You likely also want to use google storage for reading and writing files.
+For this, you will additionally need to authenticate with your google cloud account via
+
+.. code-block:: console
+
+    $ gcloud auth application-default login
+
+This enables Snakemake to access google storage in order to check existence and modification dates of files.
 Now, Snakemake is ready to use your cluster.
 
 **Important:** After finishing your work, do not forget to delete the cluster with

@@ -1,0 +1,32 @@
+
+
+rule all:
+    input:
+        "test2.out"
+
+
+rule a:
+    output:
+        "test1.in"
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        "test1.in"
+    output:
+        "test1.out"
+    group: "x"
+    shell:
+        "touch {output}"
+
+
+rule c:
+    input:
+        "test1.out"
+    output:
+        "test2.out"
+    group: "x"
+    shell:
+        "touch {output}"

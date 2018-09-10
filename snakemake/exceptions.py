@@ -134,7 +134,7 @@ class WildcardError(WorkflowError):
 
 class RuleException(Exception):
     """
-    Base class for exception occuring withing the
+    Base class for exception occuring within the
     execution or definition of rules.
     """
 
@@ -181,6 +181,10 @@ class InputFunctionException(WorkflowError):
             "{}={}".format(name, value) for name, value in wildcards.items())
         super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
+class ChildIOException(WorkflowError):
+    def __init__(self, parent=None, child=None, wildcards=None, lineno=None, snakefile=None, rule=None):
+        msg = "File/directory is a child to another output:\n" + "{}\n{}".format(parent, child)
+        super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
 class MissingOutputException(RuleException):
     pass
@@ -217,6 +221,12 @@ class ProtectedOutputException(IOException):
                          lineno=lineno,
                          snakefile=snakefile)
 
+class ImproperOutputException(IOException):
+    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
+        super().__init__("Outputs of incorrect type (directories when expecting files or vice versa). "
+                         "Output directories must be flagged with directory().", rule, files, include,
+                         lineno=lineno,
+                         snakefile=snakefile)
 
 class UnexpectedOutputException(IOException):
     def __init__(self, rule, files, include=None, lineno=None, snakefile=None):

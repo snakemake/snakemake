@@ -14,11 +14,11 @@ from pathlib import Path
 from itertools import chain
 
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
-from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources
+from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources, strip_wildcard_constraints
 from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable, DYNAMIC_FILL, ReportObject
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import Mode
+from snakemake.common import Mode, lazy_property
 
 
 class Rule:
@@ -214,6 +214,8 @@ class Rule:
     def benchmark(self, benchmark):
         if not callable(benchmark):
             benchmark = self.apply_default_remote(benchmark)
+            benchmark = self._update_item_wildcard_constraints(benchmark)
+
         self._benchmark = IOFile(benchmark, rule=self)
         self.register_wildcards(self._benchmark.get_wildcard_names())
 
@@ -343,6 +345,29 @@ class Rule:
         else:
             return apply(item)
 
+    def update_wildcard_constraints(self):
+        for i in range(len(self.output)):
+            item = self.output[i]
+            newitem = IOFile(self._update_item_wildcard_constraints(
+                self.output[i]), rule=self)
+            # the updated item has to have the same flags
+            newitem.clone_flags(item)
+            self.output[i] = newitem
+
+    def _update_item_wildcard_constraints(self, item):
+        if not (self.wildcard_constraints or
+                self.workflow._wildcard_constraints):
+            return item
+        try:
+            return update_wildcard_constraints(
+                item,
+                self.wildcard_constraints,
+                self.workflow._wildcard_constraints)
+        except ValueError as e:
+            raise IOFileException(
+                str(e),
+                snakefile=self.snakefile,
+                lineno=self.lineno)
 
     def _set_inoutput_item(self, item, output=False, name=None):
         """
@@ -365,24 +390,14 @@ class Rule:
                 and item in item.rule.output):
                 self.dependencies[item] = item.rule
             if output:
-                rule = self
-                if self.wildcard_constraints or self.workflow._wildcard_constraints:
-                    try:
-                        item = update_wildcard_constraints(
-                            item, self.wildcard_constraints,
-                            self.workflow._wildcard_constraints)
-                    except ValueError as e:
-                        raise IOFileException(
-                            str(e),
-                            snakefile=self.snakefile,
-                            lineno=self.lineno)
+                item = self._update_item_wildcard_constraints(item)
             else:
-                rule = self
-                if contains_wildcard_constraints(item) and self.workflow.mode != Mode.subprocess:
+                if (contains_wildcard_constraints(item) and
+                    self.workflow.mode != Mode.subprocess):
                     logger.warning(
                         "wildcard constraints in inputs are ignored")
             # record rule if this is an output file output
-            _item = IOFile(item, rule=rule)
+            _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
                 if output:
                     self.temp_output.add(_item)
@@ -480,6 +495,7 @@ class Rule:
         if isinstance(item, str) or callable(item):
             if not callable(item):
                 item = self.apply_default_remote(item)
+                item = self._update_item_wildcard_constraints(item)
 
             self.log.append(IOFile(item,
                                    rule=self) if isinstance(item, str) else
@@ -518,7 +534,7 @@ class Rule:
         return value
 
     def _apply_wildcards(self, newitems, olditems, wildcards,
-                         concretize=apply_wildcards,
+                         concretize=None,
                          check_return_type=True,
                          omit_callable=False,
                          mapping=None,
@@ -531,8 +547,9 @@ class Rule:
             start = len(newitems)
             is_iterable = True
             is_unpack = is_flagged(item, "unpack")
+            _is_callable = is_callable(item)
 
-            if is_callable(item):
+            if _is_callable:
                 if omit_callable:
                     continue
                 item = self.apply_input_function(item, wildcards, **aux_params)
@@ -565,7 +582,7 @@ class Rule:
                     if check_return_type and not isinstance(item_, str):
                         raise WorkflowError("Function did not return str or list "
                                             "of str.", rule=self)
-                    concrete = concretize(item_, wildcards)
+                    concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)
                     if mapping is not None:
                         mapping[concrete] = item_
@@ -577,8 +594,8 @@ class Rule:
                     start = len(newitems)
 
     def expand_input(self, wildcards):
-        def concretize_iofile(f, wildcards):
-            if not isinstance(f, _IOFile):
+        def concretize_iofile(f, wildcards, is_from_callable):
+            if is_from_callable:
                 return IOFile(f, rule=self)
             else:
                 return f.apply_wildcards(wildcards,
@@ -613,8 +630,8 @@ class Rule:
         return input, mapping, dependencies
 
     def expand_params(self, wildcards, input, output, resources, omit_callable=False):
-        def concretize_param(p, wildcards):
-            if isinstance(p, str):
+        def concretize_param(p, wildcards, is_from_callable):
+            if not is_from_callable and isinstance(p, str):
                 return apply_wildcards(p, wildcards)
             return p
 
@@ -635,7 +652,11 @@ class Rule:
         except WildcardError as e:
             raise WildcardError(
                 "Wildcards in params cannot be "
-                "determined from output files:",
+                "determined from output files. Note that you have "
+                "to use a function to deactivate automatic wildcard expansion "
+                "in params strings, e.g., `lambda wildcards: '{test}'`. Also "
+                "see https://snakemake.readthedocs.io/en/stable/snakefiles/"
+                "rules.html#non-file-parameters-for-rules:",
                 str(e), rule=self)
         return params
 
@@ -656,8 +677,8 @@ class Rule:
 
 
     def expand_log(self, wildcards):
-        def concretize_logfile(f, wildcards):
-            if not isinstance(f, _IOFile):
+        def concretize_logfile(f, wildcards, is_from_callable):
+            if is_from_callable:
                 return IOFile(f, rule=self)
             else:
                 return f.apply_wildcards(wildcards,
@@ -767,11 +788,10 @@ class Rule:
 
     def get_wildcards(self, requested_output):
         """
-        Update the given wildcard dictionary by matching regular expression
+        Return wildcard dictionary by matching regular expression
         output files to the requested concrete ones.
 
         Arguments
-        wildcards -- a dictionary of wildcards
         requested_output -- a concrete filepath
         """
         if requested_output is None:
@@ -859,3 +879,34 @@ class Ruleorder:
 
     def __iter__(self):
         return self.order.__iter__()
+
+
+class RuleProxy:
+    def __init__(self, rule):
+        self.rule = rule
+
+    @lazy_property
+    def output(self):
+        return self._to_iofile(self.rule.output.stripped_constraints())
+
+    @lazy_property
+    def input(self):
+        return self.rule.input.stripped_constraints()
+
+    @lazy_property
+    def params(self):
+        return self.rule.params.clone()
+
+    @property
+    def benchmark(self):
+        return IOFile(strip_wildcard_constraints(self.rule.benchmark),
+                      rule=self.rule)
+
+    @lazy_property
+    def log(self):
+        return self._to_iofile(self.rule.log.stripped_constraints())
+
+    def _to_iofile(self, files):
+        for i in range(len(files)):
+            files[i] = IOFile(files[i], rule=self.rule)
+        return files

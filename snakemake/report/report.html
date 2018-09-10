@@ -84,6 +84,7 @@
       [role="main"] {
       padding-top: 48px; /* Space for fixed navbar */
       }
+
       *[id]:before {
         display: block;
         content: " ";
@@ -241,14 +242,7 @@
                 {% for r in res %}
                 <li class="nav-item">
                   <a class="nav-link" href="#{{ r.id }}">
-                    {% if r.is_img %}
-                      {% set resicon = "image" %}
-                    {% elif r.is_text %}
-                      {% set resicon = "file-text" %}
-                    {% else %}
-                      {% set resicon = "file" %}
-                    {% endif %}
-                    <span data-feather="{{ resicon }}"></span>
+                    <span data-feather="{{ r.icon }}"></span>
                     {{ r.name }}
                   </a>
                 </li>
@@ -263,26 +257,26 @@
             <h2>Workflow</h2>
           </div>
 
-          <div id="rulegraph"></div>
-
           {{ text }}
 
-          <p>Detailed software versions can be found under <a href="#rules">Rules</a></p>
+          <p>Detailed software versions can be found under <a href="#rules">Rules</a>.</p>
+
+          <div id="rulegraph"></div>
 
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h2 id="results">Results</h2>
           </div>
           {% for cat, catresults in results|dictsort %}
+            {% if cat %}
             <h3 id="results-{{ cat|replace(" ", "_") }}">{{ cat }}</h3>
+            {% endif %}
             {% for res in catresults %}
             <div class="result">
-              <h4 id="{{ res.id }}">{{ res.name }}</h4>
+              <h4 id="{{ res.id }}">{{ res.name }}    <a class="btn btn-outline-secondary" href="{{ res.data }}" download="{{ res.name }}"><span data-feather="{{ res.icon }}"></span> Download</a></h4>
               {{ res.caption }}
               <div class="preview">
                 {% if res.is_img %}
                 <a href="{{ res.data }}" download="{{ res.name }}"><img src="{{ res.data }}"></a>
-                {% else %}
-                <a class="btn btn-sm btn-outline-secondary" href="{{ res.data }}" download="{{ res.name }}">Download</a>
                 {% endif %}
               </div>
             </div>

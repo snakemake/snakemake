@@ -195,7 +195,7 @@ class FileRecord:
             try:
                 from jinja2 import Template
             except ImportError as e:
-                raise WorkflowError("Pyhton package jinja2 must be installed to create reports.")
+                raise WorkflowError("Python package jinja2 must be installed to create reports.")
 
             job = self.job
             snakemake = Snakemake(job.input, job.output, job.params, job.wildcards,
@@ -219,6 +219,15 @@ class FileRecord:
     def is_text(self):
         text = {"text/csv", "text/plain", "text/tab-separated-values"}
         return self.mime in text
+
+    @property
+    def icon(self):
+        if self.is_img:
+            return "image"
+        elif self.is_text:
+            return "file-text"
+        else:
+            return "file"
 
     @property
     def name(self):
@@ -248,8 +257,8 @@ def rulegraph_d3_spec(dag):
             source = dep.rule.name
             g.add_edge(source, target)
 
-    pos = graphviz_layout(g, "dot", args="-Grankdir=LR")
-    xmax = max(x for x, y in pos.values())
+    pos = graphviz_layout(g, "dot", args="-Grankdir=BT")
+    xmax = max(x for x, y in pos.values()) + 100 # add offset to account for labels
     ymax = max(y for x, y in pos.values())
 
     def encode_node(node):
@@ -275,7 +284,7 @@ def auto_report(dag, path):
     try:
         from jinja2 import Template, Environment, PackageLoader
     except ImportError as e:
-        raise WorkflowError("Pyhton package jinja2 must be installed to create reports.")
+        raise WorkflowError("Python package jinja2 must be installed to create reports.")
 
     if not path.endswith(".html"):
         raise WorkflowError("Report file does not end with .html")
@@ -291,7 +300,8 @@ def auto_report(dag, path):
                                         "not exist.")
                 if os.path.isfile(f):
                     report_obj = get_flag_value(f, "report")
-                    results[report_obj.category].append(
+                    category = report_obj.category or " "
+                    results[category].append(
                         FileRecord(f, job, report_obj.caption))
 
             meta = persistence.metadata(f)
@@ -397,6 +407,6 @@ def auto_report(dag, path):
                                   runtimes=runtimes,
                                   timeline=timeline,
                                   rules=[rec for recs in rules.values() for rec in recs],
-                                  version=__version__.split("+")[0],
+                                  version=__version__,
                                   now=now))
     logger.info("Report created.")

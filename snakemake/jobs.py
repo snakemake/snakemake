@@ -9,6 +9,7 @@ import sys
 import base64
 import tempfile
 import subprocess
+import json
 
 from collections import defaultdict
 from itertools import chain
@@ -71,12 +72,20 @@ class Job(AbstractJob):
                  "_conda_env_file", "_conda_env", "shadow_dir", "_inputsize",
                  "dynamic_output", "dynamic_input",
                  "temp_output", "protected_output", "touch_output",
-                 "subworkflow_input", "_hash", "_attempt", "_group"]
+                 "subworkflow_input", "_hash", "_attempt", "_group",
+                 "targetfile"]
 
-    def __init__(self, rule, dag, wildcards_dict=None, format_wildcards=None):
+    def __init__(self, rule, dag,
+                 wildcards_dict=None, format_wildcards=None, targetfile=None):
         self.rule = rule
         self.dag = dag
 
+        # the targetfile that led to the job
+        # it is important to record this, since we need it to submit the
+        # job on a cluster. In contrast, an arbitrary targetfile could
+        # lead to a different composition of wildcard values (in case of
+        # ambiguity in matching).
+        self.targetfile = targetfile
         self.wildcards_dict = wildcards_dict
         self.wildcards = Wildcards(fromdict=self.wildcards_dict)
         self._format_wildcards = (self.wildcards if format_wildcards is None
@@ -547,6 +556,8 @@ class Job(AbstractJob):
 
         for f, f_ in zip(self.output, self.rule.output):
             try:
+                # remove_non_empty_dir only applies to directories which aren't
+                # flagged with directory().
                 f.remove(remove_non_empty_dir=False)
             except FileNotFoundError:
                 #No file == no problem
@@ -724,7 +735,12 @@ class Job(AbstractJob):
             "jobid": self.dag.jobid(self)
         }
         properties.update(aux_properties)
-        return properties
+
+        try:
+            return json.dumps(properties)
+        except TypeError:
+            del properties["params"]
+            return json.dumps(properties)
 
     @property
     def is_local(self):
@@ -795,7 +811,7 @@ class Job(AbstractJob):
                          log=list(self.log),
                          conda_env=self.conda_env.path if self.conda_env else None,
                          aux=kwargs,
-                         indent=True)
+                         indent=indent)
         if msg is not None:
             logger.error(msg)
 
@@ -851,16 +867,18 @@ class Job(AbstractJob):
                     no_touch=True,
                     force_stay_on_remote=True)
         if not error:
-            if handle_temp:
-                self.dag.handle_temp(self)
-
             try:
                 self.dag.workflow.persistence.finished(self)
             except IOError as e:
-                logger.info("Failed to remove marker file for job started "
-                            "({}). Please ensure write permissions for the "
-                            "directory {}".format(
-                                e, self.dag.workflow.persistence.path))
+                logger.warning("Error recording metadata for finished job "
+                               "({}). Please ensure write permissions for the "
+                               "directory {}".format(
+                                    e, self.dag.workflow.persistence.path))
+            if handle_temp:
+                # temp handling has to happen after calling finished(),
+                # because we need to access temp output files to record
+                # start and end times.
+                self.dag.handle_temp(self)
 
     @property
     def name(self):
@@ -879,7 +897,7 @@ class Job(AbstractJob):
         return products
 
     def get_targets(self):
-        return self.products or [self.rule.name]
+        return self.targetfile or [self.rule.name]
 
     @property
     def is_branched(self):
@@ -921,6 +939,7 @@ class GroupJob(AbstractJob):
         self.jobs = self.jobs | other.jobs
 
     def finalize(self):
+        # TODO determine resources based on toposort
         dag = {
             job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
             for job in self.jobs
@@ -1043,7 +1062,8 @@ class GroupJob(AbstractJob):
             "jobid": self.jobid
         }
         properties.update(aux_properties)
-        return properties
+
+        return json.dumps(properties)
 
     @property
     def jobid(self):
@@ -1109,9 +1129,11 @@ class GroupJob(AbstractJob):
         try:
             return format(string, **_variables)
         except NameError as ex:
-            raise WorkflowError("NameError: " + str(ex))
+            raise WorkflowError("NameError with group job {}: {}".format(
+                self.jobid, str(ex)))
         except IndexError as ex:
-            raise WorkflowError("IndexError: " + str(ex))
+            raise WorkflowError("IndexError with group job {}: {}".format(
+                self.jobid, str(ex)))
 
     @property
     def threads(self):

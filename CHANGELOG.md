@@ -1,5 +1,25 @@
 # Change Log
 
+# [5.2.2] - 2018-08-01
+## Changed
+- Always print timestamps, removed the --timestamps CLI option.
+- more robust detection of conda command
+- Fixed bug in RMarkdown script execution.
+- Fixed a bug in detection of group jobs.
+
+# [5.2.0] - 2018-06-28
+## Changed
+- Directory outputs have to marked with `directory`. This ensures proper handling of timestamps and cleanup. This is a breaking change. Implemented by Rasmus Ågren. 
+- Fixed kubernetes tests, fixed kubernetes volume handling. Implemented by Andrew Schriefer.
+- jinja2 and networkx are not optional dependencies when installing via pip.
+- When conda or singularity directives are used and the corresponding CLI flags are not specified, the user is notified at the beginning of the log output.
+- Fixed numerous small bugs and papercuts and extended documentation.
+
+# [5.1.5] - 2018-06-24
+## Changed
+- fixed missing version info in docker image.
+- several minor fixes to EGA support.
+
 # [5.1.4] - 2018-05-28
 ## Added
 - Allow `category` to be set.

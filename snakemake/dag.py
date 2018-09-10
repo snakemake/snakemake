@@ -22,9 +22,9 @@ from snakemake.jobs import Job, Reason, GroupJob
 from snakemake.exceptions import RuleException, MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
-from snakemake.exceptions import IncompleteFilesException
+from snakemake.exceptions import IncompleteFilesException, ImproperOutputException
 from snakemake.exceptions import PeriodicWildcardError, WildcardError
-from snakemake.exceptions import RemoteFileException, WorkflowError
+from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
 from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
@@ -82,6 +82,7 @@ class DAG:
         self.conda_envs = dict()
         self.singularity_imgs = dict()
         self._progress = 0
+        self._group = dict()
 
         self.forcerules = set()
         self.forcefiles = set()
@@ -130,6 +131,21 @@ class DAG:
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
         self.update_jobids()
+
+        # Check if there are files/dirs that are children of other outputs.
+        allfiles = {}
+
+        for job in self.jobs:
+            # This is to account also for targets of symlinks
+            allfiles.update({f(x):"input" for x in job.input for f in (os.path.abspath, os.path.realpath)})
+            allfiles.update({f(x):"output" for x in job.output for f in (os.path.abspath, os.path.realpath)})
+
+        sortedfiles = sorted(allfiles.keys())
+        for i in range(len(sortedfiles)-1):
+            if allfiles[sortedfiles[i]] == "output":
+                if os.path.commonpath([sortedfiles[i]]) == os.path.commonpath([sortedfiles[i], sortedfiles[i+1]]):
+                    raise ChildIOException(parent = sortedfiles[i], child = sortedfiles[i+1])
+
         # check if remaining jobs are valid
         for i, job in enumerate(self.jobs):
             job.is_valid()
@@ -357,17 +373,23 @@ class DAG:
                 "filesystem latency. If that is the case, consider to increase the "
                 "wait time with --latency-wait.", rule=job.rule)
 
+        # Ensure that outputs are of the correct type (those flagged with directory()
+        # are directories and not files and vice versa).
+        for f in expanded_output:
+            if (f.is_directory and not os.path.isdir(f)) or (os.path.isdir(f) and not f.is_directory):
+                raise ImproperOutputException(job.rule, [f])
+
         #It is possible, due to archive expansion or cluster clock skew, that
         #the files appear older than the input.  But we know they must be new,
         #so touch them to update timestamps. This also serves to touch outputs
         #when using the --touch flag.
         #Note that if the input files somehow have a future date then this will
         #not currently be spotted and the job will always be re-run.
-        #Also, don't touch directories, as we can't guarantee they were removed.
         if not no_touch:
             for f in expanded_output:
-                #This will neither create missing files nor touch directories
-                if os.path.isfile(f):
+                # This won't create normal files if missing, but will create
+                # the flag file for directories.
+                if f.exists_local:
                     f.touch()
 
     def unshadow_output(self, job, only_log=False):
@@ -444,7 +466,6 @@ class DAG:
         is_temp = lambda f: is_flagged(f, "temp")
 
         # handle temp input
-
         needed = lambda job_, f: any(
             f in files for j, files in self.depending[job_].items()
             if not self.finished(j) and self.needrun(j) and j != job)
@@ -456,8 +477,9 @@ class DAG:
                 yield from filterfalse(partial(needed, job_), tempfiles & files)
 
             # temp output
-            if job not in self.targetjobs and not job.dynamic_output:
-                tempfiles = (f for f in job.expanded_output if is_temp(f))
+            if not job.dynamic_output:
+                tempfiles = (f for f in job.expanded_output
+                               if is_temp(f) and f not in self.targetfiles)
                 yield from filterfalse(partial(needed, job), tempfiles)
 
         for f in unneeded_files():
@@ -774,37 +796,51 @@ class DAG:
                             stop=self.noneedrun_finished):
             self._priority[job] = Job.HIGHEST_PRIORITY
 
+    def update_groups(self):
+        groups = dict()
+        for job in self.needrun_jobs:
+            if job.group is None:
+                continue
+            stop = lambda j: j.group != job.group
+            group = GroupJob(job.group,
+                             chain(self.bfs(self.depending, job, stop=stop),
+                                   self.bfs(self.dependencies, job, stop=stop)))
+
+
+            # merge with previously determined group if present
+            for j in group:
+                if j in groups:
+                    other = groups[j]
+                    other.merge(group)
+                    group = other
+                    break
+            # update assignment
+            for j in group:
+                if j not in groups:
+                    groups[j] = group
+        self._group = groups
+
     def update_ready(self, jobs=None):
         """ Update information whether a job is ready to execute.
 
         Given jobs must be needrun jobs!
         """
+
         if jobs is None:
             jobs = self.needrun_jobs
 
-        groups = dict()
+        candidate_groups = set()
         for job in jobs:
             if not self.finished(job) and self._ready(job):
                 if job.group is None:
                     self._ready_jobs.add(job)
                 else:
-                    group = GroupJob(job.group,
-                                     self.bfs(self.depending, job,
-                                              stop=lambda j: j.group != job.group))
+                    candidate_groups.add(self._group[job])
 
-                    # merge with previously determined group if present
-                    for j in group:
-                        if j in groups:
-                            other = groups[j]
-                            other.merge(group)
-                            group = other
-                            break
-                    # update assignment
-                    for j in group:
-                        if j not in groups:
-                            groups[j] = group
+        self._ready_jobs.update(
+            group for group in candidate_groups
+            if all(self._ready(job) for job in group))
 
-        self._ready_jobs.update(groups.values())
 
     def close_remote_objects(self):
         """Close all remote objects."""
@@ -819,6 +855,7 @@ class DAG:
         self.update_needrun()
         self.update_priority()
         self.handle_pipes()
+        self.update_groups()
         self.update_ready()
         self.close_remote_objects()
 
@@ -890,7 +927,15 @@ class DAG:
 
     def _ready(self, job):
         """Return whether the given job is ready to execute."""
-        return self._finished.issuperset(filter(self.needrun,
+        group = self._group.get(job, None)
+        if group is None:
+            is_external_needrun_dep = self.needrun
+        else:
+            def is_external_needrun_dep(j):
+                g = self._group.get(j, None)
+                return self.needrun(j) and (g is None or g != group)
+
+        return self._finished.issuperset(filter(is_external_needrun_dep,
                                                 self.dependencies[job]))
 
     def finish(self, job, update_dynamic=True):
@@ -937,8 +982,9 @@ class DAG:
             assert targetfile is not None
             return self.job_cache[key]
         wildcards_dict = rule.get_wildcards(targetfile)
-        job = Job(rule, self, wildcards_dict=wildcards_dict, format_wildcards=format_wildcards)
-        for f in job.output:
+        job = Job(rule, self, wildcards_dict=wildcards_dict,
+                  format_wildcards=format_wildcards, targetfile=targetfile)
+        for f in job.products:
             self.job_cache[(rule, f)] = job
         return job
 

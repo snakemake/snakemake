@@ -17,7 +17,7 @@ import copy
 import subprocess
 
 from snakemake.logging import logger, format_resources, format_resource_names
-from snakemake.rules import Rule, Ruleorder
+from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import RuleException, CreateRuleException, \
     UnknownRuleException, NoRulesException, print_exception, WorkflowError
 from snakemake.shell import shell
@@ -25,7 +25,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe, repeat, report
+from snakemake.io import protected, temp, temporary, ancient, directory, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe, repeat, report
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
@@ -52,6 +52,7 @@ class Workflow:
                  use_singularity=False,
                  singularity_prefix=None,
                  singularity_args="",
+                 shadow_prefix=None,
                  mode=Mode.default,
                  wrapper_prefix=None,
                  printshellcmds=False,
@@ -98,6 +99,7 @@ class Workflow:
         self.use_singularity = use_singularity
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
+        self.shadow_prefix = shadow_prefix
         self.global_singularity_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
@@ -394,6 +396,7 @@ class Workflow:
             dag=dag,
             conda_prefix=self.conda_prefix,
             singularity_prefix=self.singularity_prefix,
+            shadow_prefix=self.shadow_prefix,
             warn_only=dryrun or printrulegraph or printdag or summary or archive or
             list_version_changes or list_code_changes or list_input_changes or
             list_params_changes or list_untracked or delete_all_output or delete_temp_output)
@@ -608,7 +611,9 @@ class Workflow:
                         "Provided cluster nodes: {}".format(nodes))
                 else:
                     logger.resources_info("Provided cores: {}".format(cores))
-                    logger.resources_info("Rules claiming more threads will be scaled down.")
+                    logger.resources_info("Rules claiming more threads "
+                                          "will be scaled down.")
+
                 provided_resources = format_resources(resources)
                 if provided_resources:
                     logger.resources_info(
@@ -617,9 +622,22 @@ class Workflow:
                     resource for job in dag.needrun_jobs
                     for resource in job.resources.keys()
                     if resource not in resources))
+
                 if unlimited_resources:
                     logger.resources_info(
                         "Unlimited resources: " + unlimited_resources)
+
+                if self.run_local and any(rule.group for rule in self.rules):
+                    logger.info("Group jobs: inactive (local execution)")
+
+                if not self.use_conda and any(rule.conda_env
+                                              for rule in self.rules):
+                    logger.info("Conda environments: ignored")
+
+                if not self.use_singularity and any(rule.singularity_img
+                                                    for rule in self.rules):
+                    logger.info("Singularity containers: ignored")
+
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
@@ -722,6 +740,9 @@ class Workflow:
     def global_wildcard_constraints(self, **content):
         """Register global wildcard constraints."""
         self._wildcard_constraints.update(content)
+        # update all rules so far
+        for rule in self.rules:
+            rule.update_wildcard_constraints()
 
     def workdir(self, workdir):
         """Register workdir."""
@@ -855,7 +876,7 @@ class Workflow:
 
             ruleinfo.func.__name__ = "__{}".format(name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
-            setattr(rules, name, rule)
+            setattr(rules, name, RuleProxy(rule))
             return ruleinfo.func
 
         return decorate
