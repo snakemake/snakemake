@@ -1,5 +1,13 @@
 # Change Log
 
+# [5.2.4] - 2018-09-10
+## Added
+- New command line flag --shadow-prefix
+## Changed
+- fixed permission issue when using script directive
+- fixed various minor bugs and papercuts.
+- Allow URL to local git repo with wrapper directive (`git+file:///path/to/your/repo/path_to_file@@version`)
+
 # [5.2.2] - 2018-08-01
 ## Changed
 - Always print timestamps, removed the --timestamps CLI option.
