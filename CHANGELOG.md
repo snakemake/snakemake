@@ -1,5 +1,9 @@
 # Change Log
 
+# [unreleased]
+## Changed
+- Fixed bug in script and wrapper execution when using `--use-singularity --use-conda`.
+
 # [5.2.4] - 2018-09-10
 ## Added
 - New command line flag --shadow-prefix
