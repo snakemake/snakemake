@@ -14,6 +14,7 @@ import threading
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake import singularity, conda
+import snakemake
 
 
 __author__ = "Johannes Köster"
@@ -97,7 +98,12 @@ class shell:
 
         if singularity_img:
             args = context.get("singularity_args", "")
-            cmd = singularity.shellcmd(singularity_img, cmd, args)
+            # mount host snakemake module into container
+            snakemake_pythonpath = os.path.dirname(
+                os.path.dirname(snakemake.__file__))
+            args += " --bind {}:/mnt/snakemake".format(snakemake_pythonpath)
+            cmd = singularity.shellcmd(singularity_img, cmd, args,
+                                       envvars={"PYTHONPATH": "/mnt/snakemake"})
             logger.info("Activating singularity image {}".format(singularity_img))
 
         if conda_env:
