@@ -4,7 +4,6 @@ __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import collections
-import git
 import os
 import shutil
 from pathlib import Path
@@ -877,7 +876,6 @@ def split_git_path(path):
     return (root_path, file_path, version)
 
 
-
 def get_git_root(path):
     """
         Args:
@@ -885,8 +883,14 @@ def get_git_root(path):
         Returns:
             path to root folder for git repo
     """
+    try:
+        import git
+    except ImportError as e:
+        raise WorkflowError("The Python package gitpython has to be installed.", e)
+
     git_repo = git.Repo(path, search_parent_directories=True)
     return git_repo.git.rev_parse("--show-toplevel")
+
 
 def git_content(git_file):
     """
@@ -902,6 +906,8 @@ def git_content(git_file):
     """
     if git_file.startswith("git+file:"):
         (root_path, file_path, version) = split_git_path(git_file)
+        # split_git_path does the import check, hence it is safe to import git here
+        import git
         return git.Repo(root_path).git.show('{}:{}'.format(version, file_path))
     else:
         raise WorkflowError("Provided git path ({}) doesn't meet the "
@@ -917,7 +923,6 @@ def strip_wildcard_constraints(pattern):
     return _wildcard_regex.sub(strip_constraint, pattern)
 
 
-# TODO rewrite Namedlist!
 class Namedlist(list):
     """
     A list that additionally provides functions to name items. Further,
