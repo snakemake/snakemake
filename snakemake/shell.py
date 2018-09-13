@@ -154,6 +154,11 @@ if os.name == "posix":
         logger.warning("Cannot set bash as default shell because it is not "
                        "available in your PATH. Falling back to sh.")
         shell_exec = "sh"
+        if not shutil.which("sh"):
+            logger.warning("Cannot fall back to sh since it seems to be not "
+                           "available on this system. Using whatever is "
+                           "defined as default.")
+            return
     else:
         shell_exec = "bash"
     shell.executable(shell_exec)
