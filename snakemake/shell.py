@@ -42,6 +42,10 @@ class shell:
         if os.name == "posix" and not os.path.isabs(cmd):
             # always enforce absolute path
             cmd = shutil.which(cmd)
+            if not cmd:
+                raise WorkflowError("Cannot set default shell {} because it "
+                                    "is not available in your "
+                                    "PATH.".format(cmd))
         if os.path.split(cmd)[-1] == "bash":
             cls._process_prefix = "set -euo pipefail; "
         cls._process_args["executable"] = cmd
