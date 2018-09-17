@@ -570,8 +570,6 @@ Shadow rules result in each execution of the rule to be run in isolated temporar
 
 By setting ``shadow: "shallow"``, the top level files and directories are symlinked, so that any relative paths in a subdirectory will be real paths in the filesystem. The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir. The setting ``shadow: "minimal"`` only symlinks the inputs to the rule. Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
 
-Shadow directories are stored one per rule execution in ``.snakemake/shadow/``, and are cleared on subsequent snakemake invocations unless the ``--keep-shadow`` command line argument is used.
-
 Typically, you will not need to modify your rule for compatibility with ``shadow``, unless you reference parent directories relative to your workdir in a rule.
 
 .. code-block:: python
@@ -581,6 +579,8 @@ Typically, you will not need to modify your rule for compatibility with ``shadow
         output: "path/to/outputfile"
         shadow: "shallow"
         shell: "somecommand --other_outputs other.txt {input} {output}"
+
+Shadow directories are stored one per rule execution in ``.snakemake/shadow/``, and are cleared on successful execution. Consider running with the ``--cleanup-shadow`` argument every now and then to remove any remaining shadow directories from aborted jobs. The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
 
 Flag files
 ----------
