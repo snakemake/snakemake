@@ -67,6 +67,15 @@ class Image:
         return os.path.join(self._img_dir, self.hash) + ".simg"
 
 
-def shellcmd(img_path, cmd, args=""):
-    return "singularity exec --home {} {} {} bash -c '{}'".format(
-        os.getcwd(), args, img_path, cmd.replace("'", r"\'"))
+def shellcmd(img_path, cmd, args="", envvars=None):
+    """Execute shell command inside singularity container given optional args
+       and environment variables to be passed."""
+
+    if envvars:
+        envvars = " ".join("SINGULARITYENV_{}={}".format(k, v)
+                           for k, v in envvars.items())
+    else:
+        envvars = ""
+    cmd = "{} singularity exec --home {} {} {} bash -c '{}'".format(
+        envvars, os.getcwd(), args, img_path, cmd.replace("'", r"\'"))
+    return cmd

@@ -14,6 +14,7 @@ import threading
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake import singularity, conda
+import snakemake
 
 
 __author__ = "Johannes Köster"
@@ -41,6 +42,10 @@ class shell:
         if os.name == "posix" and not os.path.isabs(cmd):
             # always enforce absolute path
             cmd = shutil.which(cmd)
+            if not cmd:
+                raise WorkflowError("Cannot set default shell {} because it "
+                                    "is not available in your "
+                                    "PATH.".format(cmd))
         if os.path.split(cmd)[-1] == "bash":
             cls._process_prefix = "set -euo pipefail; "
         cls._process_args["executable"] = cmd
@@ -97,7 +102,12 @@ class shell:
 
         if singularity_img:
             args = context.get("singularity_args", "")
-            cmd = singularity.shellcmd(singularity_img, cmd, args)
+            # mount host snakemake module into container
+            snakemake_pythonpath = os.path.dirname(
+                os.path.dirname(snakemake.__file__))
+            args += " --bind {}:/mnt/snakemake".format(snakemake_pythonpath)
+            cmd = singularity.shellcmd(singularity_img, cmd, args,
+                                       envvars={"PYTHONPATH": "/mnt/snakemake"})
             logger.info("Activating singularity image {}".format(singularity_img))
 
         if conda_env:
@@ -147,7 +157,11 @@ if os.name == "posix":
     if not shutil.which("bash"):
         logger.warning("Cannot set bash as default shell because it is not "
                        "available in your PATH. Falling back to sh.")
-        shell_exec = "sh"
+        if not shutil.which("sh"):
+            logger.warning("Cannot fall back to sh since it seems to be not "
+                           "available on this system. Using whatever is "
+                           "defined as default.")
+        else:
+            shell.executable("sh")
     else:
-        shell_exec = "bash"
-    shell.executable(shell_exec)
+        shell.executable("bash")

@@ -65,46 +65,9 @@ We activate benchmarking for the rule ``bwa_map``:
 The ``benchmark`` directive takes a string that points to the file where benchmarking results shall be stored.
 Similar to output files, the path can contain wildcards (it must be the same wildcards as in the output files).
 When a job derived from the rule is executed, Snakemake will measure the wall clock time and memory usage (in MiB) and store it in the file in tab-delimited format.
-With the command line flag ``--benchmark-repeats``, Snakemake can be instructed to perform repetitive measurements by executing benchmark jobs multiple times.
+It is possible to repeat a benchmark multiple times in order to get a sense for the variability of the measurements.
+This can be done by annotating the benchmark file, e.g., with ``benchmark("benchmarks/{sample}.bwa.benchmark.txt", 3)`` Snakemake can be told to run the job three times.
 The repeated measurements occur as subsequent lines in the tab-delimited benchmark file.
-
-We can include the benchmark results into our report:
-
-.. code:: python
-
-    rule report:
-        input:
-            T1="calls/all.vcf",
-            T2=expand("benchmarks/{sample}.bwa.benchmark.txt", sample=config["samples"])
-        output:
-            "report.html"
-        run:
-            from snakemake.utils import report
-            with open(input.T1) as vcf:
-                n_calls = sum(1 for l in vcf if not l.startswith("#"))
-
-            report("""
-            An example variant calling workflow
-            ===================================
-
-            Reads were mapped to the Yeast
-            reference genome and variants were called jointly with
-            SAMtools/BCFtools.
-
-            This resulted in {n_calls} variants (see Table T1_).
-            Benchmark results for BWA can be found in the tables T2_.
-            """, output[0], **input)
-
-We use the ``expand`` function to collect the benchmark files for all samples.
-Here, we directly provide names for the input files.
-In particular, we can also name the whole list of benchmark files returned by the ``expand`` function as ``T2``.
-When invoking the ``report`` function, we just unpack ``input`` into keyword arguments (resulting in ``T1`` and ``T2``).
-In the text, we refer with ``T2_`` to the list of benchmark files.
-
-Exercise
-........
-
-* Re-execute the workflow and benchmark ``bwa_map`` with 3 repeats. Open the report and see how the list of benchmark files is presented in the HTML report.
 
 Modularization
 ::::::::::::::

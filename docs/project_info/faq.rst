@@ -526,12 +526,39 @@ How do I exit a running Snakemake workflow?
 
 There are two ways to exit a currently running workflow.
 
-1. If you want to kill all running jobs, hit Ctrl+C. Note that when using --cluster, this will only cancel the main Snakemake process.
+1. If you want to kill all running jobs, hit Ctrl+C. Note that when using ``--cluster``, this will only cancel the main Snakemake process.
 2. If you want to stop the scheduling of new jobs and wait for all running jobs to be finished, you can send a TERM signal, e.g., via
 
    .. code-block:: bash
 
        killall -TERM snakemake
+
+How can I make use of node-local storage when running cluster jobs?
+-------------------------------------------------------------------
+When running jobs on a cluster you might want to make use of a node-local scratch
+directory in order to reduce cluster network traffic and/or get more efficient disk
+storage for temporary files. There is currently no way of doing this in Snakemake,
+but a possible workaround involves the ``shadow`` directive and setting the
+``--shadow-prefix`` flag to e.g. ``/scratch``.
+
+.. code-block:: python
+
+  rule:
+      output:
+          "some_summary_statistics.txt"
+      shadow: "minimal"
+      shell:
+          """
+          generate huge_file.csv
+          summarize huge_file.csv > {output}
+          """
+
+The following would then lead to the job being executed in ``/scratch/shadow/some_unique_hash/``, and the
+temporary file ``huge_file.csv`` could be kept at the compute node.
+
+.. code-block:: console
+
+   $ snakemake --shadow-prefix /scratch some_summary_statistics.txt --cluster ...
 
 How do I access elements of input or output by a variable index?
 ----------------------------------------------------------------
