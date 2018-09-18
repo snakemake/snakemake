@@ -6,5 +6,4 @@
 Change Log
 ==========
 
-.. literalinclude:: ../../CHANGELOG.md
-    :language: text
+.. include:: ../../CHANGELOG.rst
