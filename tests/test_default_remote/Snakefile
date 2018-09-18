@@ -69,7 +69,7 @@ rule e:
             check_remote(e)
         check_remote(output[0])
         shell("cp {input} {output}")
-        
+
 
 # after we finish, we need to remove the pickle storing
 # the local moto "buckets" so we are starting fresh

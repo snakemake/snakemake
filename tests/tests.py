@@ -140,6 +140,9 @@ def run(path,
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
+def test_issue956():
+    run(dpath("test_issue956"))
+
 def test01():
     run(dpath("test01"))
 

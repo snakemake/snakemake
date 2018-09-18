@@ -596,7 +596,9 @@ class Rule:
     def expand_input(self, wildcards):
         def concretize_iofile(f, wildcards, is_from_callable):
             if is_from_callable:
-                return IOFile(f, rule=self)
+                return IOFile(f, rule=self).apply_wildcards(wildcards,
+                                         fill_missing=f in self.dynamic_input,
+                                         fail_dynamic=self.dynamic_output)
             else:
                 return f.apply_wildcards(wildcards,
                                          fill_missing=f in self.dynamic_input,
