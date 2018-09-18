@@ -220,7 +220,8 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                         log = "list",
                         resources = "list",
                         config = "list",
-                        rule = "character"
+                        rule = "character",
+                        scriptdir = "character"
                     )
                 )
                 snakemake <- Snakemake(
@@ -232,7 +233,8 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                     log = {},
                     resources = {},
                     config = {},
-                    rule = {}
+                    rule = {},
+                    scriptdir = {}
                 )
                 ######## Original script #########
                 """).format(REncoder.encode_namedlist(input),
@@ -244,7 +246,8 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                                name: value
                                for name, value in resources.items()
                                if name != "_cores" and name != "_nodes"
-                           }), REncoder.encode_dict(config), REncoder.encode_value(rulename))
+                           }), REncoder.encode_dict(config), REncoder.encode_value(rulename),
+                           REncoder.encode_value(os.path.dirname(path[7:]) if path.startswith("file://") else os.path.dirname(path)))
             else:
                 raise ValueError(
                     "Unsupported script: Expecting either Python (.py), R (.R) or RMarkdown (.Rmd) script.")

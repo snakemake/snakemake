@@ -1,0 +1,5 @@
+wd <- getwd()
+setwd(snakemake@scriptdir)
+source("source_me.R")
+setwd(wd)
+cat(hi(),file=snakemake@output[[1]])
