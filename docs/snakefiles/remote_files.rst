@@ -113,6 +113,8 @@ S3 then can be used without the keys.
     from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
     S3 = S3RemoteProvider()
 
+Finally, it is also possible to overwrite the S3 host via adding a ``host`` argument (taking a URL string) to ``S3RemoteProvider``.
+
 Google Cloud Storage (GS)
 =========================
 
