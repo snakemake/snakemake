@@ -14,6 +14,7 @@ import urllib
 from shutil import rmtree, which
 from shlex import quote
 import pytest
+import subprocess
 
 from snakemake import snakemake
 from snakemake.shell import shell
@@ -635,6 +636,9 @@ def test_profile():
 def test_singularity():
     run(dpath("test_singularity"), use_singularity=True)
 
+def test_singularity_invalid():
+    run(dpath("test_singularity"), targets=["invalid.txt"], use_singularity=True, shouldfail=True)
+
 @connected
 def test_singularity_conda():
     run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True)
@@ -799,6 +803,9 @@ def test_issue930():
 def test_issue635():
     run(dpath("test_issue635"), use_conda=True, check_md5=False)
 
-if __name__ == '__main__':
-    import nose
-    nose.run(defaultTest=__name__)
+def test_convert_to_cwl():
+    workdir = dpath("test_convert_to_cwl")
+    #run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
+    subprocess.check_call(["snakemake", "--export-cwl" , "workflow.cwl"], cwd=workdir)
+    subprocess.check_call(["cwltool", "workflow.cwl"], cwd=workdir)
+    assert os.path.exists(os.path.join(workdir, "test.out"))

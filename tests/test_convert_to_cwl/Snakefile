@@ -1,12 +1,7 @@
-from snakemake.utils import min_version
+import os
+print(os.listdir("."))
+print(os.getcwd())
 
-from snakemake import __version__
-print(__version__, file=sys.stderr)
-
-shell.executable("/bin/bash")
-shell.prefix("source ~/.bashrc; ")
-
-#min_version("2.1")
 
 TEST = "abc"
 
@@ -39,20 +34,17 @@ def version():
 rule rule1:
 	# This rule creates an intermediate file.
 	input: 
-		'test.inter'
+		'dir/a/test.inter'
 	output: 'dir/test.out'
 	log:    a='log/logfile.log'
 	version: version()
-	threads: 3
 	shell: 
-		'if [ {threads} -ne 3 ]; then echo "This test has to be run with -j3 in order to succeed!"; exit 1; fi; ' \
 		'echo {TEST}; echo {version}; cp {input[0]} {output[0]}; ' # append a comment
 		'echo test > {log.a}'
 
 rule rule2:
 	input: testin
-	output: 'test.inter'
-	message: 'Copying {input[0]} to {output[0]}'
+	output: 'dir/a/test.inter'
 	shell: 
 		'''
 		cp {input[0]} {output[0]}
@@ -60,7 +52,7 @@ rule rule2:
 
 rule rule4:
 	input: "test.in"
-	output: "test.inter"
+	output: "dir/a/test.inter"
 	shell: "cp {input} {output}"
 
 

@@ -13,6 +13,10 @@ from snakemake.logging import logger
 
 class Image:
     def __init__(self, url, dag):
+        if " " in url:
+            raise WorkflowError("Invalid singularity image URL containing "
+                                "whitespace.")
+
         if not shutil.which("singularity"):
             raise WorkflowError("The singularity command has to be "
                                 "available in order to use singularity "

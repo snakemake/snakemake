@@ -16,3 +16,12 @@ rule b:
         "test.txt"
     shell:
         "touch {output}"
+
+
+rule c:
+    output:
+        "invalid.txt"
+    singularity:
+        "docker://invalid/image url even with whitespace"
+    shell:
+        "touch {output}"

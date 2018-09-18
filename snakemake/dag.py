@@ -841,6 +841,17 @@ class DAG:
             group for group in candidate_groups
             if all(self._ready(job) for job in group))
 
+    def get_jobs_or_groups(self):
+        visited_groups = set()
+        for job in self.jobs:
+            if job.group is None:
+                yield job
+            else:
+                group = self._group[job]
+                if group in visited_groups:
+                    continue
+                visited_groups.add(group)
+                yield group
 
     def close_remote_objects(self):
         """Close all remote objects."""

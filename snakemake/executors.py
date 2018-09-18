@@ -35,7 +35,7 @@ from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError, ImproperShadowException, SpawnedJobError
-from snakemake.common import Mode, __version__
+from snakemake.common import Mode, __version__, get_container_image
 
 
 def sleep():
@@ -1079,10 +1079,9 @@ class KubernetesExecutor(ClusterExecutor):
         self.run_namespace = str(uuid.uuid4())
         self.secret_envvars = {}
         self.register_secret()
-        last_stable_version = __version__.split("+")[0]
         self.container_image = (
             container_image or
-            "quay.io/snakemake/snakemake:v{}".format(last_stable_version))
+            get_container_image())
 
     def register_secret(self):
         import kubernetes.client

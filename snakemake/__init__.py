@@ -123,7 +123,8 @@ def snakemake(snakefile,
               default_remote_provider=None,
               default_remote_prefix="",
               assume_shared_fs=True,
-              cluster_status=None):
+              cluster_status=None,
+              export_cwl=None):
     """Run snakemake on a given snakefile.
 
     This function provides access to the whole snakemake functionality. It is not thread-safe.
@@ -219,6 +220,7 @@ def snakemake(snakefile,
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
+        export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
 
             :level:
@@ -538,7 +540,8 @@ def snakemake(snakefile,
                     create_envs_only=create_envs_only,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
-                    report=report)
+                    report=report,
+                    export_cwl=export_cwl)
 
     except BrokenPipeError:
         # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
@@ -837,6 +840,10 @@ def get_argument_parser(profile=None):
     group_utils.add_argument("--report",
                         metavar="HTMLFILE",
                         help="Create an HTML report with results and statistics.")
+    group_utils.add_argument("--export-cwl",
+                        action="store",
+                        metavar="FILE",
+                        help="Compile workflow to CWL and store it in given FILE.")
     group_utils.add_argument("--list", "-l",
                         action="store_true",
                         help="Show available rules in given Snakefile.")
@@ -1548,7 +1555,8 @@ def main(argv=None):
                             default_remote_provider=args.default_remote_provider,
                             default_remote_prefix=args.default_remote_prefix,
                             assume_shared_fs=not args.no_shared_fs,
-                            cluster_status=args.cluster_status)
+                            cluster_status=args.cluster_status,
+                            export_cwl=args.export_cwl)
 
     if args.runtime_profile:
         with open(args.runtime_profile, "w") as out:

@@ -20,6 +20,14 @@ DYNAMIC_FILL = "__snakemake_dynamic__"
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 
 
+def get_last_stable_version():
+    return __version__.split("+")[0]
+
+
+def get_container_image():
+    return "quay.io/snakemake/snakemake:v{}".format(get_last_stable_version())
+
+
 def get_uuid(name):
     return uuid.uuid5(UUID_NAMESPACE, name)
 

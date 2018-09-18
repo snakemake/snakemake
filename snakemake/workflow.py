@@ -131,7 +131,11 @@ class Workflow:
             files.add(os.path.relpath(f))
         for rule in self.rules:
             if rule.script:
-                files.add(os.path.relpath(rule.script))
+                script_path = os.path.relpath(rule.script)
+                files.add(script_path)
+                script_dir = os.path.dirname(script_path)
+                files.update(os.path.join(dirpath, f)
+                             for dirpath, _, f in os.walk(script_dir))
         for f in self.configfiles:
             files.add(f)
 
@@ -305,7 +309,8 @@ class Workflow:
                 create_envs_only=False,
                 assume_shared_fs=True,
                 cluster_status=None,
-                report=None):
+                report=None,
+                export_cwl=False):
 
         self.check_localrules()
 
@@ -493,7 +498,13 @@ class Workflow:
 
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
-        if report:
+        if export_cwl:
+            from snakemake.cwl import dag_to_cwl
+            import json
+            with open(export_cwl, "w") as cwl:
+                json.dump(dag_to_cwl(dag), cwl, indent=4)
+            return True
+        elif report:
             from snakemake.report import auto_report
             auto_report(dag, report)
             return True
