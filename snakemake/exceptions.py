@@ -250,8 +250,8 @@ class AmbiguousRuleException(RuleException):
         wildcards_b = utils.format("{}", job_b._format_wildcards)
         super().__init__(
             "Rules {job_a} and {job_b} are ambiguous for the file {f}.\n"
-            "Consider starting rule output with a unique prefix or constrain "
-            "your wildcards.\n"
+            "Consider starting rule output with a unique prefix, constrain "
+            "your wildcards, or use the ruleorder directive.\n"
             "Wildcards:\n"
             "\t{job_a}: {wildcards_a}\n"
             "\t{job_b}: {wildcards_b}\n"
