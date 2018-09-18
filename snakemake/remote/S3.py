@@ -137,6 +137,8 @@ class S3Helper(object):
             kwargs["aws_access_key_id"] = kwargs.pop("access_key_id")
         if "secret_access_key" in kwargs:
             kwargs["aws_secret_access_key"] = kwargs.pop("secret_access_key")
+        if "host" in kwargs:
+            kwargs["endpoint_url"] = kwargs.pop("host")
 
         self.s3 = boto3.resource('s3', **kwargs)
 
