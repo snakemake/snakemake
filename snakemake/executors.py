@@ -1201,7 +1201,7 @@ class KubernetesExecutor(ClusterExecutor):
                 job.resources["mem_mb"])
 
         # capabilities
-        if job.singularity_img and self.workflow.use_singularity:
+        if job.needs_singularity and self.workflow.use_singularity:
             # TODO this should work, but it doesn't currently because of
             # missing loop devices
             # singularity inside docker requires SYS_ADMIN capabilities

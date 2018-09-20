@@ -252,6 +252,10 @@ class Job(AbstractJob):
         return None
 
     @property
+    def needs_singularity(self):
+        return self.singularity_img is not None
+
+    @property
     def singularity_img_url(self):
         return self.rule.singularity_img
 
@@ -1158,6 +1162,10 @@ class GroupJob(AbstractJob):
     @property
     def is_branched(self):
         return any(job.is_branched for job in self.jobs)
+
+    @property
+    def needs_singularity(self):
+        return any(job.needs_singularity for job in self.jobs)
 
     @property
     def rules(self):
