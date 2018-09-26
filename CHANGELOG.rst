@@ -26,8 +26,10 @@ Added
 Changed
 -------
 
--  fixed permission issue when using script directive
--  fixed various minor bugs and papercuts.
+-  Fixed permission issue when using the script directive. This is a breaking change
+   for scripts referring to files relative to the script directory (see the
+   `docs <https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#external-scripts>`__).
+-  Fixed various minor bugs and papercuts.
 -  Allow URL to local git repo with wrapper directive
    (``git+file:///path/to/your/repo/path_to_file@@version``)
 
@@ -126,7 +128,7 @@ Changed
 ====================
 
 Added
-=====
+-----
 
 -  Group jobs for reduced queuing and network overhead, in particular
    with short running jobs.
@@ -135,7 +137,11 @@ Added
    transferred directly without using disk.
 -  Command line flags to clean output files.
 -  Command line flag to list files in working directory that are not
-   tracked by Snakemake. # Changes
+   tracked by Snakemake.
+
+Changed
+-------
+
 -  Fix of --default-remote-prefix in case of input functions returning
    lists or dicts.
 -  Scheduler no longer prefers jobs with many downstream jobs.
@@ -144,7 +150,7 @@ Added
 ====================
 
 Added
-=====
+-----
 
 -  Allow URLs for the conda directive. # Changed
 -  Various minor updates in the docs.
@@ -162,7 +168,7 @@ Added
 ====================
 
 Added
-~~~~~
+-----
 
 -  Integration with CWL: the ``cwl`` directive allows to use CWL tool
    definitions in addition to shell commands or Snakemake wrappers.
@@ -202,7 +208,7 @@ Changed
 ====================
 
 Added
-~~~~~
+-----
 
 -  Input and output files can now tag pathlib objects. # ## Changed
 -  Various minor bug fixes.
@@ -211,7 +217,7 @@ Added
 ====================
 
 Added
-~~~~~
+-----
 
 -  iRODS remote provider # ## Changed
 -  Bug fix in shell usage of scripts and wrappers.
@@ -221,10 +227,14 @@ Added
 --------------------
 
 Added
-~~~~~
+-----
 
 -  A new shadow mode (minimal) that only symlinks input files has been
-   added. # ## Changed
+   added.
+
+Changed
+-------
+
 -  The default shell is now bash on linux and macOS. If bash is not
    installed, we fall back to sh. Previously, Snakemake used the default
    shell of the user, which defeats the purpose of portability. If the
@@ -239,10 +249,14 @@ Added
 --------------------
 
 Added
-~~~~~
+-----
 
 -  List all conda environments with their location on disk via
-   --list-conda-envs. # ## Changed
+   --list-conda-envs.
+
+Changed
+-------
+
 -  Do not clean up shadow on dry-run.
 -  Allow R wrappers.
 
@@ -250,7 +264,7 @@ Added
 --------------------
 
 Added
-~~~~~
+-----
 
 -  GridFTP remote provider. This is a specialization of the GFAL remote
    provider that uses globus-url-copy to download or upload files. # ##
@@ -265,11 +279,15 @@ Added
 --------------------
 
 Added
-~~~~~
+-----
 
 -  Support for executing jobs in per-rule singularity images. This is
    meant as an alternative to the conda directive (see docs), providing
-   even more guarantees for reproducibility. # ## Changed
+   even more guarantees for reproducibility.
+
+Changed
+-------
+
 -  In cluster mode, jobs that are still running after Snakemake has been
    killed are automatically resumed.
 -  Various fixes to GFAL remote provider.
@@ -280,7 +298,7 @@ Added
 --------------------
 
 Added
-~~~~~
+-----
 
 -  Support for configuration profiles. Profiles allow to specify default
    options, e.g., a cluster submission command. They can be used via
@@ -302,7 +320,7 @@ Added
 --------------------
 
 Added
-~~~~~
+-----
 
 -  Cloud computing support via Kubernetes. Snakemake workflows can be
    executed transparently in the cloud, while storing input and output
@@ -363,7 +381,7 @@ Changed
 ---------------------
 
 Added
-~~~~~
+-----
 
 -  An NCBI remote provider. By this, you can seamlessly integrate any
    NCBI resouce (reference genome, gene/protein sequences, ...) as input
@@ -382,7 +400,7 @@ Added
 ---------------------
 
 Added
-~~~~~
+-----
 
 -  Support for RMarkdown (.Rmd) in script directives.
 -  New option --debug-dag that prints all decisions while building the
@@ -421,7 +439,7 @@ Changed
 ---------------------
 
 Added
-~~~~~
+-----
 
 -  Param functions can now also refer to threads. # ## Changed
 -  Improved tutorial and docs.
@@ -445,7 +463,7 @@ Changed
 ---------------------
 
 Added
-~~~~~
+-----
 
 -  Workflows can now be archived to a tarball with
    ``snakemake --archive my-workflow.tar.gz``. The archive contains all
@@ -466,7 +484,7 @@ Added
 --------------------
 
 Added
-~~~~~
+-----
 
 -  Jobs can be restarted upon failure (--restart-times). # ## Changed
 -  The docs have been restructured and improved. Now available under
@@ -479,7 +497,7 @@ Added
 --------------------
 
 Added
-~~~~~
+-----
 
 -  Ability to define isolated conda software environments (YAML) per
    rule. Environments will be deployed by Snakemake upon workflow
@@ -518,7 +536,7 @@ Changed
 --------------------
 
 Added
-~~~~~
+-----
 
 -  Wildcards can now be constrained by rule and globally via the new
    ``wildcard_constraints`` directive (see the
@@ -537,7 +555,10 @@ Added
    quoted (see the
    `docs <https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-rules>`__).
    This is usefull when dealing with filenames that contain whitespaces.
-   # ## Changed
+
+Changed
+-------
+
 -  Snakemake now deletes output files before job exection. Further, it
    touches output files after job execution. This solves various
    problems with slow NFS filesystems.
@@ -559,7 +580,7 @@ Changed
 --------------------
 
 Added
-~~~~~
+-----
 
 -  The entries in ``resources`` and the ``threads`` job attribute can
    now be callables that must return ``int`` values.
@@ -591,7 +612,7 @@ Changed
 --------------------
 
 Added
-~~~~~
+-----
 
 -  onstart handler, that allows to add code that shall be only executed
    before the actual workflow execution (not on dryrun).
@@ -612,7 +633,7 @@ Added
 --------------------
 
 Added
-~~~~~
+-----
 
 -  New experimental wrapper directive, which allows to refer to
    re-usable `wrapper
@@ -645,7 +666,7 @@ Changed
 --------------------
 
 Added
-~~~~~
+-----
 
 -  Support for easy integration of external R and Python scripts via the
    new `script
@@ -655,9 +676,12 @@ Added
    Google Storage, FTP, SFTP, HTTP and Dropbox.
 -  Simon Ye has implemented support for sandboxing jobs with `shadow
    rules <https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-shadow-rules>`__.
-   # ## Changed
+
+Changed
+-------
+
 -  Manuel Holtgrewe has fixed dynamic output files in combination with
-   mutliple wildcards.
+   multiple wildcards.
 -  It is now possible to add suffixes to all shell commands with
    shell.suffix("mysuffix").
 -  Job execution has been refactored to spawn processes only when
@@ -703,14 +727,18 @@ Changed
 ------------------
 
 Added
-~~~~~
+-----
 
 -  This release adds support for executing jobs on clusters in
    synchronous mode (e.g. qsub -sync). Thanks to David Alexander for
    implementing this.
 -  There is now vim syntax highlighting support (thanks to Jay
    Hesselberth).
--  Snakemake is now available as Conda package. # ## Changed
+-  Snakemake is now available as Conda package.
+
+Changed
+-------
+
 -  Lots of bugs have been fixed. Thanks go to e.g. David Koppstein,
    Marcel Martin, John Huddleston and Tao Wen for helping with useful
    reports and debugging.

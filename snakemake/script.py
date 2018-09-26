@@ -91,7 +91,7 @@ class REncoder:
 
 class Snakemake:
     def __init__(self, input, output, params, wildcards, threads, resources,
-                 log, config, rulename):
+                 log, config, rulename, scriptdir = None):
         # convert input and output to plain strings as some remote objects cannot
         # be pickled
         self.input = input.plainstrings()
@@ -103,6 +103,7 @@ class Snakemake:
         self.log = log.plainstrings()
         self.config = config
         self.rule = rulename
+        self.scriptdir = scriptdir
 
     def log_fmt_shell(self, stdout=True, stderr=True, append=False):
         """
@@ -189,7 +190,8 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
         with urlopen(sourceurl) as source:
             if path.endswith(".py"):
                 snakemake = Snakemake(input, output, params, wildcards,
-                                      threads, resources, log, config, rulename)
+                                      threads, resources, log, config, rulename,
+                                      os.path.dirname(path[7:]) if path.startswith("file://") else os.path.dirname(path))
                 snakemake = pickle.dumps(snakemake)
                 # Obtain search path for current snakemake module.
                 # The module is needed for unpickling in the script.
@@ -221,7 +223,8 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                         resources = "list",
                         config = "list",
                         rule = "character",
-                        scriptdir = "character"
+                        scriptdir = "character",
+                        source = "function"
                     )
                 )
                 snakemake <- Snakemake(
@@ -234,8 +237,15 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                     resources = {},
                     config = {},
                     rule = {},
-                    scriptdir = {}
+                    scriptdir = {},
+                    source = function(...){{
+                        wd <- getwd()
+                        setwd(snakemake@scriptdir)
+                        source(...)
+                        setwd(wd)
+                    }}
                 )
+
                 ######## Original script #########
                 """).format(REncoder.encode_namedlist(input),
                            REncoder.encode_namedlist(output),
