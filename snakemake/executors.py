@@ -1136,7 +1136,7 @@ class KubernetesExecutor(ClusterExecutor):
             self.run_namespace, job.jobid, job.attempt)
 
         body = kubernetes.client.V1Pod()
-        body.metadata = kubernetes.client.V1ObjectMeta()
+        body.metadata = kubernetes.client.V1ObjectMeta(labels={"app": "snakemake"})
         body.metadata.name = jobid
 
         # container
