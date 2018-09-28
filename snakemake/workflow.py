@@ -815,10 +815,12 @@ class Workflow:
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
                     raise RuleException(
-                        "Shadow must either be 'shallow', 'full', 'minimal', "
+                        "Shadow must either be 'minimal', 'shallow', 'full', "
                         "or True (equivalent to 'full')", rule=rule)
                 if ruleinfo.shadow_depth is True:
                     rule.shadow_depth = 'full'
+                    logger.warning(
+                        "Shadow is set to True in rule {} (equivalent to 'full'). It's encouraged to use the more explicit options 'minimal|shallow|full' instead.".format(rule))
                 else:
                     rule.shadow_depth = ruleinfo.shadow_depth
             if ruleinfo.resources:
