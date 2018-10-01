@@ -135,7 +135,8 @@ class Workflow:
                 files.add(script_path)
                 script_dir = os.path.dirname(script_path)
                 files.update(os.path.join(dirpath, f)
-                             for dirpath, _, f in os.walk(script_dir))
+                             for dirpath, _, files in os.walk(script_dir)
+                             for f in files)
         for f in self.configfiles:
             files.add(f)
 
