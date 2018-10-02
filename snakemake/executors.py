@@ -1110,7 +1110,12 @@ class KubernetesExecutor(ClusterExecutor):
                 continue
         self.kubeapi.create_namespaced_secret(self.namespace, secret)
 
+    def unregister_secret(self):
+        self.kubeapi.delete_namespaced_secret(self.namespace,
+                                              self.run_namespace)
+
     def shutdown(self):
+        self.unregister_secret()
         super().shutdown()
 
     def cancel(self):
