@@ -54,7 +54,7 @@ def validate(data, schema, set_default=True):
     schemafile = schema
     schema = _load_configfile(schema, filetype="Schema")
     resolver = RefResolver(
-        urljoin('file:', os.path.dirname(schemafile)), schema,
+        urljoin('file:', schemafile), schema,
         handlers={'file': lambda uri: _load_configfile(re.sub("^file://", "", uri))})
 
     # Taken from http://python-jsonschema.readthedocs.io/en/latest/faq/
