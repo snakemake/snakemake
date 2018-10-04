@@ -1111,8 +1111,10 @@ class KubernetesExecutor(ClusterExecutor):
         self.kubeapi.create_namespaced_secret(self.namespace, secret)
 
     def unregister_secret(self):
-        self.kubeapi.delete_namespaced_secret(self.namespace,
-                                              self.run_namespace)
+        import kubernetes.client
+        self.kubeapi.delete_namespaced_secret(self.run_namespace,
+                                              self.namespace,
+                                              kubernetes.client.V1DeleteOptions())
 
     def shutdown(self):
         self.unregister_secret()
