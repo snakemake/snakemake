@@ -1,0 +1,74 @@
+config = {
+    'foo': {
+        'runtime': 100,
+        'extra_args': '--foo args',
+    },
+    'bar': {
+        'options': '--bar options',
+        'threads': 2,
+        'mem_mb': 2,
+    },
+}
+
+
+def _input(wildcards):
+    return {'foo': 'foo.out'}
+
+
+def _resources_runtime(wildcards, rule, attempt):
+    return 2**(attempt - 1) * config[rule].get("runtime", 10)
+
+
+def _resources_mem_mb(wildcards, rule, attempt):
+    return 2**(attempt - 1) * config[rule].get("mem_mb", 1)
+
+
+def _threads(wildcards, rule):
+    return config[rule].get("threads", 1)
+
+
+def _params_options(wildcards, rule):
+    return config[rule].get("options", "-v")
+
+
+def _params_extra_args(wildcards, rule):
+    return config[rule].get("extra_args", None)
+
+
+rule all:
+    input: bar = "bar.out"
+
+
+rule foo:
+    resources: runtime = _resources_runtime,
+               mem_mb = _resources_mem_mb
+    params: options = _params_options,
+            extra_args = _params_extra_args
+    output: "foo.out"
+    threads: _threads
+    run:
+        d = {'threads': threads,
+             'rule': rule,
+             **dict(resources),
+             **dict(params)}
+        out = "\n".join(["{}: {}".format(k, d[k]) for k in sorted(d)])
+        with open(output[0], "w") as fh:
+            fh.write(out + "\n")
+
+
+rule bar:
+    params: options = _params_options,
+            extra_args = _params_extra_args
+    resources: runtime = _resources_runtime,
+               mem_mb = _resources_mem_mb
+    input: unpack(_input)
+    output: "bar.out"
+    threads: _threads
+    run:
+        d = {'threads': threads,
+             'rule': rule,
+             **dict(resources),
+             **dict(params)}
+        out = "\n".join(["{}: {}".format(k, d[k]) for k in sorted(d)])
+        with open(output[0], "w") as fh:
+            fh.write(out + "\n")

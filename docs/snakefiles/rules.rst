@@ -243,7 +243,7 @@ When defining memory constraints, it is however advised to use ``mem_mb``, becau
 Snakemake execution modes that make use of this information, (e.g., when using :ref:`kubernetes`).
 
 Resources can also be callables that return ``int`` values.
-The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
+The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt] [, rule])`` (``input``, ``threads``, ``attempt``, and ``rule`` are optional parameters).
 
 The parameter ``attempt`` allows to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--restart-times``).
 This is handy when executing a Snakemake workflow in a cluster environment, where jobs can e.g. fail because of too limited resources.
@@ -263,6 +263,8 @@ This can be used to adjust the required memory as follows
 
 Here, the first attempt will require 100 MB memory, the second attempt will require 200 MB memory and so on.
 When passing memory requirements to the cluster engine, you can by this automatically try out larger nodes if it turns out to be necessary.
+
+The parameter ``rule`` simply refers to the rule name.
 
 Messages
 --------
@@ -379,7 +381,7 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
             "somecommand -o {params.prefix}"
 
 to get the same effect as above. Note that in contrast to the ``input`` directive, the
-``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, ``threads``, and ``resources``.
+``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, ``threads``, ``resources`` and ``rule``.
 From the Python perspective, they can be seen as optional keyword arguments without a default value.
 Their order does not matter, apart from the fact that ``wildcards`` has to be the first argument.
 In the example above, this allows you to derive the prefix name from the output file.

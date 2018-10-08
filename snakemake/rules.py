@@ -176,11 +176,13 @@ class Rule:
 
             resources = branch.expand_resources(non_dynamic_wildcards,
                                                 branch._input,
-                                                1)
+                                                1,
+                                                self.name)
             branch._params = branch.expand_params(non_dynamic_wildcards,
                                                   branch._input,
                                                   branch._output,
                                                   resources,
+                                                  self.name,
                                                   omit_callable=True)
             branch.resources = dict(resources.items())
 
@@ -631,7 +633,7 @@ class Rule:
 
         return input, mapping, dependencies
 
-    def expand_params(self, wildcards, input, output, resources, omit_callable=False):
+    def expand_params(self, wildcards, input, output, resources, rule, omit_callable=False):
         def concretize_param(p, wildcards, is_from_callable):
             if not is_from_callable and isinstance(p, str):
                 return apply_wildcards(p, wildcards)
@@ -650,6 +652,7 @@ class Rule:
                                   aux_params={"input": input,
                                               "resources": resources,
                                               "output": output,
+                                              "rule": rule,
                                               "threads": resources._cores})
         except WildcardError as e:
             raise WildcardError(
@@ -720,9 +723,8 @@ class Rule:
 
         return benchmark
 
-    def expand_resources(self, wildcards, input, attempt):
+    def expand_resources(self, wildcards, input, attempt, rule):
         resources = dict()
-
         def apply(name, res, threads=None):
             if callable(res):
                 aux = {"threads": threads} if threads is not None else dict()
@@ -730,6 +732,7 @@ class Rule:
                                                 wildcards,
                                                 input=input,
                                                 attempt=attempt,
+                                                rule=rule,
                                                 **aux)
                 if not isinstance(res, int):
                     raise WorkflowError("Resources function did not return int.")

@@ -1,0 +1,8 @@
+_cores: 1
+_nodes: 1
+extra_args: --foo args
+mem_mb: 1
+options: -v
+rule: foo
+runtime: 100
+threads: 1

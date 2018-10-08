@@ -1,0 +1,8 @@
+_cores: 2
+_nodes: 1
+extra_args: None
+mem_mb: 2
+options: --bar options
+rule: bar
+runtime: 10
+threads: 2

@@ -574,6 +574,10 @@ def test_threads():
     run(dpath("test_threads"), cores=20)
 
 
+def test_rulename():
+    run(dpath("test_rulename"))
+
+
 def test_dynamic_temp():
     run(dpath("test_dynamic_temp"))
 
