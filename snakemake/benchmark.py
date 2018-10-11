@@ -160,8 +160,11 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         ScheduledPeriodicTimer.__init__(self, interval)
         #: PID of observed process
         self.pid = pid
+        self.main = psutil.Process(self.pid)
         #: ``BenchmarkRecord`` to write results to
         self.bench_record = bench_record
+        #: Cache of processes to keep track of cpu percent
+        self.procs = {}
 
     def work(self):
         """Write statistics"""
@@ -182,20 +185,21 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         cpu_seconds = 0
         # Iterate over process and all children
         try:
-            main = psutil.Process(self.pid)
             this_time = time.time()
-            for proc in chain((main,), main.children(recursive=True)):
-                meminfo = proc.memory_full_info()
-                rss += meminfo.rss
-                vms += meminfo.vms
-                uss += meminfo.uss
-                pss += meminfo.pss
-                ioinfo = proc.io_counters()
-                io_in += ioinfo.read_bytes
-                io_out += ioinfo.write_bytes
-                if self.bench_record.prev_time:
-                    cpu_seconds += proc.cpu_percent() / 100 * (
-                        this_time - self.bench_record.prev_time)
+            for proc in chain((self.main,), self.main.children(recursive=True)):
+                proc = self.procs.setdefault(proc.pid, proc)
+                with proc.oneshot():
+                    if self.bench_record.prev_time:
+                        cpu_seconds += proc.cpu_percent() / 100 * (
+                            this_time - self.bench_record.prev_time)
+                    meminfo = proc.memory_full_info()
+                    rss += meminfo.rss
+                    vms += meminfo.vms
+                    uss += meminfo.uss
+                    pss += meminfo.pss
+                    ioinfo = proc.io_counters()
+                    io_in += ioinfo.read_bytes
+                    io_out += ioinfo.write_bytes
             self.bench_record.prev_time = this_time
             if not self.bench_record.first_time:
                 self.bench_record.prev_time = this_time
