@@ -1,0 +1,64 @@
+import os
+print(os.listdir("."))
+print(os.getcwd())
+
+
+TEST = "abc"
+
+
+onstart:
+    print("Workflow starting")
+    print("Log:")
+    print(log)
+
+onsuccess:
+    print("Workflow finished")
+    print("Log:")
+    print(log)
+
+
+onerror:
+    print("Workflow failed")
+    print("Log:")
+    print(log)
+
+
+ruleorder: rule2 > rule4
+
+def testin(wildcards):
+	return "test.in"
+
+def version():
+	return "3.3"
+
+rule rule1:
+	# This rule creates an intermediate file.
+	input: 
+		'dir/a/test.inter'
+	output: 'dir/test.out'
+	log:    a='log/logfile.log'
+	version: version()
+	shell: 
+		'echo {TEST}; echo {version}; cp {input[0]} {output[0]}; ' # append a comment
+		'echo test > {log.a}'
+
+rule rule2:
+	input: testin
+	output: 'dir/a/test.inter'
+	shell: 
+		'''
+		cp {input[0]} {output[0]}
+		'''
+
+rule rule4:
+	input: "test.in"
+	output: "dir/a/test.inter"
+	shell: "cp {input} {output}"
+
+
+# this should be ignored since test.in is present
+rule rule3:
+	input: "dir/{a}.out"
+	output: "{a}.in"
+	shell: "cp {input} {output}"
+

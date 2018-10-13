@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import sys
 import os
+import shutil
 from os.path import join
 from subprocess import call
 import tempfile
@@ -12,6 +13,8 @@ import hashlib
 import urllib
 from shutil import rmtree, which
 from shlex import quote
+import pytest
+import subprocess
 
 from snakemake import snakemake
 from snakemake.shell import shell
@@ -34,6 +37,7 @@ def md5sum(filename):
     return hashlib.md5(data).hexdigest()
 
 
+# test skipping
 def is_connected():
     try:
         urllib.request.urlopen("http://www.google.com", timeout=1)
@@ -42,22 +46,46 @@ def is_connected():
         return False
 
 
+def is_ci():
+    return "CI" in os.environ
+
+
+def has_gcloud_service_key():
+    return "GCLOUD_SERVICE_KEY" in os.environ
+
+
+def has_gcloud_cluster():
+    return "GCLOUD_CLUSTER" in os.environ
+
+gcloud = pytest.mark.skipif(not is_connected()
+                                 or not has_gcloud_service_key()
+                                 or not has_gcloud_cluster(),
+                                 reason="Skipping GCLOUD tests because not on "
+                                        "CI, no inet connection or not logged "
+                                        "in to gcloud.")
+
+connected = pytest.mark.skipif(not is_connected(), reason="no internet connection")
+
+ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
+
+def copy(src, dst):
+    if os.path.isdir(src):
+        shutil.copytree(src, os.path.join(dst, os.path.basename(src)))
+    else:
+        shutil.copy(src, dst)
+
+
 def run(path,
         shouldfail=False,
-        needs_connection=False,
         snakefile="Snakefile",
         subpath=None,
+        no_tmpdir=False,
         check_md5=True, cores=3, **params):
     """
     Test the Snakefile in path.
     There must be a Snakefile in the path and a subdirectory named
     expected-results.
     """
-    if needs_connection and not is_connected():
-        print("Skipping test because of missing internet connection",
-              file=sys.stderr)
-        return False
-
     results_dir = join(path, 'expected-results')
     snakefile = join(path, snakefile)
     assert os.path.exists(snakefile)
@@ -65,6 +93,7 @@ def run(path,
         results_dir), '{} does not exist'.format(results_dir)
     with tempfile.TemporaryDirectory(prefix=".test", dir=os.path.abspath(".")) as tmpdir:
         config = {}
+        # handle subworkflow
         if subpath is not None:
             # set up a working directory for the subworkflow and pass it in `config`
             # for now, only one subworkflow is supported
@@ -72,17 +101,20 @@ def run(path,
                 subpath), '{} does not exist'.format(subpath)
             subworkdir = os.path.join(tmpdir, "subworkdir")
             os.mkdir(subworkdir)
-            call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp %% {}'.format(
-                quote(subpath), quote(subworkdir)),
-                 shell=True)
+            # copy files
+            for f in os.listdir(subpath):
+                copy(os.path.join(subpath, f), subworkdir)
             config['subworkdir'] = subworkdir
 
-        call('find {} -maxdepth 1 -type f -print0 | xargs -0 -I%% -n 1 cp -r %% {}'.format(
-            quote(path), quote(tmpdir)),
-             shell=True)
+        # copy files
+        for f in os.listdir(path):
+            print(f)
+            copy(os.path.join(path, f), tmpdir)
+
+        # run snakemake
         success = snakemake(snakefile,
                             cores=cores,
-                            workdir=tmpdir,
+                            workdir=path if no_tmpdir else tmpdir,
                             stats="stats.txt",
                             config=config, **params)
         if shouldfail:
@@ -108,6 +140,9 @@ def run(path,
 
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
+
+def test_issue956():
+    run(dpath("test_issue956"))
 
 def test01():
     run(dpath("test01"))
@@ -168,14 +203,20 @@ def test14():
 def test15():
     run(dpath("test15"))
 
+def test_directory():
+    run(dpath("test_directory"), targets=['downstream', 'symlinked_input', "child_to_input", "some/dir-child", "some/shadow"])
+    run(dpath("test_directory"), targets=['file_expecting_dir'], shouldfail = True)
+    run(dpath("test_directory"), targets=['dir_expecting_file'], shouldfail = True)
+    run(dpath("test_directory"), targets=['child_to_other'], shouldfail = True)
+
 def test_ancient():
-    run(dpath("test_ancient"), targets=['D'])
+    run(dpath("test_ancient"), targets=['D', 'old_file'])
 
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
 def test_report():
-    run(dpath("test_report"), check_md5=False)
+    run(dpath("test_report"), report="report.html", check_md5=False)
 
 
 def test_dynamic():
@@ -241,8 +282,9 @@ def test_persistent_dict():
         pass
 
 
+@connected
 def test_url_include():
-    run(dpath("test_url_include"), needs_connection=True)
+    run(dpath("test_url_include"))
 
 
 def test_touch():
@@ -328,6 +370,9 @@ def test_script():
 def test_shadow():
     run(dpath("test_shadow"))
 
+def test_shadow_prefix():
+    run(dpath("test_shadow_prefix"), shadow_prefix = "shadowdir")
+    run(dpath("test_shadow_prefix"), shadow_prefix = "shadowdir", cluster="./qsub")
 
 def test_until():
     run(dpath("test_until"),
@@ -431,6 +476,7 @@ def test_spaces_in_fnames():
 #         pass
 
 
+@connected
 def test_remote_ncbi_simple():
     try:
         import Bio
@@ -441,6 +487,7 @@ def test_remote_ncbi_simple():
     except ImportError:
         pass
 
+@connected
 def test_remote_ncbi():
     try:
         import Bio
@@ -452,6 +499,7 @@ def test_remote_ncbi():
         pass
 
 
+@ci
 def test_remote_irods():
     if os.environ.get("CI") == "true":
         run(dpath("test_remote_irods"))
@@ -548,6 +596,7 @@ def test_issue260():
 
 def test_default_remote():
      run(dpath("test_default_remote"),
+         cores=1,
          default_remote_provider="S3Mocked",
          default_remote_prefix="test-remote-bucket")
 
@@ -556,6 +605,8 @@ def test_run_namedlist():
     run(dpath("test_run_namedlist"))
 
 
+@connected
+@ci
 def test_remote_gs():
     if not "CI" in os.environ:
         run(dpath("test_remote_gs"))
@@ -563,13 +614,17 @@ def test_remote_gs():
         print("skipping test_remove_gs in CI")
 
 
+@connected
 def test_remote_log():
     run(dpath("test_remote_log"), shouldfail=True)
 
 
+@connected
 def test_remote_http():
     run(dpath("test_remote_http"))
 
+
+@connected
 def test_remote_http_cluster():
     run(dpath("test_remote_http"), cluster=os.path.abspath(dpath("test14/qsub")))
 
@@ -577,8 +632,16 @@ def test_profile():
     run(dpath("test_profile"))
 
 
+@connected
 def test_singularity():
     run(dpath("test_singularity"), use_singularity=True)
+
+def test_singularity_invalid():
+    run(dpath("test_singularity"), targets=["invalid.txt"], use_singularity=True, shouldfail=True)
+
+@connected
+def test_singularity_conda():
+    run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True)
 
 
 def test_issue612():
@@ -601,27 +664,78 @@ def test_log_input():
     run(dpath("test_log_input"))
 
 
-def test_gcloud():
-    if "CI" in os.environ and "GCLOUD_SERVICE_KEY" in os.environ:
-        cluster = os.environ["GCLOUD_CLUSTER"]
-        try:
+@pytest.fixture(scope="module")
+def gcloud_cluster():
+    class Cluster:
+        def __init__(self):
+            self.cluster = os.environ["GCLOUD_CLUSTER"]
+            self.bucket_name = 'snakemake-testing-{}'.format(self.cluster)
+
             shell("""
-            sudo $GCLOUD container clusters create {cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
-            sudo $GCLOUD container clusters get-credentials {cluster} --zone us-central1-a
+            $GCLOUD container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
+            $GCLOUD container clusters get-credentials {self.cluster} --zone us-central1-a
+            $GSUTIL mb gs://{self.bucket_name}
             """)
-            run(dpath("test_kubernetes"))
-            run(dpath("test_kubernetes"), use_conda=True)
-            run(dpath("test_kubernetes"), use_singularity=True)
-            run(dpath("test_kubernetes"), use_singularity=True, use_conda=True)
-        finally:
-            shell("sudo $GCLOUD container clusters delete {cluster} --zone us-central1-a --quiet")
-    print("Skipping google cloud test")
+
+        def delete(self):
+            shell("""
+            $GCLOUD container clusters delete {self.cluster} --zone us-central1-a --quiet || true
+            $GSUTIL rm -r gs://{self.bucket_name} || true
+            """)
+
+        def run(self, **kwargs):
+            try:
+                run(dpath("test_kubernetes"),
+                    kubernetes="default",
+                    default_remote_provider="GS",
+                    default_remote_prefix=self.bucket_name,
+                    no_tmpdir=True,
+                    **kwargs)
+            except Exception as e:
+                shell("for p in `kubectl get pods | grep ^snakejob- | cut -f 1 -d ' '`; do kubectl logs $p; done")
+                raise e
+
+        def reset(self):
+            shell('$GSUTIL rm -r gs://{self.bucket_name}/* || true')
+    cluster = Cluster()
+    yield cluster
+    cluster.delete()
 
 
+
+@gcloud
+def test_gcloud_plain(gcloud_cluster):
+    gcloud_cluster.reset()
+    gcloud_cluster.run()
+
+
+@gcloud
+@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
+def test_gcloud_conda(gcloud_cluster):
+    gcloud_cluster.reset()
+    gcloud_cluster.run(use_conda=True)
+
+
+@gcloud
+@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
+def test_gcloud_singularity(gcloud_cluster):
+    gcloud_cluster.reset()
+    gcloud_cluster.run(use_singularity=True)
+
+
+@gcloud
+@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
+def test_gcloud_conda_singularity(gcloud_cluster):
+    gcloud_cluster.reset()
+    gcloud_cluster.run(use_singularity=True, use_conda=True)
+
+
+@connected
 def test_cwl():
     run(dpath("test_cwl"))
 
 
+@connected
 def test_cwl_singularity():
     run(dpath("test_cwl"), use_singularity=True)
 
@@ -658,6 +772,44 @@ def test_validate_fail():
     run(dpath("test_validate"), configfile=dpath("test_validate/config.fail.yaml"), shouldfail=True)
 
 
-if __name__ == '__main__':
-    import nose
-    nose.run(defaultTest=__name__)
+def test_issue854():
+    # output and benchmark have inconsistent wildcards
+    # this should fail when parsing
+    run(dpath("test_issue854"), shouldfail=True)
+
+
+def test_issue850():
+    run(dpath("test_issue850"), cluster="./qsub")
+
+
+def test_issue860():
+    run(dpath("test_issue860"), cluster="./qsub", targets=["done"])
+
+
+def test_issue894():
+    run(dpath("test_issue894"))
+
+def test_issue584():
+    run(dpath("test_issue584"))
+
+def test_issue912():
+    run(dpath("test_issue912"))
+
+def test_job_properties():
+    run(dpath("test_job_properties"), cluster="./qsub.py")
+
+def test_issue916():
+    run(dpath("test_issue916"))
+
+def test_issue930():
+    run(dpath("test_issue930"), cluster="./qsub")
+
+def test_issue635():
+    run(dpath("test_issue635"), use_conda=True, check_md5=False)
+
+def test_convert_to_cwl():
+    workdir = dpath("test_convert_to_cwl")
+    #run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
+    subprocess.check_call(["snakemake", "--export-cwl" , "workflow.cwl"], cwd=workdir)
+    subprocess.check_call(["cwltool", "workflow.cwl"], cwd=workdir)
+    assert os.path.exists(os.path.join(workdir, "test.out"))

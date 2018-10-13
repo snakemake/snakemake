@@ -1,0 +1,34 @@
+# Create the directory fake/test and the file fake/test/sample.Mutect2.snpSift.vcf.gz
+# Run on cluster, example:
+# snakemake --cluster 'bash ' -j1 -p
+
+rule all:
+    input:
+        expand(
+            "fake/test/{t}.Mutect2.snpSift.hardfilter.vcf.gz",
+            t=['sample']),
+
+rule rule1:
+    input:
+        vcf = ancient('fake/{y}/{x}.vcf.gz'),
+    output:
+        indel = temp('fake/{y}/{x}.indels.raw.vcf.gz'),
+    log:
+        'fake/logs/rule1.{y}.{x}.log'
+    params:
+        jobname = 'rule1.{x}'
+    shell:
+        'touch {output.indel}'
+
+
+rule rule2:
+    input:
+        indel = 'fake/{y}/{x}.indels.raw.vcf.gz',
+    output:
+        'fake/{y}/{x}.hardfilter.vcf.gz'
+    log:
+        'fake/logs/rule2.{y}.{x}.log'
+    params:
+        jobname = 'rule2',
+    shell:
+        'touch {output}'

@@ -19,6 +19,10 @@ Setup
 .. _Graphviz: http://www.graphviz.org
 .. _PyYAML: http://pyyaml.org
 .. _Docutils: http://docutils.sourceforge.net
+.. _Jinja2: http://jinja.pocoo.org
+.. _NetworkX: https://networkx.github.io
+.. _Matplotlib: https://matplotlib.org
+.. _Pysam: https://pysam.readthedocs.io
 .. _Bioconda: https://bioconda.github.io
 .. _Vagrant: https://www.vagrantup.com
 .. _Vagrant Documentation: https://docs.vagrantup.com
@@ -29,14 +33,16 @@ Requirements
 
 To go through this tutorial, you need the following software installed:
 
-* Python_ ≥3.3
-* Snakemake_ 3.11.0
+* Python_ ≥3.5
+* Snakemake_ 5.2.3
 * BWA_ 0.7.12
 * SAMtools_ 1.3.1
+* Pysam_ 0.15.0
 * BCFtools_ 1.3.1
 * Graphviz_ 2.38.0
-* PyYAML_ 3.11
-* Docutils_ 0.12
+* Jinja2_ 2.10
+* NetworkX_ 2.1
+* Matplotlib_ 2.2.3
 
 The easiest way to setup these prerequisites is to use the Miniconda_ Python 3 distribution.
 The tutorial assumes that you are using either Linux or MacOS X.
@@ -102,7 +108,13 @@ We will later use Conda_ to create an isolated environment with all required sof
 Step 2: Preparing a working directory
 :::::::::::::::::::::::::::::::::::::
 
-First, **create a new directory** ``snakemake-tutorial`` at a reasonable place and change into that directory in your terminal.
+First, **create a new directory** ``snakemake-tutorial`` at a **reasonable place** and change into that directory in your terminal:
+
+.. code:: console
+
+    $ mkdir snakemake-tutorial
+    $ cd snakemake-tutorial
+
 If you use a Vagrant Linux VM from Windows as described above, create that directory under ``/vagrant/``, so that the contents are shared with your host system (you can then edit all files from within Windows with an editor that supports Unix line breaks).
 Then, **change to the newly created directory**.
 In this directory, we will later create an example workflow that illustrates the Snakemake syntax and execution environment.
@@ -110,8 +122,8 @@ First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ wget https://bitbucket.org/snakemake/snakemake-tutorial/get/v3.11.0.tar.bz2
-    $ tar -xf v3.11.0.tar.bz2 --strip 1
+    $ wget https://bitbucket.org/snakemake/snakemake-tutorial/get/v5.2.3.tar.bz2
+    $ tar -xf v5.2.3.tar.bz2 --strip 1
 
 This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
 
@@ -131,7 +143,7 @@ To activate the ``snakemake-tutorial`` environment, execute
 
 .. code:: console
 
-    $ source activate snakemake-tutorial
+    $ conda activate snakemake-tutorial
 
 Now you can use the installed tools.
 Execute
@@ -145,6 +157,6 @@ To exit the environment, you can execute
 
 .. code:: console
 
-    $ source deactivate
+    $ conda deactivate
 
 but **don't do that now**, since we finally want to start working with Snakemake :-).

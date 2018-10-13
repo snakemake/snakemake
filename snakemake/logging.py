@@ -35,13 +35,12 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         'ERROR': RED
     }
 
-    def __init__(self, nocolor=False, stream=sys.stderr, timestamp=False, use_threads=False, mode=Mode.default):
+    def __init__(self, nocolor=False, stream=sys.stderr, use_threads=False, mode=Mode.default):
         super().__init__(stream=stream)
 
         self._output_lock = threading.Lock()
 
         self.nocolor = nocolor or not self.can_color_tty(mode)
-        self.timestamp = timestamp
 
     def can_color_tty(self, mode):
         if 'TERM' in os.environ and os.environ['TERM'] == 'dumb':
@@ -72,9 +71,6 @@ class ColorizingStreamHandler(_logging.StreamHandler):
 
     def decorate(self, record):
         message = record.message
-        if self.timestamp and message:
-            stamp = "[{}] {{}}".format(time.asctime()).format
-            message = "".join(map(stamp, message.splitlines(True)))
         message = [message]
         if not self.nocolor and record.levelname in self.colors:
             message.insert(0, self.COLOR_SEQ %
@@ -255,10 +251,16 @@ class Logger:
             else:
                 return item
 
+        def timestamp():
+            self.logger.info(indent("[{}]".format(time.asctime())))
+
         level = msg["level"]
+
+
         if level == "job_info" and not self.quiet:
             if not self.last_msg_was_job_info:
                 self.logger.info("")
+            timestamp()
             if msg["msg"] is not None:
                 self.logger.info(indent("Job {}: {}".format(msg["jobid"], msg["msg"])))
                 if self.printreason:
@@ -268,11 +270,13 @@ class Logger:
             self.logger.info("")
 
             self.last_msg_was_job_info = True
-        elif level == "group_info":
+        elif level == "group_info" and not self.quiet:
+            timestamp()
             if not self.last_msg_was_job_info:
                 self.logger.info("")
             self.logger.info("group job {} (jobs in lexicogr. order):".format(msg["groupid"]))
         elif level == "job_error":
+            timestamp()
             self.logger.error(indent("Error in rule {}:".format(msg["name"])))
             self.logger.error(indent("    jobid: {}".format(msg["jobid"])))
             if msg["output"]:
@@ -285,9 +289,10 @@ class Logger:
                 self.logger.error(indent("    {}: {}".format(*item)))
             self.logger.error("")
         elif level == "group_error":
+            timestamp()
             self.logger.error("Error in group job {}:".format(msg["groupid"]))
         else:
-            if level == "info":
+            if level == "info" and not self.quiet:
                 self.logger.warning(msg["msg"])
             if level == "warning":
                 self.logger.warning(msg["msg"])
@@ -310,6 +315,7 @@ class Logger:
                 if self.printshellcmds:
                     self.logger.warning(indent(msg["msg"]))
             elif level == "job_finished" and not self.quiet:
+                timestamp()
                 self.logger.info("Finished job {}.".format(msg["jobid"]))
                 pass
             elif level == "rule_info":
@@ -355,7 +361,6 @@ def setup_logger(handler=None,
                  nocolor=False,
                  stdout=False,
                  debug=False,
-                 timestamp=False,
                  use_threads=False,
                  mode=Mode.default):
     if handler is not None:
@@ -366,7 +371,6 @@ def setup_logger(handler=None,
         stream_handler = ColorizingStreamHandler(
             nocolor=nocolor,
             stream=sys.stdout if stdout else sys.stderr,
-            timestamp=timestamp,
             use_threads=use_threads,
             mode=mode)
         logger.set_stream_handler(stream_handler)

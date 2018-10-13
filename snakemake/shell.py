@@ -14,6 +14,7 @@ import threading
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake import singularity, conda
+import snakemake
 
 
 __author__ = "Johannes Köster"
@@ -41,6 +42,10 @@ class shell:
         if os.name == "posix" and not os.path.isabs(cmd):
             # always enforce absolute path
             cmd = shutil.which(cmd)
+            if not cmd:
+                raise WorkflowError("Cannot set default shell {} because it "
+                                    "is not available in your "
+                                    "PATH.".format(cmd))
         if os.path.split(cmd)[-1] == "bash":
             cls._process_prefix = "set -euo pipefail; "
         cls._process_args["executable"] = cmd
@@ -66,7 +71,6 @@ class shell:
             cls._processes.clear()
 
     def __new__(cls, cmd, *args,
-                async=False,
                 iterable=False,
                 read=False, bench_record=None,
                 **kwargs):
@@ -75,13 +79,14 @@ class shell:
         cmd = format(cmd, *args, stepout=2, **kwargs)
         context = inspect.currentframe().f_back.f_locals
 
-        logger.shellcmd(cmd)
-
-        stdout = sp.PIPE if iterable or async or read else STDOUT
+        stdout = sp.PIPE if iterable or read else STDOUT
 
         close_fds = sys.platform != 'win32'
 
         jobid = context.get("jobid")
+        if jobid is not None:
+            if not context.get("is_shell"):
+                logger.shellcmd(cmd)
 
         env_prefix = ""
         conda_env = context.get("conda_env", None)
@@ -97,11 +102,16 @@ class shell:
 
         if singularity_img:
             args = context.get("singularity_args", "")
-            cmd = singularity.shellcmd(singularity_img, cmd, args)
+            # mount host snakemake module into container
+            snakemake_pythonpath = os.path.dirname(
+                os.path.dirname(snakemake.__file__))
+            args += " --bind {}:/mnt/snakemake".format(snakemake_pythonpath)
+            cmd = singularity.shellcmd(singularity_img, cmd, args,
+                                       envvars={"PYTHONPATH": "/mnt/snakemake"})
             logger.info("Activating singularity image {}".format(singularity_img))
 
         if conda_env:
-            logger.info("Activating conda environment {}.".format(conda_env))
+            logger.info("Activating conda environment: {}".format(conda_env))
 
         proc = sp.Popen(cmd,
                         bufsize=-1,
@@ -118,11 +128,8 @@ class shell:
             return cls.iter_stdout(proc, cmd)
         if read:
             ret = proc.stdout.read()
-        elif async:
-            return proc
         if bench_record is not None:
             from snakemake.benchmark import benchmarked
-            # Note: benchmarking does not work in case of async=True
             with benchmarked(proc.pid, bench_record):
                 retcode = proc.wait()
         else:
@@ -150,7 +157,11 @@ if os.name == "posix":
     if not shutil.which("bash"):
         logger.warning("Cannot set bash as default shell because it is not "
                        "available in your PATH. Falling back to sh.")
-        shell_exec = "sh"
+        if not shutil.which("sh"):
+            logger.warning("Cannot fall back to sh since it seems to be not "
+                           "available on this system. Using whatever is "
+                           "defined as default.")
+        else:
+            shell.executable("sh")
     else:
-        shell_exec = "bash"
-    shell.executable(shell_exec)
+        shell.executable("bash")

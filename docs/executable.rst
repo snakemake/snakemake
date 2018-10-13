@@ -52,7 +52,7 @@ If the number is omitted (i.e., only ``-j`` is given), the number of used cores 
 Cloud Support
 -------------
 
-Snakemake 4.0 and later supports experimental execution in the cloud via Kubernetes.
+Snakemake 4.0 and later supports execution in the cloud via Kubernetes.
 This is independent of the cloud provider, but we provide the setup steps for GCE below.
 
 Google cloud engine
@@ -82,6 +82,20 @@ Next, you configure Kubernetes to use the new cluster via
     $ gcloud container clusters get-credentials $CLUSTER_NAME
 
 
+If you are having issues with authentication, please refer to the help text:
+
+.. code-block:: console
+
+    $ gcloud container clusters get-credentials --help
+
+You likely also want to use google storage for reading and writing files.
+For this, you will additionally need to authenticate with your google cloud account via
+
+.. code-block:: console
+
+    $ gcloud auth application-default login
+
+This enables Snakemake to access google storage in order to check existence and modification dates of files.
 Now, Snakemake is ready to use your cluster.
 
 **Important:** After finishing your work, do not forget to delete the cluster with
@@ -188,7 +202,7 @@ Else, the arguments will be interpreted as part of the normal Snakemake argument
 
 
 Job Properties
-..............
+~~~~~~~~~~~~~~
 
 When executing a workflow on a cluster using the ``--cluster`` parameter (see below), Snakemake creates a job script for each job to execute. This script is then invoked using the provided cluster submission command (e.g. ``qsub``). Sometimes you want to provide a custom wrapper for the cluster submission command that decides about additional parameters. As this might be based on properties of the job, Snakemake stores the job properties (e.g. rule name, threads, input files, params etc.) as JSON inside the job script. For convenience, there exists a parser function `snakemake.utils.read_job_properties` that can be used to access the properties. The following shows an example job submission wrapper:
 
@@ -271,6 +285,33 @@ To visualize the whole DAG regardless of the eventual presence of files, the ``f
 
 Of course the visual appearance can be modified by providing further command line arguments to ``dot``.
 
+
+.. _cwl_export:
+
+----------
+CWL export
+----------
+
+Snakemake workflows can be exported to `CWL <http://www.commonwl.org/>`_, such that they can be executed in any `CWL-enabled workflow engine <https://www.commonwl.org/#Implementations>`_.
+Since, CWL is less powerful for expressing workflows than Snakemake (most importantly Snakemake offers more flexible scatter-gather patterns, since full Python can be used), export works such that every Snakemake job is encoded into a single step in the CWL workflow.
+Moreover, every step of that workflow calls Snakemake again to execute the job. The latter enables advanced Snakemake features like scripts, benchmarks and remote files to work inside CWL.
+So, when exporting keep in mind that the resulting CWL file can become huge, depending on the number of jobs in your workflow.
+To export a Snakemake workflow to CWL, simply run
+
+.. code-block:: console
+
+    $ snakemake --export-cwl workflow.cwl
+
+The resulting workflow will by default use the `Snakemake docker image <https://quay.io/repository/snakemake/snakemake>`_ for every step, but this behavior can be overwritten via the CWL execution environment.
+Then, the workflow can be executed in the same working directory with, e.g.,
+
+.. code-block:: console
+
+    $ cwltool workflow.cwl
+
+Note that due to limitations in CWL, it seems currently impossible to avoid that all target files (output files of target jobs), are written directly to the workdir, regardless of their relative paths in the Snakefile.
+
+Note that export is impossible in case the workflow contains :ref:`dynamic output files <snakefiles-dynamic_files>` or output files with absolute paths.
 
 .. _all_options:
 

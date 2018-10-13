@@ -365,71 +365,63 @@ Exercise
    :align: center
 
 
-.. _tutorial-report:
+Step 6: Using custom scripts
+::::::::::::::::::::
 
-Step 6: Writing a report
-::::::::::::::::::::::::
-
-Although Snakemake workflows are already self-documenting to a certain degree, it is often useful to summarize the obtained results and performed steps in a comprehensive **report**.
-With Snakemake, such reports can be composed easily with the built-in ``report`` function.
-It is best practice to create reports in a separate rule that takes all desired results as input files and provides a **single HTML file as output**.
+Usually, a workflow not only consists of invoking various tools, but also contains custom code to e.g. calculate summary statistics or create plots.
+While Snakemake also allows you to directly :ref:`write Python code inside a rule <.. _snakefiles-rules>`_, it is usually reasonable to move such logic into separate scripts.
+For this purpose, Snakemake offers the ``script`` directive.
+Add the following rule to your Snakefile:
 
 .. code:: python
 
-    rule report:
+    rule plot_quals:
         input:
             "calls/all.vcf"
         output:
-            "report.html"
-        run:
-            from snakemake.utils import report
-            with open(input[0]) as vcf:
-                n_calls = sum(1 for l in vcf if not l.startswith("#"))
+            "plots/quals.svg"
+        script:
+            "scripts/plot-quals.py"
 
-            report("""
-            An example variant calling workflow
-            ===================================
+This rule shall generate a histogram of the quality scores that have been assigned to the variant calls in the file ``calls/all.vcf``.
+The actual Python code to generate the plot is hidden in the script ``scripts/plot-quals.py``.
+Script paths are always relative to the referring Snakefile.
+In the script, all properties of the rule like ``input``, ``output``, ``wildcards``, etc. are available as attributes of a global ``snakemake`` object.
+Create the file ``scripts/plot-quals.py``, with the following content:
 
-            Reads were mapped to the Yeast
-            reference genome and variants were called jointly with
-            SAMtools/BCFtools.
+.. code:: python
 
-            This resulted in {n_calls} variants (see Table T1_).
-            """, output[0], T1=input[0])
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from pysam import VariantFile
+
+    quals = [record.qual for record in VariantFile(snakemake.input[0])]
+    plt.hist(quals)
+
+    plt.savefig(snakemake.output[0])
+
 
 .. sidebar:: Note
 
-  The run directive can be seen as a Python function with the arguments ``input``, ``output``, ``wildcards``, etc..
-  Hence, other than with the shell directive before, there is no need to enclose those objects in braces.
+  It is best practice to use the script directive whenever an inline code block would have
+  more than a few lines of code.
 
-First, we notice that this rule does not entail a shell command.
-Instead, we use the ``run`` directive, which is followed by plain Python code.
-Similar to the shell case, we have access to ``input`` and ``output`` files, which we can handle as plain Python objects.
+Although there are other strategies to invoke separate scripts from your workflow
+(e.g., invoking them via shell commands), the benefit of this is obvious:
+the script logic is separated from the workflow logic (and can be even shared between workflows),
+but **boilerplate code like the parsing of command line arguments in unnecessary**.
 
-We go through the ``run`` block line by line.
-First, we import the ``report`` function from ``snakemake.utils``.
-Second, we open the VCF file by accessing it via its index in the input files (i.e. ``input[0]``), and count the number of non-header lines (which is equivalent to the number of variant calls).
-Of course, this is only a silly example of what to do with variant calls.
-Third, we create the report using the ``report`` function.
-The function takes a string that contains RestructuredText_ markup.
-In addition, we can use the familiar braces notation to access any Python variables (here the ``samples`` and ``n_calls`` variables we have defined before).
-The second argument of the ``report`` function is the path were the report will be stored (the function creates a single HTML file).
-Then, report expects any number of keyword arguments referring to files that shall be embedded into the report.
-Technically, this means that the file will be stored as a Base64 encoded `data URI`_ within the HTML file, making reports entirely self-contained.
-Importantly, you can refer to the files from within the report via the given keywords followed by an underscore (here ``T1_``).
-Hence, reports can be used to semantically connect and explain the obtained results.
+Apart from Python scripts, it is also possible to use R scripts. In R scripts,
+an S4 object named ``snakemake`` analog to the Python case above is available and
+allows access to input and output files and other parameters. Here the syntax
+follows that of S4 classes with attributes that are R lists, e.g. we can access
+the first input file with ``snakemake@input[[1]]`` (note that the first file does
+not have index 0 here, because R starts counting from 1). Named input and output
+files can be accessed in the same way, by just providing the name instead of an
+index, e.g. ``snakemake@input[["myfile"]]``.
 
-When having many result files, it is sometimes handy to define the names already in the list of input files and unpack these into keyword arguments as follows:
-
-.. code:: python
-
-    report("""...""", output[0], **input)
-
-Further, you can add meta data in the form of any string that will be displayed in the footer of the report, e.g.
-
-.. code:: python
-
-    report("""...""", output[0], metadata="Author: Johannes Köster (koester@jimmy.harvard.edu)", **input)
+For details and examples, see the :ref:`snakefiles-external_scripts` section in the Documentation.
 
 
 Step 7: Adding a target rule
@@ -447,7 +439,7 @@ Here, this means that we add a rule
 
     rule all:
         input:
-            "report.html"
+            "plots/quals.svg"
 
 to the top of our workflow.
 When executing Snakemake with
@@ -463,14 +455,14 @@ When executing Snakemake with
    Snakemake will execute the first per default, you can target any of them via
    the command line (e.g., ``snakemake -n mytarget``).
 
-the execution plan for creating the file ``report.html`` which contains and summarizes all our results will be shown.
+the execution plan for creating the file ``plots/quals.svg`` which contains and summarizes all our results will be shown.
 Note that, apart from Snakemake considering the first rule of the workflow as default target, **the appearance of rules in the Snakefile is arbitrary and does not influence the DAG of jobs**.
 
 Exercise
 ........
 
 * Create the DAG of jobs for the complete workflow.
-* Execute the complete workflow and have a look at the resulting ``report.html`` in your browser.
+* Execute the complete workflow and have a look at the resulting ``plots/quals.svg``.
 * Snakemake provides handy flags for forcing re-execution of parts of the workflow. Have a look at the command line help with ``snakemake --help`` and search for the flag ``--forcerun``. Then, use this flag to re-execute the rule ``samtools_sort`` and see what happens.
 * With ``--reason`` it is possible to display the execution reason for each job. Try this flag together with a dry-run and the ``--forcerun`` flag to understand the decisions of Snakemake.
 
@@ -530,23 +522,10 @@ In total, the resulting workflow looks like this:
             "bcftools call -mv - > {output}"
 
 
-    rule report:
+    rule plot_quals:
         input:
             "calls/all.vcf"
         output:
-            "report.html"
-        run:
-            from snakemake.utils import report
-            with open(input[0]) as vcf:
-                n_calls = sum(1 for l in vcf if not l.startswith("#"))
-
-            report("""
-            An example variant calling workflow
-            ===================================
-
-            Reads were mapped to the Yeast
-            reference genome and variants were called jointly with
-            SAMtools/BCFtools.
-
-            This resulted in {n_calls} variants (see Table T1_).
-            """, output[0], T1=input[0])
+            "plots/quals.svg"
+        script:
+            "scripts/plot-quals.py"

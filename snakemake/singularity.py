@@ -13,6 +13,10 @@ from snakemake.logging import logger
 
 class Image:
     def __init__(self, url, dag):
+        if " " in url:
+            raise WorkflowError("Invalid singularity image URL containing "
+                                "whitespace.")
+
         if not shutil.which("singularity"):
             raise WorkflowError("The singularity command has to be "
                                 "available in order to use singularity "
@@ -67,6 +71,15 @@ class Image:
         return os.path.join(self._img_dir, self.hash) + ".simg"
 
 
-def shellcmd(img_path, cmd, args=""):
-    return "singularity exec {} {} bash -c \"{}\"".format(
-        args, img_path, cmd.replace("\"", r"\""))
+def shellcmd(img_path, cmd, args="", envvars=None):
+    """Execute shell command inside singularity container given optional args
+       and environment variables to be passed."""
+
+    if envvars:
+        envvars = " ".join("SINGULARITYENV_{}={}".format(k, v)
+                           for k, v in envvars.items())
+    else:
+        envvars = ""
+    cmd = "{} singularity exec --home {} {} {} bash -c '{}'".format(
+        envvars, os.getcwd(), args, img_path, cmd.replace("'", r"\'"))
+    return cmd

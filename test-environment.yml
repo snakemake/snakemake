@@ -1,7 +1,6 @@
 channels:
-  - bioconda
   - conda-forge
-  - defaults
+  - bioconda
 dependencies:
   - python >=3.5
   - rpy2 >=0.7.6
@@ -36,5 +35,9 @@ dependencies:
   - cwltool
   - jsonschema
   - pandas
+  - networkx
+  - pygraphviz
+  - python-kubernetes
   - pip:
-      - moto==1.3.3
+      - moto==1.3.5
+  - gitpython

@@ -1,0 +1,28 @@
+
+lists = [["1.bam", "2.bam"], ["3.bam", "4.bam"]]
+
+rule done:
+    input: ["-".join(l) for l in lists], "2.qc2"
+
+rule a:
+    output: touch("{sample}.bam")
+    group: "cell"
+
+rule b:
+    input: "{sample}.bam"
+    output: touch("{sample}.qc")
+    group: "cell"
+
+rule c:
+    input: "{sample}.qc"
+    output: touch("{sample}.qc2")
+    group: "cell"
+
+for l in lists:
+    rule:
+        input:
+            l
+        output: temp(touch(str("-".join(l))))
+        group: "cell"
+
+

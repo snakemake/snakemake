@@ -1,0 +1,39 @@
+samples = ["0","1"]
+
+rule all:
+    input:
+        "test.out"
+
+rule build_index:
+    output:
+        "large_reference_index"
+    shell:
+        "touch {output}"
+
+rule a:
+    output:
+        "a/{sample}.out"
+    group:
+        "sample_group"
+    shell:
+        "touch {output}"
+
+rule b:
+    input:
+        rules.a.output,
+        rules.build_index.output
+    output:
+        "b/{sample}.out"
+    group:
+        "sample_group"
+    shell:
+        "touch {output}"
+
+rule c:
+    input:
+        expand("a/{sample}.out", sample=samples),
+        expand("b/{sample}.out", sample=samples)
+    output:
+        "test.out"
+    shell:
+        "touch {output}"

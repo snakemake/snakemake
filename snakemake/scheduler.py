@@ -60,7 +60,6 @@ class JobScheduler:
                  max_jobs_per_second=None,
                  max_status_checks_per_second=100,
                  latency_wait=3,
-                 benchmark_repeats=1,
                  greediness=1.0,
                  force_use_threads=False,
                  assume_shared_fs=True):
@@ -122,7 +121,6 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     use_threads=use_threads,
                     latency_wait=latency_wait,
-                    benchmark_repeats=benchmark_repeats,
                     cores=local_cores)
             if cluster or cluster_sync:
                 if cluster_sync:
@@ -141,7 +139,6 @@ class JobScheduler:
                     quiet=quiet,
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
-                    benchmark_repeats=benchmark_repeats,
                     assume_shared_fs=assume_shared_fs)
                 if workflow.immediate_submit:
                     self._submit_callback = partial(self._proceed,
@@ -159,7 +156,6 @@ class JobScheduler:
                     quiet=quiet,
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
-                    benchmark_repeats=benchmark_repeats,
                     cluster_config=cluster_config,
                     assume_shared_fs=assume_shared_fs,
                     max_status_checks_per_second=max_status_checks_per_second)
@@ -173,7 +169,6 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 use_threads=use_threads,
                 latency_wait=latency_wait,
-                benchmark_repeats=benchmark_repeats,
                 cores=local_cores)
 
             self._executor = KubernetesExecutor(
@@ -183,7 +178,6 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
-                benchmark_repeats=benchmark_repeats,
                 cluster_config=cluster_config)
         else:
             # local execution or execution of cluster job
@@ -197,7 +191,6 @@ class JobScheduler:
                                          printshellcmds=printshellcmds,
                                          use_threads=use_threads,
                                          latency_wait=latency_wait,
-                                         benchmark_repeats=benchmark_repeats,
                                          cores=cores)
 
         if self.max_jobs_per_second and not self.dryrun:
@@ -271,20 +264,22 @@ class JobScheduler:
                 if not needrun:
                     continue
 
-                logger.debug("Resources before job selection: {}".format(
-                    self.resources))
-                logger.debug("Ready jobs ({}):\n\t".format(len(needrun)) +
-                             "\n\t".join(map(str, needrun)))
-
                 # select jobs by solving knapsack problem (omit with dryrun)
-                run = needrun if self.dryrun else self.job_selector(needrun)
-                logger.debug("Selected jobs ({}):\n\t".format(len(run)) +
-                             "\n\t".join(map(str, run)))
+                if self.dryrun:
+                    run = needrun
+                else:
+                    logger.debug("Resources before job selection: {}".format(
+                        self.resources))
+                    logger.debug("Ready jobs ({}):\n\t".format(len(needrun)) +
+                                 "\n\t".join(map(str, needrun)))
+                    run = self.job_selector(needrun)
+                    logger.debug("Selected jobs ({}):\n\t".format(len(run)) +
+                                 "\n\t".join(map(str, run)))
+                    logger.debug(
+                        "Resources after job selection: {}".format(self.resources))
                 # update running jobs
                 with self._lock:
                     self.running.update(run)
-                logger.debug(
-                    "Resources after job selection: {}".format(self.resources))
                 # actually run jobs
                 for job in run:
                     with self.rate_limiter:
@@ -314,8 +309,6 @@ class JobScheduler:
             if name in self.resources:
                 value = self.calc_resource(name, value)
                 self.resources[name] += value
-                logger.debug("Releasing {} {} (now {}).".format(
-                    value, name, self.resources[name]))
 
     def _proceed(self, job,
                  update_dynamic=True,
@@ -450,8 +443,8 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
             if name == "_cores":
                 name = "threads"
             raise WorkflowError("Job needs {name}={res} but only {name}={gres} "
-                                "are available. This is likely because a two jobs "
-                                "are connected via a pipe and have to run "
+                                "are available. This is likely because two "
+                                "jobs are connected via a pipe and have to run "
                                 "simultaneously. Consider providing more "
                                 "resources (e.g. via --cores).".format(
                                     name=name, res=value, gres=gres))

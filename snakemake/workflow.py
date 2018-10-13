@@ -17,7 +17,7 @@ import copy
 import subprocess
 
 from snakemake.logging import logger, format_resources, format_resource_names
-from snakemake.rules import Rule, Ruleorder
+from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import RuleException, CreateRuleException, \
     UnknownRuleException, NoRulesException, print_exception, WorkflowError
 from snakemake.shell import shell
@@ -25,7 +25,7 @@ from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import protected, temp, temporary, ancient, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe
+from snakemake.io import protected, temp, temporary, ancient, directory, expand, dynamic, glob_wildcards, flag, not_iterable, touch, unpack, local, pipe, repeat, report
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
@@ -52,6 +52,7 @@ class Workflow:
                  use_singularity=False,
                  singularity_prefix=None,
                  singularity_args="",
+                 shadow_prefix=None,
                  mode=Mode.default,
                  wrapper_prefix=None,
                  printshellcmds=False,
@@ -98,6 +99,7 @@ class Workflow:
         self.use_singularity = use_singularity
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
+        self.shadow_prefix = shadow_prefix
         self.global_singularity_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
@@ -108,6 +110,7 @@ class Workflow:
         self.default_remote_prefix = default_remote_prefix
         self.configfiles = []
         self.run_local = run_local
+        self.report_text = None
 
         self.iocache = snakemake.io.IOCache()
 
@@ -128,7 +131,12 @@ class Workflow:
             files.add(os.path.relpath(f))
         for rule in self.rules:
             if rule.script:
-                files.add(os.path.relpath(rule.script))
+                script_path = os.path.relpath(rule.script)
+                files.add(script_path)
+                script_dir = os.path.dirname(script_path)
+                files.update(os.path.join(dirpath, f)
+                             for dirpath, _, files in os.walk(script_dir)
+                             for f in files)
         for f in self.configfiles:
             files.add(f)
 
@@ -224,7 +232,15 @@ class Workflow:
                 logger.info(resource)
 
     def is_local(self, rule):
-        return rule.name in self._localrules or rule.norun
+        return rule.group is None and (
+            rule.name in self._localrules or rule.norun)
+
+    def check_localrules(self):
+        undefined = self._localrules - set(rule.name for rule in self.rules)
+        if undefined:
+            logger.warning("localrules directive specifies rules that are not "
+                           "present in the Snakefile:\n{}\n".format(
+                               "\n".join(map("\t{}".format, undefined))))
 
     def execute(self,
                 targets=None,
@@ -271,7 +287,6 @@ class Workflow:
                 delete_temp_output=False,
                 detailed_summary=False,
                 latency_wait=3,
-                benchmark_repeats=3,
                 wait_for_files=None,
                 nolock=False,
                 unlock=False,
@@ -294,7 +309,11 @@ class Workflow:
                 force_use_threads=False,
                 create_envs_only=False,
                 assume_shared_fs=True,
-                cluster_status=None):
+                cluster_status=None,
+                report=None,
+                export_cwl=False):
+
+        self.check_localrules()
 
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
@@ -383,6 +402,7 @@ class Workflow:
             dag=dag,
             conda_prefix=self.conda_prefix,
             singularity_prefix=self.singularity_prefix,
+            shadow_prefix=self.shadow_prefix,
             warn_only=dryrun or printrulegraph or printdag or summary or archive or
             list_version_changes or list_code_changes or list_input_changes or
             list_params_changes or list_untracked or delete_all_output or delete_temp_output)
@@ -479,7 +499,17 @@ class Workflow:
 
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
-        if printd3dag:
+        if export_cwl:
+            from snakemake.cwl import dag_to_cwl
+            import json
+            with open(export_cwl, "w") as cwl:
+                json.dump(dag_to_cwl(dag), cwl, indent=4)
+            return True
+        elif report:
+            from snakemake.report import auto_report
+            auto_report(dag, report)
+            return True
+        elif printd3dag:
             dag.d3dag()
             return True
         elif printdag:
@@ -579,7 +609,6 @@ class Workflow:
                                  printreason=printreason,
                                  printshellcmds=printshellcmds,
                                  latency_wait=latency_wait,
-                                 benchmark_repeats=benchmark_repeats,
                                  greediness=greediness,
                                  force_use_threads=force_use_threads,
                                  assume_shared_fs=assume_shared_fs)
@@ -594,7 +623,9 @@ class Workflow:
                         "Provided cluster nodes: {}".format(nodes))
                 else:
                     logger.resources_info("Provided cores: {}".format(cores))
-                    logger.resources_info("Rules claiming more threads will be scaled down.")
+                    logger.resources_info("Rules claiming more threads "
+                                          "will be scaled down.")
+
                 provided_resources = format_resources(resources)
                 if provided_resources:
                     logger.resources_info(
@@ -603,9 +634,22 @@ class Workflow:
                     resource for job in dag.needrun_jobs
                     for resource in job.resources.keys()
                     if resource not in resources))
+
                 if unlimited_resources:
                     logger.resources_info(
                         "Unlimited resources: " + unlimited_resources)
+
+                if self.run_local and any(rule.group for rule in self.rules):
+                    logger.info("Group jobs: inactive (local execution)")
+
+                if not self.use_conda and any(rule.conda_env
+                                              for rule in self.rules):
+                    logger.info("Conda environments: ignored")
+
+                if not self.use_singularity and any(rule.singularity_img
+                                                    for rule in self.rules):
+                    logger.info("Singularity containers: ignored")
+
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
@@ -708,6 +752,9 @@ class Workflow:
     def global_wildcard_constraints(self, **content):
         """Register global wildcard constraints."""
         self._wildcard_constraints.update(content)
+        # update all rules so far
+        for rule in self.rules:
+            rule.update_wildcard_constraints()
 
     def workdir(self, workdir):
         """Register workdir."""
@@ -723,6 +770,15 @@ class Workflow:
         c = snakemake.io.load_configfile(jsonpath)
         update_config(config, c)
         update_config(config, self.overwrite_config)
+
+    def report(self, path):
+        """ Define a global report description in .rst format."""
+        self.report_text = os.path.join(self.current_basedir, path)
+
+    @property
+    def config(self):
+        global config
+        return config
 
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*rulenames)
@@ -760,10 +816,12 @@ class Workflow:
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
                     raise RuleException(
-                        "Shadow must either be 'shallow', 'full', 'minimal', "
+                        "Shadow must either be 'minimal', 'shallow', 'full', "
                         "or True (equivalent to 'full')", rule=rule)
                 if ruleinfo.shadow_depth is True:
                     rule.shadow_depth = 'full'
+                    logger.warning(
+                        "Shadow is set to True in rule {} (equivalent to 'full'). It's encouraged to use the more explicit options 'minimal|shallow|full' instead.".format(rule))
                 else:
                     rule.shadow_depth = ruleinfo.shadow_depth
             if ruleinfo.resources:
@@ -832,7 +890,7 @@ class Workflow:
 
             ruleinfo.func.__name__ = "__{}".format(name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
-            setattr(rules, name, rule)
+            setattr(rules, name, RuleProxy(rule))
             return ruleinfo.func
 
         return decorate

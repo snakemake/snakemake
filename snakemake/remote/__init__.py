@@ -45,7 +45,7 @@ class AbstractRemoteProvider:
         and are then passed to RemoteObjects.
     """
     __metaclass__ = ABCMeta
-    
+
     supports_default = False
     allows_directories = False
 
@@ -106,7 +106,7 @@ class AbstractRemoteProvider:
         args = self.args if not args else args
         kwargs = self.kwargs if not kwargs else kwargs
 
-        referenceObj = self.remote(pattern, *args, **kwargs)
+        referenceObj = snakemake.io._IOFile(self.remote(pattern, *args, **kwargs))
         remote_object = snakemake.io.get_flag_value(referenceObj, "remote_object")
         if not remote_object.stay_on_remote:
             pattern = "./" + remote_object.name
@@ -207,6 +207,9 @@ class AbstractRemoteObject:
     @abstractmethod
     def remove(self):
         raise NotImplementedError("Removal of files is unavailable for this remote")
+
+    def local_touch_or_create(self):
+        self._iofile.touch_or_create()
 
 
 class DomainObject(AbstractRemoteObject):

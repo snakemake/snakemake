@@ -65,46 +65,9 @@ We activate benchmarking for the rule ``bwa_map``:
 The ``benchmark`` directive takes a string that points to the file where benchmarking results shall be stored.
 Similar to output files, the path can contain wildcards (it must be the same wildcards as in the output files).
 When a job derived from the rule is executed, Snakemake will measure the wall clock time and memory usage (in MiB) and store it in the file in tab-delimited format.
-With the command line flag ``--benchmark-repeats``, Snakemake can be instructed to perform repetitive measurements by executing benchmark jobs multiple times.
+It is possible to repeat a benchmark multiple times in order to get a sense for the variability of the measurements.
+This can be done by annotating the benchmark file, e.g., with ``benchmark("benchmarks/{sample}.bwa.benchmark.txt", 3)`` Snakemake can be told to run the job three times.
 The repeated measurements occur as subsequent lines in the tab-delimited benchmark file.
-
-We can include the benchmark results into our report:
-
-.. code:: python
-
-    rule report:
-        input:
-            T1="calls/all.vcf",
-            T2=expand("benchmarks/{sample}.bwa.benchmark.txt", sample=config["samples"])
-        output:
-            "report.html"
-        run:
-            from snakemake.utils import report
-            with open(input.T1) as vcf:
-                n_calls = sum(1 for l in vcf if not l.startswith("#"))
-
-            report("""
-            An example variant calling workflow
-            ===================================
-
-            Reads were mapped to the Yeast
-            reference genome and variants were called jointly with
-            SAMtools/BCFtools.
-
-            This resulted in {n_calls} variants (see Table T1_).
-            Benchmark results for BWA can be found in the tables T2_.
-            """, output[0], **input)
-
-We use the ``expand`` function to collect the benchmark files for all samples.
-Here, we directly provide names for the input files.
-In particular, we can also name the whole list of benchmark files returned by the ``expand`` function as ``T2``.
-When invoking the ``report`` function, we just unpack ``input`` into keyword arguments (resulting in ``T1`` and ``T2``).
-In the text, we refer with ``T2_`` to the list of benchmark files.
-
-Exercise
-........
-
-* Re-execute the workflow and benchmark ``bwa_map`` with 3 repeats. Open the report and see how the list of benchmark files is presented in the HTML report.
 
 Modularization
 ::::::::::::::
@@ -129,71 +92,6 @@ Exercise
 
 * Put the read mapping related rules into a separate Snakefile and use the ``include`` directive to make them available in our example workflow again.
 
-
-Using custom scripts
-::::::::::::::::::::
-
-Using the ``run`` directive as above is only reasonable for short Python scripts.
-As soon as your script becomes larger, it is reasonable to separate it from the
-workflow definition.
-For this purpose, Snakemake offers the ``script`` directive.
-Using this, the ``report`` rule from above could instead look like this:
-
-.. code:: python
-
-    rule report:
-        input:
-            T1="calls/all.vcf",
-            T2=expand("benchmarks/{sample}.bwa.benchmark.txt", sample=config["samples"])
-        output:
-            "report.html"
-        script:
-            "scripts/report.py"
-
-The actual Python code to generate the report is now hidden in the script ``scripts/report.py``.
-Script paths are always relative to the referring Snakefile.
-In the script, all properties of the rule like ``input``, ``output``, ``wildcards``,
-``params``, ``threads`` etc. are available as attributes of a global ``snakemake`` object:
-
-.. code:: python
-
-    from snakemake.utils import report
-
-    with open(snakemake.input.T1) as vcf:
-        n_calls = sum(1 for l in vcf if not l.startswith("#"))
-
-    report("""
-    An example variant calling workflow
-    ===================================
-
-    Reads were mapped to the Yeast
-    reference genome and variants were called jointly with
-    SAMtools/BCFtools.
-
-    This resulted in {n_calls} variants (see Table T1_).
-    Benchmark results for BWA can be found in the tables T2_.
-    """, snakemake.output[0], **snakemake.input)
-
-.. sidebar:: Note
-
-  It is best practice to use the script directive whenever a run block would have
-  more than a few lines of code.
-
-Although there are other strategies to invoke separate scripts from your workflow
-(e.g., invoking them via shell commands), the benefit of this is obvious:
-the script logic is separated from the workflow logic (and can be even shared between workflows),
-but boilerplate code like the parsing of command line arguments in unnecessary.
-
-Apart from Python scripts, it is also possible to use R scripts. In R scripts,
-an S4 object named ``snakemake`` analog to the Python case above is available and
-allows access to input and output files and other parameters. Here the syntax
-follows that of S4 classes with attributes that are R lists, e.g. we can access
-the first input file with ``snakemake@input[[1]]`` (note that the first file does
-not have index 0 here, because R starts counting from 1). Named input and output
-files can be accessed in the same way, by just providing the name instead of an
-index, e.g. ``snakemake@input[["myfile"]]``.
-
-For details and examples, see the :ref:`snakefiles-external_scripts` section in the Documentation.
 
 .. _tutorial-conda:
 
@@ -231,7 +129,7 @@ with ``envs/samtools.yaml`` defined as
   channels:
     - bioconda
   dependencies:
-    - samtools =1.3
+    - samtools =1.9
 
 .. sidebar:: Note
 

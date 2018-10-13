@@ -37,7 +37,7 @@ setup(
     zip_safe=False,
     license='MIT',
     url='http://snakemake.bitbucket.io',
-    packages=['snakemake', 'snakemake.remote'],
+    packages=['snakemake', 'snakemake.remote', 'snakemake.report'],
     entry_points={
         "console_scripts":
         ["snakemake = snakemake:main",
@@ -45,7 +45,9 @@ setup(
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
     install_requires=['wrapt', 'requests', 'ratelimiter', 'pyyaml',
-                      'configargparse', 'appdirs', 'datrie', 'jsonschema'],
+                      'configargparse', 'appdirs', 'datrie', 'jsonschema',
+                      'docutils', 'gitpython'],
+    extras_require={"reports": ['jinja2', 'networkx']},
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",
      "Intended Audience :: Science/Research",
