@@ -61,7 +61,6 @@ rule input_other_rule_output:
 rule input_Path_output_dynamic:
 	input: existing_file
 	output: dynamic(OUTDIR / "{clusterid}.cluster.txt")
-	log: OUTDIR / "log_dynamic_{clusterid}"
 	params: outdir=OUTDIR
 	shell:
 		"""
