@@ -1,3 +1,5 @@
+import os
+
 from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
 GS = GSRemoteProvider()
 
@@ -12,8 +14,12 @@ rule copy:
         GS.remote("gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt")
     output:
         "landsat-data.txt"
-    shell:
-        "cp {input} {output}"
+    run:
+        # we could test volume size like this but it is currently unclear what f1-micro instances provide as boot disk size
+        #stats = os.statvfs('.')
+        #volume_gib = stats.f_bsize * stats.f_blocks / 1.074e9
+        #assert volume_gib > 90
+        shell("cp {input} {output}")
 
 
 rule pack:

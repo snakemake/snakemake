@@ -5,23 +5,23 @@ rule all:
 
 
 rule a:
-    output: "test.in"
+    output: "{sample,.+}.in"
     shell:  "touch {output}"
 
 
 rule b:
     input:  rules.a.output
-    output: "test.inter"
+    output: "{sample}.inter"
     shell:  "touch {output}"
 
 
 rule c:
     input:  rules.a.output
-    output: "test.inter"
+    output: "{sample}.inter"
     shell:  "exit 1"
 
 
 rule d:
     input:  rules.b.output
-    output: "test.out"
+    output: "{sample}.out"
     shell:  "touch {output}"

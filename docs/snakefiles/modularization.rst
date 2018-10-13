@@ -1,12 +1,14 @@
 .. snakefiles-modularization:
 
+.. _Snakemake Wrapper Repository: https://snakemake-wrappers.readthedocs.io
+
 ==============
 Modularization
 ==============
 
 Modularization in Snakemake comes at different levels.
 
-1. The most fine-grained level are wrappers. They are available and can be published at the `Snakemake Wrapper Repository <https://snakemake-wrappers.readthedocs.io>`_. These wrappers can then be composed and customized according to your needs, by copying skeleton rules into your workflow. In combination with conda integration, wrappers also automatically deploy the needed software dependencies into isolated environments.
+1. The most fine-grained level are wrappers. They are available and can be published at the `Snakemake Wrapper Repository`_. These wrappers can then be composed and customized according to your needs, by copying skeleton rules into your workflow. In combination with conda integration, wrappers also automatically deploy the needed software dependencies into isolated environments.
 2. For larger, reusable parts that shall be integrated into a common workflow, it is recommended to write small Snakefiles and include them into a master Snakefile via the include statement. In such a setup, all rules share a common config file.
 3. The third level of separation are subworkflows. Importantly, these are rather meant as links between otherwise separate data analyses.
 
@@ -35,13 +37,13 @@ For example
             "0.0.8/bio/samtools_sort"
 
 Refers to the wrapper ``"0.0.8/bio/samtools_sort"`` to create the output from the input.
-Snakemake will automatically download the wrapper from the `Snakemake Wrapper Repository <https://bitbucket.org/snakemake/snakemake-wrappers>`_.
+Snakemake will automatically download the wrapper from the `Snakemake Wrapper Repository`_.
 Thereby, 0.0.8 can be replaced with the git version tag you want to use, or a commit id (see `here <https://bitbucket.org/snakemake/snakemake-wrappers/commits>`_).
 This ensures reproducibility since changes in the wrapper implementation won't be propagated automatically to your workflow.
 Alternatively, e.g., for development, the wrapper directive can also point to full URLs, including URLs to local files with absolute paths ``file://`` or relative paths ``file:``.
-Examples for each wrapper can be found in the READMEs located in the wrapper subdirectories at the `Snakemake Wrapper Repository <https://bitbucket.org/snakemake/snakemake-wrappers>`_.
+Examples for each wrapper can be found in the READMEs located in the wrapper subdirectories at the `Snakemake Wrapper Repository`_.
 
-The `Snakemake Wrapper Repository <https://bitbucket.org/snakemake/snakemake-wrappers>`_ is meant as a collaborative project and pull requests are very welcome.
+The `Snakemake Wrapper Repository`_ is meant as a collaborative project and pull requests are very welcome.
 
 
 .. _cwl:

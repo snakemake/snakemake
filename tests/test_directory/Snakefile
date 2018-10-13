@@ -1,0 +1,49 @@
+shell("mkdir -p input_dir && touch input_dir/child")
+
+rule downstream:
+    input: "some/dir"
+    output: touch(directory("some/other_dir"))
+
+rule normal:
+    input: "input_dir"
+    output: directory("some/dir")
+    shell:
+        "mkdir -p {output} && touch some/dir/some_file"
+
+rule symlinked_output:
+    output: directory("symlinked_dir")
+    shell: "mkdir dir_to_link_to && ln -s dir_to_link_to symlinked_dir"
+
+rule symlinked_input:
+    input: "symlinked_dir"
+
+# Check that there is an error if the output isn't a directory
+rule file_expecting_dir:
+    output: directory("not_a_dir")
+    shell: "touch not_a_dir"
+
+# Check that there is an error if an output directory isn't flagged with directory()
+rule dir_expecting_file:
+    output: "is_a_dir"
+    shell: "mkdir is_a_dir"
+
+# Should fail due to being a child to some/dir
+rule child_to_other:
+    input: "some/other_dir"
+    output: touch("some/dir/child")
+
+# Shouldn't fail, even though some/dir is a shared prefix
+rule not_child_to_other:
+    input: "some/other_dir"
+    output: touch("some/dir-child")
+
+# Shouldn't fail since children to inputs are currently allowed.
+rule child_to_input:
+    input: "input_dir/child"
+    output: touch("child_to_input")
+
+rule shadow:
+    input: "some/dir"
+    output: directory("some/shadow")
+    shadow: "shallow"
+    shell: "mkdir -p {output}"

@@ -1,8 +1,10 @@
 import os
+import re
 import subprocess
 import tempfile
 from urllib.request import urlopen
 from urllib.parse import urlparse
+from urllib.error import URLError
 import hashlib
 import shutil
 from distutils.version import StrictVersion
@@ -15,11 +17,17 @@ from snakemake.logging import logger
 from snakemake.common import strip_prefix
 from snakemake import utils
 from snakemake import singularity
+from snakemake.io import git_content
 
 
 def content(env_file):
-    if urlparse(env_file).scheme:
-        return urlopen(env_file).read()
+    if env_file.startswith("git+file:"):
+        return git_content(env_file).encode('utf-8')
+    elif urlparse(env_file).scheme:
+        try:
+            return urlopen(env_file).read()
+        except URLError as e:
+            raise WorkflowError("Failed to open environment file {}:".format(env_file), e)
     else:
         if not os.path.exists(env_file):
             raise WorkflowError("Conda env file does not "
@@ -128,21 +136,26 @@ class Env:
             except subprocess.CalledProcessError as e:
                 raise WorkflowError("Error exporting conda packages:\n" +
                                     e.output.decode())
-            for l in out.decode().split("\n"):
-                if l and not l.startswith("#") and not l.startswith("@"):
-                    pkg_url = l
-                    logger.info(pkg_url)
-                    parsed = urlparse(pkg_url)
-                    pkg_name = os.path.basename(parsed.path)
-                    pkg_path = os.path.join(env_archive, pkg_name)
-                    with open(pkg_path, "wb") as copy:
-                        r = requests.get(pkg_url)
-                        r.raise_for_status()
-                        copy.write(r.content)
-                    try:
-                        tarfile.open(pkg_path)
-                    except:
-                        raise WorkflowError("Package is invalid tar archive: {}".format(pkg_url))
+            with open(os.path.join(env_archive,
+                                   "packages.txt"), "w") as pkg_list:
+                for l in out.decode().split("\n"):
+                    if l and not l.startswith("#") and not l.startswith("@"):
+                        pkg_url = l
+                        logger.info(pkg_url)
+                        parsed = urlparse(pkg_url)
+                        pkg_name = os.path.basename(parsed.path)
+                        # write package name to list
+                        print(pkg_name, file=pkg_list)
+                        # download package
+                        pkg_path = os.path.join(env_archive, pkg_name)
+                        with open(pkg_path, "wb") as copy:
+                            r = requests.get(pkg_url)
+                            r.raise_for_status()
+                            copy.write(r.content)
+                        try:
+                            tarfile.open(pkg_path)
+                        except:
+                            raise WorkflowError("Package is invalid tar archive: {}".format(pkg_url))
         except (requests.exceptions.ChunkedEncodingError, requests.exceptions.HTTPError) as e:
             shutil.rmtree(env_archive)
             raise WorkflowError("Error downloading conda package {}.".format(pkg_url))
@@ -161,7 +174,8 @@ class Env:
         tmp_file = None
 
         url_scheme, *_ = urlparse(env_file)
-        if url_scheme and not url_scheme == 'file':
+        if (url_scheme and not url_scheme == 'file') or \
+            (not url_scheme and env_file.startswith("git+file:/")):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as tmp:
                 tmp.write(self.content)
                 env_file = tmp.name
@@ -181,19 +195,37 @@ class Env:
             try:
                 if os.path.exists(env_archive):
                     logger.info("Using archived local conda packages.")
+                    pkg_list = os.path.join(env_archive, "packages.txt")
+                    if os.path.exists(pkg_list):
+                        # read pacakges in correct order
+                        # this is for newer env archives where the package list
+                        # was stored
+                        packages = [os.path.join(env_archive, pkg.rstrip())
+                                    for pkg in open(pkg_list)]
+                    else:
+                        # guess order
+                        packages = glob(os.path.join(env_archive, "*.tar.bz2"))
+
                     # install packages manually from env archive
                     cmd = " ".join(
                         ["conda", "create", "--copy", "--prefix", env_path] +
-                        glob(os.path.join(env_archive, "*.tar.bz2")))
+                        packages)
                     if self._singularity_img:
                         cmd = singularity.shellcmd(self._singularity_img.path, cmd)
                     out = subprocess.check_output(cmd, shell=True,
                                                   stderr=subprocess.STDOUT)
 
                 else:
+                    # Copy env file to env_path (because they can be on
+                    # different volumes and singularity should only mount one).
+                    # In addition, this allows to immediately see what an
+                    # environment in .snakemake/conda contains.
+                    target_env_file = env_path + ".yaml"
+                    shutil.copy(env_file, target_env_file)
+
                     logger.info("Downloading remote packages.")
                     cmd = " ".join(["conda", "env", "create",
-                                                "--file", env_file,
+                                                "--file", target_env_file,
                                                 "--prefix", env_path])
                     if self._singularity_img:
                         cmd = singularity.shellcmd(self._singularity_img.path, cmd)
@@ -230,15 +262,26 @@ def shellcmd(env_path):
 
 
 def check_conda(singularity_img=None):
-    def get_cmd(cmd, singularity_img=None):
+    def get_cmd(cmd):
         if singularity_img:
-            return singularity.shellcmd(self.singularity_img.path, cmd)
+            return singularity.shellcmd(singularity_img.path, cmd)
         return cmd
 
-    if subprocess.check_output(get_cmd("which conda"),
-                               shell=True,
-                               stderr=subprocess.STDOUT) is None:
-        raise CreateCondaEnvironmentException("The 'conda' command is not available in $PATH.")
+    try:
+        # Use type here since conda now is a function.
+        # type allows to check for both functions and regular commands.
+        subprocess.check_output(get_cmd("type conda"),
+                                shell=True,
+                                stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError:
+        if singularity_img:
+            raise CreateCondaEnvironmentException("The 'conda' command is not "
+                                                  "available inside "
+                                                  "your singularity container "
+                                                  "image.")
+        else:
+            raise CreateCondaEnvironmentException("The 'conda' command is not "
+                                                  "available.")
     try:
         version = subprocess.check_output(get_cmd("conda --version"),
                                           shell=True,

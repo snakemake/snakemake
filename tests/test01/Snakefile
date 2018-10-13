@@ -1,10 +1,12 @@
 from snakemake.utils import min_version
 
+from snakemake import __version__
+print(__version__, file=sys.stderr)
 
 shell.executable("/bin/bash")
 shell.prefix("source ~/.bashrc; ")
 
-min_version("2.1")
+#min_version("2.1")
 
 TEST = "abc"
 
@@ -41,7 +43,7 @@ rule rule1:
 	output: 'dir/test.out'
 	log:    a='log/logfile.log'
 	version: version()
-	threads: 4
+	threads: 3
 	shell: 
 		'if [ {threads} -ne 3 ]; then echo "This test has to be run with -j3 in order to succeed!"; exit 1; fi; ' \
 		'echo {TEST}; echo {version}; cp {input[0]} {output[0]}; ' # append a comment

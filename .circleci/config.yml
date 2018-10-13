@@ -4,6 +4,7 @@ jobs:
     machine: true
     environment:
       - GCLOUD: /opt/google-cloud-sdk/bin/gcloud
+      - GSUTIL: /opt/google-cloud-sdk/bin/gsutil
       - BOTO_CONFIG: /dev/null
     steps:
       - checkout
@@ -26,7 +27,7 @@ jobs:
             # TODO only install if singularity is not yet present
             # if type singularity > /dev/null; then exit 0; fi
             source .circleci/common.sh
-            sudo apt-get update; sudo apt-get install squashfs-tools
+            sudo apt-get update; sudo apt-get install squashfs-tools libarchive-dev
             wget https://github.com/singularityware/singularity/releases/download/$SINGULARITY_VER/singularity-$SINGULARITY_VER.tar.gz
             tar xvf singularity-$SINGULARITY_VER.tar.gz
             cd singularity-$SINGULARITY_VER
@@ -54,10 +55,12 @@ jobs:
             # otherwise init cloud
             echo $GCLOUD_SERVICE_KEY | base64 --decode --ignore-garbage > ${HOME}/gcloud-service-key.json
             sudo $GCLOUD components install kubectl
-            sudo $GCLOUD auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
-            sudo $GCLOUD config set project snakemake-testing
+            sudo chown -R $USER:$USER /home/circleci/.config/gcloud
+            $GCLOUD auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+            $GCLOUD config set project snakemake-testing
       - run:
           name: Run tests
+          no_output_timeout: 30m
           command: |
             export GCLOUD_CLUSTER=t-`uuidgen`
             export GOOGLE_APPLICATION_CREDENTIALS=${HOME}/gcloud-service-key.json

@@ -1,7 +1,6 @@
 channels:
-  - bioconda
   - conda-forge
-  - defaults
+  - bioconda
 dependencies:
   - python >=3.5
   - boto3
@@ -26,3 +25,9 @@ dependencies:
   - appdirs
   - python-irodsclient
   - jsonschema
+  - networkx
+  - pygraphviz
+  # needed by graphviz
+  - xorg-libxrender
+  - xorg-libxpm
+  - gitpython

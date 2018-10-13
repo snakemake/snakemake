@@ -15,6 +15,7 @@ import multiprocessing
 import string
 import shlex
 import sys
+from urllib.parse import urljoin
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
@@ -22,42 +23,99 @@ from snakemake.exceptions import WorkflowError
 import snakemake
 
 
-def validate(data, schema):
+def validate(data, schema, set_default=True):
     """Validate data with JSON schema at given path.
 
-    Arguments
-    data -- data to validate. Can be a config dict or a pandas data frame.
-    schema -- Path to JSON schema used for validation. The schema can also be
-        in YAML format. If validating a pandas data frame, the schema has to
-        describe a row record (i.e., a dict with column names as keys pointing
-        to row values). See http://json-schema.org.
+    Args:
+        data (object): data to validate. Can be a config dict or a pandas data frame.
+        schema (str): Path to JSON schema used for validation. The schema can also be
+            in YAML format. If validating a pandas data frame, the schema has to
+            describe a row record (i.e., a dict with column names as keys pointing
+            to row values). See http://json-schema.org. The path is interpreted
+            relative to the Snakefile when this function is called.
+        set_default (bool): set default values defined in schema. See
+            http://python-jsonschema.readthedocs.io/en/latest/faq/ for more
+            information
     """
     try:
         import jsonschema
+        from jsonschema import validators, RefResolver
     except ImportError:
         raise WorkflowError("The Python 3 package jsonschema must be installed "
                             "in order to use the validate directive.")
 
+    if not os.path.isabs(schema):
+        frame = inspect.currentframe().f_back
+        # if workflow object is not available this has not been started from a workflow
+        if "workflow" in frame.f_globals:
+            workflow = frame.f_globals["workflow"]
+            schema = os.path.join(workflow.current_basedir, schema)
+
+    schemafile = schema
     schema = _load_configfile(schema, filetype="Schema")
+    resolver = RefResolver(
+        urljoin('file:', schemafile), schema,
+        handlers={'file': lambda uri: _load_configfile(re.sub("^file://", "", uri))})
+
+    # Taken from http://python-jsonschema.readthedocs.io/en/latest/faq/
+    def extend_with_default(validator_class):
+        validate_properties = validator_class.VALIDATORS["properties"]
+
+        def set_defaults(validator, properties, instance, schema):
+            for property, subschema in properties.items():
+                if "default" in subschema:
+                    instance.setdefault(property, subschema["default"])
+
+            for error in validate_properties(
+                    validator, properties, instance, schema,
+            ):
+                yield error
+
+        return validators.extend(
+            validator_class, {"properties": set_defaults},
+        )
+
+    Validator = validators.validator_for(schema)
+    if Validator.META_SCHEMA['$schema'] != schema['$schema']:
+        logger.warning("No validator found for JSON Schema version identifier '{}'".format(schema['$schema']))
+        logger.warning("Defaulting to validator for JSON Schema version '{}'".format(Validator.META_SCHEMA['$schema']))
+        logger.warning("Note that schema file may not be validated correctly.")
+    DefaultValidator = extend_with_default(Validator)
 
     if not isinstance(data, dict):
         try:
             import pandas as pd
+            recordlist = []
             if isinstance(data, pd.DataFrame):
                 for i, record in enumerate(data.to_dict("records")):
+                    record = {k: v for k, v in record.items() if not pd.isnull(v)}
                     try:
-                        jsonschema.validate(record, schema)
+                        if set_default:
+                            DefaultValidator(schema, resolver=resolver).validate(record)
+                            recordlist.append(record)
+                        else:
+                            jsonschema.validate(record, schema, resolver=resolver)
                     except jsonschema.exceptions.ValidationError as e:
                         raise WorkflowError(
                             "Error validating row {} of data frame.".format(i),
                             e)
+                if set_default:
+                    newdata = pd.DataFrame(recordlist, data.index)
+                    newcol = ~newdata.columns.isin(data.columns)
+                    n = len(data.columns)
+                    for col in newdata.loc[:, newcol].columns:
+                        data.insert(n, col, newdata.loc[:, newcol])
+                        n = n + 1
                 return
         except ImportError:
             pass
         raise WorkflowError("Unsupported data type for validation.")
     else:
         try:
-            jsonschema.validate(data, schema)
+            if set_default:
+                DefaultValidator(schema, resolver=resolver).validate(data)
+            else:
+                jsonschema.validate(data, schema, resolver=resolver)
         except jsonschema.exceptions.ValidationError as e:
             raise WorkflowError("Error validating config file.", e)
 
@@ -136,6 +194,8 @@ def report(text, path,
            metadata=None, **files):
     """Create an HTML report using python docutils.
 
+    This is deprecated in favor of the --report flag.
+
     Attention: This function needs Python docutils to be installed for the
     python installation you use with Snakemake.
 
@@ -185,8 +245,9 @@ def report(text, path,
 
 
 def R(code):
-    """Execute R code
+    """Execute R code.
 
+    This is deprecated in favor of the ``script`` directive.
     This function executes the R code given as a string.
     The function requires rpy2 to be installed.
 
@@ -230,9 +291,12 @@ class SequenceFormatter(string.Formatter):
 
     def format_field(self, value, format_spec):
         if isinstance(value, Wildcards):
-            return ",".join("{}={}".format(name, value.get(name)) for name in value.keys())
+            return ",".join("{}={}".format(name, value)
+                            for name, value in
+                            sorted(value.items(), key=lambda item: item[0]))
         if isinstance(value, (list, tuple, set, frozenset)):
-            return self.separator.join(self.format_element(v, format_spec) for v in value)
+            return self.separator.join(self.format_element(v, format_spec)
+                                       for v in value)
         else:
             return self.format_element(value, format_spec)
 
@@ -371,22 +435,6 @@ def update_config(config, overwrite_config):
         return d
 
     _update(config, overwrite_config)
-
-
-def set_temporary_output(*rules):
-    """Set the output of rules to temporary"""
-    for rule in rules:
-        logger.debug(
-            "setting output of rule '{rule}' to temporary".format(rule=rule))
-        rule.temp_output = set(rule.output)
-
-
-def set_protected_output(*rules):
-    """Set the output of rules to protected"""
-    for rule in rules:
-        logger.debug(
-            "setting output of rule '{rule}' to protected".format(rule=rule))
-        rule.protected_output = set(rule.output)
 
 
 def available_cpu_count():

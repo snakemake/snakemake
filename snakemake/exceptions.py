@@ -134,7 +134,7 @@ class WildcardError(WorkflowError):
 
 class RuleException(Exception):
     """
-    Base class for exception occuring withing the
+    Base class for exception occuring within the
     execution or definition of rules.
     """
 
@@ -181,6 +181,10 @@ class InputFunctionException(WorkflowError):
             "{}={}".format(name, value) for name, value in wildcards.items())
         super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
+class ChildIOException(WorkflowError):
+    def __init__(self, parent=None, child=None, wildcards=None, lineno=None, snakefile=None, rule=None):
+        msg = "File/directory is a child to another output:\n" + "{}\n{}".format(parent, child)
+        super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
 class MissingOutputException(RuleException):
     pass
@@ -217,6 +221,12 @@ class ProtectedOutputException(IOException):
                          lineno=lineno,
                          snakefile=snakefile)
 
+class ImproperOutputException(IOException):
+    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
+        super().__init__("Outputs of incorrect type (directories when expecting files or vice versa). "
+                         "Output directories must be flagged with directory().", rule, files, include,
+                         lineno=lineno,
+                         snakefile=snakefile)
 
 class UnexpectedOutputException(IOException):
     def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
@@ -226,6 +236,7 @@ class UnexpectedOutputException(IOException):
                          lineno=lineno,
                          snakefile=snakefile)
 
+
 class ImproperShadowException(RuleException):
     def __init__(self, rule, lineno=None, snakefile=None):
         super().__init__("Rule cannot shadow if using ThreadPoolExecutor",
@@ -234,13 +245,26 @@ class ImproperShadowException(RuleException):
 
 class AmbiguousRuleException(RuleException):
     def __init__(self, filename, job_a, job_b, lineno=None, snakefile=None):
+        from snakemake import utils
+        wildcards_a = utils.format("{}", job_a._format_wildcards)
+        wildcards_b = utils.format("{}", job_b._format_wildcards)
         super().__init__(
             "Rules {job_a} and {job_b} are ambiguous for the file {f}.\n"
+            "Consider starting rule output with a unique prefix, constrain "
+            "your wildcards, or use the ruleorder directive.\n"
+            "Wildcards:\n"
+            "\t{job_a}: {wildcards_a}\n"
+            "\t{job_b}: {wildcards_b}\n"
             "Expected input files:\n"
             "\t{job_a}: {job_a.input}\n"
-            "\t{job_b}: {job_b.input}".format(job_a=job_a,
+            "\t{job_b}: {job_b.input}"
+            "Expected output files:\n"
+            "\t{job_a}: {job_a.output}\n"
+            "\t{job_b}: {job_b.output}".format(job_a=job_a,
                                               job_b=job_b,
-                                              f=filename),
+                                              f=filename,
+                                              wildcards_a=wildcards_a,
+                                              wildcards_b=wildcards_b),
             lineno=lineno,
             snakefile=snakefile)
         self.rule1, self.rule2 = job_a.rule, job_b.rule

@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Snakemake Report</title>
+
+    <!-- Bootstrap CSS -->
+    <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
+
+    <!-- Custom styles for this template -->
+    <style>
+      body {
+      font-size: .875rem;
+      }
+
+      .feather {
+      width: 16px;
+      height: 16px;
+      vertical-align: text-bottom;
+      }
+
+      /*
+      * Sidebar
+      */
+
+      .sidebar {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 100; /* Behind the navbar */
+      padding: 48px 0 0; /* Height of navbar */
+      box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+      }
+
+      .sidebar-sticky {
+      position: relative;
+      top: 0;
+      height: calc(100vh - 48px);
+      padding-top: .5rem;
+      overflow-x: hidden;
+      overflow-y: auto; /* Scrollable contents if viewport is shorter than content. */
+      }
+
+      @supports ((position: -webkit-sticky) or (position: sticky)) {
+      .sidebar-sticky {
+        position: -webkit-sticky;
+        position: sticky;
+      }
+      }
+
+      .sidebar .nav-link {
+      font-weight: 500;
+      color: #333;
+      }
+
+      .sidebar .nav-link .feather {
+      margin-right: 4px;
+      color: #999;
+      }
+
+      .sidebar .nav-link.active {
+      color: #007bff;
+      }
+
+      .sidebar .nav-link:hover .feather,
+      .sidebar .nav-link.active .feather {
+      color: inherit;
+      }
+
+      .sidebar-heading {
+      font-size: .75rem;
+      text-transform: uppercase;
+      }
+
+      /*
+      * Content
+      */
+
+      [role="main"] {
+      padding-top: 48px; /* Space for fixed navbar */
+      }
+
+      *[id]:before {
+        display: block;
+        content: " ";
+        margin-top: -75px;
+        height: 75px;
+        visibility: hidden;
+      }
+
+      /*
+      * Navbar
+      */
+
+      .navbar-brand {
+      padding-top: .75rem;
+      padding-bottom: .75rem;
+      font-size: 1rem;
+      background-color: rgba(0, 0, 0, .25);
+      box-shadow: inset -1px 0 0 rgba(0, 0, 0, .25);
+      }
+
+      .navbar .form-control {
+      padding: .75rem 1rem;
+      border-width: 0;
+      border-radius: 0;
+      }
+
+      .form-control-dark {
+      color: #fff;
+      background-color: rgba(255, 255, 255, .1);
+      border-color: rgba(255, 255, 255, .1);
+      }
+
+      .form-control-dark:focus {
+      border-color: transparent;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, .25);
+      }
+
+      /*
+      * Utilities
+      */
+
+      .border-top { border-top: 1px solid #e5e5e5; }
+      .border-bottom { border-bottom: 1px solid #e5e5e5; }
+
+      /* Snakemake specific */
+      .result img {
+        max-width: 100vw;
+      }
+
+      .result .preview {
+        text-align: center;
+      }
+
+      #rulegraph canvas {
+        display: block;
+        max-width: 100vw;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      @keyframes fadeinout {
+        0%   { opacity:1; }
+        50%  { opacity:0; }
+        100% { opacity:1; }
+      }
+
+      #loading-screen {
+        background-color: white;
+        width: 100%;
+        height: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 2000;
+        padding-top: 50vh;
+      }
+
+      #loading-screen p#animation {
+        animation: fadeinout 2.5s infinite;
+        text-align: center;
+        font-size: 200%;
+      }
+
+      #loading-screen p#info {
+        text-align: center;
+        color: grey;
+      }
+
+      .vega-actions .btn {
+        font-size: 100%;
+      }
+
+      .plot {
+        text-align: center;
+      }
+
+      h6.sidebar-heading {
+        text-transform: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="loading-screen">
+      <p id="animation">Loading Snakemake Report...</p>
+      <p id="info">Loading {{ results_size|filesizeformat }}. This can take a while.</p>
+    </div>
+
+    <nav class="navbar navbar-dark fixed-top bg-dark flex-md-nowrap p-0 shadow">
+      <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="#">Snakemake Report</a>
+      <ul class="nav navbar-nav navbar-right" style="padding-right: 10px;">
+        <li class="text-white">{{ now }}</li>
+        <li><a class="text-white" href="https://snakemake.readthedocs.io">Snakemake {{ version }}</a></li>
+      </ul>
+      <!--<input id="searchbar" class="invisible form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search">-->
+    </nav>
+
+    <div class="container-fluid">
+      <div class="row">
+        <nav class="col-md-2 d-none d-md-block bg-light sidebar">
+          <div class="sidebar-sticky">
+            <ul class="nav flex-column">
+              <li class="nav-item">
+                <a class="nav-link active" href="#">
+                  <span data-feather="home"></span>
+                  Workflow <span class="sr-only">(current)</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#stats">
+                  <span data-feather="bar-chart-2"></span>
+                  Statistics
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#rules">
+                  <span data-feather="list"></span>
+                  Rules
+                </a>
+              </li>
+            </ul>
+
+            <h5 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+              <a class="d-flex align-items-center text-muted text-bold" href="#results">
+                <span>Results</span>
+              </a>
+            </h5>
+            {% for cat, res in results|dictsort %}
+              <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                <a class="d-flex align-items-center text-muted" href="#results-{{ cat|replace(" ", "_") }}">
+                  <span>{{ cat }}</span>
+                </a>
+              </h6>
+              <ul class="nav flex-column mb-2">
+                {% for r in res %}
+                <li class="nav-item">
+                  <a class="nav-link" href="#{{ r.id }}">
+                    <span data-feather="{{ r.icon }}"></span>
+                    {{ r.name }}
+                  </a>
+                </li>
+                {% endfor %}
+              </ul>
+            {% endfor %}
+          </div>
+        </nav>
+
+        <main role="main" class="col-md-9 ml-sm-auto col-lg-10 px-4">
+          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h2>Workflow</h2>
+          </div>
+
+          {{ text }}
+
+          <p>Detailed software versions can be found under <a href="#rules">Rules</a>.</p>
+
+          <div id="rulegraph"></div>
+
+          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h2 id="results">Results</h2>
+          </div>
+          {% for cat, catresults in results|dictsort %}
+            {% if cat %}
+            <h3 id="results-{{ cat|replace(" ", "_") }}">{{ cat }}</h3>
+            {% endif %}
+            {% for res in catresults %}
+            <div class="result">
+              <h4 id="{{ res.id }}">{{ res.name }}    <a class="btn btn-outline-secondary" href="{{ res.data }}" download="{{ res.name }}"><span data-feather="{{ res.icon }}"></span> Download</a></h4>
+              {{ res.caption }}
+              <div class="preview">
+                {% if res.is_img %}
+                <a href="{{ res.data }}" download="{{ res.name }}"><img src="{{ res.data }}"></a>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          {% endfor %}
+
+          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h2 id="stats">Statistics</h2>
+          </div>
+          If the workflow has been executed in cluster/cloud, runtimes include the waiting time in the queue.
+          <div id="runtimes" class="plot"></div>
+          <div id="timeline" class="plot"></div>
+          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+          <h2 id="rules">Rules</h2>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Rule</th>
+                <th>Jobs</th>
+                <th>Output</th>
+                <th>Singularity</th>
+                <th>Conda environment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for rule in rules %}
+              <tr>
+                <td>{{ rule.name }}</td>
+                <td>{{ rule.n_jobs }}</td>
+                <td>
+                  <a data-toggle="collapse" role="button" href="#output-{{ rule.id }}" aria-expanded="false" aria-controls="collapseExample"><span data-feather="plus-circle"></span></a>
+                  <div class="collapse" id="output-{{ rule.id }}">
+                    <ul class="list-group list-group-flush">
+                    {% for f in rule.output %}
+                      <li class="list-group-item">{{ f }}</li>
+                    {% endfor %}
+                    </ul>
+                  </div>
+                </td>
+                <td>{{ rule.singularity_img_url if rule.singularity_img_url is not none }}</td>
+                <td>
+                  {% if rule.conda_env %}
+                    <a data-toggle="collapse" href="#conda-env-{{ rule.id }}"><span data-feather="plus-circle"></span></a>
+                    <div class="collapse" id="conda-env-{{ rule.id }}">
+                      <ul class="list-group list-group-flush">
+                      {% for dep in rule.conda_env["dependencies"] %}
+                        <li class="list-group-item">{{ dep }}</li>
+                      {% endfor %}
+                      </ul>
+                    </div>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </main>
+      </div>
+    </div>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.slim.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/js/bootstrap.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega/3.3.1/vega.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-lite/2.4.3/vega-lite.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.13.2/vega-embed.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"|get_resource_as_string }}</script>
+
+
+    <!-- Icons -->
+    <script>
+      feather.replace()
+    </script>
+
+    <!-- Graphs -->
+    <script>
+      var rulegraph_spec = {
+        "$schema": "https://vega.github.io/schema/vega/v3.json",
+        "width": {{ rulegraph_width }},
+        "height": {{ rulegraph_height }},
+        "padding": 0,
+        "autosize": "none",
+
+        "signals": [
+          { "name": "cx", "update": "width / 2" },
+          { "name": "cy", "update": "height / 2" },
+          {
+            "description": "State variable for active node fix status.",
+            "name": "fix", "value": 0,
+            "on": [
+              {
+                "events": "symbol:mouseout[!event.buttons], window:mouseup",
+                "update": "0"
+              },
+              {
+                "events": "symbol:mouseover",
+                "update": "fix || 1"
+              },
+              {
+                "events": "[symbol:mousedown, window:mouseup] > window:mousemove!",
+                "update": "2", "force": true
+              }
+            ]
+          }
+        ],
+
+        "data": [
+          {
+            "name": "node-data",
+            "values": {{ rulegraph_nodes }}
+          },
+          {
+            "name": "link-data",
+            "values": {{ rulegraph_links }}
+          }
+        ],
+
+        "scales": [
+          {
+            "name": "color",
+            "type": "ordinal",
+            "range": {"scheme": "category20c"}
+          },
+          {
+            "name": "x",
+            "type": "linear"
+          },
+          {
+            "name": "y",
+            "type": "linear"
+          }
+        ],
+
+        "marks": [
+          {
+            "name": "nodes",
+            "type": "symbol",
+            "zindex": 1,
+            "from": {"data": "node-data"},
+            "encode": {
+              "enter": {
+                "fill": {"scale": "color", "field": "rule"},
+                "x": {"field": "fx", "scale": "x"},
+                "y": {"field": "fy", "scale": "y"}
+              }
+            },
+
+            "transform": [
+              {
+                "type": "force",
+                "iterations": 1,
+                "static": true,
+                "forces": [
+                  {
+                    "force": "link",
+                    "links": "link-data",
+                    "distance": 25
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "labels",
+            "type": "text",
+            "zindex": 2,
+            "from": {"data": "node-data"},
+            "encode": {
+              "enter": {
+                "fill": {"value": "black"},
+                "fontWeight": {"value": "normal"},
+                "text": {"field": "rule"},
+                "x": {"field": "fx", "scale": "x"},
+                "y": {"field": "fy", "scale": "y"},
+                "dx": {"value": 5},
+                "dy": {"value": -5},
+              }
+            }
+          },
+          {
+            "type": "path",
+            "from": {"data": "link-data"},
+            "interactive": false,
+            "encode": {
+              "update": {
+                "stroke": {"value": "#ccc"},
+                "strokeWidth": {"value": 0.5}
+              }
+            },
+            "transform": [
+              {
+                "type": "linkpath", "shape": "line",
+                "sourceX": "datum.source.x", "sourceY": "datum.source.y",
+                "targetX": "datum.target.x", "targetY": "datum.target.y"
+              }
+            ]
+          }
+        ]
+      };
+      var view = new vega.View(vega.parse(rulegraph_spec))
+        .renderer("canvas")
+        .initialize("#rulegraph")
+        .hover()
+        .run();
+
+      var runtimes_spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v2.json",
+        "description": "Shows the relationship between horsepower and the numbver of cylinders using tick marks.",
+        "data": {"values": {{ runtimes }}},
+        "mark": "point",
+        "encoding": {
+          "x": {"field": "runtime", "type": "quantitative",
+                "axis": {"title": "runtime [s]", "labelAngle": -90},
+                "scale": {"type": "log"}
+          },
+          "y": {"field": "rule", "type": "nominal"},
+          "color": {"value": "#007bff"}
+        }
+      };
+      vegaEmbed("#runtimes", runtimes_spec);
+
+      var timeline_spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v2.json",
+        "description": "Timeline of jobs.",
+        "data": {
+          "values": {{ timeline }}
+        },
+        "mark": "point",
+        "encoding": {
+          "x": {
+            "field": "endtime", "type": "temporal",
+            "timeUnit": "yearmonthdatehoursminutes",
+            "axis": {
+              "labelAngle": -90,
+              "title": "creation date"
+            }
+          },
+          "y": {"field": "rule", "type": "nominal"},
+          "color": {"value": "#007bff"}
+        }
+      };
+      vegaEmbed("#timeline", timeline_spec);
+
+      $(".vega-actions a").addClass("btn btn-outline-secondary");
+      $(".vega-actions").addClass("btn-group");
+      $("#loading-screen").hide();
+    </script>
+  </body>
+</html>

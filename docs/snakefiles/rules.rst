@@ -426,6 +426,8 @@ Apart from Python scripts, this mechanism also allows you to integrate R_ and R 
 
 In the R script, an S4 object named ``snakemake`` analog to the Python case above is available and allows access to input and output files and other parameters. Here the syntax follows that of S4 classes with attributes that are R lists, e.g. we can access the first input file with ``snakemake@input[[1]]`` (note that the first file does not have index ``0`` here, because R starts counting from ``1``). Named input and output files can be accessed in the same way, by just providing the name instead of an index, e.g. ``snakemake@input[["myfile"]]``.
 
+For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object. A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
+
 An example external Python script would could look like this:
 
 .. code-block:: python
@@ -496,9 +498,7 @@ In the R Markdown file you can insert output from a R command, and access variab
     <a download="report.Rmd" href="`r base64enc::dataURI(file = params$rmd, mime = 'text/rmd', encoding = 'base64')`">R Markdown source file (to produce this document)</a>
 
 A link to the R Markdown document with the snakemake object can be inserted. Therefore a variable called ``rmd`` needs to be added to the ``params`` section in the header of the ``report.Rmd`` file. The generated R Markdown file with snakemake object will be saved in the file specified in this ``rmd`` variable. This file can be embedded into the HTML document using base64 encoding and a link can be inserted as shown in the example above.
-Also other input and output files can be embedded in this way to make a portable report. Note that the above method with a data URI only works for small files. An experimental technology to embed larger files is using Javascript Blob object_.
-
-.. _object https://developer.mozilla.org/en-US/docs/Web/API/Blob
+Also other input and output files can be embedded in this way to make a portable report. Note that the above method with a data URI only works for small files. An experimental technology to embed larger files is using Javascript Blob `object <https://developer.mozilla.org/en-US/docs/Web/API/Blob>`_.
 
 Protected and Temporary Files
 -----------------------------
@@ -529,6 +529,22 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
         shell:
             "somecommand {input} {output}"
 
+Directories as outputs
+----------------------
+
+There are situations where it can be convenient to have directories, rather than files, as outputs of a rule. For example, some tools generate different output files based on which settings they are run with. Rather than covering all these cases with conditional statements in the Snakemake rule, you can let the rule output a directory that contains all the output files regardless of settings. Another use case could be when the number of outputs is large or unknown, say one file per identified species in a metagenomics sample or one file per cluster from a clustering algorithm. If all downstream rules rely on the whole sets of outputs, rather than on the individual species/clusters, then having a directory as an output can be a faster and easier solution compared to using the ``dynamic`` keyword.
+As of version 5.2.0, directories as outputs have to be explicitly marked with ``directory``. This is primarily for safety reasons; since all outputs are deleted before a job is executed, we don't want to risk deleting important directories if the user makes some mistake. Marking the output as ``directory`` makes the intent clear, and the output can be safely removed. Another reason comes down to how modification time for directories work. The modification time on a directory changes when a file or a subdirectory is added, removed or renamed. This can easily happen in not-quite-intended ways, such as when Apple macOS or MS Windows add ``.DS_Store`` or ``thumbs.db`` files to store parameters for how the directory contents should be displayed. When the ``directory`` flag is used, then a hidden file called ``.snakemake_timestamp`` is created in the output directory, and the modification time of that file is used when determining whether the rule output is up to date or if it needs to be rerun.
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile"
+        output:
+            directory("path/to/outputdir")
+        shell:
+            "somecommand {input} {output}"
+
 Ignoring timestamps
 -------------------
 
@@ -554,9 +570,7 @@ Shadow rules
 
 Shadow rules result in each execution of the rule to be run in isolated temporary directories. This "shadow" directory contains symlinks to files and directories in the current workdir. This is useful for running programs that generate lots of unused files which you don't want to manually cleanup in your snakemake workflow. It can also be useful if you want to keep your workdir clean while the program executes, or simplify your workflow by not having to worry about unique filenames for all outputs of all rules.
 
-By setting ``shadow: "shallow"``, the top level files and directories are symlinked, so that any relative paths in a subdirectory will be real paths in the filesystem. The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir. Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
-
-Shadow directories are stored one per rule execution in ``.snakemake/shadow/``, and are cleared on subsequent snakemake invocations unless the ``--keep-shadow`` command line argument is used.
+By setting ``shadow: "shallow"``, the top level files and directories are symlinked, so that any relative paths in a subdirectory will be real paths in the filesystem. The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir. The setting ``shadow: "minimal"`` only symlinks the inputs to the rule. Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
 
 Typically, you will not need to modify your rule for compatibility with ``shadow``, unless you reference parent directories relative to your workdir in a rule.
 
@@ -567,6 +581,8 @@ Typically, you will not need to modify your rule for compatibility with ``shadow
         output: "path/to/outputfile"
         shadow: "shallow"
         shell: "somecommand --other_outputs other.txt {input} {output}"
+
+Shadow directories are stored one per rule execution in ``.snakemake/shadow/``, and are cleared on successful execution. Consider running with the ``--cleanup-shadow`` argument every now and then to remove any remaining shadow directories from aborted jobs. The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
 
 Flag files
 ----------
@@ -624,7 +640,7 @@ Dynamic Files
 
 Snakemake provides experimental support for dynamic files.
 Dynamic files can be used whenever one has a rule, for which the number of output files is unknown before the rule was executed.
-This is useful for example with cetain clustering algorithms:
+This is useful for example with certain clustering algorithms:
 
 .. code-block:: python
 
@@ -914,7 +930,21 @@ With the `benchmark` keyword, a rule can be declared to store a benchmark of its
 benchmarks the CPU and wall clock time of the command ``somecommand`` for the given output and input files.
 For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark tsv file (which will contain a tab-separated table of run times and memory usage in MiB).
 Per default, Snakemake executes the job once, generating one run time.
-With ``snakemake --benchmark-repeats``, this number can be changed to e.g. generate timings for two or three runs.
+However, the benchmark file can be annotated with the desired number of repeats, e.g.,
+
+.. code-block:: python
+
+    rule benchmark_command:
+        input:
+            "path/to/input.{sample}.txt"
+        output:
+            "path/to/output.{sample}.txt"
+        benchmark:
+            repeat("benchmarks/somecommand/{sample}.tsv", 3)
+        shell:
+            "somecommand {input} {output}"
+
+will instruct Snakemake to run each job of this rule three times and store all measurements in the benchmark file.
 The resulting tsv file can be used as input for other rules, just like any other output file.
 
 .. note::
@@ -930,8 +960,9 @@ Defining groups for execution
 -----------------------------
 
 From Snakemake 5.0 on, it is possible to assign rules to groups.
-Such groups will be executed together in cluster or cloud mode, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node. By this, queueing and execution time can be
-safed, in particular if one or several short-running rules are involved.
+Such groups will be executed together in **cluster** or **cloud mode**, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node.
+By this, queueing and execution time can be safed, in particular if one or several short-running rules are involved.
+When executing locally, group definitions are ignored.
 
 Groups can be defined via the ``group`` keyword, e.g.,
 
@@ -1004,6 +1035,7 @@ From Snakemake 5.0 on, it is possible to mark output files as pipes, via the ``p
           "grep {wildcards.i} < {input} > {output}"
 
 If an output file is marked to be a pipe, then Snakemake will first create a `named pipe <https://en.wikipedia.org/wiki/Named_pipe>`_ with the given name and then execute the creating job simultaneously with the consuming job, inside a **group job** (see above).
+This works in all execution modes, local, cluster, and cloud.
 Naturally, a pipe output may only have a single consumer.
 It is possible to combine explicit group definition as above with pipe outputs.
 Thereby, pipe jobs can live within, or (automatically) extend existing groups.

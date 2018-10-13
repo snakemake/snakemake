@@ -192,7 +192,7 @@ We modify the rule ``bwa_map`` accordingly:
         output:
             "mapped_reads/{sample}.bam"
         params:
-            rg="@RG\tID:{sample}\tSM:{sample}"
+            rg=r"@RG\tID:{sample}\tSM:{sample}"
         threads: 8
         shell:
             "bwa mem -R '{params.rg}' -t {threads} {input} | samtools view -Sb - > {output}"
@@ -227,7 +227,7 @@ We modify our rule ``bwa_map`` as follows:
         output:
             "mapped_reads/{sample}.bam"
         params:
-            rg="@RG\tID:{sample}\tSM:{sample}"
+            rg=r"@RG\tID:{sample}\tSM:{sample}"
         log:
             "logs/bwa_mem/{sample}.log"
         threads: 8
@@ -270,7 +270,7 @@ We use this mechanism for the output file of the rule ``bwa_map``:
         output:
             temp("mapped_reads/{sample}.bam")
         params:
-            rg="@RG\tID:{sample}\tSM:{sample}"
+            rg=r"@RG\tID:{sample}\tSM:{sample}"
         log:
             "logs/bwa_mem/{sample}.log"
         threads: 8
@@ -314,7 +314,7 @@ The final version of our workflow looks like this:
 
     rule all:
         input:
-            "report.html"
+            "plots/quals.svg"
 
 
     rule bwa_map:
@@ -324,7 +324,7 @@ The final version of our workflow looks like this:
         output:
             temp("mapped_reads/{sample}.bam")
         params:
-            rg="@RG\tID:{sample}\tSM:{sample}"
+            rg=r"@RG\tID:{sample}\tSM:{sample}"
         log:
             "logs/bwa_mem/{sample}.log"
         threads: 8
@@ -364,23 +364,10 @@ The final version of our workflow looks like this:
             "bcftools call -mv - > {output}"
 
 
-    rule report:
+    rule plot_quals:
         input:
             "calls/all.vcf"
         output:
-            "report.html"
-        run:
-            from snakemake.utils import report
-            with open(input[0]) as vcf:
-                n_calls = sum(1 for l in vcf if not l.startswith("#"))
-
-            report("""
-            An example variant calling workflow
-            ===================================
-
-            Reads were mapped to the Yeast
-            reference genome and variants were called jointly with
-            SAMtools/BCFtools.
-
-            This resulted in {n_calls} variants (see Table T1_).
-            """, output[0], T1=input[0])
+            "plots/quals.svg"
+        script:
+            "scripts/plot-quals.py"

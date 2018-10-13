@@ -11,6 +11,7 @@ import urllib.request
 from io import TextIOWrapper
 
 from snakemake.exceptions import WorkflowError
+from snakemake.common import escape_backslash
 
 dd = textwrap.dedent
 
@@ -246,6 +247,10 @@ class Configfile(GlobalKeywordState):
     pass
 
 
+class Report(GlobalKeywordState):
+    pass
+
+
 class Ruleorder(GlobalKeywordState):
     def block_content(self, token):
         if is_greater(token):
@@ -438,7 +443,8 @@ class Run(RuleKeywordState):
         yield "\n"
         yield ("def __rule_{rulename}(input, output, params, wildcards, threads, "
                "resources, log, version, rule, conda_env, singularity_img, "
-               "singularity_args, use_singularity, bench_record, jobid):".format(
+               "singularity_args, use_singularity, bench_record, jobid, "
+               "is_shell):".format(
                    rulename=self.rulename
                             if self.rulename is not None
                             else self.snakefile.rulecount))
@@ -541,7 +547,7 @@ class Script(AbstractCmd):
     def args(self):
         # basedir
         yield ', "{}"'.format(
-            os.path.abspath(os.path.dirname(self.snakefile.path)))
+            escape_backslash(os.path.abspath(os.path.dirname(self.snakefile.path))))
         # other args
         yield (", input, output, params, wildcards, threads, resources, log, "
                "config, rule, conda_env, singularity_img, singularity_args, "
@@ -565,7 +571,7 @@ class CWL(Script):
     def args(self):
         # basedir
         yield ', "{}"'.format(
-            os.path.abspath(os.path.dirname(self.snakefile.path)))
+            escape_backslash(os.path.abspath(os.path.dirname(self.snakefile.path))))
         # other args
         yield (", input, output, params, wildcards, threads, resources, log, "
                "config, rule, use_singularity, bench_record, jobid")
@@ -693,6 +699,7 @@ class Python(TokenAutomaton):
     subautomata = dict(include=Include,
                        workdir=Workdir,
                        configfile=Configfile,
+                       report=Report,
                        ruleorder=Ruleorder,
                        rule=Rule,
                        subworkflow=Subworkflow,

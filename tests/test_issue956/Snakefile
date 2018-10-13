@@ -1,0 +1,43 @@
+rule all:
+    input:
+        expand(
+            "f_{result_type}.txt",
+            result_type=["A", "B"]),
+
+
+rule make_A:
+    output:
+        result_A = "A_{result_type}.txt",
+    shell:
+        """
+        echo "A" > {output.result_A}
+        """
+
+
+rule make_B:
+    output:
+        result_B = "B_{result_type}.txt",
+    shell:
+        """
+        echo "B" > {output.result_B}
+        """
+
+
+def source_result_type(wildcards):
+    if wildcards.result_type == "A":
+        return rules.make_A.output.result_A
+    elif wildcards.result_type == "B":
+        return rules.make_B.output.result_B
+    else:
+        raise NotImplementedError(f"{wildcards.result_type} not possible.\n")
+
+
+rule generate_final_results:
+    input:
+        file_in = source_result_type,
+    output:
+        file_out = "f_{result_type}.txt",
+    shell:
+        """
+        cat {input.file_in} > {output.file_out}
+        """

@@ -4,8 +4,8 @@ configfile: "config.yaml"
 rule all:
     input:
         "test.out",
-        "test.html"
-
+        "test.html",
+        "rel_source.out"
 
 rule:
     input:
@@ -30,3 +30,9 @@ rule:
         test="testparam"
     script:
         "scripts/test.Rmd"
+
+rule:
+    output:
+        "rel_source.out"
+    script:
+        "scripts/rel_source.R"

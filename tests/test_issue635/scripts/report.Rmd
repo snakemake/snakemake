@@ -1,0 +1,38 @@
+---
+title: "Test Report"
+author:
+    - "Your Name"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+params:
+   rmd: "report.Rmd"
+output:
+  html_document:
+  highlight: tango
+  number_sections: no
+  theme: default
+  toc: yes
+  toc_depth: 3
+  toc_float:
+    collapsed: no
+    smooth_scroll: yes
+---
+
+## R Markdown
+
+This is an R Markdown document.
+
+Test include from snakemake ``r snakemake@input``.
+
+
+```{r}
+print(getwd())
+```
+
+```{r}
+# This fails
+data <- read.table(snakemake@input[[1]])
+data
+```
+
+## Source
+<a download="report.Rmd" href="`r base64enc::dataURI(file = params$rmd, mime = 'text/rmd', encoding = 'base64')`">R Markdown source file (to produce this document)</a>

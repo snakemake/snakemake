@@ -1,0 +1,13 @@
+
+rule all:
+    input: "report.html"
+
+rule rmd:
+    input:
+        "input.txt"
+    output:
+        "report.html"
+    conda:
+        "envs/rmarkdown.yaml"
+    script:
+        "scripts/report.Rmd"
