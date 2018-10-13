@@ -1,8 +1,9 @@
 from pathlib import Path
 
-# Things to test:
+# Untested:
 # ancient
 # subworkflows
+# directory
 
 OUTDIR = Path("outdir")
 existing_file = Path("existing_file.txt")
@@ -50,7 +51,7 @@ rule input_Path_output_protected:
 rule input_other_rule_output:
 	input: rules.input_Path.output
 	output: OUTDIR / "output_other_rule_output_{sample}"
-	log: OUTDIR / "log_other_rule_output"
+	log: OUTDIR / "log_other_rule_output_{sample}"
 	shell: 
 		"""
 		cat {input} > {output}
