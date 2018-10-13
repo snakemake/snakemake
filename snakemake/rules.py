@@ -575,11 +575,10 @@ class Rule:
         return input, mapping, dependencies
 
     def expand_params(self, wildcards, input, output, resources, omit_callable=False):
-        def concretize_param(p, wildcards):
-            # Pathlib compatibility
+        def concretize_param(p, wildcards, is_from_callable):
             if isinstance(p, Path):
                 p = str(p)
-            if isinstance(p, str):
+            if not is_from_callable and isinstance(p, str):
                 return apply_wildcards(p, wildcards)
             return p
 
