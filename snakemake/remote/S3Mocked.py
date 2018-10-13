@@ -122,5 +122,7 @@ def file_lock(filepath):
     try:
         yield
     finally:
-        if os.path.isfile(lock_file):
+        try:
             os.remove(lock_file)
+        except OSError:
+            pass

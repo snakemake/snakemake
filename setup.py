@@ -45,7 +45,7 @@ setup(
     },
     package_data={'': ['*.css', '*.sh', '*.html']},
     install_requires=['wrapt', 'requests', 'ratelimiter', 'pyyaml',
-                      'configargparse', 'appdirs', 'datrie'],
+                      'configargparse', 'appdirs', 'datrie', 'jsonschema'],
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",
      "Intended Audience :: Science/Research",

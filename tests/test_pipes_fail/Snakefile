@@ -1,0 +1,21 @@
+rule all:
+    input:
+        expand("test.{i}.out", i=range(2))
+
+
+rule a:
+    output:
+        pipe("test.{i}.txt")
+    shell:
+        # this job fails because of a syntax error
+        "for i in {{0..2}}; ddo echo {wildcards.i} >> {output}; done"
+
+
+rule b:
+    input:
+        "test.{i}.txt"
+    output:
+        "test.{i}.out"
+    shell:
+        "grep {wildcards.i} < {input} > {output}"
+

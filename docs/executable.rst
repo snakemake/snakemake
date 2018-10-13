@@ -114,6 +114,11 @@ Of course, if any input or output already defines a different remote location, t
 Importantly, this means that Snakemake does **not** require a shared network
 filesystem to work in the cloud.
 
+
+.. sidebar:: Note
+
+  Consider to :ref:`group jobs <snakefiles-grouping>` in order to minimize overhead, in particular for short-running jobs.
+
 Currently, this mode requires that the Snakemake workflow is stored in a git repository.
 Snakemake uses git to query necessary source files (the Snakefile, scripts, config, ...)
 for workflow execution and encodes them into the kubernetes job.
@@ -143,6 +148,11 @@ In this case, Snakemake simply needs to be given a submit command that accepts a
 
 Here, ``-j`` denotes the number of jobs submitted being submitted to the cluster at the same time (here 32).
 The cluster command can be decorated with job specific information, e.g.
+
+.. sidebar:: Note
+
+  Consider to :ref:`group jobs <snakefiles-grouping>` in order to minimize overhead, in particular for short-running jobs.
+
 
 .. code-block:: console
 
@@ -175,6 +185,7 @@ With DRMAA, no ``qsub`` command needs to be provided, but system specific argume
 
 Note that the string has to contain a leading whitespace.
 Else, the arguments will be interpreted as part of the normal Snakemake arguments, and execution will fail.
+
 
 Job Properties
 ..............

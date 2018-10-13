@@ -16,10 +16,50 @@ import string
 import shlex
 import sys
 
-from snakemake.io import regex, Namedlist, Wildcards
+from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 import snakemake
+
+
+def validate(data, schema):
+    """Validate data with JSON schema at given path.
+
+    Arguments
+    data -- data to validate. Can be a config dict or a pandas data frame.
+    schema -- Path to JSON schema used for validation. The schema can also be
+        in YAML format. If validating a pandas data frame, the schema has to
+        describe a row record (i.e., a dict with column names as keys pointing
+        to row values). See http://json-schema.org.
+    """
+    try:
+        import jsonschema
+    except ImportError:
+        raise WorkflowError("The Python 3 package jsonschema must be installed "
+                            "in order to use the validate directive.")
+
+    schema = _load_configfile(schema, filetype="Schema")
+
+    if not isinstance(data, dict):
+        try:
+            import pandas as pd
+            if isinstance(data, pd.DataFrame):
+                for i, record in enumerate(data.to_dict("records")):
+                    try:
+                        jsonschema.validate(record, schema)
+                    except jsonschema.exceptions.ValidationError as e:
+                        raise WorkflowError(
+                            "Error validating row {} of data frame.".format(i),
+                            e)
+                return
+        except ImportError:
+            pass
+        raise WorkflowError("Unsupported data type for validation.")
+    else:
+        try:
+            jsonschema.validate(data, schema)
+        except jsonschema.exceptions.ValidationError as e:
+            raise WorkflowError("Error validating config file.", e)
 
 
 def simplify_path(path):
