@@ -106,10 +106,11 @@ def job_to_cwl(job, dag, outputs, inputs):
 
     def outer_entry(f, entry):
         parent = os.path.dirname(f)
-        if parent:
+        parent_basename = os.path.basename(parent)
+        if len(parent_basename) > 0:
             return outer_entry(parent, {
                 "class": "Directory",
-                "basename": os.path.basename(parent),
+                "basename": parent_basename,
                 "listing": [entry]
             })
         else:
