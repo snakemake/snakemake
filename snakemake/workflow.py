@@ -471,10 +471,7 @@ class Workflow:
             # rescue globals
             self.globals.update(globals_backup)
 
-        if not (cluster and cluster_status):
-            # no incomplete check needed because we use external jobids to handle
-            # this later in the executor
-            dag.check_incomplete()
+        dag.check_incomplete()
         dag.postprocess()
         # deactivate IOCache such that from now on we always get updated
         # size, existence and mtime information
