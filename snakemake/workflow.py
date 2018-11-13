@@ -414,6 +414,8 @@ class Workflow:
 
         logger.info("Building DAG of jobs...")
         dag.init()
+        # check incomplete has to run BEFORE any call to postprocess
+        dag.check_incomplete()
         dag.check_dynamic()
 
         if unlock:
@@ -471,7 +473,7 @@ class Workflow:
             # rescue globals
             self.globals.update(globals_backup)
 
-        dag.check_incomplete()
+        print("first postprocess")
         dag.postprocess()
         # deactivate IOCache such that from now on we always get updated
         # size, existence and mtime information
