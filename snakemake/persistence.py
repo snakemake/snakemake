@@ -132,8 +132,11 @@ class Persistence:
         # cleanup envs
         in_use = set(env.hash[:8] for env in self.dag.conda_envs.values())
         for d in os.listdir(self.conda_env_path):
-            if d not in in_use:
-                shutil.rmtree(os.path.join(self.conda_env_path, d))
+            if len(d)>=8 and d[:8] not in in_use:
+                if os.path.isdir(os.path.join(self.conda_env_path, d)):
+                    shutil.rmtree(os.path.join(self.conda_env_path, d))
+                else:
+                    os.remove(os.path.join(self.conda_env_path, d))
 
         # cleanup env archives
         in_use = set(env.content_hash for env in self.dag.conda_envs.values())
