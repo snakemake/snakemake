@@ -104,7 +104,7 @@ def validate(data, schema, set_default=True):
                     newcol = ~newdata.columns.isin(data.columns)
                     n = len(data.columns)
                     for col in newdata.loc[:, newcol].columns:
-                        data.insert(n, col, newdata.loc[:, newcol])
+                        data.insert(n, col, newdata.loc[:, col])
                         n = n + 1
                 return
         except ImportError:

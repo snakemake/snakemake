@@ -42,6 +42,11 @@ properties:
     type: boolean
     default: true
     description: boolean that indicates if sample is case or control
+  date:
+    type: string
+    format: date-time
+    description: collection date
+    default: "2018-10-10"
 
 required:
   - sample
@@ -128,5 +133,5 @@ def test_dataframe(df_schema):
     validate(df, str(df_schema), False)
     assert sorted(df.columns) == sorted(['sample', 'condition'])
     validate(df, str(df_schema))
-    assert sorted(df.columns) == sorted(['sample', 'condition', 'case'])
+    assert sorted(df.columns) == sorted(['sample', 'condition', 'case', 'date'])
     assert df.case.loc[0]
