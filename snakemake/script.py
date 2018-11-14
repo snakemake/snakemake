@@ -310,9 +310,9 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                     # use python from image
                     py_exec = "python"
                 # use the same Python as the running process or the one from the environment
-                shell("{py_exec} {f.name}", bench_record=bench_record)
+                shell("{py_exec} {f.name:q}", bench_record=bench_record)
             elif path.endswith(".R"):
-                shell("Rscript --vanilla {f.name}", bench_record=bench_record)
+                shell("Rscript --vanilla {f.name:q}", bench_record=bench_record)
             elif path.endswith(".Rmd"):
                 if len(output) != 1:
                     raise WorkflowError("RMarkdown scripts (.Rmd) may only have a single output file.")
