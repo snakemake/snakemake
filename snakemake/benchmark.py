@@ -178,6 +178,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         rss, vms, uss, pss = 0, 0, 0, 0
         # I/O measurements
         io_in, io_out = 0, 0
+        check_io = True
         # CPU seconds
         cpu_seconds = 0
         # Iterate over process and all children
@@ -190,9 +191,14 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                 vms += meminfo.vms
                 uss += meminfo.uss
                 pss += meminfo.pss
-                ioinfo = proc.io_counters()
-                io_in += ioinfo.read_bytes
-                io_out += ioinfo.write_bytes
+                if check_io:
+                    try:
+                        ioinfo = proc.io_counters()
+                        io_in += ioinfo.read_bytes
+                        io_out += ioinfo.write_bytes
+                    except NotImplementedError as nie:
+                        # OS doesn't track IO
+                        check_io = False
                 if self.bench_record.prev_time:
                     cpu_seconds += proc.cpu_percent() / 100 * (
                         this_time - self.bench_record.prev_time)
@@ -203,8 +209,12 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
             vms /= 1024 * 1024
             uss /= 1024 * 1024
             pss /= 1024 * 1024
-            io_in /= 1024 * 1024
-            io_out /= 1024 * 1024
+            if check_io:
+                io_in /= 1024 * 1024
+                io_out /= 1024 * 1024
+            else:
+                io_in = None
+                io_out = None
         except psutil.Error as e:
             return
         # Update benchmark record's RSS and VMS
