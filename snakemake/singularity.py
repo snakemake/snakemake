@@ -28,6 +28,7 @@ class Image:
             raise WorkflowError(
                 "Failed to get singularity version:\n{}".format(
                     e.stderr.decode()))
+        v = v.rsplit(" ", 1)[-1]
         if not LooseVersion(v) >= LooseVersion("2.4.1"):
             raise WorkflowError("Minimum singularity version is 2.4.1.")
 
