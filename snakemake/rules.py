@@ -385,6 +385,15 @@ class Rule:
         if isinstance(item, str):
             item = self.apply_default_remote(item)
 
+            # Check to see that all flags are valid
+            # Note that "remote", "dynamic", and "expand" are valid for both inputs and outputs.
+            if isinstance(item, AnnotatedString):
+                for flag in item.flags:
+                    if not output and flag in ["protected", "temp", "temporary", "directory", "touch", "pipe", "report"]:
+                        logger.warning("The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(flag, self))
+                    if output and flag in ["ancient"]:
+                        logger.warning("The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(flag, self))
+
             # add the rule to the dependencies
             if (isinstance(item, _IOFile) and item.rule
                 and item in item.rule.output):
@@ -395,7 +404,7 @@ class Rule:
                 if (contains_wildcard_constraints(item) and
                     self.workflow.mode != Mode.subprocess):
                     logger.warning(
-                        "wildcard constraints in inputs are ignored")
+                        "Wildcard constraints in inputs are ignored.")
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
