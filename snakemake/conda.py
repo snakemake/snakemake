@@ -183,6 +183,15 @@ class Env:
 
         env_hash = self.hash
         env_path = self.path
+
+        # Check for broken environment
+        if os.path.exists(os.path.join(env_path,"env_setup_start")) and not os.path.exists(os.path.join(env_path,"env_setup_done")):
+            if dryrun:
+                logger.info("Incomplete Conda environment {} will be recreated.".format(utils.simplify_path(self.file)))
+            else:
+                logger.info("Removing incomplete Conda environment {}...".format(utils.simplify_path(self.file)))
+                shutil.rmtree(env_path, ignore_errors=True)
+
         # Create environment if not already present.
         if not os.path.exists(env_path):
             if dryrun:
@@ -193,6 +202,11 @@ class Env:
             # Check if env archive exists. Use that if present.
             env_archive = self.archive_file
             try:
+                # Touch "start" flag file
+                os.makedirs(env_path, exist_ok=True)
+                with open(os.path.join(env_path,"env_setup_start"), "a") as f:
+                    pass
+
                 if os.path.exists(env_archive):
                     logger.info("Using archived local conda packages.")
                     pkg_list = os.path.join(env_archive, "packages.txt")
@@ -231,6 +245,10 @@ class Env:
                         cmd = singularity.shellcmd(self._singularity_img.path, cmd)
                     out = subprocess.check_output(cmd, shell=True,
                                                   stderr=subprocess.STDOUT)
+                # Touch "done" flag file
+                with open(os.path.join(env_path,"env_setup_done"), "a") as f:
+                    pass
+
                 logger.debug(out.decode())
                 logger.info("Environment for {} created (location: {})".format(
                             os.path.relpath(env_file), os.path.relpath(env_path)))
