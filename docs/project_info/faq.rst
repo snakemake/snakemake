@@ -605,3 +605,29 @@ You should have a look if maybe you are missing some library or a certain compil
 If everything seems fine, please report to the upstream developers of the failing dependency.
 
 Note that in general it is recommended to install Snakemake via `Conda <https://conda.io>`_ which gives you precompiled packages and the additional benefit of having :ref:`automatic software deployment <integrated_package_management>` integrated into your workflow execution.
+
+How to enable autocompletion for the zsh shell?
+-----------------------------------------------
+
+For users of the `Z shell <https://www.zsh.org/>`_ (zsh), just run the following (assuming an activated zsh) to activate autocompletion for snakemake:
+
+.. code-block:: console
+
+    compdef _gnu_generic snakemake
+
+Example:
+Say you have forgotten how to use the various options starting ``force``, just type the partial match i.e. ``--force`` which results in a list of all potential hits along with a description:
+
+
+.. code-block:: console
+
+    $snakemake --force**pressing tab**
+
+    --force              -- Force the execution of the selected target or the
+    --force-use-threads  -- Force threads rather than processes. Helpful if shared
+    --forceall           -- Force the execution of the selected (or the first)
+    --forcerun           -- (TARGET (TARGET ...)), -R (TARGET (TARGET ...))
+
+To activate this autocompletion permanently, put this line in ``~/.zshrc``.
+
+`Here <https://github.com/zsh-users/zsh-completions/blob/master/zsh-completions-howto.org>`_ is some further reading.
