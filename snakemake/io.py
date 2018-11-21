@@ -871,6 +871,7 @@ def update_wildcard_constraints(pattern,
 def split_git_path(path):
     file_sub = re.sub("^git\+file:/+",'/',path)
     (file_path, version) = file_sub.split("@")
+    file_path = os.path.realpath(file_path)
     root_path = get_git_root(file_path)
     if file_path.startswith(root_path):
         file_path = file_path[len(root_path):].lstrip("/")
