@@ -12,7 +12,7 @@ import subprocess
 import json
 
 from collections import defaultdict
-from itertools import chain
+from itertools import chain, filterfalse
 from functools import partial
 from operator import attrgetter
 from urllib.request import urlopen
@@ -469,6 +469,14 @@ class Job(AbstractJob):
         for f in self.input:
             if not f.is_remote:
                 yield f
+
+    @property
+    def unique_input(self):
+        seen = set()
+
+        for element in filterfalse(seen.__contains__, self.input):
+            seen.add(element)
+            yield element
 
     @property
     def local_output(self):
