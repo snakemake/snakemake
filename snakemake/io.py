@@ -4,6 +4,7 @@ __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import collections
+import git
 import os
 import shutil
 from pathlib import Path
@@ -884,13 +885,35 @@ def get_git_root(path):
             path to root folder for git repo
     """
     try:
-        import git
-    except ImportError as e:
-        raise WorkflowError("The Python package gitpython has to be installed.", e)
+        git_repo = git.Repo(path, search_parent_directories=True)
+        return git_repo.git.rev_parse("--show-toplevel")
+    except git.exc.NoSuchPathError as e:
+        tail,head = os.path.split(path)
+        return get_git_root_parent_directory(tail,path)
 
-    git_repo = git.Repo(path, search_parent_directories=True)
-    return git_repo.git.rev_parse("--show-toplevel")
+def get_git_root_parent_directory(path, input_path):
+    """
+        This function will recursively go through parent directories until a git
+        repository is found or until no parent directories are left, in which case
+        a error will be raised. This is needed when providing a path to a
+        file/folder that is located on a branch/tag no currently checked out.
 
+        Args:
+            path: (str) Path a to a directory that is located inside the repo
+            input_path: (str) origin path, used when raising WorkflowError
+        Returns:
+            path to root folder for git repo
+    """
+    try:
+        git_repo = git.Repo(path, search_parent_directories=True)
+        return git_repo.git.rev_parse("--show-toplevel")
+    except git.exc.NoSuchPathError as e:
+        tail,head = os.path.split(path)
+        if tail is None:
+            raise WorkflowError("Neither provided git path ({}) ".format(input_path) +
+                                "or parent directories contain a valid git repo.")
+        else:
+            return get_git_root_parent_directory(tail, input_path)
 
 def git_content(git_file):
     """
@@ -906,8 +929,6 @@ def git_content(git_file):
     """
     if git_file.startswith("git+file:"):
         (root_path, file_path, version) = split_git_path(git_file)
-        # split_git_path does the import check, hence it is safe to import git here
-        import git
         return git.Repo(root_path).git.show('{}:{}'.format(version, file_path))
     else:
         raise WorkflowError("Provided git path ({}) doesn't meet the "
