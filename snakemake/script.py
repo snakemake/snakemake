@@ -91,7 +91,7 @@ class REncoder:
 
 class Snakemake:
     def __init__(self, input, output, params, wildcards, threads, resources,
-                 log, config, rulename, scriptdir = None):
+                 log, config, rulename, bench_iteration, scriptdir = None):
         # convert input and output to plain strings as some remote objects cannot
         # be pickled
         self.input = input.plainstrings()
@@ -103,6 +103,7 @@ class Snakemake:
         self.log = log.plainstrings()
         self.config = config
         self.rule = rulename
+        self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
     def log_fmt_shell(self, stdout=True, stderr=True, append=False):
@@ -157,7 +158,7 @@ class Snakemake:
 
 def script(path, basedir, input, output, params, wildcards, threads, resources,
            log, config, rulename, conda_env, singularity_img, singularity_args,
-           bench_record, jobid):
+           bench_record, jobid, bench_iteration):
     """
     Load a script from the given basedir + path and execute it.
     Supports Python 3 and R.
@@ -191,6 +192,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
             if path.endswith(".py"):
                 snakemake = Snakemake(input, output, params, wildcards,
                                       threads, resources, log, config, rulename,
+                                      bench_iteration,
                                       os.path.dirname(path[7:]) if path.startswith("file://") else os.path.dirname(path))
                 snakemake = pickle.dumps(snakemake)
                 # Obtain search path for current snakemake module.
@@ -223,6 +225,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                         resources = "list",
                         config = "list",
                         rule = "character",
+                        bench_iteration = "numeric",
                         scriptdir = "character",
                         source = "function"
                     )
@@ -237,6 +240,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                     resources = {},
                     config = {},
                     rule = {},
+                    bench_iteration = {},
                     scriptdir = {},
                     source = function(...){{
                         wd <- getwd()
@@ -257,6 +261,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                                for name, value in resources.items()
                                if name != "_cores" and name != "_nodes"
                            }), REncoder.encode_dict(config), REncoder.encode_value(rulename),
+                            bench_iteration,
                            REncoder.encode_value(os.path.dirname(path[7:]) if path.startswith("file://") else os.path.dirname(path)))
             else:
                 raise ValueError(

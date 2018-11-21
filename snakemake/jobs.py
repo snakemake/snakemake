@@ -707,7 +707,8 @@ class Job(AbstractJob):
                                resources=self.resources,
                                log=self.log,
                                version=self.rule.version,
-                               rule=self.rule.name, ))
+                               rule=self.rule.name,
+                               bench_iteration=None))
         _variables.update(variables)
         try:
             return format(string, **_variables)

@@ -1329,7 +1329,7 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
         with change_working_directory(shadow_dir):
             if benchmark:
                 bench_records = []
-                for i in range(benchmark_repeats):
+                for bench_iteration in range(benchmark_repeats):
                     # Determine whether to benchmark this process or do not
                     # benchmarking at all.  We benchmark this process unless the
                     # execution is done through the ``shell:``, ``script:``, or
@@ -1344,7 +1344,7 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                         run(input, output, params, wildcards, threads, resources,
                             log, version, rule, conda_env, singularity_img,
                             singularity_args, use_singularity, bench_record,
-                            jobid, is_shell)
+                            jobid, is_shell, bench_iteration)
                     else:
                         # The benchmarking is started here as we have a run section
                         # and the generated Python function is executed in this
@@ -1353,13 +1353,13 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                             run(input, output, params, wildcards, threads, resources,
                                 log, version, rule, conda_env, singularity_img,
                                 singularity_args, use_singularity,
-                                bench_record, jobid, is_shell)
+                                bench_record, jobid, is_shell, bench_iteration)
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
             else:
                 run(input, output, params, wildcards, threads, resources,
                     log, version, rule, conda_env, singularity_img,
-                    singularity_args, use_singularity, None, jobid, is_shell)
+                    singularity_args, use_singularity, None, jobid, is_shell, None)
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it

@@ -444,7 +444,7 @@ class Run(RuleKeywordState):
         yield ("def __rule_{rulename}(input, output, params, wildcards, threads, "
                "resources, log, version, rule, conda_env, singularity_img, "
                "singularity_args, use_singularity, bench_record, jobid, "
-               "is_shell):".format(
+               "is_shell, bench_iteration):".format(
                    rulename=self.rulename
                             if self.rulename is not None
                             else self.snakefile.rulecount))
@@ -537,7 +537,7 @@ class Shell(AbstractCmd):
     end_func = "shell"
 
     def args(self):
-        yield ", bench_record=bench_record"
+        yield ", bench_record=bench_record, bench_iteration=bench_iteration"
 
 
 class Script(AbstractCmd):
@@ -551,7 +551,7 @@ class Script(AbstractCmd):
         # other args
         yield (", input, output, params, wildcards, threads, resources, log, "
                "config, rule, conda_env, singularity_img, singularity_args, "
-               "bench_record, jobid")
+               "bench_record, jobid, bench_iteration")
 
 
 class Wrapper(Script):
@@ -561,7 +561,7 @@ class Wrapper(Script):
     def args(self):
         yield (", input, output, params, wildcards, threads, resources, log, "
                "config, rule, conda_env, singularity_img, singularity_args, "
-               "bench_record, workflow.wrapper_prefix, jobid")
+               "bench_record, workflow.wrapper_prefix, jobid, bench_iteration")
 
 
 class CWL(Script):
