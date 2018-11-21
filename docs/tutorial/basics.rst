@@ -59,7 +59,7 @@ It serves as a blueprint for proteins, which form living cells, carry informatio
 and drive chemical reactions. Differences between populations, species, cancer
 cells and healthy tissue, as well as syndromes or diseases can be reflected and
 sometimes caused by changes in the genome.
-This makes the genome an major target of biological and medical research.
+This makes the genome a major target of biological and medical research.
 Today, it is often analyzed with DNA sequencing, producing gigabytes of data from
 a single biological sample (e.g. a biopsy of some tissue).
 For technical reasons, DNA sequencing cuts the DNA of a sample into millions
