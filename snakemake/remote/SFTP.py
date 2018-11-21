@@ -90,12 +90,9 @@ class RemoteObject(DomainObject):
     def is_newer(self, time):
         """ Returns true if the file is newer than time, or if it is
             a symlink that points to a file newer than time. """
-        if self.is_ancient:
-            return False
-        else:
-            with self.sftpc() as sftpc:
-                return ( sftpc.stat( self.remote_path).st_mtime > time or
-                         sftpc.lstat(self.remote_path).st_mtime > time )
+        with self.sftpc() as sftpc:
+            return ( sftpc.stat( self.remote_path).st_mtime > time or
+                     sftpc.lstat(self.remote_path).st_mtime > time )
 
     def size(self):
         if self.exists():
