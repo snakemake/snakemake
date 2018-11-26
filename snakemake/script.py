@@ -190,10 +190,11 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
     try:
         with urlopen(sourceurl) as source:
             if path.endswith(".py"):
+                wrapper_path = path[7:] if path.startswith("file://") else path
                 snakemake = Snakemake(input, output, params, wildcards,
                                       threads, resources, log, config, rulename,
                                       bench_iteration,
-                                      os.path.dirname(path[7:]) if path.startswith("file://") else os.path.dirname(path))
+                                      os.path.dirname(wrapper_path))
                 snakemake = pickle.dumps(snakemake)
                 # Obtain search path for current snakemake module.
                 # The module is needed for unpickling in the script.
@@ -204,11 +205,13 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                     searchpath += ', "{}"'.format(os.path.dirname(path[7:]))
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
-                import sys; sys.path.extend([{}]); import pickle; snakemake = pickle.loads({}); from snakemake.logging import logger; logger.printshellcmds = {}
+                import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; __real_file__ = __file__; __file__ = {file_override};
                 ######## Original script #########
-                """).format(escape_backslash(searchpath),
-                            snakemake,
-                            logger.printshellcmds)
+                """).format(
+                    searchpath=escape_backslash(searchpath),
+                    snakemake=snakemake,
+                    printshellcmds=logger.printshellcmds,
+                    file_override=repr(os.path.realpath(wrapper_path)))
             elif path.endswith(".R") or path.endswith(".Rmd"):
                 preamble = textwrap.dedent("""
                 ######## Snakemake header ########
