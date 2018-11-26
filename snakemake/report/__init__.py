@@ -200,7 +200,7 @@ class FileRecord:
             job = self.job
             snakemake = Snakemake(job.input, job.output, job.params, job.wildcards,
                                   job.threads, job.resources, job.log,
-                                  job.dag.workflow.config, job.rule.name)
+                                  job.dag.workflow.config, job.rule.name, None)
             try:
                 caption = open(self.raw_caption).read() + rst_links
                 caption = env.from_string(caption).render(snakemake=snakemake,
