@@ -150,9 +150,11 @@ class Workflow:
                     files.add(os.path.relpath(f))
         except subprocess.CalledProcessError as e:
             if "fatal: Not a git repository" in e.stderr.decode():
-                raise WorkflowError("Error: this is not a git repository.")
-            raise WorkflowError("Error executing git:\n{}".format(
-                e.stderr.decode()))
+                logger.warning("Unable to retrieve additional files from git. "
+                               "This is not a git repository.")
+            else:
+                raise WorkflowError("Error executing git:\n{}".format(
+                    e.stderr.decode()))
 
         return files
 
