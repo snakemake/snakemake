@@ -34,6 +34,12 @@ class REncoder:
     """Encoding Pyton data structures into R."""
 
     @classmethod
+    def encode_numeric(cls, value):
+        if value is None:
+            return "NA"
+        return str(value)
+
+    @classmethod
     def encode_value(cls, value):
         if value is None:
             return "NULL"
@@ -257,14 +263,15 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 """).format(REncoder.encode_namedlist(input),
                            REncoder.encode_namedlist(output),
                            REncoder.encode_namedlist(params),
-                           REncoder.encode_namedlist(wildcards), threads,
+                           REncoder.encode_namedlist(wildcards),
+                           threads,
                            REncoder.encode_namedlist(log),
                            REncoder.encode_namedlist({
                                name: value
                                for name, value in resources.items()
                                if name != "_cores" and name != "_nodes"
                            }), REncoder.encode_dict(config), REncoder.encode_value(rulename),
-                           REncoder.encode_value(bench_iteration),
+                           REncoder.encode_numeric(bench_iteration),
                            REncoder.encode_value(os.path.dirname(path[7:]) if path.startswith("file://") else os.path.dirname(path)))
             else:
                 raise ValueError(
