@@ -90,7 +90,8 @@ def wrapper(path,
             singularity_args,
             bench_record,
             prefix,
-            jobid):
+            jobid,
+            bench_iteration):
     """
     Load a wrapper from https://bitbucket.org/snakemake/snakemake-wrappers under
     the given path + wrapper.(py|R|Rmd) and execute it.
@@ -98,4 +99,4 @@ def wrapper(path,
     path = get_script(path, prefix=prefix)
     script(path, "", input, output, params, wildcards, threads, resources,
            log, config, rulename, conda_env, singularity_img,
-           singularity_args, bench_record, jobid)
+           singularity_args, bench_record, jobid, bench_iteration)
