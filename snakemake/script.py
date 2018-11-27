@@ -36,7 +36,7 @@ class REncoder:
     @classmethod
     def encode_numeric(cls, value):
         if value is None:
-            return "NA"
+            return "as.numeric(NA)"
         return str(value)
 
     @classmethod
