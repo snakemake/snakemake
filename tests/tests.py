@@ -91,7 +91,7 @@ def run(path,
     assert os.path.exists(snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir), '{} does not exist'.format(results_dir)
-    with tempfile.TemporaryDirectory(prefix=".test", dir=os.path.abspath(".")) as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
         config = {}
         # handle subworkflow
         if subpath is not None:
