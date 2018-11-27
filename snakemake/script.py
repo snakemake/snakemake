@@ -264,7 +264,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                                for name, value in resources.items()
                                if name != "_cores" and name != "_nodes"
                            }), REncoder.encode_dict(config), REncoder.encode_value(rulename),
-                            bench_iteration,
+                           REncoder.encode_value(bench_iteration),
                            REncoder.encode_value(os.path.dirname(path[7:]) if path.startswith("file://") else os.path.dirname(path)))
             else:
                 raise ValueError(
