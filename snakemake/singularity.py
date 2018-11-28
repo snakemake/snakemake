@@ -82,5 +82,5 @@ def shellcmd(img_path, cmd, args="", envvars=None):
     else:
         envvars = ""
     cmd = "{} singularity exec --home {} {} {} bash -c '{}'".format(
-        envvars, os.getcwd(), args, img_path, cmd.replace("'", r"\'"))
+        envvars, os.getcwd(), args, img_path, cmd.replace("'", r"'\''"))
     return cmd
