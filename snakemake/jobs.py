@@ -1024,9 +1024,10 @@ class GroupJob(AbstractJob):
         if self._resources is None:
             self._resources = defaultdict(int)
             # take the maximum over all jobs
+            pipe_group = any([any([is_flagged(o, "pipe") for o in job.output]) for job in self.jobs])
             for job in self.jobs:
                 for res, value in job.resources.items():
-                    if self.dag.workflow.run_local:
+                    if self.dag.workflow.run_local or pipe_group:
                         # in case of local execution, this must be a
                         # group of jobs that are connected with pipes
                         # and have to run simultaneously
@@ -1071,6 +1072,7 @@ class GroupJob(AbstractJob):
             "local": self.is_local,
             "input": self.input,
             "output": self.output,
+            "threads": self.threads,
             "resources": resources,
             "jobid": self.jobid
         }
