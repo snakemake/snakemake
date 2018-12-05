@@ -802,18 +802,18 @@ class DAG:
             if job.group is None:
                 continue
             stop = lambda j: j.group != job.group
+            # BFS into depending jobs if in same group
+            # Note: never go up here (into depending), because it may contain
+            # jobs that have been sorted out due to e.g. ruleorder.
             group = GroupJob(job.group,
-                             chain(self.bfs(self.depending, job, stop=stop),
-                                   self.bfs(self.dependencies, job, stop=stop)))
+                             self.bfs(self.dependencies, job, stop=stop))
 
-
-            # merge with previously determined group if present
+            # merge with previously determined groups if present
             for j in group:
                 if j in groups:
                     other = groups[j]
                     other.merge(group)
                     group = other
-                    break
             # update assignment
             for j in group:
                 if j not in groups:
