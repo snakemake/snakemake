@@ -91,7 +91,7 @@ def run(path,
     assert os.path.exists(snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir), '{} does not exist'.format(results_dir)
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="snakemake-") as tmpdir:
         config = {}
         # handle subworkflow
         if subpath is not None:
@@ -137,6 +137,8 @@ def run(path,
                     assert md5sum(targetfile) == md5sum(
                         expectedfile), 'wrong result produced for file "{}"'.format(
                             resultfile)
+        tmpdir.cleanup()
+
 
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
