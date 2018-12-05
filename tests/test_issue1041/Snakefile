@@ -1,0 +1,30 @@
+CHUNKS = range(3)
+
+rule all:
+    input:
+        expand('raw.split_{chunk}.txt', chunk=CHUNKS)
+
+
+rule start:
+    group:
+        'group1'
+    output:
+        'raw.txt'
+    shell:
+        'echo "hi" > {output}'
+
+
+rule split:
+    input:
+        txt='raw.txt'
+    output:
+        expand('raw.split_{chunk}.txt', chunk=CHUNKS)
+    group:
+        'group1'
+    shell:
+        '''
+        sleep 3
+        echo 0 > {output[0]}
+        echo 1 > {output[1]}
+        echo 2 > {output[2]}
+        '''

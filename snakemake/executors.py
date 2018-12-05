@@ -35,7 +35,7 @@ from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError, ImproperShadowException, SpawnedJobError
-from snakemake.common import Mode, __version__, get_container_image
+from snakemake.common import Mode, __version__, get_container_image, get_uuid
 
 
 def sleep():
@@ -1139,8 +1139,11 @@ class KubernetesExecutor(ClusterExecutor):
         exec_job = self.format_job(
             self.exec_job, job, _quote_all=True, rules=job.rules,
             use_threads="--force-use-threads" if not job.is_group() else "")
-        jobid = "snakejob-{}-{}-{}".format(
-            self.run_namespace, job.jobid, job.attempt)
+        # Kubernetes silently does not submit a job if the name is too long
+        # therefore, we ensure that it is not longer than snakejob+uuid.
+        jobid = "snakejob-{}".format(
+            get_uuid("{}-{}-{}".format(
+                self.run_namespace, job.jobid, job.attempt)))
 
         body = kubernetes.client.V1Pod()
         body.metadata = kubernetes.client.V1ObjectMeta(labels={"app": "snakemake"})
@@ -1278,8 +1281,15 @@ class KubernetesExecutor(ClusterExecutor):
                     except WorkflowError as e:
                         print_exception(e, self.workflow.linemaps)
                         j.error_callback(j.job)
+                        continue
 
-                    if res.status.phase == "Failed":
+                    if res is None:
+                        msg = ("Unknown pod {jobid}. "
+                               "Has the pod been deleted "
+                               "manually?").format(jobid=j.jobid)
+                        self.print_job_error(j.job, msg=msg, jobid=j.jobid)
+                        j.error_callback(j.job)
+                    elif res.status.phase == "Failed":
                         msg = ("For details, please issue:\n"
                                "kubectl describe pod {jobid}\n"
                                "kubectl logs {jobid}").format(jobid=j.jobid)

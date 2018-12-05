@@ -682,9 +682,9 @@ def gcloud_cluster():
             $GSUTIL rm -r gs://{self.bucket_name} || true
             """)
 
-        def run(self, **kwargs):
+        def run(self, test="test_kubernetes", **kwargs):
             try:
-                run(dpath("test_kubernetes"),
+                run(dpath(test),
                     kubernetes="default",
                     default_remote_provider="GS",
                     default_remote_prefix=self.bucket_name,
@@ -727,6 +727,13 @@ def test_gcloud_singularity(gcloud_cluster):
 def test_gcloud_conda_singularity(gcloud_cluster):
     gcloud_cluster.reset()
     gcloud_cluster.run(use_singularity=True, use_conda=True)
+
+
+@gcloud()
+@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
+def test_issue1041(gcloud_cluster):
+    gcloud_cluster.reset()
+    gcloud_cluster.run(test="test_issue1041")
 
 
 @connected
