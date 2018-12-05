@@ -1,0 +1,20 @@
+ruleorder: done2 > done1
+
+rule step1:
+    input: '{sample}.start'
+    output: '{sample}.step1'
+    group: 'mygroup'
+    shell: 'touch {output}'
+
+rule done1:
+    input: '{sample}.step1'
+    output: '{sample}.done'
+    group: 'mygroup'
+    shell: 'touch {output}'
+
+rule done2:
+    input: '{sample}.step1'
+    output: '{sample}.done'
+    wildcard_constraints: sample = 'Foo_.+'
+    group: 'mygroup'
+    shell: 'touch {output}'

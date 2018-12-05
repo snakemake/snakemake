@@ -808,3 +808,6 @@ def test_convert_to_cwl():
     subprocess.check_call(["snakemake", "--export-cwl" , "workflow.cwl"], cwd=workdir)
     subprocess.check_call(["cwltool", "workflow.cwl"], cwd=workdir)
     assert os.path.exists(os.path.join(workdir, "test.out"))
+
+def test_issue1037():
+    run(dpath("test_issue1037"), dryrun=True, cluster="qsub", targets=["Foo_A.done"])
