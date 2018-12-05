@@ -66,7 +66,7 @@ The ``benchmark`` directive takes a string that points to the file where benchma
 Similar to output files, the path can contain wildcards (it must be the same wildcards as in the output files).
 When a job derived from the rule is executed, Snakemake will measure the wall clock time and memory usage (in MiB) and store it in the file in tab-delimited format.
 It is possible to repeat a benchmark multiple times in order to get a sense for the variability of the measurements.
-This can be done by annotating the benchmark file, e.g., with ``benchmark("benchmarks/{sample}.bwa.benchmark.txt", 3)`` Snakemake can be told to run the job three times.
+This can be done by annotating the benchmark file, e.g., with ``repeat("benchmarks/{sample}.bwa.benchmark.txt", 3)`` Snakemake can be told to run the job three times.
 The repeated measurements occur as subsequent lines in the tab-delimited benchmark file.
 
 Modularization
