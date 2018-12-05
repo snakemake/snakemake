@@ -14,6 +14,8 @@ rule copy:
         GS.remote("gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt")
     output:
         "landsat-data.txt"
+    resources:
+        mem_mb=100
     run:
         # we could test volume size like this but it is currently unclear what f1-micro instances provide as boot disk size
         #stats = os.statvfs('.')

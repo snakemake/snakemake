@@ -1206,7 +1206,7 @@ class KubernetesExecutor(ClusterExecutor):
         # This way, we should be able to saturate the node without exceeding it
         # too much.
         container.resources.requests["cpu"] = job.resources["_cores"] - 1
-        if "mem_mb" in job.resources:
+        if "mem_mb" in job.resources.keys():
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"])
 
