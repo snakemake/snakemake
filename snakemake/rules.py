@@ -750,7 +750,7 @@ class Rule:
 
         for name, res in self.resources.items():
             if name != "_cores":
-                resources[name] = apply(name, res)
+                resources[name] = apply(name, res, threads=threads)
         resources = Resources(fromdict=resources)
         return resources
 
