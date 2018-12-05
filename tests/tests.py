@@ -137,8 +137,6 @@ def run(path,
                     assert md5sum(targetfile) == md5sum(
                         expectedfile), 'wrong result produced for file "{}"'.format(
                             resultfile)
-        tmpdir.cleanup()
-
 
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
