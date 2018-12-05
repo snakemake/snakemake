@@ -1035,7 +1035,7 @@ class GroupJob(AbstractJob):
                     else:
                         self._resources[res] = max(self._resources.get(res, value),
                                                    value)
-        return self._resources
+        return Resources(fromdict(self._resources))
 
     @property
     def input(self):
