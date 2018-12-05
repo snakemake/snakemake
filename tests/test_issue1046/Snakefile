@@ -1,0 +1,16 @@
+rule all:
+  input:
+    "test_report.html"
+
+rule test:
+  input:
+    "{name}.csv"
+  output:
+    "{name}_report.html"
+  params:
+  # DOES NOT WORK!
+    title = lambda wildcards, input: input[0]
+  # WORKS!!
+  #  title = lambda wildcards: wildcards.name
+  wrapper:
+    "file:my_wrapper"

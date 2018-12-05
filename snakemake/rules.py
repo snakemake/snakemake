@@ -656,9 +656,9 @@ class Rule:
                                   omit_callable=omit_callable,
                                   no_flattening=True,
                                   apply_default_remote=False,
-                                  aux_params={"input": input,
+                                  aux_params={"input": input.plainstrings(),
                                               "resources": resources,
-                                              "output": output,
+                                              "output": output.plainstrings(),
                                               "threads": resources._cores})
         except WildcardError as e:
             raise WildcardError(

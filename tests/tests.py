@@ -811,3 +811,6 @@ def test_convert_to_cwl():
 
 def test_issue1037():
     run(dpath("test_issue1037"), dryrun=True, cluster="qsub", targets=["Foo_A.done"])
+
+def test_issue1046():
+    run(dpath("test_issue1046"))
