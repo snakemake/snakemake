@@ -5,10 +5,14 @@ from urllib.parse import urlparse
 import hashlib
 from distutils.version import LooseVersion
 
+import snakemake
 from snakemake import conda
-from snakemake.common import lazy_property
+from snakemake.common import lazy_property, SNAKEMAKE_SEARCHPATH
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
+
+
+SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
 
 
 class Image:
@@ -81,6 +85,10 @@ def shellcmd(img_path, cmd, args="", envvars=None):
                            for k, v in envvars.items())
     else:
         envvars = ""
+
+    # mount host snakemake module into container
+    args += " --bind {}:{}".format(SNAKEMAKE_SEARCHPATH, SNAKEMAKE_MOUNTPOINT)
+
     cmd = "{} singularity exec --home {} {} {} bash -c '{}'".format(
         envvars, os.getcwd(), args, img_path, cmd.replace("'", r"'\''"))
     return cmd

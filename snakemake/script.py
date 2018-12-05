@@ -21,8 +21,9 @@ from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import MIN_PY_VERSION, escape_backslash
+from snakemake.common import MIN_PY_VERSION, escape_backslash, SNAKEMAKE_SEARCHPATH
 from snakemake.io import git_content, split_git_path
+from snakemake import singularity
 
 
 PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
@@ -205,7 +206,10 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 # Obtain search path for current snakemake module.
                 # The module is needed for unpickling in the script.
                 # We append it at the end (as a fallback).
-                searchpath = '"{}"'.format(os.path.dirname(os.path.dirname(__file__)))
+                searchpath = SNAKEMAKE_SEARCHPATH
+                if singularity_img is not None:
+                    searchpath = singularity.SNAKEMAKE_MOUNTPOINT
+                searchpath = '"{}"'.format(searchpath)
                 # For local scripts, add their location to the path in case they use path-based imports
                 if path.startswith("file://"):
                     searchpath += ', "{}"'.format(os.path.dirname(path[7:]))

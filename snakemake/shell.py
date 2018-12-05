@@ -102,12 +102,7 @@ class shell:
 
         if singularity_img:
             args = context.get("singularity_args", "")
-            # mount host snakemake module into container
-            snakemake_pythonpath = os.path.dirname(
-                os.path.dirname(snakemake.__file__))
-            args += " --bind {}:/mnt/snakemake".format(snakemake_pythonpath)
-            cmd = singularity.shellcmd(singularity_img, cmd, args,
-                                       envvars={"PYTHONPATH": "/mnt/snakemake"})
+            cmd = singularity.shellcmd(singularity_img, cmd, args)
             logger.info("Activating singularity image {}".format(singularity_img))
 
         if conda_env:
