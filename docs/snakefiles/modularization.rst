@@ -111,11 +111,16 @@ This allows to create links between otherwise separate data analyses.
 .. code-block:: python
 
     subworkflow otherworkflow:
-        workdir: "../path/to/otherworkflow"
-        snakefile: "../path/to/otherworkflow/Snakefile"
+        workdir:
+            "../path/to/otherworkflow"
+        snakefile:
+            "../path/to/otherworkflow/Snakefile"
+        configfile:
+            "path/to/custom_configfile.yaml"
 
     rule a:
-        input:  otherworkflow("test.txt")
+        input:
+            otherworkflow("test.txt")
         output: ...
         shell:  ...
 
@@ -123,6 +128,7 @@ Here, the subworkflow is named "otherworkflow" and it is located in the working 
 The snakefile is in the same directory and called ``Snakefile``.
 If ``snakefile`` is not defined for the subworkflow, it is assumed be located in the workdir location and called ``Snakefile``, hence, above we could have left the ``snakefile`` keyword out as well.
 If ``workdir`` is not specified, it is assumed to be the same as the current one.
+The (optional) definition of a ``configfile`` allows to parameterize the subworkflow as needed.
 Files that are output from the subworkflow that we depend on are marked with the ``otherworkflow`` function (see the input of rule a).
 This function automatically determines the absolute path to the file (here ``../path/to/otherworkflow/test.txt``).
 
