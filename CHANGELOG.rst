@@ -1,3 +1,11 @@
+[5.3.1] - 2018-12-06
+====================
+
+Changed
+-------
+
+- Various fixed bugs and papercuts, e.g., in group handling, kubernetes execution, singularity support, wrapper and script usage, benchmarking, schema validation.
+
 [5.3.0] - 2018-09-18
 ====================
 
