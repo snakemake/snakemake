@@ -38,6 +38,11 @@ class shell:
         return cls._process_args.get("executable", None)
 
     @classmethod
+    def check_output(cls, cmd, **kwargs):
+        return subprocess.check_output(
+            cmd, shell=True, executable=cls.get_executable(), **kwargs)
+
+    @classmethod
     def executable(cls, cmd):
         if os.name == "posix" and not os.path.isabs(cmd):
             # always enforce absolute path

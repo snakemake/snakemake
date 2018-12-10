@@ -130,10 +130,9 @@ class Env:
             logger.info("Downloading packages for conda environment {}...".format(self.file))
             os.makedirs(env_archive, exist_ok=True)
             try:
-                out = subprocess.check_output(
+                out = shell.check_output(
                     "conda list --explicit --prefix {}".format(self.path),
-                    stderr=subprocess.STDOUT,
-                    executable=shell.get_executable())
+                    stderr=subprocess.STDOUT)
                 logger.debug(out.decode())
             except subprocess.CalledProcessError as e:
                 raise WorkflowError("Error exporting conda packages:\n" +
@@ -228,9 +227,7 @@ class Env:
                         packages)
                     if self._singularity_img:
                         cmd = singularity.shellcmd(self._singularity_img.path, cmd)
-                    out = subprocess.check_output(cmd, shell=True,
-                                                  stderr=subprocess.STDOUT,
-                                                  executable=shell.get_executable())
+                    out = shell.check_output(cmd, stderr=subprocess.STDOUT)
 
                 else:
                     # Copy env file to env_path (because they can be on
@@ -246,9 +243,7 @@ class Env:
                                                 "--prefix", env_path])
                     if self._singularity_img:
                         cmd = singularity.shellcmd(self._singularity_img.path, cmd)
-                    out = subprocess.check_output(cmd, shell=True,
-                                                  stderr=subprocess.STDOUT,
-                                                  executable=shell.get_executable())
+                    out = shell.check_output(cmd, stderr=subprocess.STDOUT)
                 # Touch "done" flag file
                 with open(os.path.join(env_path,"env_setup_done"), "a") as f:
                     pass
@@ -292,10 +287,7 @@ def check_conda(singularity_img=None):
     try:
         # Use type here since conda now is a function.
         # type allows to check for both functions and regular commands.
-        subprocess.check_output(get_cmd("type conda"),
-                                shell=True,
-                                stderr=subprocess.STDOUT,
-                                executable=shell.get_executable())
+        shell.check_output(get_cmd("type conda"), stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError:
         if singularity_img:
             raise CreateCondaEnvironmentException("The 'conda' command is not "
@@ -309,10 +301,8 @@ def check_conda(singularity_img=None):
                                                   "used by Snakemake.".format(
                                                     shell.get_executable()))
     try:
-        version = subprocess.check_output(get_cmd("conda --version"),
-                                          shell=True,
-                                          stderr=subprocess.STDOUT,
-                                          executable=shell.get_executable()).decode() \
+        version = shell.check_output(get_cmd("conda --version"),
+                                          stderr=subprocess.STDOUT).decode() \
                                                                    .split()[1]
         if StrictVersion(version) < StrictVersion("4.2"):
             raise CreateCondaEnvironmentException(
