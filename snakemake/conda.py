@@ -312,7 +312,7 @@ def check_conda(singularity_img=None):
         version = subprocess.check_output(get_cmd("conda --version"),
                                           shell=True,
                                           stderr=subprocess.STDOUT,
-                                          shell.get_executable()).decode() \
+                                          executable=shell.get_executable()).decode() \
                                                                    .split()[1]
         if StrictVersion(version) < StrictVersion("4.2"):
             raise CreateCondaEnvironmentException(
