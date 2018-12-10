@@ -18,6 +18,7 @@ from snakemake.common import strip_prefix
 from snakemake import utils
 from snakemake import singularity
 from snakemake.io import git_content
+from snakemake.shell import shell
 
 
 def content(env_file):
@@ -129,9 +130,10 @@ class Env:
             logger.info("Downloading packages for conda environment {}...".format(self.file))
             os.makedirs(env_archive, exist_ok=True)
             try:
-                out = subprocess.check_output(["conda", "list", "--explicit",
-                    "--prefix", self.path],
-                    stderr=subprocess.STDOUT)
+                out = subprocess.check_output(
+                    "conda list --explicit --prefix {}".format(self.path),
+                    stderr=subprocess.STDOUT,
+                    executable=shell.get_executable())
                 logger.debug(out.decode())
             except subprocess.CalledProcessError as e:
                 raise WorkflowError("Error exporting conda packages:\n" +
@@ -227,7 +229,8 @@ class Env:
                     if self._singularity_img:
                         cmd = singularity.shellcmd(self._singularity_img.path, cmd)
                     out = subprocess.check_output(cmd, shell=True,
-                                                  stderr=subprocess.STDOUT)
+                                                  stderr=subprocess.STDOUT,
+                                                  executable=shell.get_executable())
 
                 else:
                     # Copy env file to env_path (because they can be on
@@ -244,7 +247,8 @@ class Env:
                     if self._singularity_img:
                         cmd = singularity.shellcmd(self._singularity_img.path, cmd)
                     out = subprocess.check_output(cmd, shell=True,
-                                                  stderr=subprocess.STDOUT)
+                                                  stderr=subprocess.STDOUT,
+                                                  executable=shell.get_executable())
                 # Touch "done" flag file
                 with open(os.path.join(env_path,"env_setup_done"), "a") as f:
                     pass
