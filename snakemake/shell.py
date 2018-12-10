@@ -39,7 +39,7 @@ class shell:
 
     @classmethod
     def check_output(cls, cmd, **kwargs):
-        return subprocess.check_output(
+        return sp.check_output(
             cmd, shell=True, executable=cls.get_executable(), **kwargs)
 
     @classmethod
