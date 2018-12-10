@@ -18,7 +18,6 @@ from snakemake.common import strip_prefix
 from snakemake import utils
 from snakemake import singularity
 from snakemake.io import git_content
-from snakemake.shell import shell
 
 
 def content(env_file):
@@ -113,6 +112,8 @@ class Env:
 
     def create_archive(self):
         """Create self-contained archive of environment."""
+        from snakemake.shell import shell
+
         try:
             import yaml
         except ImportError:
@@ -167,6 +168,8 @@ class Env:
 
     def create(self, dryrun=False):
         """ Create the conda enviroment."""
+        from snakemake.shell import shell
+
         if self._singularity_img:
             check_conda(self._singularity_img)
 
@@ -279,6 +282,8 @@ def shellcmd(env_path):
 
 
 def check_conda(singularity_img=None):
+    from snakemake.shell import shell
+
     def get_cmd(cmd):
         if singularity_img:
             return singularity.shellcmd(singularity_img.path, cmd)
