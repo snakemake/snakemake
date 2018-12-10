@@ -290,7 +290,8 @@ def check_conda(singularity_img=None):
         # type allows to check for both functions and regular commands.
         subprocess.check_output(get_cmd("type conda"),
                                 shell=True,
-                                stderr=subprocess.STDOUT)
+                                stderr=subprocess.STDOUT,
+                                executable=shell.get_executable())
     except subprocess.CalledProcessError:
         if singularity_img:
             raise CreateCondaEnvironmentException("The 'conda' command is not "
@@ -299,11 +300,15 @@ def check_conda(singularity_img=None):
                                                   "image.")
         else:
             raise CreateCondaEnvironmentException("The 'conda' command is not "
-                                                  "available.")
+                                                  "available in the "
+                                                  "shell {} that will be "
+                                                  "used by Snakemake.".format(
+                                                    shell.get_executable()))
     try:
         version = subprocess.check_output(get_cmd("conda --version"),
                                           shell=True,
-                                          stderr=subprocess.STDOUT).decode() \
+                                          stderr=subprocess.STDOUT,
+                                          shell.get_executable()).decode() \
                                                                    .split()[1]
         if StrictVersion(version) < StrictVersion("4.2"):
             raise CreateCondaEnvironmentException(
