@@ -787,7 +787,7 @@ class Job(AbstractJob):
     def is_group(self):
         return False
 
-    def log_info(self, skip_dynamic=False, indent=False):
+    def log_info(self, skip_dynamic=False, indent=False, printshellcmd=True):
         # skip dynamic jobs that will be "executed" only in dryrun mode
         if skip_dynamic and self.dag.dynamic(self):
             return
@@ -809,7 +809,8 @@ class Job(AbstractJob):
                         priority="highest"
                         if priority == Job.HIGHEST_PRIORITY else priority,
                         threads=self.threads,
-                        indent=indent)
+                        indent=indent,
+                        printshellcmd=printshellcmd)
         logger.shellcmd(self.shellcmd, indent=indent)
 
         if self.dynamic_output:
