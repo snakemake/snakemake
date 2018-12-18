@@ -1246,7 +1246,13 @@ class KubernetesExecutor(ClusterExecutor):
                     # Unauthorized.
                     # Reload config in order to ensure token is
                     # refreshed. Then try again.
+                    logger.info("trying to reauthenticate")
                     kubernetes.config.load_kube_config()
+                    subprocess.run(['kubectl','get','nodes'])
+                                                                                
+                    self.kubeapi = kubernetes.client.CoreV1Api()
+                    self.batchapi = kubernetes.client.BatchV1Api()
+                    self.register_secret()
                     try:
                         return func()
                     except kubernetes.client.rest.ApiException as e:
