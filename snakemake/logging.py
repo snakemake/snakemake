@@ -217,8 +217,9 @@ class Logger:
                 if value != omit:
                     return "    {}: {}".format(item, valueformat(value))
 
-            yield "{}rule {}:".format("local" if msg["local"] else "",
-                                      msg["name"])
+            yield "{}{} {}:".format("local" if msg["local"] else "",
+                                    "checkpoint" if msg["is_checkpoint"] else "rule",
+                                    msg["name"])
             for item in ["input", "output", "log"]:
                 fmt = format_item(item, omit=[], valueformat=", ".join)
                 if fmt != None:
@@ -267,6 +268,9 @@ class Logger:
                     self.logger.info(indent("Reason: {}".format(msg["reason"])))
             else:
                 self.logger.info("\n".join(map(indent, job_info(msg))))
+            if msg["is_checkpoint"]:
+                self.logger.warning(indent("Downstream jobs will be updated "
+                                    "after completion."))
             self.logger.info("")
 
             self.last_msg_was_job_info = True

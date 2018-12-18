@@ -377,3 +377,10 @@ class CreateCondaEnvironmentException(WorkflowError):
 
 class SpawnedJobError(Exception):
     pass
+
+
+class IncompleteCheckpointException(Exception):
+    def __init__(self, rule, targetfile):
+        self.rule = rule
+        from snakemake.io import checkpoint_target
+        self.targetfile = checkpoint_target(targetfile)

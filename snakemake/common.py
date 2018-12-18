@@ -45,6 +45,10 @@ class Mode:
 class lazy_property(property):
     __slots__ = ["method", "cached", "__doc__"]
 
+    @staticmethod
+    def clean(instance, method):
+        delattr(instance, method)
+
     def __init__(self, method):
         self.method = method
         self.cached = "_{}".format(method.__name__)

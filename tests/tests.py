@@ -315,14 +315,6 @@ def test_wildcard_count_ambiguity():
     run(dpath("test_wildcard_count_ambiguity"))
 
 
-def test_cluster_dynamic():
-    run(dpath("test_cluster_dynamic"), cluster="./qsub")
-
-
-def test_dynamic_complex():
-    run(dpath("test_dynamic_complex"))
-
-
 def test_srcdir():
     run(dpath("test_srcdir"))
 
@@ -821,3 +813,9 @@ def test_issue1037():
 
 def test_issue1046():
     run(dpath("test_issue1046"))
+
+def test_checkpoints():
+    run(dpath("test_checkpoints"))
+
+def test_checkpoints_dir():
+    run(dpath("test_checkpoints_dir"))

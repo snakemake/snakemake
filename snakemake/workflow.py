@@ -34,6 +34,7 @@ from snakemake.cwl import cwl
 import snakemake.wrapper
 from snakemake.common import Mode
 from snakemake.utils import simplify_path
+from snakemake.checkpoints import Checkpoint, Checkpoints
 
 
 class Workflow:
@@ -122,6 +123,8 @@ class Workflow:
 
         global rules
         rules = Rules()
+        global checkpoints
+        checkpoints = Checkpoints()
 
     def get_sources(self):
         files = set()
@@ -182,7 +185,7 @@ class Workflow:
                         rulename,
                         prefix="Error in ruleorder definition.")
 
-    def add_rule(self, name=None, lineno=None, snakefile=None):
+    def add_rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
         """
         Add a rule.
         """
@@ -654,10 +657,12 @@ class Workflow:
             else:
                 logger.info("Nothing to be done.")
         else:
+            # the dryrun case
             if len(dag):
                 logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
+                return True
             if quiet:
                 # in case of dryrun and quiet, just print above info and exit
                 return True
@@ -671,6 +676,8 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
+                logger.info("This was a dry-run (flag -n). The order of jobs "
+                            "does not reflect the order of execution.")
                 logger.remove_logfile()
             else:
                 if stats:
@@ -795,9 +802,10 @@ class Workflow:
     def localrules(self, *rulenames):
         self._localrules.update(rulenames)
 
-    def rule(self, name=None, lineno=None, snakefile=None):
-        name = self.add_rule(name, lineno, snakefile)
+    def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
+        name = self.add_rule(name, lineno, snakefile, checkpoint)
         rule = self.get_rule(name)
+        rule.is_checkpoint = checkpoint
 
         def decorate(ruleinfo):
             if ruleinfo.wildcard_constraints:
@@ -888,9 +896,11 @@ class Workflow:
             rule.cwl = ruleinfo.cwl
             rule.restart_times=self.restart_times
 
-            ruleinfo.func.__name__ = "__{}".format(name)
+            ruleinfo.func.__name__ = "__{}".format(rule.name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
-            setattr(rules, name, RuleProxy(rule))
+            setattr(rules, rule.name, RuleProxy(rule))
+            if checkpoint:
+                checkpoints.register(rule)
             return ruleinfo.func
 
         return decorate

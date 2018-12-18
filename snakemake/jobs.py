@@ -33,6 +33,8 @@ def format_files(job, io, dynamicio):
             yield "{} (dynamic)".format(f.format_dynamic())
         elif is_flagged(f, "pipe"):
             yield "{} (pipe)".format(f)
+        elif is_flagged(f, "checkpoint_target"):
+            yield "<unknown>"
         else:
             yield f
 
@@ -141,6 +143,11 @@ class Job(AbstractJob):
         self._hash = self.rule.__hash__()
         for wildcard_value in self.wildcards_dict.values():
             self._hash ^= wildcard_value.__hash__()
+
+    def updated(self):
+        return Job(self.rule, self.dag,
+                   wildcards_dict=self.wildcards_dict,
+                   targetfile=self.targetfile)
 
     def is_valid(self):
         """Check if job is valid"""
@@ -810,6 +817,7 @@ class Job(AbstractJob):
                         if priority == Job.HIGHEST_PRIORITY else priority,
                         threads=self.threads,
                         indent=indent,
+                        is_checkpoint=self.rule.is_checkpoint,
                         printshellcmd=printshellcmd)
         logger.shellcmd(self.shellcmd, indent=indent)
 
@@ -925,6 +933,10 @@ class Job(AbstractJob):
     def restart_times(self):
         return self.rule.restart_times
 
+    @property
+    def is_checkpoint(self):
+        return self.rule.is_checkpoint
+
     def __len__(self):
         return 1
 
@@ -979,6 +991,9 @@ class GroupJob(AbstractJob):
 
     def is_group(self):
         return True
+
+    def is_checkpoint(self):
+        return any(job.is_checkpoint for job in self.jobs)
 
     def log_info(self, skip_dynamic=False):
         logger.group_info(groupid=self.groupid)

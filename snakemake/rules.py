@@ -16,7 +16,7 @@ from itertools import chain
 from snakemake.io import IOFile, _IOFile, protected, temp, dynamic, Namedlist, AnnotatedString, contains_wildcard_constraints, update_wildcard_constraints
 from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log, Resources, strip_wildcard_constraints
 from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable, DYNAMIC_FILL, ReportObject
-from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError
+from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError, IncompleteCheckpointException
 from snakemake.logging import logger
 from snakemake.common import Mode, lazy_property
 
@@ -66,6 +66,7 @@ class Rule:
             self.cwl = None
             self.norun = False
             self.is_branched = False
+            self.is_checkpoint = False
             self.restart_times = 0
         elif len(args) == 1:
             other = args[0]
@@ -105,6 +106,7 @@ class Rule:
             self.cwl = other.cwl
             self.norun = other.norun
             self.is_branched = True
+            self.is_checkpoint = other.is_checkpoint
             self.restart_times = other.restart_times
 
     def dynamic_branch(self, wildcards, input=True):
@@ -531,13 +533,19 @@ class Rule:
                 lineno=self.lineno,
                 snakefile=self.snakefile)
 
-    def apply_input_function(self, func, wildcards, **aux_params):
+    def apply_input_function(self,
+                             func,
+                             wildcards,
+                             incomplete_checkpoint_func=lambda e: None,
+                             **aux_params):
         if isinstance(func, _IOFile):
             func = func._file.callable
         sig = inspect.signature(func)
         _aux_params = {k: v for k, v in aux_params.items() if k in sig.parameters}
         try:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)
+        except IncompleteCheckpointException as e:
+            value = incomplete_checkpoint_func(e)
         except (Exception, BaseException) as e:
             raise InputFunctionException(e, rule=self, wildcards=wildcards)
         return value
@@ -549,7 +557,8 @@ class Rule:
                          mapping=None,
                          no_flattening=False,
                          aux_params=None,
-                         apply_default_remote=True):
+                         apply_default_remote=True,
+                         incomplete_checkpoint_func=lambda e: None):
         if aux_params is None:
             aux_params = dict()
         for name, item in olditems.allitems():
@@ -561,7 +570,10 @@ class Rule:
             if _is_callable:
                 if omit_callable:
                     continue
-                item = self.apply_input_function(item, wildcards, **aux_params)
+                item = self.apply_input_function(
+                    item, wildcards,
+                    incomplete_checkpoint_func=incomplete_checkpoint_func,
+                    **aux_params)
                 if apply_default_remote:
                     item = self.apply_default_remote(item)
 
@@ -605,20 +617,26 @@ class Rule:
     def expand_input(self, wildcards):
         def concretize_iofile(f, wildcards, is_from_callable):
             if is_from_callable:
-                return IOFile(f, rule=self).apply_wildcards(wildcards,
-                                         fill_missing=f in self.dynamic_input,
-                                         fail_dynamic=self.dynamic_output)
+                    return IOFile(f, rule=self).apply_wildcards(wildcards,
+                                             fill_missing=f in self.dynamic_input,
+                                             fail_dynamic=self.dynamic_output)
             else:
                 return f.apply_wildcards(wildcards,
                                          fill_missing=f in self.dynamic_input,
                                          fail_dynamic=self.dynamic_output)
+
+        def handle_incomplete_checkpoint(exception):
+            """If checkpoint is incomplete, target it such that it is completed
+            before this rule gets executed."""
+            return exception.targetfile
 
         input = InputFiles()
         mapping = dict()
         try:
             self._apply_wildcards(input, self.input, wildcards,
                                   concretize=concretize_iofile,
-                                  mapping=mapping)
+                                  mapping=mapping,
+                                  incomplete_checkpoint_func=handle_incomplete_checkpoint)
         except WildcardError as e:
             raise WildcardError(
                 "Wildcards in input files cannot be "
@@ -659,7 +677,8 @@ class Rule:
                                   aux_params={"input": input.plainstrings(),
                                               "resources": resources,
                                               "output": output.plainstrings(),
-                                              "threads": resources._cores})
+                                              "threads": resources._cores},
+                                  incomplete_checkpoint_func=lambda e: "<incomplete checkpoint>")
         except WildcardError as e:
             raise WildcardError(
                 "Wildcards in params cannot be "
@@ -739,6 +758,7 @@ class Rule:
                                                 wildcards,
                                                 input=input,
                                                 attempt=attempt,
+                                                incomplete_checkpint_func=lambda e: 0,
                                                 **aux)
                 if not isinstance(res, int):
                     raise WorkflowError("Resources function did not return int.")

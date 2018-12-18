@@ -1,0 +1,40 @@
+
+
+rule all:
+    input:
+        "aggregated/a.txt",
+        "aggregated/b.txt"
+
+
+checkpoint clustering:
+    input:
+        "samples/{sample}.txt"
+    output:
+        clusters=directory("clustering/{sample}")
+    shell:
+        "mkdir clustering/{wildcards.sample}; "
+        "for i in 1 2 3; do echo $i > clustering/{wildcards.sample}/$i.txt; done"
+
+
+rule intermediate:
+    input:
+        "clustering/{sample}/{i}.txt"
+    output:
+        "post/{sample}/{i}.txt"
+    shell:
+        "cp {input} {output}"
+
+
+def aggregate_input(wildcards):
+    return expand("post/{sample}/{i}.txt",
+           sample=wildcards.sample,
+           i=glob_wildcards(os.path.join(checkpoints.clustering.get(**wildcards).output[0], "{i}.txt")).i)
+
+
+rule aggregate:
+    input:
+        aggregate_input
+    output:
+        "aggregated/{sample}.txt"
+    shell:
+        "cat {input} > {output}"

@@ -298,12 +298,21 @@ def check_conda(singularity_img=None):
             raise CreateCondaEnvironmentException("The 'conda' command is not "
                                                   "available inside "
                                                   "your singularity container "
-                                                  "image.")
+                                                  "image. Make sure that "
+                                                  "conda is properly installed "
+                                                  "inside your container "
+                                                  "image. For example use "
+                                                  "continuumio/miniconda3 as a "
+                                                  "base image.")
         else:
             raise CreateCondaEnvironmentException("The 'conda' command is not "
                                                   "available in the "
                                                   "shell {} that will be "
-                                                  "used by Snakemake.".format(
+                                                  "used by Snakemake. You have "
+                                                  "to ensure that it is in your "
+                                                  "PATH, e.g., first activating "
+                                                  "the conda base environment "
+                                                  "with `conda activate base`.".format(
                                                     shell.get_executable()))
     try:
         version = shell.check_output(get_cmd("conda --version"),

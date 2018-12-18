@@ -610,13 +610,14 @@ class Rule(GlobalKeywordState):
         self.run = False
         self.snakefile.rulecount += 1
 
-    def start(self):
+    def start(self, aux=""):
         yield ("@workflow.rule(name={rulename}, lineno={lineno}, "
-               "snakefile='{snakefile}')".format(
+               "snakefile='{snakefile}'{aux})".format(
                    rulename=("'{}'".format(self.rulename) if self.rulename is
                              not None else None),
                    lineno=self.lineno,
-                   snakefile=self.snakefile.path.replace('\\', '\\\\')))
+                   snakefile=self.snakefile.path.replace('\\', '\\\\'),
+                   aux=aux))
 
     def end(self):
         if not self.run:
@@ -680,6 +681,11 @@ class Rule(GlobalKeywordState):
         return self.indent
 
 
+class Checkpoint(Rule):
+    def start(self):
+        yield from super().start(aux=", checkpoint=True")
+
+
 class OnSuccess(DecoratorKeywordState):
     decorator = "onsuccess"
     args = ["log"]
@@ -702,6 +708,7 @@ class Python(TokenAutomaton):
                        report=Report,
                        ruleorder=Ruleorder,
                        rule=Rule,
+                       checkpoint=Checkpoint,
                        subworkflow=Subworkflow,
                        localrules=Localrules,
                        onsuccess=OnSuccess,

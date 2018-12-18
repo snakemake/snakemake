@@ -1039,3 +1039,174 @@ Naturally, a pipe output may only have a single consumer.
 It is possible to combine explicit group definition as above with pipe outputs.
 Thereby, pipe jobs can live within, or (automatically) extend existing groups.
 However, the two jobs connected by a pipe may not exist in conflicting groups.
+
+.. _snakefiles-checkpoints:
+
+Data-dependent conditional execution
+------------------------------------
+
+From Snakemake 5.4 on, conditional reevaluation of the DAG of jobs based on the content outputs is possible.
+The key idea is that rules can be declared as checkpoints, e.g.,
+
+.. code-block:: python
+
+  checkpoint somestep:
+      input:
+          "samples/{sample}.txt"
+      output:
+          "somestep/{sample}.txt"
+      shell:
+          "somecommand {input} > {output}"
+
+Snakemake allows to re-evaluate the DAG after the successful execution of every job spawned from a checkpoint.
+For this, every checkpoint is registered by its name in a globally available ``checkpoints`` object.
+The ``checkpoints`` object can be accessed by :ref:`input functions <snakefiles-input_functions>`.
+Assuming that the checkpoint is named ``somestep`` as above, the output files for a particular job can be retrieved with
+
+.. code-block:: python
+
+  checkpoints.somestep.get(sample="a").output
+
+Thereby, the ``get`` method throws ``snakemake.exceptions.IncompleteCheckpointException`` if the checkpoint has not yet been executed for these particular wildcard value(s).
+Inside an input function, the exception will be automatically handled by Snakemake, and leads to a re-evaluation after the checkpoint has been successfully passed.
+
+To illustrate the possibilities of this mechanism, consider the following complete example:
+
+.. code-block:: python
+
+  # a target rule to define the desired final output
+  rule all:
+      input:
+          "aggregated/a.txt",
+          "aggregated/b.txt"
+
+
+  # the checkpoint that shall trigger re-evaluation of the DAG
+  checkpoint somestep:
+      input:
+          "samples/{sample}.txt"
+      output:
+          "somestep/{sample}.txt"
+      shell:
+          # simulate some output vale
+          "echo {wildcards.sample} > somestep/{wildcards.sample}.txt"
+
+
+  # intermediate rule
+  rule intermediate:
+      input:
+          "somestep/{sample}.txt"
+      output:
+          "post/{sample}.txt"
+      shell:
+          "touch {output}"
+
+
+  # alternative intermediate rule
+  rule alt_intermediate:
+      input:
+          "somestep/{sample}.txt"
+      output:
+          "alt/{sample}.txt"
+      shell:
+          "touch {output}"
+
+
+  # input function for the rule aggregate
+  def aggregate_input(wildcards):
+      # decision based on content of output file
+      with open(checkpoints.somestep.get(sample=wildcards.sample).output[0]) as f:
+          if f.read().strip() == "a":
+              return "post/{sample}.txt"
+          else:
+              return "alt/{sample}.txt"
+
+
+  rule aggregate:
+      input:
+          aggregate_input
+      output:
+          "aggregated/{sample}.txt"
+      shell:
+          "touch {output}"
+
+As can be seen, the rule aggregate uses an input function.
+Inside the function, we first retrieve the output files of the checkpoint ``somestep`` with the wildcards, passing through the value of the wildcard sample.
+Upon execution, if the checkpoint is not yet complete, Snakemake will record ``somestep`` as a direct dependency of the rule ``aggregate``.
+Once ``somestep`` has finished for a given sample, the input function will automatically be re-evaluated and the method ``get`` will no longer return an exception.
+Instead, the output file will be opened, and depending on its contents either ``"post/{sample}.txt"`` or ``"alt/{sample}.txt"`` will be returned by the input function.
+This way, the DAG becomes conditional on some produced data.
+
+It is also possible to use checkpoints for cases where the output files are unknown before execution.
+A typical example is a clustering process with an unknown number of clusters, where each cluster shall be saved into a separate file.
+Consider the following example:
+
+.. code-block:: python
+
+  # a target rule to define the desired final output
+  rule all:
+      input:
+          "aggregated/a.txt",
+          "aggregated/b.txt"
+
+
+  # the checkpoint that shall trigger re-evaluation of the DAG
+  checkpoint clustering:
+      input:
+          "samples/{sample}.txt"
+      output:
+          clusters=directory("clustering/{sample}")
+      shell:
+          "mkdir clustering/{wildcards.sample}; "
+          "for i in 1 2 3; do echo $i > clustering/{wildcards.sample}/$i.txt; done"
+
+
+  # an intermediate rule
+  rule intermediate:
+      input:
+          "clustering/{sample}/{i}.txt"
+      output:
+          "post/{sample}/{i}.txt"
+      shell:
+          "cp {input} {output}"
+
+
+  def aggregate_input(wildcards):
+      checkpoint_output = checkpoints.clustering.get(**wildcards).output[0]
+      return expand("post/{sample}/{i}.txt",
+             sample=wildcards.sample,
+             i=glob_wildcards(os.path.join(checkpoint_output, "{i}.txt")).i)
+
+
+  # an aggregation over all produced clusters
+  rule aggregate:
+      input:
+          aggregate_input
+      output:
+          "aggregated/{sample}.txt"
+      shell:
+          "cat {input} > {output}"
+
+Here, our checkpoint simulates a clustering.
+We pretend that the number of clusters is unknown beforehand.
+Hence, the checkpoint only defines an output ``directory``.
+The rule ``aggregate`` again uses the ``checkpoints`` object to retrieve the output of the checkpoint.
+This time, instead of explicitly writing
+
+.. code-block:: python
+
+  checkpoints.clustering.get(sample=wildcards.sample).output[0]
+
+we use the shorthand
+
+.. code-block:: python
+
+  checkpoints.clustering.get(**wildcards).output[0]
+
+which automatically unpacks the wildcards as keyword arguments (this is standard python argument unpacking).
+If the checkpoint has not yet been executed, accessing ``checkpoints.clustering.get(**wildcards)`` ensure that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
+Upon completion of the checkpoint, the input function is re-evaluated, and the code beyond its first line is executed.
+Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
+These values are then used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
+
+This mechanism can be used to replace the use of the :ref:`dynamic-flag <snakefiles-dynamic_files>` which will be deprecated in Snakemake 6.0.

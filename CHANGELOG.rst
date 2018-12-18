@@ -1,3 +1,10 @@
+[5.4.0] - 2018-12-18
+====================
+
+Added
+-----
+- Snakemake now allows for data-dependent conditional re-evaluation of the job DAG via checkpoints. This feature also deprecates the ``dynamic`` flag. See `the docs <https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#data-dependent-conditional-execution>`_.
+
 [5.3.1] - 2018-12-06
 ====================
 

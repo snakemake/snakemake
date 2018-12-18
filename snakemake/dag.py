@@ -31,6 +31,7 @@ from snakemake.common import DYNAMIC_FILL
 from snakemake import conda, singularity
 from snakemake import utils
 from snakemake.output_index import OutputIndex
+from snakemake import workflow
 
 
 class DAG:
@@ -149,6 +150,19 @@ class DAG:
         # check if remaining jobs are valid
         for i, job in enumerate(self.jobs):
             job.is_valid()
+
+    @property
+    def checkpoint_jobs(self):
+        for job in self.needrun_jobs:
+            if job.is_checkpoint:
+                yield job
+
+    def is_checkpoint_output(self, f):
+        return f in self._checkpoint_outputs
+
+    def update_checkpoint_outputs(self):
+        workflow.checkpoints.future_output = set(f for job in self.checkpoint_jobs
+                                                   for f in job.output)
 
     def update_jobids(self):
         for job in self.jobs:
@@ -869,6 +883,7 @@ class DAG:
         self.update_groups()
         self.update_ready()
         self.close_remote_objects()
+        self.update_checkpoint_outputs()
 
     def handle_pipes(self):
         """Use pipes to determine job groups. Check if every pipe has exactly
@@ -964,6 +979,18 @@ class DAG:
 
         self._finished.update(jobs)
 
+        if update_dynamic:
+            self.update_checkpoint_outputs()
+            for job in jobs:
+                if job.is_checkpoint:
+                    depending = list(self.depending[job])
+                    # re-evaluate depending jobs, replace and update DAG
+                    for j in depending:
+                        logger.info("Updating job {}.".format(self.jobid(j)))
+                        newjob = j.updated()
+                        self.replace_job(j, newjob, recursive=False)
+                    self.postprocess()
+
         # mark depending jobs as ready
         # skip jobs that are marked as until jobs
         self.update_ready(j for job in jobs for j in self.depending[job]
@@ -982,8 +1009,6 @@ class DAG:
                     self.postprocess()
                     self.handle_protected(newjob)
                     self.handle_touch(newjob)
-                    # add finished jobs to len as they are not counted after new postprocess
-                    self._len += len(self._finished)
 
     def new_job(self, rule, targetfile=None, format_wildcards=None):
         """Create new job for given rule and (optional) targetfile.
@@ -1071,7 +1096,7 @@ class DAG:
         if job in self._ready_jobs:
             self._ready_jobs.remove(job)
 
-    def replace_job(self, job, newjob):
+    def replace_job(self, job, newjob, recursive=True):
         """Replace given job with new job."""
         if job in self.targetjobs:
             self.targetjobs.remove(job)
@@ -1080,7 +1105,7 @@ class DAG:
         if self.finished(job):
             self._finished.add(newjob)
 
-        self.delete_job(job)
+        self.delete_job(job, recursive=recursive)
         self.update([newjob])
 
         logger.debug("Replace {} with dynamic branch {}".format(job, newjob))

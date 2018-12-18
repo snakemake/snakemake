@@ -110,12 +110,11 @@ class JobScheduler:
                                            printshellcmds=printshellcmds,
                                            latency_wait=latency_wait)
         elif cluster or cluster_sync or (drmaa is not None):
-            workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)), local_cores)
             if not workflow.immediate_submit:
                 # No local jobs when using immediate submit!
                 # Otherwise, they will fail due to missing input
                 self._local_executor = CPUExecutor(
-                    workflow, dag, workers,
+                    workflow, dag, local_cores,
                     printreason=printreason,
                     quiet=quiet,
                     printshellcmds=printshellcmds,
@@ -160,10 +159,8 @@ class JobScheduler:
                     assume_shared_fs=assume_shared_fs,
                     max_status_checks_per_second=max_status_checks_per_second)
         elif kubernetes:
-            workers = min(max(1, sum(1 for _ in dag.local_needrun_jobs)),
-                          local_cores)
             self._local_executor = CPUExecutor(
-                workflow, dag, workers,
+                workflow, dag, local_cores,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
@@ -180,12 +177,7 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 cluster_config=cluster_config)
         else:
-            # local execution or execution of cluster job
-            # calculate how many parallel workers the executor shall spawn
-            # each job has at least one thread, hence we need to have
-            # the minimum of given cores and number of jobs
-            workers = min(cores, max(1, len(dag)))
-            self._executor = CPUExecutor(workflow, dag, workers,
+            self._executor = CPUExecutor(workflow, dag, cores,
                                          printreason=printreason,
                                          quiet=quiet,
                                          printshellcmds=printshellcmds,

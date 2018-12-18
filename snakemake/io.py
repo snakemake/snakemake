@@ -711,6 +711,8 @@ def dynamic(value):
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
     rule has been run """
+    logger.warning("Dynamic output is deprecated in favor of checkpoints (see docs). "
+                   "It will be removed in Snakemake 6.0.")
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
@@ -735,6 +737,10 @@ def unpack(value):
 def repeat(value, n_repeat):
     """Flag benchmark records with the number of repeats."""
     return flag(value, "repeat", n_repeat)
+
+
+def checkpoint_target(value):
+    return flag(value, "checkpoint_target")
 
 
 ReportObject = namedtuple("ReportObject", ["caption", "category"])
