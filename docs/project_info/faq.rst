@@ -75,7 +75,7 @@ This entails the pipefail option, which reports errors from within a pipe to out
 
 .. code-block:: bash
 
-    set +o pipefile;
+    set +o pipefail;
 
 to your shell command in the problematic rule.
 
