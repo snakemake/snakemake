@@ -331,6 +331,14 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 # use the same Python as the running process or the one from the environment
                 shell("{py_exec} {f.name:q}", bench_record=bench_record)
             elif path.endswith(".R"):
+                if conda_env is not None and "R_LIBS" in os.environ:
+                    logger.warning("R script job uses conda environment but "
+                                   "R_LIBS environment variable is set. This "
+                                   "is likely not intended, as R_LIBS can "
+                                   "interfere with R packages deployed via "
+                                   "conda. Consider running `unset R_LIBS` or "
+                                   "remove it entirely before executing "
+                                   "Snakemake.")
                 shell("Rscript --vanilla {f.name:q}", bench_record=bench_record)
             elif path.endswith(".Rmd"):
                 if len(output) != 1:

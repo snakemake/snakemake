@@ -1,3 +1,10 @@
+[unreleased]
+============
+
+Added
+-----
+- Warning when R script is used in combination with conda and R_LIBS environment variable is set. This can cause unexpected results and should be avoided.
+
 [5.4.0] - 2018-12-18
 ====================
 
