@@ -132,7 +132,7 @@ class Env:
             os.makedirs(env_archive, exist_ok=True)
             try:
                 out = shell.check_output(
-                    "conda list --explicit --prefix {}".format(self.path),
+                    "conda list --explicit --prefix '{}'".format(self.path),
                     stderr=subprocess.STDOUT)
                 logger.debug(out.decode())
             except subprocess.CalledProcessError as e:
@@ -226,7 +226,7 @@ class Env:
 
                     # install packages manually from env archive
                     cmd = " ".join(
-                        ["conda", "create", "--copy", "--prefix", env_path] +
+                        ["conda", "create", "--copy", "--prefix '{}'".format(env_path)] +
                         packages)
                     if self._singularity_img:
                         cmd = singularity.shellcmd(self._singularity_img.path, cmd)
@@ -242,8 +242,8 @@ class Env:
 
                     logger.info("Downloading remote packages.")
                     cmd = " ".join(["conda", "env", "create",
-                                                "--file", target_env_file,
-                                                "--prefix", env_path])
+                                                "--file '{}'".format(target_env_file),
+                                                "--prefix '{}'".format(env_path)])
                     if self._singularity_img:
                         cmd = singularity.shellcmd(self._singularity_img.path, cmd)
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
@@ -278,7 +278,7 @@ class Env:
 
 
 def shellcmd(env_path):
-    return "source activate {};".format(env_path)
+    return "source activate '{}';".format(env_path)
 
 
 def check_conda(singularity_img=None):
