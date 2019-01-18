@@ -346,7 +346,7 @@ def test_cluster_sync():
         snakefile="Snakefile.nonstandard",
         cluster_sync="./qsub")
 
-
+@pytest.mark.skip(reason="This does not work reliably in CircleCI.")
 def test_symlink_temp():
     run(dpath("test_symlink_temp"), shouldfail=True)
 
