@@ -280,7 +280,7 @@ We use this mechanism for the output file of the rule ``bwa_map``:
 
 This results in the deletion of the BAM file once the corresponding ``samtools_sort`` job has been executed.
 Since the creation of BAM files via read mapping and sorting is computationally expensive, it is reasonable to **protect** the final BAM file **from accidental deletion or modification**.
-We modify the rule ``samtools_sort`` by marking it's output file as ``protected``:
+We modify the rule ``samtools_sort`` by marking its output file as ``protected``:
 
 .. code:: python
 
