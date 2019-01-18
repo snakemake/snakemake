@@ -32,7 +32,7 @@ dependencies:
   - configargparse
   - appdirs
   - python-irodsclient
-  - cwltool
+  - cwltool =1.0.20181217162649
   - jsonschema
   - pandas
   - networkx
