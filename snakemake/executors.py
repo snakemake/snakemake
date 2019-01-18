@@ -1260,6 +1260,20 @@ class KubernetesExecutor(ClusterExecutor):
                         raise WorkflowError(e,
                             "This is likely a bug in "
                             "https://github.com/kubernetes-client/python.")
+            #Handling timeout that may occur in case of GKE master upgrade
+            except urllib3.exceptions.MaxRetryError as e:
+                logger.info(
+                        "Request time out! "
+                        "check your connection to Kubernetes master"
+                        "Workflow will pause for 5 minutes to allow any update operations to complete")
+                time.sleep (300)
+                try:
+                    return func()
+                except:
+                    #Still can't reach the server after 5 minutes
+                    raise WorkflowErroe(e,
+                            "Error 111 connection timeout, please check"
+                            " that the k8 cluster master is reachable!")
 
     def _wait_for_jobs(self):
         import kubernetes
