@@ -478,7 +478,7 @@ In total, the resulting workflow looks like this:
 
     rule all:
         input:
-            "report.html"
+            "plots/quals.svg"
 
 
     rule bwa_map:
