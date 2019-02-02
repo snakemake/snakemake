@@ -9,6 +9,7 @@ import json
 import re
 import inspect
 import textwrap
+import platform
 from itertools import chain
 from collections import Mapping
 import multiprocessing
@@ -316,7 +317,9 @@ class QuotedFormatter(string.Formatter):
 
     """
 
-    def __init__(self, quote_func=shlex.quote, *args, **kwargs):
+    def __init__(self, quote_func=None, *args, **kwargs):
+        if quote_func is None:
+            quote_func = shlex.quote if not ON_WINDOWS else argvquote
         self.quote_func = quote_func
         super().__init__(*args, **kwargs)
 
@@ -458,3 +461,41 @@ def available_cpu_count():
         pass
 
     return multiprocessing.cpu_count()
+
+
+def argvquote(arg, force=True):
+    """ Returns an argument quoted in such a way that that CommandLineToArgvW
+    on Windows will return the argument string unchanged.
+    This is the same thing Popen does when supplied with an list of arguments.
+    Arguments in a command line should be separated by spaces; this
+    function does not add these spaces. This implementation follows the
+    suggestions outlined here:
+    https://blogs.msdn.microsoft.com/twistylittlepassagesallalike/2011/04/23/everyone-quotes-command-line-arguments-the-wrong-way/
+    """
+    if not force and len(arg) != 0 and not any([c in arg for c in ' \t\n\v"']):
+        return arg
+    else:
+        n_backslashes = 0
+        cmdline = '"'
+        for c in arg:
+            if c == "\\":
+                # first count the number of current backslashes
+                n_backslashes += 1
+                continue
+            if c == '"':
+                # Escape all backslashes and the following double quotation mark
+                cmdline += (n_backslashes * 2 + 1) * "\\"
+            else:
+                # backslashes are not special here
+                cmdline += n_backslashes * "\\"
+            n_backslashes = 0
+            cmdline += c
+        # Escape all backslashes, but let the terminating
+        # double quotation mark we add below be interpreted
+        # as a metacharacter
+        cmdline += +n_backslashes * 2 * "\\" + '"'
+        return cmdline
+
+
+
+ON_WINDOWS = platform.system() == "Windows"
