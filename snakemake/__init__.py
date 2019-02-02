@@ -214,7 +214,7 @@ def snakemake(snakefile,
         mode (snakemake.common.Mode): execution mode
         wrapper_prefix (str):       prefix for wrapper script URLs (default None)
         kubernetes (str):           submit jobs to kubernetes, using the given namespace.
-        kubernetes_env (list):      environment variables that shall be passed to kubernetes jobs.
+        kubernetes_envvars (list):  environment variables that shall be passed to kubernetes jobs.
         container_image (str):      Docker image to use, e.g., for kubernetes.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
