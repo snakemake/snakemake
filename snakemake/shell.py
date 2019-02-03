@@ -101,8 +101,8 @@ class shell:
         cmd = "{} {} {} {}".format(
                             env_prefix,
                             cls._process_prefix,
-                            cmd.rstrip(),
-                            cls._process_suffix)
+                            cmd.strip(),
+                            cls._process_suffix).strip()
 
         if singularity_img:
             args = context.get("singularity_args", "")
@@ -111,9 +111,6 @@ class shell:
 
         if conda_env:
             logger.info("Activating conda environment: {}".format(conda_env))
-
-        # Remove leading whitespace because this can cause problems on win.
-        cmd = cmd.lstrip()
 
         proc = sp.Popen(cmd,
                         bufsize=-1,
