@@ -132,6 +132,13 @@ def run(path,
                     continue
                 targetfile = join(tmpdir, resultfile)
                 expectedfile = join(results_dir, resultfile)
+
+                if ON_WINDOWS:
+                    if os.path.exists(join(results_dir, resultfile+'_WIN')):
+                        continue #Skip test if a Windows specific file exists
+                    if resultfile.endswith('_WIN'):
+                        targetfile=join(tmpdir, resultfile[:-4])
+                
                 assert os.path.exists(
                     targetfile), 'expected file "{}" not produced'.format(
                         resultfile)
