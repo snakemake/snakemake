@@ -19,6 +19,7 @@ import subprocess
 from snakemake import snakemake
 from snakemake.shell import shell
 
+from .conftest import skip_on_windows, ON_WINDOWS
 
 if not which("snakemake"):
     raise Exception("snakemake not in PATH. For testing, install snakemake with "
@@ -144,6 +145,7 @@ def test_delete_all_output():
 def test_issue956():
     run(dpath("test_issue956"))
 
+@skip_on_windows
 def test01():
     run(dpath("test01"))
 
@@ -195,7 +197,7 @@ def test12():
 def test13():
     run(dpath("test13"))
 
-
+@skip_on_windows
 def test14():
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
 
@@ -204,10 +206,14 @@ def test15():
     run(dpath("test15"))
 
 def test_directory():
-    run(dpath("test_directory"), targets=['downstream', 'symlinked_input', "child_to_input", "some/dir-child", "some/shadow"])
+    run(dpath("test_directory"), targets=['downstream', 'symlinked_input', "child_to_input"])
     run(dpath("test_directory"), targets=['file_expecting_dir'], shouldfail = True)
     run(dpath("test_directory"), targets=['dir_expecting_file'], shouldfail = True)
     run(dpath("test_directory"), targets=['child_to_other'], shouldfail = True)
+
+@skip_on_windows
+def test_directory2():
+    run(dpath("test_directory"), targets=["some/dir-child", "some/shadow"])
 
 def test_ancient():
     run(dpath("test_ancient"), targets=['D', 'old_file'])
@@ -215,6 +221,7 @@ def test_ancient():
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
+@skip_on_windows # No conda-forge version of pygraphviz for windows
 def test_report():
     run(dpath("test_report"), report="report.html", check_md5=False)
 
@@ -247,7 +254,7 @@ def test_unpack_list():
 def test_shell():
     run(dpath("test_shell"))
 
-
+@skip_on_windows
 def test_temp():
     run(dpath("test_temp"),
         cluster="./qsub",
@@ -257,7 +264,10 @@ def test_temp():
 def test_keyword_list():
     run(dpath("test_keyword_list"))
 
-
+ # Fails on WIN because some snakemake doesn't release the logfile
+ # which cause a PermissionError when the test setup tries to 
+ # remove the temporary files
+@skip_on_windows
 def test_subworkflows():
     run(dpath("test_subworkflows"), subpath=dpath("test02"))
 
@@ -340,7 +350,7 @@ def test_yaml_config():
 #     except ImportError:
 #         pass
 
-
+@skip_on_windows
 def test_cluster_sync():
     run(dpath("test14"),
         snakefile="Snakefile.nonstandard",
