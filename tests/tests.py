@@ -33,8 +33,11 @@ def dpath(path):
     return os.path.realpath(join(os.path.dirname(__file__), path))
 
 
-def md5sum(filename):
-    data = open(filename, 'rb').read()
+def md5sum(filename, ignore_newlines=False):
+    if ignore_newlines:
+        data = open(filename, 'r').read().encode('utf8')
+    else:
+        data = open(filename, 'rb').read()
     return hashlib.md5(data).hexdigest()
 
 
@@ -133,10 +136,11 @@ def run(path,
                     targetfile), 'expected file "{}" not produced'.format(
                         resultfile)
                 if check_md5:
-                    # if md5sum(targetfile) != md5sum(expectedfile):
+                    md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
+                    md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
+                    # if md5target != md5expected:
                     #     import pdb; pdb.set_trace()
-                    assert md5sum(targetfile) == md5sum(
-                        expectedfile), 'wrong result produced for file "{}"'.format(
+                    assert md5target == md5expected, 'wrong result produced for file "{}"'.format(
                             resultfile)
 
 def test_delete_all_output():
