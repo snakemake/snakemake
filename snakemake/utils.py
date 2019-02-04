@@ -496,6 +496,25 @@ def argvquote(arg, force=True):
         cmdline += +n_backslashes * 2 * "\\" + '"'
         return cmdline
 
+def find_bash_on_windows():
+    """
+    Find the path to a usable bash on windows.
+    First attempt is to look for bash installed  with a git conda package. 
+    alternatively a bash installed with 'Git for Windows'.
+    """    
+    # First look for bash in git's conda package
+    bashcmd = os.path.join(os.path.dirname(sys.executable), r"Library\bin\bash.exe")
+    if not os.path.exists(bashcmd):
+        # Otherwise try bash installed with "Git for Windows".
+        import winreg
+        try:
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\GitForWindows")
+            gfwp, _ = winreg.QueryValueEx(key, "InstallPath")
+            bashcmd = os.path.join(gfwp, "bin\\bash.exe")
+        except FileNotFoundError:
+            bashcmd = ""
+    return bashcmd if os.path.exists(bashcmd) else None
+
 
 
 ON_WINDOWS = platform.system() == "Windows"
