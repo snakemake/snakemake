@@ -1,3 +1,5 @@
+shell.use_bash_on_win()
+
 rule rule1:
 	input: 'test.in'
 	output: 'test.out'

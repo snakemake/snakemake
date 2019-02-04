@@ -1,4 +1,8 @@
 
+# Has only effect on Win
+shell.use_bash_on_win()
+
+
 rule all:
 	input: 'test.algo1-p7-improved.out'
 

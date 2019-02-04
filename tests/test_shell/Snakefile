@@ -1,3 +1,4 @@
+shell.use_bash_on_win()
 
 rule:
 	input: "test.in"

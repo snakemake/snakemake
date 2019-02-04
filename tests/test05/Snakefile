@@ -1,5 +1,9 @@
 from snakemake import shell
 
+# Only effects for tests on Win
+shell.use_bash_on_win()
+
+
 chromosomes = [1,2,3]
 
 #shell('rm test.*.inter 2> /dev/null | true')
