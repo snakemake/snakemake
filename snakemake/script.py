@@ -17,7 +17,7 @@ from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 from itertools import islice
 
-from snakemake.utils import format
+from snakemake.utils import format, ON_WINDOWS
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
@@ -328,6 +328,10 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 if singularity_img is not None:
                     # use python from image
                     py_exec = "python"
+                if ON_WINDOWS:
+                    # use forward slashes so script command still works even if 
+                    # bash is configured as executable on Windows
+                    py_exec = py_exec.replace("\\", "/")
                 # use the same Python as the running process or the one from the environment
                 shell("{py_exec} {f.name:q}", bench_record=bench_record)
             elif path.endswith(".R"):
