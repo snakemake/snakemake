@@ -1,3 +1,5 @@
+shell.use_bash_on_win()
+
 rule all:
     input:
         'prefix.out1.txt',
@@ -19,9 +21,12 @@ rule copy_files:
     output:
         **get_out()
     shell:
-        r"""
+        """
         cp {input.one} {output.one}
         cp {input.two} {output.two}
         """
+
+        # r"""
+        # """
 
 

@@ -335,7 +335,7 @@ def test_temp_expand():
 def test_wildcard_count_ambiguity():
     run(dpath("test_wildcard_count_ambiguity"))
 
-
+@skip_on_windows
 def test_srcdir():
     run(dpath("test_srcdir"))
 
@@ -380,11 +380,18 @@ def test_script():
     run(dpath("test_script"))
 
 
+def test_script_python():
+    run(dpath("test_script_py"))
+
+@skip_on_windows # Test relies on perl
 def test_shadow():
     run(dpath("test_shadow"))
 
 def test_shadow_prefix():
     run(dpath("test_shadow_prefix"), shadow_prefix = "shadowdir")
+
+@skip_on_windows
+def test_shadow_prefix_qsub():
     run(dpath("test_shadow_prefix"), shadow_prefix = "shadowdir", cluster="./qsub")
 
 def test_until():
@@ -427,7 +434,7 @@ def test_issue328():
         # skip test if import fails
         pass
 
-
+@skip_on_windows # test uses bwa which is non windows
 def test_conda():
     if conda_available():
         run(dpath("test_conda"), use_conda=True)
