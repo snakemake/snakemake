@@ -813,11 +813,13 @@ class DAG:
             if job.group is None:
                 continue
             stop = lambda j: j.group != job.group
-            # BFS into depending jobs if in same group
+            # BFS into depending needrun jobs if in same group
             # Note: never go up here (into depending), because it may contain
             # jobs that have been sorted out due to e.g. ruleorder.
             group = GroupJob(job.group,
-                             self.bfs(self.dependencies, job, stop=stop))
+                             (job for job in
+                              self.bfs(self.dependencies, job, stop=stop)
+                              if self.needrun(job)))
 
             # merge with previously determined groups if present
             for j in group:
