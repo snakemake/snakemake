@@ -557,7 +557,18 @@ class ClusterExecutor(RealExecutor):
         # Format values with available parameters from the job.
         for key, value in list(cluster.items()):
             if isinstance(value, str):
-                cluster[key] = job.format_wildcards(value)
+                try:
+                    cluster[key] = job.format_wildcards(value)
+                except NameError as e:
+                    if job.is_group():
+                        msg = ("Failed to format cluster config for group job. "
+                               "You have to ensure that your default entry "
+                               "does not contain any items that group jobs "
+                               "cannot provide, like {rule}.")
+                    else:
+                        msg = ("Failed to format cluster config "
+                               "entry for job {}.".format(job.rule.name))
+                    raise WorkflowError(msg, e)
 
         return cluster
 

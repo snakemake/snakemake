@@ -946,7 +946,7 @@ class Job(AbstractJob):
 
 class GroupJob(AbstractJob):
 
-    __slots__ = ["groupid", "jobs", "_resources", "_input", "_output",
+    __slots__ = ["groupid", "jobs", "_resources", "_input", "_output", "_log",
                  "_inputsize", "_all_products", "_attempt"]
 
     def __init__(self, id, jobs):
@@ -955,6 +955,7 @@ class GroupJob(AbstractJob):
         self._resources = None
         self._input = None
         self._output = None
+        self._log = None
         self._inputsize = None
         self._all_products = None
         self._attempt = self.dag.workflow.attempt
@@ -1075,6 +1076,12 @@ class GroupJob(AbstractJob):
             self._output = [f for job in self.jobs
                               for f in job.output if f not in all_input]
         return self._output
+
+    @property
+    def log(self):
+        if self._log is None:
+            self._log = [f for job in self.jobs for f in job.log]
+        return self._log
 
     @property
     def products(self):
