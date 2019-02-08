@@ -963,6 +963,7 @@ class DAG:
 
     def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
+        updated = False
         self.update_checkpoint_outputs()
         if jobs is None:
             jobs = [job for job in self.jobs if not self.needrun(job)]
@@ -974,7 +975,10 @@ class DAG:
                     logger.info("Updating job {}.".format(self.jobid(j)))
                     newjob = j.updated()
                     self.replace_job(j, newjob, recursive=False)
-                self.postprocess()
+                    updated = True
+                if updated:
+                    self.postprocess()
+        return updated
 
     def finish(self, job, update_dynamic=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
@@ -991,8 +995,9 @@ class DAG:
 
         self._finished.update(jobs)
 
+        updated_dag = False
         if update_dynamic:
-            self.update_checkpoint_dependencies(jobs)
+            updated_dag = self.update_checkpoint_dependencies(jobs)
 
         # mark depending jobs as ready
         # skip jobs that are marked as until jobs
@@ -1008,10 +1013,20 @@ class DAG:
                     self.omitforce.add(newjob)
                     self._needrun.add(newjob)
                     self._finished.add(newjob)
+                    updated_dag = True
 
                     self.postprocess()
                     self.handle_protected(newjob)
                     self.handle_touch(newjob)
+
+        if updated_dag:
+            # We might have new jobs, so we need to ensure that all conda envs
+            # and singularity images are set up.
+            if self.workflow.use_singularity:
+                self.pull_singularity_imgs()
+            if self.workflow.use_conda:
+                self.create_conda_envs()
+
 
     def new_job(self, rule, targetfile=None, format_wildcards=None):
         """Create new job for given rule and (optional) targetfile.

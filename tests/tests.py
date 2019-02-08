@@ -822,3 +822,6 @@ def test_checkpoints_dir():
 
 def test_issue1092():
     run(dpath("test_issue1092"))
+
+def test_issue1093():
+    run(dpath("test_issue1093"), use_conda=True)
