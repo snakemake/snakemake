@@ -828,3 +828,6 @@ def test_issue1093():
 
 def test_issue958():
     run(dpath("test_issue958"), cluster="dummy", dryrun=True)
+
+def test_issue471():
+    run(dpath("test_issue471"))

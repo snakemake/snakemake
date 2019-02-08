@@ -1,0 +1,19 @@
+rule all:
+    input:
+        "test1.2.out"
+
+
+def process_params(wildcards) :
+
+   e,a = wildcards.ea.split(".")
+
+   return { 'epsilon' : '0' + e, 'alpha' : '0.' + a }
+
+
+rule a:
+    output:
+        "test{ea}.out"
+    params:
+        p=process_params
+    shell:
+        "echo {params.p[epsilon]} > {output}"
