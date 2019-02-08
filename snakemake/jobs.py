@@ -106,6 +106,7 @@ class Job(AbstractJob):
 
         self.shadow_dir = None
         self._inputsize = None
+        self.is_updated = False
 
         self._attempt = self.dag.workflow.attempt
 
@@ -145,9 +146,11 @@ class Job(AbstractJob):
             self._hash ^= wildcard_value.__hash__()
 
     def updated(self):
-        return Job(self.rule, self.dag,
-                   wildcards_dict=self.wildcards_dict,
-                   targetfile=self.targetfile)
+        job = Job(self.rule, self.dag,
+                  wildcards_dict=self.wildcards_dict,
+                  targetfile=self.targetfile)
+        job.is_updated = True
+        return job
 
     def is_valid(self):
         """Check if job is valid"""
@@ -992,8 +995,13 @@ class GroupJob(AbstractJob):
     def is_group(self):
         return True
 
+    @property
     def is_checkpoint(self):
         return any(job.is_checkpoint for job in self.jobs)
+
+    @property
+    def is_updated(self):
+        return any(job.is_updated for job in self.jobs)
 
     def log_info(self, skip_dynamic=False):
         logger.group_info(groupid=self.groupid)

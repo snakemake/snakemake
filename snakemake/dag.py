@@ -157,9 +157,6 @@ class DAG:
             if job.is_checkpoint:
                 yield job
 
-    def is_checkpoint_output(self, f):
-        return f in self._checkpoint_outputs
-
     def update_checkpoint_outputs(self):
         workflow.checkpoints.future_output = set(f for job in self.checkpoint_jobs
                                                    for f in job.output)

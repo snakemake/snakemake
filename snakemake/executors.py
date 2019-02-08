@@ -172,6 +172,14 @@ class RealExecutor(AbstractExecutor):
         if self.workflow.printshellcmds:
             printshellcmds = "-p"
 
+        if not job.is_branched and not job.is_updated:
+            # Restrict considered rules. This does not work for updated jobs
+            # because they need to be updated in the spawned process as well.
+            rules = ["--allowed-rules"]
+            rules.extend(job.rules)
+        else:
+            rules = []
+
         return format(pattern,
                       job=job,
                       attempt=job.attempt,
@@ -183,6 +191,7 @@ class RealExecutor(AbstractExecutor):
                       cores=self.cores,
                       benchmark_repeats=job.benchmark_repeats if not job.is_group() else None,
                       target=job.get_targets(),
+                      rules=rules,
                       **kwargs)
 
 
@@ -234,7 +243,7 @@ class CPUExecutor(RealExecutor):
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
             '--latency-wait {latency_wait} ',
             self.get_default_remote_provider_args(),
-            '{overwrite_workdir} {overwrite_config} {printshellcmds} ',
+            '{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
 
         if self.workflow.shadow_prefix:
@@ -326,8 +335,6 @@ class CPUExecutor(RealExecutor):
 
     def spawn_job(self, job):
         exec_job = self.exec_job
-        if not job.is_branched:
-            exec_job += " --allowed-rules {}".format(" ".join(job.rules))
         cmd = self.format_job_pattern(exec_job, job=job,
                                       _quote_all=True,
                                       latency_wait=self.latency_wait)
@@ -421,8 +428,9 @@ class ClusterExecutor(RealExecutor):
                 '--wait-for-files {wait_for_files} --latency-wait {latency_wait} ',
                 ' --attempt {attempt} {use_threads} ',
                 '--wrapper-prefix {workflow.wrapper_prefix} ',
-                '{overwrite_workdir} {overwrite_config} {printshellcmds} --nocolor ',
-                '--notemp --no-hooks --nolock --mode {} '.format(Mode.cluster)))
+                '{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} '
+                '--nocolor --notemp --no-hooks --nolock ',
+                '--mode {} '.format(Mode.cluster)))
         else:
             self.exec_job = exec_job
 
@@ -444,10 +452,6 @@ class ClusterExecutor(RealExecutor):
                     self.workflow.singularity_args)
 
         self.exec_job += self.get_default_remote_provider_args()
-
-        if not any(dag.dynamic_output_jobs):
-            # disable restiction to target rule in case of dynamic rules!
-            self.exec_job += " --allowed-rules {rules} "
         self.jobname = jobname
         self._tmpdir = None
         self.cores = cores if cores else ""
@@ -535,7 +539,6 @@ class ClusterExecutor(RealExecutor):
         exec_job = self.format_job(self.exec_job,
                                    job,
                                    _quote_all=True,
-                                   rules=job.rules,
                                    use_threads=use_threads,
                                    **kwargs)
         content = self.format_job(self.jobscript,
@@ -1045,7 +1048,7 @@ class KubernetesExecutor(ClusterExecutor):
             '--latency-wait 0 '
             ' --attempt {attempt} {use_threads} '
             '--wrapper-prefix {workflow.wrapper_prefix} '
-            '{overwrite_config} {printshellcmds} --nocolor '
+            '{overwrite_config} {printshellcmds} {rules} --nocolor '
             '--notemp --no-hooks --nolock ')
 
         super().__init__(workflow, dag, None,
@@ -1137,7 +1140,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         super()._run(job)
         exec_job = self.format_job(
-            self.exec_job, job, _quote_all=True, rules=job.rules,
+            self.exec_job, job, _quote_all=True,
             use_threads="--force-use-threads" if not job.is_group() else "")
         # Kubernetes silently does not submit a job if the name is too long
         # therefore, we ensure that it is not longer than snakejob+uuid.
@@ -1249,7 +1252,7 @@ class KubernetesExecutor(ClusterExecutor):
                     logger.info("trying to reauthenticate")
                     kubernetes.config.load_kube_config()
                     subprocess.run(['kubectl','get','nodes'])
-                                                                                
+
                     self.kubeapi = kubernetes.client.CoreV1Api()
                     self.batchapi = kubernetes.client.BatchV1Api()
                     self.register_secret()
