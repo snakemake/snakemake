@@ -1,0 +1,11 @@
+rule all:
+    input: 'b.txt'
+
+rule g_touch_a:
+    output: touch('a.txt')
+    group: 'g'
+
+rule g_make_b_from_a:
+    input: 'a.txt'
+    output: touch('b.txt')
+    group: 'g'
