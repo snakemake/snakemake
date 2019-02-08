@@ -831,3 +831,6 @@ def test_issue958():
 
 def test_issue471():
     run(dpath("test_issue471"))
+
+def test_issue1085():
+    run(dpath("test_issue1085"), shouldfail=True)

@@ -1,0 +1,8 @@
+def get_params(wildcards):
+    return {'test': 'oo', 'norm': 'oo'} 
+
+rule test: 
+    output: "aa"
+    params: unpack(get_params)
+    shell:  "echo {params}"    
+

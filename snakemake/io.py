@@ -617,7 +617,8 @@ def not_iterable(value):
 
 def is_callable(value):
     return (callable(value) or
-            (isinstance(value, _IOFile) and value._is_function))
+            (isinstance(value, _IOFile) and value._is_function) or
+            (isinstance(value, AnnotatedString) and value.callable is not None))
 
 
 class AnnotatedString(str):
