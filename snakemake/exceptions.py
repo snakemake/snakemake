@@ -381,6 +381,17 @@ class SpawnedJobError(Exception):
 
 class IncompleteCheckpointException(Exception):
     def __init__(self, rule, targetfile):
+        super().__init__("The requested checkpoint output is not yet created."
+                         "If you see this error, you have likely tried to use "
+                         "checkpoint output outside of an input function, or "
+                         "you have tried to call an input function directly "
+                         "via <function_name>(). Please check the docs at "
+                         "https://snakemake.readthedocs.io/en/stable/"
+                         "snakefiles/rules.html#data-dependent-conditional-execution "
+                         "and note that the input function in the example rule "
+                         "'aggregate' is NOT called, but passed to the rule "
+                         "by name, such that Snakemake can call it internally "
+                         "once the checkpoint is finished.")
         self.rule = rule
         from snakemake.io import checkpoint_target
         self.targetfile = checkpoint_target(targetfile)
