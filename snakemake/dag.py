@@ -961,6 +961,21 @@ class DAG:
         return self._finished.issuperset(filter(is_external_needrun_dep,
                                                 self.dependencies[job]))
 
+    def update_checkpoint_dependencies(self, jobs=None):
+        """Update dependencies of checkpoints."""
+        self.update_checkpoint_outputs()
+        if jobs is None:
+            jobs = [job for job in self.jobs if not self.needrun(job)]
+        for job in jobs:
+            if job.is_checkpoint:
+                depending = list(self.depending[job])
+                # re-evaluate depending jobs, replace and update DAG
+                for j in depending:
+                    logger.info("Updating job {}.".format(self.jobid(j)))
+                    newjob = j.updated()
+                    self.replace_job(j, newjob, recursive=False)
+                self.postprocess()
+
     def finish(self, job, update_dynamic=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
@@ -977,16 +992,7 @@ class DAG:
         self._finished.update(jobs)
 
         if update_dynamic:
-            self.update_checkpoint_outputs()
-            for job in jobs:
-                if job.is_checkpoint:
-                    depending = list(self.depending[job])
-                    # re-evaluate depending jobs, replace and update DAG
-                    for j in depending:
-                        logger.info("Updating job {}.".format(self.jobid(j)))
-                        newjob = j.updated()
-                        self.replace_job(j, newjob, recursive=False)
-                    self.postprocess()
+            self.update_checkpoint_dependencies(jobs)
 
         # mark depending jobs as ready
         # skip jobs that are marked as until jobs

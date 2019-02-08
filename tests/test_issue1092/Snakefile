@@ -1,0 +1,41 @@
+# a target rule to define the desired final output
+rule all:
+    input:
+        "aggregated.txt",
+
+
+# the checkpoint that shall trigger re-evaluation of the DAG
+checkpoint clustering:
+    output:
+        clusters=directory("clustering")
+    shell:
+        "mkdir clustering; "
+        "for i in 1 2 3; do echo $i > clustering/$i.txt; done"
+
+
+def aggregate_input(wildcards):
+    checkpoint_output = checkpoints.clustering.get(**wildcards).output[0]
+    print("beyond")
+    return expand("post/{i}.txt",
+           i=glob_wildcards(os.path.join(checkpoint_output, "{i}.txt")).i)
+
+
+# an aggregation over all produced clusters
+rule aggregate:
+    input:
+        aggregate_input
+    output:
+        "aggregated.txt"
+    #shell:
+    #    "cat {input} > {output}"
+    run:
+        shell("cat {input} > {output}")
+
+# an intermediate rule
+rule intermediate:
+    input:
+        "clustering/{i}.txt"
+    output:
+        "post/{i}.txt"
+    shell:
+        "cp {input} {output}"
