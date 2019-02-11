@@ -2,17 +2,18 @@
 import sys
 import os
 import local_script
+from pathlib import Path
 
 # Ensure that the __real_file__ path ends in .snakemake
-dname = os.path.dirname(__real_file__)
+dname = Path(__real_file__).parent
 print(dname)
-if not dname.endswith(".snakemake/scripts"):
+if not dname.parts[-2:] == (".snakemake", "scripts"):
     sys.exit("We're not being written in the output directory!\n")
 
 # Ensure that the __file__ path ends in test_issue916
-dname = os.path.dirname(__file__)
+dname = Path(__file__).parent
 print(dname)
-if not dname.endswith("test_issue916"):
+if not dname.name == "test_issue916":
     sys.exit("We're not faking __file__ properly!\n")
 
 # Write out script to indicte success.
