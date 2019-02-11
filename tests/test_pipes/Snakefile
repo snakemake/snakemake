@@ -1,3 +1,5 @@
+shell.use_bash_on_win()
+
 rule all:
     input:
         expand("test.{i}.out", i=range(2))
