@@ -1,0 +1,15 @@
+shell.executable("sh")
+
+rule:
+    output:
+        "foo.txt"
+    input:
+        "bar.txt"
+    singularity: "docker://alpine"
+    shadow: "minimal"
+    shell:
+        "mount; " 
+        "pwd; "
+        "ls -l {input}; "
+        "cat {input} > {output}"
+

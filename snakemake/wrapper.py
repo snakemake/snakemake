@@ -91,7 +91,8 @@ def wrapper(path,
             bench_record,
             prefix,
             jobid,
-            bench_iteration):
+            bench_iteration,
+            shadow_dir):
     """
     Load a wrapper from https://bitbucket.org/snakemake/snakemake-wrappers under
     the given path + wrapper.(py|R|Rmd) and execute it.

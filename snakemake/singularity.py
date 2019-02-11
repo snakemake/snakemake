@@ -76,7 +76,8 @@ class Image:
         return os.path.join(self._img_dir, self.hash) + ".simg"
 
 
-def shellcmd(img_path, cmd, args="", envvars=None):
+def shellcmd(img_path, cmd, args="", envvars=None,
+             shell_executable=None, container_workdir=None):
     """Execute shell command inside singularity container given optional args
        and environment variables to be passed."""
 
@@ -86,9 +87,16 @@ def shellcmd(img_path, cmd, args="", envvars=None):
     else:
         envvars = ""
 
+    if shell_executable is None:
+        shell_executable = "sh"
+
     # mount host snakemake module into container
     args += " --bind {}:{}".format(SNAKEMAKE_SEARCHPATH, SNAKEMAKE_MOUNTPOINT)
 
-    cmd = "{} singularity exec --home {} {} {} bash -c '{}'".format(
-        envvars, os.getcwd(), args, img_path, cmd.replace("'", r"'\''"))
+    if container_workdir:
+        args += " --pwd {}".format(container_workdir)
+
+    cmd = "{} singularity exec --home {} {} {} {} -c '{}'".format(
+        envvars, os.getcwd(), args, img_path, shell_executable,
+        cmd.replace("'", r"'\''"))
     return cmd

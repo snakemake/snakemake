@@ -834,3 +834,6 @@ def test_issue471():
 
 def test_issue1085():
     run(dpath("test_issue1085"), shouldfail=True)
+
+def test_issue1083():
+    run(dpath("test_issue1083"), use_singularity=True)

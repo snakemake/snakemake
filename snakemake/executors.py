@@ -1369,6 +1369,13 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
     if benchmark is not None:
         from snakemake.benchmark import BenchmarkRecord, benchmarked, write_benchmark_records
 
+    # Change workdir if shadow defined and not using singularity.
+    # Otherwise, we do the change from inside the container.
+    passed_shadow_dir = None
+    if use_singularity:
+        passed_shadow_dir = shadow_dir
+        shadow_dir = None
+
     try:
         with change_working_directory(shadow_dir):
             if benchmark:
@@ -1388,7 +1395,7 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                         run(input, output, params, wildcards, threads, resources,
                             log, version, rule, conda_env, singularity_img,
                             singularity_args, use_singularity, bench_record,
-                            jobid, is_shell, bench_iteration)
+                            jobid, is_shell, bench_iteration, passed_shadow_dir)
                     else:
                         # The benchmarking is started here as we have a run section
                         # and the generated Python function is executed in this
@@ -1397,13 +1404,15 @@ def run_wrapper(job_rule, input, output, params, wildcards, threads, resources, 
                             run(input, output, params, wildcards, threads, resources,
                                 log, version, rule, conda_env, singularity_img,
                                 singularity_args, use_singularity,
-                                bench_record, jobid, is_shell, bench_iteration)
+                                bench_record, jobid, is_shell, bench_iteration,
+                                passed_shadow_dir)
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
             else:
                 run(input, output, params, wildcards, threads, resources,
                     log, version, rule, conda_env, singularity_img,
-                    singularity_args, use_singularity, None, jobid, is_shell, None)
+                    singularity_args, use_singularity, None, jobid, is_shell, None,
+                    passed_shadow_dir)
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it
