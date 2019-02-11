@@ -304,10 +304,12 @@ class Conda:
     def _check(self):
         from snakemake.shell import shell
 
+
+        # Use type here since conda now is a function.
+        # type allows to check for both functions and regular commands.
+        locate_cmd = "where conda" if utils.ON_WINDOWS else "type conda"
         try:
-            # Use type here since conda now is a function.
-            # type allows to check for both functions and regular commands.
-            shell.check_output(self._get_cmd("type conda"), stderr=subprocess.STDOUT)
+            shell.check_output(self._get_cmd(locate_cmd), stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError:
             if self.singularity_img:
                 raise CreateCondaEnvironmentException("The 'conda' command is not "
