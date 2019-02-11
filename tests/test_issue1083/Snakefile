@@ -1,11 +1,9 @@
-shell.executable("sh")
-
 rule:
     output:
         "foo.txt"
     input:
         "bar.txt"
-    singularity: "docker://alpine"
+    singularity: "docker://bash"
     shadow: "minimal"
     shell:
         "mount; " 
