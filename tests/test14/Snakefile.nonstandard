@@ -1,7 +1,5 @@
 from snakemake import shell
 
-shell.executable("bash")
-
 chromosomes = [1,2,3,4,5]
 
 

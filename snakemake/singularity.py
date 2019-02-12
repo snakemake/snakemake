@@ -89,6 +89,10 @@ def shellcmd(img_path, cmd, args="", envvars=None,
 
     if shell_executable is None:
         shell_executable = "sh"
+    else:
+        # Ensure to just use the name of the executable, not a path,
+        # because we cannot be sure where it is located in the container.
+        shell_executable = os.path.split(shell_executable)[-1]
 
     # mount host snakemake module into container
     args += " --bind {}:{}".format(SNAKEMAKE_SEARCHPATH, SNAKEMAKE_MOUNTPOINT)
