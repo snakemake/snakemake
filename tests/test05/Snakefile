@@ -1,7 +1,5 @@
 from snakemake import shell
 
-shell.executable("bash")
-
 chromosomes = [1,2,3]
 
 #shell('rm test.*.inter 2> /dev/null | true')

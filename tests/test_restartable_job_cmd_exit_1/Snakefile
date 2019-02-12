@@ -1,7 +1,5 @@
 localrules: all
 
-shell.executable('bash')
-
 rule all:
     input: '.done'
 

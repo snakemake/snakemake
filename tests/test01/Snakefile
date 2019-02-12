@@ -3,7 +3,6 @@ from snakemake.utils import min_version
 from snakemake import __version__
 print(__version__, file=sys.stderr)
 
-shell.executable("/bin/bash")
 shell.prefix("source ~/.bashrc; ")
 
 #min_version("2.1")

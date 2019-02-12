@@ -3,8 +3,6 @@ rule all:
            "absolute_exists.out", "touched.out", "log_exists.out",
            "protected.out", "benchmark_exists.out", "minimal_ok.out"
 
-shell.executable("/bin/bash")
-
 rule shallow:
     input: "test.in"
     output: "simple_shallow.out"
