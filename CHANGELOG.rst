@@ -1,9 +1,17 @@
-[unreleased]
-============
+[5.4.1] - 2019-02-14
+====================
 
 Added
 -----
 - Warning when R script is used in combination with conda and R_LIBS environment variable is set. This can cause unexpected results and should be avoided.
+
+Changed
+-------
+- Improved quoting of paths in conda commands.
+- Fixed various issues with checkpoints.
+- Improved error messages when combining groups with cluster config.
+- Fixed bugs in group implementation.
+- Fixed singularity in combination with shadow. 
 
 [5.4.0] - 2018-12-18
 ====================
