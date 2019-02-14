@@ -564,7 +564,7 @@ class ClusterExecutor(RealExecutor):
                         msg = ("Failed to format cluster config for group job. "
                                "You have to ensure that your default entry "
                                "does not contain any items that group jobs "
-                               "cannot provide, like {rule}.")
+                               "cannot provide, like {rule}, {wildcards}.")
                     else:
                         msg = ("Failed to format cluster config "
                                "entry for job {}.".format(job.rule.name))
