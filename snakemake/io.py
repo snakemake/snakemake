@@ -4,7 +4,6 @@ __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import collections
-import git
 import os
 import shutil
 from pathlib import Path
@@ -892,6 +891,7 @@ def get_git_root(path):
         Returns:
             path to root folder for git repo
     """
+    import git
     try:
         git_repo = git.Repo(path, search_parent_directories=True)
         return git_repo.git.rev_parse("--show-toplevel")
@@ -912,6 +912,7 @@ def get_git_root_parent_directory(path, input_path):
         Returns:
             path to root folder for git repo
     """
+    import git
     try:
         git_repo = git.Repo(path, search_parent_directories=True)
         return git_repo.git.rev_parse("--show-toplevel")
@@ -935,6 +936,7 @@ def git_content(git_file):
         Returns:
             file content or None if the expected format isn't meet
     """
+    import git
     if git_file.startswith("git+file:"):
         (root_path, file_path, version) = split_git_path(git_file)
         return git.Repo(root_path).git.show('{}:{}'.format(version, file_path))
