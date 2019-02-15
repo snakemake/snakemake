@@ -1,3 +1,10 @@
+[5.4.2] - 2019-02-15
+====================
+
+Changed
+-------
+- Fixed a bug where git module cannot be imported from wrapper.
+
 [5.4.1] - 2019-02-14
 ====================
 
