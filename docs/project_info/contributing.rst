@@ -40,6 +40,101 @@ Implement Features
 Look through the Bitbucket issues for features.
 If you want to start working on an issue then please write short message on the issue tracker to prevent duplicate work.
 
+Contributing a new cluster or cloud execution backend
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Execution backends are added by implementing a so-called ``Executor``.
+All executors are located in `snakemake/executors.py <https://bitbucket.org/snakemake/snakemake/src/master/snakemake/executors.py>`_.
+In order to implement a new executor, you have to inherit from the class ``ClusterExecutor``.
+Below you find a skeleton
+
+.. code-block:: python
+
+    class SkeletonExecutor(ClusterExecutor):
+        def __init__(self, workflow, dag, cores,
+                 jobname="snakejob.{name}.{jobid}.sh",
+                 printreason=False,
+                 quiet=False,
+                 printshellcmds=False,
+                 latency_wait=3,
+                 cluster_config=None,
+                 local_input=None,
+                 restart_times=None,
+                 exec_job=None,
+                 assume_shared_fs=True,
+                 max_status_checks_per_second=1):
+
+            # overwrite the command to execute a single snakemake job if necessary
+            # exec_job = "..."
+
+            super().__init__(workflow, dag, None,
+                             jobname=jobname,
+                             printreason=printreason,
+                             quiet=quiet,
+                             printshellcmds=printshellcmds,
+                             latency_wait=latency_wait,
+                             cluster_config=cluster_config,
+                             local_input=local_input,
+                             restart_times=restart_times,
+                             exec_job=exec_job,
+                             assume_shared_fs=False,
+                             max_status_checks_per_second=10)
+
+            # add additional attributes
+
+        def shutdown(self):
+            # perform additional steps on shutdown if necessary
+            super().shutdown()
+
+        def cancel(self):
+            for job in self.active_jobs:
+                # cancel active jobs here
+            self.shutdown()
+
+        def run(self, job,
+                callback=None,
+                submit_callback=None,
+                error_callback=None):
+            import kubernetes.client
+
+            super()._run(job)
+            # obtain job execution command
+            exec_job = self.format_job(
+                self.exec_job, job, _quote_all=True,
+                use_threads="--force-use-threads" if not job.is_group() else "")
+
+            # submit job here, and obtain job ids from the backend
+
+            # register job as active, using your own namedtuple.
+            # The namedtuple must at least contain the attributes
+            # job, jobid, callback, error_callback.
+            self.active_jobs.append(MyJob(
+                job, jobid, callback, error_callback))
+
+        def _wait_for_jobs(self):
+            # busy wait on job completion
+            # This is only needed if your backend does not allow to use callbacks
+            # for obtaining job status.
+            while True:
+                # always use self.lock to avoid race conditions
+                with self.lock:
+                    if not self.wait:
+                        return
+                    active_jobs = self.active_jobs
+                    self.active_jobs = list()
+                    still_running = list()
+                for j in active_jobs:
+                    # use self.status_rate_limiter to avoid too many API calls.
+                    with self.status_rate_limiter:
+
+                        # Retrieve status of job j from your backend via j.jobid
+                        # Handle completion and errors, calling either j.callback(j.job)
+                        # or j.error_callback(j.job)
+                        # In case of error, add job j to still_running.
+                with self.lock:
+                    self.active_jobs.extend(still_running)
+                sleep()
+
 
 Write Documentation
 ===================
