@@ -151,6 +151,11 @@ def run(path,
                     assert md5target == md5expected, 'wrong result produced for file "{}"'.format(
                             resultfile)
 
+xfail_permissionerror_on_win= pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
+
+# Must fail on Windows with PermissionError since the tempfile.TemporaryDirectory
+# can't clean up the protected files generated in the test
+@xfail_permissionerror_on_win
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
@@ -376,7 +381,7 @@ def test_symlink_temp():
 def test_empty_include():
     run(dpath("test_empty_include"))
 
-
+@skip_on_windows
 def test_script():
     run(dpath("test_script"))
 
@@ -440,13 +445,14 @@ def test_conda():
     if conda_available():
         run(dpath("test_conda"), use_conda=True)
 
-
+@skip_on_windows # Conda support is partly broken on Win
 def test_conda_custom_prefix():
     if conda_available():
         run(dpath("test_conda_custom_prefix"),
             use_conda=True, conda_prefix="custom")
 
 
+@skip_on_windows # Conda support is partly broken on Win
 def test_wrapper():
     if conda_available():
         run(dpath("test_wrapper"), use_conda=True)
@@ -557,7 +563,7 @@ def test_dup_out_patterns():
     """
     run(dpath("test_dup_out_patterns"), shouldfail=True)
 
-
+@skip_on_windows
 def test_restartable_job_cmd_exit_1():
     """Test the restartable job feature on ``exit 1``
 
@@ -573,7 +579,7 @@ def test_restartable_job_cmd_exit_1():
     run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
         restart_times=1, printshellcmds=True)
 
-
+@skip_on_windows
 def test_restartable_job_qsub_exit_1():
     """Test the restartable job feature when qsub fails
 
@@ -613,6 +619,7 @@ def test_dynamic_temp():
 def test_issue260():
    run(dpath("test_issue260"))
 
+@skip_on_windows
 @pytest.mark.skip(reason="moto seems to be broken currently")
 def test_default_remote():
      run(dpath("test_default_remote"),
@@ -645,6 +652,7 @@ def test_remote_http():
     run(dpath("test_remote_http"))
 
 
+@skip_on_windows
 @connected
 @pytest.mark.xfail
 def test_remote_http_cluster():
@@ -654,13 +662,16 @@ def test_profile():
     run(dpath("test_profile"))
 
 
+@skip_on_windows
 @connected
 def test_singularity():
     run(dpath("test_singularity"), use_singularity=True)
 
+@skip_on_windows
 def test_singularity_invalid():
     run(dpath("test_singularity"), targets=["invalid.txt"], use_singularity=True, shouldfail=True)
 
+@skip_on_windows
 @connected
 def test_singularity_conda():
     run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True)
@@ -759,12 +770,12 @@ def test_issue1041(gcloud_cluster):
     gcloud_cluster.reset()
     gcloud_cluster.run(test="test_issue1041")
 
-
+@skip_on_windows
 @connected
 def test_cwl():
     run(dpath("test_cwl"))
 
-
+@skip_on_windows
 @connected
 def test_cwl_singularity():
     run(dpath("test_cwl"), use_singularity=True)
@@ -773,11 +784,11 @@ def test_cwl_singularity():
 def test_issue805():
     run(dpath("test_issue805"), shouldfail=True)
 
-
+@skip_on_windows
 def test_group_jobs():
     run(dpath("test_group_jobs"), cluster="./qsub")
 
-
+@skip_on_windows
 def test_group_job_fail():
     run(dpath("test_group_job_fail"), cluster="./qsub", shouldfail=True)
 
@@ -803,11 +814,11 @@ def test_issue854():
     # this should fail when parsing
     run(dpath("test_issue854"), shouldfail=True)
 
-
+@skip_on_windows
 def test_issue850():
     run(dpath("test_issue850"), cluster="./qsub")
 
-
+@skip_on_windows
 def test_issue860():
     run(dpath("test_issue860"), cluster="./qsub", targets=["done"])
 
@@ -821,18 +832,22 @@ def test_issue584():
 def test_issue912():
     run(dpath("test_issue912"))
 
+@skip_on_windows 
 def test_job_properties():
     run(dpath("test_job_properties"), cluster="./qsub.py")
 
 def test_issue916():
     run(dpath("test_issue916"))
 
+@skip_on_windows
 def test_issue930():
     run(dpath("test_issue930"), cluster="./qsub")
 
+@skip_on_windows 
 def test_issue635():
     run(dpath("test_issue635"), use_conda=True, check_md5=False)
 
+@skip_on_windows 
 def test_convert_to_cwl():
     workdir = dpath("test_convert_to_cwl")
     #run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
@@ -855,6 +870,7 @@ def test_checkpoints_dir():
 def test_issue1092():
     run(dpath("test_issue1092"))
 
+@skip_on_windows
 def test_issue1093():
     run(dpath("test_issue1093"), use_conda=True)
 
@@ -867,5 +883,6 @@ def test_issue471():
 def test_issue1085():
     run(dpath("test_issue1085"), shouldfail=True)
 
+@skip_on_windows
 def test_issue1083():
     run(dpath("test_issue1083"), use_singularity=True)

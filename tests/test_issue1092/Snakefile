@@ -1,3 +1,5 @@
+shell.use_bash_on_win()
+
 # a target rule to define the desired final output
 rule all:
     input:
