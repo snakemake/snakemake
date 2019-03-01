@@ -13,6 +13,7 @@ import time
 import datetime
 import json
 import copy
+import platform
 import functools
 import subprocess as sp
 from itertools import product, chain
@@ -344,7 +345,7 @@ class _IOFile(str):
                 if e.errno != 17:
                     raise e
 
-        if is_flagged(self._file, "pipe"):
+        if is_flagged(self._file, "pipe") and platform.system() != "Windows":
             os.mkfifo(self._file)
 
     def protect(self):

@@ -13,6 +13,7 @@ import concurrent.futures
 # module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError, S3FileException
+from snakemake.utils import ON_WINDOWS
 
 try:
     # third-party modules
@@ -80,7 +81,7 @@ class RemoteObject(AbstractRemoteObject):
 
     def download(self):
         self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.local_file())
-        os.sync() # ensure flush to disk
+        os.sync() if not ON_WINDOWS else None # ensure flush to disk
 
     def upload(self):
         self._s3c.upload_to_s3(self.s3_bucket, self.local_file(), self.s3_key, extra_args=self.kwargs.get("ExtraArgs", None), config=self.kwargs.get("Config", None))

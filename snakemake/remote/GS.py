@@ -9,6 +9,7 @@ import re
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError
 from snakemake.common import lazy_property
+from snakemake.utils import ON_WINDOWS
 
 try:
     import google.cloud
@@ -79,7 +80,7 @@ class RemoteObject(AbstractRemoteObject):
         if self.exists():
             os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
             self.blob.download_to_filename(self.local_file())
-            os.sync()
+            os.sync() if not ON_WINDOWS else None
             return self.local_file()
         return None
 

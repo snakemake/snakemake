@@ -11,6 +11,7 @@ import functools
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject, DomainObject
 from snakemake.exceptions import WebDAVFileException, WorkflowError
+from snakemake.utils import ON_WINDOWS
 
 try:
     # third-party modules
@@ -128,7 +129,7 @@ class RemoteObject(DomainObject):
                 os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
             with self.webdavc() as webdavc:
                 self.loop.run_until_complete(self.conn.download(self.webdav_file, self.local_file()))
-                os.sync() # ensure flush to disk
+                os.sync() if not ON_WINDOWS else None # ensure flush to disk
         else:
             raise EasyWebDAVFileException("The file does not seem to exist remotely: %s" % self.webdav_file)
 

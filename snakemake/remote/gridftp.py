@@ -11,6 +11,7 @@ import shutil
 
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
+from snakemake.utils import ON_WINDOWS
 
 
 if not shutil.which("globus-url-copy"):
@@ -64,7 +65,7 @@ class RemoteObject(gfal.RemoteObject):
             self._globus("-parallel", "4", "-create-dest", "-recurse", "-dp",
                          source, target)
 
-            os.sync()
+            os.sync() if not ON_WINDOWS else None
             return self.local_file()
         return None
 
