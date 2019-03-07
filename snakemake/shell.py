@@ -121,6 +121,7 @@ class shell:
                         bufsize=-1,
                         shell=True,
                         stdout=stdout,
+                        universal_newlines=iterable or None,
                         close_fds=close_fds, **cls._process_args)
 
         if jobid is not None:
@@ -150,7 +151,7 @@ class shell:
     @staticmethod
     def iter_stdout(proc, cmd):
         for l in proc.stdout:
-            yield l[:-1].decode()
+            yield l[:-1]
         retcode = proc.wait()
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
