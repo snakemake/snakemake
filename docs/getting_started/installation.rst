@@ -28,6 +28,18 @@ Then, you can install Snakemake with
     $ conda install -c bioconda -c conda-forge snakemake
 
 from the `Bioconda <https://bioconda.github.io>`_ channel.
+A minimal version of Snakemake which only depends on the bare necessities can be installed with
+
+.. code-block:: console
+
+    $ conda install -c bioconda -c conda-forge snakemake-minimal
+
+Note that Snakemake is available via Bioconda for historical, reproducibility, and continuity reasons.
+However, it is easy to combine Snakemake installation with other channels, e.g., by prefixing the package name with ``::bioconda``, i.e.,
+
+.. code-block:: console
+
+    $ conda install -c conda-forge bioconda::snakemake bioconda::snakemake-minimal
 
 Global Installation
 ===================
