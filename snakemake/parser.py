@@ -746,7 +746,7 @@ class Snakefile:
         self.path = path
         try:
             self.file = open(self.path, encoding="utf-8")
-        except FileNotFoundError as e:
+        except (FileNotFoundError, OSError) as e:
             try:
                 self.file = TextIOWrapper(urllib.request.urlopen(self.path),
                                           encoding="utf-8")
