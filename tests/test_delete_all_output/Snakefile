@@ -10,8 +10,7 @@ rule delete_all_output:
         rm nothere && \
         snakemake -s Snakefile_inner --delete-all-output all && \
         test -f infile && test ! -f intermediate && test ! -f somedir/final && \
-        test ! -d empty_dir && test ! -L dangling && test ! -d full_dir && \
-        test ! -f protected
+        test ! -d empty_dir && test ! -L dangling && test ! -d full_dir
         """
 
 rule delete_temp_output:
