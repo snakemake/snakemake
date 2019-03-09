@@ -182,7 +182,6 @@ class DAG:
                           forceall=False,
                           init_only=False,
                           quiet=False):
-        conda.check_conda()
         # First deduplicate based on job.conda_env_file
         jobs = self.jobs if forceall else self.needrun_jobs
         env_set = {(job.conda_env_file, job.singularity_img_url)

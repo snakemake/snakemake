@@ -8,7 +8,7 @@ import re
 import sys
 import inspect
 import sre_constants
-from collections import defaultdict, Iterable
+import collections
 from urllib.parse import urljoin
 from pathlib import Path
 from itertools import chain
@@ -134,7 +134,7 @@ class Rule:
         branch = Rule(self)
         io_, dynamic_io_ = get_io(branch)
 
-        expansion = defaultdict(list)
+        expansion = collections.defaultdict(list)
         for i, f in enumerate(io):
             if f in dynamic_io:
                 f = partially_expand(f, wildcards)
@@ -342,7 +342,7 @@ class Rule:
         assert not callable(item)
         if isinstance(item, dict):
             return {k: apply(v) for k, v in item.items()}
-        elif isinstance(item, Iterable) and not isinstance(item, str):
+        elif isinstance(item, collections.Iterable) and not isinstance(item, str):
             return [apply(e) for e in item]
         else:
             return apply(item)

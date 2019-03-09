@@ -13,7 +13,8 @@ import threading
 
 from snakemake.utils import format
 from snakemake.logging import logger
-from snakemake import singularity, conda
+from snakemake import singularity
+from snakemake.conda import Conda
 import snakemake
 
 
@@ -96,15 +97,14 @@ class shell:
         conda_env = context.get("conda_env", None)
         singularity_img = context.get("singularity_img", None)
         shadow_dir = context.get("shadow_dir", None)
-        if conda_env:
-            env_prefix = conda.shellcmd(conda_env)
 
-        cmd = "{} {} {} {}".format(
-                            env_prefix,
+        cmd = "{} {} {}".format(
                             cls._process_prefix,
                             cmd.strip(),
                             cls._process_suffix).strip()
 
+        if conda_env:
+            cmd = Conda(singularity_img).shellcmd(conda_env, cmd)
         if singularity_img:
             args = context.get("singularity_args", "")
             cmd = singularity.shellcmd(

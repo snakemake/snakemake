@@ -96,6 +96,7 @@ def shellcmd(img_path, cmd, args="", envvars=None,
 
     # mount host snakemake module into container
     args += " --bind {}:{}".format(SNAKEMAKE_SEARCHPATH, SNAKEMAKE_MOUNTPOINT)
+    
 
     if container_workdir:
         args += " --pwd {}".format(container_workdir)

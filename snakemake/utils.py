@@ -11,7 +11,7 @@ import inspect
 import textwrap
 import platform
 from itertools import chain
-from collections import Mapping
+import collections
 import multiprocessing
 import string
 import shlex
@@ -431,7 +431,7 @@ def update_config(config, overwrite_config):
 
     def _update(d, u):
         for (key, value) in u.items():
-            if (isinstance(value, Mapping)):
+            if (isinstance(value, collections.Mapping)):
                 d[key] = _update(d.get(key, {}), value)
             else:
                 d[key] = value
