@@ -103,17 +103,19 @@ class shell:
                             cmd.strip(),
                             cls._process_suffix).strip()
 
+        conda = None
         if conda_env:
             cmd = Conda(singularity_img).shellcmd(conda_env, cmd)
+
         if singularity_img:
             args = context.get("singularity_args", "")
             cmd = singularity.shellcmd(
                 singularity_img, cmd, args,
                 shell_executable=cls._process_args["executable"],
-                container_workdir=shadow_dir)
+                container_workdir=shadow_dir,
+                bind_conda=conda_env is not None)
             logger.info(
                 "Activating singularity image {}".format(singularity_img))
-
         if conda_env:
             logger.info("Activating conda environment: {}".format(conda_env))
 

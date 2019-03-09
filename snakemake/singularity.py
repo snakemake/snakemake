@@ -6,14 +6,13 @@ import hashlib
 from distutils.version import LooseVersion
 
 import snakemake
-from snakemake import conda
+from snakemake.conda import Conda
 from snakemake.common import lazy_property, SNAKEMAKE_SEARCHPATH
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 
 
 SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
-
 
 class Image:
     def __init__(self, url, dag):
@@ -75,9 +74,16 @@ class Image:
             return urlparse(self.url).path
         return os.path.join(self._img_dir, self.hash) + ".simg"
 
+    def __hash__(self):
+        return hash(self.hash)
+
+    def __eq__(self, other):
+        return self.url == other.url
+
 
 def shellcmd(img_path, cmd, args="", envvars=None,
-             shell_executable=None, container_workdir=None):
+             shell_executable=None, container_workdir=None,
+             bind_conda=False):
     """Execute shell command inside singularity container given optional args
        and environment variables to be passed."""
 
@@ -96,7 +102,13 @@ def shellcmd(img_path, cmd, args="", envvars=None,
 
     # mount host snakemake module into container
     args += " --bind {}:{}".format(SNAKEMAKE_SEARCHPATH, SNAKEMAKE_MOUNTPOINT)
-    
+
+    if bind_conda:
+        conda = Conda()
+        prefix = conda.prefix_path()
+        args += " --bind {prefix}:{prefix}".format(prefix=prefix)
+        cmd = "export PATH={prefix}/bin:$PATH; {cmd}".format(
+            prefix=prefix, cmd=cmd)
 
     if container_workdir:
         args += " --pwd {}".format(container_workdir)

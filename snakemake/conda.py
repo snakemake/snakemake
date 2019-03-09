@@ -195,7 +195,7 @@ class Env:
 
         # Create environment if not already present.
         if not os.path.exists(env_path):
-            Conda(self._singularity_img).check()
+            conda = Conda(self._singularity_img)
             if dryrun:
                 logger.info("Conda environment {} will be created.".format(utils.simplify_path(self.file)))
                 return env_path
@@ -227,7 +227,7 @@ class Env:
                         ["conda", "create", "--copy", "--prefix '{}'".format(env_path)] +
                         packages)
                     if self._singularity_img:
-                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
+                        cmd = singularity.shellcmd(self._singularity_img.path, cmd, bind_conda=True)
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
 
                 else:
@@ -243,7 +243,7 @@ class Env:
                                                 "--file '{}'".format(target_env_file),
                                                 "--prefix '{}'".format(env_path)])
                     if self._singularity_img:
-                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
+                        cmd = singularity.shellcmd(self._singularity_img.path, cmd, bind_conda=True)
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
                 # Touch "done" flag file
                 with open(os.path.join(env_path,"env_setup_done"), "a") as f:
@@ -276,15 +276,32 @@ class Env:
 
 
 class Conda:
+    instances = dict()
+
+    def __new__(cls, singularity_img=None):
+        from snakemake import singularity
+        if isinstance(singularity_img, singularity.Image):
+            singularity_img = singularity_img.path
+        if singularity_img not in cls.instances:
+            inst = super().__new__(cls)
+            inst.__init__(singularity_img=singularity_img)
+            cls.instances[singularity_img] = inst
+            return inst
+        else:
+            return cls.instances[singularity_img]
+
     def __init__(self, singularity_img=None):
+        from snakemake.shell import shell
         self.singularity_img = singularity_img
+        self._check()
+        self.info = json.loads(shell.check_output(self._get_cmd("conda info --json")))
 
     def _get_cmd(self, cmd):
         if self.singularity_img:
-            return singularity.shellcmd(self.singularity_img.path, cmd)
+            return singularity.shellcmd(self.singularity_img, cmd, bind_conda=True)
         return cmd
 
-    def check(self, ):
+    def _check(self):
         from snakemake.shell import shell
 
         try:
@@ -292,16 +309,19 @@ class Conda:
             # type allows to check for both functions and regular commands.
             shell.check_output(self._get_cmd("type conda"), stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError:
-            if singularity_img:
+            if self.singularity_img:
                 raise CreateCondaEnvironmentException("The 'conda' command is not "
                                                       "available inside "
                                                       "your singularity container "
-                                                      "image. Make sure that "
-                                                      "conda is properly installed "
-                                                      "inside your container "
-                                                      "image. For example use "
-                                                      "continuumio/miniconda3 as a "
-                                                      "base image.")
+                                                      "image. Snakemake mounts "
+                                                      "your conda installation "
+                                                      "into singularity. "
+                                                      "Sometimes, this can fail "
+                                                      "because of shell restrictions. "
+                                                      "It has been tested to work "
+                                                      "with docker://ubuntu, but "
+                                                      "it e.g. fails with "
+                                                      "docker://bash ")
             else:
                 raise CreateCondaEnvironmentException("The 'conda' command is not "
                                                       "available in the "
@@ -325,9 +345,14 @@ class Conda:
                 "Unable to check conda version:\n" + e.output.decode()
             )
 
+    def prefix_path(self):
+        return self.info["conda_prefix"]
+
+    def bin_path(self):
+        return os.path.join(self.prefix_path(), "bin")
+
     def shellcmd(self, env_path, cmd):
         from snakemake.shell import shell
         # get path to activate script
-        info = json.loads(shell.check_output(self._get_cmd("conda info --json")))
-        activate = os.path.join(info["conda_prefix"], "bin", "activate")
+        activate = os.path.join(self.bin_path(), "activate")
         return "source {} '{}'; {}".format(activate, env_path, cmd)
