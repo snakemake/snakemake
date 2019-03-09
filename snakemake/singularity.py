@@ -117,5 +117,4 @@ def shellcmd(img_path, cmd, args="", envvars=None,
         envvars, os.getcwd(), args, img_path, shell_executable,
         cmd.replace("'", r"'\''"))
     logger.debug(cmd)
-    print(cmd)
     return cmd
