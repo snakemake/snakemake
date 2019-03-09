@@ -16,7 +16,7 @@ import copy
 import functools
 import subprocess as sp
 from itertools import product, chain
-from collections import Iterable, namedtuple
+import collections
 from snakemake.exceptions import MissingOutputException, WorkflowError, WildcardError, RemoteFileException
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
@@ -611,7 +611,7 @@ def apply_wildcards(pattern,
 
 def not_iterable(value):
     return isinstance(value, str) or isinstance(value, dict) or not isinstance(
-        value, Iterable)
+        value, collections.Iterable)
 
 
 def is_callable(value):
@@ -743,7 +743,7 @@ def checkpoint_target(value):
     return flag(value, "checkpoint_target")
 
 
-ReportObject = namedtuple("ReportObject", ["caption", "category"])
+ReportObject = collections.namedtuple("ReportObject", ["caption", "category"])
 
 
 def report(value, caption=None, category=None):
@@ -781,7 +781,7 @@ def expand(*args, **wildcards):
 
     def flatten(wildcards):
         for wildcard, values in wildcards.items():
-            if isinstance(values, str) or not isinstance(values, Iterable):
+            if isinstance(values, str) or not isinstance(values, collections.Iterable):
                 values = [values]
             yield [(wildcard, value) for value in values]
 
@@ -821,7 +821,7 @@ def glob_wildcards(pattern, files=None):
 
     names = [match.group('name')
              for match in _wildcard_regex.finditer(pattern)]
-    Wildcards = namedtuple("Wildcards", names)
+    Wildcards = collections.namedtuple("Wildcards", names)
     wildcards = Wildcards(*[list() for name in names])
 
     pattern = re.compile(regex(pattern))

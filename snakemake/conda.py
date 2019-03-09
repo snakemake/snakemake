@@ -279,9 +279,6 @@ class Conda:
     instances = dict()
 
     def __new__(cls, singularity_img=None):
-        from snakemake import singularity
-        if isinstance(singularity_img, singularity.Image):
-            singularity_img = singularity_img.path
         if singularity_img not in cls.instances:
             inst = super().__new__(cls)
             inst.__init__(singularity_img=singularity_img)
@@ -292,6 +289,9 @@ class Conda:
 
     def __init__(self, singularity_img=None):
         from snakemake.shell import shell
+        from snakemake import singularity
+        if isinstance(singularity_img, singularity.Image):
+            singularity_img = singularity_img.path
         self.singularity_img = singularity_img
         self._check()
         self.info = json.loads(shell.check_output(self._get_cmd("conda info --json")))
