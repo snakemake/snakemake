@@ -611,11 +611,13 @@ def test_remote_log():
 
 
 @connected
+@pytest.mark.xfail
 def test_remote_http():
     run(dpath("test_remote_http"))
 
 
 @connected
+@pytest.mark.xfail
 def test_remote_http_cluster():
     run(dpath("test_remote_http"), cluster=os.path.abspath(dpath("test14/qsub")))
 
