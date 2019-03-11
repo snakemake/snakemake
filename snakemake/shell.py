@@ -112,8 +112,7 @@ class shell:
             cmd = singularity.shellcmd(
                 singularity_img, cmd, args,
                 shell_executable=cls._process_args["executable"],
-                container_workdir=shadow_dir,
-                bind_conda=conda_env is not None)
+                container_workdir=shadow_dir)
             logger.info(
                 "Activating singularity image {}".format(singularity_img))
         if conda_env:

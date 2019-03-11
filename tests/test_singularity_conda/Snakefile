@@ -1,6 +1,6 @@
 
 
-singularity: "docker://ubuntu"
+singularity: "docker://continuumio/miniconda3"
 
 
 rule a:

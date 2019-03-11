@@ -82,8 +82,7 @@ class Image:
 
 
 def shellcmd(img_path, cmd, args="", envvars=None,
-             shell_executable=None, container_workdir=None,
-             bind_conda=False):
+             shell_executable=None, container_workdir=None):
     """Execute shell command inside singularity container given optional args
        and environment variables to be passed."""
 
@@ -102,13 +101,6 @@ def shellcmd(img_path, cmd, args="", envvars=None,
 
     # mount host snakemake module into container
     args += " --bind {}:{}".format(SNAKEMAKE_SEARCHPATH, SNAKEMAKE_MOUNTPOINT)
-
-    if bind_conda:
-        conda = Conda()
-        prefix = conda.prefix_path()
-        args += " --bind {prefix}:{prefix}".format(prefix=prefix)
-        cmd = "export PATH={prefix}/bin:$PATH; {cmd}".format(
-            prefix=prefix, cmd=cmd)
 
     if container_workdir:
         args += " --pwd {}".format(container_workdir)

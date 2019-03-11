@@ -1,3 +1,11 @@
+[5.4.3] - 2019-03-11
+====================
+
+Changed
+-------
+- More robust handling of conda environment activation that should work with all setups where the conda is available when starting snakemake.
+- Fixed bugs on windows.
+
 [5.4.2] - 2019-02-15
 ====================
 

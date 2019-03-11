@@ -227,7 +227,7 @@ class Env:
                         ["conda", "create", "--copy", "--prefix '{}'".format(env_path)] +
                         packages)
                     if self._singularity_img:
-                        cmd = singularity.shellcmd(self._singularity_img.path, cmd, bind_conda=True)
+                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
 
                 else:
@@ -243,7 +243,7 @@ class Env:
                                                 "--file '{}'".format(target_env_file),
                                                 "--prefix '{}'".format(env_path)])
                     if self._singularity_img:
-                        cmd = singularity.shellcmd(self._singularity_img.path, cmd, bind_conda=True)
+                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
                 # Touch "done" flag file
                 with open(os.path.join(env_path,"env_setup_done"), "a") as f:
@@ -298,7 +298,7 @@ class Conda:
 
     def _get_cmd(self, cmd):
         if self.singularity_img:
-            return singularity.shellcmd(self.singularity_img, cmd, bind_conda=True)
+            return singularity.shellcmd(self.singularity_img, cmd)
         return cmd
 
     def _check(self):
