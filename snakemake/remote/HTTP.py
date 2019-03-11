@@ -67,8 +67,8 @@ class RemoteObject(DomainObject):
     """ This is a class to interact with an HTTP server.
     """
 
-    def __init__(self, *args, keep_local=False, provider=None, additional_request_string="", **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+    def __init__(self, *args, keep_local=False, provider=None, additional_request_string="", allow_redirects=True, **kwargs):
+        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, allow_redirects=allow_redirects, **kwargs)
         self.additional_request_string = additional_request_string
 
     # === Implementations of abstract class members ===
