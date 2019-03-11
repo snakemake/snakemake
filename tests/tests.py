@@ -230,7 +230,7 @@ def test_directory():
 
 @skip_on_windows
 def test_directory2():
-    run(dpath("test_directory"), targets=["some/dir-child", "some/shadow"])
+    run(dpath("test_directory"), targets=['downstream', 'symlinked_input', "child_to_input", "some/dir-child", "some/shadow"])
 
 def test_ancient():
     run(dpath("test_ancient"), targets=['D', 'old_file'])
