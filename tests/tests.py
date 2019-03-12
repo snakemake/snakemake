@@ -139,10 +139,13 @@ def run(path,
                         continue #Skip test if a Windows specific file exists
                     if resultfile.endswith('_WIN'):
                         targetfile=join(tmpdir, resultfile[:-4])
+                elif resultfile.endswith('_WIN'):
+                    # Skip win specific result files on Posix platforms
+                    continue
                 
                 assert os.path.exists(
                     targetfile), 'expected file "{}" not produced'.format(
-                        resultfile)
+                        targetfile)
                 if check_md5:
                     md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
                     md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
