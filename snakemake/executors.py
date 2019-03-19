@@ -963,7 +963,8 @@ class DRMAAExecutor(ClusterExecutor):
             jt.jobName = os.path.basename(jobscript)
 
             jobid = self.session.runJob(jt)
-        except (drmaa.InternalException,
+        except (drmaa.DeniedByDrmException,
+                drmaa.InternalException,
                 drmaa.InvalidAttributeValueException) as e:
             print_exception(WorkflowError("DRMAA Error: {}".format(e)),
                             self.workflow.linemaps)
@@ -1009,7 +1010,7 @@ class DRMAAExecutor(ClusterExecutor):
                         continue
                     # job exited
                     os.remove(active_job.jobscript)
-                    if retval.hasExited and retval.exitStatus == 0:
+                    if not retval.wasAborted and retval.hasExited and retval.exitStatus == 0:
                         active_job.callback(active_job.job)
                     else:
                         self.print_job_error(active_job.job)
