@@ -13,6 +13,9 @@ import io
 import uuid
 import json
 import time
+import shutil
+import subprocess as sp
+import itertools
 from collections import namedtuple, defaultdict
 
 import requests
@@ -42,7 +45,7 @@ class EmbeddedMixin(object):
         """
         result = Image.run(self)
         reference = directives.uri(self.arguments[0])
-        self.options['uri'] = data_uri(reference)[0]
+        self.options['uri'] = data_uri_from_file(reference)[0]
         return result
 
 # Create (and register) new image:: and figure:: directives that use a base64
@@ -63,7 +66,18 @@ class EmbeddedFigure(Figure, EmbeddedMixin):
 directives.register_directive('embeddedfigure', EmbeddedFigure)
 
 
-def data_uri(file, defaultenc="utf8"):
+def data_uri(data, filename, encoding="utf8", mime="text/plain"):
+    """Craft a base64 data URI from file with proper encoding and mimetype."""
+    data = base64.b64encode(data)
+    uri = ("data:{mime};charset={charset};filename={filename};base64,{data}"
+           "".format(filename=filename,
+                     mime=mime,
+                     charset=encoding,
+                     data=data.decode("utf-8")))
+    return uri
+
+
+def data_uri_from_file(file, defaultenc="utf8"):
     """Craft a base64 data URI from file with proper encoding and mimetype."""
     mime, encoding = mimetypes.guess_type(file)
     if mime is None:
@@ -73,13 +87,7 @@ def data_uri(file, defaultenc="utf8"):
     if encoding is None:
         encoding = defaultenc
     with open(file, "rb") as f:
-        data = base64.b64encode(f.read())
-    uri = ("data:{mime};charset={charset};filename={filename};base64,{data}"
-           "".format(filename=os.path.basename(file),
-                     mime=mime,
-                     charset=encoding,
-                     data=data.decode("utf-8")))
-    return uri, mime
+        return data_uri(f.read(), os.path.basename(file), encoding, mime), mime
 
 
 def report(text, path,
@@ -120,7 +128,7 @@ def report(text, path,
                 _files = [_files]
             links = []
             for file in sorted(_files):
-                data, _ = data_uri(file)
+                data, _ = data_uri_from_file(file)
                 links.append(':raw-html:`<a href="{data}" download="{filename}" draggable="true">{filename}</a>`'.format(
                     data=data, filename=os.path.basename(file)))
             links = "\n\n              ".join(links)
@@ -184,11 +192,29 @@ class JobRecord:
 
 class FileRecord:
     def __init__(self, path, job, caption):
-        self.raw_caption = caption
-        self.data, self.mime = data_uri(path)
-        self.id = uuid.uuid4()
         self.path = path
+        logger.info("Adding {}.".format(self.name))
+        self.raw_caption = caption
+        self.data_uri, self.mime = data_uri_from_file(path)
+        self.id = uuid.uuid4()
         self.job = job
+        self.png_uri = None
+        if self.is_img:
+            convert = shutil.which("convert")
+            if convert is not None:
+                try:
+                    png = sp.check_output(["convert", "-density", "100", self.path, "png:-"],
+                                          stderr=sp.PIPE)
+                    uri = data_uri(png, os.path.basename(self.path) + ".png",
+                                   mime="image/png")
+                    self.png_uri = uri
+                except sp.CalledProcessError as e:
+                    logger.warning("Failed to convert image to png with "
+                                   "imagemagick convert: {}".format(e.stderr))
+            else:
+                logger.warning("Command convert not in $PATH. Install "
+                               "imagemagick in order to have embedded "
+                               "images and pdfs in the report.")
 
     def render(self, env, rst_links, results):
         if self.raw_caption is not None:
@@ -212,7 +238,7 @@ class FileRecord:
 
     @property
     def is_img(self):
-        web_safe = {"image/gif", "image/jpeg", "image/png", "image/svg+xml"}
+        web_safe = {"image/gif", "image/jpeg", "image/png", "image/svg+xml", "application/pdf"}
         return self.mime in web_safe
 
     @property
@@ -235,8 +261,8 @@ class FileRecord:
 
     @property
     def size(self):
-        """Return size in MB."""
-        return os.path.getsize(self.path) / 1024
+        """Return size in Bytes."""
+        return os.path.getsize(self.path)
 
 
 def rulegraph_d3_spec(dag):
@@ -289,21 +315,26 @@ def auto_report(dag, path):
     if not path.endswith(".html"):
         raise WorkflowError("Report file does not end with .html")
 
+    logger.info("Creating report...")
+
     persistence = dag.workflow.persistence
     results = defaultdict(list)
     records = defaultdict(JobRecord)
+    recorded_files = set()
     for job in dag.jobs:
-        for f in job.expanded_output:
-            if is_flagged(f, "report"):
+        for f in itertools.chain(job.expanded_output, job.input):
+            if is_flagged(f, "report") and f not in recorded_files:
                 if not f.exists:
-                    raise WorkflowError("Output file {} marked for report but does "
+                    raise WorkflowError("File {} marked for report but does "
                                         "not exist.".format(f))
                 if os.path.isfile(f):
                     report_obj = get_flag_value(f, "report")
                     category = report_obj.category or " "
                     results[category].append(
                         FileRecord(f, job, report_obj.caption))
+                    recorded_files.add(f)
 
+        for f in job.expanded_output:
             meta = persistence.metadata(f)
             if not meta:
                 logger.warning("Missing metadata for file {}".format(f))

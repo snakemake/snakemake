@@ -838,8 +838,11 @@ def get_argument_parser(profile=None):
     group_utils = parser.add_argument_group("UTILITIES")
 
     group_utils.add_argument("--report",
+                        nargs="?",
+                        const="report.html",
                         metavar="HTMLFILE",
-                        help="Create an HTML report with results and statistics.")
+                        help="Create an HTML report with results and statistics. "
+                             "If no filename is given, report.html is the default.")
     group_utils.add_argument("--export-cwl",
                         action="store",
                         metavar="FILE",

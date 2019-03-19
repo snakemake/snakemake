@@ -10,6 +10,7 @@
 
     <!-- Bootstrap CSS -->
     <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
+    <style>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css"|get_resource_as_string }}</style>
 
     <!-- Custom styles for this template -->
     <style>
@@ -184,6 +185,14 @@
       h6.sidebar-heading {
         text-transform: none;
       }
+
+      .preview {
+        text-align: right;
+      }
+
+      .ekko-lightbox-nav-overlay a span {
+        color: lightgrey;
+      }
     </style>
   </head>
 
@@ -266,22 +275,36 @@
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h2 id="results">Results</h2>
           </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Size</th>
+                <th>Description</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
           {% for cat, catresults in results|dictsort %}
             {% if cat %}
-            <h3 id="results-{{ cat|replace(" ", "_") }}">{{ cat }}</h3>
+              <tr>
+                <th id="results-{{ cat|replace(" ", "_") }}" colspan=4>{{ cat }}</th>
+              </tr>
             {% endif %}
             {% for res in catresults %}
-            <div class="result">
-              <h4 id="{{ res.id }}">{{ res.name }}    <a class="btn btn-outline-secondary" href="{{ res.data }}" download="{{ res.name }}"><span data-feather="{{ res.icon }}"></span> Download</a></h4>
-              {{ res.caption }}
-              <div class="preview">
-                {% if res.is_img %}
-                <a href="{{ res.data }}" download="{{ res.name }}"><img src="{{ res.data }}"></a>
-                {% endif %}
-              </div>
-            </div>
+              <tr>
+                <th>
+                  <a id="{{ res.id }}" download="{{ res.name }}">{{ res.name }}</a>
+                </th>
+                <td style="white-space:nowrap;">{{ res.size|filesizeformat }}</td>
+                <td>{{ res.caption }}</td>
+                <td class="preview" id="{{ res.id }}-preview">
+                </td>
+              </tr>
             {% endfor %}
           {% endfor %}
+            </tbody>
+          </table>
 
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h2 id="stats">Statistics</h2>
@@ -348,7 +371,7 @@
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-lite/2.4.3/vega-lite.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.13.2/vega-embed.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"|get_resource_as_string }}</script>
-
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"| get_resource_as_string }}</script>
 
     <!-- Icons -->
     <script>
@@ -526,7 +549,45 @@
 
       $(".vega-actions a").addClass("btn btn-outline-secondary");
       $(".vega-actions").addClass("btn-group");
-      $("#loading-screen").hide();
+
+      // add thumbnails
+      {% for cat, catresults in results|dictsort %}
+        {% for res in catresults %}
+          $("#{{ res.id }}").attr("href", "{{ res.data_uri }}");
+          {% if res.is_img %}
+          var data_uri = "{{ res.png_uri }}";
+          var anchor = $(
+            '<a>',
+            {
+              href: data_uri,
+              "data-toggle": "lightbox",
+              "data-gallery": "results",
+              "data-title": "{{ res.name }}",
+              "data-footer": "This is a preview. Download original file via the table."
+            }
+          );
+          anchor.append($(
+            '<img>',
+            {
+              id:'{{ res.id }}-thumbnail',
+              src: data_uri,
+              width: 200
+            }
+          ));
+          $("#{{ res.id }}-preview").append(anchor);
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+
+      $(document).on('click', '[data-toggle="lightbox"]', function(event) {
+                event.preventDefault();
+                $(this).ekkoLightbox();
+            });
+
+      // Give the DOM some time to render, and then hide loading screen.
+      setTimeout(function(){
+         $("#loading-screen").hide();
+      }, 5000);
     </script>
   </body>
 </html>
