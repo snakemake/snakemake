@@ -9,6 +9,7 @@ import signal
 import marshal
 import pickle
 import json
+import time
 from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse, count
@@ -160,10 +161,12 @@ class Persistence:
         params = self._params(job)
         shellcmd = job.shellcmd
         conda_env = self._conda_env(job)
+        fallback_time = time.time()
         for f in job.expanded_output:
             rec_path = self._record_path(self._metadata_path, f)
             starttime = (os.path.getmtime(rec_path)
                          if os.path.exists(rec_path) else None)
+            endtime = (f.mtime if os.path.exists(f) else fallback_time)
             self._record(self._metadata_path, {
                 "version": version,
                 "code": code,
@@ -174,7 +177,7 @@ class Persistence:
                 "shellcmd": shellcmd,
                 "incomplete": False,
                 "starttime": starttime,
-                "endtime": f.mtime,
+                "endtime": endtime,
                 "job_hash": hash(job),
                 "conda_env": conda_env,
                 "singularity_img_url": job.singularity_img_url

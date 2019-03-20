@@ -499,7 +499,7 @@ _wildcard_regex = re.compile(
     """, re.VERBOSE)
 
 
-def wait_for_files(files, latency_wait=3, force_stay_on_remote=False):
+def wait_for_files(files, latency_wait=3, force_stay_on_remote=False, ignore_pipe=False):
     """Wait for given files to be present in filesystem."""
     files = list(files)
     def get_missing():
@@ -509,7 +509,7 @@ def wait_for_files(files, latency_wait=3, force_stay_on_remote=False):
                     if (isinstance(f, _IOFile) and
                        f.is_remote and
                        (force_stay_on_remote or f.should_stay_on_remote))
-                    else os.path.exists(f))]
+                    else os.path.exists(f) if not (is_flagged(f, "pipe") and ignore_pipe) else True)]
 
     missing = get_missing()
     if missing:

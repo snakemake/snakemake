@@ -379,7 +379,8 @@ class DAG:
             try:
                 wait_for_files(expanded_output,
                                latency_wait=wait,
-                               force_stay_on_remote=force_stay_on_remote)
+                               force_stay_on_remote=force_stay_on_remote,
+                               ignore_pipe=True)
             except IOError as e:
                 raise MissingOutputException(str(e) + "\nThis might be due to "
                 "filesystem latency. If that is the case, consider to increase the "
@@ -568,7 +569,10 @@ class DAG:
 
     def jobid(self, job):
         """Return job id of given job."""
-        return self._jobid[job]
+        if job.is_group():
+            return job.jobid
+        else:
+            return self._jobid[job]
 
     def update(self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False):
         """ Update the DAG by adding given jobs and their dependencies. """
