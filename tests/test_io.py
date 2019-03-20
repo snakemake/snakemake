@@ -1,4 +1,5 @@
-from snakemake.io import _wildcard_regex
+from snakemake.io import _wildcard_regex, expand
+from snakemake.exceptions import WildcardError
 
 
 def test_wildcard_regex():
@@ -31,3 +32,27 @@ def test_wildcard_regex():
 
     # This used to be very slow with an older version of the regex
     assert matches('{w, long constraint without closing brace') == []
+
+
+def test_expand():
+    wildcards = {'a': [1, 2], 'b': [3, 4], 'c': [5]}
+
+    # each provided wildcard is used in the filepattern
+    assert sorted(expand('{a}{b}{c}', **wildcards)) == sorted(['135',
+                                                               '145',
+                                                               '235',
+                                                               '245'])
+
+    # redundant wildcards are provided
+    assert sorted(expand('{a}{c}', **wildcards)) == sorted(['15',
+                                                            '25'])
+
+    # missing wildcards (should fail)
+    try:
+        expand('{a}{d}', **wildcards)
+        assert False
+    except WildcardError:
+        pass
+
+    # do not expand on strings (and 'non iterables')
+    assert expand('{x}{y}', **{'x': "Hello, ", 'y': 'world!'}) == ['Hello, world!']
