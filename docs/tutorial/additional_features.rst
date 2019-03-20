@@ -236,6 +236,40 @@ The **DRMAA support** can be activated by invoking Snakemake as follows:
 If available, **DRMAA is preferable over the generic cluster modes** because it provides better control and error handling.
 To support additional cluster specific parametrization, a Snakefile can be complemented by a :ref:`snakefiles-cluster_configuration` file.
 
+Using --cluster-status
+::::::::::::::::::::::
+
+Sometimes you need specific detection to determine if a cluster job completed successfully, failed or is still running.
+Error detection with ``--cluster`` can be improved for edge cases such as timeouts and jobs exceeding memory that are silently terminated by 
+the queueing system.
+This can be achieved with the ``--cluster-status`` option. This takes as input a script and passes a job id as first argument.
+
+The following (simplified) script detects the job status on a given SLURM cluster (>= 14.03.0rc1 is required for ``--parsable``).
+
+.. code:: python
+
+    #!/usr/bin/env python
+    import subprocess
+    import sys
+
+    jobid = sys.argv[1]
+
+    output = str(subprocess.check_output("sacct -j %s --format State --noheader | head -1 | awk '{print $1}'" % jobid, shell=True).strip())
+
+    running_status=["PENDING", "CONFIGURING", "COMPLETING", "RUNNING", "SUSPENDED"]
+    if "COMPLETED" in output:
+      print("success")
+    elif any(r in output for r in running_status):
+      print("running")
+    else:
+      print("failed")
+
+To use this script call snakemake similar to below, where ``status.py`` is the script above.
+
+.. code:: console
+
+    $ snakemake all --cluster "sbatch --cpus-per-task=1 --parsable" --cluster-status ./status.py
+
 
 Constraining wildcards
 ::::::::::::::::::::::
