@@ -771,11 +771,11 @@ class Workflow:
             self._workdir = workdir
             os.chdir(workdir)
 
-    def configfile(self, jsonpath):
-        """ Update the global config with the given dictionary. """
+    def configfile(self, fp):
+        """ Update the global config with data from the given file. """
         global config
-        self.configfiles.append(jsonpath)
-        c = snakemake.io.load_configfile(jsonpath)
+        self.configfiles.append(fp)
+        c = snakemake.io.load_configfile(fp)
         update_config(config, c)
         update_config(config, self.overwrite_config)
 
