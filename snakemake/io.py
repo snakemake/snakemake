@@ -779,9 +779,6 @@ def expand(*args, **wildcards):
     if isinstance(filepatterns, str):
         filepatterns = [filepatterns]
 
-    # remove unused wildcards to avoid duplicate filepatterns
-    wildcards = {k:v for k, v in wildcards.items() if k in re.findall('{([^}]+)}', ''.join(filepatterns))}
-
     def flatten(wildcards):
         for wildcard, values in wildcards.items():
             if isinstance(values, str) or not isinstance(values, collections.Iterable):
