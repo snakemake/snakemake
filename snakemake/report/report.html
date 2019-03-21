@@ -286,7 +286,7 @@
             </thead>
             <tbody>
           {% for cat, catresults in results|dictsort %}
-            {% if cat %}
+            {% if cat is not none %}
               <tr>
                 <th id="results-{{ cat|replace(" ", "_") }}" colspan=4>{{ cat }}</th>
               </tr>
@@ -294,7 +294,7 @@
             {% for res in catresults %}
               <tr>
                 <th>
-                  <a id="{{ res.id }}" download="{{ res.name }}">{{ res.name }}</a>
+                  <a id="{{ res.id }}" href="#" download="{{ res.name }}">{{ res.name }}</a>
                 </th>
                 <td style="white-space:nowrap;">{{ res.size|filesizeformat }}</td>
                 <td>{{ res.caption }}</td>
@@ -372,14 +372,13 @@
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.13.2/vega-embed.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"|get_resource_as_string }}</script>
-    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://raw.githubusercontent.com/eligrey/FileSaver.js/2.0.0/src/FileSaver.js"|get_resource_as_string }}</script>
 
     <!-- Icons -->
     <script>
       feather.replace()
     </script>
 
-    <!-- Graphs -->
     <script>
       var rulegraph_spec = {
         "$schema": "https://vega.github.io/schema/vega/v3.json",
@@ -554,12 +553,10 @@
       // add thumbnails
       {% for cat, catresults in results|dictsort %}
         {% for res in catresults %}
-        $("#{{ res.id }}").click(function() {
-	    FileSaver.saveas("{{ res.data_uri }}", "{{ res.name }}");
-        });
-	
-	.attr("href", "{{ res.data_uri }}");
-          
+          $("#{{ res.id }}").click(function(e) {
+            saveAs('{{ res.data_uri }}', '{{ res.name }}');
+          });
+
           {% if res.is_img %}
           var data_uri = "{{ res.png_uri }}";
           var anchor = $(
