@@ -557,7 +557,7 @@
             saveAs('{{ res.data_uri }}', '{{ res.name }}');
           });
 
-          {% if res.is_img %}
+          {% if res.png_uri is not none %}
           var data_uri = "{{ res.png_uri }}";
           var anchor = $(
             '<a>',

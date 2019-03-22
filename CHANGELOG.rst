@@ -1,3 +1,14 @@
+[5.4.4] - 2019-03-22
+====================
+
+Changed
+-------
+- Vastly improved performance of HTML reports generated with --report, via a more efficient encoding of dara-uri based download links.
+- Tighter layout, plus thumbnails and a lightbox for graphical results in HTML reports.
+- Bug fix for pipe groups.
+- Updated docs.
+- Better error handling in DRMAA executor.
+
 [5.4.3] - 2019-03-11
 ====================
 
