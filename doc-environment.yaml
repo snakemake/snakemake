@@ -1,0 +1,22 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python >=3.5
+  - datrie
+  - wrapt
+  - pyyaml
+  - requests
+  - appdirs
+  - docutils
+  - ratelimiter
+  - configargparse
+  - jsonschema
+  - gitpython
+  - sphinx
+  - pip:
+    - sphinxcontrib-napoleon
+  - sphinx-argparse
+  - sphinx_rtd_theme
+  - docutils==0.12
+  - recommonmark
