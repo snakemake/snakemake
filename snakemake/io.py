@@ -335,6 +335,8 @@ class _IOFile(str):
             logger.info("Finished upload.")
 
     def prepare(self):
+        from snakemake.utils import ON_WINDOWS
+
         path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
         dir = os.path.dirname(path_until_wildcard)
         if len(dir) > 0:
@@ -345,7 +347,7 @@ class _IOFile(str):
                 if e.errno != 17:
                     raise e
 
-        if is_flagged(self._file, "pipe") and platform.system() != "Windows":
+        if is_flagged(self._file, "pipe") and ON_WINDOWS:
             os.mkfifo(self._file)
 
     def protect(self):
