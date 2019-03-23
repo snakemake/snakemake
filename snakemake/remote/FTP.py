@@ -13,7 +13,7 @@ from contextlib import contextmanager
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import FTPFileException, WorkflowError
-from snakemake.utils import ON_WINDOWS
+from snakemake.utils import os_sync
 
 try:
     # third-party modules
@@ -185,7 +185,7 @@ class RemoteObject(DomainObject):
                 except:
                     pass
                 ftpc.download(source=self.remote_path, target=self.local_path)
-                os.sync() if not ON_WINDOWS else None # ensure flush to disk
+                os_sync()# ensure flush to disk
             else:
                 raise FTPFileException("The file does not seem to exist remotely: %s" % self.local_file())
 

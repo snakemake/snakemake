@@ -496,6 +496,12 @@ def argvquote(arg, force=True):
         cmdline += +n_backslashes * 2 * "\\" + '"'
         return cmdline
 
+def os_sync():
+    """Ensure flush to disk"""
+    if not ON_WINDOWS:
+        os.sync()
+
+
 def find_bash_on_windows():
     """
     Find the path to a usable bash on windows.

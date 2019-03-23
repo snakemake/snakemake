@@ -14,7 +14,7 @@ from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError
 from snakemake.common import lazy_property
 from snakemake.logging import logger
-from snakemake.utils import ON_WINDOWS
+from snakemake.utils import os_sync
 
 
 if not shutil.which("gfal-copy"):
@@ -124,7 +124,7 @@ class RemoteObject(AbstractRemoteObject):
             self._gfal("copy", "-p", "-f", "-n", "4", "-t", "0", "-T", "0",
                        source, target)
 
-            os.sync() if not ON_WINDOWS else None
+            os_sync()
             return self.local_file()
         return None
 

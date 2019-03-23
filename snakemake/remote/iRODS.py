@@ -13,7 +13,7 @@ from pytz import timezone
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject
 from snakemake.exceptions import WorkflowError
-from snakemake.utils import ON_WINDOWS
+from snakemake.utils import os_sync
 
 try:
     # third-party modules
@@ -162,7 +162,7 @@ class RemoteObject(AbstractRemoteObject):
             # get object and change timestamp
             obj = self._irods_session.data_objects.get(self.remote_path, self.local_path, options=opt)
             os.utime(self.local_path, (self.atime(), self.mtime()))
-            os.sync() if not ON_WINDOWS else None
+            os_sync()
         else:
             raise WorkflowError("The file does not seem to exist remotely: %s" % self.local_file())
 
