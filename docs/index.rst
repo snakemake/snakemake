@@ -30,7 +30,6 @@ Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
-To get a first impression, see our `introductory slides <https://slides.com/johanneskoester/snakemake-short>`_ or watch the `live demo <https://youtu.be/hPrXcUUp70Y>`_.
 
 .. _manual-quick_example:
 
@@ -73,8 +72,9 @@ Rules describe how to create **output files** from **input files**.
 Getting started
 ---------------
 
+To get a first impression, see our `introductory slides <https://slides.com/johanneskoester/snakemake-short>`_ or watch the `live demo <https://youtu.be/hPrXcUUp70Y>`_.
 News about Snakemake are published via `Twitter <https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester>`_.
-To get started, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
+To learn Snakemake, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
 
 .. _main-support:
 
