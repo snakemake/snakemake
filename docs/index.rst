@@ -72,7 +72,7 @@ Rules describe how to create **output files** from **input files**.
 Getting started
 ---------------
 
-To get a first impression, see our `introductory slides <https://slides.com/johanneskoester/snakemake-short>`_ or watch the `live demo <https://youtu.be/hPrXcUUp70Y>`_.
+To get a first impression, see our `introductory slides <https://slides.com/johanneskoester/snakemake-short>`_ or watch the `live demo video <https://youtu.be/hPrXcUUp70Y>`_.
 News about Snakemake are published via `Twitter <https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester>`_.
 To learn Snakemake, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
 
