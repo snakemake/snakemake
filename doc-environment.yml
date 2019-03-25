@@ -1,6 +1,5 @@
 channels:
   - conda-forge
-  - bioconda
 dependencies:
   - python >=3.5
   - datrie
