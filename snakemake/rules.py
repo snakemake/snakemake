@@ -391,7 +391,7 @@ class Rule:
             # Note that "remote", "dynamic", and "expand" are valid for both inputs and outputs.
             if isinstance(item, AnnotatedString):
                 for flag in item.flags:
-                    if not output and flag in ["protected", "temp", "temporary", "directory", "touch", "pipe", "report"]:
+                    if not output and flag in ["protected", "temp", "temporary", "directory", "touch", "pipe"]:
                         logger.warning("The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(flag, self))
                     if output and flag in ["ancient"]:
                         logger.warning("The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(flag, self))
