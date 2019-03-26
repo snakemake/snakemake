@@ -1,7 +1,0 @@
-version: 2
-
-sphinx:
-  configuration: docs/conf.py
-
-conda:
-  environment: doc-environment.yml
