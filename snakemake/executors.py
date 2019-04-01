@@ -319,6 +319,7 @@ class CPUExecutor(RealExecutor):
         futures = [self.run_single_job(j) for j in job]
 
         while True:
+            k = 0
             for f in futures:
                 if f.done():
                     ex = f.exception()
@@ -330,7 +331,9 @@ class CPUExecutor(RealExecutor):
                             shell.kill(j.jobid)
                         raise ex
                     else:
-                        return
+                        k += 1
+            if k == len(futures):
+                return
             time.sleep(1)
 
     def spawn_job(self, job):

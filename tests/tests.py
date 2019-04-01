@@ -840,3 +840,6 @@ def test_issue1085():
 
 def test_issue1083():
     run(dpath("test_issue1083"), use_singularity=True)
+
+def test_pipes2():
+    run(dpath("test_pipes2"))
