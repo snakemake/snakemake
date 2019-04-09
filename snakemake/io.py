@@ -779,6 +779,10 @@ def expand(*args, **wildcards):
     if isinstance(filepatterns, str):
         filepatterns = [filepatterns]
 
+    # remove unused wildcards to avoid duplicate filepatterns
+    wildcards = {filepattern: {k:v for k, v in wildcards.items() if k in re.findall('{([^}\.[!:]+)', filepattern)}
+                 for filepattern in filepatterns}
+
     def flatten(wildcards):
         for wildcard, values in wildcards.items():
             if isinstance(values, str) or not isinstance(values, collections.Iterable):
@@ -787,8 +791,8 @@ def expand(*args, **wildcards):
 
     try:
         return [filepattern.format(**comb)
-                for comb in map(dict, combinator(*flatten(wildcards)))
-                for filepattern in filepatterns]
+                for filepattern in filepatterns
+                for comb in map(dict, combinator(*flatten(wildcards[filepattern])))]
     except KeyError as e:
         raise WildcardError("No values given for wildcard {}.".format(e))
 
