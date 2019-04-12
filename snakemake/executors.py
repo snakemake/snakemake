@@ -366,6 +366,8 @@ class CPUExecutor(RealExecutor):
             error_callback(job)
         except (Exception, BaseException) as ex:
             self.print_job_error(job)
+            if not (job.is_script or job.shellcmd):
+                print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
     def handle_job_success(self, job):
