@@ -34,7 +34,7 @@ from snakemake.utils import format, Unformattable, makedirs
 from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
-from snakemake.exceptions import ClusterJobException, ProtectedOutputException, WorkflowError, ImproperShadowException, SpawnedJobError
+from snakemake.exceptions import ProtectedOutputException, WorkflowError, ImproperShadowException, SpawnedJobError
 from snakemake.common import Mode, __version__, get_container_image, get_uuid
 
 
@@ -366,7 +366,6 @@ class CPUExecutor(RealExecutor):
             error_callback(job)
         except (Exception, BaseException) as ex:
             self.print_job_error(job)
-            print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
     def handle_job_success(self, job):
@@ -593,6 +592,12 @@ class ClusterExecutor(RealExecutor):
         # By removing it again, we make sure that it is gone on the host FS.
         self.workflow.persistence.cleanup(job)
 
+    def print_cluster_job_error(self, job_info, jobid):
+        logger.error("Error executing rule {} on cluster (jobid: {}, external: "
+                     "{}, jobscript: {}). For detailed error see the cluster "
+                     "log.".format(job_info.job.rule.name,
+                                   jobid, job_info.jobid, job_info.jobscript))
+
 
 GenericClusterJob = namedtuple("GenericClusterJob", "job jobid callback error_callback jobscript jobfinished jobfailed")
 
@@ -777,6 +782,9 @@ class GenericClusterExecutor(ClusterExecutor):
                             active_job.job,
                             cluster_jobid=active_job.jobid if active_job.jobid else "unknown",
                         )
+                        self.print_cluster_job_error(
+                            active_job,
+                            self.dag.jobid(active_job.job))
                         active_job.error_callback(active_job.job)
                     else:
                         still_running.append(active_job)
@@ -875,10 +883,9 @@ class SynchronousClusterExecutor(ClusterExecutor):
                         # job failed
                         os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
-                        print_exception(
-                            ClusterJobException(
-                                active_job, self.dag.jobid(active_job.job)),
-                            self.workflow.linemaps)
+                        self.print_cluster_job_error(
+                            active_job,
+                            self.dag.jobid(active_job.job))
                         active_job.error_callback(active_job.job)
             with self.lock:
                 self.active_jobs.extend(still_running)
@@ -1017,9 +1024,9 @@ class DRMAAExecutor(ClusterExecutor):
                         active_job.callback(active_job.job)
                     else:
                         self.print_job_error(active_job.job)
-                        print_exception(
-                            ClusterJobException(active_job, self.dag.jobid(active_job.job)),
-                            self.workflow.linemaps)
+                        self.print_cluster_job_error(
+                            active_job,
+                            self.dag.jobid(active_job.job))
                         active_job.error_callback(active_job.job)
             with self.lock:
                 self.active_jobs.extend(still_running)

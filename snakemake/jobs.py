@@ -836,7 +836,8 @@ class Job(AbstractJob):
                          log=list(self.log),
                          conda_env=self.conda_env.path if self.conda_env else None,
                          aux=kwargs,
-                         indent=indent)
+                         indent=indent,
+                         shellcmd=self.shellcmd)
         if msg is not None:
             logger.error(msg)
 

@@ -286,9 +286,11 @@ class Logger:
             if msg["output"]:
                 self.logger.error(indent("    output: {}".format(", ".join(msg["output"]))))
             if msg["log"]:
-                self.logger.error(indent("    log: {}".format(", ".join(msg["log"]))))
+                self.logger.error(indent("    log: {} (check log file(s) for error message)".format(", ".join(msg["log"]))))
             if msg["conda_env"]:
                 self.logger.error(indent("    conda-env: {}".format(msg["conda_env"])))
+            if msg["shellcmd"]:
+                self.logger.error(indent("    shell:\n        {}".format(msg["shellcmd"])))
             for item in msg["aux"].items():
                 self.logger.error(indent("    {}: {}".format(*item)))
             self.logger.error("")
