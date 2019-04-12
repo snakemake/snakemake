@@ -4,6 +4,7 @@
 Changed
 -------
 - Fixed a bug with pipe output.
+- Cleaned up error output.
 
 [5.4.4] - 2019-03-22
 ====================
