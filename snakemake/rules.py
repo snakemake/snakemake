@@ -672,7 +672,8 @@ class Rule:
                 if isinstance(p, str):
                     return apply_wildcards(p, wildcards)
                 if isinstance(p, list):
-                    return [(apply_wildcards(v) if isinstance(v, str) else v)
+                    return [(apply_wildcards(v, wildcards)
+                             if isinstance(v, str) else v)
                             for v in p]
             return p
 
