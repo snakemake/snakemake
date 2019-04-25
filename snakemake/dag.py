@@ -950,7 +950,7 @@ class DAG:
                 group = candidate_groups.pop()
             else:
                 # generate a random unique group name
-                group = uuid.uuid4()
+                group = str(uuid.uuid4())
             job.group = group
             for j in all_depending:
                 j.group = group
