@@ -1422,6 +1422,14 @@ def main(argv=None):
               "is set.", file=sys.stderr)
         sys.exit(1)
 
+    if args.kubernetes and (not args.default_remote_provider or
+                            not args.default_remote_prefix):
+        print("Error: --kubernetes must be combined with "
+              "--default-remote-provider and --default-remote-prefix, see "
+              "https://snakemake.readthedocs.io/en/stable/executable.html"
+              "#executing-a-snakemake-workflow-via-kubernetes", file=sys.stderr)
+        sys.exit(1)
+
     if args.delete_all_output and args.delete_temp_output:
         print("Error: --delete-all-output and --delete-temp-output are mutually exclusive.", file=sys.stderr)
         sys.exit(1)
