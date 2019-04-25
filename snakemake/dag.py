@@ -1123,14 +1123,17 @@ class DAG:
 
     def replace_job(self, job, newjob, recursive=True):
         """Replace given job with new job."""
-        if job in self.targetjobs:
-            self.targetjobs.remove(job)
-            self.targetjobs.add(newjob)
+        add_to_targetjobs = job in self.targetjobs
+
         depending = list(self.depending[job].items())
         if self.finished(job):
             self._finished.add(newjob)
 
         self.delete_job(job, recursive=recursive)
+
+        if add_to_targetjobs:
+            self.targetjobs.add(newjob)
+
         self.update([newjob])
 
         logger.debug("Replace {} with dynamic branch {}".format(job, newjob))
