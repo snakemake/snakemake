@@ -290,7 +290,8 @@ class Logger:
             if msg["conda_env"]:
                 self.logger.error(indent("    conda-env: {}".format(msg["conda_env"])))
             if msg["shellcmd"]:
-                self.logger.error(indent("    shell:\n        {}".format(msg["shellcmd"])))
+                self.logger.error(indent("    shell:\n        {}\n        (exited with non-zero exit code)".format(msg["shellcmd"])))
+
             for item in msg["aux"].items():
                 self.logger.error(indent("    {}: {}".format(*item)))
             self.logger.error("")
