@@ -367,7 +367,7 @@ def snakemake(snakefile,
             except ImportError as e:
                 raise WorkflowError("Unknown default remote provider.")
             if rmt.RemoteProvider.supports_default:
-                _default_remote_provider = rmt.RemoteProvider()
+                _default_remote_provider = rmt.RemoteProvider(keep_local=True)
             else:
                 raise WorkflowError("Remote provider {} does not (yet) support to "
                                     "be used as default provider.")
