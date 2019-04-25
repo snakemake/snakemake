@@ -668,8 +668,12 @@ class Rule:
 
     def expand_params(self, wildcards, input, output, resources, omit_callable=False):
         def concretize_param(p, wildcards, is_from_callable):
-            if not is_from_callable and isinstance(p, str):
-                return apply_wildcards(p, wildcards)
+            if not is_from_callable:
+                if isinstance(p, str):
+                    return apply_wildcards(p, wildcards)
+                if isinstance(p, list):
+                    return [(apply_wildcards(v) if isinstance(v, str) else v)
+                            for v in p]
             return p
 
         params = Params()

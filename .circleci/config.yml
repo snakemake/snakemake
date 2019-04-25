@@ -60,7 +60,7 @@ jobs:
             $GCLOUD config set project snakemake-testing
       - run:
           name: Run tests
-          no_output_timeout: 30m
+          no_output_timeout: 60m
           command: |
             export GCLOUD_CLUSTER=t-`uuidgen`
             export GOOGLE_APPLICATION_CREDENTIALS=${HOME}/gcloud-service-key.json
