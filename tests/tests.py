@@ -697,6 +697,7 @@ def gcloud_cluster():
 
 
 @gcloud
+@pytest.mark.skip(reason="reenable once we have figured out how to fail if available core hours per month are exceeded")
 @pytest.mark.xfail
 def test_gcloud_plain(gcloud_cluster):
     gcloud_cluster.reset()
