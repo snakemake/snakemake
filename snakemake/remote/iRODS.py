@@ -51,8 +51,8 @@ class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
 
-    def __init__(self, *args, stay_on_remote=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+    def __init__(self, *args, stay_on_remote=False, keep_local=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, keep_local=keep_local, **kwargs)
         self._irods_session = _irods_session(*args, **kwargs)
 
     def remote_interface(self):
@@ -110,7 +110,7 @@ class RemoteObject(AbstractRemoteObject):
                 dt = self._convert_time(obj.modify_time, self._timezone)
                 utc2 = self._convert_time(utc)
                 mtime = (dt - utc2).total_seconds()
-            
+
             return int(mtime)
         else:
             raise WorkflowError("The file does not seem to exist remotely: %s" % self.local_file())
@@ -140,7 +140,7 @@ class RemoteObject(AbstractRemoteObject):
         """ Returns true of the file is newer than time, or if it is
             a symlink that points to a file newer than time. """
         return self.mtime() > time
-        
+
     def size(self):
         if self.exists():
             obj = self._irods_session.data_objects.get(self.remote_path)
