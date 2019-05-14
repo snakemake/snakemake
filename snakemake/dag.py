@@ -1376,11 +1376,12 @@ class DAG:
 
         # color rules
         def hsv_to_htmlhexrgb(h, s, v):
+            """Convert hsv colors to hex-encoded rgb colors usable by html."""
             import colorsys
             hex_r, hex_g, hex_b = (
                 round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v)
             )
-            return f"#{hex_r:0>2x}{hex_g:0>2x}{hex_b:0>2x}"
+            return f"#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}"
 
         huefactor = 2 / (3 * len(self.rules))
         rulecolor = {
