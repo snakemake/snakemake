@@ -1365,7 +1365,6 @@ class DAG:
             """).format(items="\n".join(nodes + edges))
 
     def filegraph_dot(self,
-                      graph,
                       node2rule=lambda node: node,
                       node2style=lambda node: "rounded",
                       node2label=lambda node: node):
@@ -1401,7 +1400,7 @@ class DAG:
             output_files = [repr(f).strip("'") for f in node._output]
             # TODO: Add HEX RBG for bordercolor
             html_node = [
-                f'{node_id} [ shape=none, margin=0, label=<<table border="1" bordercolor="{color}" cellspacing="0" cellborder="0">',
+                f'{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="0" cellborder="0">',
                 f'<tr><td colspan="2">',
                 f'<b>{node.name}</b>',
                 f'</td></tr>',
