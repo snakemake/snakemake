@@ -53,6 +53,7 @@ def snakemake(snakefile,
               debug_dag=False,
               printdag=False,
               printrulegraph=False,
+              printfilegraph=False,
               printd3dag=False,
               nocolor=False,
               quiet=False,
@@ -152,6 +153,7 @@ def snakemake(snakefile,
         printshellcmds (bool):      print the shell command of each job (default False)
         printdag (bool):            print the dag in the graphviz dot language (default False)
         printrulegraph (bool):      print the graph of rules in the graphviz dot language (default False)
+        printfilegraph (bool):      print the graph of rules with their input and output files in the graphviz dot language (default False)
         printd3dag (bool):          print a D3.js compatible JSON representation of the DAG (default False)
         nocolor (bool):             do not print colored output (default False)
         quiet (bool):               do not print any default job information (default False)
@@ -301,7 +303,7 @@ def snakemake(snakefile,
     use_threads = force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
     if not keep_logger:
         stdout = (
-            (dryrun and not (printdag or printd3dag or printrulegraph)) or
+            (dryrun and not (printdag or printd3dag or printrulegraph or printfilegraph)) or
             listrules or list_target_rules or list_resources
         )
         setup_logger(handler=log_handler,
@@ -491,6 +493,7 @@ def snakemake(snakefile,
                     printshellcmds=printshellcmds,
                     printreason=printreason,
                     printrulegraph=printrulegraph,
+                    printfilegraph=printfilegraph,
                     printdag=printdag,
                     cluster=cluster,
                     cluster_sync=cluster_sync,
@@ -869,6 +872,16 @@ def get_argument_parser(profile=None):
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
         "Recommended use on Unix systems: snakemake --rulegraph | dot | display")
+    group_utils.add_argument(
+        "--filegraph",
+        action="store_true",
+        help="Do not execute anything and print the dependency graph "
+        "of rules with their input and output files in the dot language. "
+        "This is an intermadiate solution between above DAG of jobs and the rule graph. "
+        "Note that each rule is displayed once, hence the displayed graph will be "
+        "cyclic if a rule appears in several steps of the workflow. "
+        "Use this if above option leads to a DAG that is too large. "
+        "Recommended use on Unix systems: snakemake --filegraph | dot | display")
     group_utils.add_argument("--d3dag",
                         action="store_true",
                         help="Print the DAG in D3.js compatible JSON format.")
@@ -1494,6 +1507,7 @@ def main(argv=None):
                             debug_dag=args.debug_dag,
                             printdag=args.dag,
                             printrulegraph=args.rulegraph,
+                            printfilegraph=args.filegraph,
                             printd3dag=args.d3dag,
                             touch=args.touch,
                             forcetargets=args.force,

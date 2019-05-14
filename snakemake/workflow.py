@@ -271,6 +271,7 @@ class Workflow:
                 immediate_submit=False,
                 ignore_ambiguity=False,
                 printrulegraph=False,
+                printfilegraph=False,
                 printd3dag=False,
                 drmaa=None,
                 drmaa_log_dir=None,
@@ -398,7 +399,7 @@ class Workflow:
             omitrules=omitrules,
             ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
-            ignore_incomplete=ignore_incomplete or printdag or printrulegraph,
+            ignore_incomplete=ignore_incomplete or printdag or printrulegraph or printfilegraph,
             notemp=notemp,
             keep_remote_local=keep_remote_local)
 
@@ -408,9 +409,10 @@ class Workflow:
             conda_prefix=self.conda_prefix,
             singularity_prefix=self.singularity_prefix,
             shadow_prefix=self.shadow_prefix,
-            warn_only=dryrun or printrulegraph or printdag or summary or archive or
-            list_version_changes or list_code_changes or list_input_changes or
-            list_params_changes or list_untracked or delete_all_output or delete_temp_output)
+            warn_only=dryrun or printrulegraph or printfilegraph or printdag or
+            summary or archive or list_version_changes or list_code_changes or 
+            list_input_changes or list_params_changes or list_untracked or
+            delete_all_output or delete_temp_output)
 
         if cleanup_metadata:
             for f in cleanup_metadata:
@@ -451,7 +453,7 @@ class Workflow:
             self.persistence.cleanup_shadow()
             return True
 
-        if self.subworkflows and not printdag and not printrulegraph:
+        if self.subworkflows and not printdag and not printrulegraph and not printfilegraph:
             # backup globals
             globals_backup = dict(self.globals)
             # execute subworkflows
@@ -521,6 +523,9 @@ class Workflow:
             return True
         elif printrulegraph:
             print(dag.rule_dot())
+            return True
+        elif printfilegraph:
+            print(dag.filegraph_dot())
             return True
         elif summary:
             print("\n".join(dag.summary(detailed=False)))

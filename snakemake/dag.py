@@ -9,7 +9,7 @@ import textwrap
 import time
 import tarfile
 from collections import defaultdict, Counter
-from itertools import chain, combinations, filterfalse, product, groupby
+from itertools import chain, combinations, filterfalse, product, groupby, zip_longest
 from functools import partial, lru_cache
 from inspect import isfunction, ismethod
 from operator import itemgetter, attrgetter
@@ -1352,6 +1352,79 @@ class DAG:
                  for node in graph]
         # calculate edges
         edges = [edge_markup(ids[dep], ids[node])
+                 for node, deps in graph.items() for dep in deps]
+
+        return textwrap.dedent("""\
+            digraph snakemake_dag {{
+                graph[bgcolor=white, margin=0];
+                node[shape=box, style=rounded, fontname=sans, \
+                fontsize=10, penwidth=2];
+                edge[penwidth=2, color=grey];
+            {items}
+            }}\
+            """).format(items="\n".join(nodes + edges))
+
+    def filegraph_dot(self,
+                      graph,
+                      node2rule=lambda node: node,
+                      node2style=lambda node: "rounded",
+                      node2label=lambda node: node):
+
+        # TODO this is code from the rule_dot method.
+        graph = defaultdict(set)
+        for job in self.jobs:
+            graph[job.rule].update(dep.rule for dep in self.dependencies[job])
+
+        # color rules
+        def hsv_to_htmlhexrgb(h, s, v):
+            import colorsys
+            hex_r, hex_g, hex_b = (
+                round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v)
+            )
+            return f"#{hex_r:0>2x}{hex_g:0>2x}{hex_b:0>2x}"
+
+        huefactor = 2 / (3 * len(self.rules))
+        rulecolor = {
+            rule: hsv_to_htmlhexrgb(i*huefactor, 0.6, 0.85)
+            for i, rule in enumerate(self.rules)
+        }
+
+        # markup
+        edge_markup = "\t{} -> {}".format
+
+        # node ids
+        ids = {node: i for i, node in enumerate(graph)}
+
+        def html_node(node_id, node, color):
+            input_files = [repr(f).strip("'") for f in node._input]
+            # TODO need a way to handle lambda input functions
+            output_files = [repr(f).strip("'") for f in node._output]
+            # TODO: Add HEX RBG for bordercolor
+            html_node = [
+                f'{node_id} [ shape=none, margin=0, label=<<table border="1" bordercolor="{color}" cellspacing="0" cellborder="0">',
+                f'<tr><td colspan="2">',
+                f'<b>{node.name}</b>',
+                f'</td></tr>',
+                f'<tr><td> <u>input</u> </td> <td> <u>output</u> </td> </tr>',
+            ]
+            for in_file, out_file in zip_longest(input_files, output_files, fillvalue=""):
+                # TODO: generalize this. with a replace table?
+                # used to escape
+                in_file = in_file.replace("<", "&lt;")
+                in_file = in_file.replace(">", "&gt;")
+                html_node.extend(["<tr>", f'<td align="left"> {in_file} </td>', f'<td align="left"> {out_file} </td>',"</tr>"])
+            html_node.append("</table>>]")
+            return "\n".join(html_node)
+
+        nodes = [
+            html_node(
+                ids[node],
+                node,
+                rulecolor[node2rule(node)],
+            )
+            for node in graph]
+        # calculate edges
+        edges = [edge_markup(ids[dep], ids[node], ids[dep], ids[node])
                  for node, deps in graph.items() for dep in deps]
 
         return textwrap.dedent("""\
