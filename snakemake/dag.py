@@ -1404,8 +1404,9 @@ class DAG:
                 f'<tr><td colspan="2">',
                 f'<b>{node.name}</b>',
                 f'</td></tr>',
-                f'<tr><td> <u>input</u> </td> <td> <u>output</u> </td> </tr>',
+                f'<tr><td> {"<u>input</u>" if input_files else ""} </td> <td> {"<u>output</u>" if output_files else ""} </td> </tr>',
             ]
+            
             for in_file, out_file in zip_longest(input_files, output_files, fillvalue=""):
                 # replace '<' and '>' in input file names, for example for
                 # string representations of lambda functions, which cnanot
