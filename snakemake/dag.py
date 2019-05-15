@@ -1370,11 +1370,17 @@ class DAG:
                       node2label=lambda node: node):
 
         # TODO this is code from the rule_dot method.
+        # This method could be split like there as well, however,
+        # it cannot easily reuse the _dot method, due to the different
+        # node type
         graph = defaultdict(set)
         for job in self.jobs:
             graph[job.rule].update(dep.rule for dep in self.dependencies[job])
 
-        # color rules
+        # node ids
+        ids = {node: i for i, node in enumerate(graph)}
+
+        # Compute colors for rules
         def hsv_to_htmlhexrgb(h, s, v):
             """Convert hsv colors to hex-encoded rgb colors usable by html."""
             import colorsys
@@ -1389,17 +1395,10 @@ class DAG:
             for i, rule in enumerate(self.rules)
         }
 
-        # markup
-        edge_markup = "\t{} -> {}".format
-
-        # node ids
-        ids = {node: i for i, node in enumerate(graph)}
-
         def html_node(node_id, node, color):
-            input_files = [repr(f).strip("'") for f in node._input]
             # TODO need a way to handle lambda input functions
+            input_files = [repr(f).strip("'") for f in node._input]
             output_files = [repr(f).strip("'") for f in node._output]
-            # TODO: Add HEX RBG for bordercolor
             html_node = [
                 f'{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="0" cellborder="0">',
                 f'<tr><td colspan="2">',
@@ -1408,8 +1407,11 @@ class DAG:
                 f'<tr><td> <u>input</u> </td> <td> <u>output</u> </td> </tr>',
             ]
             for in_file, out_file in zip_longest(input_files, output_files, fillvalue=""):
-                # TODO: generalize this. with a replace table?
-                # used to escape
+                # replace '<' and '>' in input file names, for example for
+                # string representations of lambda functions, which cnanot
+                # be displayed unescaped in an HTML node
+                # TODO: generalize this for all input and output files
+                # for example with a replacement table
                 in_file = in_file.replace("<", "&lt;")
                 in_file = in_file.replace(">", "&gt;")
                 html_node.extend(["<tr>", f'<td align="left"> {in_file} </td>', f'<td align="left"> {out_file} </td>',"</tr>"])
@@ -1423,7 +1425,9 @@ class DAG:
                 rulecolor[node2rule(node)],
             )
             for node in graph]
+
         # calculate edges
+        edge_markup = "\t{} -> {}".format
         edges = [edge_markup(ids[dep], ids[node], ids[dep], ids[node])
                  for node, deps in graph.items() for dep in deps]
 
