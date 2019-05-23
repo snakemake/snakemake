@@ -1423,7 +1423,6 @@ class DAG:
             html_node.append('<hr/>',)
             html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>',)
 
-
             for out_file in output_files:
                 html_node.extend(["<tr>", f'<td align="left"> {out_file} </td>'"</tr>"])
 
