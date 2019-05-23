@@ -1399,20 +1399,18 @@ class DAG:
             # TODO need a way to handle lambda input functions
             input_files = [repr(f).strip("'") for f in node._input]
             output_files = [repr(f).strip("'") for f in node._output]
-            # input_header = '<font point-size="22">&rarr;</font><u>input</u>' if input_files else ""
-            # output_header = '<u>output</u><font point-size="22">&rarr;</font>' if output_files else ""
-            input_header = '<b><font point-size="14">&rarr; input</font></b>' if input_files else ""
+            input_header = '<b><font point-size="14">&#8618; input</font></b>' if input_files else ""
             output_header = '<b><font point-size="14">output &rarr;</font></b>' if output_files else ""
             html_node = [
-                f'{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="0" cellborder="0">',
-                f'<tr><td colspan="2">',
-                f'<b><font point-size="22">{node.name}</font></b>',
+                f'{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="3" cellborder="0">',
+                f'<tr><td>',
+                f'<b><font point-size="18">{node.name}</font></b>',
                 f'</td></tr>',
                 f'<hr/>',
-                f'<tr><td> {input_header} </td> <td> {output_header} </td> </tr>',
+                f'<tr><td align="left"> {input_header} </td></tr>',
             ]
-            
-            for in_file, out_file in zip_longest(input_files, output_files, fillvalue=""):
+
+            for in_file in input_files:
                 # replace '<' and '>' in input file names, for example for
                 # string representations of lambda functions, which cnanot
                 # be displayed unescaped in an HTML node
@@ -1420,7 +1418,15 @@ class DAG:
                 # for example with a replacement table
                 in_file = in_file.replace("<", "&lt;")
                 in_file = in_file.replace(">", "&gt;")
-                html_node.extend(["<tr>", f'<td align="left"> {in_file} </td>', f'<td align="left"> {out_file} </td>',"</tr>"])
+                html_node.extend(["<tr>", f'<td align="left"> {in_file} </td>'"</tr>"])
+
+            html_node.append('<hr/>',)
+            html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>',)
+
+
+            for out_file in output_files:
+                html_node.extend(["<tr>", f'<td align="left"> {out_file} </td>'"</tr>"])
+
             html_node.append("</table>>]")
             return "\n".join(html_node)
 
