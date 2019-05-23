@@ -1399,12 +1399,17 @@ class DAG:
             # TODO need a way to handle lambda input functions
             input_files = [repr(f).strip("'") for f in node._input]
             output_files = [repr(f).strip("'") for f in node._output]
+            # input_header = '<font point-size="22">&rarr;</font><u>input</u>' if input_files else ""
+            # output_header = '<u>output</u><font point-size="22">&rarr;</font>' if output_files else ""
+            input_header = '<b><font point-size="14">&rarr; input</font></b>' if input_files else ""
+            output_header = '<b><font point-size="14">output &rarr;</font></b>' if output_files else ""
             html_node = [
                 f'{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="0" cellborder="0">',
                 f'<tr><td colspan="2">',
-                f'<b>{node.name}</b>',
+                f'<b><font point-size="22">{node.name}</font></b>',
                 f'</td></tr>',
-                f'<tr><td> {"<u>input</u>" if input_files else ""} </td> <td> {"<u>output</u>" if output_files else ""} </td> </tr>',
+                f'<hr/>',
+                f'<tr><td> {input_header} </td> <td> {output_header} </td> </tr>',
             ]
             
             for in_file, out_file in zip_longest(input_files, output_files, fillvalue=""):
