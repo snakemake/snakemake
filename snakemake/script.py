@@ -95,6 +95,70 @@ class REncoder:
         source += ")"
         return source
 
+class JuliaEncoder:
+    """Encoding Pyton data structures into Julia."""
+
+    @classmethod
+    def encode_value(cls, value):
+        if value is None:
+            return "nothing"
+        elif isinstance(value, str):
+            return repr(value)
+        elif isinstance(value, dict):
+            return cls.encode_dict(value)
+        elif isinstance(value, bool):
+            return "true" if value else "false"
+        elif isinstance(value, int) or isinstance(value, float):
+            return str(value)
+        elif isinstance(value, collections.Iterable):
+            # convert all iterables to vectors
+            return cls.encode_list(value)
+        else:
+            # Try to convert from numpy if numpy is present
+            try:
+                import numpy as np
+                if isinstance(value, np.number):
+                    return str(value)
+            except ImportError:
+                pass
+        raise ValueError(
+            "Unsupported value for conversion into Julia: {}".format(value))
+
+    @classmethod
+    def encode_list(cls, l):
+        return "[{}]".format(", ".join(map(cls.encode_value, l)))
+
+    @classmethod
+    def encode_items(cls, items):
+        def encode_item(item):
+            name, value = item
+            return '"{}" => {}'.format(name, cls.encode_value(value))
+
+        return ", ".join(map(encode_item, items))
+
+    @classmethod
+    def encode_positional_items(cls, namedlist):
+        encoded = ""
+        for index, value in enumerate(namedlist):
+            encoded += '{} => {}, '.format(index+1,cls.encode_value(value))
+        return encoded
+
+    @classmethod
+    def encode_dict(cls, d):
+        d = "Dict({})".format(cls.encode_items(d.items()))
+        return d
+
+    @classmethod
+    def encode_namedlist(cls, namedlist):
+        positional = cls.encode_positional_items(namedlist)
+        named = cls.encode_items(namedlist.items())
+        source = "Dict("
+        if positional:
+            source += positional
+        if named:
+            source += named
+        source += ")"
+        return source
 
 class Snakemake:
     def __init__(self, input, output, params, wildcards, threads, resources,
@@ -277,9 +341,59 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                            }), REncoder.encode_dict(config), REncoder.encode_value(rulename),
                            REncoder.encode_numeric(bench_iteration),
                            REncoder.encode_value(os.path.dirname(path[7:]) if path.startswith("file://") else os.path.dirname(path)))
+            elif path.endswith(".jl"):
+                preamble = textwrap.dedent("""
+                        ######## Snakemake header ########
+                        struct Snakemake
+                            input::Dict
+                            output::Dict
+                            params::Dict
+                            wildcards::Dict
+                            threads::Int64
+                            log::Dict
+                            resources::Dict
+                            config::Dict
+                            rule::String
+                            bench_iteration
+                            scriptdir::String
+                            #source::Any
+                        end
+                        snakemake = Snakemake(
+                            {}, #input::Dict
+                            {}, #output::Dict
+                            {}, #params::Dict
+                            {}, #wildcards::Dict
+                            {}, #threads::Int64
+                            {}, #log::Dict
+                            {}, #resources::Dict
+                            {}, #config::Dict
+                            {}, #rule::String
+                            {}, #bench_iteration::Int64
+                            {}, #scriptdir::String
+                            #, #source::Any
+                        )
+                        ######## Original script #########
+                        """.format(
+                            JuliaEncoder.encode_namedlist(input),
+                            JuliaEncoder.encode_namedlist(output),
+                            JuliaEncoder.encode_namedlist(params),
+                            JuliaEncoder.encode_namedlist(wildcards),
+                            JuliaEncoder.encode_value(threads),
+                            JuliaEncoder.encode_namedlist(log),
+                            JuliaEncoder.encode_namedlist({
+                                name: value
+                                for name, value in resources.items()
+                                if name != "_cores" and name != "_nodes"
+                            }),
+                            JuliaEncoder.encode_dict(config),
+                            JuliaEncoder.encode_value(rulename),
+                            JuliaEncoder.encode_value(bench_iteration),
+                            JuliaEncoder.encode_value(os.path.dirname(path[7:]) if path.startswith("file://") else os.path.dirname(path))
+                        ).replace("\'","\"")
+                    )
             else:
                 raise ValueError(
-                    "Unsupported script: Expecting either Python (.py), R (.R) or RMarkdown (.Rmd) script.")
+                    "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd) or Julia (.jl) script.")
 
             dir = ".snakemake/scripts"
             os.makedirs(dir, exist_ok=True)
@@ -347,6 +461,8 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 shell("Rscript --vanilla -e 'rmarkdown::render(\"{f.name}\", output_file=\"{out}\", quiet=TRUE, knit_root_dir = \"{workdir}\", params = list(rmd=\"{f.name}\"))'",
                     bench_record=bench_record,
                     workdir=os.getcwd())
+            elif path.endswith(".jl"):
+                shell("julia {f.name:q}", bench_record=bench_record)
 
     except URLError as e:
         raise WorkflowError(e)

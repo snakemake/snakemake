@@ -811,7 +811,7 @@ def limit(pattern, **wildcards):
     })
 
 
-def glob_wildcards(pattern, files=None):
+def glob_wildcards(pattern, files=None, followlinks=False):
     """
     Glob the values of the wildcards by matching the given pattern to the filesystem.
     Returns a named tuple with a list of values for each wildcard.
@@ -832,7 +832,7 @@ def glob_wildcards(pattern, files=None):
 
     if files is None:
         files = (os.path.normpath(os.path.join(dirpath, f))
-                 for dirpath, dirnames, filenames in os.walk(dirname)
+                 for dirpath, dirnames, filenames in os.walk(dirname, followlinks=followlinks)
                  for f in chain(filenames, dirnames))
 
     for f in files:

@@ -144,7 +144,12 @@ class DAG:
         sortedfiles = sorted(allfiles.keys())
         for i in range(len(sortedfiles)-1):
             if allfiles[sortedfiles[i]] == "output":
-                if os.path.commonpath([sortedfiles[i]]) == os.path.commonpath([sortedfiles[i], sortedfiles[i+1]]):
+                try:
+                    common_path = os.path.commonpath([sortedfiles[i], sortedfiles[i+1]])
+                except ValueError:  # commonpath raises error if windows drives are different.
+                    logger.warning('Ambiguous filepath due to different drives between {} and {}'.format(sortedfiles[i], sortedfiles[i+1]))
+                    continue
+                if os.path.commonpath([sortedfiles[i]]) == common_path:
                     raise ChildIOException(parent = sortedfiles[i], child = sortedfiles[i+1])
 
         # check if remaining jobs are valid

@@ -1,0 +1,11 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base >=3.4.1
+  - r-rmarkdown =1.6
+  - xorg-libxrender
+  - xorg-libxext
+  - xorg-libxau
+  - xorg-libxdmcp
+  - xorg-libsm
