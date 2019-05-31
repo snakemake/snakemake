@@ -566,7 +566,6 @@ class Rule:
             aux_params = dict()
         for name, item in olditems.allitems():
             start = len(newitems)
-            is_iterable = True
             is_unpack = is_flagged(item, "unpack")
             _is_callable = is_callable(item)
 
@@ -604,6 +603,7 @@ class Rule:
                 pairs = [(name, item)]
 
             for name, item in pairs:
+                is_iterable = True
                 if not_iterable(item) or no_flattening:
                     item = [item]
                     is_iterable = False
