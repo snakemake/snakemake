@@ -22,8 +22,8 @@ class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
 
-    def __init__(self, *args, stay_on_remote=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+    def __init__(self, *args, stay_on_remote=False, keep_local=False, **kwargs):
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, keep_local=keep_local, **kwargs)
 
         self.client = storage.Client(*args, **kwargs)
 

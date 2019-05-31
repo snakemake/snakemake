@@ -356,7 +356,7 @@ def test_empty_include():
 
 
 def test_script():
-    run(dpath("test_script"))
+    run(dpath("test_script"), use_conda=True)
 
 
 def test_shadow():
@@ -760,7 +760,6 @@ def test_pipes():
 
 def test_pipes_fail():
     run(dpath("test_pipes_fail"), shouldfail=True)
-
 
 def test_validate():
     run(dpath("test_validate"))
