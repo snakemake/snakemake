@@ -462,7 +462,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                     bench_record=bench_record,
                     workdir=os.getcwd())
             elif path.endswith(".jl"):
-                shell("julia {f.name:q}")
+                shell("julia {f.name:q}", bench_record=bench_record)
 
     except URLError as e:
         raise WorkflowError(e)

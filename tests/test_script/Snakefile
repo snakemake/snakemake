@@ -15,6 +15,8 @@ rule:
         txt="test.out"
     params:
         xy=True
+    conda:
+        "envs/r.yaml"
     script:
         "scripts/test.R"
 
@@ -29,12 +31,16 @@ rule:
         "test.html"
     params:
         test="testparam"
+    conda:
+        "envs/r.yaml"
     script:
         "scripts/test.Rmd"
 
 rule:
     output:
         "rel_source.out"
+    conda:
+        "envs/r.yaml"
     script:
         "scripts/rel_source.R"
 
@@ -46,5 +52,7 @@ rule:
         "julia.out"
     params:
         integer=123
+    conda:
+        "envs/julia.yaml"
     script:
         "scripts/test.jl"
