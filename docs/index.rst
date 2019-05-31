@@ -139,6 +139,7 @@ Please consider to add your own.
 * Meyer et al. 2017. `Differential Gene Expression in the Human Brain Is Associated with Conserved, but Not Accelerated, Noncoding Sequences <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5400397/>`_. Molecular Biology and Evolution.
 * Lonardo et al. 2017. `Priming of soil organic matter: Chemical structure of added compounds is more important than the energy content <http://www.sciencedirect.com/science/article/pii/S0038071716304539>`_. Soil Biology and Biochemistry.
 * Beisser et al. 2017. `Comprehensive transcriptome analysis provides new insights into nutritional strategies and phylogenetic relationships of chrysophytes <https://peerj.com/articles/2832/>`_. PeerJ.
+* Piro et al 2017. `MetaMeta: integrating metagenome analysis tools to improve taxonomic profiling <https://microbiomejournal.biomedcentral.com/articles/10.1186/s40168-017-0318-y>`_. Microbiome.
 * Dimitrov et al 2017. `Successive DNA extractions improve characterization of soil microbial communities <https://peerj.com/articles/2915/>`_. PeerJ.
 * de Bourcy et al. 2016. `Phylogenetic analysis of the human antibody repertoire reveals quantitative signatures of immune senescence and aging <http://www.pnas.org/content/114/5/1105.short>`_. PNAS.
 * Bray et al. 2016. `Near-optimal probabilistic RNA-seq quantification <http://www.nature.com/nbt/journal/v34/n5/abs/nbt.3519.html>`_. Nature Biotechnology.
