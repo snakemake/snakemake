@@ -761,8 +761,6 @@ def test_pipes():
 def test_pipes_fail():
     run(dpath("test_pipes_fail"), shouldfail=True)
 
-# TODO remove skip ASAP
-@pytest.mark.skip(reason="this hangs on CircleCI")
 def test_validate():
     run(dpath("test_validate"))
 
