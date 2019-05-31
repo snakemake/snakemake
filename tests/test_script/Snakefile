@@ -5,7 +5,7 @@ rule all:
     input:
         "test.out",
         "test.html",
-        "rel_source.out"
+        "rel_source.out",
         "julia.out"
 
 rule:
@@ -46,7 +46,7 @@ rule:
 
 rule:
     input:
-        "test.in"
+        "test.in",
         named_input="test.in"
     output:
         "julia.out"
