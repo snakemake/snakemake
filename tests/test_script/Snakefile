@@ -6,6 +6,7 @@ rule all:
         "test.out",
         "test.html",
         "rel_source.out"
+        "julia.out"
 
 rule:
     input:
@@ -36,3 +37,14 @@ rule:
         "rel_source.out"
     script:
         "scripts/rel_source.R"
+
+rule:
+    input:
+        "test.in"
+        named_input="test.in"
+    output:
+        "julia.out"
+    params:
+        integer=123
+    script:
+        "scripts/test.jl"
