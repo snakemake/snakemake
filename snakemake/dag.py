@@ -1369,10 +1369,9 @@ class DAG:
                       node2style=lambda node: "rounded",
                       node2label=lambda node: node):
 
-        # TODO this is code from the rule_dot method.
+        # NOTE: This is code from the rule_dot method.
         # This method could be split like there as well, however,
-        # it cannot easily reuse the _dot method, due to the different
-        # node type
+        # it cannot easily reuse the _dot method due to the different node type
         graph = defaultdict(set)
         for job in self.jobs:
             graph[job.rule].update(dep.rule for dep in self.dependencies[job])
@@ -1395,9 +1394,31 @@ class DAG:
             for i, rule in enumerate(self.rules)
         }
 
+        def resolve_input_functions(input_files):
+            """Iterate over all input files and replace input functions
+            with a fixed string.
+            """
+            files = []
+            for f in input_files:
+                if callable(f):
+                    # replace input functions
+                    # use html representations of < and >
+                    # to play nicely with graphviz HTML-like nodes
+                    files.append("&lt;input function&gt;")
+                    # NOTE: This is a workaround. It would be more informative
+                    # to show the code of the input function here (if it is
+                    # short enough). This cannot be easily done with the inspect
+                    # module, since the line numbers in the Snakefile do not
+                    # behave as expected. One (complicated) solution for this
+                    # would be to find the Snakefile and directly extract the
+                    # code of the function.
+                else:
+                    files.append(repr(f).strip("'"))
+            return files
+
         def html_node(node_id, node, color):
-            # TODO need a way to handle lambda input functions
-            input_files = [repr(f).strip("'") for f in node._input]
+            """Assemble a html style node for graphviz"""
+            input_files = resolve_input_functions(node._input)
             output_files = [repr(f).strip("'") for f in node._output]
             input_header = '<b><font point-size="14">&#8618; input</font></b>' if input_files else ""
             output_header = '<b><font point-size="14">output &rarr;</font></b>' if output_files else ""
@@ -1410,14 +1431,12 @@ class DAG:
                 f'<tr><td align="left"> {input_header} </td></tr>',
             ]
 
-            for in_file in input_files:
+            for filename in input_files + output_files:
                 # replace '<' and '>' in input file names, for example for
-                # string representations of lambda functions, which cnanot
+                # string representations of lambda functions, which cannot
                 # be displayed unescaped in an HTML node
-                # TODO: generalize this for all input and output files
-                # for example with a replacement table
-                in_file = in_file.replace("<", "&lt;")
-                in_file = in_file.replace(">", "&gt;")
+                in_file = filename.replace("<", "&lt;")
+                in_file = filename.replace(">", "&gt;")
                 html_node.extend(["<tr>", f'<td align="left"> {in_file} </td>'"</tr>"])
 
             html_node.append('<hr/>',)
