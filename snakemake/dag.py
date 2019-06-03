@@ -9,27 +9,23 @@ import textwrap
 import time
 import tarfile
 from collections import defaultdict, Counter
-from itertools import chain, combinations, filterfalse, product, groupby, zip_longest
-from functools import partial, lru_cache
-from inspect import isfunction, ismethod
-from operator import itemgetter, attrgetter
+from itertools import chain, filterfalse, groupby
+from functools import partial
 from pathlib import Path
-import subprocess
 import uuid
 
-from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
+from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
 from snakemake.jobs import Job, Reason, GroupJob
-from snakemake.exceptions import RuleException, MissingInputException
+from snakemake.exceptions import MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException, ImproperOutputException
-from snakemake.exceptions import PeriodicWildcardError, WildcardError
+from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
-from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
+from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
 from snakemake import conda, singularity
-from snakemake import utils
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
 
