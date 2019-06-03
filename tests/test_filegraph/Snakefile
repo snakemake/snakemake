@@ -1,0 +1,23 @@
+import os
+
+rule all:
+    input:
+        expand("folder/file_{v1}_{v2}.dat", v1=[1, 2], v2=["a", "b"]),
+        expand("visualization_of_1_a.pdf", v1=[1, 2])
+
+
+rule data:
+    output:
+        "folder/file_{v1}_{v2}.dat"
+    shell:
+        "touch {output}"
+
+
+rule visualization:
+    input:
+        "folder/file_1_a.dat",
+        lambda x: os.path.join("scripts", "vis.py"),
+    output:
+        "visualization_of_1_a.pdf"
+    shell:
+        "touch {output}"
