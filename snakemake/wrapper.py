@@ -14,7 +14,7 @@ from snakemake.exceptions import WorkflowError
 from snakemake.script import script
 
 def is_script(path):
-    return path.endswith("wrapper.py") or path.endswith("wrapper.R")
+    return path.endswith("wrapper.py") or path.endswith("wrapper.R") or path.endswith("wrapper.jl")
 
 
 def get_path(path, prefix=None):
@@ -33,7 +33,7 @@ def is_local(path):
 def is_git_path(path):
     return path.startswith("git+file:")
 
-def find_extension(path, extensions=[".py", ".R", ".Rmd"]):
+def find_extension(path, extensions=[".py", ".R", ".Rmd",".jl"]):
     for ext in extensions:
         if path.endswith("wrapper{}".format(ext)):
             return path
