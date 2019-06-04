@@ -1,3 +1,12 @@
+[5.5.0] - 2019-05-31
+====================
+Added
+-----
+- Script directives now also support Julia.
+Changed
+-------
+- Various small bug fixes.
+
 [5.4.5] - 2019-04-12
 ====================
 
