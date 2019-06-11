@@ -11,6 +11,7 @@
     <!-- Bootstrap CSS -->
     <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
     <style>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css"|get_resource_as_string }}</style>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/bs4/jszip-2.5.0/dt-1.10.18/b-1.5.6/b-html5-1.5.6/rg-1.1.0/datatables.min.css"/>
 
     <!-- Custom styles for this template -->
     <style>
@@ -275,10 +276,11 @@
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h2 id="results">Results</h2>
           </div>
-          <table class="table">
+          <table class="table" id="results-table">
             <thead>
               <tr>
                 <th>File</th>
+                <th>Category</th>
                 <th>Size</th>
                 <th>Description</th>
                 <th></th>
@@ -286,15 +288,13 @@
             </thead>
             <tbody>
           {% for cat, catresults in results|dictsort %}
-            {% if cat is not none %}
-              <tr>
-                <th id="results-{{ cat|replace(" ", "_") }}" colspan=4>{{ cat }}</th>
-              </tr>
-            {% endif %}
             {% for res in catresults %}
               <tr>
                 <th>
                   <a id="{{ res.id }}" href="#" download="{{ res.name }}">{{ res.name }}</a>
+                </th>
+                <th>
+                  {{ cat }}
                 </th>
                 <td style="white-space:nowrap;">{{ res.size|filesizeformat }}</td>
                 <td>{{ res.caption }}</td>
@@ -315,7 +315,7 @@
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
           <h2 id="rules">Rules</h2>
           </div>
-          <table class="table">
+          <table class="table" id="rules-table">
             <thead>
               <tr>
                 <th>Rule</th>
@@ -331,7 +331,7 @@
                 <td>{{ rule.name }}</td>
                 <td>{{ rule.n_jobs }}</td>
                 <td>
-                  <a data-toggle="collapse" role="button" href="#output-{{ rule.id }}" aria-expanded="false" aria-controls="collapseExample"><span data-feather="plus-circle"></span></a>
+                  <a data-toggle="collapse" role="button" href="#output-{{ rule.id }}" aria-expanded="false" aria-controls="collapse-output"><span data-feather="plus-circle"></span></a>
                   <div class="collapse" id="output-{{ rule.id }}">
                     <ul class="list-group list-group-flush">
                     {% for f in rule.output %}
@@ -343,7 +343,7 @@
                 <td>{{ rule.singularity_img_url if rule.singularity_img_url is not none }}</td>
                 <td>
                   {% if rule.conda_env %}
-                    <a data-toggle="collapse" href="#conda-env-{{ rule.id }}"><span data-feather="plus-circle"></span></a>
+                    <a data-toggle="collapse" role="button" href="#conda-env-{{ rule.id }}" aria-expanded="false" aria-controls="collapse-env"><span data-feather="plus-circle"></span></a>
                     <div class="collapse" id="conda-env-{{ rule.id }}">
                       <ul class="list-group list-group-flush">
                       {% for dep in rule.conda_env["dependencies"] %}
@@ -373,6 +373,7 @@
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://raw.githubusercontent.com/eligrey/FileSaver.js/2.0.0/src/FileSaver.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdn.datatables.net/v/bs4/jszip-2.5.0/dt-1.10.18/b-1.5.6/b-html5-1.5.6/rg-1.1.0/datatables.min.js"|get_resource_as_string }}</script>
 
     <!-- Icons -->
     <script>
@@ -586,6 +587,11 @@
                 event.preventDefault();
                 $(this).ekkoLightbox();
             });
+
+      $('#results-table').DataTable();
+      $('#rules-table').DataTable({
+        paging: false
+      });
 
       // Give the DOM some time to render, and then hide loading screen.
       setTimeout(function(){
