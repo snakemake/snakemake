@@ -171,7 +171,7 @@ class RuleRecord:
         self._conda_env_raw = None
         if job_rec.conda_env:
             self._conda_env_raw = base64.b64decode(job_rec.conda_env).decode()
-            self.conda_env = yaml.load(self._conda_env_raw, Loader=yaml.FullLoader)
+            self.conda_env = yaml.load(self._conda_env_raw, Loader=yaml.Loader)
         self.n_jobs = 1
         self.output = list(job_rec.output)
         self.id = uuid.uuid4()
@@ -199,6 +199,7 @@ class JobRecord:
 class FileRecord:
     def __init__(self, path, job, caption, env):
         self.path = path
+        self.target = os.path.basename(path)
         logger.info("Adding {}.".format(self.name))
         self.raw_caption = caption
         self.mime, _ = mime_from_file(self.path)
@@ -223,25 +224,40 @@ class FileRecord:
                                "imagemagick in order to have embedded "
                                "images and pdfs in the report.")
         if self.is_table:
-            with open(self.path) as table:
-                dialect = csv.Sniffer().sniff(table.read(2048))
-                table.seek(0)
-                reader = csv.reader(table, dialect)
-                columns = next(reader)
-                table = map(lambda row: list(map(num_if_possible, row)), reader)
-                template = env.get_template("table.html")
-                html = template.render(
-                    columns=columns, table=table, name=self.name
-                ).encode()
-                self.mime = "text/html"
-                self.path = os.path.basename(self.path) + ".html"
-                self.data_uri = data_uri(
-                    html,
-                    self.path,
-                    mime=self.mime
-                )
-        else:
-            self.data_uri = data_uri_from_file(path)
+            if self.size <= 1024:
+                logger.warning("Table {} >1MB. Rendering as generic file.")
+            else:
+                with open(self.path) as table:
+                    dialect = None
+                    for prefix in range(10, 17):
+                        try:
+                            table.seek(0)
+                            dialect = csv.Sniffer().sniff(table.read(prefix))
+                            break
+                        except csv.Error:
+                            pass
+                    if dialect is None:
+                        logger.warning("Failed to infer CSV/TSV dialect from table. "
+                                       "Rendering as generic file.")
+                    else:
+                        table.seek(0)
+                        reader = csv.reader(table, dialect)
+                        columns = next(reader)
+                        table = map(lambda row: list(map(num_if_possible, row)), reader)
+                        template = env.get_template("table.html")
+                        html = template.render(
+                            columns=columns, table=table, name=self.name
+                        ).encode()
+                        self.mime = "text/html"
+                        self.path = os.path.basename(self.path) + ".html"
+                        self.data_uri = data_uri(
+                            html,
+                            self.path,
+                            mime=self.mime
+                        )
+                        return
+        # fallback
+        self.data_uri = data_uri_from_file(path)
 
 
 
@@ -427,7 +443,7 @@ def auto_report(dag, path):
     {% for cat, catresults in results|dictsort %}
     .. _{{ cat }}: #results-{{ cat|replace(" ", "_") }}
     {% for res in catresults %}
-    .. _{{ res.name }}: #{{ res.id }}
+    .. _{{ res.target }}: #{{ res.id }}
     {% endfor %}
     {% endfor %}
     .. _
