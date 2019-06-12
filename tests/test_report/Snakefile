@@ -4,7 +4,7 @@ report: "report/workflow.rst"
 
 rule all:
     input:
-        ["fig1.svg", "fig2.png"]
+        ["fig1.svg", "fig2.png", "test.csv"]
 
 
 rule c:
@@ -34,3 +34,10 @@ rule b:
         report("fig2.png", caption="report/fig2.rst", category="Step 2")
     shell:
         "sleep `shuf -i 1-3 -n 1`; cp data/fig2.png {output}"
+
+
+rule d:
+    output:
+        report("test.csv", caption="report/table.rst")
+    shell:
+        "curl http://samplecsvs.s3.amazonaws.com/Sacramentorealestatetransactions.csv > {output}"

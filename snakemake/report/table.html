@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>{{ name }}</title>
+
+    <!-- Bootstrap CSS -->
+    <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
+    <style>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css"|get_resource_as_string }}</style>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/bs4/jszip-2.5.0/dt-1.10.18/b-1.5.6/b-html5-1.5.6/rg-1.1.0/datatables.min.css"/>
+  </head>
+  <body>
+    <div class="container">
+      <table class="table">
+        <thead>
+        <tr>
+          {% for colname in columns %}
+          <th>{{ colname|escape }}</th>
+          {% endfor %}
+        </tr>
+        </thead>
+        <tbody>
+        </tbody>
+      </table>
+    </div>
+  </body>
+  <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.slim.min.js"|get_resource_as_string }}</script>
+  <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/js/bootstrap.min.js"|get_resource_as_string }}</script>
+  <script>{{ "https://cdn.datatables.net/v/bs4/jszip-2.5.0/dt-1.10.18/b-1.5.6/b-html5-1.5.6/rg-1.1.0/datatables.min.js"|get_resource_as_string }}</script>
+
+  <script>
+    var data = [
+      {% for row in table %}
+        [
+          {% for value in row %}
+            {% if value is string %}
+              {{ value|tojson }}
+            {% else %}
+              {{ value }}
+            {% endif %}
+            {{ "," if not loop.last }}
+          {% endfor %}
+        ]{{ "," if not loop.last }}
+      {% endfor %}
+    ];
+
+    $('table').DataTable({
+      data: data,
+      dom: 'Bfrtip',
+      buttons: [
+          'csvHtml5', 'excelHtml5'
+      ]
+    });
+  </script>
+</html>

@@ -16,6 +16,7 @@ import time
 import shutil
 import subprocess as sp
 import itertools
+import csv
 from collections import namedtuple, defaultdict
 
 import requests
@@ -30,6 +31,7 @@ from snakemake.io import is_flagged, get_flag_value
 from snakemake.exceptions import WorkflowError
 from snakemake.script import Snakemake
 from snakemake import __version__
+from snakemake.common import num_if_possible
 
 
 class EmbeddedMixin(object):
@@ -45,7 +47,7 @@ class EmbeddedMixin(object):
         """
         result = Image.run(self)
         reference = directives.uri(self.arguments[0])
-        self.options['uri'] = data_uri_from_file(reference)[0]
+        self.options['uri'] = data_uri_from_file(reference)
         return result
 
 # Create (and register) new image:: and figure:: directives that use a base64
@@ -77,17 +79,22 @@ def data_uri(data, filename, encoding="utf8", mime="text/plain"):
     return uri
 
 
-def data_uri_from_file(file, defaultenc="utf8"):
-    """Craft a base64 data URI from file with proper encoding and mimetype."""
+def mime_from_file(file):
     mime, encoding = mimetypes.guess_type(file)
     if mime is None:
         mime = "text/plain"
         logger.info("Could not detect mimetype for {}, assuming "
                     "text/plain.".format(file))
+    return mime, encoding
+
+
+def data_uri_from_file(file, defaultenc="utf8"):
+    """Craft a base64 data URI from file with proper encoding and mimetype."""
+    mime, encoding = mime_from_file(file)
     if encoding is None:
         encoding = defaultenc
     with open(file, "rb") as f:
-        return data_uri(f.read(), os.path.basename(file), encoding, mime), mime
+        return data_uri(f.read(), os.path.basename(file), encoding, mime)
 
 
 def report(text, path,
@@ -128,7 +135,7 @@ def report(text, path,
                 _files = [_files]
             links = []
             for file in sorted(_files):
-                data, _ = data_uri_from_file(file)
+                data = data_uri_from_file(file)
                 links.append(':raw-html:`<a href="{data}" download="{filename}" draggable="true">{filename}</a>`'.format(
                     data=data, filename=os.path.basename(file)))
             links = "\n\n              ".join(links)
@@ -191,14 +198,15 @@ class JobRecord:
 
 
 class FileRecord:
-    def __init__(self, path, job, caption):
+    def __init__(self, path, job, caption, env):
         self.path = path
         logger.info("Adding {}.".format(self.name))
         self.raw_caption = caption
-        self.data_uri, self.mime = data_uri_from_file(path)
+        self.mime, _ = mime_from_file(self.path)
         self.id = uuid.uuid4()
         self.job = job
         self.png_uri = None
+        self.size = os.path.getsize(self.path)
         if self.is_img:
             convert = shutil.which("convert")
             if convert is not None:
@@ -215,6 +223,28 @@ class FileRecord:
                 logger.warning("Command convert not in $PATH. Install "
                                "imagemagick in order to have embedded "
                                "images and pdfs in the report.")
+        if self.is_table:
+            with open(self.path) as table:
+                dialect = csv.Sniffer().sniff(table.read(2048))
+                table.seek(0)
+                reader = csv.reader(table, dialect)
+                columns = next(reader)
+                table = map(lambda row: list(map(num_if_possible, row)), reader)
+                template = env.get_template("table.html")
+                html = template.render(
+                    columns=columns, table=reader, name=self.name
+                ).encode()
+                self.mime = "text/html"
+                self.path = os.path.basename(self.path) + ".html"
+                self.data_uri = data_uri(
+                    html,
+                    self.path,
+                    mime=self.mime
+                )
+        else:
+            self.data_uri = data_uri_from_file(path)
+
+
 
     def render(self, env, rst_links, results):
         if self.raw_caption is not None:
@@ -243,8 +273,11 @@ class FileRecord:
 
     @property
     def is_text(self):
-        text = {"text/csv", "text/plain", "text/tab-separated-values"}
-        return self.mime in text
+        return self.is_table or self.mime == "text/plain"
+
+    @property
+    def is_table(self):
+        return self.mime in {"text/csv", "text/tab-separated-values"}
 
     @property
     def icon(self):
@@ -258,11 +291,6 @@ class FileRecord:
     @property
     def name(self):
         return os.path.basename(self.path)
-
-    @property
-    def size(self):
-        """Return size in Bytes."""
-        return os.path.getsize(self.path)
 
 
 def rulegraph_d3_spec(dag):
@@ -317,6 +345,11 @@ def auto_report(dag, path):
 
     logger.info("Creating report...")
 
+    env = Environment(loader=PackageLoader("snakemake", "report"),
+                      trim_blocks=True,
+                      lstrip_blocks=True)
+    env.filters["get_resource_as_string"] = get_resource_as_string
+
     persistence = dag.workflow.persistence
     results = defaultdict(list)
     records = defaultdict(JobRecord)
@@ -331,7 +364,7 @@ def auto_report(dag, path):
                     report_obj = get_flag_value(f, "report")
                     category = report_obj.category or " "
                     results[category].append(
-                        FileRecord(f, job, report_obj.caption))
+                        FileRecord(f, job, report_obj.caption, env))
                     recorded_files.add(f)
 
         for f in job.expanded_output:
@@ -386,11 +419,6 @@ def auto_report(dag, path):
 
     # rulegraph
     rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
-
-    env = Environment(loader=PackageLoader("snakemake", "report"),
-                      trim_blocks=True,
-                      lstrip_blocks=True)
-    env.filters["get_resource_as_string"] = get_resource_as_string
 
     rst_links = textwrap.dedent("""
 

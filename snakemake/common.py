@@ -20,6 +20,17 @@ SNAKEMAKE_SEARCHPATH = os.path.dirname(os.path.dirname(__file__))
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 
 
+def num_if_possible(s):
+    """Convert string to number if possible, otherwise return string."""
+    try:
+        return int(s)
+    except ValueError:
+        try:
+            return float(s)
+        except ValueError:
+            return s
+
+
 def get_last_stable_version():
     return __version__.split("+")[0]
 
