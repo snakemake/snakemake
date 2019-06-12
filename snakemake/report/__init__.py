@@ -196,7 +196,6 @@ class JobRecord:
         self.singularity_img_url = None
 
 
-
 class FileRecord:
     def __init__(self, path, job, caption, env):
         self.path = path
