@@ -11,7 +11,7 @@
     <!-- Bootstrap CSS -->
     <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
     <style>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css"|get_resource_as_string }}</style>
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/bs4/jszip-2.5.0/dt-1.10.18/b-1.5.6/b-html5-1.5.6/rg-1.1.0/datatables.min.css"/>
+    <style>{{ "https://cdn.datatables.net/v/bs4/jszip-2.5.0/dt-1.10.18/b-1.5.6/b-html5-1.5.6/rg-1.1.0/datatables.min.css"|get_resource_as_string }}</style>
 
     <!-- Custom styles for this template -->
     <style>
@@ -194,13 +194,18 @@
       .ekko-lightbox-nav-overlay a span {
         color: lightgrey;
       }
+
+      #jswarning {
+        color: red;
+      }
     </style>
   </head>
 
   <body>
     <div id="loading-screen">
       <p id="animation">Loading Snakemake Report...</p>
-      <p id="info">Loading {{ results_size|filesizeformat }}. This can take a while.</p>
+      <p id="jswarning">Please enable Javascript in your browser to see this report.</p>
+      <p id="info">Loading {{ results_size|filesizeformat }}. For large reports, this can take a while.</p>
     </div>
 
     <nav class="navbar navbar-dark fixed-top bg-dark flex-md-nowrap p-0 shadow">
@@ -377,6 +382,7 @@
 
     <!-- Icons -->
     <script>
+      $("#jswarning").hide()
       feather.replace()
     </script>
 
