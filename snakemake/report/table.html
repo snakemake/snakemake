@@ -14,7 +14,7 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/bs4/jszip-2.5.0/dt-1.10.18/b-1.5.6/b-html5-1.5.6/rg-1.1.0/datatables.min.css"/>
   </head>
   <body>
-    <div class="container">
+    <div class="container" style="margin-top: 1em;">
       <table class="table">
         <thead>
         <tr>
@@ -28,7 +28,7 @@
       </table>
     </div>
   </body>
-  <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.slim.min.js"|get_resource_as_string }}</script>
+  <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"|get_resource_as_string }}</script>
   <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/js/bootstrap.min.js"|get_resource_as_string }}</script>
   <script>{{ "https://cdn.datatables.net/v/bs4/jszip-2.5.0/dt-1.10.18/b-1.5.6/b-html5-1.5.6/rg-1.1.0/datatables.min.js"|get_resource_as_string }}</script>
 
@@ -37,12 +37,7 @@
       {% for row in table %}
         [
           {% for value in row %}
-            {% if value is string %}
-              {{ value|tojson }}
-            {% else %}
-              {{ value }}
-            {% endif %}
-            {{ "," if not loop.last }}
+            {{ value|tojson }}{{ "," if not loop.last }}
           {% endfor %}
         ]{{ "," if not loop.last }}
       {% endfor %}

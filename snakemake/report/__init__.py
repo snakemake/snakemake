@@ -232,7 +232,7 @@ class FileRecord:
                 table = map(lambda row: list(map(num_if_possible, row)), reader)
                 template = env.get_template("table.html")
                 html = template.render(
-                    columns=columns, table=reader, name=self.name
+                    columns=columns, table=table, name=self.name
                 ).encode()
                 self.mime = "text/html"
                 self.path = os.path.basename(self.path) + ".html"
