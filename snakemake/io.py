@@ -1139,7 +1139,7 @@ def _load_configfile(configpath, filetype="Config"):
                 OrderedLoader.add_constructor(
                     yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
                     construct_mapping)
-                return yaml.load(f, OrderedLoader)
+                return yaml.load(f, Loader=OrderedLoader)
             except yaml.YAMLError:
                 raise WorkflowError("Config file is not valid JSON or YAML. "
                                     "In case of YAML, make sure to not mix "

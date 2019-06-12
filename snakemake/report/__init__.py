@@ -171,7 +171,7 @@ class RuleRecord:
         self._conda_env_raw = None
         if job_rec.conda_env:
             self._conda_env_raw = base64.b64decode(job_rec.conda_env).decode()
-            self.conda_env = yaml.load(self._conda_env_raw)
+            self.conda_env = yaml.load(self._conda_env_raw, Loader=yaml.FullLoader)
         self.n_jobs = 1
         self.output = list(job_rec.output)
         self.id = uuid.uuid4()
