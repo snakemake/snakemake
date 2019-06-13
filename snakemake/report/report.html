@@ -198,6 +198,10 @@
       #jswarning {
         color: red;
       }
+
+      .navbar {
+        opacity: 0.8;
+      }
     </style>
   </head>
 
@@ -247,23 +251,15 @@
                 <span>Results</span>
               </a>
             </h5>
+            <ul class="nav flex-column mb-2">
             {% for cat, res in results|dictsort %}
-              <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-                <a class="d-flex align-items-center text-muted" href="#results-{{ cat|replace(" ", "_") }}">
-                  <span>{{ cat }}</span>
+              <li class="nav-item">
+                <a class="nav-link" href="#{{ cat.id }}">
+                  {{ cat.name }}
                 </a>
-              </h6>
-              <ul class="nav flex-column mb-2">
-                {% for r in res %}
-                <li class="nav-item">
-                  <a class="nav-link" href="#{{ r.id }}">
-                    <span data-feather="{{ r.icon }}"></span>
-                    {{ r.name }}
-                  </a>
-                </li>
-                {% endfor %}
-              </ul>
+              </li>
             {% endfor %}
+            </ul>
           </div>
         </nav>
 
@@ -281,35 +277,48 @@
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h2 id="results">Results</h2>
           </div>
-          <table class="table" id="results-table">
-            <thead>
-              <tr>
-                <th>File</th>
-                <th>Category</th>
-                <th>Size</th>
-                <th>Description</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
+
+          <div class="accordion" id="categories">
           {% for cat, catresults in results|dictsort %}
-            {% for res in catresults %}
-              <tr>
-                <th>
-                  <a id="{{ res.id }}" href="#" download="{{ res.name }}">{{ res.name }}</a>
-                </th>
-                <th>
-                  {{ cat }}
-                </th>
-                <td style="white-space:nowrap;">{{ res.size|filesizeformat }}</td>
-                <td>{{ res.caption }}</td>
-                <td class="preview" id="{{ res.id }}-preview">
-                </td>
-              </tr>
-            {% endfor %}
+            <div class="card">
+              <div class="card-header" id="{{ cat.id }}">
+                <h5 class="mb-0">
+                  <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#{{ cat.content_id }}" aria-expanded="false" aria-controls="{{ cat.content_id }}">
+                    {{ cat.name }}
+                  </button>
+                </h5>
+              </div>
+
+              <div id="{{ cat.content_id }}" class="collapse" aria-labelledby="{{ cat.id }}" data-parent="#categories">
+                <div class="card-body">
+                  <table class="table results-table">
+                    <thead>
+                      <tr>
+                        <th>File</th>
+                        <th>Size</th>
+                        <th>Description</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for res in catresults %}
+                      <tr>
+                        <th>
+                          <a id="{{ res.id }}" href="#" download="{{ res.name }}">{{ res.name }}</a>
+                        </th>
+                        <td style="white-space:nowrap;">{{ res.size|filesizeformat }}</td>
+                        <td>{{ res.caption }}</td>
+                        <td class="preview" id="{{ res.id }}-preview">
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           {% endfor %}
-            </tbody>
-          </table>
+          </div>
 
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h2 id="stats">Statistics</h2>
@@ -594,7 +603,7 @@
                 $(this).ekkoLightbox();
             });
 
-      $('#results-table').DataTable();
+      $('.results-table').DataTable();
       $('#rules-table').DataTable({
         paging: false
       });

@@ -162,6 +162,26 @@ def report(text, path,
                  settings_overrides=overrides)
 
 
+class Category:
+    def __init__(self, name):
+        if name is None:
+            name = "Other"
+        self.name = name
+        self.id = "results-{name}".format(name=name.replace(" ", "_"))
+        self.content_id = self.id + "-content"
+
+    def __eq__(self, other):
+        return self.name.__eq__(other.name)
+
+    def __hash__(self):
+        return self.name.__hash__()
+
+    def __lt__(self, other):
+        if self.name == "other":
+            return False
+        return self.name.__lt__(other.name)
+
+
 class RuleRecord:
     def __init__(self, job, job_rec):
         import yaml
@@ -197,7 +217,7 @@ class JobRecord:
 
 
 class FileRecord:
-    def __init__(self, path, job, caption, env):
+    def __init__(self, path, job, caption, env, category):
         self.path = path
         self.target = os.path.basename(path)
         logger.info("Adding {}.".format(self.name))
@@ -207,6 +227,7 @@ class FileRecord:
         self.job = job
         self.png_uri = None
         self.size = os.path.getsize(self.path)
+        self.category = category
         if self.is_img:
             convert = shutil.which("convert")
             if convert is not None:
@@ -377,9 +398,9 @@ def auto_report(dag, path):
                                         "not exist.".format(f))
                 if os.path.isfile(f):
                     report_obj = get_flag_value(f, "report")
-                    category = report_obj.category or " "
+                    category = Category(report_obj.category)
                     results[category].append(
-                        FileRecord(f, job, report_obj.caption, env))
+                        FileRecord(f, job, report_obj.caption, env, category))
                     recorded_files.add(f)
 
         for f in job.expanded_output:
@@ -443,7 +464,7 @@ def auto_report(dag, path):
     {% for cat, catresults in results|dictsort %}
     .. _{{ cat }}: #results-{{ cat|replace(" ", "_") }}
     {% for res in catresults %}
-    .. _{{ res.target }}: #{{ res.id }}
+    .. _{{ res.target }}: #{{ res.category.id }}
     {% endfor %}
     {% endfor %}
     .. _
