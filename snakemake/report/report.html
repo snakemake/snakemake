@@ -608,10 +608,12 @@
         paging: false
       });
 
-      // Give the DOM some time to render, and then hide loading screen.
-      setTimeout(function(){
-         $("#loading-screen").hide();
-      }, 5000);
+      $(document).ready(function() {
+        // Hide loading screen when document is ready.
+        setTimeout(function(){
+            $("#loading-screen").hide();
+        }, 2000);
+      });
     </script>
   </body>
 </html>
