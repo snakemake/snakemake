@@ -1437,7 +1437,7 @@ class DAG:
                 # replace '<' and '>' in input file names, for example for
                 # string representations of lambda functions, which cannot
                 # be displayed unescaped in an HTML node
-                in_file = html.esacpe(filename)
+                in_file = html.escape(filename)
                 html_node.extend(["<tr>", f'<td align="left"> {in_file} </td>'"</tr>"])
 
             html_node.append('<hr/>',)
