@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import html
 import os
 import shutil
 import textwrap
@@ -1436,8 +1437,7 @@ class DAG:
                 # replace '<' and '>' in input file names, for example for
                 # string representations of lambda functions, which cannot
                 # be displayed unescaped in an HTML node
-                in_file = filename.replace("<", "&lt;")
-                in_file = filename.replace(">", "&gt;")
+                in_file = html.esacpe(filename)
                 html_node.extend(["<tr>", f'<td align="left"> {in_file} </td>'"</tr>"])
 
             html_node.append('<hr/>',)
