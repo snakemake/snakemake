@@ -245,8 +245,8 @@ class FileRecord:
                                "imagemagick in order to have embedded "
                                "images and pdfs in the report.")
         if self.is_table:
-            if self.size <= 1024:
-                logger.warning("Table {} >1MB. Rendering as generic file.")
+            if self.size <= 512:
+                logger.warning("Table {} >0.5MB. Rendering as generic file.".format(self.path))
             else:
                 with open(self.path) as table:
                     dialect = None
@@ -258,8 +258,8 @@ class FileRecord:
                         except csv.Error:
                             pass
                     if dialect is None:
-                        logger.warning("Failed to infer CSV/TSV dialect from table. "
-                                       "Rendering as generic file.")
+                        logger.warning("Failed to infer CSV/TSV dialect from table {}. "
+                                       "Rendering as generic file.".format(self.path))
                     else:
                         table.seek(0)
                         reader = csv.reader(table, dialect)
