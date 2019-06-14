@@ -1433,7 +1433,7 @@ class DAG:
                 f'<tr><td align="left"> {input_header} </td></tr>',
             ]
 
-            for filename in input_files + output_files:
+            for filename in input_files:
                 # replace '<' and '>' in input file names, for example for
                 # string representations of lambda functions, which cannot
                 # be displayed unescaped in an HTML node
