@@ -245,8 +245,8 @@ class FileRecord:
                                "imagemagick in order to have embedded "
                                "images and pdfs in the report.")
         if self.is_table:
-            if self.size <= 512:
-                logger.warning("Table {} >0.5MB. Rendering as generic file.".format(self.path))
+            if self.size > 1e+6:
+                logger.warning("Table {} >1MB. Rendering as generic file.".format(self.path))
             else:
                 with open(self.path) as table:
                     dialect = None
