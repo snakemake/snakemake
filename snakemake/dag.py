@@ -1403,10 +1403,7 @@ class DAG:
             files = []
             for f in input_files:
                 if callable(f):
-                    # replace input functions
-                    # use html representations of < and >
-                    # to play nicely with graphviz HTML-like nodes
-                    files.append("&lt;input function&gt;")
+                    files.append("<input function>")
                     # NOTE: This is a workaround. It would be more informative
                     # to show the code of the input function here (if it is
                     # short enough). This cannot be easily done with the inspect
@@ -1434,16 +1431,17 @@ class DAG:
             ]
 
             for filename in input_files:
-                # replace '<' and '>' in input file names, for example for
-                # string representations of lambda functions, which cannot
-                # be displayed unescaped in an HTML node
+                # Escape html relevant chars like '<' and '>' in filenames
+                # These can be added by input functions etc. and cannot be
+                # displayed in graphviz HTML nodes.
                 in_file = html.escape(filename)
                 html_node.extend(["<tr>", f'<td align="left"> {in_file} </td>'"</tr>"])
 
             html_node.append('<hr/>',)
             html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>',)
 
-            for out_file in output_files:
+            for filename in output_files:
+                out_file = html.escape(filename)
                 html_node.extend(["<tr>", f'<td align="left"> {out_file} </td>'"</tr>"])
 
             html_node.append("</table>>]")
