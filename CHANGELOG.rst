@@ -1,3 +1,11 @@
+[5.5.1] - 2019-06-18
+====================
+Changed
+-------
+- Improved report interface. In particular for large files.
+- Small TSV tables are automatically rendered as HTML with datatables.
+- Be more permissive with Snakefile choices: allow "Snakefile", "snakefile", "workflow/Snakefile", "workflow/snakefile". 
+
 [5.5.0] - 2019-05-31
 ====================
 Added
