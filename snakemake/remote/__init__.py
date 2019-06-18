@@ -49,10 +49,11 @@ class AbstractRemoteProvider:
     supports_default = False
     allows_directories = False
 
-    def __init__(self, *args, keep_local=False, stay_on_remote=False, **kwargs):
+    def __init__(self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs):
         self.args = args
         self.stay_on_remote = stay_on_remote
         self.keep_local = keep_local
+        self.is_default = is_default
         self.kwargs = kwargs
 
     def remote(self, value, *args, keep_local=None, stay_on_remote=None, static=False, **kwargs):
