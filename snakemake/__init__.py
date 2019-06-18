@@ -26,6 +26,9 @@ from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import Mode, __version__
 
 
+SNAKEFILE_CHOICES = ["Snakefile", "snakefile", "workflow/Snakefile", "workflow/snakefile"]
+
+
 def snakemake(snakefile,
               report=None,
               listrules=False,
@@ -323,7 +326,7 @@ def snakemake(snakefile,
             return False
 
     if not os.path.exists(snakefile):
-        logger.error("Error: Snakefile \"{}\" not present.".format(snakefile))
+        logger.error("Error: Snakefile \"{}\" not found.".format(snakefile))
         return False
     snakefile = os.path.abspath(snakefile)
 
@@ -720,8 +723,15 @@ def get_argument_parser(profile=None):
 
     group_exec.add_argument("--snakefile", "-s",
                         metavar="FILE",
-                        default="Snakefile",
-                        help="The workflow definition in a snakefile.")
+                        help=("The workflow definition in form of a snakefile."
+                             "Usually, you should not need to specify this. "
+                             "By default, Snakemake will search for {} "
+                             "beneath the current working "
+                             "directory, in this order. "
+                             "Only if you definitely want a different layout, "
+                             "you need to use this parameter.").format(
+                                ", ".join(map("'{}'".format, SNAKEFILE_CHOICES))
+                            ))
     group_exec.add_argument(
         "--cores", "--jobs", "-j",
         action="store",
@@ -1433,6 +1443,18 @@ def main(argv=None):
     if args.delete_all_output and args.delete_temp_output:
         print("Error: --delete-all-output and --delete-temp-output are mutually exclusive.", file=sys.stderr)
         sys.exit(1)
+
+    if args.snakefile is None:
+        for p in SNAKEFILE_CHOICES:
+            if os.path.exists(p):
+                args.snakefile = p
+                break
+        if args.snakefile is None:
+            print("Error: no Snakefile found, tried {}.".format(
+                ", ".join(SNAKEFILE_CHOICES),
+                file=sys.stderr
+            ))
+            sys.exit(1)
 
     if args.gui is not None:
         try:
