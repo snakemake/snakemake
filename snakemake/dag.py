@@ -1435,14 +1435,14 @@ class DAG:
                 # These can be added by input functions etc. and cannot be
                 # displayed in graphviz HTML nodes.
                 in_file = html.escape(filename)
-                html_node.extend(["<tr>", f'<td align="left"> {in_file} </td>'"</tr>"])
+                html_node.extend(["<tr>", f'<td align="left"><font face="monospace">{in_file}</font></td>'"</tr>"])
 
             html_node.append('<hr/>',)
             html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>',)
 
             for filename in sorted(output_files):
                 out_file = html.escape(filename)
-                html_node.extend(["<tr>", f'<td align="left"> {out_file} </td>'"</tr>"])
+                html_node.extend(["<tr>", f'<td align="left"><font face="monospace">{out_file}</font></td>'"</tr>"])
 
             html_node.append("</table>>]")
             return "\n".join(html_node)
