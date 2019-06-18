@@ -1430,7 +1430,7 @@ class DAG:
                 f'<tr><td align="left"> {input_header} </td></tr>',
             ]
 
-            for filename in input_files:
+            for filename in sorted(input_files):
                 # Escape html relevant chars like '<' and '>' in filenames
                 # These can be added by input functions etc. and cannot be
                 # displayed in graphviz HTML nodes.
@@ -1440,7 +1440,7 @@ class DAG:
             html_node.append('<hr/>',)
             html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>',)
 
-            for filename in output_files:
+            for filename in sorted(output_files):
                 out_file = html.escape(filename)
                 html_node.extend(["<tr>", f'<td align="left"> {out_file} </td>'"</tr>"])
 
