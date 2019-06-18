@@ -426,6 +426,24 @@ Apart from Python scripts, this mechanism also allows you to integrate R_ and R 
 
 In the R script, an S4 object named ``snakemake`` analog to the Python case above is available and allows access to input and output files and other parameters. Here the syntax follows that of S4 classes with attributes that are R lists, e.g. we can access the first input file with ``snakemake@input[[1]]`` (note that the first file does not have index ``0`` here, because R starts counting from ``1``). Named input and output files can be accessed in the same way, by just providing the name instead of an index, e.g. ``snakemake@input[["myfile"]]``.
 
+Finally, it is possible to integrate Julia_ scripts, e.g.
+
+.. _Julia: https://julialang.org
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        script:
+            "path/to/script.jl"
+
+In the Julia_ script, a ``snakemake`` object is available, which can be accessed similar to the Python case (see above), with the only difference that you have to index from 1 instead of 0.
+
 For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object. A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
 
 An example external Python script would could look like this:
