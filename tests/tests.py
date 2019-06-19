@@ -67,6 +67,7 @@ gcloud = pytest.mark.skipif(not is_connected()
 connected = pytest.mark.skipif(not is_connected(), reason="no internet connection")
 
 ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
+not_ci = pytest.mark.skipif(is_ci(), reason="skipped in CI")
 
 def copy(src, dst):
     if os.path.isdir(src):
@@ -584,13 +585,13 @@ def test_dynamic_temp():
 def test_issue260():
    run(dpath("test_issue260"))
 
-#@pytest.mark.skip(reason="moto seems to be broken currently")
+@not_ci
 def test_default_remote():
-     run(dpath("test_default_remote"),
-         cores=1,
-         default_remote_provider="S3Mocked",
-         default_remote_prefix="test-remote-bucket",
-         verbose=True)
+    run(dpath("test_default_remote"),
+        cores=1,
+        default_remote_provider="S3Mocked",
+        default_remote_prefix="test-remote-bucket",
+        verbose=True)
 
 
 def test_run_namedlist():
@@ -598,12 +599,9 @@ def test_run_namedlist():
 
 
 @connected
-@ci
+@not_ci
 def test_remote_gs():
-    if not "CI" in os.environ:
-        run(dpath("test_remote_gs"))
-    else:
-        print("skipping test_remove_gs in CI")
+    run(dpath("test_remote_gs"))
 
 
 @connected
