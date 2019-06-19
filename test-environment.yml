@@ -6,6 +6,7 @@ dependencies:
   - rpy2 >=0.7.6
   - datrie
   - boto3
+  - moto
   - httpretty
   - wrapt
   - pyyaml
@@ -36,6 +37,4 @@ dependencies:
   - networkx
   - pygraphviz
   - python-kubernetes
-  - pip:
-      - moto==1.3.5
   - gitpython

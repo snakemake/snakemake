@@ -22,9 +22,9 @@ except ImportError as e:
                         "functionality. %s" % e.msg)
 
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, stay_on_remote=False, **kwargs):
+    def __init__(self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs):
         #loop = asyncio.get_event_loop()
-        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+        super(RemoteProvider, self).__init__(*args, keep_local=keep_local, stay_on_remote=stay_on_remote, is_default=is_default, **kwargs)
 
     @property
     def default_protocol(self):
@@ -44,7 +44,7 @@ class RemoteObject(DomainObject):
     def __init__(self, *args, keep_local=False, **kwargs):
         #self.loop = asyncio.get_event_loop()
         super(RemoteObject, self).__init__(*args, keep_local=keep_local, **kwargs)
-         
+
 
     @contextmanager
     def webdavc(self):
@@ -87,8 +87,8 @@ class RemoteObject(DomainObject):
 
             # monkey patch aioeasywebdav to noop _rate_calc()
             # since we don't care about download progress and
-            # the parent (connection) object may be removed before the 
-            # sleep coroutine has a chance to be scheduled/finish, 
+            # the parent (connection) object may be removed before the
+            # sleep coroutine has a chance to be scheduled/finish,
             # and aioeasywebdav only calls close() on __del__()
             async def noop(_): pass
             aioeasywebdav.Client._rate_calc = noop

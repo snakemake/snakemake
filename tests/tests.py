@@ -584,12 +584,13 @@ def test_dynamic_temp():
 def test_issue260():
    run(dpath("test_issue260"))
 
-@pytest.mark.skip(reason="moto seems to be broken currently")
+#@pytest.mark.skip(reason="moto seems to be broken currently")
 def test_default_remote():
      run(dpath("test_default_remote"),
          cores=1,
          default_remote_provider="S3Mocked",
-         default_remote_prefix="test-remote-bucket")
+         default_remote_prefix="test-remote-bucket",
+         verbose=True)
 
 
 def test_run_namedlist():

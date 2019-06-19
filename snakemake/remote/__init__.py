@@ -97,7 +97,7 @@ class AbstractRemoteProvider:
         provider = sys.modules[self.__module__]  # get module of derived class
         remote_object = provider.RemoteObject(
             *args, keep_local=keep_local, stay_on_remote=stay_on_remote,
-            provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs
+            provider=self, **kwargs
         )
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
