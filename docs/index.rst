@@ -213,6 +213,7 @@ Please consider to add your own.
 
     api_reference/snakemake
     api_reference/snakemake_utils
+    api_reference/internal/modules
 
 
 .. toctree::
