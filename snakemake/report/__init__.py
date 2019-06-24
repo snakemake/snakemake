@@ -232,7 +232,7 @@ class FileRecord:
             convert = shutil.which("convert")
             if convert is not None:
                 try:
-                    png = sp.check_output(["convert", "-density", "100", self.path, "png:-"],
+                    png = sp.check_output(["convert", "-density", "300", self.path, "png:-"],
                                           stderr=sp.PIPE)
                     uri = data_uri(png, os.path.basename(self.path) + ".png",
                                    mime="image/png")
