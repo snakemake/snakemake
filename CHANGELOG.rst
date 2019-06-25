@@ -1,3 +1,10 @@
+[5.5.2] - 2019-06-25
+====================
+Changed
+-------
+- Various minor bug fixes in reports.
+- Speed improvements when using checkpoints.
+
 [5.5.1] - 2019-06-18
 ====================
 Changed
