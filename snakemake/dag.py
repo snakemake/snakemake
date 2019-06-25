@@ -988,8 +988,8 @@ class DAG:
                     newjob = j.updated()
                     self.replace_job(j, newjob, recursive=False)
                     updated = True
-                if updated:
-                    self.postprocess()
+        if updated:
+            self.postprocess()
         return updated
 
     def finish(self, job, update_dynamic=True):
