@@ -257,6 +257,9 @@ class FileRecord:
                             break
                         except csv.Error:
                             pass
+                        except UnicodeDecodeError:
+                            # table is not readable as UTF-8
+                            break
                     if dialect is None:
                         logger.warning("Failed to infer CSV/TSV dialect from table {}. "
                                        "Rendering as generic file.".format(self.path))
