@@ -195,10 +195,10 @@ class Env:
 
         # Create environment if not already present.
         if not os.path.exists(env_path):
-            conda = Conda(self._singularity_img)
             if dryrun:
                 logger.info("Conda environment {} will be created.".format(utils.simplify_path(self.file)))
                 return env_path
+            conda = Conda(self._singularity_img)
             logger.info("Creating conda environment {}...".format(
                         utils.simplify_path(self.file)))
             # Check if env archive exists. Use that if present.
@@ -308,7 +308,7 @@ class Conda:
             # Use type here since conda now is a function.
             # type allows to check for both functions and regular commands.
             shell.check_output(self._get_cmd("type conda"), stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             if self.singularity_img:
                 raise CreateCondaEnvironmentException("The 'conda' command is not "
                                                       "available inside "
