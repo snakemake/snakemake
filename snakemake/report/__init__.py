@@ -296,10 +296,14 @@ class FileRecord:
             snakemake = Snakemake(job.input, job.output, job.params, job.wildcards,
                                   job.threads, job.resources, job.log,
                                   job.dag.workflow.config, job.rule.name, None)
+            
+            seen = set()
+            files = [seen.add(res.target) or res for cat in results.values() for res in cat if res.target not in seen]
             try:
                 caption = open(self.raw_caption).read() + rst_links
                 caption = env.from_string(caption).render(snakemake=snakemake,
-                                                          results=results)
+                                                          categories=results,
+                                                          files=files)
                 self.caption = publish_parts(caption, writer_name="html")["body"]
             except Exception as e:
                 raise WorkflowError("Error loading caption file of output "
@@ -464,9 +468,9 @@ def auto_report(dag, path):
     .. _Results: #results
     .. _Rules: #rules
     .. _Statistics: #stats
-    {% for cat, catresults in results|dictsort %}
+    {% for cat, catresults in categories|dictsort %}
     .. _{{ cat.name }}: #{{ cat.id }}
-    {% for res in catresults %}
+    {% for res in files %}
     .. _{{ res.target }}: #{{ res.id }}
     {% endfor %}
     {% endfor %}
