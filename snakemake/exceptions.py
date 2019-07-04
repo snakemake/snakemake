@@ -206,7 +206,13 @@ class IOException(RuleException):
 
 class MissingInputException(IOException):
     def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
-        super().__init__("Missing input files", rule, files, include,
+        msg = "Missing input files"
+        if any(map(lambda f: f.startswith("~"), files)):
+            msg += ("(Using '~' in your paths is not allowed as such platform "
+                    "specific syntax is not resolved by Snakemake. In general, "
+                    "try sticking to relative paths for everything inside the "
+                    "working directory.)")
+        super().__init__(msg, rule, files, include,
                          lineno=lineno,
                          snakefile=snakefile)
 
