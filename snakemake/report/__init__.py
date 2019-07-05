@@ -285,7 +285,7 @@ class FileRecord:
 
 
 
-    def render(self, env, rst_links, results):
+    def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
             try:
                 from jinja2 import Template
@@ -297,12 +297,10 @@ class FileRecord:
                                   job.threads, job.resources, job.log,
                                   job.dag.workflow.config, job.rule.name, None)
             
-            seen = set()
-            files = [seen.add(res.target) or res for cat in results.values() for res in cat if res.target not in seen]
             try:
                 caption = open(self.raw_caption).read() + rst_links
                 caption = env.from_string(caption).render(snakemake=snakemake,
-                                                          categories=results,
+                                                          categories=categories,
                                                           files=files)
                 self.caption = publish_parts(caption, writer_name="html")["body"]
             except Exception as e:
@@ -463,6 +461,10 @@ def auto_report(dag, path):
     # rulegraph
     rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
 
+
+    seen = set()
+    files = [seen.add(res.target) or res for cat in results.values() for res in cat if res.target not in seen]
+
     rst_links = textwrap.dedent("""
 
     .. _Results: #results
@@ -478,7 +480,7 @@ def auto_report(dag, path):
     """)
     for cat, catresults in results.items():
         for res in catresults:
-            res.render(env, rst_links, results)
+            res.render(env, rst_links, results, files)
 
     # global description
     text = ""
@@ -489,7 +491,7 @@ def auto_report(dag, path):
 
             text = f.read() + rst_links
             text = publish_parts(env.from_string(text).render(
-                                    snakemake=Snakemake, results=results),
+                                    snakemake=Snakemake, categories=results, files=files),
                                  writer_name="html")["body"]
 
     # record time
