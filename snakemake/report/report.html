@@ -11,7 +11,7 @@
     <!-- Bootstrap CSS -->
     <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
     <style>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css"|get_resource_as_string }}</style>
-    <style>{{ "https://unpkg.com/bootstrap-table@1.15.2/dist/bootstrap-table.min.css"|get_resource_as_string }}</style>
+    <style>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.18/r-2.2.2/datatables.min.css"|get_resource_as_string }}</style>
 
     <!-- Custom styles for this template -->
     <style>
@@ -292,22 +292,13 @@
 
               <div id="{{ cat.content_id }}" class="collapse" aria-labelledby="{{ cat.id }}" data-parent="#categories">
                 <div class="card-body">
-                  <table class="table results-table"
-                         data-toggle="table" 
-                         data-sortable="true" 
-                         data-pagination="true" 
-                         data-show-extended-pagination="true" 
-                         data-search="true"
-                         data-show-columns="true"
-                         data-show-columns-toggle-all="true"
-                         data-show-export="true"
-                         data-show-button-text="true">
+                  <table class="table results-table">
                     <thead>
                       <tr>
-                        <th data-sortable="true">File</th>
-                        <th data-sortable="true">Size</th>
-                        <th data-sortable="false">Description</th>
-                        <th data-sortable="false"></th>
+                        <th>File</th>
+                        <th>Size</th>
+                        <th>Description</th>
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -339,24 +330,14 @@
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
           <h2 id="rules">Rules</h2>
           </div>
-          <table class="table" 
-                 id="rules-table" 
-                 data-toggle="table" 
-                 data-sortable="true" 
-                 data-pagination="true" 
-                 data-show-extended-pagination="true" 
-                 data-search="true"
-                 data-show-columns="true"
-                 data-show-columns-toggle-all="true"
-                 data-show-export="true"
-                 data-show-button-text="true">
+          <table class="table" id="rules-table">
             <thead>
               <tr>
-                <th data-sortable="true">Rule</th>
-                <th data-sortable="true">Jobs</th>
-                <th data-sortable="false">Output</th>
-                <th data-sortable="true">Singularity</th>
-                <th data-sortable="false">Conda environment</th>
+                <th>Rule</th>
+                <th>Jobs</th>
+                <th>Output</th>
+                <th>Singularity</th>
+                <th>Conda environment</th>
               </tr>
             </thead>
             <tbody>
@@ -407,11 +388,7 @@
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://raw.githubusercontent.com/eligrey/FileSaver.js/2.0.0/src/FileSaver.js"|get_resource_as_string }}</script>
-    <script>{{ "https://unpkg.com/bootstrap-table@1.15.2/dist/bootstrap-table.min.js"|get_resource_as_string }}</script>
-    <script>{{ "https://unpkg.com/tableexport.jquery.plugin/tableExport.min.js"|get_resource_as_string }}</script>
-    <script>{{ "https://unpkg.com/tableexport.jquery.plugin/libs/jsPDF/jspdf.min.js"|get_resource_as_string }}</script>
-    <script>{{ "https://unpkg.com/tableexport.jquery.plugin/libs/jsPDF-AutoTable/jspdf.plugin.autotable.js"|get_resource_as_string }}</script>
-    <script>{{ "https://unpkg.com/bootstrap-table@1.15.2/dist/extensions/export/bootstrap-table-export.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.18/r-2.2.2/datatables.min.js"|get_resource_as_string }}</script>
 
     <!-- Icons -->
     <script>
@@ -625,12 +602,12 @@
       $(document).on('click', '[data-toggle="lightbox"]', function(event) {
                 event.preventDefault();
                 $(this).ekkoLightbox();
-      });
+            });
 
-      // $('.results-table').DataTable();
-      // $('#rules-table').DataTable({
-      //   paging: false
-      // });
+      $('.results-table').DataTable();
+      $('#rules-table').DataTable({
+        paging: false
+      });
 
       {% for cat, catresults in results|dictsort %}
         {% for res in catresults %}

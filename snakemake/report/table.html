@@ -11,24 +11,15 @@
     <!-- Bootstrap CSS -->
     <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
     <style>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css"|get_resource_as_string }}</style>
-    <style>{{ "https://unpkg.com/bootstrap-table@1.15.2/dist/bootstrap-table.min.css"|get_resource_as_string }}</style>
+    <style>{{ "https://cdn.datatables.net/v/bs4/jszip-2.5.0/dt-1.10.18/b-1.5.6/b-html5-1.5.6/b-print-1.5.6/cr-1.5.0/fh-3.1.4/r-2.2.2/datatables.min.css"|get_resource_as_string }}</style>
   </head>
   <body>
     <div class="container" style="margin-top: 1em;">
-      <table class="table"
-             data-toggle="table" 
-             data-sortable="true" 
-             data-pagination="true" 
-             data-show-extended-pagination="true" 
-             data-search="true"
-             data-show-columns="true"
-             data-show-columns-toggle-all="true"
-             data-show-export="true"
-             data-show-button-text="true">
+      <table class="table">
         <thead>
         <tr>
           {% for colname in columns %}
-          <th data-sortable="true">{{ colname|escape }}</th>
+          <th>{{ colname|escape }}</th>
           {% endfor %}
         </tr>
         </thead>
@@ -39,11 +30,7 @@
   </body>
   <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"|get_resource_as_string }}</script>
   <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/js/bootstrap.min.js"|get_resource_as_string }}</script>
-  <script>{{ "https://unpkg.com/bootstrap-table@1.15.2/dist/bootstrap-table.min.js"|get_resource_as_string }}</script>
-  <script>{{ "https://unpkg.com/tableexport.jquery.plugin/tableExport.min.js"|get_resource_as_string }}</script>
-  <script>{{ "https://unpkg.com/tableexport.jquery.plugin/libs/jsPDF/jspdf.min.js"|get_resource_as_string }}</script>
-  <script>{{ "https://unpkg.com/tableexport.jquery.plugin/libs/jsPDF-AutoTable/jspdf.plugin.autotable.js"|get_resource_as_string }}</script>
-  <script>{{ "https://unpkg.com/bootstrap-table@1.15.2/dist/extensions/export/bootstrap-table-export.min.js"|get_resource_as_string }}</script>
+  <script>{{ "https://cdn.datatables.net/v/bs4/jszip-2.5.0/dt-1.10.18/b-1.5.6/b-html5-1.5.6/b-print-1.5.6/cr-1.5.0/fh-3.1.4/r-2.2.2/datatables.min.js"|get_resource_as_string }}</script>
 
   <script>
     var data = [
@@ -55,5 +42,15 @@
         ]{{ "," if not loop.last }}
       {% endfor %}
     ];
+
+    $('table').DataTable({
+      data: data,
+      dom: 'Bfrtip',
+      fixedHeader: true,
+      responsive: true,
+      buttons: [
+          'csvHtml5', 'excelHtml5', 'print'
+      ]
+    });
   </script>
 </html>
