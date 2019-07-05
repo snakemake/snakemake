@@ -301,7 +301,7 @@
                          data-show-button-text="true">
                     <thead>
                       <tr>
-                        <th data-sortable="true" data-click-to-select="false">File</th>
+                        <th data-sortable="true">File</th>
                         <th data-sortable="true">Size</th>
                         <th data-sortable="false">Description</th>
                         <th data-sortable="false"></th>
@@ -311,7 +311,7 @@
                       {% for res in catresults %}
                       <tr>
                         <th>
-                          <a id="{{ res.id }}" href="javascript:download('{{ res.id }}')" download="{{ res.name }}">{{ res.name }}</a>
+                          <a id="{{ res.id }}" href="javascript:void(0)" download="{{ res.name }}">{{ res.name }}</a>
                         </th>
                         <td style="white-space:nowrap;">{{ res.size|filesizeformat }}</td>
                         <td>{{ res.caption }}</td>
@@ -585,74 +585,62 @@
       };
       vegaEmbed("#timeline", timeline_spec);
 
-      $(".vega-actions a").addClass("btn btn-outline-secondary");
-      $(".vega-actions").addClass("btn-group");
-
-      var data = {
-        {% for cat, catresults in results|dictsort %}
-        {% set outer_loop = loop %}
-        {% for res in catresults %}
-        "{{ res.id }}": {
-          name: "{{ res.name }}",
-          data_uri: "{{ res.data_uri }}",
-        }{{ "," if not outer_loop.last }}
-        {% endfor %}
-        {% endfor %}
-      };
-
-      function download(id) {
-        var d = data[id];
-        saveAs(d.data_uri, d.name);
-      }
-
-      // add thumbnails and download links
-      {% for cat, catresults in results|dictsort %}
-        {% for res in catresults %}
-
-          {% if res.png_uri is not none %}
-          var data_uri = "{{ res.png_uri }}";
-          var anchor = $(
-            '<a>',
-            {
-              href: data_uri,
-              "data-toggle": "lightbox",
-              "data-gallery": "results",
-              "data-title": "{{ res.name }}",
-              "data-footer": 'This is a preview [<a href="javascript:download(\'{{ res.id }}\')" download="{{ res.name }}">download original file</a>].'
-            }
-          );
-          anchor.append($(
-            '<img>',
-            {
-              id:'{{ res.id }}-thumbnail',
-              src: data_uri,
-              width: 200
-            }
-          ));
-          $("#{{ res.id }}-preview").append(anchor);
-          {% endif %}
-        {% endfor %}
-      {% endfor %}
-
-      $(document).on('click', '[data-toggle="lightbox"]', function(event) {
-                event.preventDefault();
-                $(this).ekkoLightbox();
-      });
-      
-      {% for cat, catresults in results|dictsort %}
-        {% for res in catresults %}
-      $('a[href="#{{ res.id }}"]').click(function() {
-        var collapse = $('#{{ res.category.id }} button');
-        if(collapse.hasClass("collapsed")) {
-          collapse.click();
-        } else {
-          collapse.focus();
-        }
-      });
-        {% endfor %}
-      {% endfor %}
 
       $(document).ready(function() {
+        $("table td").unbind();
+
+        $(".vega-actions a").addClass("btn btn-outline-secondary");
+        $(".vega-actions").addClass("btn-group");
+
+        // add thumbnails and download links
+        {% for cat, catresults in results|dictsort %}
+          {% for res in catresults %}
+            $("#{{ res.id }}").click(function(e) {
+              saveAs('{{ res.data_uri }}', '{{ res.name }}');
+            });
+
+            {% if res.png_uri is not none %}
+            var data_uri = "{{ res.png_uri }}";
+            var anchor = $(
+              '<a>',
+              {
+                href: data_uri,
+                "data-toggle": "lightbox",
+                "data-gallery": "results",
+                "data-title": "{{ res.name }}",
+                "data-footer": "This is a preview. Download original file via the table."
+              }
+            );
+            anchor.append($(
+              '<img>',
+              {
+                id:'{{ res.id }}-thumbnail',
+                src: data_uri,
+                width: 200
+              }
+            ));
+            $("#{{ res.id }}-preview").append(anchor);
+            {% endif %}
+          {% endfor %}
+        {% endfor %}
+
+        $(document).on('click', '[data-toggle="lightbox"]', function(event) {
+                  event.preventDefault();
+                  $(this).ekkoLightbox();
+        });
+        
+        {% for cat, catresults in results|dictsort %}
+          {% for res in catresults %}
+        $('a[href="#{{ res.id }}"]').click(function() {
+          var collapse = $('#{{ res.category.id }} button');
+          if(collapse.hasClass("collapsed")) {
+            collapse.click();
+          } else {
+            collapse.focus();
+          }
+        });
+          {% endfor %}
+        {% endfor %}
 
         // Hide loading screen when document is ready.
         setTimeout(function(){
