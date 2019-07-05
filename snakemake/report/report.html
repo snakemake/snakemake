@@ -406,12 +406,12 @@
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.13.2/vega-embed.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://raw.githubusercontent.com/eligrey/FileSaver.js/2.0.0/src/FileSaver.js"|get_resource_as_string }}</script>
     <script>{{ "https://unpkg.com/bootstrap-table@1.15.2/dist/bootstrap-table.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://unpkg.com/tableexport.jquery.plugin/tableExport.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://unpkg.com/tableexport.jquery.plugin/libs/jsPDF/jspdf.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://unpkg.com/tableexport.jquery.plugin/libs/jsPDF-AutoTable/jspdf.plugin.autotable.js"|get_resource_as_string }}</script>
     <script>{{ "https://unpkg.com/bootstrap-table@1.15.2/dist/extensions/export/bootstrap-table-export.min.js"|get_resource_as_string }}</script>
-    <script>{{ "https://raw.githubusercontent.com/eligrey/FileSaver.js/2.0.0/src/FileSaver.js"|get_resource_as_string }}</script>
 
     <!-- Icons -->
     <script>
@@ -587,68 +587,65 @@
       };
       vegaEmbed("#timeline", timeline_spec);
 
+      $(".vega-actions a").addClass("btn btn-outline-secondary");
+      $(".vega-actions").addClass("btn-group");
+
+      // add thumbnails
+      {% for cat, catresults in results|dictsort %}
+        {% for res in catresults %}
+          $("#{{ res.id }}").click(function(e) {
+            saveAs('{{ res.data_uri }}', '{{ res.name }}');
+          });
+
+          {% if res.png_uri is not none %}
+          var data_uri = "{{ res.png_uri }}";
+          var anchor = $(
+            '<a>',
+            {
+              href: data_uri,
+              "data-toggle": "lightbox",
+              "data-gallery": "results",
+              "data-title": "{{ res.name }}",
+              "data-footer": "This is a preview. Download original file via the table."
+            }
+          );
+          anchor.append($(
+            '<img>',
+            {
+              id:'{{ res.id }}-thumbnail',
+              src: data_uri,
+              width: 200
+            }
+          ));
+          $("#{{ res.id }}-preview").append(anchor);
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+
+      $(document).on('click', '[data-toggle="lightbox"]', function(event) {
+                event.preventDefault();
+                $(this).ekkoLightbox();
+      });
+
+      // $('.results-table').DataTable();
+      // $('#rules-table').DataTable({
+      //   paging: false
+      // });
+
+      {% for cat, catresults in results|dictsort %}
+        {% for res in catresults %}
+      $('a[href="#{{ res.id }}"]').click(function() {
+        var collapse = $('#{{ res.category.id }} button');
+        if(collapse.hasClass("collapsed")) {
+          collapse.click();
+        } else {
+          collapse.focus();
+        }
+      });
+        {% endfor %}
+      {% endfor %}
 
       $(document).ready(function() {
-        $("table td").unbind();
-
-        $(".vega-actions a").addClass("btn btn-outline-secondary");
-        $(".vega-actions").addClass("btn-group");
-
-        // add thumbnails and download links
-        {% for cat, catresults in results|dictsort %}
-          {% for res in catresults %}
-            $("#{{ res.id }}").click(function(e) {
-              saveAs('{{ res.data_uri }}', '{{ res.name }}');
-            });
-
-            {% if res.png_uri is not none %}
-            var data_uri = "{{ res.png_uri }}";
-            var anchor = $(
-              '<a>',
-              {
-                href: data_uri,
-                "data-toggle": "lightbox",
-                "data-gallery": "results",
-                "data-title": "{{ res.name }}",
-                "data-footer": "This is a preview. Download original file via the table."
-              }
-            );
-            anchor.append($(
-              '<img>',
-              {
-                id:'{{ res.id }}-thumbnail',
-                src: data_uri,
-                width: 200
-              }
-            ));
-            $("#{{ res.id }}-preview").append(anchor);
-            {% endif %}
-          {% endfor %}
-        {% endfor %}
-
-        $(document).on('click', '[data-toggle="lightbox"]', function(event) {
-                  event.preventDefault();
-                  $(this).ekkoLightbox();
-        });
-
-        // $('.results-table').DataTable();
-        // $('#rules-table').DataTable({
-        //   paging: false
-        // });
-
-        {% for cat, catresults in results|dictsort %}
-          {% for res in catresults %}
-        $('a[href="#{{ res.id }}"]').click(function() {
-          var collapse = $('#{{ res.category.id }} button');
-          if(collapse.hasClass("collapsed")) {
-            collapse.click();
-          } else {
-            collapse.focus();
-          }
-        });
-          {% endfor %}
-        {% endfor %}
-
         // Hide loading screen when document is ready.
         setTimeout(function(){
             $("#loading-screen").hide();
