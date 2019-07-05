@@ -630,7 +630,12 @@
                   event.preventDefault();
                   $(this).ekkoLightbox();
         });
-        
+
+        // $('.results-table').DataTable();
+        // $('#rules-table').DataTable({
+        //   paging: false
+        // });
+
         {% for cat, catresults in results|dictsort %}
           {% for res in catresults %}
         $('a[href="#{{ res.id }}"]').click(function() {
