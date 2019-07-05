@@ -595,7 +595,7 @@
         "{{ res.id }}": {
           name: "{{ res.name }}",
           data_uri: "{{ res.data_uri }}",
-        }{{ "," if not outer_loop.last or not loop.last }}
+        }{{ "," if not outer_loop.last }}
         {% endfor %}
         {% endfor %}
       };
