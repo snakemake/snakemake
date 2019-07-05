@@ -220,19 +220,20 @@ class FileRecord:
     def __init__(self, path, job, caption, env, category):
         self.path = path
         self.target = os.path.basename(path)
-        logger.info("Adding {}.".format(self.name))
+        self.size = os.path.getsize(self.path)
+        logger.info("Adding {} ({:.2g} MB).".format(self.name, self.size / 1e6))
         self.raw_caption = caption
         self.mime, _ = mime_from_file(self.path)
         self.id = uuid.uuid4()
         self.job = job
         self.png_uri = None
-        self.size = os.path.getsize(self.path)
         self.category = category
         if self.is_img:
             convert = shutil.which("convert")
             if convert is not None:
                 try:
-                    png = sp.check_output(["convert", "-density", "300", self.path, "png:-"],
+                    density = "76" if self.size > 1e6 else "300"
+                    png = sp.check_output(["convert", "-density", density, self.path, "png:-"],
                                           stderr=sp.PIPE)
                     uri = data_uri(png, os.path.basename(self.path) + ".png",
                                    mime="image/png")
