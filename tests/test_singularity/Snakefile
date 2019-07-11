@@ -6,9 +6,9 @@ rule a:
     output:
         "test.out"
     singularity:
-        "shub://vsoch/hello-world@e279432e6d3962777bb7b5e8d54f30f4347d867e"
+        "docker://bash"
     shell:
-        'ls {input}; /rawr.sh > {output}; echo "test" >> {output}'
+        'ls {input}; echo "test" > {output}'
 
 
 rule b:
