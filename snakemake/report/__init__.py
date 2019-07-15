@@ -25,6 +25,7 @@ from docutils.parsers.rst.directives.images import Image, Figure
 from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 
+from snakemake import script, wrapper
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.io import is_flagged, get_flag_value
@@ -183,9 +184,12 @@ class Category:
 
 
 class RuleRecord:
+    code = dict()
+
     def __init__(self, job, job_rec):
         import yaml
         self.name = job_rec.rule
+        self._rule = job.rule
         self.singularity_img_url = job_rec.singularity_img_url
         self.conda_env = None
         self._conda_env_raw = None
@@ -195,6 +199,16 @@ class RuleRecord:
         self.n_jobs = 1
         self.output = list(job_rec.output)
         self.id = uuid.uuid4()
+
+    def code(self):
+        if self._rule.shellcmd is not None:
+            return self._rule.shellcmd
+        elif self._rule.script is not None:
+            logger.info("Loading script code for rule {}".format(self.name))
+            return script.get_source(self._rule.script, job.rule.basedir)
+        elif self._rule.wrapper:
+            logger.info("Loading wrapper code for rule {}".format(self.name))
+            return script.get_source(wrapper.get_script(self._rule.wrapper, prefix=self._rule.workflow.wrapper_prefix), self._rule.basedir)
 
     def add(self, job_rec):
         self.n_jobs += 1

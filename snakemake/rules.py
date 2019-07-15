@@ -68,6 +68,7 @@ class Rule:
             self.is_branched = False
             self.is_checkpoint = False
             self.restart_times = 0
+            self.basedir = None
         elif len(args) == 1:
             other = args[0]
             self.name = other.name
@@ -108,6 +109,7 @@ class Rule:
             self.is_branched = True
             self.is_checkpoint = other.is_checkpoint
             self.restart_times = other.restart_times
+            self.basedir = other.basedir
 
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):

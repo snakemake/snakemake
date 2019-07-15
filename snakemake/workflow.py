@@ -896,6 +896,7 @@ class Workflow:
             rule.wrapper = ruleinfo.wrapper
             rule.cwl = ruleinfo.cwl
             rule.restart_times=self.restart_times
+            rule.basedir = self.current_basedir
 
             ruleinfo.func.__name__ = "__{}".format(rule.name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func

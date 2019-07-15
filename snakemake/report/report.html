@@ -338,6 +338,7 @@
                 <th>Output</th>
                 <th>Singularity</th>
                 <th>Conda environment</th>
+                <th>Code</th>
               </tr>
             </thead>
             <tbody>
@@ -365,6 +366,14 @@
                         <li class="list-group-item">{{ dep }}</li>
                       {% endfor %}
                       </ul>
+                    </div>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if rule.code is not none %}
+                    <a data-toggle="collapse" role="button" href="#code-{{ rule.id }}" aria-expanded="false" aria-controls="collapse-env"><span data-feather="plus-circle"></span></a>
+                    <div class="collapse" id="code-{{ rule.id }}">
+                      <pre class="pre-scrollable">{{ rule.code() }}</pre>
                     </div>
                   {% endif %}
                 </td>
