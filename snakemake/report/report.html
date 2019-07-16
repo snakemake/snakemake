@@ -12,6 +12,7 @@
     <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
     <style>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css"|get_resource_as_string }}</style>
     <style>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.18/r-2.2.2/datatables.min.css"|get_resource_as_string }}</style>
+    <style>{{ pygments_css|safe }}</style>
 
     <!-- Custom styles for this template -->
     <style>
@@ -373,7 +374,7 @@
                   {% if rule.code is not none %}
                     <a data-toggle="collapse" role="button" href="#code-{{ rule.id }}" aria-expanded="false" aria-controls="collapse-env"><span data-feather="plus-circle"></span></a>
                     <div class="collapse" id="code-{{ rule.id }}">
-                      <pre class="pre-scrollable">{{ rule.code() }}</pre>
+                      {{ rule.code()|safe }}
                     </div>
                   {% endif %}
                 </td>

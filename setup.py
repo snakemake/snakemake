@@ -49,7 +49,7 @@ setup(
     install_requires=['wrapt', 'requests', 'ratelimiter', 'pyyaml',
                       'configargparse', 'appdirs', 'datrie', 'jsonschema',
                       'docutils', 'gitpython'],
-    extras_require={"reports": ['jinja2', 'networkx']},
+    extras_require={"reports": ['jinja2', 'networkx', 'pygments']},
     classifiers=
     ["Development Status :: 5 - Production/Stable", "Environment :: Console",
      "Intended Audience :: Science/Research",

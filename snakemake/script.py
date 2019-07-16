@@ -227,7 +227,8 @@ class Snakemake:
         return lookup[(stdout, stderr, append)].format(self.log)
 
 
-def get_source(path, basedir):
+def get_source(path, basedir=None):
+    source = None
     if not path.startswith("http") and not path.startswith("git+file"):
         if path.startswith("file://"):
             path = path[7:]
@@ -238,21 +239,29 @@ def get_source(path, basedir):
         path = "file://" + path
     path = format(path, stepout=1)
     if path.startswith("file://"):
-        sourceurl = "file:"+pathname2url(path[7:])
+        sourceurl = "file:" + pathname2url(path[7:])
     elif path.startswith("git+file"):
+        source = git_content(path)
         (root_path, file_path, version) = split_git_path(path)
-        dir = ".snakemake/wrappers"
-        os.makedirs(dir, exist_ok=True)
-        new_path = os.path.join(dir, version + "-"+ "-".join(file_path.split("/")))
-        with open(new_path,'w') as wrapper:
-            wrapper.write(git_content(path))
-            sourceurl = "file:" + new_path
-            path = path.rstrip("@" + version)
+        path = path.rstrip("@" + version)
     else:
         sourceurl = path
     
-    with urlopen(sourceurl) as source:
-        return path, source.read()
+    language = None
+    if path.endswith(".py"):
+        language = "python"
+    elif path.endswith(".R"):
+        language = "r"
+    elif path.endswith(".Rmd"):
+        language = "rmarkdown"
+    elif path.endswith(".jl"):
+        language = "julia"
+    
+    if source is None:
+        with urlopen(sourceurl) as source:
+            return path, source.read(), language
+    else:
+        return path, source, language
 
 
 def script(path, basedir, input, output, params, wildcards, threads, resources,
@@ -265,8 +274,8 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
 
     f = None
     try:
-        path, source = get_source(path, basedir)
-        if path.endswith(".py"):
+        path, source, language = get_source(path, basedir)
+        if language == "python":
             wrapper_path = path[7:] if path.startswith("file://") else path
             snakemake = Snakemake(input, output, params, wildcards,
                                     threads, resources, log, config, rulename,
@@ -292,7 +301,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 snakemake=snakemake,
                 printshellcmds=logger.printshellcmds,
                 file_override=repr(os.path.realpath(wrapper_path)))
-        elif path.endswith(".R") or path.endswith(".Rmd"):
+        elif language == "r" or language == "rmarkdown":
             preamble = textwrap.dedent("""
             ######## Snakemake header ########
             library(methods)
@@ -347,7 +356,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                         }), REncoder.encode_dict(config), REncoder.encode_value(rulename),
                         REncoder.encode_numeric(bench_iteration),
                         REncoder.encode_value(os.path.dirname(path[7:]) if path.startswith("file://") else os.path.dirname(path)))
-        elif path.endswith(".jl"):
+        elif language == "julia":
             preamble = textwrap.dedent("""
                     ######## Snakemake header ########
                     struct Snakemake
@@ -408,7 +417,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
             suffix="." + os.path.basename(path),
             dir=dir,
             delete=False) as f:
-            if not path.endswith(".Rmd"):
+            if not language == "rmarkdown":
                 f.write(preamble.encode())
                 f.write(source)
             else:
@@ -424,7 +433,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 f.write(preamble.encode())
                 f.write(str.encode(code[pos:]))
 
-        if path.endswith(".py"):
+        if language == "python":
             py_exec = sys.executable
             if conda_env is not None:
                 py = os.path.join(conda_env, "bin", "python")
@@ -450,7 +459,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                 py_exec = "python"
             # use the same Python as the running process or the one from the environment
             shell("{py_exec} {f.name:q}", bench_record=bench_record)
-        elif path.endswith(".R"):
+        elif language == "r":
             if conda_env is not None and "R_LIBS" in os.environ:
                 logger.warning("R script job uses conda environment but "
                                 "R_LIBS environment variable is set. This "
@@ -460,14 +469,14 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                                 "remove it entirely before executing "
                                 "Snakemake.")
             shell("Rscript --vanilla {f.name:q}", bench_record=bench_record)
-        elif path.endswith(".Rmd"):
+        elif language == "rmakrdown":
             if len(output) != 1:
                 raise WorkflowError("RMarkdown scripts (.Rmd) may only have a single output file.")
             out = os.path.abspath(output[0])
             shell("Rscript --vanilla -e 'rmarkdown::render(\"{f.name}\", output_file=\"{out}\", quiet=TRUE, knit_root_dir = \"{workdir}\", params = list(rmd=\"{f.name}\"))'",
                 bench_record=bench_record,
                 workdir=os.getcwd())
-        elif path.endswith(".jl"):
+        elif language == "julia":
             shell("julia {f.name:q}", bench_record=bench_record)
 
     except URLError as e:

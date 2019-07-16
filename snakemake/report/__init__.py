@@ -184,7 +184,6 @@ class Category:
 
 
 class RuleRecord:
-    code = dict()
 
     def __init__(self, job, job_rec):
         import yaml
@@ -201,14 +200,30 @@ class RuleRecord:
         self.id = uuid.uuid4()
 
     def code(self):
+        try:
+            from pygments.lexers import get_lexer_by_name
+            from pygments.formatters import HtmlFormatter
+            from pygments import highlight
+        except ImportError:
+            raise WorkflowError("Python package pygments must be installed to create reports.")
+        source, language = None, None
         if self._rule.shellcmd is not None:
-            return self._rule.shellcmd
+            source = self._rule.shellcmd
+            language = "bash"
         elif self._rule.script is not None:
             logger.info("Loading script code for rule {}".format(self.name))
-            return script.get_source(self._rule.script, job.rule.basedir)
-        elif self._rule.wrapper:
+            _, source, language = script.get_source(self._rule.script, self._rule.basedir)
+            source = source.decode()
+        elif self._rule.wrapper is not None:
             logger.info("Loading wrapper code for rule {}".format(self.name))
-            return script.get_source(wrapper.get_script(self._rule.wrapper, prefix=self._rule.workflow.wrapper_prefix), self._rule.basedir)
+            _, source, language = script.get_source(wrapper.get_script(self._rule.wrapper, prefix=self._rule.workflow.wrapper_prefix))
+            source = source.decode()
+
+        try:
+            lexer = get_lexer_by_name(language)
+            return highlight(source, lexer, HtmlFormatter(linenos=True, cssclass="source", wrapcode=True))
+        except pygments.utils.ClassNotFound:
+            return "<pre><code>source</code></pre>"
 
     def add(self, job_rec):
         self.n_jobs += 1
@@ -222,6 +237,7 @@ class RuleRecord:
 
 class JobRecord:
     def __init__(self):
+        self.job = None
         self.rule = None
         self.starttime = sys.maxsize
         self.endtime = 0
@@ -433,6 +449,7 @@ def auto_report(dag, path):
                 rule = meta["rule"]
                 rec = records[(job_hash, rule)]
                 rec.rule = rule
+                rec.job = job
                 rec.starttime = min(rec.starttime, meta["starttime"])
                 rec.endtime = max(rec.endtime, meta["endtime"])
                 rec.conda_env_file = None
@@ -460,7 +477,7 @@ def auto_report(dag, path):
     # prepare per-rule information
     rules = defaultdict(list)
     for rec in records.values():
-        rule = RuleRecord(job, rec)
+        rule = RuleRecord(rec.job, rec)
         if rec.rule not in rules:
             rules[rec.rule].append(rule)
         else:
@@ -513,6 +530,11 @@ def auto_report(dag, path):
     now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
     results_size = sum(res.size for cat in results.values() for res in cat)
 
+    try:
+        from pygments.formatters import HtmlFormatter
+    except ImportError:
+        raise WorkflowError("Python package pygments must be installed to create reports.")
+
     # render HTML
     template = env.get_template("report.html")
     with open(path, "w", encoding="utf-8") as out:
@@ -527,5 +549,6 @@ def auto_report(dag, path):
                                   timeline=timeline,
                                   rules=[rec for recs in rules.values() for rec in recs],
                                   version=__version__,
-                                  now=now))
+                                  now=now,
+                                  pygments_css=HtmlFormatter(style="trac").get_style_defs('.source')))
     logger.info("Report created.")
