@@ -33,6 +33,7 @@ from snakemake.exceptions import WorkflowError
 from snakemake.script import Snakemake
 from snakemake import __version__
 from snakemake.common import num_if_possible
+from snakemake import logging
 
 
 class EmbeddedMixin(object):
@@ -235,6 +236,24 @@ class RuleRecord:
                 self.singularity_img_url == other.singularity_img_url)
 
 
+class ConfigfileRecord:
+    def __init__(self, configfile):
+        self.name = configfile
+    
+    def code(self):
+        try:
+            from pygments.lexers import get_lexer_by_name
+            from pygments.formatters import HtmlFormatter
+            from pygments import highlight
+        except ImportError:
+            raise WorkflowError("Python package pygments must be installed to create reports.")
+
+        language = "yaml" if self.name.endswith(".yaml") or self.name.endswith(".yml") else "json"
+        lexer = get_lexer_by_name(language)
+        with open(self.name) as f:
+            return highlight(f.read(), lexer, HtmlFormatter(linenos=True, cssclass="source", wrapcode=True))
+
+
 class JobRecord:
     def __init__(self):
         self.job = None
@@ -256,6 +275,8 @@ class FileRecord:
         self.mime, _ = mime_from_file(self.path)
         self.id = uuid.uuid4()
         self.job = job
+        self.wildcards = logging.format_wildcards(job.wildcards)
+        self.params = logging.format_dict(job.params)
         self.png_uri = None
         self.category = category
         if self.is_img:
@@ -493,6 +514,8 @@ def auto_report(dag, path):
     # rulegraph
     rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
 
+    # configfiles
+    configfiles = [ConfigfileRecord(f) for f in dag.workflow.configfiles]
 
     seen = set()
     files = [seen.add(res.target) or res for cat in results.values() for res in cat if res.target not in seen]
@@ -540,6 +563,7 @@ def auto_report(dag, path):
     with open(path, "w", encoding="utf-8") as out:
         out.write(template.render(results=results,
                                   results_size=results_size,
+                                  configfiles=configfiles,
                                   text=text,
                                   rulegraph_nodes=rulegraph["nodes"],
                                   rulegraph_links=rulegraph["links"],
