@@ -19,6 +19,7 @@ dependencies:
   - appdirs
   - pytools
   - docutils
+  - pygments
   - pandoc <2.0  # pandoc has changed the CLI API so that it is no longer compatible with the version of r-markdown below
   - xorg-libxrender
   - xorg-libxext
