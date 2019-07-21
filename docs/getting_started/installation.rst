@@ -1,4 +1,4 @@
-.. getting_started-installation:
+.. _getting_started-installation:
 
 ============
 Installation
@@ -6,6 +6,8 @@ Installation
 
 Snakemake is available on PyPi as well as through Bioconda and also from source code.
 You can use one of the following ways for installing Snakemake.
+
+.. _conda-install:
 
 Installation via Conda
 ======================

@@ -179,6 +179,7 @@ Please consider to add your own.
    getting_started/installation
    getting_started/examples
    tutorial/tutorial
+   tutorial/short
 
 
 .. toctree::

@@ -203,7 +203,7 @@ We modify the rule ``bwa_map`` accordingly:
   initialization to the DAG phase. In contrast to input functions, these can
   optionally take additional arguments ``input``, ``output``, ``threads``, and ``resources``.
 
-Similar to input and output files, ``params`` can be accessed from the shell command or the Python based ``run`` block (see :ref:`tutorial-report`).
+Similar to input and output files, ``params`` can be accessed from the shell command the Python based ``run`` block, or the script directive (see :ref:`tutorial-script`).
 
 Exercise
 ........

@@ -365,8 +365,10 @@ Exercise
    :align: center
 
 
+.. _tutorial-script:
+
 Step 6: Using custom scripts
-::::::::::::::::::::
+::::::::::::::::::::::::::::
 
 Usually, a workflow not only consists of invoking various tools, but also contains custom code to e.g. calculate summary statistics or create plots.
 While Snakemake also allows you to directly :ref:`write Python code inside a rule <.. _snakefiles-rules>`_, it is usually reasonable to move such logic into separate scripts.
