@@ -1,3 +1,9 @@
+[5.5.4] - 2019-07-21
+====================
+Changed
+-------
+- Reports now automatically include workflow code and configuration for improved transparency.
+
 [5.5.3] - 2019-07-11
 ====================
 Changed
