@@ -1,7 +1,7 @@
 " Vim syntax file
 " Language:	Snakemake (extended from python.vim)
 " Maintainer:	Jay Hesselberth (jay.hesselberth@gmail.com)
-" Last Change:	2016 Jan 23
+" Last Change:	2019 Jul 26
 "
 " Usage
 "
@@ -43,10 +43,11 @@ source $VIMRUNTIME/syntax/python.vim
 " singularity = "singularity" ":" stringliteral
 " conda       = "conda" ":" stringliteral
 " shadow      = "shadow" ":" stringliteral
+" group      = "group" ":" stringliteral
 
 
 syn keyword pythonStatement	include workdir onsuccess onerror
-syn keyword pythonStatement	ruleorder localrules configfile
+syn keyword pythonStatement	ruleorder localrules configfile group
 syn keyword pythonStatement	touch protected temp wrapper conda shadow
 syn keyword pythonStatement	input output params message threads resources singularity
 syn keyword pythonStatement	version run shell benchmark snakefile log script
