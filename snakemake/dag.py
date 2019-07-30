@@ -763,7 +763,8 @@ class DAG:
                         visited.add(job_)
                         queue.append(job_)
 
-        self._len = len(_needrun)
+        # update len including finished jobs (because they have already increased the job counter)
+        self._len = len(self._finished | self._needrun)
 
     def in_until(self, job):
         """Return whether given job has been specified via --until."""
