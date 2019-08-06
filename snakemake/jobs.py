@@ -724,8 +724,11 @@ class Job(AbstractJob):
                                threads=self.threads,
                                resources=self.resources,
                                log=self.log,
+                               jobid=self.jobid,
                                version=self.rule.version,
+                               name=self.name,
                                rule=self.rule.name,
+                               rulename=self.rule.name,
                                bench_iteration=None))
         _variables.update(variables)
         try:
@@ -1171,6 +1174,10 @@ class GroupJob(AbstractJob):
         _variables.update(dict(input=self.input,
                                output=self.output,
                                threads=self.threads,
+                               jobid=self.jobid,
+                               name=self.name,
+                               rule="GROUP",
+                               rulename="GROUP",
                                resources=self.resources))
         _variables.update(variables)
         try:

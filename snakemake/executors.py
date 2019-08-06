@@ -504,9 +504,6 @@ class ClusterExecutor(RealExecutor):
 
     def get_jobscript(self, job):
         f = job.format_wildcards(self.jobname,
-                             rulename=job.name,
-                             name=job.name,
-                             jobid=job.jobid,
                              cluster=self.cluster_wildcards(job))
 
         if os.path.sep in f:

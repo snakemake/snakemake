@@ -1192,7 +1192,7 @@ def get_argument_parser(profile=None):
          "submitted to the cluster with the given command, once all input "
          "files for a particular job are present.\n"
          "The submit command can be decorated to make it aware of certain "
-         "job properties (input, output, params, wildcards, log, threads "
+         "job properties (name, rulename, input, output, params, wildcards, log, threads "
          "and dependencies (see the argument below)), e.g.:\n"
          "$ snakemake --cluster 'qsub -pe threaded {threads}'.")),
     cluster_mode_group.add_argument(
@@ -1212,7 +1212,7 @@ def get_argument_parser(profile=None):
         "submitted to the cluster with the given command, once all input "
         "files for a particular job are present. ARGS can be used to "
         "specify options of the underlying cluster system, "
-        "thereby using the job properties input, output, params, wildcards, log, "
+        "thereby using the job properties name, rulename, input, output, params, wildcards, log, "
         "threads and dependencies, e.g.: "
         "--drmaa ' -pe threaded {threads}'. Note that ARGS must be given in quotes and "
         "with a leading whitespace.")
