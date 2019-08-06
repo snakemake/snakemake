@@ -493,7 +493,7 @@ To remove all files created by snakemake as output files to start from scratch, 
 
 Only files that are output of snakemake rules will be removed, not those that serve as primary inputs to the workflow.
 Note that this will only affect the files involved in reaching the specified target(s).
-It is strongly advised to first run together with ``--dryrun`` to list the files that would be removed without actually deleting anything.
+It is strongly advised to first run together with ``--dry-run`` to list the files that would be removed without actually deleting anything.
 The flag ``--delete-temp-output`` can be used in a similar manner to only delete files flagged as temporary.
 
 
@@ -509,7 +509,7 @@ It is recommended to use the script directive instead (see :ref:`snakefiles-exte
 My workflow is very large, how do I stop Snakemake from printing all this rule/job information in a dry-run?
 ------------------------------------------------------------------------------------------------------------
 
-Indeed, the information for each individual job can slow down a dryrun if there are tens of thousands of jobs.
+Indeed, the information for each individual job can slow down a dry-run if there are tens of thousands of jobs.
 If you are just interested in the final summary, you can use the ``--quiet`` flag to suppress this.
 
 .. code-block:: console
