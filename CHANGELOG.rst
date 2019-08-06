@@ -1,3 +1,13 @@
+Added
+-----
+- Accept ``--dry-run`` as a synonym of ``--dryrun``. Other Snakemake options are similarly hyphenated, so other documentation now refers to ``--dry-run`` but both (and also ``-n``) will always be accepted equivalently.
+
+[5.5.4] - 2019-07-21
+====================
+Changed
+-------
+- Reports now automatically include workflow code and configuration for improved transparency.
+
 [5.5.3] - 2019-07-11
 ====================
 Changed

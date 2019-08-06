@@ -172,7 +172,7 @@ The cluster command can be decorated with job specific information, e.g.
 
     $ snakemake --cluster "qsub {threads}"
 
-Thereby, all keywords of a rule are allowed (e.g. params, input, output, threads, priority, ...).
+Thereby, all keywords of a rule are allowed (e.g. rulename, params, input, output, threads, priority, ...).
 For example, you could encode the expected running time into params:
 
 .. code-block:: python
@@ -204,7 +204,7 @@ Else, the arguments will be interpreted as part of the normal Snakemake argument
 Job Properties
 ~~~~~~~~~~~~~~
 
-When executing a workflow on a cluster using the ``--cluster`` parameter (see below), Snakemake creates a job script for each job to execute. This script is then invoked using the provided cluster submission command (e.g. ``qsub``). Sometimes you want to provide a custom wrapper for the cluster submission command that decides about additional parameters. As this might be based on properties of the job, Snakemake stores the job properties (e.g. rule name, threads, input files, params etc.) as JSON inside the job script. For convenience, there exists a parser function `snakemake.utils.read_job_properties` that can be used to access the properties. The following shows an example job submission wrapper:
+When executing a workflow on a cluster using the ``--cluster`` parameter (see below), Snakemake creates a job script for each job to execute. This script is then invoked using the provided cluster submission command (e.g. ``qsub``). Sometimes you want to provide a custom wrapper for the cluster submission command that decides about additional parameters. As this might be based on properties of the job, Snakemake stores the job properties (e.g. name, rulename, threads, input, output, params etc.) as JSON inside the job script (for group jobs, the rulename will be "GROUP", otherwise it will be the same as the job name). For convenience, there exists a parser function `snakemake.utils.read_job_properties` that can be used to access the properties. The following shows an example job submission wrapper:
 
 .. code-block:: python
 

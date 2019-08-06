@@ -31,3 +31,4 @@ dependencies:
   - xorg-libxrender
   - xorg-libxpm
   - gitpython
+  - pygments

@@ -469,7 +469,7 @@ def script(path, basedir, input, output, params, wildcards, threads, resources,
                                 "remove it entirely before executing "
                                 "Snakemake.")
             shell("Rscript --vanilla {f.name:q}", bench_record=bench_record)
-        elif language == "rmakrdown":
+        elif language == "rmarkdown":
             if len(output) != 1:
                 raise WorkflowError("RMarkdown scripts (.Rmd) may only have a single output file.")
             out = os.path.abspath(output[0])

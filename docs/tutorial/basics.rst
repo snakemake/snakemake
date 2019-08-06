@@ -122,7 +122,7 @@ By executing
     $ snakemake -np mapped_reads/A.bam
 
 in the working directory containing the Snakefile, we tell Snakemake to generate the target file ``mapped_reads/A.bam``.
-Since we used the ``-n`` (or ``--dryrun``) flag, Snakemake will only show the execution plan instead of actually perform the steps.
+Since we used the ``-n`` (or ``--dry-run``) flag, Snakemake will only show the execution plan instead of actually perform the steps.
 The ``-p`` flag instructs Snakemake to also print the resulting shell command for illustration.
 To generate the target files, **Snakemake applies the rules given in the Snakefile in a top-down way**.
 The application of a rule to generate a set of output files is called **job**.
@@ -365,8 +365,10 @@ Exercise
    :align: center
 
 
+.. _tutorial-script:
+
 Step 6: Using custom scripts
-::::::::::::::::::::
+::::::::::::::::::::::::::::
 
 Usually, a workflow not only consists of invoking various tools, but also contains custom code to e.g. calculate summary statistics or create plots.
 While Snakemake also allows you to directly :ref:`write Python code inside a rule <.. _snakefiles-rules>`_, it is usually reasonable to move such logic into separate scripts.
