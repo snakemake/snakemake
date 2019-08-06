@@ -710,7 +710,8 @@
 
       $('.results-table').DataTable();
       var rule_table = $('#rules-table').DataTable({
-        paging: false
+        paging: false,
+        fixedHeader: true
       });
 
       {% for cat, catresults in results|dictsort %}

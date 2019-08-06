@@ -129,17 +129,26 @@ class Workflow:
     def get_sources(self):
         files = set()
 
+        def norm_rule_relpath(f, rule):
+            if not os.path.isabs(f):
+                f = os.path.join(rule.basedir, f)
+            return os.path.relpath(f)
+
         # get registered sources
         for f in self.included:
             files.add(os.path.relpath(f))
         for rule in self.rules:
             if rule.script:
-                script_path = os.path.relpath(rule.script)
+                script_path = norm_rule_relpath(rule.script, rule)
                 files.add(script_path)
                 script_dir = os.path.dirname(script_path)
                 files.update(os.path.join(dirpath, f)
                              for dirpath, _, files in os.walk(script_dir)
                              for f in files)
+            if rule.conda_env:
+                env_path = norm_rule_relpath(rule.conda_env, rule)
+                files.add(env_path)
+
         for f in self.configfiles:
             files.add(f)
 
