@@ -1090,7 +1090,9 @@ class Namedlist(list):
 
 
 class InputFiles(Namedlist):
-    pass
+    @property
+    def size(self):
+        return sum(f.size for f in self)
 
 
 class OutputFiles(Namedlist):

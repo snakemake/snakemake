@@ -48,7 +48,7 @@ class Rule:
             self.touch_output = set()
             self.subworkflow_input = dict()
             self.shadow_depth = None
-            self.resources = dict(_cores=1, _nodes=1)
+            self.resources = None
             self.priority = 0
             self._version = None
             self._log = Log()
@@ -769,12 +769,14 @@ class Rule:
 
         def apply(name, res, threads=None):
             if callable(res):
-                aux = {"threads": threads} if threads is not None else dict()
+                aux = dict(rulename=self.name)
+                if threads:
+                    aux["threads"] = threads
                 res = self.apply_input_function(res,
                                                 wildcards,
                                                 input=input,
                                                 attempt=attempt,
-                                                incomplete_checkpint_func=lambda e: 0,
+                                                incomplete_checkpoint_func=lambda e: 0,
                                                 **aux)
                 if not isinstance(res, int):
                     raise WorkflowError("Resources function did not return int.")

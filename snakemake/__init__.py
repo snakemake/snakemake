@@ -37,6 +37,7 @@ def snakemake(snakefile,
               nodes=1,
               local_cores=1,
               resources=dict(),
+              default_resources=dict(),
               config=dict(),
               configfile=None,
               config_args=None,
@@ -141,6 +142,7 @@ def snakemake(snakefile,
         nodes (int):                the number of provided cluster nodes (ignored without cluster support) (default 1)
         local_cores (int):          the number of provided local cores if in cluster mode (ignored without cluster support) (default 1)
         resources (dict):           provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
+        default_resources (dict):   default values for resources not defined in rules (default {})
         config (dict):              override values for workflow config
         workdir (str):              path to working directory (default None)
         targets (list):             list of targets, e.g. rule or file names (default None)
@@ -397,7 +399,8 @@ def snakemake(snakefile,
                         attempt=attempt,
                         default_remote_provider=_default_remote_provider,
                         default_remote_prefix=default_remote_prefix,
-                        run_local=run_local)
+                        run_local=run_local,
+                        default_resources=default_resources)
         success = True
         workflow.include(snakefile,
                          overwrite_first_rule=True,
@@ -419,6 +422,7 @@ def snakemake(snakefile,
                                        nodes=nodes,
                                        local_cores=local_cores,
                                        resources=resources,
+                                       default_resources=default_resources,
                                        dryrun=dryrun,
                                        touch=touch,
                                        printreason=printreason,
@@ -566,12 +570,12 @@ def snakemake(snakefile,
     return success
 
 
-def parse_resources(args):
+def parse_resources(resources_args, fallback=None):
     """Parse resources from args."""
     resources = dict()
-    if args.resources is not None:
+    if resources_args is not None:
         valid = re.compile("[a-zA-Z_]\w*$")
-        for res in args.resources:
+        for res in resources_args:
             try:
                 res, val = res.split("=")
             except ValueError:
@@ -583,13 +587,27 @@ def parse_resources(args):
             try:
                 val = int(val)
             except ValueError:
-                raise ValueError(
-                    "Resource definiton must contain an integer after the identifier.")
+                if fallback is not None:
+                    val = fallback(val)
+                else:
+                    raise ValueError(
+                        "Resource definiton must contain an integer after the identifier.")
             if res == "_cores":
                 raise ValueError(
                     "Resource _cores is already defined internally. Use a different name.")
             resources[res] = val
     return resources
+
+
+def parse_default_resources(resources_args):
+    """Parse default resource definition args."""
+    def fallback(val):
+        def callable(wildcards, input, attempt, threads, rulename):
+            value = eval(val, {"input": input, "attempt": attempt, "threads": threads})
+            return value
+        return callable
+
+    return parse_resources(resources_args, fallback=fallback)
 
 
 def parse_config(args):
@@ -763,6 +781,16 @@ def get_argument_parser(profile=None):
               "use resources by defining the resource keyword, e.g. "
               "resources: gpu=1. If now two rules require 1 of the resource "
               "'gpu' they won't be run in parallel by the scheduler."))
+    group_exec.add_argument(
+        "--default-resources", "--default-res",
+        nargs="?",
+        metavar="NAME=INT",
+        const=["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"],
+        help=("Define default values of resources for rules that do not define their own values. "
+              "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size')."
+              "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size, 1000)' "
+              "'disk_mb=max(2*input.size, 1000)', i.e., default disk and mem usage is twice the input file size but at least 1GB.")
+    )
     group_exec.add_argument(
         "--config", "-C",
         nargs="*",
@@ -1385,8 +1413,9 @@ def main(argv=None):
         sys.exit(0)
 
     try:
-        resources = parse_resources(args)
+        resources = parse_resources(args.resources)
         config = parse_config(args)
+        default_resources = parse_default_resources(args.default_resources)
     except ValueError as e:
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
@@ -1506,6 +1535,7 @@ def main(argv=None):
                             local_cores=args.local_cores,
                             nodes=args.cores,
                             resources=resources,
+                            default_resources=default_resources,
                             config=config,
                             configfile=args.configfile,
                             config_args=args.config,

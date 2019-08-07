@@ -61,7 +61,8 @@ class Workflow:
                  attempt=1,
                  default_remote_provider=None,
                  default_remote_prefix="",
-                 run_local=True):
+                 run_local=True,
+                 default_resources=dict()):
         """
         Create the controller.
         """
@@ -112,6 +113,8 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
+        self.default_resources = dict(_cores=1, _nodes=1)
+        self.default_resources.update(default_resources)
 
         self.iocache = snakemake.io.IOCache()
 
@@ -826,6 +829,8 @@ class Workflow:
                 rule.set_output(*ruleinfo.output[0], **ruleinfo.output[1])
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
+            # handle default resources
+            rule.resources = copy.deepcopy(self.default_resources)
             if ruleinfo.threads:
                 if not isinstance(ruleinfo.threads, int) and not callable(ruleinfo.threads):
                     raise RuleException("Threads value has to be an integer or a callable.",
