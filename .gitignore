@@ -17,3 +17,6 @@ dist/
 .ipynb*
 .ropeproject
 .test*
+tests/test*/*
+playground/*
+tutorial/*

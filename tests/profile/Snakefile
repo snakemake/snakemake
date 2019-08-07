@@ -1,0 +1,23 @@
+
+
+rule all:
+    input: expand("{name}.d", name=range(1000))
+
+rule:
+    output: "{name}.a"
+    shell: "touch {output}"
+
+rule:
+    input: "{name}.a"
+    output: "{name}.b"
+    shell: "touch {output}"
+
+rule:
+    input: "{name}.b"
+    output: "{name}.c"
+    shell: "touch {output}"
+
+rule:
+    input: "{name}.c"
+    output: "{name}.d"
+    shell: "touch {output}"
