@@ -235,12 +235,18 @@ If limits for the resources are given via the command line, e.g.
     $ snakemake --resources mem_mb=100
 
 the scheduler will ensure that the given resources are not exceeded by running jobs.
-If no limits are given, the resources are ignored.
+If no limits are given, the resources are ignored in local execution.
+In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
 Resources must be ``int`` values.
 Note that you are free to choose any names for the given resources.
+There are two **standard resources** for memory and disk usage though: ``mem_mb`` and ``disk_mb``.
 When defining memory constraints, it is however advised to use ``mem_mb``, because there are
-Snakemake execution modes that make use of this information, (e.g., when using :ref:`kubernetes`).
+Some execution modes make direct use of this information (e.g., when using :ref:`kubernetes`).
+Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
+This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
+If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint.
+Any resource definitions inside a rule override what has been defined with ``--default-resources``.
 
 Resources can also be callables that return ``int`` values.
 The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).

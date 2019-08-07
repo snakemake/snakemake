@@ -228,6 +228,8 @@ When executing a workflow on a cluster using the ``--cluster`` parameter (see be
     os.system("qsub -t {threads} {script}".format(threads=threads, script=jobscript))
 
 
+.. _profiles:
+
 --------
 Profiles
 --------
