@@ -141,7 +141,7 @@ class Rule:
             if f in dynamic_io:
                 f = partially_expand(f, wildcards)
                 try:
-                    for e in reversed(expand(f, zip, **wildcards)):
+                    for e in reversed(expand(str(f), zip, **wildcards)):
                         # need to clone the flags so intermediate
                         # dynamic remote file paths are expanded and
                         # removed appropriately
