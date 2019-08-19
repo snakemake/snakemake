@@ -1,0 +1,5 @@
+rule a:
+    output:
+        expand(directory("{sample}/dir"), sample=["a"])
+    shell:
+        "mkdir {output}"

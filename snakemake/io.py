@@ -778,6 +778,11 @@ def expand(*args, **wildcards):
         combinator = args[1]
     if isinstance(filepatterns, str):
         filepatterns = [filepatterns]
+    
+    if any(map(lambda f: hasattr(f, "flags"), filepatterns)):
+        raise WorkflowError("Flags in file patterns given to expand() are invalid. "
+                            "Flags (e.g. temp(), directory()) have to be applied outside "
+                            "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))').")
 
     # remove unused wildcards to avoid duplicate filepatterns
     wildcards = {filepattern: {k:v for k, v in wildcards.items() if k in re.findall('{([^}\.[!:]+)', filepattern)}

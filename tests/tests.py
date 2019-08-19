@@ -842,3 +842,6 @@ def test_issue1083():
 
 def test_pipes2():
     run(dpath("test_pipes2"))
+
+def test_expand_flag():
+    run(dpath("test_expand_flag"), shouldfail=True)
