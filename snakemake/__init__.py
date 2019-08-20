@@ -783,9 +783,8 @@ def get_argument_parser(profile=None):
               "'gpu' they won't be run in parallel by the scheduler."))
     group_exec.add_argument(
         "--default-resources", "--default-res",
-        nargs="?",
+        nargs="*",
         metavar="NAME=INT",
-        const=["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"],
         help=("Define default values of resources for rules that do not define their own values. "
               "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size')."
               "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size, 1000)' "
@@ -1415,6 +1414,8 @@ def main(argv=None):
     try:
         resources = parse_resources(args.resources)
         config = parse_config(args)
+        if args.default_resources is not None and not args.default_resources:
+            args.default_resources = ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
         default_resources = parse_default_resources(args.default_resources)
     except ValueError as e:
         print(e, file=sys.stderr)
