@@ -1138,7 +1138,7 @@ class KubernetesExecutor(ClusterExecutor):
         import kubernetes.client
         self.kubeapi.delete_namespaced_secret(self.run_namespace,
                                               self.namespace,
-                                              kubernetes.client.V1DeleteOptions())
+                                              body=kubernetes.client.V1DeleteOptions())
 
     def shutdown(self):
         self.unregister_secret()
@@ -1150,7 +1150,7 @@ class KubernetesExecutor(ClusterExecutor):
         with self.lock:
             for j in self.active_jobs:
                 self.kubeapi.delete_namespaced_pod(
-                    j.jobid, self.namespace, body)
+                    j.jobid, self.namespace, body=body)
         self.shutdown()
 
     def run(self, job,
