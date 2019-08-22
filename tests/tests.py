@@ -328,18 +328,8 @@ def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
-# TODO reenable once S3Mocked works with boto3
-# def test_remote():
-#     try:
-#         import moto
-#         import boto3
-#         import filechunkio
-#
-#         # only run the remote file test if the dependencies
-#         # are installed, otherwise do nothing
-#         run(dpath("test_remote"), cores=1)
-#     except ImportError:
-#         pass
+def test_remote():
+    run(dpath("test_remote"), cores=1)
 
 
 def test_cluster_sync():
