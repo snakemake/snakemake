@@ -29,8 +29,8 @@ jobs:
             source .circleci/common.sh
             sudo apt-get update; sudo apt-get install build-essential libssl-dev uuid-dev libgpgme11-dev libseccomp-dev wget pkg-config squashfs-tools libarchive-dev golang
             wget https://github.com/sylabs/singularity/releases/download/v${SINGULARITY_VER}/singularity-${SINGULARITY_VER}.tar.gz
-            tar xvf singularity-$SINGULARITY_VER.tar.gz
-            cd singularity-$SINGULARITY_VER
+            tar -xvf singularity-$SINGULARITY_VER.tar.gz
+            cd singularity
             ./mconfig
             make -C builddir
             sudo make -C builddir install
