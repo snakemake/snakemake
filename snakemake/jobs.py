@@ -155,8 +155,6 @@ class Job(AbstractJob):
     def is_valid(self):
         """Check if job is valid"""
         # these properties have to work in dry-run as well. Hence we check them here:
-        resources = self.rule.expand_resources(self.wildcards_dict, self.input, self.attempt)
-        self.rule.expand_params(self.wildcards_dict, self.input, self.output, resources)
         self.rule.expand_benchmark(self.wildcards_dict)
         self.rule.expand_log(self.wildcards_dict)
 

@@ -835,3 +835,8 @@ def test_pipes2():
 
 def test_expand_flag():
     run(dpath("test_expand_flag"), shouldfail=True)
+
+
+def test_default_resources():
+    from snakemake import parse_default_resources
+    run(dpath("test_default_resources"), verbose=True, default_resources=parse_default_resources(["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]))

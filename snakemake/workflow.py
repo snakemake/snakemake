@@ -646,14 +646,6 @@ class Workflow:
                 if provided_resources:
                     logger.resources_info(
                         "Provided resources: " + provided_resources)
-                unlimited_resources = format_resource_names(set(
-                    resource for job in dag.needrun_jobs
-                    for resource in job.resources.keys()
-                    if resource not in resources))
-
-                if unlimited_resources:
-                    logger.resources_info(
-                        "Unlimited resources: " + unlimited_resources)
 
                 if self.run_local and any(rule.group for rule in self.rules):
                     logger.info("Group jobs: inactive (local execution)")
