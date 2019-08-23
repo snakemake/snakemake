@@ -29,7 +29,7 @@ jobs:
             source .circleci/common.sh
             sudo add-apt-repository ppa:longsleep/golang-backports
             sudo apt-get update
-            sudo apt-get install build-essential libssl-dev uuid-dev libgpgme11-dev libseccomp-dev wget pkg-config squashfs-tools libarchive-dev golang-go
+            sudo apt-get install build-essential libssl-dev uuid-dev libgpgme11-dev libseccomp-dev wget pkg-config squashfs-tools libarchive-dev golang-defaults
             wget https://github.com/sylabs/singularity/releases/download/v${SINGULARITY_VER}/singularity-${SINGULARITY_VER}.tar.gz
             tar -xvf singularity-$SINGULARITY_VER.tar.gz
             cd singularity
