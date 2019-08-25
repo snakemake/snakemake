@@ -592,7 +592,8 @@ class ClusterExecutor(RealExecutor):
         self.workflow.persistence.cleanup(job)
 
     def print_cluster_job_error(self, job_info, jobid):
-        kind = "rule {}".format(job_info.job.rule.name) if not job.is_group else "group job {}".format(job_info.job.groupid)
+        job = job_info.job
+        kind = "rule {}".format(job.rule.name) if not job.is_group else "group job {}".format(job.groupid)
         logger.error("Error executing {} on cluster (jobid: {}, external: "
                      "{}, jobscript: {}). For error details see the cluster "
                      "log and the log files of the involved rule(s).".format(kind,
