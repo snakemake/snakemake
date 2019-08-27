@@ -283,8 +283,14 @@ class FileRecord:
             convert = shutil.which("convert")
             if convert is not None:
                 try:
-                    density = "76" if self.size > 1e6 else "300"
-                    png = sp.check_output(["convert", "-density", density, self.path, "png:-"],
+                    # 2048 aims at a reasonable balance between what displays
+                    # can show in a png-preview image and what renders quick
+                    # into a small enough png
+                    max_width = "2048"
+                    max_height = "2048"
+                    # '>' means only larger images scaled down to within max-dimensions
+                    max_spec = max_width + "x" + max_height + ">"
+                    png = sp.check_output(["convert", "-resize", max_spec, self.path, "png:-"],
                                           stderr=sp.PIPE)
                     uri = data_uri(png, os.path.basename(self.path) + ".png",
                                    mime="image/png")
