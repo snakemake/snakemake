@@ -47,7 +47,7 @@ In the following, we will introduce the Snakemake syntax by creating an example 
 The workflow comes from the domain of genome analysis.
 It maps sequencing reads to a reference genome and call variants on the mapped reads.
 The tutorial does not require you to know what this is about.
-Nevertheless, we provide some background in the following.
+Nevertheless, we provide some background in the following paragraph.
 
 .. _tutorial-background:
 
@@ -412,7 +412,7 @@ Create the file ``scripts/plot-quals.py``, with the following content:
 Although there are other strategies to invoke separate scripts from your workflow
 (e.g., invoking them via shell commands), the benefit of this is obvious:
 the script logic is separated from the workflow logic (and can be even shared between workflows),
-but **boilerplate code like the parsing of command line arguments in unnecessary**.
+but **boilerplate code like the parsing of command line arguments is unnecessary**.
 
 Apart from Python scripts, it is also possible to use R scripts. In R scripts,
 an S4 object named ``snakemake`` analog to the Python case above is available and
