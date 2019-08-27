@@ -205,6 +205,7 @@ class RuleRecord:
             from pygments.lexers import get_lexer_by_name
             from pygments.formatters import HtmlFormatter
             from pygments import highlight
+            import pygments.util
         except ImportError:
             raise WorkflowError("Python package pygments must be installed to create reports.")
         source, language = None, None
@@ -223,7 +224,7 @@ class RuleRecord:
         try:
             lexer = get_lexer_by_name(language)
             return highlight(source, lexer, HtmlFormatter(linenos=True, cssclass="source", wrapcode=True))
-        except pygments.utils.ClassNotFound:
+        except pygments.util.ClassNotFound:
             return "<pre><code>source</code></pre>"
 
     def add(self, job_rec):
