@@ -936,7 +936,7 @@ class RuleProxy:
 
     @lazy_property
     def output(self):
-        return self._to_iofile(self.rule.output.stripped_constraints())
+        return self._to_iofile(self.rule.output)
 
     @lazy_property
     def input(self):
@@ -953,9 +953,22 @@ class RuleProxy:
 
     @lazy_property
     def log(self):
-        return self._to_iofile(self.rule.log.stripped_constraints())
+        return self._to_iofile(self.rule.log)
 
     def _to_iofile(self, files):
-        for i in range(len(files)):
-            files[i] = IOFile(files[i], rule=self.rule)
+        def cleanup(f):
+            prefix = self.rule.workflow.default_remote_prefix
+            # remove constraints and turn this into a plain string
+            cleaned = strip_wildcard_constraints(f)
+            if self.rule.workflow.default_remote_provider is not None and f.startswith(prefix) and not is_flagged(f, "local"):
+                cleaned = f[len(prefix) + 1:]
+                cleaned = IOFile(cleaned, rule=self.rule)
+            else:
+                cleaned = IOFile(AnnotatedString(cleaned), rule=self.rule)
+                cleaned.clone_remote_object(f)
+
+            return cleaned
+
+        files = Namedlist(files, custom_map=cleanup)
+
         return files

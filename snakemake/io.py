@@ -464,6 +464,11 @@ class _IOFile(str):
                 self._file.flags['remote_object'] = copy.copy(
                     self._file.flags['remote_object'])
                 self.update_remote_filepath()
+    
+    def clone_remote_object(self, other):
+        if isinstance(other._file, AnnotatedString) and "remote_object" in other._file.flags:
+            self._file.flags["remote_object"] = copy.copy(other._file.flags["remote_object"])
+            self.update_remote_filepath()
 
     def set_flags(self, flags):
         if isinstance(self._file, str):
@@ -970,7 +975,8 @@ class Namedlist(list):
     """
 
     def __init__(self, toclone=None, fromdict=None,
-                 plainstr=False, strip_constraints=False):
+                 plainstr=False, strip_constraints=False,
+                 custom_map=None):
         """
         Create the object.
 
@@ -983,7 +989,9 @@ class Namedlist(list):
         self._names = dict()
 
         if toclone:
-            if plainstr:
+            if custom_map is not None:
+                self.extend(map(custom_map, toclone))
+            elif plainstr:
                 self.extend(map(str, toclone))
             elif strip_constraints:
                 self.extend(map(strip_wildcard_constraints, toclone))
