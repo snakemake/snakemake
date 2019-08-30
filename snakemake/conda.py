@@ -227,7 +227,7 @@ class Env:
                         ["conda", "create", "--copy", "--prefix '{}'".format(env_path)] +
                         packages)
                     if self._singularity_img:
-                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
+                        cmd = singularity.shellcmd(self._singularity_img.path, cmd, args="--writable")
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
 
                 else:
