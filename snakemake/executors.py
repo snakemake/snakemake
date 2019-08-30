@@ -593,7 +593,7 @@ class ClusterExecutor(RealExecutor):
 
     def print_cluster_job_error(self, job_info, jobid):
         job = job_info.job
-        kind = "rule {}".format(job.rule.name) if not job.is_group else "group job {}".format(job.groupid)
+        kind = "rule {}".format(job.rule.name) if not job.is_group() else "group job {}".format(job.groupid)
         logger.error("Error executing {} on cluster (jobid: {}, external: "
                      "{}, jobscript: {}). For error details see the cluster "
                      "log and the log files of the involved rule(s).".format(kind,

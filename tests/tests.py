@@ -520,17 +520,16 @@ def test_dup_out_patterns():
     run(dpath("test_dup_out_patterns"), shouldfail=True)
 
 
-def test_restartable_job_cmd_exit_1():
+def test_restartable_job_cmd_exit_1_no_restart():
     """Test the restartable job feature on ``exit 1``
 
     The shell snippet in the Snakemake file will fail the first time
     and succeed the second time.
     """
-    # Even two consecutive times should fail as files are cleared
     run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
         restart_times=0, shouldfail=True)
-    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
-        restart_times=0, shouldfail=True)
+
+def test_restartable_job_cmd_exit_1_one_restart():
     # Restarting once is enough
     run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
         restart_times=1, printshellcmds=True)
