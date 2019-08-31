@@ -32,3 +32,4 @@ dependencies:
   - xorg-libxpm
   - gitpython
   - pygments
+  - imagemagick
