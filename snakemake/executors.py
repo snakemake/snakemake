@@ -1226,12 +1226,7 @@ class KubernetesExecutor(ClusterExecutor):
         # request resources
         container.resources = kubernetes.client.V1ResourceRequirements()
         container.resources.requests = {}
-        # Subtract 1 from the requested number of cores.
-        # The reason is that kubernetes requires some cycles for
-        # maintenance, but won't use a full core for that.
-        # This way, we should be able to saturate the node without exceeding it
-        # too much.
-        container.resources.requests["cpu"] = job.resources["_cores"] - 1
+        container.resources.requests["cpu"] = job.resources["_cores"]
         if "mem_mb" in job.resources.keys():
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"])
