@@ -470,7 +470,10 @@ def auto_report(dag, path):
         for f in job.expanded_output:
             meta = persistence.metadata(f)
             if not meta:
-                logger.warning("Missing metadata for file {}".format(f))
+                logger.warning("Missing metadata for file {}. Maybe metadata "
+                               "was deleted or it was created using an older "
+                               "version of Snakemake. This is a non critical "
+                               "warning.".format(f))
                 continue
             try:
                 job_hash = meta["job_hash"]
