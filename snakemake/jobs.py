@@ -1050,16 +1050,23 @@ class GroupJob(AbstractJob):
     def resources(self):
         if self._resources is None:
             self._resources = defaultdict(int)
-            # take the maximum over all jobs
             pipe_group = any([any([is_flagged(o, "pipe") for o in job.output]) for job in self.jobs])
             for job in self.jobs:
-                for res, value in job.resources.items():
+                try:
+                    job_resources = job.resources
+                except FileNotFoundError:
+                    # Skip job if resource evaluation leads to a file not found error.
+                    # This will be caused by an inner job, which needs files created by the same group.
+                    # All we can do is to ignore such jobs for now.
+                    continue
+                for res, value in job_resources.items():
                     if self.dag.workflow.run_local or pipe_group:
                         # in case of local execution, this must be a
                         # group of jobs that are connected with pipes
                         # and have to run simultaneously
                         self._resources[res] += value
                     else:
+                        # take the maximum over all jobs
                         self._resources[res] = max(self._resources.get(res, value),
                                                    value)
         return Resources(fromdict=self._resources)
