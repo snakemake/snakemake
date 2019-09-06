@@ -1,5 +1,12 @@
+[5.6.0] - 2019-09-06
+====================
+Changed
+-------
+- Fix compatibility with latest singularity versions.
+- Various bug fixes (e.g. in cluster error handling, remote providers, kubernetes backend).
 Added
 -----
+- Add --default-resources flag, that allows to define default resources for jobs (e.g. mem_mb, disk_mb), see `docs <https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#resources>`_.
 - Accept ``--dry-run`` as a synonym of ``--dryrun``. Other Snakemake options are similarly hyphenated, so other documentation now refers to ``--dry-run`` but both (and also ``-n``) will always be accepted equivalently.
 
 [5.5.4] - 2019-07-21

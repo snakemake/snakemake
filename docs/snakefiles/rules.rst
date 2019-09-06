@@ -242,11 +242,11 @@ Resources must be ``int`` values.
 
 Note that you are free to choose any names for the given resources.
 There are two **standard resources** for memory and disk usage though: ``mem_mb`` and ``disk_mb``.
-When defining memory constraints, it is however advised to use ``mem_mb``, because there are
+When defining memory constraints, it is advised to use ``mem_mb``, because there are
 Some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
 Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
 This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
-If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint.
+If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
 Any resource definitions inside a rule override what has been defined with ``--default-resources``.
 
 Resources can also be callables that return ``int`` values.
