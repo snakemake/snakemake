@@ -11,6 +11,7 @@ from distutils.version import StrictVersion
 import json
 from glob import glob
 import tarfile
+import uuid
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
@@ -227,7 +228,8 @@ class Env:
                         ["conda", "create", "--copy", "--prefix '{}'".format(env_path)] +
                         packages)
                     if self._singularity_img:
-                        cmd = singularity.shellcmd(self._singularity_img.path, cmd, args="--writable")
+                        cmd = singularity.shellcmd(self._singularity_img.path, cmd, 
+                                                   envvars=self.get_singularity_envvars())
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
 
                 else:
@@ -243,7 +245,7 @@ class Env:
                                                 "--file '{}'".format(target_env_file),
                                                 "--prefix '{}'".format(env_path)])
                     if self._singularity_img:
-                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
+                        cmd = singularity.shellcmd(self._singularity_img.path, cmd, envvars=self.get_singularity_envvars())
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
                 # Touch "done" flag file
                 with open(os.path.join(env_path,"env_setup_done"), "a") as f:
@@ -264,6 +266,10 @@ class Env:
             os.remove(tmp_file)
 
         return env_path
+
+    @classmethod
+    def get_singularity_envvars(self):
+        return {"CONDA_PKGS_DIRS": "/tmp/conda/{}".format(uuid.uuid4())}
 
     def __hash__(self):
         # this hash is only for object comparison, not for env paths
