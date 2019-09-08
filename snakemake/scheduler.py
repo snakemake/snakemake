@@ -118,7 +118,6 @@ class JobScheduler:
                     printreason=printreason,
                     quiet=quiet,
                     printshellcmds=printshellcmds,
-                    use_threads=use_threads,
                     latency_wait=latency_wait,
                     cores=local_cores)
             if cluster or cluster_sync:
@@ -164,7 +163,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                use_threads=use_threads,
                 latency_wait=latency_wait,
                 cores=local_cores)
 
