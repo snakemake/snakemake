@@ -211,7 +211,7 @@ class Env:
                     pass
 
                 if os.path.exists(env_archive):
-                    logger.info("Using archived local conda packages.")
+                    logger.info("Installing archived conda packages.")
                     pkg_list = os.path.join(env_archive, "packages.txt")
                     if os.path.exists(pkg_list):
                         # read pacakges in correct order
@@ -240,7 +240,7 @@ class Env:
                     target_env_file = env_path + ".yaml"
                     shutil.copy(env_file, target_env_file)
 
-                    logger.info("Downloading remote packages.")
+                    logger.info("Downloading and installing remote packages.")
                     cmd = " ".join(["conda", "env", "create",
                                                 "--file '{}'".format(target_env_file),
                                                 "--prefix '{}'".format(env_path)])
