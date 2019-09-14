@@ -34,7 +34,7 @@ def format_files(job, io, dynamicio):
         elif is_flagged(f, "pipe"):
             yield "{} (pipe)".format(f)
         elif is_flagged(f, "checkpoint_target"):
-            yield "<unknown>"
+            yield "<TBD>"
         else:
             yield f
 

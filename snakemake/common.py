@@ -20,6 +20,16 @@ SNAKEMAKE_SEARCHPATH = os.path.dirname(os.path.dirname(__file__))
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 
 
+class TBDInt(int):
+    """An integer that prints into <TBD>"""
+    def __str__(self):
+        return "<TBD>"
+
+
+# A string that prints as TBD
+TBDString = "<TBD>"
+
+
 def num_if_possible(s):
     """Convert string to number if possible, otherwise return string."""
     try:

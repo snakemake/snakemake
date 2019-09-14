@@ -18,7 +18,7 @@ from snakemake.io import expand, InputFiles, OutputFiles, Wildcards, Params, Log
 from snakemake.io import apply_wildcards, is_flagged, not_iterable, is_callable, DYNAMIC_FILL, ReportObject
 from snakemake.exceptions import RuleException, IOFileException, WildcardError, InputFunctionException, WorkflowError, IncompleteCheckpointException
 from snakemake.logging import logger
-from snakemake.common import Mode, lazy_property
+from snakemake.common import Mode, lazy_property, TBDInt
 
 
 class Rule:
@@ -539,6 +539,7 @@ class Rule:
                              func,
                              wildcards,
                              incomplete_checkpoint_func=lambda e: None,
+                             raw_exceptions=False,
                              **aux_params):
         if isinstance(func, _IOFile):
             func = func._file.callable
@@ -551,7 +552,10 @@ class Rule:
         except IncompleteCheckpointException as e:
             value = incomplete_checkpoint_func(e)
         except (Exception, BaseException) as e:
-            raise InputFunctionException(e, rule=self, wildcards=wildcards)
+            if raw_exceptions:
+                raise e
+            else:
+                raise InputFunctionException(e, rule=self, wildcards=wildcards)
         return value
 
     def _apply_wildcards(self, newitems, olditems, wildcards,
@@ -772,12 +776,27 @@ class Rule:
                 aux = dict(rulename=self.name)
                 if threads:
                     aux["threads"] = threads
-                res = self.apply_input_function(res,
-                                                wildcards,
-                                                input=input,
-                                                attempt=attempt,
-                                                incomplete_checkpoint_func=lambda e: 0,
-                                                **aux)
+                try:
+                    try:
+                        res = self.apply_input_function(res,
+                                                        wildcards,
+                                                        input=input,
+                                                        attempt=attempt,
+                                                        incomplete_checkpoint_func=lambda e: 0,
+                                                        raw_exceptions=True,
+                                                        **aux)
+                    except FileNotFoundError as e:
+                        # Resources can depend on input files. Since expansion can happen during dryrun,
+                        # where input files are not yet present, we need to skip such resources and
+                        # mark them as [TBD].
+                        if e.filename in input:
+                            # use zero for resource if it cannot yet be determined
+                            res = TBDInt(0)
+                        else:
+                            raise e
+                except e:
+                    raise InputFunctionException(e, rule=self, wildcards=wildcards)
+                    
                 if not isinstance(res, int):
                     raise WorkflowError("Resources function did not return int.")
             res = min(self.workflow.global_resources.get(name, res), res)

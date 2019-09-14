@@ -7,11 +7,13 @@ rule a:
         s3.remote("test-remote-bucket/test.in")
     output:
         "test.out"
+    group: "test"
     shell:
         "[[ '{resources.mem_mb}' == '1000' ]] && touch {output}"
 
 rule b:
     output:
         s3.remote("test-remote-bucket/test.in")
+    group: "test"
     shell:
         "[[ '{resources.mem_mb}' == '1000' ]] && touch {output}"
