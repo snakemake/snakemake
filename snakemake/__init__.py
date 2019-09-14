@@ -24,6 +24,7 @@ from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import Mode, __version__
+from snakemake.resources import parse_resources, DefaultResources
 
 
 SNAKEFILE_CHOICES = ["Snakefile", "snakefile", "workflow/Snakefile", "workflow/snakefile"]
@@ -37,7 +38,7 @@ def snakemake(snakefile,
               nodes=1,
               local_cores=1,
               resources=dict(),
-              default_resources=dict(),
+              default_resources=None,
               config=dict(),
               configfile=None,
               config_args=None,
@@ -142,7 +143,7 @@ def snakemake(snakefile,
         nodes (int):                the number of provided cluster nodes (ignored without cluster support) (default 1)
         local_cores (int):          the number of provided local cores if in cluster mode (ignored without cluster support) (default 1)
         resources (dict):           provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
-        default_resources (dict):   default values for resources not defined in rules (default {})
+        default_resources (DefaultResources):   default values for resources not defined in rules (default None)
         config (dict):              override values for workflow config
         workdir (str):              path to working directory (default None)
         targets (list):             list of targets, e.g. rule or file names (default None)
@@ -568,46 +569,6 @@ def snakemake(snakefile,
     if not keep_logger:
         logger.cleanup()
     return success
-
-
-def parse_resources(resources_args, fallback=None):
-    """Parse resources from args."""
-    resources = dict()
-    if resources_args is not None:
-        valid = re.compile("[a-zA-Z_]\w*$")
-        for res in resources_args:
-            try:
-                res, val = res.split("=")
-            except ValueError:
-                raise ValueError(
-                    "Resources have to be defined as name=value pairs.")
-            if not valid.match(res):
-                raise ValueError(
-                    "Resource definition must start with a valid identifier.")
-            try:
-                val = int(val)
-            except ValueError:
-                if fallback is not None:
-                    val = fallback(val)
-                else:
-                    raise ValueError(
-                        "Resource definiton must contain an integer after the identifier.")
-            if res == "_cores":
-                raise ValueError(
-                    "Resource _cores is already defined internally. Use a different name.")
-            resources[res] = val
-    return resources
-
-
-def parse_default_resources(resources_args):
-    """Parse default resource definition args."""
-    def fallback(val):
-        def callable(wildcards, input, attempt, threads, rulename):
-            value = eval(val, {"input": input, "attempt": attempt, "threads": threads})
-            return value
-        return callable
-
-    return parse_resources(resources_args, fallback=fallback)
 
 
 def parse_config(args):
@@ -1416,11 +1377,10 @@ def main(argv=None):
         config = parse_config(args)
         if args.default_resources is not None and not args.default_resources:
             args.default_resources = ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
-        default_resources = parse_default_resources(args.default_resources)
+        default_resources = DefaultResources(args.default_resources)
     except ValueError as e:
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
-        parser.print_help()
         sys.exit(1)
 
     if (args.cluster or args.cluster_sync or args.drmaa):

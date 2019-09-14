@@ -67,6 +67,12 @@ class AbstractExecutor:
                     self.workflow.default_remote_provider.__module__.split(".")[-1],
                     self.workflow.default_remote_prefix)
         return ""
+    
+    def get_default_resources_args(self):
+        if self.workflow.default_resources is not None:
+            args = " --default-resources {} ".format(" ".join(map('"{}"'.format, self.workflow.default_resources.args)))
+            return args
+        return ""
 
     def run(self, job,
             callback=None,
@@ -243,6 +249,7 @@ class CPUExecutor(RealExecutor):
             '--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ',
             '--latency-wait {latency_wait} ',
             self.get_default_remote_provider_args(),
+            self.get_default_resources_args(),
             '{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} ',
             '--notemp --quiet --no-hooks --nolock --mode {} '.format(Mode.subprocess)))
 
@@ -456,6 +463,7 @@ class ClusterExecutor(RealExecutor):
                     self.workflow.singularity_args)
 
         self.exec_job += self.get_default_remote_provider_args()
+        self.exec_job += self.get_default_resources_args()
         self.jobname = jobname
         self._tmpdir = None
         self.cores = cores if cores else ""

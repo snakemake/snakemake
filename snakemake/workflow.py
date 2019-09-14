@@ -113,8 +113,11 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
-        self.default_resources = dict(_cores=1, _nodes=1)
-        self.default_resources.update(default_resources)
+        if default_resources is not None:
+            self.default_resources = default_resources
+        else:
+            # only _cores and _nodes
+            self.default_resources = DefaultResources()
 
         self.iocache = snakemake.io.IOCache()
 
@@ -822,7 +825,8 @@ class Workflow:
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             # handle default resources
-            rule.resources = copy.deepcopy(self.default_resources)
+            if self.default_resources is not None:
+                rule.resources = copy.deepcopy(self.default_resources.parsed)
             if ruleinfo.threads:
                 if not isinstance(ruleinfo.threads, int) and not callable(ruleinfo.threads):
                     raise RuleException("Threads value has to be an integer or a callable.",
