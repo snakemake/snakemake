@@ -35,6 +35,7 @@ import snakemake.wrapper
 from snakemake.common import Mode
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
+from snakemake.resources import DefaultResources
 
 
 class Workflow:

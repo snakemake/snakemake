@@ -10,7 +10,7 @@ class DefaultResources:
             return callable
 
         self.parsed = dict(_cores=1, _nodes=1)
-        if args is not None:
+        if self.args is not None:
             self.parsed.update(parse_resources(args, fallback=fallback))
 
 

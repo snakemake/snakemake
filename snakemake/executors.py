@@ -69,7 +69,7 @@ class AbstractExecutor:
         return ""
     
     def get_default_resources_args(self):
-        if self.workflow.default_resources is not None:
+        if self.workflow.default_resources.args is not None:
             args = " --default-resources {} ".format(" ".join(map('"{}"'.format, self.workflow.default_resources.args)))
             return args
         return ""
