@@ -784,7 +784,7 @@ def expand(*args, **wildcards):
     if isinstance(filepatterns, str):
         filepatterns = [filepatterns]
     
-    if any(map(lambda f: hasattr(f, "flags"), filepatterns)):
+    if any(map(lambda f: getattr(f, "flags", {}), filepatterns)):
         raise WorkflowError("Flags in file patterns given to expand() are invalid. "
                             "Flags (e.g. temp(), directory()) have to be applied outside "
                             "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))').")
