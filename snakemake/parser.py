@@ -804,7 +804,7 @@ class Snakefile:
 def format_tokens(tokens):
     t_ = None
     for t in tokens:
-        if t_ and not t.isspace() and not t_.isspace():
+        if t_ and (not t.isspace() and not t_.isspace()) and (not t_ == '@'):
             yield " "
         yield t
         t_ = t
