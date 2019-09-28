@@ -378,6 +378,10 @@ class FileRecord:
     @property
     def is_table(self):
         return self.mime in {"text/csv", "text/tab-separated-values"}
+    
+    @property
+    def is_vega(self):
+        return self.mime == "application/json" and self.path.endswith(".vl.json") or self.path.endswith(".vg.json")
 
     @property
     def icon(self):
