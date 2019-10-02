@@ -590,10 +590,21 @@ def test_run_namedlist():
 @connected
 @not_ci
 def test_remote_gs():
-    run(dpath("test_remote_gs"))
+    if not "CI" in os.environ:
+        run(dpath("test_remote_gs"))
+    else:
+        print("skipping test_remote_gs in CI")
 
 
 @connected
+@ci
+def test_remote_azure():
+    if not "CI" in os.environ:
+        run(dpath("test_remote_azure"))
+    else:
+        print("skipping test_remote_azure in CI")
+
+
 def test_remote_log():
     run(dpath("test_remote_log"), shouldfail=True)
 

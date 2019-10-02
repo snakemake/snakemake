@@ -23,24 +23,24 @@ except ImportError as e:
         "needs to be installed to use S3 remote() file functionality. %s" % e.msg)
 
 
-class RemoteProvider(AbstractRemoteProvider):
+class RemoteProvider(AbstractRemoteProvider): # class inherits from AbstractRemoteProvider
 
-    supports_default = True
+    supports_default = True # class variable
 
-    def __init__(self, *args, stay_on_remote=False, keep_local=False, is_default=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, keep_local=keep_local, is_default=is_default, **kwargs)
+    def __init__(self, *args, stay_on_remote=False, **kwargs): # this method is evaluated when instantiating this class
+        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs) # in addition to methods provided by AbstractRemoteProvider, we add these in
 
-        self._s3c = S3Helper(*args, **kwargs)
+        self._s3c = S3Helper(*args, **kwargs) # _private variable by convention
 
     def remote_interface(self):
         return self._s3c
 
-    @property
-    def default_protocol(self):
+    @property # decorator, so that this function can be access as an attribute, instead of a method
+    def default_(self):
         """The protocol that is prepended to the path when no protocol is specified."""
         return 's3://'
 
-    @property
+    @property # decorator, so that this function can be access as an attribute, instead of a method
     def available_protocols(self):
         """List of valid protocols for this remote provider."""
         return ['s3://']
@@ -229,8 +229,6 @@ class S3Helper(object):
         """
         assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"
-
-        b = self.s3.Bucket(bucket_name)
 
         if destination_path:
             destination_path = os.path.realpath(os.path.expanduser(destination_path))

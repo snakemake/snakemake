@@ -9,6 +9,9 @@ dist/
 *.egg
 .eggs/
 .snakemake*
+.venv
+.venv/*
+
 
 .idea
 

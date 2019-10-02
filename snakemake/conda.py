@@ -280,7 +280,6 @@ class Env:
             return self.file == other.file
         return False
 
-
 class Conda:
     instances = dict()
 
