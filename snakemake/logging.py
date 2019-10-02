@@ -290,7 +290,7 @@ class Logger:
             if msg["conda_env"]:
                 self.logger.error(indent("    conda-env: {}".format(msg["conda_env"])))
             if msg["shellcmd"]:
-                self.logger.error(indent("    shell:\n        {}\n        (exited with non-zero exit code)".format(msg["shellcmd"])))
+                self.logger.error(indent("    shell:\n        {}\n        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)".format(msg["shellcmd"])))
 
             for item in msg["aux"].items():
                 self.logger.error(indent("    {}: {}".format(*item)))
