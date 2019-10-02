@@ -28,6 +28,7 @@ dependencies:
   - xorg-libsm
   - psutil
   - google-cloud-storage
+  - azure
   - ratelimiter
   - configargparse
   - appdirs
