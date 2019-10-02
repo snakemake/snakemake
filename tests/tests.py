@@ -484,8 +484,7 @@ def test_remote_ncbi():
 
 @ci
 def test_remote_irods():
-    if os.environ.get("CI") == "true":
-        run(dpath("test_remote_irods"))
+    run(dpath("test_remote_irods"))
 
 
 def test_deferred_func_eval():
@@ -590,19 +589,14 @@ def test_run_namedlist():
 @connected
 @not_ci
 def test_remote_gs():
-    if not "CI" in os.environ:
-        run(dpath("test_remote_gs"))
-    else:
-        print("skipping test_remote_gs in CI")
+    run(dpath("test_remote_gs"))
 
 
+@pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
 @connected
 @ci
 def test_remote_azure():
-    if not "CI" in os.environ:
-        run(dpath("test_remote_azure"))
-    else:
-        print("skipping test_remote_azure in CI")
+    run(dpath("test_remote_azure"))
 
 
 def test_remote_log():
