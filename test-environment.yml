@@ -3,7 +3,6 @@ channels:
   - bioconda
 dependencies:
   - python >=3.5
-  - rpy2 >=0.7.6
   - datrie
   - boto3
   - moto
@@ -28,7 +27,8 @@ dependencies:
   - xorg-libsm
   - psutil
   - google-cloud-storage
-  - azure
+  - azure-storage
+  - azure-storage-common
   - ratelimiter
   - configargparse
   - appdirs

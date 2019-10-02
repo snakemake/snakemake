@@ -20,7 +20,8 @@ dependencies:
   - pandas
   - nomkl
   - google-cloud-storage
-  - azure
+  - azure-storage
+  - azure-storage-common
   - ratelimiter
   - configargparse
   - appdirs

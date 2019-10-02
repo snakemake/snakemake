@@ -21,8 +21,8 @@ from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 try:
     from azure.storage.common.cloudstorageaccount import CloudStorageAccount as AzureStorageAccount
 except ImportError as e:
-    raise WorkflowError("The Python 3 meta package 'azure' "
-        "needs to be installed to use Azure Storage remote() file functionality. %s" % e.msg)
+    raise WorkflowError("The Python 3 packages 'azure-storage' and 'azure-storage-common' "
+        "need to be installed to use Azure Storage remote() file functionality. %s" % e.msg)
 
 
 class RemoteProvider(AbstractRemoteProvider):
