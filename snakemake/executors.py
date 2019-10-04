@@ -168,10 +168,11 @@ class RealExecutor(AbstractExecutor):
             overwrite_workdir.extend(("--directory", self.workflow.overwrite_workdir))
 
         overwrite_config = []
-        if self.workflow.overwrite_configfile:
+        if self.workflow.overwrite_configfiles:
             # add each of the overwriting configfiles in the original order
-            for x in self.workflow.overwrite_configfile:
-                overwrite_config.extend(("--configfile", x))
+            if self.workflow.overwrite_configfiles:
+                overwrite_config.append("--configfiles")
+                overwrite_config.extend(self.workflow.overwrite_configfiles)
         if self.workflow.config_args:
             overwrite_config.append("--config")
             overwrite_config.extend(self.workflow.config_args)

@@ -45,7 +45,7 @@ class Workflow:
                  overwrite_shellcmd=None,
                  overwrite_config=dict(),
                  overwrite_workdir=None,
-                 overwrite_configfile=None,
+                 overwrite_configfiles=None,
                  overwrite_clusterconfig=dict(),
                  config_args=None,
                  debug=False,
@@ -87,7 +87,7 @@ class Workflow:
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config
-        self.overwrite_configfile = overwrite_configfile
+        self.overwrite_configfiles = overwrite_configfiles
         self.overwrite_clusterconfig = overwrite_clusterconfig
         self.config_args = config_args
         self.immediate_submit = None
@@ -484,7 +484,7 @@ class Workflow:
                     if not subsnakemake(subworkflow.snakefile,
                                         workdir=subworkflow.workdir,
                                         targets=subworkflow_targets,
-                                        configfile=subworkflow.configfile,
+                                        configfiles=[subworkflow.configfile],
                                         updated_files=updated):
                         return False
                     dag.updated_subworkflow_files.update(subworkflow.target(f)

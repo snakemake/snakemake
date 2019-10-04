@@ -40,7 +40,7 @@ def snakemake(snakefile,
               resources=dict(),
               default_resources=None,
               config=dict(),
-              configfile=None,
+              configfiles=None,
               config_args=None,
               workdir=None,
               targets=None,
@@ -346,12 +346,14 @@ def snakemake(snakefile,
         return False
 
     overwrite_config = dict()
-    if configfile:
+    if configfiles is None:
+        configfiles = []
+    for f in configfiles:
         # get values to override. Later configfiles override earlier ones.
-        for x in configfile:
-            overwrite_config.update(load_configfile(x))
-        # convert provided paths to absolute paths
-        configfile = [os.path.abspath(x) for x in configfile]
+        overwrite_config.update(load_configfile(f))
+    # convert provided paths to absolute paths
+    configfiles = list(map(os.path.abspath, configfiles))
+
     # directly specified elements override any configfiles
     if config:
         overwrite_config.update(config)
@@ -389,7 +391,7 @@ def snakemake(snakefile,
                         overwrite_shellcmd=overwrite_shellcmd,
                         overwrite_config=overwrite_config,
                         overwrite_workdir=workdir,
-                        overwrite_configfile=configfile,
+                        overwrite_configfiles=configfiles,
                         overwrite_clusterconfig=cluster_config_content,
                         config_args=config_args,
                         debug=debug,
@@ -583,7 +585,7 @@ def parse_config(args):
     parsers = [int, float, eval, str]
     config = dict()
     if args.config is not None:
-        valid = re.compile("[a-zA-Z_]\w*$")
+        valid = re.compile(r"[a-zA-Z_]\w*$")
         for entry in args.config:
             try:
                 key, val = entry.split("=", 1)
@@ -768,13 +770,14 @@ def get_argument_parser(profile=None):
          "the workflow. Default values can be set by providing a JSON file "
          "(see Documentation)."))
     group_exec.add_argument(
-        "--configfile",
-        action="append",
+        "--configfiles",
+        nargs="+",
         metavar="FILE",
         help=
         ("Specify or overwrite the config file of the workflow (see the docs). "
          "Values specified in JSON or YAML format are available in the global config "
-         "dictionary inside the workflow."))
+         "dictionary inside the workflow. Multiple files overwrite each other in "
+         "the given order."))
     group_exec.add_argument("--directory", "-d",
                         metavar="DIR",
                         action="store",
@@ -1516,7 +1519,7 @@ def main(argv=None):
                             resources=resources,
                             default_resources=default_resources,
                             config=config,
-                            configfile=args.configfile,
+                            configfiles=args.configfiles,
                             config_args=args.config,
                             workdir=args.directory,
                             targets=args.target,
