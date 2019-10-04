@@ -20,6 +20,7 @@ Development Team
 - Christian Arnold
 - Wibowo Arindrarto
 - Rasmus Ågren
+- Soohyun Lee
 
 Contributors
 ------------

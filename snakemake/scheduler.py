@@ -1,4 +1,5 @@
 __author__ = "Johannes Köster"
+__contributors__ = ["Soohyun Lee"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -15,7 +16,7 @@ import time
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
     GenericClusterExecutor, SynchronousClusterExecutor, DRMAAExecutor,
-    KubernetesExecutor)
+    KubernetesExecutor, TibannaExecutor)
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
 
@@ -53,6 +54,9 @@ class JobScheduler:
                  kubernetes=None,
                  kubernetes_envvars=None,
                  container_image=None,
+                 tibanna=None,
+                 tibanna_sfn=None,
+                 precommand="",
                  jobname=None,
                  quiet=False,
                  printreason=False,
@@ -175,6 +179,23 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 cluster_config=cluster_config)
+        elif tibanna:
+            self._local_executor = CPUExecutor(
+                workflow, dag, local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                use_threads=use_threads,
+                latency_wait=latency_wait,
+                cores=local_cores)
+
+            self._executor = TibannaExecutor(
+                workflow, dag, cores, tibanna_sfn,
+                precommand=precommand,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait)
         else:
             self._executor = CPUExecutor(workflow, dag, cores,
                                          printreason=printreason,

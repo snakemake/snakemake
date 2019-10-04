@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__contributors__ = ["David Alexander"]
+__contributors__ = ["David Alexander", "Soohyun Lee"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -22,9 +22,12 @@ from functools import partial
 from itertools import chain
 from collections import namedtuple
 from tempfile import mkdtemp
+from snakemake.io import _IOFile
 import random
 import base64
 import uuid
+import re
+import math
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -189,6 +192,16 @@ class RealExecutor(AbstractExecutor):
         else:
             rules = []
 
+        target = kwargs.get('target', job.get_targets())
+        snakefile = kwargs.get('snakefile', self.snakefile)
+        cores = kwargs.get('cores', self.cores)
+        if 'target' in kwargs:
+            del kwargs['target']
+        if 'snakefile' in kwargs:
+            del kwargs['snakefile']
+        if 'cores' in kwargs:
+            del kwargs['cores']
+
         return format(pattern,
                       job=job,
                       attempt=job.attempt,
@@ -196,10 +209,10 @@ class RealExecutor(AbstractExecutor):
                       overwrite_config=overwrite_config,
                       printshellcmds=printshellcmds,
                       workflow=self.workflow,
-                      snakefile=self.snakefile,
-                      cores=self.cores,
+                      snakefile=snakefile,
+                      cores=cores,
                       benchmark_repeats=job.benchmark_repeats if not job.is_group() else None,
-                      target=job.get_targets(),
+                      target=target,
                       rules=rules,
                       **kwargs)
 
@@ -404,7 +417,8 @@ class ClusterExecutor(RealExecutor):
                  restart_times=None,
                  exec_job=None,
                  assume_shared_fs=True,
-                 max_status_checks_per_second=1):
+                 max_status_checks_per_second=1,
+                 disable_default_remote_provider_args=False):
         from ratelimiter import RateLimiter
 
         local_input = local_input or []
@@ -465,7 +479,8 @@ class ClusterExecutor(RealExecutor):
                 self.exec_job += " --singularity-args \"{}\"".format(
                     self.workflow.singularity_args)
 
-        self.exec_job += self.get_default_remote_provider_args()
+        if not disable_default_remote_provider_args:
+            self.exec_job += self.get_default_remote_provider_args()
         self.exec_job += self.get_default_resources_args()
         self.jobname = jobname
         self._tmpdir = None
@@ -1354,6 +1369,270 @@ class KubernetesExecutor(ClusterExecutor):
                     else:
                         # still active
                         still_running.append(j)
+            with self.lock:
+                self.active_jobs.extend(still_running)
+            sleep()
+
+
+TibannaJob = namedtuple("TibannaJob", "job jobname jobid exec_arn callback error_callback")
+
+
+class TibannaExecutor(ClusterExecutor):
+    def __init__(self, workflow, dag, cores,
+             tibanna_sfn,
+             precommand="",
+             printreason=False,
+             quiet=False,
+             printshellcmds=False,
+             latency_wait=3,
+             local_input=None,
+             restart_times=None,
+             exec_job=None,
+             max_status_checks_per_second=1):
+
+        self.workflow_sources = workflow.get_sources() 
+        log = "sources="
+        for f in self.workflow_sources:
+            log += f
+        logger.debug(log)
+        self.snakefile = workflow.snakefile
+        self.tibanna_sfn = tibanna_sfn
+        if precommand:
+            self.precommand = precommand
+        else:
+            self.precommand = ""
+        self.s3_bucket = workflow.default_remote_prefix.split('/')[0]
+        self.s3_subdir = re.sub('^{}/'.format(self.s3_bucket), '', workflow.default_remote_prefix)
+        logger.debug("precommand= " + self.precommand)
+        logger.debug("bucket=" + self.s3_bucket)
+        logger.debug("subdir=" + self.s3_subdir)
+        self.quiet = quiet
+        exec_job = (
+            'snakemake {target} --snakefile {snakefile} '
+            '--force -j{cores} --keep-target-files  --keep-remote '
+            '--latency-wait 0 '
+            '--attempt 1 {use_threads} '
+            '{overwrite_config} {rules} --nocolor '
+            '--notemp --no-hooks --nolock ')
+
+        super().__init__(workflow, dag, cores,
+                         printreason=printreason,
+                         quiet=quiet,
+                         printshellcmds=printshellcmds,
+                         latency_wait=latency_wait,
+                         local_input=local_input,
+                         restart_times=restart_times,
+                         exec_job=exec_job,
+                         assume_shared_fs=False,
+                         max_status_checks_per_second=max_status_checks_per_second,
+                         disable_default_remote_provider_args=True)
+
+    def shutdown(self):
+        # perform additional steps on shutdown if necessary
+        logger.debug("shutting down Tibanna executor")
+        super().shutdown()
+
+    def cancel(self):
+        from tibanna.core import API
+        for j in self.active_jobs:
+            logger.info("killing job {}".format(j.jobname))
+            while True:
+                try:
+                    res = API().kill(j.exec_arn)
+                    if not self.quiet:
+                        print(res)
+                    break
+                except KeyboardInterrupt:
+                    pass
+        self.shutdown()
+
+    def split_filename(self, filename, checkdir=None):
+        f = os.path.abspath(filename)
+        if checkdir:
+            checkdir = checkdir.rstrip('/')
+            if f.startswith(checkdir):
+                fname = re.sub('^{}/'.format(checkdir), '', f)
+                fdir = checkdir
+            else:
+                direrrmsg = "All source files including Snakefile, " + \
+                            "conda env files, and rule script files " + \
+                            "must be in the same working directory: {} vs {}"
+                raise WorkflowError(direrrmsg.format(checkdir, f))
+        else:
+            fdir, fname = os.path.split(f)
+        return fname, fdir
+
+    def remove_prefix(self, s):
+        return re.sub('^{}/{}/'.format(self.s3_bucket, self.s3_subdir), '', s)
+
+    def handle_remote(self, target):
+        if isinstance(target, _IOFile) and target.remote_object.provider.is_default:
+           return self.remove_prefix(target)
+        else:
+           return target
+
+    def add_command(self, job, tibanna_args, tibanna_config):
+        # snakefile, with file name remapped
+        snakefile_fname = tibanna_args.snakemake_main_filename
+        # targets, with file name remapped
+        targets = job.get_targets()
+        if not isinstance(targets, list):
+            targets = [targets]
+        targets_default = ' '.join([self.handle_remote(t) for t in targets])
+        # use_threads
+        use_threads="--force-use-threads" if not job.is_group() else ""
+        # format command
+        command = self.format_job_pattern(self.exec_job, job,
+                                                target=targets_default,
+                                                snakefile=snakefile_fname,
+                                                use_threads=use_threads,
+                                                cores=tibanna_config['cpu'])
+        if self.precommand:
+            command = self.precommand + '; ' + command
+        logger.debug("command = " + str(command))
+        tibanna_args.command = command
+
+    def add_workflow_files(self, job, tibanna_args):
+        snakefile_fname, snakemake_dir = self.split_filename(self.snakefile)
+        snakemake_child_fnames = []
+        for src in self.workflow_sources:
+           src_fname, _ = self.split_filename(src, snakemake_dir)
+           if src_fname != snakefile_fname:  # redundant
+               snakemake_child_fnames.append(src_fname)
+        # change path for config files
+        self.workflow.overwrite_configfile, _ = \
+            self.split_filename(self.workflow.overwrite_configfile, snakemake_dir)
+        tibanna_args.snakemake_directory_local = snakemake_dir
+        tibanna_args.snakemake_main_filename = snakefile_fname
+        tibanna_args.snakemake_child_filenames = list(set(snakemake_child_fnames))
+
+    def adjust_filepath(self, f):
+        if not hasattr(f, 'remote_object'):
+            rel = self.remove_prefix(f)  # log/benchmark
+        elif hasattr(f.remote_object, 'provider') and f.remote_object.provider.is_default:
+            rel = self.remove_prefix(f)
+        else:
+            rel = f
+        return rel
+
+    def make_tibanna_input(self, job):
+        from tibanna import ec2_utils, core as tibanna_core
+
+        # input & output
+        # Local snakemake command here must be run with --default-remote-prefix
+        # and --default-remote-provider (forced) but on VM these options will be removed.
+        # The snakemake on the VM will consider these input and output as not remote.
+        # They files are transferred to the container by Tibanna before running snakemake.
+        # In short, the paths on VM must be consistent with what's in Snakefile.
+        # but the actual location of the files is on the S3 bucket/prefix.
+        # This mapping info must be passed to Tibanna.
+        for i in job.input:
+            logger.debug("job input " + str(i))
+            logger.debug("job input is remote= " + ('true' if i.is_remote else 'false'))
+            if hasattr(i.remote_object, 'provider'):
+                logger.debug(" is remote default= " + ('true' if i.remote_object.provider.is_default else 'false'))
+        for o in job.expanded_output:
+            logger.debug("job output " + str(o))
+            logger.debug("job output is remote= " + ('true' if o.is_remote else 'false'))
+            if hasattr(o.remote_object, 'provider'):
+                logger.debug(" is remote default= " + ('true' if o.remote_object.provider.is_default else 'false'))
+        file_prefix = 'file:///data1/snakemake'  # working dir inside snakemake container on VM
+        input_source = dict()
+        for ip in job.input:
+            ip_rel = self.adjust_filepath(ip)
+            input_source[os.path.join(file_prefix, ip_rel)] = 's3://' + ip
+        output_target = dict()
+        output_all = [eo for eo in job.expanded_output]
+        if job.log:
+            output_all.append(str(job.log))
+        if hasattr(job, 'benchmark') and job.benchmark:
+            output_all.append(str(job.benchmark))
+        for op in output_all:
+            op_rel = self.adjust_filepath(op)
+            output_target[os.path.join(file_prefix, op_rel)] = 's3://' + op
+
+        # mem & cpu
+        mem = job.resources["mem_mb"] / 1024 if "mem_mb" in job.resources else 1
+        cpu = job.threads
+
+        # jobid, grouping, run_name
+        jobid = tibanna_core.create_jobid()
+        if job.is_group():
+            run_name = "snakemake-job-%s-group-%s" % (str(jobid), str(job.groupid))
+        else:
+            run_name = "snakemake-job-%s-rule-%s" % (str(jobid), str(job.rule))
+
+        # tibanna input
+        tibanna_config = {
+            "run_name": run_name,
+            "mem": mem,
+            "cpu": cpu,
+            "ebs_size": math.ceil(job.resources["disk_mb"] / 1024),
+            "log_bucket": self.s3_bucket
+        }
+        tibanna_args = ec2_utils.Args(output_S3_bucket=self.s3_bucket,
+                                      language='snakemake',
+                                      container_image="quay.io/snakemake/snakemake",
+                                      input_files=input_source,
+                                      output_target=output_target)
+        self.add_workflow_files(job, tibanna_args)
+        self.add_command(job, tibanna_args, tibanna_config)
+        tibanna_input = {'jobid': jobid, 'config': tibanna_config, 'args': tibanna_args.as_dict()}
+        logger.debug(json.dumps(tibanna_input, indent=4))
+        return tibanna_input
+
+    def run(self, job,
+            callback=None,
+            submit_callback=None,
+            error_callback=None):
+        logger.info("running job using Tibanna...")
+        from tibanna.core import API
+
+        super()._run(job)
+
+        # submit job here, and obtain job ids from the backend
+        tibanna_input = self.make_tibanna_input(job)
+        jobid = tibanna_input['jobid']
+        exec_info = API().run_workflow(tibanna_input, sfn=self.tibanna_sfn,
+                                       verbose=not self.quiet, jobid=jobid)
+        exec_arn = exec_info.get('_tibanna', {}).get('exec_arn', '')
+        jobname = tibanna_input['config']['run_name']
+        jobid = tibanna_input['jobid']
+
+        # register job as active, using your own namedtuple.
+        # The namedtuple must at least contain the attributes
+        # job, jobid, callback, error_callback.
+        self.active_jobs.append(TibannaJob(
+            job, jobname, jobid, exec_arn, callback, error_callback))
+
+    def _wait_for_jobs(self):
+        # busy wait on job completion
+        # This is only needed if your backend does not allow to use callbacks
+        # for obtaining job status.
+        from tibanna.core import API
+        while True:
+            # always use self.lock to avoid race conditions
+            with self.lock:
+                if not self.wait:
+                    return
+                active_jobs = self.active_jobs
+                self.active_jobs = list()
+                still_running = list()
+            for j in active_jobs:
+                # use self.status_rate_limiter to avoid too many API calls.
+                with self.status_rate_limiter:
+                    if j.exec_arn:
+                        status = API().check_status(j.exec_arn)
+                    else:
+                        status = 'FAILED_AT_SUBMISSION'
+                    if not self.quiet or status != 'RUNNING':
+                        logger.debug("job %s: %s" % (j.jobname, status))
+                    if status=='RUNNING':
+                        still_running.append(j)
+                    elif status=='SUCCEEDED':
+                        j.callback(j.job)
+                    else:
+                        j.error_callback(j.job)
             with self.lock:
                 self.active_jobs.extend(still_running)
             sleep()

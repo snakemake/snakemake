@@ -147,6 +147,95 @@ a job intends to use, such that kubernetes can allocate it to the correct cloud
 computing node.
 
 
+Executing a Snakemake workflow via Tibanna on Amazon Web Services
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+First, install `Tibanna <https://tibanna.readthedocs.io/en/latest/>`_.
+
+.. code-block:: console
+
+    $ pip install -U tibanna
+
+
+Set up aws configuration either by creating files ``~/.aws/credentials`` and ``~/.aws/config`` 
+or by setting up environment variables as below (see Tibanna or AWS documentation for more details):
+
+.. code-block:: console
+
+    $ export AWS_ACCESS_KEY_ID=<AWS_ACCESS_KEY>
+    $ export AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY>
+    $ export AWS_DEFAULT_REGION=<AWS_DEFAULT_REGION>
+
+
+As an AWS admin, deploy Tibanna Unicorn to Cloud with permissions to a specific S3 bucket.
+Name the Unicorn / Unicorn usergroup with the ``--usergroup`` option.
+Unicorn is a serverless scheduler, and keeping unicorn on the cloud does not incur extra cost. 
+One may have many different unicorns with different names and different bucket permissions.
+Then, add other (IAM) users to the user group that has permission to use this unicorn / buckets.
+
+.. code-block:: console
+
+    $ tibanna deploy_unicorn -g <name> -b <bucket>
+    $ tibanna add_user -u <username> -g <name>
+
+
+As a user that has been added to the group (or as an admin), set up the default unicorn.
+
+.. code-block:: console
+
+    $ export TIBANNA_DEFAULT_STEP_FUNCTION_NAME=tibanna_unicorn_<name>
+
+
+Then, you can run as many snakemake runs as you wish as below, inside a directory that contains
+Snakefile and other necessary components (e.g. ``env.yml``, ``config.json``, ...).
+
+.. code-block:: console
+
+    $ snakemake --tibanna --default-remote-prefix=<bucketname>/<subdir> [<other options>]
+
+
+In this mode, Snakemake will assume all input and output files to be stored in the specified remote location
+(a subdirectory inside a given S3 bucket.)
+After successful execution, you find your results in the specified remote storage.
+Of course, if any input or output already defines a different remote location, the latter will be used instead.
+In that case, Tibanna Unicorn must be deployed with all the relevant buckets (``-b bucket1,bucket2,bucket3,...``)
+to allow access to the Unicorn serverless components.
+Snakemake will assign 3x of the total input size as the allocated space for each execution. The execution may fail
+if the total input + output + temp file sizes exceed this estimate.
+
+In addition to regular snakemake options, ``--precommand=<command>`` option allows sending a command to execute before
+executing each step on an isolated environment. This kind of command could involve downloading or installing
+necessary files that cannot be handled using conda (e.g. the command may begin with ``wget``, ``git clone``, etc.) 
+
+
+To check Tibanna execution logs, first use ``tibanna stat`` to see the list of all the individual runs.
+
+.. code-block:: console
+
+    $ tibanna stat -n <number_of_executions_to_view> -l
+
+
+Then, check the detailed log for each job using the Tibanna job id that can be obtained from the first column
+of the output of ``tibanna stat``.
+
+
+.. code-block:: console
+
+    $ tibanna log -j <jobid>
+
+
+.. sidebar:: Note
+
+  Consider to :ref:`group jobs <snakefiles-grouping>` in order to minimize overhead, in particular for short-running jobs.
+
+
+When executing, Snakemake will make use of the defined resources and threads
+to schedule jobs to the correct nodes. In particular, it will forward memory requirements
+defined as `mem_mb` to Tibanna. Further, it will propagate the number of threads
+a job intends to use, such that Tibanna can allocate it to the most cost-effective
+cloud compute instance available.
+
+
 -----------------
 Cluster Execution
 -----------------

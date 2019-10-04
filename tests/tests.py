@@ -1,4 +1,5 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
+__contributors__ = ["Soohyun Lee"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -848,9 +849,14 @@ def test_issue1083():
 def test_pipes2():
     run(dpath("test_pipes2"))
 
+def test_tibanna():
+    workdir = dpath("test_tibanna")
+    subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
+    run(workdir, use_conda=True, configfile="config.json", default_remote_prefix="snakemake-tibanna-test/1",
+        tibanna_sfn='tibanna_unicorn_johannes')
+
 def test_expand_flag():
     run(dpath("test_expand_flag"), shouldfail=True)
-
 
 def test_default_resources():
     from snakemake.resources import DefaultResources

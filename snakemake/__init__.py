@@ -1,4 +1,5 @@
 __author__ = "Johannes Köster"
+__contributors__ = ["Soohyun Lee"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -126,6 +127,9 @@ def snakemake(snakefile,
               kubernetes=None,
               kubernetes_envvars=None,
               container_image=None,
+              tibanna=False,
+              tibanna_sfn=None,
+              precommand="",
               default_remote_provider=None,
               default_remote_prefix="",
               assume_shared_fs=True,
@@ -226,6 +230,9 @@ def snakemake(snakefile,
         container_image (str):      Docker image to use, e.g., for kubernetes.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
+        tibanna (str):              submit jobs to AWS cloud using Tibanna.
+        tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
+        precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         export_cwl (str):           Compile workflow to CWL and save to given file
@@ -277,10 +284,17 @@ def snakemake(snakefile,
 
     assert not immediate_submit or (immediate_submit and notemp), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
 
+    if tibanna:
+        assume_shared_fs = False
+        default_remote_provider = 'S3'
+        default_remote_prefix = default_remote_prefix.rstrip('/')
+        assert default_remote_prefix, "default_remote_prefix needed if tibanna is specified"
+        assert tibanna_sfn, "tibanna_sfn needed if tibanna is specified"
+
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa:
+    if cluster or cluster_sync or drmaa or tibanna:
         cores = sys.maxsize
     else:
         nodes = sys.maxsize
@@ -300,7 +314,7 @@ def snakemake(snakefile,
     else:
         cluster_config_content = dict()
 
-    run_local = not (cluster or cluster_sync or drmaa or kubernetes)
+    run_local = not (cluster or cluster_sync or drmaa or kubernetes or tibanna)
     if run_local and not dryrun:
         # clean up all previously recorded jobids.
         shell.cleanup()
@@ -484,6 +498,9 @@ def snakemake(snakefile,
                                        create_envs_only=create_envs_only,
                                        default_remote_provider=default_remote_provider,
                                        default_remote_prefix=default_remote_prefix,
+                                       tibanna=tibanna,
+                                       tibanna_sfn=tibanna_sfn,
+                                       precommand=precommand,
                                        assume_shared_fs=assume_shared_fs,
                                        cluster_status=cluster_status,
                                        max_jobs_per_second=max_jobs_per_second,
@@ -517,6 +534,9 @@ def snakemake(snakefile,
                     kubernetes=kubernetes,
                     kubernetes_envvars=kubernetes_envvars,
                     container_image=container_image,
+                    tibanna=tibanna,
+                    tibanna_sfn=tibanna_sfn,
+                    precommand=precommand,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     printd3dag=printd3dag,
@@ -1283,8 +1303,10 @@ def get_argument_parser(profile=None):
         " stderr files are written to the current working directory.")
 
     group_cloud = parser.add_argument_group("CLOUD")
+    group_kubernetes = parser.add_argument_group("KUBERNETES")
+    group_tibanna = parser.add_argument_group("TIBANNA")
 
-    group_cloud.add_argument(
+    group_kubernetes.add_argument(
         "--kubernetes", metavar="NAMESPACE",
         nargs="?", const="default",
         help="Execute workflow in a kubernetes cluster (in the cloud). "
@@ -1294,10 +1316,10 @@ def get_argument_parser(profile=None):
         "--default-remote-prefix to be set to a S3 or GS bucket where your . "
         "data shall be stored. It is further advisable to activate conda "
         "integration via --use-conda.")
-    group_cloud.add_argument(
+    group_kubernetes.add_argument(
         "--kubernetes-env", nargs="+", metavar="ENVVAR", default=[],
         help="Specify environment variables to pass to the kubernetes job.")
-    group_cloud.add_argument(
+    group_kubernetes.add_argument(
         "--container-image", metavar="IMAGE", help=
         "Docker image to use, e.g., when submitting jobs to kubernetes. "
         "By default, this is 'quay.io/snakemake/snakemake', tagged with "
@@ -1306,6 +1328,30 @@ def get_argument_parser(profile=None):
         "Any used image has to contain a working snakemake installation "
         "that is compatible with (or ideally the same as) the currently "
         "running version.")
+    group_tibanna.add_argument(
+        "--tibanna", action="store_true", help=
+        "Execute workflow on AWS cloud using Tibanna. This requires "
+        "--default-remote-prefix to be set to S3 bucket name and prefix"
+        " (e.g. 'bucketname/subdirectory') where input is already stored"
+        " and output will be sent to. Using --tibanna implies --defaut-resources"
+        " is set as default. Optionally, use --precommand to"
+        " specify any preparation command to run before snakemake command"
+        " on the cloud (inside snakemake container on Tibanna VM)."
+        " Also, --use-conda, --use-singularity, --config, --configfile are"
+        " supported and will be carried over.")
+    group_tibanna.add_argument(
+        "--tibanna-sfn", help=
+        "Name of Tibanna Unicorn step function (e.g. tibanna_unicorn_monty)."
+        "This works as serverless scheduler/resource allocator and must be "
+        "deployed first using tibanna cli. (e.g. tibanna deploy_unicorn --usergroup="
+        "monty --buckets=bucketname")
+    group_tibanna.add_argument(
+        "--precommand", help=
+        "Any command to execute before snakemake command on AWS cloud "
+        "such as wget, git clone, unzip, etc. This is used with --tibanna."
+        "Do not include input/output download/upload commands - file transfer"
+        " between S3 bucket and the run environment (container) is automatically"
+        " handled by Tibanna.")
 
     group_conda = parser.add_argument_group("CONDA")
 
@@ -1396,7 +1442,8 @@ def main(argv=None):
     try:
         resources = parse_resources(args.resources)
         config = parse_config(args)
-        if args.default_resources is not None and not args.default_resources:
+        if (args.default_resources is not None and not args.default_resources) or \
+           (args.tibanna and not args.default_resources):
             args.default_resources = ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
         default_resources = DefaultResources(args.default_resources)
     except ValueError as e:
@@ -1451,6 +1498,24 @@ def main(argv=None):
               "https://snakemake.readthedocs.io/en/stable/executable.html"
               "#executing-a-snakemake-workflow-via-kubernetes", file=sys.stderr)
         sys.exit(1)
+
+    if args.tibanna:
+        if not args.default_remote_prefix:
+            print("Error: --tibanna must be combined with --default-remote-prefix "
+                  "to provide bucket name and subdirectory (prefix) "
+                  "(e.g. 'bucketname/projectname'", file=sys.stderr)
+            sys.exit(1)
+        args.default_remote_prefix = args.default_remote_prefix.rstrip('/')
+        if not args.tibanna_sfn:
+            args.tibanna_sfn = os.environ.get('TIBANNA_DEFAULT_STEP_FUNCTION_NAME', '')
+            if not args.tibanna_sfn:
+                print("Error: to use --tibanna, either --tibanna-sfn or environment variable "
+                      "TIBANNA_DEFAULT_STEP_FUNCTION_NAME must be set and exported "
+                      "to provide name of the tibanna unicorn step function "
+                      "(e.g. 'tibanna_unicorn_monty'). The step function must be deployed first "
+                      "using tibanna cli (e.g. tibanna deploy_unicorn --usergroup=monty "
+                      "--buckets=bucketname)", file=sys.stderr)
+                sys.exit(1)
 
     if args.delete_all_output and args.delete_temp_output:
         print("Error: --delete-all-output and --delete-temp-output are mutually exclusive.", file=sys.stderr)
@@ -1550,6 +1615,9 @@ def main(argv=None):
                             kubernetes=args.kubernetes,
                             kubernetes_envvars=args.kubernetes_env,
                             container_image=args.container_image,
+                            tibanna=args.tibanna,
+                            tibanna_sfn=args.tibanna_sfn,
+                            precommand=args.precommand,
                             jobname=args.jobname,
                             immediate_submit=args.immediate_submit,
                             standalone=True,

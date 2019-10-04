@@ -1,0 +1,77 @@
+# vim: syntax=python
+#
+
+# step1 and step1a are grouped. step1b must run concurrently with step1+step1a.
+# step2 waits for step1, step1a and step1b to finish.
+# all is the final rule.
+# step1, step1a and step1b use a conda environment.
+# Input of step1, step1b and all are set remote.
+# Output of step2 is set remote.
+
+from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
+S3 = S3RemoteProvider()
+
+rule all:
+    input:
+        final = S3.remote("snakemake-tibanna-test/1/final_message"),
+        # final = "snakemake-tibanna-test/1/final_message"
+        final2 = S3.remote("snakemake-tibanna-test2/1/final_message")
+
+
+rule step1:
+    conda:
+        "env.yml"
+    group: "mygroup"
+    input:
+        S3.remote("snakemake-tibanna-test/1/somefile")
+    output:
+        message = "message1"
+    shell:
+        """
+        echo {config[message]} > message1
+        cat snakemake-tibanna-test/1/somefile >> message1
+        """
+
+rule step1a:
+    conda:
+        "env.yml"
+    group: "mygroup"
+    input:
+        message = "message1"
+    output:
+        next_message = "next_message"
+    shell:
+        """
+        cat message1 message1 > next_message
+        """
+
+rule step1b:
+    conda:
+        "env.yml"
+    input:
+        S3.remote("snakemake-tibanna-test/1/somefile2")
+    output:
+        message = "message2"
+    log:
+        "log.txt"
+    benchmark:
+        "benchmark.txt"
+    threads: 1
+    resources:
+        mem_mb=1024
+    shell:
+        """
+        echo "abcdefg" > message2
+        cat snakemake-tibanna-test/1/somefile2 >> message2
+        """
+
+rule step2:
+    input:
+        message1 = "next_message",
+        message2 = "message2"
+    output:
+        final = S3.remote("snakemake-tibanna-test/1/final_message"),
+        # final = "snakemake-tibanna-test/1/final_message"
+        final2 = S3.remote("snakemake-tibanna-test2/1/final_message")
+    script:
+        "scripts/step2.py"
