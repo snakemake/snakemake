@@ -3,33 +3,30 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import html
 import os
 import shutil
 import textwrap
 import time
 import tarfile
 from collections import defaultdict, Counter
-from itertools import chain, combinations, filterfalse, product, groupby
-from functools import partial, lru_cache
-from inspect import isfunction, ismethod
-from operator import itemgetter, attrgetter
+from itertools import chain, filterfalse, groupby
+from functools import partial
 from pathlib import Path
-import subprocess
 import uuid
 
-from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
+from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
 from snakemake.jobs import Job, Reason, GroupJob
-from snakemake.exceptions import RuleException, MissingInputException
+from snakemake.exceptions import MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException, ImproperOutputException
-from snakemake.exceptions import PeriodicWildcardError, WildcardError
+from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
-from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
+from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
 from snakemake import conda, singularity
-from snakemake import utils
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
 
@@ -1364,6 +1361,110 @@ class DAG:
                  for node in graph]
         # calculate edges
         edges = [edge_markup(ids[dep], ids[node])
+                 for node, deps in graph.items() for dep in deps]
+
+        return textwrap.dedent("""\
+            digraph snakemake_dag {{
+                graph[bgcolor=white, margin=0];
+                node[shape=box, style=rounded, fontname=sans, \
+                fontsize=10, penwidth=2];
+                edge[penwidth=2, color=grey];
+            {items}
+            }}\
+            """).format(items="\n".join(nodes + edges))
+
+    def filegraph_dot(self,
+                      node2rule=lambda node: node,
+                      node2style=lambda node: "rounded",
+                      node2label=lambda node: node):
+
+        # NOTE: This is code from the rule_dot method.
+        # This method could be split like there as well, however,
+        # it cannot easily reuse the _dot method due to the different node type
+        graph = defaultdict(set)
+        for job in self.jobs:
+            graph[job.rule].update(dep.rule for dep in self.dependencies[job])
+
+        # node ids
+        ids = {node: i for i, node in enumerate(graph)}
+
+        # Compute colors for rules
+        def hsv_to_htmlhexrgb(h, s, v):
+            """Convert hsv colors to hex-encoded rgb colors usable by html."""
+            import colorsys
+            hex_r, hex_g, hex_b = (
+                round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v)
+            )
+            return f"#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}"
+
+        huefactor = 2 / (3 * len(self.rules))
+        rulecolor = {
+            rule: hsv_to_htmlhexrgb(i*huefactor, 0.6, 0.85)
+            for i, rule in enumerate(self.rules)
+        }
+
+        def resolve_input_functions(input_files):
+            """Iterate over all input files and replace input functions
+            with a fixed string.
+            """
+            files = []
+            for f in input_files:
+                if callable(f):
+                    files.append("<input function>")
+                    # NOTE: This is a workaround. It would be more informative
+                    # to show the code of the input function here (if it is
+                    # short enough). This cannot be easily done with the inspect
+                    # module, since the line numbers in the Snakefile do not
+                    # behave as expected. One (complicated) solution for this
+                    # would be to find the Snakefile and directly extract the
+                    # code of the function.
+                else:
+                    files.append(repr(f).strip("'"))
+            return files
+
+        def html_node(node_id, node, color):
+            """Assemble a html style node for graphviz"""
+            input_files = resolve_input_functions(node._input)
+            output_files = [repr(f).strip("'") for f in node._output]
+            input_header = '<b><font point-size="14">&#8618; input</font></b>' if input_files else ""
+            output_header = '<b><font point-size="14">output &rarr;</font></b>' if output_files else ""
+            html_node = [
+                f'{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="3" cellborder="0">',
+                f'<tr><td>',
+                f'<b><font point-size="18">{node.name}</font></b>',
+                f'</td></tr>',
+                f'<hr/>',
+                f'<tr><td align="left"> {input_header} </td></tr>',
+            ]
+
+            for filename in sorted(input_files):
+                # Escape html relevant chars like '<' and '>' in filenames
+                # These can be added by input functions etc. and cannot be
+                # displayed in graphviz HTML nodes.
+                in_file = html.escape(filename)
+                html_node.extend(["<tr>", f'<td align="left"><font face="monospace">{in_file}</font></td>'"</tr>"])
+
+            html_node.append('<hr/>',)
+            html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>',)
+
+            for filename in sorted(output_files):
+                out_file = html.escape(filename)
+                html_node.extend(["<tr>", f'<td align="left"><font face="monospace">{out_file}</font></td>'"</tr>"])
+
+            html_node.append("</table>>]")
+            return "\n".join(html_node)
+
+        nodes = [
+            html_node(
+                ids[node],
+                node,
+                rulecolor[node2rule(node)],
+            )
+            for node in graph]
+
+        # calculate edges
+        edge_markup = "\t{} -> {}".format
+        edges = [edge_markup(ids[dep], ids[node], ids[dep], ids[node])
                  for node, deps in graph.items() for dep in deps]
 
         return textwrap.dedent("""\
