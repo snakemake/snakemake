@@ -505,6 +505,9 @@ class Rule:
             self.register_wildcards(item.get_wildcard_names())
 
     def _set_log_item(self, item, name=None):
+        # Pathlib compatibility
+        if isinstance(item, Path):
+            item = str(item)
         if isinstance(item, str) or callable(item):
             if not callable(item):
                 item = self.apply_default_remote(item)
@@ -631,9 +634,11 @@ class Rule:
     def expand_input(self, wildcards):
         def concretize_iofile(f, wildcards, is_from_callable):
             if is_from_callable:
-                    return IOFile(f, rule=self).apply_wildcards(wildcards,
-                                             fill_missing=f in self.dynamic_input,
-                                             fail_dynamic=self.dynamic_output)
+                if isinstance(f, Path):
+                    f = str(Path)
+                return IOFile(f, rule=self).apply_wildcards(wildcards,
+                                            fill_missing=f in self.dynamic_input,
+                                            fail_dynamic=self.dynamic_output)
             else:
                 return f.apply_wildcards(wildcards,
                                          fill_missing=f in self.dynamic_input,

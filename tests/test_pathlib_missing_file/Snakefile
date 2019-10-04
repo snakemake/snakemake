@@ -1,0 +1,21 @@
+from pathlib import Path
+
+# Things to test:
+# ancient
+# subworkflows
+
+output = Path("output")
+nonexistent_file = Path("nonexistent_file.txt")
+
+rule all:
+	input:
+		output
+
+
+rule input_nonexistent_Path:
+	input: nonexistent_file
+	output: output
+	shell: 
+		"""
+		echo "This should fail" > {output}
+		"""

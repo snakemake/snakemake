@@ -781,6 +781,8 @@ def expand(*args, **wildcards):
         combinator = product
     elif len(args) == 2:
         combinator = args[1]
+    if isinstance(filepatterns, Path):
+        filepatterns = [str(filepatterns)]
     if isinstance(filepatterns, str):
         filepatterns = [filepatterns]
     
