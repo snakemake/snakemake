@@ -1,1 +1,3 @@
 snakemake/_version.py export-subst
+examples/report/report.html linguist-generated=true
+tests/test_issue1046/expected-results/test_report.html linguist-generated=true
