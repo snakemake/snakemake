@@ -347,8 +347,12 @@ def snakemake(snakefile,
 
     overwrite_config = dict()
     if configfile:
-        overwrite_config.update(load_configfile(configfile))
-        configfile = os.path.abspath(configfile)
+        # get values to override. Later configfiles override earlier ones.
+        for x in configfile:
+            overwrite_config.update(load_configfile(x))
+        # convert provided paths to absolute paths
+        configfile = [os.path.abspath(x) for x in configfile]
+    # directly specified elements override any configfiles
     if config:
         overwrite_config.update(config)
         if config_args is None:
@@ -765,6 +769,7 @@ def get_argument_parser(profile=None):
          "(see Documentation)."))
     group_exec.add_argument(
         "--configfile",
+        action="append",
         metavar="FILE",
         help=
         ("Specify or overwrite the config file of the workflow (see the docs). "
