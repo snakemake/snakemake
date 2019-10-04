@@ -738,8 +738,12 @@ def test_cwl_singularity():
 def test_issue805():
     run(dpath("test_issue805"), shouldfail=True)
 
+
 def test_pathlib():
     run(dpath("test_pathlib"))
+
+
+def test_pathlib_missing_file():
     run(dpath("test_pathlib_missing_file"), shouldfail=True)
 
 

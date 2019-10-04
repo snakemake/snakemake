@@ -14,7 +14,6 @@ rule all:
 		#OUTDIR / "output_temp",
 		OUTDIR / "output_protected",
 		OUTDIR / "output_other_rule_output_existing",
-		dynamic(OUTDIR / "{clusterid}.cluster.txt"),
 		OUTDIR / "function_unpacking/output_function_unpacking",
 
 
@@ -56,18 +55,6 @@ rule input_other_rule_output:
 		"""
 		cat {input} > {output}
 		echo log protected > {log}
-		"""
-
-rule input_Path_output_dynamic:
-	input: existing_file
-	output: dynamic(OUTDIR / "{clusterid}.cluster.txt")
-	params: outdir=OUTDIR
-	shell:
-		"""
-		echo 1 > {params.outdir}/1.cluster.txt
-		echo 2 > {params.outdir}/2.cluster.txt
-		echo 3 > {params.outdir}/3.cluster.txt
-		echo log dynamic > {log}
 		"""
 
 def myfunc1():

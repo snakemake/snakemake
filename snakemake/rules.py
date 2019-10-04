@@ -216,6 +216,8 @@ class Rule:
 
     @benchmark.setter
     def benchmark(self, benchmark):
+        if isinstance(benchmark, Path):
+            benchmark = str(benchmark)
         if not callable(benchmark):
             benchmark = self.apply_default_remote(benchmark)
             benchmark = self._update_item_wildcard_constraints(benchmark)
