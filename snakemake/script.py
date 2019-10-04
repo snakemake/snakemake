@@ -227,7 +227,7 @@ class Snakemake:
         return lookup[(stdout, stderr, append)].format(self.log)
 
 
-def get_source(path, basedir=None):
+def get_source(path, basedir='.'):
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
         if path.startswith("file://"):
