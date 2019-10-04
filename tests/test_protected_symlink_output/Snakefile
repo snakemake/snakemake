@@ -1,0 +1,38 @@
+# vim: ft=python
+"""Snakemake will not delete write-protected files. But a symlink to a
+   write-protected file is another matter. We should be able to overwrite
+   those.
+"""
+
+"""Description of the test:
+
+    protected1 and protected2 are non-writeable files
+    outlink is a symlink to protected1
+    after the main rule runs, outlink should point to
+    protected2, and outfile should contain "contents2".
+"""
+
+import os
+import time
+
+# Set up the files just once
+if not os.path.exists("outlink"):
+
+    shell("echo contents1 > protected1")
+    shell("echo contents2 > protected2")
+    shell("ln -s protected1 outlink")
+
+    shell("chmod a-w protected1 protected2")
+
+    # Print the result for debugging
+    shell("ls -lR > /dev/stderr")
+
+rule main:
+    output: "outfile", "outlink"
+    run:
+        # outlink should be gone but not protected1 or protected2
+        shell("test ! -e outlink")
+        shell("test -e protected1 && test -e protected2")
+        # Re-point the symlink
+        shell("ln -s protected2 outlink")
+        shell("cat outlink > outfile")

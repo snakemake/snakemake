@@ -388,6 +388,9 @@ def test_symlink_time_handling():
     if os.utime in os.supports_follow_symlinks:
         run(dpath("test_symlink_time_handling"))
 
+def test_protected_symlink_output():
+    run(dpath("test_protected_symlink_output"))
+
 
 def test_issue328():
     try:
