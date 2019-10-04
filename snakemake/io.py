@@ -781,10 +781,15 @@ def expand(*args, **wildcards):
         combinator = product
     elif len(args) == 2:
         combinator = args[1]
-    if isinstance(filepatterns, Path):
-        filepatterns = [str(filepatterns)]
     if isinstance(filepatterns, str):
         filepatterns = [filepatterns]
+
+    def path_to_str(f):
+        if isinstance(f, Path):
+            return str(f)
+        return f
+
+    filepatterns = list(map(path_to_str, filepatterns))
     
     if any(map(lambda f: getattr(f, "flags", {}), filepatterns)):
         raise WorkflowError("Flags in file patterns given to expand() are invalid. "
