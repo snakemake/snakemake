@@ -1,0 +1,52 @@
+rule all:
+    input:
+        'result.r1',
+        'result.c1',  # targeting checkpoint output overrides input
+        'result.c2'
+
+
+def rule1_input(wc):
+    checkpoints.check1.get(**wc).output[0]
+    return "result.r2"
+
+rule r1:
+    input:
+        rule1_input
+    output:
+        'result.r1',
+    shell:
+        'echo {input} > {output}'
+
+
+rule r2:
+    output:
+        'result.r2'
+    shell:
+        'echo r2 > {output}'
+
+
+def check1_input(wc):
+    checkpoints.check2.get(**wc).output[0]
+    return 'result.r3'
+
+checkpoint check1:
+    input:
+        check1_input
+    output:
+        'result.c1'
+    shell:
+        'echo c1 > {output}'
+
+
+checkpoint check2:
+    output:
+        'result.c2'
+    shell:
+        'echo c2 > {output}'
+
+
+rule r3:
+    output:
+        'result.r3'
+    shell:
+        'echo r3 > {output}'

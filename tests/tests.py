@@ -844,3 +844,7 @@ def test_expand_flag():
 def test_default_resources():
     from snakemake.resources import DefaultResources
     run(dpath("test_default_resources"), verbose=True, default_resources=DefaultResources(["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]))
+
+
+def test_issue1284():
+    run(dpath("test_issue1284"))

@@ -1126,6 +1126,12 @@ class DAG:
             self._dynamic.remove(job)
         if job in self._ready_jobs:
             self._ready_jobs.remove(job)
+        # remove from cache
+        for f in job.output:
+            try:
+                del self.job_cache[(job.rule, f)]
+            except KeyError:
+                pass
 
     def replace_job(self, job, newjob, recursive=True):
         """Replace given job with new job."""
