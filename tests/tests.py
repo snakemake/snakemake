@@ -848,3 +848,7 @@ def test_default_resources():
 
 def test_issue1284():
     run(dpath("test_issue1284"))
+
+
+def test_issue1281():
+    run(dpath("test_issue1281"))

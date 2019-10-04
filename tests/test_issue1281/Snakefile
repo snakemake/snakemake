@@ -1,0 +1,28 @@
+# using dictionary expansion
+
+mydictionary={
+'apple': 'crunchy fruit',
+'banana': 'mushy and yellow'
+}
+
+rule all:
+    input:
+        expand('{key}.sh', key=mydictionary.keys())
+
+rule test:
+    output: temp('{f}.txt')
+    params:
+        keyval=lambda wildcards: mydictionary[wildcards.f]
+    shell:
+        """
+        echo {params.keyval} > {output}
+        cat {output}
+        """
+
+rule test2:
+    input: rules.test.output
+    output: '{f}.sh'
+    shell: "touch {output}"
+
+rule checkme:
+    input: expand(rules.test2.output, f=mydictionary.keys())
