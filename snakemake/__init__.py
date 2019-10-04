@@ -770,7 +770,7 @@ def get_argument_parser(profile=None):
          "the workflow. Default values can be set by providing a JSON file "
          "(see Documentation)."))
     group_exec.add_argument(
-        "--configfiles",
+        "--configfile", "--configfiles",
         nargs="+",
         metavar="FILE",
         help=
