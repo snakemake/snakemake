@@ -1613,17 +1613,20 @@ def bash_completion(snakefile="Snakefile"):
                          if action.option_strings and
                          action.option_strings[0].startswith(prefix))
     else:
+        candidates = []
         files = glob.glob("{}*".format(prefix))
         if files:
-            print_candidates(files)
-        elif os.path.exists(snakefile):
+            candidates.extend(files)
+        if os.path.exists(snakefile):
             workflow = Workflow(snakefile=snakefile)
             workflow.include(snakefile)
 
-            print_candidates([file
-                              for file in workflow.concrete_files
-                              if file.startswith(prefix)] +
-                             [rule.name
-                              for rule in workflow.rules
-                              if rule.name.startswith(prefix)])
+            candidates.extend([file
+                               for file in workflow.concrete_files
+                               if file.startswith(prefix)] +
+                              [rule.name
+                               for rule in workflow.rules
+                               if rule.name.startswith(prefix)])
+        if len(candidates) > 0:
+            print_candidates(candidates)
     sys.exit(0)

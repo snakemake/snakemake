@@ -21,6 +21,7 @@ from snakemake.shell import shell
 
 from snakemake.logging import logger
 
+from fractions import Fraction
 
 def cumsum(iterable, zero=[0]):
     return list(chain(zero, accumulate(iterable)))
@@ -184,8 +185,14 @@ class JobScheduler:
                                          cores=cores)
 
         if self.max_jobs_per_second and not self.dryrun:
-            self.rate_limiter = RateLimiter(max_calls=self.max_jobs_per_second,
-                                            period=1)
+            max_jobs_frac = Fraction(
+                self.max_jobs_per_second
+            ).limit_denominator()
+            self.rate_limiter = RateLimiter(
+                max_calls=max_jobs_frac.numerator,
+                period=max_jobs_frac.denominator,
+            )
+
         else:
             # essentially no rate limit
             self.rate_limiter = DummyRateLimiter()
