@@ -29,12 +29,12 @@ jobs:
           command: |
             source activate black
             black --check snakemake || echo "Please run 'black snakemake'."
-      - singularity/debian-install-3
       - run:
           name: Setup additional dependencies
           command: |
             sudo apt-get update
             sudo apt-get install stress
+      - singularity/debian-install-3
       - run:
           name: Setup Snakemake
           command: |
