@@ -771,7 +771,7 @@ def test_validate():
 
 
 def test_validate_fail():
-    run(dpath("test_validate"), configfile=dpath("test_validate/config.fail.yaml"), shouldfail=True)
+    run(dpath("test_validate"), configfiles=dpath("test_validate/config.fail.yaml"), shouldfail=True)
 
 
 def test_issue854():
@@ -852,7 +852,7 @@ def test_pipes2():
 def test_tibanna():
     workdir = dpath("test_tibanna")
     subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
-    run(workdir, use_conda=True, configfile="config.json", default_remote_prefix="snakemake-tibanna-test/1",
+    run(workdir, use_conda=True, configfiles="config.json", default_remote_prefix="snakemake-tibanna-test/1",
         tibanna_sfn='tibanna_unicorn_johannes')
 
 def test_expand_flag():
