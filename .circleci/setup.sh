@@ -9,13 +9,13 @@ conda env create --name snakemake --file test-environment.yml
 
 # stress
 sudo apt-get update
-sudo apt install -y stress
+sudo apt --assume-yes install stress
 
 # singularity
 source .circleci/common.sh
 sudo add-apt-repository ppa:gophers/archive
 sudo apt-get update
-sudo apt-get install -y build-essential libssl-dev uuid-dev libgpgme11-dev libseccomp-dev wget pkg-config squashfs-tools libarchive-dev golang-1.11
+sudo apt-get --assume-yes install build-essential libssl-dev uuid-dev libgpgme11-dev libseccomp-dev wget pkg-config squashfs-tools libarchive-dev golang-1.11
 export PATH=/usr/lib/go-1.11/bin:$PATH
 wget https://github.com/sylabs/singularity/releases/download/v${SINGULARITY_VER}/singularity-${SINGULARITY_VER}.tar.gz
 tar -xvf singularity-$SINGULARITY_VER.tar.gz
