@@ -32,9 +32,6 @@ jobs:
       - singularity/install-go
       - singularity/debian-install-3
       - run:
-          name: Update PATH
-          command: echo 'export PATH="`pwd`/miniconda/bin:$PATH"' >> $BASH_ENV
-      - run:
           name: Check formatting
           command: |
             source activate black

@@ -140,6 +140,7 @@ def run(path,
                         expectedfile), 'wrong result produced for file "{}"'.format(
                             resultfile)
 
+@pytest.mark.skip(reason="This does not work reliably in CircleCI.")
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
