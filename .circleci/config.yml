@@ -1,4 +1,7 @@
-version: 2
+version: 2.1
+orbs:
+  singularity: singularity/singularity@1.0.8
+
 jobs:
   build:
     machine: true
@@ -26,10 +29,12 @@ jobs:
           command: |
             source activate black
             black --check snakemake || echo "Please run 'black snakemake'."
+      - singularity/install_debian_3
       - run:
           name: Setup additional dependencies
           command: |
-            .circleci/setup-aux.sh
+            sudo apt-get update
+            sudo apt-get install stress
       - run:
           name: Setup Snakemake
           command: |
