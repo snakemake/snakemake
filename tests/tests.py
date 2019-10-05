@@ -849,6 +849,7 @@ def test_issue1083():
 def test_pipes2():
     run(dpath("test_pipes2"))
 
+@pytest.mark.skip(reason="need free AWS tier credentials and tibanna as a conda package first")
 def test_tibanna():
     workdir = dpath("test_tibanna")
     subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
