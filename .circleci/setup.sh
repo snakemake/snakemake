@@ -7,8 +7,8 @@ export DEBIAN_FRONTEND=noninteractive
 if type conda > /dev/null; then exit 0; fi
 wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
 bash miniconda.sh -b -p miniconda
-conda env create --name snakemake --file test-environment.yml
-conda create -n black black
+conda env create --quiet --name snakemake --file test-environment.yml
+conda create --quiet -n black black
 
 # stress
 sudo apt-get update
