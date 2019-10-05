@@ -15,6 +15,9 @@ jobs:
           keys:
             - snakemake-{{ .Environment.CACHE_VERSION }}-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
       - run:
+          name: Update PATH
+          command: echo 'export PATH="`pwd`/miniconda/bin:$PATH"' >> $BASH_ENV
+      - run:
           name: Setup Conda+Singularity
           command: .circleci/setup.sh
       - save_cache:
