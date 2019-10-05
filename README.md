@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/bb/snakemake/snakemake/tree/master.svg?style=shield)](https://circleci.com/bb/snakemake/snakemake/tree/master)
+[![CircleCI](https://circleci.com/gh/snakemake/snakemake/tree/master.svg?style=shield)](https://circleci.com/gh/snakemake/snakemake/tree/master)
 
 # Snakemake - a pythonic workflow system
 
