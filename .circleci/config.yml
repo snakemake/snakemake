@@ -15,9 +15,6 @@ jobs:
           keys:
             - snakemake-{{ .Environment.CACHE_VERSION }}-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
       - run:
-          name: Update PATH
-          command: echo 'export PATH="`pwd`/miniconda/bin:$PATH"' >> $BASH_ENV
-      - run:
           name: Setup Conda+Singularity
           command: .circleci/setup.sh
       - save_cache:
@@ -25,17 +22,20 @@ jobs:
           paths:
             - miniconda
       - run:
-          name: Check formatting
-          command: |
-            source activate black
-            black --check snakemake || echo "Please run 'black snakemake'."
-      - run:
           name: Setup additional dependencies
           command: |
             sudo apt-get update
             sudo apt-get install stress
       - singularity/install-go
       - singularity/debian-install-3
+      - run:
+          name: Update PATH
+          command: echo 'export PATH="`pwd`/miniconda/bin:$PATH"' >> $BASH_ENV
+      - run:
+          name: Check formatting
+          command: |
+            source activate black
+            black --check snakemake || echo "Please run 'black snakemake'."
       - run:
           name: Setup Snakemake
           command: |
