@@ -29,7 +29,9 @@ jobs:
           command: |
             source activate black
             black --check snakemake || echo "Please run 'black snakemake'."
-      - singularity/install_debian_3
+      - singularity/install_debian_3:
+          go-version: 1.11.5
+          singularity-version: 3.2.1
       - run:
           name: Setup additional dependencies
           command: |
