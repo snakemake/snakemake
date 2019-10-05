@@ -8,10 +8,6 @@ jobs:
       - BOTO_CONFIG: /dev/null
     steps:
       - checkout
-      - run:
-          name: Check formatting
-          command: |
-            black --check snakemake || echo "Please run 'black snakemake'."
       - restore_cache:
           keys:
             - snakemake-{{ .Environment.CACHE_VERSION }}-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
@@ -26,6 +22,11 @@ jobs:
           paths:
             - miniconda
             - /usr/local
+      - run:
+          name: Check formatting
+          command: |
+            conda activate black
+            black --check snakemake || echo "Please run 'black snakemake'."
       - run:
           name: Setup Snakemake
           command: |
