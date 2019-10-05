@@ -21,7 +21,15 @@ jobs:
           key: snakemake-{{ .Environment.CACHE_VERSION }}-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
           paths:
             - miniconda
-            - /usr/local
+            - /usr/local/etc/singularity
+            - /usr/local/libexec/singularity
+            - /usr/local/bin/singularity
+            - /usr/local/var/singularity
+      - run:
+          name: Setup additional dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install stress
       - run:
           name: Check formatting
           command: |
