@@ -11,14 +11,9 @@ import sys
 import time
 import threading
 
-from snakemake.exceptions import WorkflowError
+import psutil
 
-try:
-    import psutil
-except ImportError:
-    raise WorkflowError(
-        "Python 3 package psutil needs to be installed to use the benchmarking."
-    )
+from snakemake.exceptions import WorkflowError
 
 
 #: Interval (in seconds) between measuring resource usage
