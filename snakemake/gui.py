@@ -14,7 +14,7 @@ from snakemake.common import __version__
 LOCK = threading.Lock()
 
 app = Flask("snakemake", template_folder=os.path.dirname(__file__))
-#app.debug=True
+# app.debug=True
 app.extensions = {
     "dag": None,
     "run_snakemake": None,
@@ -24,31 +24,33 @@ app.extensions = {
     "args": None,
     "targets": [],
     "rule_info": [],
-    "resources": []
+    "resources": [],
 }
 
 
 def register(run_snakemake, args):
     app.extensions["run_snakemake"] = run_snakemake
-    app.extensions["args"] = dict(targets=args.target,
-                                  cluster=args.cluster,
-                                  workdir=args.directory,
-                                  touch=args.touch,
-                                  forcetargets=args.force,
-                                  forceall=args.forceall,
-                                  forcerun=args.forcerun,
-                                  prioritytargets=args.prioritize,
-                                  stats=args.stats,
-                                  keepgoing=args.keep_going,
-                                  jobname=args.jobname,
-                                  immediate_submit=args.immediate_submit,
-                                  ignore_ambiguity=args.allow_ambiguity,
-                                  lock=not args.nolock,
-                                  force_incomplete=args.rerun_incomplete,
-                                  ignore_incomplete=args.ignore_incomplete,
-                                  jobscript=args.jobscript,
-                                  notemp=args.notemp,
-                                  latency_wait=args.latency_wait)
+    app.extensions["args"] = dict(
+        targets=args.target,
+        cluster=args.cluster,
+        workdir=args.directory,
+        touch=args.touch,
+        forcetargets=args.force,
+        forceall=args.forceall,
+        forcerun=args.forcerun,
+        prioritytargets=args.prioritize,
+        stats=args.stats,
+        keepgoing=args.keep_going,
+        jobname=args.jobname,
+        immediate_submit=args.immediate_submit,
+        ignore_ambiguity=args.allow_ambiguity,
+        lock=not args.nolock,
+        force_incomplete=args.rerun_incomplete,
+        ignore_incomplete=args.ignore_incomplete,
+        jobscript=args.jobscript,
+        notemp=args.notemp,
+        latency_wait=args.latency_wait,
+    )
 
     target_rules = []
 
@@ -81,14 +83,16 @@ def run_snakemake(**kwargs):
 @app.route("/")
 def index():
     args = app.extensions["args"]
-    return render_template("gui.html",
-                           targets=app.extensions["targets"],
-                           cores_label="Nodes" if args["cluster"] else "Cores",
-                           resources=app.extensions["resources"],
-                           snakefilepath=app.extensions["snakefilepath"],
-                           version=__version__,
-                           node_width=15,
-                           node_padding=10)
+    return render_template(
+        "gui.html",
+        targets=app.extensions["targets"],
+        cores_label="Nodes" if args["cluster"] else "Cores",
+        resources=app.extensions["resources"],
+        snakefilepath=app.extensions["snakefilepath"],
+        version=__version__,
+        node_width=15,
+        node_padding=10,
+    )
 
 
 @app.route("/dag")
@@ -160,10 +164,9 @@ def get_args():
 
 @app.route("/set_args", methods=["POST"])
 def set_args():
-    app.extensions["args"].update({
-        name: value
-        for name, value in request.form.items() if not name.endswith("[]")
-    })
+    app.extensions["args"].update(
+        {name: value for name, value in request.form.items() if not name.endswith("[]")}
+    )
     targets = request.form.getlist("targets[]")
     if targets != app.extensions["args"]["targets"]:
         app.extensions["dag"] = None
