@@ -26,15 +26,14 @@ jobs:
             - /usr/local/bin/singularity
             - /usr/local/var/singularity
       - run:
-          name: Setup additional dependencies
-          command: |
-            sudo apt-get update
-            sudo apt-get install stress
-      - run:
           name: Check formatting
           command: |
             source activate black
             black --check snakemake || echo "Please run 'black snakemake'."
+      - run:
+          name: Setup additional dependencies
+          command: |
+            .circleci/setup-aux.sh
       - run:
           name: Setup Snakemake
           command: |
