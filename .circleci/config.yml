@@ -15,28 +15,13 @@ jobs:
           name: Update PATH
           command: echo 'export PATH="`pwd`/miniconda/bin:$PATH"' >> $BASH_ENV
       - run:
-          name: Setup Conda
+          name: Setup Conda+Singularity
           command: .circleci/setup.sh
       - save_cache:
           key: snakemake-{{ .Environment.CACHE_VERSION }}-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
           paths:
             - miniconda
-      - run:
-          name: Setup singularity
-          command: |
-            # TODO only install if singularity is not yet present
-            # if type singularity > /dev/null; then exit 0; fi
-            source .circleci/common.sh
-            sudo add-apt-repository ppa:gophers/archive
-            sudo apt-get update
-            sudo apt-get install build-essential libssl-dev uuid-dev libgpgme11-dev libseccomp-dev wget pkg-config squashfs-tools libarchive-dev golang-1.11
-            export PATH=/usr/lib/go-1.11/bin:$PATH
-            wget https://github.com/sylabs/singularity/releases/download/v${SINGULARITY_VER}/singularity-${SINGULARITY_VER}.tar.gz
-            tar -xvf singularity-$SINGULARITY_VER.tar.gz
-            cd singularity
-            ./mconfig
-            make -C builddir
-            sudo make -C builddir install
+            - /usr/local
       - run:
           name: Setup Snakemake
           command: |
