@@ -34,6 +34,7 @@ jobs:
           command: |
             sudo apt-get update
             sudo apt-get install stress
+      - singularity/install-go
       - singularity/debian-install-3
       - run:
           name: Setup Snakemake
