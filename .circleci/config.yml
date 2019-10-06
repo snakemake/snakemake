@@ -75,5 +75,9 @@ jobs:
           command: |
             export GCLOUD_CLUSTER=t-`uuidgen`
             export GOOGLE_APPLICATION_CREDENTIALS=${HOME}/gcloud-service-key.json
+            # Fix bash_env to only modify, not overwrite $PATH.
+            # This is necessary because snakemake invokes new shells, that have to inherit
+            # the outside PATH instead of overriding it.
+            sed -i -r "/PATH=/ s/$/:\$PATH/" $BASH_ENV
             conda activate snakemake
             py.test tests/test*.py -v -x
