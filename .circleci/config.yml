@@ -10,6 +10,7 @@ jobs:
       - GCLOUD: /opt/google-cloud-sdk/bin/gcloud
       - GSUTIL: /opt/google-cloud-sdk/bin/gsutil
       - BOTO_CONFIG: /dev/null
+      - DG_CONDA_ROOT: /opt/conda
     steps:
       - checkout
       - run:
