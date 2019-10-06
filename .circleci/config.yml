@@ -48,7 +48,7 @@ jobs:
       - run:
           name: Setup Snakemake
           command: |
-            source activate snakemake
+            conda activate snakemake
             pip install -e .
       - run:
           name: Setup iRODS Docker image
