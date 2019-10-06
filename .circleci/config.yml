@@ -10,7 +10,7 @@ jobs:
       - GCLOUD: /opt/google-cloud-sdk/bin/gcloud
       - GSUTIL: /opt/google-cloud-sdk/bin/gsutil
       - BOTO_CONFIG: /dev/null
-      - DG_CONDA_ROOT: miniconda
+      - DG_CONDA_ROOT: $HOME/miniconda
       - CONDA_INSTALLER: https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
       - PLATFORM: linux
     steps:
