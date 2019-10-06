@@ -25,7 +25,6 @@ jobs:
           steps:
             - conda/resolve-envvars
             - conda/install-conda
-            - conda/configure-conda
       - conda/save-conda:
           key: conda-envs-{{ checksum "test-environment.yml" }}
           steps:
