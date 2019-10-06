@@ -12,6 +12,7 @@ jobs:
       - BOTO_CONFIG: /dev/null
       - DG_CONDA_ROOT: /opt/conda
       - CONDA_INSTALLER: https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+      - PLATFORM: linux
     steps:
       - checkout
       - run:
