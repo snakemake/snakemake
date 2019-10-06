@@ -1,6 +1,7 @@
 version: 2.1
 orbs:
   singularity: singularity/singularity@1.0.8
+  conda: deepgenomics/conda@4.0.0
 
 jobs:
   build:
@@ -11,30 +12,32 @@ jobs:
       - BOTO_CONFIG: /dev/null
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - snakemake-{{ .Environment.CACHE_VERSION }}-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
-      - run:
-          name: Update PATH
-          command: echo 'export PATH="`pwd`/miniconda/bin:$PATH"' >> $BASH_ENV
-      - run:
-          name: Setup Conda+Singularity
-          command: .circleci/setup.sh
-      - save_cache:
-          key: snakemake-{{ .Environment.CACHE_VERSION }}-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
-          paths:
-            - miniconda
       - run:
           name: Setup additional dependencies
           command: |
             sudo apt-get update
             sudo apt-get install stress
+
       - singularity/install-go
       - singularity/debian-install-3
+      - conda/save-conda:
+          steps:
+            - conda/resolve-envvars
+            - conda/install-conda
+            - conda/configure-conda
+            - run:
+                name: Setup black
+                command: |
+                  conda create -n black black
+            - run:
+                name: Setup Snakemake dependencies
+                command: |
+                  conda env create --quiet --name snakemake --file test-environment.yml
+
       - run:
           name: Check formatting
           command: |
-            source activate black
+            conda activate black
             black --check snakemake || echo "Please run 'black snakemake'."
       - run:
           name: Setup Snakemake
@@ -66,5 +69,5 @@ jobs:
           command: |
             export GCLOUD_CLUSTER=t-`uuidgen`
             export GOOGLE_APPLICATION_CREDENTIALS=${HOME}/gcloud-service-key.json
-            source activate snakemake
+            conda activate snakemake
             py.test tests/test*.py -v -x
