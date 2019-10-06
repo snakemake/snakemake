@@ -21,10 +21,14 @@ jobs:
       - singularity/install-go
       - singularity/debian-install-3
       - conda/save-conda:
+          key: conda-install-{{ checksum ".circleci/config.yml" }}
           steps:
             - conda/resolve-envvars
             - conda/install-conda
             - conda/configure-conda
+      - conda/save-conda:
+          key: conda-envs-{{ checksum "test-environment.yml" }}
+          steps:
             - run:
                 name: Setup black
                 command: |
