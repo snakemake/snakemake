@@ -1,3 +1,18 @@
+[5.7.0] - 2019-10-07
+====================
+Changed
+-------
+- Fixed various corner case bugs. Many thanks to the community for pull requests and reporting!
+- Container execution adapted to latest singularity.
+
+Added
+-----
+- First class support for Amazon cloud execution via a new `Tibanna backend <https://snakemake.readthedocs.io/en/v5.7.0/executable.html#executing-a-snakemake-workflow-via-tibanna-on-amazon-web-services>`. Thanks to Soo Lee from Harvard Biomedical Informatics!
+- Allow multiple config files to be passed via the command line.
+- A new, more detailed way to visualize the DAG (--filegraph). Thanks to Henning Timm!
+- Pathlib compatibility added. Input and output files can now also be Path objects. Thanks to Frederik Boulund!
+- New azure storage remote provider. Transparently access input and output files on Microsoft Azure. Thanks to Sebastian Kurscheid!
+
 [5.6.0] - 2019-09-06
 ====================
 Changed
