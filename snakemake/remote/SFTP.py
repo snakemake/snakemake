@@ -84,8 +84,6 @@ class RemoteObject(DomainObject):
         if self._matched_address:
             with self.sftpc() as sftpc:
                 return sftpc.exists(self.remote_path)
-                if sftpc.exists(self.remote_path):
-                    return sftpc.isfile(self.remote_path)
             return False
         else:
             raise SFTPFileException(

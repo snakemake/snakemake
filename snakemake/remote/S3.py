@@ -228,7 +228,6 @@ class S3Helper(object):
             k.upload_file(file_path, ExtraArgs=extra_args, Config=config)
         except:
             raise
-            return None
 
     def download_from_s3(
         self,
