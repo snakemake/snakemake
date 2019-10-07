@@ -85,7 +85,7 @@ jobs:
             # the outside PATH instead of overriding it.
             sed -i -r "/PATH=/ s/$/:\$PATH/" $BASH_ENV
             conda activate snakemake
-            pytest tests/test*.py -v --cov . --cov-report xml:coverage.xml
+            pytest tests/test*.py -v -x --cov . --cov-report xml:coverage.xml
       - codecov/upload:
           file: coverage.xml
           
