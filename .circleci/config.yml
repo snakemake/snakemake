@@ -2,6 +2,7 @@ version: 2.1
 orbs:
   singularity: singularity/singularity@1.0.8
   conda: deepgenomics/conda@4.0.0
+  codecov: codecov/codecov@1.0.5
 
 jobs:
   build:
@@ -31,6 +32,10 @@ jobs:
       - conda/save-conda:
           key: conda-envs-{{ checksum "test-environment.yml" }}
           steps:
+            - run:
+                name: Setup codecov
+                command: |
+                  conda create -n codecov codecov
             - run:
                 name: Setup black
                 command: |
@@ -80,4 +85,7 @@ jobs:
             # the outside PATH instead of overriding it.
             sed -i -r "/PATH=/ s/$/:\$PATH/" $BASH_ENV
             conda activate snakemake
-            py.test tests/test*.py -v -x
+            pytest tests/test*.py -v --cov . --cov-report xml:coverage.xml
+      - codecov/upload:
+          file: coverage.xml
+          
