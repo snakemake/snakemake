@@ -543,7 +543,7 @@ def auto_report(dag, path):
             if is_flagged(f, "report") and f not in recorded_files:
                 if not f.exists:
                     raise WorkflowError(
-                        "File {} marked for report but does " "not exist.".format(f)
+                        "File {} marked for report but does not exist.".format(f)
                     )
                 if os.path.isfile(f):
                     report_obj = get_flag_value(f, "report")
