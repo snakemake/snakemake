@@ -282,7 +282,7 @@ class _IOFile(str):
     @property
     def protected(self):
         # symlinks are never regarded as protected
-        return self.exists_local and os.access(
+        return self.exists_local and not os.access(
             self.file,
             os.W_OK,
             follow_symlinks=os.access not in os.supports_follow_symlinks,
