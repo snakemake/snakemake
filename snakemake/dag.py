@@ -1083,7 +1083,7 @@ class DAG:
                 depending = list(self.depending[job])
                 # re-evaluate depending jobs, replace and update DAG
                 for j in depending:
-                    logger.info("Updating job {}.".format(self.jobid(j)))
+                    logger.info("Updating job {} ({}).".format(self.jobid(j), j))
                     newjob = j.updated()
                     self.replace_job(j, newjob, recursive=False)
                     updated = True
@@ -1159,9 +1159,12 @@ class DAG:
             format_wildcards=format_wildcards,
             targetfile=targetfile,
         )
-        for f in job.products:
-            self.job_cache[(rule, f)] = job
+        self.cache_job(job)
         return job
+
+    def cache_job(self, job):
+        for f in job.products:
+            self.job_cache[(job.rule, f)] = job
 
     def update_dynamic(self, job):
         """Update the DAG by evaluating the output of the given job that
@@ -1257,6 +1260,8 @@ class DAG:
 
         if add_to_targetjobs:
             self.targetjobs.add(newjob)
+
+        self.cache_job(newjob)
 
         self.update([newjob])
 
