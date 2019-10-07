@@ -89,10 +89,10 @@ Support
 
 * For releases, see :ref:`Changelog <changelog>`.
 * Check :ref:`frequently asked questions (FAQ) <project_info-faq>`.
-* In case of questions, please post on `stack overflow <http://stackoverflow.com/questions/tagged/snakemake>`_.
+* In case of questions, please post on `stack overflow <https://stackoverflow.com/questions/tagged/snakemake>`_.
 * To discuss with other Snakemake users, you can use the `mailing list <https://groups.google.com/forum/#!forum/snakemake>`_. **Please do not post questions there. Use stack overflow for questions.**
-* For bugs and feature requests, please use the `issue tracker <https://bitbucket.org/snakemake/snakemake/issues>`_.
-* For contributions, visit Snakemake on `bitbucket <https://bitbucket.org/snakemake/snakemake>`_ and read the :ref:`guidelines <project_info-contributing>`.
+* For bugs and feature requests, please use the `issue tracker <https://github.com/snakemake/snakemake/issues>`_.
+* For contributions, visit Snakemake on `Github <https://github.com/snakemake/snakemake>`_ and read the :ref:`guidelines <project_info-contributing>`.
 
 --------
 Citation

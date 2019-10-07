@@ -29,7 +29,7 @@ def get_path(path, prefix=None):
         or path.startswith("git+file")
     ):
         if prefix is None:
-            prefix = "https://bitbucket.org/snakemake/snakemake-wrappers/raw/"
+            prefix = "https://github.com/snakemake/snakemake-wrappers/raw/"
         elif prefix.startswith("git+file"):
             parts = path.split("/")
             path = "/" + "/".join(parts[1:]) + "@" + parts[0]
@@ -108,7 +108,7 @@ def wrapper(
     shadow_dir,
 ):
     """
-    Load a wrapper from https://bitbucket.org/snakemake/snakemake-wrappers under
+    Load a wrapper from https://github.com/snakemake/snakemake-wrappers under
     the given path + wrapper.(py|R|Rmd) and execute it.
     """
     path = get_script(path, prefix=prefix)

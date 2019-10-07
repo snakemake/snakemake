@@ -17,42 +17,6 @@ The key idea is very similar to GNU Make. The workflow is determined automatical
 When you start using Snakemake, please make sure to walk through the :ref:`official tutorial <tutorial>`.
 It is crucial to understand how to properly use the system.
 
-What is the recommended way to distribute a Snakemake workflow?
----------------------------------------------------------------
-
-It is recommended that a Snakemake workflow is structured in the following way:
-
-.. code-block:: text
-
-    ├── config.yaml
-    ├── environment.yaml
-    ├── scripts
-    │   ├── script1.py
-    │   └── script2.R
-    └── Snakefile
-
-This structure can be put into a git repository, allowing to setup the workflow with the following steps:
-
-.. code-block:: bash
-
-    # clone workflow into working directory
-    git clone https://bitbucket.org/user/myworkflow.git path/to/workdir
-    cd path/to/workdir
-
-    # edit config as needed
-    vim config.yaml
-
-    # install dependencies into an isolated conda environment
-    conda env create -n myworkflow --file environment.yaml
-    # activate environment
-    source activate myworkflow
-
-    # execute workflow
-    snakemake -n
-
-In certain cases, it might be necessary to extend or modify a given workflow (the Snakefile). Here, git provides the ideal mechanisms to track such changes. Any modifications can happen in either a separate branch or a fork.
-When the changes are general enough, they can be reintegrated later into the master branch using pull requests.
-
 My shell command fails with with errors about an "unbound variable", what's wrong?
 ----------------------------------------------------------------------------------
 
@@ -266,7 +230,7 @@ This will cause Snakemake to re-run all jobs of that rule and everything downstr
 How do I enable syntax highlighting in Vim for Snakefiles?
 ----------------------------------------------------------
 
-A vim syntax highlighting definition for Snakemake is available `here <https://bitbucket.org/snakemake/snakemake/raw/master/misc/vim/syntax/snakemake.vim>`_.
+A vim syntax highlighting definition for Snakemake is available `here <https://github.com/snakemake/snakemake/raw/master/misc/vim/syntax/snakemake.vim>`_.
 You can copy that file to ``$HOME/.vim/syntax`` directory and add
 
 .. code-block:: vim

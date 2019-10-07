@@ -22,14 +22,14 @@ First, install Snakemake via Conda, as outlined in :ref:`conda-install`.
 The minimal version of Snakemake is sufficient for this demo.
 
 Second, download and unpack the test data needed for this example from
-`here <https://bitbucket.org/snakemake/snakemake-tutorial/get/v5.2.3.tar.bz2>`_,
+`here <https://github.com/snakemake/snakemake-tutorial-data>`_,
 e.g., via
 
 ::
 
    mkdir snakemake-demo
    cd snakemake-demo
-   wget https://bitbucket.org/snakemake/snakemake-tutorial/get/v5.2.3.tar.bz2
+   wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.4.5.tar.gz
    tar --wildcards -xf v5.2.3.tar.bz2 --strip 1 "*/data"
 
 Step 1

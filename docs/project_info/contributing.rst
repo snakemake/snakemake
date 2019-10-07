@@ -18,7 +18,7 @@ Types of Contributions
 Report Bugs
 ===========
 
-Report bugs at https://bitbucket.org/snakemake/snakemake/issues
+Report bugs at https://github.com/snakemake/snakemake/issues
 
 If you are reporting a bug, please include:
 
@@ -30,21 +30,21 @@ If you are reporting a bug, please include:
 Fix Bugs
 ========
 
-Look through the Bitbucket issues for bugs.
+Look through the Github issues for bugs.
 If you want to start working on a bug then please write short message on the issue tracker to prevent duplicate work.
 
 
 Implement Features
 ==================
 
-Look through the Bitbucket issues for features.
+Look through the Github issues for features.
 If you want to start working on an issue then please write short message on the issue tracker to prevent duplicate work.
 
 Contributing a new cluster or cloud execution backend
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Execution backends are added by implementing a so-called ``Executor``.
-All executors are located in `snakemake/executors.py <https://bitbucket.org/snakemake/snakemake/src/master/snakemake/executors.py>`_.
+All executors are located in `snakemake/executors.py <https://github.com/snakemake/snakemake/src/master/snakemake/executors.py>`_.
 In order to implement a new executor, you have to inherit from the class ``ClusterExecutor``.
 Below you find a skeleton
 
@@ -148,7 +148,7 @@ See `project_info-doc_guidelines` on how the documentation reStructuredText is u
 Submit Feedback
 ===============
 
-The best way to send feedback is to file an issue at https://bitbucket.org/snakemake/snakemake/issues
+The best way to send feedback is to file an issue at https://github.com/snakemake/snakemake/issues
 
 If you are proposing a feature:
 
@@ -165,16 +165,16 @@ To update the documentation, fix bugs or add new features you need to create a P
 
 To create a Pull Request you need to do these steps:
 
-1. Create a Bitbucket account.
-2. Fork the repository (see the left sidebar on the main Bitbucket Snakemake page).
-3. Clone your fork (go to your copy of the repository at :code:`https://bitbucket.org/<your_username>/snakemake` and click clone. This gives you the command you need to paste into your shell).
-4. Go to the snakemake folder with :code:`cd snakemake`.
+1. Create a Github account.
+2. Fork the repository.
+3. Clone your fork locally.
+4. Go to the created snakemake folder with :code:`cd snakemake`.
 5. Create a new branch with :code:`git checkout -b <descriptive_branch_name>`.
 6. Make your changes to the code or documentation.
 7. Run :code:`git add .` to add all the changed files to the commit (to see what files will be added you can run :code:`git add . --dry-run`).
 8. To commit the added files use :code:`git commit`. (This will open a command line editor to write a commit message. These should have a descriptive 80 line header, followed by an empty line, and then a description of what you did and why. To use your command line text editor of choice use (for example) :code:`export GIT_EDITOR=vim` before running :code:`git commit`).
-9. Now you can push your changes to your Bitbucket copy of Snakemake by running :code:`git push origin <descriptive_branch_name>`.
-10. If you now go to the webpage for your Bitbucket copy of Snakemake you should see a link in the sidebar called "Create Pull Request".
+9. Now you can push your changes to your Github copy of Snakemake by running :code:`git push origin <descriptive_branch_name>`.
+10. If you now go to the webpage for your Github copy of Snakemake you should see a link in the sidebar called "Create Pull Request".
 11. Now you need to choose your PR from the menu and click the "Create pull request" button. Be sure to change the pull request target branch to <descriptive_branch_name>!
 
 If you want to create more pull requests, first run :code:`git checkout master` and then start at step 5. with a new branch name.
@@ -187,7 +187,7 @@ Testing Guidelines
 
 To ensure that you do not introduce bugs into Snakemake, you should test your code thouroughly.
 
-To have integration tests run automatically when commiting code changes to bitbucket, you need to sign up on wercker.com and register a user.
+To have integration tests run automatically when commiting code changes to Github, you need to sign up on wercker.com and register a user.
 
 The easiest way to run your development version of Snakemake is perhaps to go to the folder containing your local copy of Snakemake and call
 
@@ -267,7 +267,7 @@ Snakemake development environment via
 
 .. code-block:: console
 
-    $ git clone git@bitbucket.org:snakemake/snakemake.git
+    $ git clone git@github.com:snakemake/snakemake.git
     $ cd snakemake
     $ conda env create -f environment.yml -n snakemake
 
@@ -285,7 +285,7 @@ The following assumes you have a working Python 3 setup.
 
 .. code-block:: console
 
-    $ git clone git@bitbucket.org:snakemake/snakemake.git
+    $ git clone git@github.org:snakemake/snakemake.git
     $ cd snakemake/docs
     $ virtualenv -p python3 .venv
     $ source .venv/bin/activate

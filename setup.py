@@ -36,7 +36,7 @@ setup(
     "code to define rules. Rules describe how to create output files from input files.",
     zip_safe=False,
     license="MIT",
-    url="http://snakemake.bitbucket.io",
+    url="http://snakemake.readthedocs.io",
     packages=["snakemake", "snakemake.remote", "snakemake.report"],
     entry_points={
         "console_scripts": [

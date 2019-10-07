@@ -25,7 +25,7 @@ Then, a workflow can be deployed to a new system via the following steps
 .. code-block:: python
 
     # clone workflow into working directory
-    git clone https://bitbucket.org/user/myworkflow.git path/to/workdir
+    git clone https://github.com/user/myworkflow.git path/to/workdir
     cd path/to/workdir
 
     # edit config and workflow as needed

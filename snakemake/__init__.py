@@ -1314,9 +1314,9 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "--wrapper-prefix",
-        default="https://bitbucket.org/snakemake/snakemake-wrappers/raw/",
+        default="https://github.com/snakemake/snakemake-wrappers/raw/",
         help="Prefix for URL created from wrapper directive (default: "
-        "https://bitbucket.org/snakemake/snakemake-wrappers/raw/). Set this to "
+        "https://github.com/snakemake/snakemake-wrappers/raw/). Set this to "
         "a different URL to use your fork or a local clone of the repository, "
         "e.g., use a git URL like 'git+file://path/to/your/local/clone@'.",
     )
