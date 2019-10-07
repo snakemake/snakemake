@@ -1,12 +1,17 @@
 import re
 
+
 class DefaultResources:
     def __init__(self, args=None):
         self.args = args
+
         def fallback(val):
             def callable(wildcards, input, attempt, threads, rulename):
-                value = eval(val, {"input": input, "attempt": attempt, "threads": threads})
+                value = eval(
+                    val, {"input": input, "attempt": attempt, "threads": threads}
+                )
                 return value
+
             return callable
 
         self.parsed = dict(_cores=1, _nodes=1)
@@ -23,11 +28,11 @@ def parse_resources(resources_args, fallback=None):
             try:
                 res, val = res.split("=")
             except ValueError:
-                raise ValueError(
-                    "Resources have to be defined as name=value pairs.")
+                raise ValueError("Resources have to be defined as name=value pairs.")
             if not valid.match(res):
                 raise ValueError(
-                    "Resource definition must start with a valid identifier.")
+                    "Resource definition must start with a valid identifier."
+                )
             try:
                 val = int(val)
             except ValueError:
@@ -35,9 +40,11 @@ def parse_resources(resources_args, fallback=None):
                     val = fallback(val)
                 else:
                     raise ValueError(
-                        "Resource definiton must contain an integer after the identifier.")
+                        "Resource definiton must contain an integer after the identifier."
+                    )
             if res == "_cores":
                 raise ValueError(
-                    "Resource _cores is already defined internally. Use a different name.")
+                    "Resource _cores is already defined internally. Use a different name."
+                )
             resources[res] = val
     return resources

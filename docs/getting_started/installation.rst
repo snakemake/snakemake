@@ -12,7 +12,7 @@ You can use one of the following ways for installing Snakemake.
 Installation via Conda
 ======================
 
-This is the recommended way to install Snakemake,
+This is the **recommended** way to install Snakemake,
 because it also enables Snakemake to :ref:`handle software dependencies of your
 workflow <integrated_package_management>`.
 
@@ -76,13 +76,13 @@ To create an installation in a virtual environment, use the following commands:
 Installing from Source
 ======================
 
-We recommend installing Snakemake into a virtualenv instead of globally.
+We recommend installing Snakemake into a virtualenv or a conda environment instead of globally.
 Use the following commands to create a virtualenv and install Snakemake.
 Note that this will install the development version and as you are installing from the source code, we trust that you know what you are doing and how to checkout individual versions/tags.
 
 .. code-block:: console
 
-    $ git clone https://bitbucket.org/snakemake/snakemake.git
+    $ git clone https://github.com/snakemake/snakemake.git
     $ cd snakemake
     $ virtualenv -p python3 .venv
     $ source .venv/bin/activate

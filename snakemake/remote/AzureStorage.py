@@ -19,29 +19,36 @@ from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 
 # service provider support
 try:
-    from azure.storage.common.cloudstorageaccount import CloudStorageAccount as AzureStorageAccount
+    from azure.storage.common.cloudstorageaccount import (
+        CloudStorageAccount as AzureStorageAccount,
+    )
 except ImportError as e:
-    raise WorkflowError("The Python 3 packages 'azure-storage' and 'azure-storage-common' "
-        "need to be installed to use Azure Storage remote() file functionality. %s" % e.msg)
+    raise WorkflowError(
+        "The Python 3 packages 'azure-storage' and 'azure-storage-common' "
+        "need to be installed to use Azure Storage remote() file functionality. %s"
+        % e.msg
+    )
 
 
 class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
-    
+
     def __init__(self, *args, stay_on_remote=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
-        
+        super(RemoteProvider, self).__init__(
+            *args, stay_on_remote=stay_on_remote, **kwargs
+        )
+
         self._as = AzureStorageHelper(*args, **kwargs)
-    
+
     def remote_interface(self):
         return self._as
-    
+
     @property
     def default_protocol(self):
         """The protocol that is prepended to the path when no protocol is specified."""
         return "ab://"
-    
+
     @property
     def available_protocols(self):
         """List of valid protocols for this remote provider."""
@@ -49,9 +56,10 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+        super(RemoteObject, self).__init__(
+            *args, keep_local=keep_local, provider=provider, **kwargs
+        )
 
         if provider:
             self._as = provider.remote_interface()
@@ -63,14 +71,19 @@ class RemoteObject(AbstractRemoteObject):
         if self._matched_as_path:
             return self._as.exists_in_container(self.container_name, self.blob_name)
         else:
-            raise AzureFileException("The file cannot be parsed as an Azure Blob path in form 'container/blob': %s" % self.local_file())
+            raise AzureFileException(
+                "The file cannot be parsed as an Azure Blob path in form 'container/blob': %s"
+                % self.local_file()
+            )
 
     def mtime(self):
         if self.exists():
             t = self._as.blob_last_modified(self.container_name, self.blob_name)
             return t
         else:
-            raise AzureFileException("The file does not seem to exist remotely: %s" % self.local_file())
+            raise AzureFileException(
+                "The file does not seem to exist remotely: %s" % self.local_file()
+            )
 
     def size(self):
         if self.exists():
@@ -81,31 +94,45 @@ class RemoteObject(AbstractRemoteObject):
     def download(self):
         if self.exists():
             os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
-            self._as.download_from_azure_storage(self.container_name, self.blob_name, destination_path = self.local_file())
+            self._as.download_from_azure_storage(
+                self.container_name, self.blob_name, destination_path=self.local_file()
+            )
             os.sync()
             return self.local_file()
         return None
 
-    def upload(self): 
-        self._as.upload_to_azure_storage(container_name = self.container_name, blob_name = self.blob_name, file_path = self.local_file())
-    
+    def upload(self):
+        self._as.upload_to_azure_storage(
+            container_name=self.container_name,
+            blob_name=self.blob_name,
+            file_path=self.local_file(),
+        )
+
     @property
     def list(self):
         return self._as.list_blobs(self.container_name)
 
-
     # # === Related methods ===
     @property
     def _matched_as_path(self):
-        return re.search("(?P<container_name>[^/]*)/(?P<blob_name>.*)", self.local_file())
+        return re.search(
+            "(?P<container_name>[^/]*)/(?P<blob_name>.*)", self.local_file()
+        )
 
     def as_create_stub(self):
         if self._matched_as_path:
             if not self.exists:
-                self._as.download_from_azure_storage(self.container_name, self.blob_name, self.file, create_stub_only=True)
+                self._as.download_from_azure_storage(
+                    self.container_name,
+                    self.blob_name,
+                    self.file,
+                    create_stub_only=True,
+                )
         else:
-            raise AzureFileException("The file to be downloaded cannot be parsed as an Azure Storage path in form 'container/blob': %s" %
-                                  self.local_file())
+            raise AzureFileException(
+                "The file to be downloaded cannot be parsed as an Azure Storage path in form 'container/blob': %s"
+                % self.local_file()
+            )
 
     @property
     def container_name(self):
@@ -121,15 +148,18 @@ class RemoteObject(AbstractRemoteObject):
     def blob_name(self):
         if len(self._matched_as_path.groups()) == 2:
             return self._matched_as_path.group("blob_name")
+
+
 # Actual Azure specific functions, adapted from S3.py
 
-class AzureStorageHelper(object):    
+
+class AzureStorageHelper(object):
     def __init__(self, *args, **kwargs):
         if "stay_on_remote" in kwargs:
-              del kwargs["stay_on_remote"]
+            del kwargs["stay_on_remote"]
 
         self.azure = AzureStorageAccount(**kwargs).create_block_blob_service()
-    
+
     def container_exists(self, container_name):
         try:
             self.azure.exists(container_name=container_name)
@@ -138,13 +168,14 @@ class AzureStorageHelper(object):
             return False
 
     def upload_to_azure_storage(
-            self,
-            container_name,
-            file_path,
-            blob_name=None,
-            use_relative_path_for_blob_name=True,
-            relative_start_dir=None,
-            extra_args=None):
+        self,
+        container_name,
+        file_path,
+        blob_name=None,
+        use_relative_path_for_blob_name=True,
+        relative_start_dir=None,
+        extra_args=None,
+    ):
         """ Upload a file to Azure Storage
             This function uploads a file to an Azure Storage Container as a blob.
             Args:
@@ -155,10 +186,14 @@ class AzureStorageHelper(object):
             Returns: The blob_name of the file on Azure if written, None otherwise
         """
         file_path = os.path.realpath(os.path.expanduser(file_path))
-        
+
         assert container_name, "container_name must be specified"
-        assert os.path.exists(file_path), "The file path specified does not exist: %s" % file_path
-        assert os.path.isfile(file_path), "The file path specified does not appear to be a file: %s" % file_path
+        assert os.path.exists(file_path), (
+            "The file path specified does not exist: %s" % file_path
+        )
+        assert os.path.isfile(file_path), (
+            "The file path specified does not appear to be a file: %s" % file_path
+        )
 
         if not self.azure.exists(container_name):
             self.azure.create_container(container_name=container_name)
@@ -173,22 +208,23 @@ class AzureStorageHelper(object):
             blob_name = path_blob_name
         b = self.azure
         try:
-            b.create_blob_from_path(container_name, 
-                                    file_path = file_path, 
-                                    blob_name = blob_name)
-            return b.get_blob_properties(container_name, blob_name = blob_name).name
+            b.create_blob_from_path(
+                container_name, file_path=file_path, blob_name=blob_name
+            )
+            return b.get_blob_properties(container_name, blob_name=blob_name).name
         except:
             raise WorkflowError("Error in creating blob. %s" % e.msg)
-            #return None
+            # return None
 
     def download_from_azure_storage(
-            self,
-            container_name,
-            blob_name,
-            destination_path=None,
-            expandBlobNameIntoDirs=True,
-            make_dest_dirs=True,
-            create_stub_only=False):
+        self,
+        container_name,
+        blob_name,
+        destination_path=None,
+        expandBlobNameIntoDirs=True,
+        make_dest_dirs=True,
+        create_stub_only=False,
+    ):
         """ Download a file from Azure Storage
             This function downloads an object from a specified Azure Storage container.
             Args:
@@ -212,20 +248,27 @@ class AzureStorageHelper(object):
             if expandBlobNameIntoDirs:
                 destination_path = os.path.join(os.getcwd(), blob_name)
             else:
-                destination_path = os.path.join(os.getcwd(), os.path.basename(blob_name))
+                destination_path = os.path.join(
+                    os.getcwd(), os.path.basename(blob_name)
+                )
         # if the destination path does not exist
         if make_dest_dirs:
             os.makedirs(os.path.dirname(destination_path), exist_ok=True)
         b = self.azure
         try:
             if not create_stub_only:
-                b.get_blob_to_path(container_name = container_name,
-                                blob_name = blob_name,
-                                file_path = destination_path)
+                b.get_blob_to_path(
+                    container_name=container_name,
+                    blob_name=blob_name,
+                    file_path=destination_path,
+                )
             else:
                 # just create an empty file with the right timestamps
-                with open(destination_path, 'wb') as fp:
-                    os.utime(fp.name, (k.last_modified.timestamp(), k.last_modified.timestamp()))
+                with open(destination_path, "wb") as fp:
+                    os.utime(
+                        fp.name,
+                        (k.last_modified.timestamp(), k.last_modified.timestamp()),
+                    )
             return destination_path
         except:
             return None

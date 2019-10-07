@@ -38,14 +38,14 @@ Project Pages
 
 If you publish a Snakemake workflow, consider to add this badge to your project page:
 
-.. image:: https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square
-   :target: https://snakemake.bitbucket.io
+.. image:: https://img.shields.io/badge/snakemake-≥5.6.0-brightgreen.svg?style=flat
+   :target: https://snakemake.readthedocs.io
 
 The markdown syntax is
 
 .. sourcecode:: text
 
-    [![Snakemake](https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)](https://snakemake.bitbucket.io)
+    [![Snakemake](https://img.shields.io/badge/snakemake-≥5.6.0-brightgreen.svg?style=flat)](https://snakemake.readthedocs.io)
 
 Replace the ``3.5.2`` with the minimum required Snakemake version.
 You can also `change the style <http://shields.io/#styles>`_.

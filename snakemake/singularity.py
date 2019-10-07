@@ -14,23 +14,28 @@ from snakemake.logging import logger
 
 SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
 
+
 class Image:
     def __init__(self, url, dag):
         if " " in url:
-            raise WorkflowError("Invalid singularity image URL containing "
-                                "whitespace.")
+            raise WorkflowError(
+                "Invalid singularity image URL containing " "whitespace."
+            )
 
         if not shutil.which("singularity"):
-            raise WorkflowError("The singularity command has to be "
-                                "available in order to use singularity "
-                                "integration.")
+            raise WorkflowError(
+                "The singularity command has to be "
+                "available in order to use singularity "
+                "integration."
+            )
         try:
-            v = subprocess.check_output(["singularity", "--version"],
-                                        stderr=subprocess.PIPE).decode()
+            v = subprocess.check_output(
+                ["singularity", "--version"], stderr=subprocess.PIPE
+            ).decode()
         except subprocess.CalledProcessError as e:
             raise WorkflowError(
-                "Failed to get singularity version:\n{}".format(
-                    e.stderr.decode()))
+                "Failed to get singularity version:\n{}".format(e.stderr.decode())
+            )
         v = v.rsplit(" ", 1)[-1]
         if v.startswith("v"):
             v = v[1:]
@@ -61,14 +66,22 @@ class Image:
         if not os.path.exists(self.path):
             logger.info("Pulling singularity image {}.".format(self.url))
             try:
-                p = subprocess.check_output(["singularity", "pull",
-                    "--name", "{}.simg".format(self.hash), self.url],
+                p = subprocess.check_output(
+                    [
+                        "singularity",
+                        "pull",
+                        "--name",
+                        "{}.simg".format(self.hash),
+                        self.url,
+                    ],
                     cwd=self._img_dir,
-                    stderr=subprocess.STDOUT)
+                    stderr=subprocess.STDOUT,
+                )
             except subprocess.CalledProcessError as e:
-                raise WorkflowError("Failed to pull singularity image "
-                                    "from {}:\n{}".format(self.url,
-                                                          e.stdout.decode()))
+                raise WorkflowError(
+                    "Failed to pull singularity image "
+                    "from {}:\n{}".format(self.url, e.stdout.decode())
+                )
 
     @property
     def path(self):
@@ -83,14 +96,16 @@ class Image:
         return self.url == other.url
 
 
-def shellcmd(img_path, cmd, args="", envvars=None,
-             shell_executable=None, container_workdir=None):
+def shellcmd(
+    img_path, cmd, args="", envvars=None, shell_executable=None, container_workdir=None
+):
     """Execute shell command inside singularity container given optional args
        and environment variables to be passed."""
 
     if envvars:
-        envvars = " ".join("SINGULARITYENV_{}={}".format(k, v)
-                           for k, v in envvars.items())
+        envvars = " ".join(
+            "SINGULARITYENV_{}={}".format(k, v) for k, v in envvars.items()
+        )
     else:
         envvars = ""
 
@@ -108,7 +123,12 @@ def shellcmd(img_path, cmd, args="", envvars=None,
         args += " --pwd {}".format(container_workdir)
 
     cmd = "{} singularity exec --home {} {} {} {} -c '{}'".format(
-        envvars, os.getcwd(), args, img_path, shell_executable,
-        cmd.replace("'", r"'\''"))
+        envvars,
+        os.getcwd(),
+        args,
+        img_path,
+        shell_executable,
+        cmd.replace("'", r"'\''"),
+    )
     logger.debug(cmd)
     return cmd

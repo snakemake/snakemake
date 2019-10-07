@@ -1,4 +1,8 @@
-version: 2
+version: 2.1
+orbs:
+  singularity: singularity/singularity@1.0.8
+  conda: deepgenomics/conda@4.0.0
+
 jobs:
   build:
     machine: true
@@ -6,41 +10,45 @@ jobs:
       - GCLOUD: /opt/google-cloud-sdk/bin/gcloud
       - GSUTIL: /opt/google-cloud-sdk/bin/gsutil
       - BOTO_CONFIG: /dev/null
+      - DG_CONDA_ROOT: $HOME/miniconda
+      - CONDA_INSTALLER: https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+      - PLATFORM: linux
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - snakemake-{{ .Environment.CACHE_VERSION }}-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
       - run:
-          name: Update PATH
-          command: echo 'export PATH="`pwd`/miniconda/bin:$PATH"' >> $BASH_ENV
-      - run:
-          name: Setup Conda
-          command: .circleci/setup.sh
-      - save_cache:
-          key: snakemake-{{ .Environment.CACHE_VERSION }}-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
-          paths:
-            - miniconda
-      - run:
-          name: Setup singularity
+          name: Setup additional dependencies
           command: |
-            # TODO only install if singularity is not yet present
-            # if type singularity > /dev/null; then exit 0; fi
-            source .circleci/common.sh
-            sudo add-apt-repository ppa:gophers/archive
             sudo apt-get update
-            sudo apt-get install build-essential libssl-dev uuid-dev libgpgme11-dev libseccomp-dev wget pkg-config squashfs-tools libarchive-dev golang-1.11
-            export PATH=/usr/lib/go-1.11/bin:$PATH
-            wget https://github.com/sylabs/singularity/releases/download/v${SINGULARITY_VER}/singularity-${SINGULARITY_VER}.tar.gz
-            tar -xvf singularity-$SINGULARITY_VER.tar.gz
-            cd singularity
-            ./mconfig
-            make -C builddir
-            sudo make -C builddir install
+            sudo apt-get install stress
+
+      - singularity/install-go
+      - singularity/debian-install-3
+      - conda/save-conda:
+          key: conda-install-{{ checksum ".circleci/config.yml" }}
+          steps:
+            - conda/resolve-envvars
+            - conda/install-conda
+      - conda/save-conda:
+          key: conda-envs-{{ checksum "test-environment.yml" }}
+          steps:
+            - run:
+                name: Setup black
+                command: |
+                  conda create -n black black
+            - run:
+                name: Setup Snakemake dependencies
+                command: |
+                  conda env create --quiet --name snakemake --file test-environment.yml
+
+      - run:
+          name: Check formatting
+          command: |
+            conda activate black
+            black --check snakemake || echo "Please run 'black snakemake'."
       - run:
           name: Setup Snakemake
           command: |
-            source activate snakemake
+            conda activate snakemake
             pip install -e .
       - run:
           name: Setup iRODS Docker image
@@ -67,5 +75,9 @@ jobs:
           command: |
             export GCLOUD_CLUSTER=t-`uuidgen`
             export GOOGLE_APPLICATION_CREDENTIALS=${HOME}/gcloud-service-key.json
-            source activate snakemake
+            # Fix bash_env to only modify, not overwrite $PATH.
+            # This is necessary because snakemake invokes new shells, that have to inherit
+            # the outside PATH instead of overriding it.
+            sed -i -r "/PATH=/ s/$/:\$PATH/" $BASH_ENV
+            conda activate snakemake
             py.test tests/test*.py -v -x

@@ -393,7 +393,7 @@ To export a Snakemake workflow to CWL, simply run
 
     $ snakemake --export-cwl workflow.cwl
 
-The resulting workflow will by default use the `Snakemake docker image <https://quay.io/repository/snakemake/snakemake>`_ for every step, but this behavior can be overwritten via the CWL execution environment.
+The resulting workflow will by default use the `Snakemake docker image <https://hub.docker.com/r/snakemake/snakemake>`_ for every step, but this behavior can be overwritten via the CWL execution environment.
 Then, the workflow can be executed in the same working directory with, e.g.,
 
 .. code-block:: console

@@ -10,4 +10,4 @@ to your `$HOME/.vimrc` file. Highlighting can be forced in a vim session with `:
 
 To install via Vundle use:
 
-    Plugin 'https://bitbucket.org/johanneskoester/snakemake.git', {'rtp': 'misc/vim/'}
+    Plugin 'https://github.com/snakemake/snakemake.git', {'rtp': 'misc/vim/'}
