@@ -235,6 +235,10 @@
       table.dataTable tbody td.selected a {
         color: #007bff;
       }
+
+      table caption {
+        display: none;
+      }
     </style>
   </head>
 
@@ -337,37 +341,39 @@
               <div id="{{ cat.content_id }}" class="collapse" aria-labelledby="{{ cat.id }}" data-parent="#categories">
                 <div class="card-body">
                   <table class="table results-table">
+                    <caption>Workflow resultes</caption>
                     <thead>
                       <tr>
-                        <th>File</th>
-                        <th>Size</th>
-                        <th>Description</th>
-                        <th>Job properties</th>
-                        <th></th>
+                        <th scope="col">File</th>
+                        <th scope="col">Size</th>
+                        <th scope="col">Description</th>
+                        <th scope="col">Job properties</th>
+                        <th scope="col"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {% for res in catresults %}
                       <tr>
-                        <th>
+                        <th scope="row">
                           <a id="{{ res.id }}" href="javascript:void(0)" download="{{ res.name }}">{{ res.name }}</a>
                         </th>
                         <td style="white-space:nowrap;">{{ res.size|filesizeformat }}</td>
                         <td>{{ res.caption }}</td>
                         <td>
                           <table class="table table-sm table-borderless">
+                            <caption>Job properties</caption>
                             <tbody>
                               <tr>
-                                <th>Rule</th><td><a class="rule" href="javascript:void(0)">{{ res.job.rule }}</a></td>
+                                <th scope="row">Rule</th><td><a class="rule" href="javascript:void(0)">{{ res.job.rule }}</a></td>
                               </tr>
                               {% if res.wildcards %}
                               <tr>
-                                <th>Wildcards</th><td>{{ res.wildcards }}</td>
+                                <th scope="row">Wildcards</th><td>{{ res.wildcards }}</td>
                               </tr>
                               {% endif %}
                               {% if res.params %}
                               <tr>
-                                <th>Params</th><td>{{ res.params }}</td>
+                                <th scope="row">Params</th><td>{{ res.params }}</td>
                               </tr>
                               {% endif %}
                             </tbody>
@@ -403,10 +409,11 @@
           <h2 id="configuration">Configuration</h2>
           </div>
           <table class="table">
+            <caption>Configuration files</caption>
             <thead>
               <tr>
-                <th>File</th>
-                <th>Code</th>
+                <th scope="col">File</th>
+                <th scope="col">Code</th>
               </tr>
             </thead>
             <tbody>
@@ -429,14 +436,15 @@
           <h2 id="rules">Rules</h2>
           </div>
           <table class="table" id="rules-table">
+            <caption>Workflow rules</caption>
             <thead>
               <tr>
-                <th>Rule</th>
-                <th>Jobs</th>
-                <th>Output</th>
-                <th>Singularity</th>
-                <th>Conda environment</th>
-                <th>Code</th>
+                <th scope="col">Rule</th>
+                <th scope="col">Jobs</th>
+                <th scope="col">Output</th>
+                <th scope="col">Singularity</th>
+                <th scope="col">Conda environment</th>
+                <th scope="col">Code</th>
               </tr>
             </thead>
             <tbody>
