@@ -17,8 +17,9 @@ from snakemake.logging import logger
 
 
 if not shutil.which("gfal-copy"):
-    raise WorkflowError("The gfal-* commands need to be available for "
-                        "gfal remote support.")
+    raise WorkflowError(
+        "The gfal-* commands need to be available for " "gfal remote support."
+    )
 
 
 class RemoteProvider(AbstractRemoteProvider):
@@ -26,8 +27,22 @@ class RemoteProvider(AbstractRemoteProvider):
     supports_default = True
     allows_directories = True
 
-    def __init__(self, *args, keep_local=False, stay_on_remote=False, is_default=False, retry=5, **kwargs):
-        super(RemoteProvider, self).__init__(*args, keep_local=keep_local, stay_on_remote=stay_on_remote, is_default=is_default, **kwargs)
+    def __init__(
+        self,
+        *args,
+        keep_local=False,
+        stay_on_remote=False,
+        is_default=False,
+        retry=5,
+        **kwargs
+    ):
+        super(RemoteProvider, self).__init__(
+            *args,
+            keep_local=keep_local,
+            stay_on_remote=stay_on_remote,
+            is_default=is_default,
+            **kwargs
+        )
         self.retry = retry
 
     @property
@@ -47,27 +62,26 @@ class RemoteObject(AbstractRemoteObject):
     size_re = re.compile(r"^\s*Size: ([0-9]+).*$", flags=re.MULTILINE)
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+        super(RemoteObject, self).__init__(
+            *args, keep_local=keep_local, provider=provider, **kwargs
+        )
 
-    def _gfal(self,
-              cmd, *args,
-              retry=None,
-              raise_workflow_error=True):
+    def _gfal(self, cmd, *args, retry=None, raise_workflow_error=True):
         if retry is None:
             retry = self.provider.retry
         _cmd = ["gfal-" + cmd] + list(args)
         for i in range(retry + 1):
             try:
                 logger.debug(_cmd)
-                return sp.run(_cmd,
-                              check=True,
-                              stderr=sp.PIPE,
-                              stdout=sp.PIPE).stdout.decode()
+                return sp.run(
+                    _cmd, check=True, stderr=sp.PIPE, stdout=sp.PIPE
+                ).stdout.decode()
             except sp.CalledProcessError as e:
                 if i == retry:
                     if raise_workflow_error:
-                        raise WorkflowError("Error calling gfal-{}:\n{}".format(
-                            cmd, e.stderr.decode()))
+                        raise WorkflowError(
+                            "Error calling gfal-{}:\n{}".format(cmd, e.stderr.decode())
+                        )
                     else:
                         raise e
                 else:
@@ -79,15 +93,17 @@ class RemoteObject(AbstractRemoteObject):
 
     def exists(self):
         try:
-            self._gfal("ls", "-a", self.remote_file(),
-                       retry=0, raise_workflow_error=False)
+            self._gfal(
+                "ls", "-a", self.remote_file(), retry=0, raise_workflow_error=False
+            )
         except sp.CalledProcessError as e:
             if e.returncode == 2:
                 # exit code 2 means no such file or directory
                 return False
             else:
-                raise WorkflowError("Error calling gfal-ls:\n{}".format(
-                    e.stderr.decode()))
+                raise WorkflowError(
+                    "Error calling gfal-ls:\n{}".format(e.stderr.decode())
+                )
         # exit code 0 means that the file is present
         return True
 
@@ -120,8 +136,9 @@ class RemoteObject(AbstractRemoteObject):
             target = "file://" + os.path.abspath(self.local_file())
 
             # disable all timeouts (file transfers can take a long time)
-            self._gfal("copy", "-p", "-f", "-n", "4", "-t", "0", "-T", "0",
-                       source, target)
+            self._gfal(
+                "copy", "-p", "-f", "-n", "4", "-t", "0", "-T", "0", source, target
+            )
 
             os.sync()
             return self.local_file()
@@ -131,8 +148,7 @@ class RemoteObject(AbstractRemoteObject):
         target = self.remote_file()
         source = "file://" + os.path.abspath(self.local_file())
         # disable all timeouts (file transfers can take a long time)
-        self._gfal("copy", "-p", "-f", "-n", "4", "-t", "0", "-T", "0",
-                   source, target)
+        self._gfal("copy", "-p", "-f", "-n", "4", "-t", "0", "-T", "0", source, target)
 
     @property
     def list(self):

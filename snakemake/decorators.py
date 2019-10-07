@@ -6,8 +6,8 @@ __license__ = "MIT"
 import functools
 import inspect
 
-def dec_all_methods(decorator, prefix='test_'):
 
+def dec_all_methods(decorator, prefix="test_"):
     def dec_class(cls):
         for name, m in inspect.getmembers(cls, inspect.isfunction):
             if prefix == None or name.startswith(prefix):
