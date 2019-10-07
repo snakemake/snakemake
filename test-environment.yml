@@ -10,6 +10,7 @@ dependencies:
   - wrapt
   - pyyaml
   - pytest
+  - pytest-cov
   - ftputil
   - pysftp
   - requests
