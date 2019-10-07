@@ -1805,7 +1805,7 @@ class TibannaExecutor(ClusterExecutor):
         tibanna_args = ec2_utils.Args(
             output_S3_bucket=self.s3_bucket,
             language="snakemake",
-            container_image="quay.io/snakemake/snakemake",
+            container_image="snakemake/snakemake",
             input_files=input_source,
             output_target=output_target,
         )

@@ -48,7 +48,7 @@ def get_last_stable_version():
 
 
 def get_container_image():
-    return "quay.io/snakemake/snakemake:v{}".format(get_last_stable_version())
+    return "snakemake/snakemake:v{}".format(get_last_stable_version())
 
 
 def get_uuid(name):

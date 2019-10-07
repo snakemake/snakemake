@@ -13,17 +13,22 @@ Snakemake
 .. image:: https://img.shields.io/pypi/v/snakemake.svg
     :target: https://pypi.python.org/pypi/snakemake
 
-.. image:: https://quay.io/repository/snakemake/snakemake/status
-       :target: https://quay.io/repository/snakemake/snakemake
+.. image:: https://img.shields.io/docker/build/snakemake/snakemake
+       :target: https://hub.docker.com/r/snakemake/snakemake
 
-.. image:: https://circleci.com/bb/snakemake/snakemake/tree/master.svg?style=shield
-    :target: https://circleci.com/bb/snakemake/snakemake/tree/master
+.. image:: https://circleci.com/gh/snakemake/snakemake/tree/master.svg?style=shield
+    :target: https://circleci.com/gh/snakemake/snakemake/tree/master
 
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
-    :target: http://stackoverflow.com/questions/tagged/snakemake
+    :target: https://stackoverflow.com/questions/tagged/snakemake
 
 .. image:: https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow
     :target: https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester
+
+.. image:: https://img.shields.io/github/stars/snakemake/snakemake?style=social
+    :alt: GitHub stars
+    :target: https://github.com/snakemake/snakemake/stargazers
+
 
 The Snakemake workflow management system is a tool to create **reproducible and scalable** data analyses.
 Workflows are described via a human readable, Python based language.

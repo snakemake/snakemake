@@ -1526,7 +1526,7 @@ def get_argument_parser(profile=None):
         "--container-image",
         metavar="IMAGE",
         help="Docker image to use, e.g., when submitting jobs to kubernetes. "
-        "By default, this is 'quay.io/snakemake/snakemake', tagged with "
+        "By default, this is 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
         "the same version as the currently running Snakemake instance. "
         "Note that overwriting this value is up to your responsibility. "
         "Any used image has to contain a working snakemake installation "
