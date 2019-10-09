@@ -29,6 +29,9 @@ Snakemake
     :alt: GitHub stars
     :target: https://github.com/snakemake/snakemake/stargazers
 
+.. raw:: html
+
+    <span class="__dimensions_badge_embed__" data-doi="https://doi.org/10.1093/bioinformatics/bts480" data-legend="always" data-style="large_rectangle"></span><script async src="https://badge.dimensions.ai/badge.js" charset="utf-8"></script>
 
 The Snakemake workflow management system is a tool to create **reproducible and scalable** data analyses.
 Workflows are described via a human readable, Python based language.
