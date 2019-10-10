@@ -791,14 +791,14 @@ def get_argument_parser(profile=None):
         "--cores",
         "--jobs",
         "-j",
-        action="store",
+        default=1,
         const=available_cpu_count(),
         nargs="?",
         metavar="N",
         type=int,
         help=(
             "Use at most N cores in parallel (default: 1). "
-            "If N is omitted, the limit is set to the number of "
+            "If N is 0 or omitted, the limit is set to the number of "
             "available cores."
         ),
     )
@@ -1685,8 +1685,8 @@ def main(argv=None):
                     file=sys.stderr,
                 )
                 sys.exit(1)
-    elif args.cores is None:
-        args.cores = 1
+    elif args.cores == 0:
+        args.cores = available_cpu_count()
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
