@@ -24,8 +24,22 @@ EGAFile = namedtuple("EGAFile", ["dataset", "path"])
 
 
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, stay_on_remote=False, retry=5, **kwargs):
-        super().__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+    def __init__(
+        self,
+        *args,
+        keep_local=False,
+        stay_on_remote=False,
+        is_default=False,
+        retry=5,
+        **kwargs
+    ):
+        super().__init__(
+            *args,
+            keep_local=keep_local,
+            stay_on_remote=stay_on_remote,
+            is_default=is_default,
+            **kwargs
+        )
         self.retry = retry
         self._token = None
         self._expires = None
@@ -41,27 +55,27 @@ class RemoteProvider(AbstractRemoteProvider):
         self._expires = time.time() + 10 * 60 * 60 - 10
 
         data = {
-             "grant_type"   : "password",
-             "client_id"    : self._client_id(),
-             "scope"        : "openid",
-             "client_secret": self._client_secret(),
-             "username"     : self._username(),
-             "password"     : self._password()
+            "grant_type": "password",
+            "client_id": self._client_id(),
+            "scope": "openid",
+            "client_secret": self._client_secret(),
+            "username": self._username(),
+            "password": self._password(),
         }
         for i in range(3):
             try:
                 r = requests.post(
                     "https://ega.ebi.ac.uk:8443/ega-openid-connect-server/token",
-                    headers={'Content-Type': 'application/x-www-form-urlencoded'},
-                    data=data)
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    data=data,
+                )
             except requests.exceptions.ConnectionError as e:
                 time.sleep(5)
                 if i == 2:
                     raise WorkflowError("Error contacting EGA.", e)
 
         if r.status_code != 200:
-            raise WorkflowError(
-                "Login to EGA failed with:\n{}".format(r.text))
+            raise WorkflowError("Login to EGA failed with:\n{}".format(r.text))
         r = r.json()
         # store session token
         try:
@@ -77,12 +91,14 @@ class RemoteProvider(AbstractRemoteProvider):
         self._login()
         return self._token
 
-    def api_request(self,
-                    url_suffix,
-                    url_prefix="https://ega.ebi.ac.uk:8051/elixir/",
-                    json=True,
-                    post=False,
-                    **params):
+    def api_request(
+        self,
+        url_suffix,
+        url_prefix="https://ega.ebi.ac.uk:8051/elixir/",
+        json=True,
+        post=False,
+        **params
+    ):
         """Make an API request.
 
         Args:
@@ -91,43 +107,54 @@ class RemoteProvider(AbstractRemoteProvider):
         """
 
         url = url_prefix + url_suffix
-        headers = {"Accept": "application/json"} if json else {
-                   "Accept": "application/octet-stream"}
+        headers = (
+            {"Accept": "application/json"}
+            if json
+            else {"Accept": "application/octet-stream"}
+        )
         headers["Authorization"] = "Bearer {}".format(self.token)
 
         for i in range(3):
             try:
                 if post:
-                    r = requests.post(url, stream=not json, data=params,
-                                      params={"session": self.token},
-                                      headers=headers)
+                    r = requests.post(
+                        url,
+                        stream=not json,
+                        data=params,
+                        params={"session": self.token},
+                        headers=headers,
+                    )
                 else:
                     params = dict(params)
                     params["session"] = self.token
-                    r = requests.get(url, stream=not json,
-                                     params=params, headers=headers)
+                    r = requests.get(
+                        url, stream=not json, params=params, headers=headers
+                    )
             except requests.exceptions.ConnectionError as e:
                 time.sleep(5)
                 if i == 2:
                     raise WorkflowError("Error contacting EGA.", e)
         if r.status_code != 200:
-            raise WorkflowError("Access to EGA API endpoint {} failed "
-                                "with:\n{}".format(url, r.text))
+            raise WorkflowError(
+                "Access to EGA API endpoint {} failed " "with:\n{}".format(url, r.text)
+            )
         if json:
             msg = r.json()
             return msg
         else:
             return r
 
-
     def get_files(self, dataset):
         if dataset not in self._file_cache:
             files = self.api_request(
-                "data/metadata/datasets/{dataset}/files".format(dataset=dataset))
+                "data/metadata/datasets/{dataset}/files".format(dataset=dataset)
+            )
             self._file_cache[dataset] = {
-                os.path.basename(f["fileName"])[:-4]:
-                EGAFileInfo(int(f["fileSize"]), f["fileStatus"], f["fileId"], f["checksum"])
-                for f in files}
+                os.path.basename(f["fileName"])[:-4]: EGAFileInfo(
+                    int(f["fileSize"]), f["fileStatus"], f["fileId"], f["checksum"]
+                )
+                for f in files
+            }
         return self._file_cache[dataset]
 
     @property
@@ -159,9 +186,11 @@ class RemoteProvider(AbstractRemoteProvider):
         try:
             return os.environ[name]
         except KeyError:
-            raise WorkflowError("$EGA_USERNAME, $EGA_PASSWORD, $EGA_CLIENT_ID, "
-                                "$EGA_CLIENT_SECRET must be given "
-                                "as environment variables.")
+            raise WorkflowError(
+                "$EGA_USERNAME, $EGA_PASSWORD, $EGA_CLIENT_ID, "
+                "$EGA_CLIENT_SECRET must be given "
+                "as environment variables."
+            )
 
 
 class RemoteObject(AbstractRemoteObject):
@@ -184,8 +213,8 @@ class RemoteObject(AbstractRemoteObject):
         stats = self._stats()
 
         r = self.provider.api_request(
-            "data/files/{}?destinationFormat=plain".format(stats.id),
-            json=False)
+            "data/files/{}?destinationFormat=plain".format(stats.id), json=False
+        )
 
         local_md5 = hashlib.md5()
 
@@ -199,13 +228,16 @@ class RemoteObject(AbstractRemoteObject):
         local_md5 = local_md5.hexdigest()
 
         if local_md5 != stats.checksum:
-            raise WorkflowError("File checksums do not match for: {}".format(
-                self.remote_file()))
+            raise WorkflowError(
+                "File checksums do not match for: {}".format(self.remote_file())
+            )
 
     @lazy_property
     def parts(self):
         parts = self.local_file().split("/")
         if parts[0] != "ega":
-            raise WorkflowError("Invalid EGA remote file name. Must be 'ega/<dataset>/<filepath>'")
+            raise WorkflowError(
+                "Invalid EGA remote file name. Must be 'ega/<dataset>/<filepath>'"
+            )
         _, dataset, path = self.local_file().split("/", 2)
         return EGAFile(dataset, path)

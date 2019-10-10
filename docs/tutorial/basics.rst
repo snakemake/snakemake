@@ -3,8 +3,8 @@
 Basics: An example workflow
 ---------------------------
 
-.. _Snakemake: https://snakemake.bitbucket.io
-.. _Snakemake homepage: https://snakemake.bitbucket.io
+.. _Snakemake: https://snakemake.readthedocs.io
+.. _Snakemake homepage: https://snakemake.readthedocs.io
 .. _GNU Make: https://www.gnu.org/software/make
 .. _Python: http://www.python.org
 .. _BWA: http://bio-bwa.sourceforge.net
@@ -47,7 +47,7 @@ In the following, we will introduce the Snakemake syntax by creating an example 
 The workflow comes from the domain of genome analysis.
 It maps sequencing reads to a reference genome and call variants on the mapped reads.
 The tutorial does not require you to know what this is about.
-Nevertheless, we provide some background in the following.
+Nevertheless, we provide some background in the following paragraph.
 
 .. _tutorial-background:
 
@@ -122,7 +122,7 @@ By executing
     $ snakemake -np mapped_reads/A.bam
 
 in the working directory containing the Snakefile, we tell Snakemake to generate the target file ``mapped_reads/A.bam``.
-Since we used the ``-n`` (or ``--dryrun``) flag, Snakemake will only show the execution plan instead of actually perform the steps.
+Since we used the ``-n`` (or ``--dry-run``) flag, Snakemake will only show the execution plan instead of actually perform the steps.
 The ``-p`` flag instructs Snakemake to also print the resulting shell command for illustration.
 To generate the target files, **Snakemake applies the rules given in the Snakefile in a top-down way**.
 The application of a rule to generate a set of output files is called **job**.
@@ -365,8 +365,10 @@ Exercise
    :align: center
 
 
+.. _tutorial-script:
+
 Step 6: Using custom scripts
-::::::::::::::::::::
+::::::::::::::::::::::::::::
 
 Usually, a workflow not only consists of invoking various tools, but also contains custom code to e.g. calculate summary statistics or create plots.
 While Snakemake also allows you to directly :ref:`write Python code inside a rule <.. _snakefiles-rules>`_, it is usually reasonable to move such logic into separate scripts.
@@ -410,7 +412,7 @@ Create the file ``scripts/plot-quals.py``, with the following content:
 Although there are other strategies to invoke separate scripts from your workflow
 (e.g., invoking them via shell commands), the benefit of this is obvious:
 the script logic is separated from the workflow logic (and can be even shared between workflows),
-but **boilerplate code like the parsing of command line arguments in unnecessary**.
+but **boilerplate code like the parsing of command line arguments is unnecessary**.
 
 Apart from Python scripts, it is also possible to use R scripts. In R scripts,
 an S4 object named ``snakemake`` analog to the Python case above is available and

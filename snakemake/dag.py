@@ -3,59 +3,59 @@ __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import html
 import os
 import shutil
 import textwrap
 import time
 import tarfile
 from collections import defaultdict, Counter
-from itertools import chain, combinations, filterfalse, product, groupby
-from functools import partial, lru_cache
-from inspect import isfunction, ismethod
-from operator import itemgetter, attrgetter
+from itertools import chain, filterfalse, groupby
+from functools import partial
 from pathlib import Path
-import subprocess
 import uuid
 
-from snakemake.io import IOFile, _IOFile, PeriodicityDetector, wait_for_files, is_flagged, contains_wildcard
+from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
 from snakemake.jobs import Job, Reason, GroupJob
-from snakemake.exceptions import RuleException, MissingInputException
+from snakemake.exceptions import MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException, ImproperOutputException
-from snakemake.exceptions import PeriodicWildcardError, WildcardError
+from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
-from snakemake.exceptions import UnexpectedOutputException, InputFunctionException
+from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
 from snakemake import conda, singularity
-from snakemake import utils
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
 
 
 class DAG:
     """Directed acyclic graph of jobs."""
-    def __init__(self,
-                 workflow,
-                 rules=None,
-                 dryrun=False,
-                 targetfiles=None,
-                 targetrules=None,
-                 forceall=False,
-                 forcerules=None,
-                 forcefiles=None,
-                 priorityfiles=None,
-                 priorityrules=None,
-                 untilfiles=None,
-                 untilrules=None,
-                 omitfiles=None,
-                 omitrules=None,
-                 ignore_ambiguity=False,
-                 force_incomplete=False,
-                 ignore_incomplete=False,
-                 notemp=False,
-                 keep_remote_local=False):
+
+    def __init__(
+        self,
+        workflow,
+        rules=None,
+        dryrun=False,
+        targetfiles=None,
+        targetrules=None,
+        forceall=False,
+        forcerules=None,
+        forcefiles=None,
+        priorityfiles=None,
+        priorityrules=None,
+        untilfiles=None,
+        untilrules=None,
+        omitfiles=None,
+        omitrules=None,
+        ignore_ambiguity=False,
+        force_incomplete=False,
+        ignore_incomplete=False,
+        notemp=False,
+        keep_remote_local=False,
+    ):
 
         self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
@@ -138,14 +138,39 @@ class DAG:
 
         for job in self.jobs:
             # This is to account also for targets of symlinks
-            allfiles.update({f(x):"input" for x in job.input for f in (os.path.abspath, os.path.realpath)})
-            allfiles.update({f(x):"output" for x in job.output for f in (os.path.abspath, os.path.realpath)})
+            allfiles.update(
+                {
+                    f(x): "input"
+                    for x in job.input
+                    for f in (os.path.abspath, os.path.realpath)
+                }
+            )
+            allfiles.update(
+                {
+                    f(x): "output"
+                    for x in job.output
+                    for f in (os.path.abspath, os.path.realpath)
+                }
+            )
 
         sortedfiles = sorted(allfiles.keys())
-        for i in range(len(sortedfiles)-1):
+        for i in range(len(sortedfiles) - 1):
             if allfiles[sortedfiles[i]] == "output":
-                if os.path.commonpath([sortedfiles[i]]) == os.path.commonpath([sortedfiles[i], sortedfiles[i+1]]):
-                    raise ChildIOException(parent = sortedfiles[i], child = sortedfiles[i+1])
+                try:
+                    common_path = os.path.commonpath(
+                        [sortedfiles[i], sortedfiles[i + 1]]
+                    )
+                except ValueError:  # commonpath raises error if windows drives are different.
+                    logger.warning(
+                        "Ambiguous filepath due to different drives between {} and {}".format(
+                            sortedfiles[i], sortedfiles[i + 1]
+                        )
+                    )
+                    continue
+                if os.path.commonpath([sortedfiles[i]]) == common_path:
+                    raise ChildIOException(
+                        parent=sortedfiles[i], child=sortedfiles[i + 1]
+                    )
 
         # check if remaining jobs are valid
         for i, job in enumerate(self.jobs):
@@ -158,8 +183,9 @@ class DAG:
                 yield job
 
     def update_checkpoint_outputs(self):
-        workflow.checkpoints.future_output = set(f for job in self.checkpoint_jobs
-                                                   for f in job.output)
+        workflow.checkpoints.future_output = set(
+            f for job in self.checkpoint_jobs for f in job.output
+        )
 
     def update_jobids(self):
         for job in self.jobs:
@@ -177,23 +203,24 @@ class DAG:
             except KeyError:
                 pass
 
-    def create_conda_envs(self,
-                          dryrun=False,
-                          forceall=False,
-                          init_only=False,
-                          quiet=False):
-        # see if conda works at all
-        conda.Conda()
+    def create_conda_envs(
+        self, dryrun=False, forceall=False, init_only=False, quiet=False
+    ):
         # First deduplicate based on job.conda_env_file
         jobs = self.jobs if forceall else self.needrun_jobs
-        env_set = {(job.conda_env_file, job.singularity_img_url)
-                   for job in jobs if job.conda_env_file}
+        env_set = {
+            (job.conda_env_file, job.singularity_img_url)
+            for job in jobs
+            if job.conda_env_file
+        }
         # Then based on md5sum values
         self.conda_envs = dict()
         for (env_file, simg_url) in env_set:
             simg = None
             if simg_url:
-                assert simg_url in self.singularity_imgs, "bug: must first pull singularity images"
+                assert (
+                    simg_url in self.singularity_imgs
+                ), "bug: must first pull singularity images"
                 simg = self.singularity_imgs[simg_url]
             env = conda.Env(env_file, self, singularity_img=simg)
             self.conda_envs[(env_file, simg_url)] = env
@@ -206,15 +233,13 @@ class DAG:
     def pull_singularity_imgs(self, dryrun=False, forceall=False, quiet=False):
         # First deduplicate based on job.conda_env_file
         jobs = self.jobs if forceall else self.needrun_jobs
-        img_set = {job.singularity_img_url for job in jobs
-                   if job.singularity_img_url}
+        img_set = {job.singularity_img_url for job in jobs if job.singularity_img_url}
 
         for img_url in img_set:
             img = singularity.Image(img_url, self)
             if not dryrun or not quiet:
                 img.pull(dryrun)
             self.singularity_imgs[img_url] = img
-
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -249,13 +274,14 @@ class DAG:
                 "Multiple different external jobids registered "
                 "for output files of incomplete job {} ({}). This job "
                 "cannot be resumed. Execute Snakemake with --rerun-incomplete "
-                "to fix this issue.".format(job.jobid, jobids))
+                "to fix this issue.".format(job.jobid, jobids)
+            )
 
     def check_dynamic(self):
         """Check dynamic output and update downstream rules if necessary."""
         for job in filter(
-                lambda job: (job.dynamic_output and not self.needrun(job)),
-                self.jobs):
+            lambda job: (job.dynamic_output and not self.needrun(job)), self.jobs
+        ):
             self.update_dynamic(job)
         self.postprocess()
 
@@ -273,23 +299,21 @@ class DAG:
     @property
     def needrun_jobs(self):
         """ Jobs that need to be executed. """
-        for job in filter(self.needrun,
-                          self.bfs(self.dependencies,
-                                   *self.targetjobs,
-                                   stop=self.noneedrun_finished)):
+        for job in filter(
+            self.needrun,
+            self.bfs(self.dependencies, *self.targetjobs, stop=self.noneedrun_finished),
+        ):
             yield job
 
     @property
     def local_needrun_jobs(self):
         """Iterate over all jobs that need to be run and are marked as local."""
-        return filter(lambda job: job.is_local,
-                      self.needrun_jobs)
+        return filter(lambda job: job.is_local, self.needrun_jobs)
 
     @property
     def finished_jobs(self):
         """ Iterate over all jobs that have been finished."""
-        for job in filter(self.finished, self.bfs(self.dependencies,
-                                                  *self.targetjobs)):
+        for job in filter(self.finished, self.bfs(self.dependencies, *self.targetjobs)):
             yield job
 
     @property
@@ -340,20 +364,31 @@ class DAG:
     @property
     def incomplete_files(self):
         """Return list of incomplete files."""
-        return list(chain(*(job.output
-                            for job in
-                            filter(self.workflow.persistence.incomplete,
-                                   filterfalse(self.needrun, self.jobs)))))
+        return list(
+            chain(
+                *(
+                    job.output
+                    for job in filter(
+                        self.workflow.persistence.incomplete,
+                        filterfalse(self.needrun, self.jobs),
+                    )
+                )
+            )
+        )
 
     @property
     def newversion_files(self):
         """Return list of files where the current version is newer than the
         recorded version.
         """
-        return list(chain(*(job.output
-                            for job in
-                            filter(self.workflow.persistence.newversion,
-                                   self.jobs))))
+        return list(
+            chain(
+                *(
+                    job.output
+                    for job in filter(self.workflow.persistence.newversion, self.jobs)
+                )
+            )
+        )
 
     def missing_temp(self, job):
         """
@@ -364,12 +399,14 @@ class DAG:
                 return True
         return False
 
-    def check_and_touch_output(self,
-                               job,
-                               wait=3,
-                               ignore_missing_output=False,
-                               no_touch=False,
-                               force_stay_on_remote=False):
+    def check_and_touch_output(
+        self,
+        job,
+        wait=3,
+        ignore_missing_output=False,
+        no_touch=False,
+        force_stay_on_remote=False,
+    ):
         """ Raise exception if output files of job are missing. """
         expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
         if job.benchmark:
@@ -377,26 +414,34 @@ class DAG:
 
         if not ignore_missing_output:
             try:
-                wait_for_files(expanded_output,
-                               latency_wait=wait,
-                               force_stay_on_remote=force_stay_on_remote)
+                wait_for_files(
+                    expanded_output,
+                    latency_wait=wait,
+                    force_stay_on_remote=force_stay_on_remote,
+                    ignore_pipe=True,
+                )
             except IOError as e:
-                raise MissingOutputException(str(e) + "\nThis might be due to "
-                "filesystem latency. If that is the case, consider to increase the "
-                "wait time with --latency-wait.", rule=job.rule)
+                raise MissingOutputException(
+                    str(e) + "\nThis might be due to "
+                    "filesystem latency. If that is the case, consider to increase the "
+                    "wait time with --latency-wait.",
+                    rule=job.rule,
+                )
 
         # Ensure that outputs are of the correct type (those flagged with directory()
         # are directories and not files and vice versa).
         for f in expanded_output:
-            if (f.is_directory and not os.path.isdir(f)) or (os.path.isdir(f) and not f.is_directory):
+            if (f.is_directory and not os.path.isdir(f)) or (
+                os.path.isdir(f) and not f.is_directory
+            ):
                 raise ImproperOutputException(job.rule, [f])
 
-        #It is possible, due to archive expansion or cluster clock skew, that
-        #the files appear older than the input.  But we know they must be new,
-        #so touch them to update timestamps. This also serves to touch outputs
-        #when using the --touch flag.
-        #Note that if the input files somehow have a future date then this will
-        #not currently be spotted and the job will always be re-run.
+        # It is possible, due to archive expansion or cluster clock skew, that
+        # the files appear older than the input.  But we know they must be new,
+        # so touch them to update timestamps. This also serves to touch outputs
+        # when using the --touch flag.
+        # Note that if the input files somehow have a future date then this will
+        # not currently be spotted and the job will always be re-run.
         if not no_touch:
             for f in expanded_output:
                 # This won't create normal files if missing, but will create
@@ -421,11 +466,13 @@ class DAG:
                     os.remove(shadow_output)
                     os.symlink(rel_dest, shadow_output)
 
-            if os.path.realpath(shadow_output) == os.path.realpath(
-                    real_output):
+            if os.path.realpath(shadow_output) == os.path.realpath(real_output):
                 continue
-            logger.debug("Moving shadow output {} to destination {}".format(
-                shadow_output, real_output))
+            logger.debug(
+                "Moving shadow output {} to destination {}".format(
+                    shadow_output, real_output
+                )
+            )
             shutil.move(shadow_output, real_output)
         shutil.rmtree(job.shadow_dir)
 
@@ -433,15 +480,16 @@ class DAG:
         """ Raise an exception if a wildcard of the given job appears to be periodic,
         indicating a cyclic dependency. """
         for wildcard, value in job.wildcards_dict.items():
-            periodic_substring = self.periodic_wildcard_detector.is_periodic(
-                value)
+            periodic_substring = self.periodic_wildcard_detector.is_periodic(value)
             if periodic_substring is not None:
                 raise PeriodicWildcardError(
                     "The value {} in wildcard {} is periodically repeated ({}). "
                     "This would lead to an infinite recursion. "
                     "To avoid this, e.g. restrict the wildcards in this rule to certain values.".format(
-                        periodic_substring, wildcard, value),
-                    rule=job.rule)
+                        periodic_substring, wildcard, value
+                    ),
+                    rule=job.rule,
+                )
 
     def handle_protected(self, job):
         """ Write-protect output files that are marked with protected(). """
@@ -479,8 +527,10 @@ class DAG:
 
         # handle temp input
         needed = lambda job_, f: any(
-            f in files for j, files in self.depending[job_].items()
-            if not self.finished(j) and self.needrun(j) and j != job)
+            f in files
+            for j, files in self.depending[job_].items()
+            if not self.finished(j) and self.needrun(j) and j != job
+        )
 
         def unneeded_files():
             # temp input
@@ -490,8 +540,11 @@ class DAG:
 
             # temp output
             if not job.dynamic_output:
-                tempfiles = (f for f in job.expanded_output
-                               if is_temp(f) and f not in self.targetfiles)
+                tempfiles = (
+                    f
+                    for f in job.expanded_output
+                    if is_temp(f) and f not in self.targetfiles
+                )
                 yield from filterfalse(partial(needed, job), tempfiles)
 
         for f in unneeded_files():
@@ -509,7 +562,8 @@ class DAG:
                     raise RemoteFileException(
                         "The file upload was attempted, but it does not "
                         "exist on remote. Check that your credentials have "
-                        "read AND write permissions.")
+                        "read AND write permissions."
+                    )
 
     def handle_remote(self, job, upload=True):
         """ Remove local files if they are no longer needed and upload. """
@@ -531,16 +585,23 @@ class DAG:
                         raise RemoteFileException(
                             "The file upload was attempted, but it does not "
                             "exist on remote. Check that your credentials have "
-                            "read AND write permissions.")
+                            "read AND write permissions."
+                        )
 
         if not self.keep_remote_local:
             # handle input files
             needed = lambda job_, f: any(
-                f in files for j, files in self.depending[job_].items()
-                if not self.finished(j) and self.needrun(j) and j != job)
+                f in files
+                for j, files in self.depending[job_].items()
+                if not self.finished(j) and self.needrun(j) and j != job
+            )
 
             def unneeded_files():
-                putative = lambda f: f.is_remote and not f.protected and not f.should_keep_local
+                putative = (
+                    lambda f: f.is_remote
+                    and not f.protected
+                    and not f.should_keep_local
+                )
                 generated_input = set()
                 for job_, files in self.dependencies[job].items():
                     generated_input |= files
@@ -568,9 +629,14 @@ class DAG:
 
     def jobid(self, job):
         """Return job id of given job."""
-        return self._jobid[job]
+        if job.is_group():
+            return job.jobid
+        else:
+            return self._jobid[job]
 
-    def update(self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False):
+    def update(
+        self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False
+    ):
         """ Update the DAG by adding given jobs and their dependencies. """
         if visited is None:
             visited = set()
@@ -578,7 +644,6 @@ class DAG:
         exceptions = list()
         jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
         cycles = list()
-
 
         for job in jobs:
             logger.dag_debug(dict(status="candidate", job=job))
@@ -590,10 +655,12 @@ class DAG:
                 continue
             try:
                 self.check_periodic_wildcards(job)
-                self.update_(job,
-                             visited=set(visited),
-                             skip_until_dynamic=skip_until_dynamic,
-                             progress=progress)
+                self.update_(
+                    job,
+                    visited=set(visited),
+                    skip_until_dynamic=skip_until_dynamic,
+                    progress=progress,
+                )
                 # TODO this might fail if a rule discarded here is needed
                 # elsewhere
                 if producer:
@@ -602,20 +669,26 @@ class DAG:
                     elif producer is not None:
                         raise AmbiguousRuleException(file, job, producer)
                 producer = job
-            except (MissingInputException, CyclicGraphException,
-                    PeriodicWildcardError) as ex:
+            except (
+                MissingInputException,
+                CyclicGraphException,
+                PeriodicWildcardError,
+            ) as ex:
                 exceptions.append(ex)
             except RecursionError as e:
                 raise WorkflowError(
-                    e, "If building the DAG exceeds the recursion limit, "
+                    e,
+                    "If building the DAG exceeds the recursion limit, "
                     "this is likely due to a cyclic dependency."
                     "E.g. you might have a sequence of rules that "
                     "can generate their own input. Try to make "
                     "the output files more specific. "
                     "A common pattern is to have different prefixes "
-                    "in the output files of different rules." +
-                    "\nProblematic file pattern: {}".format(file) if file else
-                    "")
+                    "in the output files of different rules."
+                    + "\nProblematic file pattern: {}".format(file)
+                    if file
+                    else "",
+                )
         if producer is None:
             if cycles:
                 job = cycles[0]
@@ -640,8 +713,7 @@ class DAG:
             visited = set()
         visited.add(job)
         dependencies = self.dependencies[job]
-        potential_dependencies = self.collect_potential_dependencies(
-            job).items()
+        potential_dependencies = self.collect_potential_dependencies(job).items()
 
         skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 
@@ -654,15 +726,17 @@ class DAG:
                     jobs,
                     file=file,
                     visited=visited,
-                    skip_until_dynamic=skip_until_dynamic or file in
-                    job.dynamic_input,
-                    progress=progress)
+                    skip_until_dynamic=skip_until_dynamic or file in job.dynamic_input,
+                    progress=progress,
+                )
                 producer[file] = selected_job
-            except (MissingInputException, CyclicGraphException,
-                    PeriodicWildcardError) as ex:
+            except (
+                MissingInputException,
+                CyclicGraphException,
+                PeriodicWildcardError,
+            ) as ex:
                 if file in missing_input:
-                    self.delete_job(job,
-                                    recursive=False)  # delete job from tree
+                    self.delete_job(job, recursive=False)  # delete job from tree
                     raise ex
 
         for file, job_ in producer.items():
@@ -690,9 +764,13 @@ class DAG:
             reason = self.reason(job)
             noinitreason = not reason
             updated_subworkflow_input = self.updated_subworkflow_files.intersection(
-                job.input)
-            if (job not in self.omitforce and job.rule in self.forcerules or
-                    not self.forcefiles.isdisjoint(job.output)):
+                job.input
+            )
+            if (
+                job not in self.omitforce
+                and job.rule in self.forcerules
+                or not self.forcefiles.isdisjoint(job.output)
+            ):
                 reason.forced = True
             elif updated_subworkflow_input:
                 reason.updated_input.update(updated_subworkflow_input)
@@ -702,7 +780,8 @@ class DAG:
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(
-                                [f for f in job.input if not f.exists])
+                                [f for f in job.input if not f.exists]
+                            )
                         else:
                             reason.nooutput = True
                     else:
@@ -712,16 +791,15 @@ class DAG:
                         missing_output = job.missing_output()
                     else:
                         missing_output = job.missing_output(
-                            requested=set(chain(*self.depending[job].values(
-                            ))) | self.targetfiles)
+                            requested=set(chain(*self.depending[job].values()))
+                            | self.targetfiles
+                        )
                     reason.missing_output.update(missing_output)
             if not reason:
                 output_mintime_ = output_mintime(job)
                 if output_mintime_:
                     updated_input = [
-                        f
-                        for f in job.input
-                        if f.exists and f.is_newer(output_mintime_)
+                        f for f in job.input if f.exists and f.is_newer(output_mintime_)
                     ]
                     reason.updated_input.update(updated_input)
             if noinitreason and reason:
@@ -756,17 +834,20 @@ class DAG:
                         visited.add(job_)
                         queue.append(job_)
 
-        self._len = len(_needrun)
+        # update len including finished jobs (because they have already increased the job counter)
+        self._len = len(self._finished | self._needrun)
 
     def in_until(self, job):
         """Return whether given job has been specified via --until."""
-        return (job.rule.name in self.untilrules or
-                not self.untilfiles.isdisjoint(job.output))
+        return job.rule.name in self.untilrules or not self.untilfiles.isdisjoint(
+            job.output
+        )
 
     def in_omitfrom(self, job):
         """Return whether given job has been specified via --omit-from."""
-        return (job.rule.name in self.omitrules or
-                not self.omitfiles.isdisjoint(job.output))
+        return job.rule.name in self.omitrules or not self.omitfiles.isdisjoint(
+            job.output
+        )
 
     def until_jobs(self):
         """Returns a generator of jobs specified by untiljobs."""
@@ -778,15 +859,18 @@ class DAG:
 
     def downstream_of_omitfrom(self):
         """Returns the downstream of --omit-from rules or files."""
-        return filter(lambda job: not self.in_omitfrom(job),
-                      self.bfs(self.depending, *self.omitfrom_jobs()))
+        return filter(
+            lambda job: not self.in_omitfrom(job),
+            self.bfs(self.depending, *self.omitfrom_jobs()),
+        )
 
     def delete_omitfrom_jobs(self):
         """Removes jobs downstream of jobs specified by --omit-from."""
         if not self.omitrules and not self.omitfiles:
             return
-        downstream_jobs = list(self.downstream_of_omitfrom()
-                               )  # need to cast as list before deleting jobs
+        downstream_jobs = list(
+            self.downstream_of_omitfrom()
+        )  # need to cast as list before deleting jobs
         for job in downstream_jobs:
             self.delete_job(job, recursive=False, add_dependencies=True)
 
@@ -799,13 +883,16 @@ class DAG:
     def update_priority(self):
         """ Update job priorities. """
         prioritized = (
-            lambda job: job.rule in self.priorityrules or not self.priorityfiles.isdisjoint(job.output)
+            lambda job: job.rule in self.priorityrules
+            or not self.priorityfiles.isdisjoint(job.output)
         )
         for job in self.needrun_jobs:
             self._priority[job] = job.rule.priority
-        for job in self.bfs(self.dependencies,
-                            *filter(prioritized, self.needrun_jobs),
-                            stop=self.noneedrun_finished):
+        for job in self.bfs(
+            self.dependencies,
+            *filter(prioritized, self.needrun_jobs),
+            stop=self.noneedrun_finished,
+        ):
             self._priority[job] = Job.HIGHEST_PRIORITY
 
     def update_groups(self):
@@ -817,10 +904,14 @@ class DAG:
             # BFS into depending needrun jobs if in same group
             # Note: never go up here (into depending), because it may contain
             # jobs that have been sorted out due to e.g. ruleorder.
-            group = GroupJob(job.group,
-                             (job for job in
-                              self.bfs(self.dependencies, job, stop=stop)
-                              if self.needrun(job)))
+            group = GroupJob(
+                job.group,
+                (
+                    job
+                    for job in self.bfs(self.dependencies, job, stop=stop)
+                    if self.needrun(job)
+                ),
+            )
 
             # merge with previously determined groups if present
             for j in group:
@@ -852,8 +943,10 @@ class DAG:
                     candidate_groups.add(self._group[job])
 
         self._ready_jobs.update(
-            group for group in candidate_groups
-            if all(self._ready(job) for job in group))
+            group
+            for group in candidate_groups
+            if all(self._ready(job) for job in group)
+        )
 
     def get_jobs_or_groups(self):
         visited_groups = set()
@@ -897,37 +990,48 @@ class DAG:
             for f in job.output:
                 if is_flagged(f, "pipe"):
                     if job.is_run:
-                        raise WorkflowError("Rule defines pipe output but "
-                                            "uses a 'run' directive. This is "
-                                            "not possible for technical "
-                                            "reasons. Consider using 'shell' or "
-                                            "'script'.", rule=job.rule)
+                        raise WorkflowError(
+                            "Rule defines pipe output but "
+                            "uses a 'run' directive. This is "
+                            "not possible for technical "
+                            "reasons. Consider using 'shell' or "
+                            "'script'.",
+                            rule=job.rule,
+                        )
 
                     has_pipe = True
-                    depending = [j for j, files in self.depending[job].items()
-                                   if f in files]
+                    depending = [
+                        j for j, files in self.depending[job].items() if f in files
+                    ]
                     if len(depending) > 1:
-                        raise WorkflowError("Output file {} is marked as pipe "
-                                            "but more than one job depends on "
-                                            "it. Make sure that any pipe "
-                                            "output is only consumed by one "
-                                            "job".format(f),
-                                            rule=job.rule)
+                        raise WorkflowError(
+                            "Output file {} is marked as pipe "
+                            "but more than one job depends on "
+                            "it. Make sure that any pipe "
+                            "output is only consumed by one "
+                            "job".format(f),
+                            rule=job.rule,
+                        )
                     elif len(depending) == 0:
-                        raise WorkflowError("Output file {} is marked as pipe "
-                                            "but it has no consumer. This is "
-                                            "invalid because it can lead to "
-                                            "a dead lock.".format(f),
-                                            rule=job.rule)
+                        raise WorkflowError(
+                            "Output file {} is marked as pipe "
+                            "but it has no consumer. This is "
+                            "invalid because it can lead to "
+                            "a dead lock.".format(f),
+                            rule=job.rule,
+                        )
 
                     depending = depending[0]
 
                     if depending.is_run:
-                        raise WorkflowError("Rule consumes pipe input but "
-                                            "uses a 'run' directive. This is "
-                                            "not possible for technical "
-                                            "reasons. Consider using 'shell' or "
-                                            "'script'.", rule=job.rule)
+                        raise WorkflowError(
+                            "Rule consumes pipe input but "
+                            "uses a 'run' directive. This is "
+                            "not possible for technical "
+                            "reasons. Consider using 'shell' or "
+                            "'script'.",
+                            rule=job.rule,
+                        )
 
                     all_depending.add(depending)
                     if depending.group is not None:
@@ -936,17 +1040,19 @@ class DAG:
                 continue
 
             if len(candidate_groups) > 1:
-                raise WorkflowError("An output file is marked as "
-                                    "pipe, but consuming jobs "
-                                    "are part of conflicting "
-                                    "groups.",
-                                    rule=job.rule)
+                raise WorkflowError(
+                    "An output file is marked as "
+                    "pipe, but consuming jobs "
+                    "are part of conflicting "
+                    "groups.",
+                    rule=job.rule,
+                )
             elif candidate_groups:
                 # extend the candidate group to all involved jobs
                 group = candidate_groups.pop()
             else:
                 # generate a random unique group name
-                group = uuid.uuid4()
+                group = str(uuid.uuid4())
             job.group = group
             for j in all_depending:
                 j.group = group
@@ -957,12 +1063,14 @@ class DAG:
         if group is None:
             is_external_needrun_dep = self.needrun
         else:
+
             def is_external_needrun_dep(j):
                 g = self._group.get(j, None)
                 return self.needrun(j) and (g is None or g != group)
 
-        return self._finished.issuperset(filter(is_external_needrun_dep,
-                                                self.dependencies[job]))
+        return self._finished.issuperset(
+            filter(is_external_needrun_dep, self.dependencies[job])
+        )
 
     def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
@@ -975,11 +1083,13 @@ class DAG:
                 depending = list(self.depending[job])
                 # re-evaluate depending jobs, replace and update DAG
                 for j in depending:
-                    logger.info("Updating job {}.".format(self.jobid(j)))
+                    logger.info("Updating job {} ({}).".format(self.jobid(j), j))
                     newjob = j.updated()
                     self.replace_job(j, newjob, recursive=False)
                     updated = True
                 if updated:
+                    # This has to be done for each checkpoint,
+                    # otherwise, jobs may be missing in the end.
                     self.postprocess()
         return updated
 
@@ -1004,8 +1114,12 @@ class DAG:
 
         # mark depending jobs as ready
         # skip jobs that are marked as until jobs
-        self.update_ready(j for job in jobs for j in self.depending[job]
-                            if not self.in_until(job) and self.needrun(j))
+        self.update_ready(
+            j
+            for job in jobs
+            for j in self.depending[job]
+            if not self.in_until(job) and self.needrun(j)
+        )
 
         for job in jobs:
             if update_dynamic and job.dynamic_output:
@@ -1030,7 +1144,6 @@ class DAG:
             if self.workflow.use_conda:
                 self.create_conda_envs()
 
-
     def new_job(self, rule, targetfile=None, format_wildcards=None):
         """Create new job for given rule and (optional) targetfile.
         This will reuse existing jobs with the same wildcards."""
@@ -1039,11 +1152,19 @@ class DAG:
             assert targetfile is not None
             return self.job_cache[key]
         wildcards_dict = rule.get_wildcards(targetfile)
-        job = Job(rule, self, wildcards_dict=wildcards_dict,
-                  format_wildcards=format_wildcards, targetfile=targetfile)
-        for f in job.products:
-            self.job_cache[(rule, f)] = job
+        job = Job(
+            rule,
+            self,
+            wildcards_dict=wildcards_dict,
+            format_wildcards=format_wildcards,
+            targetfile=targetfile,
+        )
+        self.cache_job(job)
         return job
+
+    def cache_job(self, job):
+        for f in job.products:
+            self.job_cache[(job.rule, f)] = job
 
     def update_dynamic(self, job):
         """Update the DAG by evaluating the output of the given job that
@@ -1053,11 +1174,12 @@ class DAG:
             # this happens e.g. in dryrun if output is not yet present
             return
 
-        depending = list(filter(lambda job_: not self.finished(job_), self.bfs(
-            self.depending, job)))
+        depending = list(
+            filter(lambda job_: not self.finished(job_), self.bfs(self.depending, job))
+        )
         newrule, non_dynamic_wildcards = job.rule.dynamic_branch(
-            dynamic_wildcards,
-            input=False)
+            dynamic_wildcards, input=False
+        )
         self.specialize_rule(job.rule, newrule)
 
         # no targetfile needed for job
@@ -1066,7 +1188,8 @@ class DAG:
         for job_ in depending:
             needs_update = any(
                 f.get_wildcard_names() & dynamic_wildcards.keys()
-                for f in job_.rule.dynamic_input)
+                for f in job_.rule.dynamic_input
+            )
 
             if needs_update:
                 newrule_ = job_.rule.dynamic_branch(dynamic_wildcards)
@@ -1075,17 +1198,19 @@ class DAG:
                     if not self.dynamic(job_):
                         logger.debug("Updating job {}.".format(job_))
                         newjob_ = self.new_job(
-                            newrule_,
-                            targetfile=job_.output[0] if job_.output else None)
+                            newrule_, targetfile=job_.output[0] if job_.output else None
+                        )
 
                         unexpected_output = self.reason(
-                            job_).missing_output.intersection(
-                                newjob.existing_output)
+                            job_
+                        ).missing_output.intersection(newjob.existing_output)
                         if unexpected_output:
                             logger.warning(
                                 "Warning: the following output files of rule {} were not "
                                 "present when the DAG was created:\n{}".format(
-                                    newjob_.rule, unexpected_output))
+                                    newjob_.rule, unexpected_output
+                                )
+                            )
 
                         self.replace_job(job_, newjob_)
         return newjob
@@ -1116,22 +1241,33 @@ class DAG:
             self._dynamic.remove(job)
         if job in self._ready_jobs:
             self._ready_jobs.remove(job)
+        # remove from cache
+        for f in job.output:
+            try:
+                del self.job_cache[(job.rule, f)]
+            except KeyError:
+                pass
 
     def replace_job(self, job, newjob, recursive=True):
         """Replace given job with new job."""
-        if job in self.targetjobs:
-            self.targetjobs.remove(job)
-            self.targetjobs.add(newjob)
+        add_to_targetjobs = job in self.targetjobs
+
         depending = list(self.depending[job].items())
         if self.finished(job):
             self._finished.add(newjob)
 
         self.delete_job(job, recursive=recursive)
+
+        if add_to_targetjobs:
+            self.targetjobs.add(newjob)
+
+        self.cache_job(newjob)
+
         self.update([newjob])
 
         logger.debug("Replace {} with dynamic branch {}".format(job, newjob))
         for job_, files in depending:
-            #if not job_.dynamic_input:
+            # if not job_.dynamic_input:
             logger.debug("updating depending job {}".format(job_))
             self.dependencies[job_][newjob].update(files)
             self.depending[newjob][job_].update(files)
@@ -1214,11 +1350,7 @@ class DAG:
                 yield job
 
         for job in jobs:
-            for job_ in self._dfs(direction,
-                                  job,
-                                  visited,
-                                  stop=stop,
-                                  post=post):
+            for job_ in self._dfs(direction, job, visited, stop=stop, post=post):
                 yield job_
 
     def new_wildcards(self, job):
@@ -1235,7 +1367,9 @@ class DAG:
     def rule2job(self, targetrule):
         """Generate a new job from a given rule."""
         if targetrule.has_wildcards():
-            raise WorkflowError("Target rules may not contain wildcards. Please specify concrete files or a rule without wildcards.")
+            raise WorkflowError(
+                "Target rules may not contain wildcards. Please specify concrete files or a rule without wildcards."
+            )
         return self.new_job(targetrule)
 
     def file2jobs(self, targetfile):
@@ -1271,9 +1405,14 @@ class DAG:
                 return
             visited.add(job)
             deps = sorted(self.dependencies[job], key=key)
-            deps = [(group[0] if preselect.isdisjoint(group) else
-                     preselect.intersection(group).pop())
-                    for group in (list(g) for _, g in groupby(deps, key))]
+            deps = [
+                (
+                    group[0]
+                    if preselect.isdisjoint(group)
+                    else preselect.intersection(group).pop()
+                )
+                for group in (list(g) for _, g in groupby(deps, key))
+            ]
             dag[job].extend(deps)
             preselect_parents(job)
             for dep in deps:
@@ -1282,10 +1421,7 @@ class DAG:
         for job in self.targetjobs:
             build_ruledag(job)
 
-        return self._dot(dag.keys(),
-                         print_wildcards=False,
-                         print_types=False,
-                         dag=dag)
+        return self._dot(dag.keys(), print_wildcards=False, print_types=False, dag=dag)
 
     def rule_dot(self):
         graph = defaultdict(set)
@@ -1308,22 +1444,25 @@ class DAG:
             return "{}: {}".format(name, value)
 
         node2rule = lambda job: job.rule
-        node2label = lambda job: "\\n".join(chain([
-            job.rule.name
-        ], sorted(map(format_wildcard, self.new_wildcards(job)))))
+        node2label = lambda job: "\\n".join(
+            chain(
+                [job.rule.name], sorted(map(format_wildcard, self.new_wildcards(job)))
+            )
+        )
 
         dag = {job: self.dependencies[job] for job in self.jobs}
 
-        return self._dot(dag,
-                         node2rule=node2rule,
-                         node2style=node2style,
-                         node2label=node2label)
+        return self._dot(
+            dag, node2rule=node2rule, node2style=node2style, node2label=node2label
+        )
 
-    def _dot(self,
-             graph,
-             node2rule=lambda node: node,
-             node2style=lambda node: "rounded",
-             node2label=lambda node: node):
+    def _dot(
+        self,
+        graph,
+        node2rule=lambda node: node,
+        node2style=lambda node: "rounded",
+        node2label=lambda node: node,
+    ):
 
         # color rules
         huefactor = 2 / (3 * len(self.rules))
@@ -1340,14 +1479,24 @@ class DAG:
         ids = {node: i for i, node in enumerate(graph)}
 
         # calculate nodes
-        nodes = [node_markup(ids[node], node2label(node),
-                             rulecolor[node2rule(node)], node2style(node))
-                 for node in graph]
+        nodes = [
+            node_markup(
+                ids[node],
+                node2label(node),
+                rulecolor[node2rule(node)],
+                node2style(node),
+            )
+            for node in graph
+        ]
         # calculate edges
-        edges = [edge_markup(ids[dep], ids[node])
-                 for node, deps in graph.items() for dep in deps]
+        edges = [
+            edge_markup(ids[dep], ids[node])
+            for node, deps in graph.items()
+            for dep in deps
+        ]
 
-        return textwrap.dedent("""\
+        return textwrap.dedent(
+            """\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -1355,7 +1504,134 @@ class DAG:
                 edge[penwidth=2, color=grey];
             {items}
             }}\
-            """).format(items="\n".join(nodes + edges))
+            """
+        ).format(items="\n".join(nodes + edges))
+
+    def filegraph_dot(
+        self,
+        node2rule=lambda node: node,
+        node2style=lambda node: "rounded",
+        node2label=lambda node: node,
+    ):
+
+        # NOTE: This is code from the rule_dot method.
+        # This method could be split like there as well, however,
+        # it cannot easily reuse the _dot method due to the different node type
+        graph = defaultdict(set)
+        for job in self.jobs:
+            graph[job.rule].update(dep.rule for dep in self.dependencies[job])
+
+        # node ids
+        ids = {node: i for i, node in enumerate(graph)}
+
+        # Compute colors for rules
+        def hsv_to_htmlhexrgb(h, s, v):
+            """Convert hsv colors to hex-encoded rgb colors usable by html."""
+            import colorsys
+
+            hex_r, hex_g, hex_b = (round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v))
+            return f"#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}"
+
+        huefactor = 2 / (3 * len(self.rules))
+        rulecolor = {
+            rule: hsv_to_htmlhexrgb(i * huefactor, 0.6, 0.85)
+            for i, rule in enumerate(self.rules)
+        }
+
+        def resolve_input_functions(input_files):
+            """Iterate over all input files and replace input functions
+            with a fixed string.
+            """
+            files = []
+            for f in input_files:
+                if callable(f):
+                    files.append("<input function>")
+                    # NOTE: This is a workaround. It would be more informative
+                    # to show the code of the input function here (if it is
+                    # short enough). This cannot be easily done with the inspect
+                    # module, since the line numbers in the Snakefile do not
+                    # behave as expected. One (complicated) solution for this
+                    # would be to find the Snakefile and directly extract the
+                    # code of the function.
+                else:
+                    files.append(repr(f).strip("'"))
+            return files
+
+        def html_node(node_id, node, color):
+            """Assemble a html style node for graphviz"""
+            input_files = resolve_input_functions(node._input)
+            output_files = [repr(f).strip("'") for f in node._output]
+            input_header = (
+                '<b><font point-size="14">&#8618; input</font></b>'
+                if input_files
+                else ""
+            )
+            output_header = (
+                '<b><font point-size="14">output &rarr;</font></b>'
+                if output_files
+                else ""
+            )
+            html_node = [
+                f'{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="3" cellborder="0">',
+                f"<tr><td>",
+                f'<b><font point-size="18">{node.name}</font></b>',
+                f"</td></tr>",
+                f"<hr/>",
+                f'<tr><td align="left"> {input_header} </td></tr>',
+            ]
+
+            for filename in sorted(input_files):
+                # Escape html relevant chars like '<' and '>' in filenames
+                # These can be added by input functions etc. and cannot be
+                # displayed in graphviz HTML nodes.
+                in_file = html.escape(filename)
+                html_node.extend(
+                    [
+                        "<tr>",
+                        f'<td align="left"><font face="monospace">{in_file}</font></td>'
+                        "</tr>",
+                    ]
+                )
+
+            html_node.append("<hr/>")
+            html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>')
+
+            for filename in sorted(output_files):
+                out_file = html.escape(filename)
+                html_node.extend(
+                    [
+                        "<tr>",
+                        f'<td align="left"><font face="monospace">{out_file}</font></td>'
+                        "</tr>",
+                    ]
+                )
+
+            html_node.append("</table>>]")
+            return "\n".join(html_node)
+
+        nodes = [
+            html_node(ids[node], node, rulecolor[node2rule(node)]) for node in graph
+        ]
+
+        # calculate edges
+        edge_markup = "\t{} -> {}".format
+        edges = [
+            edge_markup(ids[dep], ids[node], ids[dep], ids[node])
+            for node, deps in graph.items()
+            for dep in deps
+        ]
+
+        return textwrap.dedent(
+            """\
+            digraph snakemake_dag {{
+                graph[bgcolor=white, margin=0];
+                node[shape=box, style=rounded, fontname=sans, \
+                fontsize=10, penwidth=2];
+                edge[penwidth=2, color=grey];
+            {items}
+            }}\
+            """
+        ).format(items="\n".join(nodes + edges))
 
     def summary(self, detailed=False):
         if detailed:
@@ -1364,8 +1640,7 @@ class DAG:
             yield "output_file\tdate\trule\tversion\tlog-file(s)\tstatus\tplan"
 
         for job in self.jobs:
-            output = job.rule.output if self.dynamic(
-                job) else job.expanded_output
+            output = job.rule.output if self.dynamic(job) else job.expanded_output
             for f in output:
                 rule = self.workflow.persistence.rule(f)
                 rule = "-" if rule is None else rule
@@ -1402,8 +1677,9 @@ class DAG:
                 elif self.workflow.persistence.params_changed(job, file=f):
                     status = "params changed"
                 if detailed:
-                    yield "\t".join((f, date, rule, version, log, input, shellcmd,
-                                     status, pending))
+                    yield "\t".join(
+                        (f, date, rule, version, log, input, shellcmd, status, pending)
+                    )
                 else:
                     yield "\t".join((f, date, rule, version, log, status, pending))
 
@@ -1422,8 +1698,10 @@ class DAG:
         elif path.endswith("tar.gz"):
             mode = "x:gz"
         else:
-            raise WorkflowError("Unsupported archive format "
-                                "(supported: .tar, .tar.gz, .tar.bz2, .tar.xz)")
+            raise WorkflowError(
+                "Unsupported archive format "
+                "(supported: .tar, .tar.gz, .tar.bz2, .tar.xz)"
+            )
         if os.path.exists(path):
             raise WorkflowError("Archive already exists:\n" + path)
 
@@ -1436,8 +1714,10 @@ class DAG:
 
                 def add(path):
                     if workdir not in Path(os.path.abspath(path)).parents:
-                        logger.warning("Path {} cannot be archived: "
-                                       "not within working directory.".format(path))
+                        logger.warning(
+                            "Path {} cannot be archived: "
+                            "not within working directory.".format(path)
+                        )
                     else:
                         f = os.path.relpath(path)
                         if f not in archived:
@@ -1445,8 +1725,10 @@ class DAG:
                             archived.add(f)
                             logger.info("archived " + f)
 
-                logger.info("Archiving snakefiles, scripts and files under "
-                            "version control...")
+                logger.info(
+                    "Archiving snakefiles, scripts and files under "
+                    "version control..."
+                )
                 for f in self.workflow.get_sources():
                     add(f)
 
@@ -1454,7 +1736,9 @@ class DAG:
                 for job in self.jobs:
                     # input files
                     for f in job.input:
-                        if not any(f in files for files in self.dependencies[job].values()):
+                        if not any(
+                            f in files for files in self.dependencies[job].values()
+                        ):
                             # this is an input file that is not created by any job
                             add(f)
 
@@ -1470,7 +1754,6 @@ class DAG:
         except (Exception, BaseException) as e:
             os.remove(path)
             raise e
-
 
     def clean(self, only_temp=False, dryrun=False):
         """Removes files generated by the workflow.
@@ -1496,11 +1779,20 @@ class DAG:
         used_files = set()
         files_in_cwd = set()
         for job in self.jobs:
-            used_files.update(os.path.relpath(file) for file in chain(job.local_input, job.local_output, job.log))
+            used_files.update(
+                os.path.relpath(file)
+                for file in chain(job.local_input, job.local_output, job.log)
+            )
         for root, dirs, files in os.walk(os.getcwd()):
             # Ignore hidden files and don't traverse into hidden dirs
-            files_in_cwd.update([os.path.relpath(os.path.join(root, f)) for f in files if not f[0] == '.'])
-            dirs[:] = [d for d in dirs if not d[0] == '.']
+            files_in_cwd.update(
+                [
+                    os.path.relpath(os.path.join(root, f))
+                    for f in files
+                    if not f[0] == "."
+                ]
+            )
+            dirs[:] = [d for d in dirs if not d[0] == "."]
         for f in sorted(list(files_in_cwd - used_files)):
             logger.info(f)
 
@@ -1512,8 +1804,8 @@ class DAG:
                 "value": {
                     "jobid": jobid,
                     "label": job.rule.name,
-                    "rule": job.rule.name
-                }
+                    "rule": job.rule.name,
+                },
             }
 
         def edge(a, b):
@@ -1523,13 +1815,18 @@ class DAG:
 
         if len(jobs) > max_jobs:
             logger.info(
-                "Job-DAG is too large for visualization (>{} jobs).".format(
-                    max_jobs))
+                "Job-DAG is too large for visualization (>{} jobs).".format(max_jobs)
+            )
         else:
-            logger.d3dag(nodes=[node(job) for job in jobs],
-                         edges=[edge(dep, job)
-                                for job in jobs for dep in self.dependencies[
-                                    job] if self.needrun(dep)])
+            logger.d3dag(
+                nodes=[node(job) for job in jobs],
+                edges=[
+                    edge(dep, job)
+                    for job in jobs
+                    for dep in self.dependencies[job]
+                    if self.needrun(dep)
+                ],
+            )
 
     def stats(self):
         rules = Counter()
@@ -1537,8 +1834,7 @@ class DAG:
         rules.update(job.rule for job in self.finished_jobs)
         yield "Job counts:"
         yield "\tcount\tjobs"
-        for rule, count in sorted(rules.most_common(),
-                                  key=lambda item: item[0].name):
+        for rule, count in sorted(rules.most_common(), key=lambda item: item[0].name):
             yield "\t{}\t{}".format(count, rule)
         yield "\t{}".format(len(self))
 

@@ -20,8 +20,10 @@ try:
     import ftputil
     import ftputil.session
 except ImportError as e:
-    raise WorkflowError("The Python 3 package 'ftputil' " +
-        "must be installed to use SFTP remote() file functionality. %s" % e.msg)
+    raise WorkflowError(
+        "The Python 3 package 'ftputil' "
+        + "must be installed to use SFTP remote() file functionality. %s" % e.msg
+    )
 
 
 class RemoteProvider(AbstractRemoteProvider):
@@ -29,49 +31,76 @@ class RemoteProvider(AbstractRemoteProvider):
     supports_default = True
     allows_directories = True
 
-    def __init__(self, *args, stay_on_remote=False, immediate_close=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+    def __init__(
+        self,
+        *args,
+        keep_local=False,
+        stay_on_remote=False,
+        is_default=False,
+        immediate_close=False,
+        **kwargs
+    ):
+        super(RemoteProvider, self).__init__(
+            *args,
+            keep_local=keep_local,
+            stay_on_remote=stay_on_remote,
+            is_default=is_default,
+            **kwargs
+        )
 
         self.immediate_close = immediate_close
 
     @property
     def default_protocol(self):
         """The protocol that is prepended to the path when no protocol is specified."""
-        return 'ftp://'
+        return "ftp://"
 
     @property
     def available_protocols(self):
         """List of valid protocols for this remote provider."""
-        return ['ftp://', 'ftps://']
+        return ["ftp://", "ftps://"]
 
-    def remote(self, value, *args, encrypt_data_channel=None, immediate_close=None, **kwargs):
+    def remote(
+        self, value, *args, encrypt_data_channel=None, immediate_close=None, **kwargs
+    ):
         if isinstance(value, str):
             values = [value]
         elif isinstance(value, collections.Iterable):
             values = value
         else:
-            raise TypeError('Invalid type ({}) passed to remote: {}'.format(type(value), value))
+            raise TypeError(
+                "Invalid type ({}) passed to remote: {}".format(type(value), value)
+            )
 
         for i, file in enumerate(values):
-            match = re.match('^(ftps?)://.+', file)
+            match = re.match("^(ftps?)://.+", file)
             if match:
                 protocol, = match.groups()
-                if protocol == 'ftps' and encrypt_data_channel:
-                    raise SyntaxError('encrypt_data_channel=False cannot be used with a ftps:// url')
-                if protocol == 'ftp' and encrypt_data_channel not in [None, False]:
-                    raise SyntaxError('encrypt_data_channel=Trie cannot be used with a ftp:// url')
+                if protocol == "ftps" and encrypt_data_channel:
+                    raise SyntaxError(
+                        "encrypt_data_channel=False cannot be used with a ftps:// url"
+                    )
+                if protocol == "ftp" and encrypt_data_channel not in [None, False]:
+                    raise SyntaxError(
+                        "encrypt_data_channel=Trie cannot be used with a ftp:// url"
+                    )
             else:
                 if encrypt_data_channel:
-                    values[i] = 'ftps://' + file
+                    values[i] = "ftps://" + file
                 else:
-                    values[i] = 'ftp://' + file
+                    values[i] = "ftp://" + file
 
         should_close = immediate_close if immediate_close else self.immediate_close
-        values = [super(RemoteProvider, self).remote(
-                    value, *args,
-                    encrypt_data_channel=encrypt_data_channel,
-                    immediate_close=should_close, **kwargs)
-                  for value in values]
+        values = [
+            super(RemoteProvider, self).remote(
+                value,
+                *args,
+                encrypt_data_channel=encrypt_data_channel,
+                immediate_close=should_close,
+                **kwargs
+            )
+            for value in values
+        ]
         if len(values) == 1:
             return values[0]
         else:
@@ -82,14 +111,28 @@ class RemoteObject(DomainObject):
     """ This is a class to interact with an FTP server.
     """
 
-    def __init__(self, *args, keep_local=False, provider=None, encrypt_data_channel=False, immediate_close=False, **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+    def __init__(
+        self,
+        *args,
+        keep_local=False,
+        provider=None,
+        encrypt_data_channel=False,
+        immediate_close=False,
+        **kwargs
+    ):
+        super(RemoteObject, self).__init__(
+            *args, keep_local=keep_local, provider=provider, **kwargs
+        )
 
         self.encrypt_data_channel = encrypt_data_channel
-        self.immediate_close      = immediate_close
+        self.immediate_close = immediate_close
 
     def close(self):
-        if hasattr(self, "conn") and isinstance(self.conn, ftputil.FTPHost) and not self.immediate_close:
+        if (
+            hasattr(self, "conn")
+            and isinstance(self.conn, ftputil.FTPHost)
+            and not self.immediate_close
+        ):
             try:
                 self.conn.keep_alive()
                 self.conn.close()
@@ -98,9 +141,12 @@ class RemoteObject(DomainObject):
 
     # === Implementations of abstract class members ===
 
-    @contextmanager #makes this a context manager. after 'yield' is __exit__()
+    @contextmanager  # makes this a context manager. after 'yield' is __exit__()
     def ftpc(self):
-        if (not hasattr(self, "conn") or (hasattr(self, "conn") and not isinstance(self.conn, ftputil.FTPHost))) or self.immediate_close:
+        if (
+            not hasattr(self, "conn")
+            or (hasattr(self, "conn") and not isinstance(self.conn, ftputil.FTPHost))
+        ) or self.immediate_close:
             # if args have been provided to remote(), use them over those given to RemoteProvider()
             args_to_use = self.provider.args
             if len(self.args):
@@ -116,20 +162,28 @@ class RemoteObject(DomainObject):
             kwargs_to_use["port"] = int(self.port) if self.port else 21
             kwargs_to_use["encrypt_data_channel"] = self.encrypt_data_channel
 
-            for k,v in self.provider.kwargs.items():
+            for k, v in self.provider.kwargs.items():
                 kwargs_to_use[k] = v
-            for k,v in self.kwargs.items():
+            for k, v in self.kwargs.items():
                 kwargs_to_use[k] = v
 
-            ftp_base_class = ftplib.FTP_TLS if kwargs_to_use["encrypt_data_channel"] else ftplib.FTP
+            ftp_base_class = (
+                ftplib.FTP_TLS if kwargs_to_use["encrypt_data_channel"] else ftplib.FTP
+            )
 
             ftp_session_factory = ftputil.session.session_factory(
-                           base_class=ftp_base_class,
-                           port=kwargs_to_use["port"],
-                           encrypt_data_channel= kwargs_to_use["encrypt_data_channel"],
-                           debug_level=None)
+                base_class=ftp_base_class,
+                port=kwargs_to_use["port"],
+                encrypt_data_channel=kwargs_to_use["encrypt_data_channel"],
+                debug_level=None,
+            )
 
-            conn = ftputil.FTPHost(kwargs_to_use["host"], kwargs_to_use["username"], kwargs_to_use["password"], session_factory=ftp_session_factory)
+            conn = ftputil.FTPHost(
+                kwargs_to_use["host"],
+                kwargs_to_use["username"],
+                kwargs_to_use["password"],
+                session_factory=ftp_session_factory,
+            )
             if self.immediate_close:
                 yield conn
             else:
@@ -152,7 +206,10 @@ class RemoteObject(DomainObject):
                 return ftpc.path.exists(self.remote_path)
             return False
         else:
-            raise FTPFileException("The file cannot be parsed as an FTP path in form 'host:port/abs/path/to/file': %s" % self.local_file())
+            raise FTPFileException(
+                "The file cannot be parsed as an FTP path in form 'host:port/abs/path/to/file': %s"
+                % self.local_file()
+            )
 
     def mtime(self):
         if self.exists():
@@ -164,7 +221,9 @@ class RemoteObject(DomainObject):
                     pass
                 return ftpc.path.getmtime(self.remote_path)
         else:
-            raise FTPFileException("The file does not seem to exist remotely: %s" % self.local_file())
+            raise FTPFileException(
+                "The file does not seem to exist remotely: %s" % self.local_file()
+            )
 
     def size(self):
         if self.exists():
@@ -185,9 +244,11 @@ class RemoteObject(DomainObject):
                 except:
                     pass
                 ftpc.download(source=self.remote_path, target=self.local_path)
-                os_sync()# ensure flush to disk
+                os_sync()  # ensure flush to disk
             else:
-                raise FTPFileException("The file does not seem to exist remotely: %s" % self.local_file())
+                raise FTPFileException(
+                    "The file does not seem to exist remotely: %s" % self.local_file()
+                )
 
     def upload(self):
         with self.ftpc() as ftpc:
@@ -202,9 +263,14 @@ class RemoteObject(DomainObject):
         dirname = first_wildcard.replace(self.path_prefix, "")
 
         with self.ftpc() as ftpc:
-            file_list = [(os.path.join(dirpath, f) if dirpath != "." else f)
-                    for dirpath, dirnames, filenames in ftpc.walk(dirname)
-                    for f in chain(filenames, dirnames)]
-            file_list = [file_path[1:] if file_path[0] == "/" else file_path for file_path in file_list]
+            file_list = [
+                (os.path.join(dirpath, f) if dirpath != "." else f)
+                for dirpath, dirnames, filenames in ftpc.walk(dirname)
+                for f in chain(filenames, dirnames)
+            ]
+            file_list = [
+                file_path[1:] if file_path[0] == "/" else file_path
+                for file_path in file_list
+            ]
 
         return file_list

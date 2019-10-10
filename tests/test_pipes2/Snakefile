@@ -1,0 +1,21 @@
+rule all:
+   input:
+       "foo.txt"
+
+rule one:
+   output:
+       pipe("pipe.txt")
+   shell:
+       "echo test > {output}"
+
+rule two:
+   input:
+       pipe("pipe.txt")
+   output:
+       "foo.txt"
+   shell:
+       """
+       cat {input} > /dev/null
+       sleep 10
+       touch {output}
+       """

@@ -21,21 +21,22 @@ from snakemake.common import Mode
 
 class ColorizingStreamHandler(_logging.StreamHandler):
 
-
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
     RESET_SEQ = "\033[0m"
     COLOR_SEQ = "\033[%dm"
     BOLD_SEQ = "\033[1m"
 
     colors = {
-        'WARNING': YELLOW,
-        'INFO': GREEN,
-        'DEBUG': BLUE,
-        'CRITICAL': RED,
-        'ERROR': RED
+        "WARNING": YELLOW,
+        "INFO": GREEN,
+        "DEBUG": BLUE,
+        "CRITICAL": RED,
+        "ERROR": RED,
     }
 
-    def __init__(self, nocolor=False, stream=sys.stderr, use_threads=False, mode=Mode.default):
+    def __init__(
+        self, nocolor=False, stream=sys.stderr, use_threads=False, mode=Mode.default
+    ):
         super().__init__(stream=stream)
 
         self._output_lock = threading.Lock()
@@ -43,15 +44,15 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         self.nocolor = nocolor or not self.can_color_tty(mode)
 
     def can_color_tty(self, mode):
-        if 'TERM' in os.environ and os.environ['TERM'] == 'dumb':
+        if "TERM" in os.environ and os.environ["TERM"] == "dumb":
             return False
         if mode == Mode.subprocess:
             return True
-        return self.is_tty and not platform.system() == 'Windows'
+        return self.is_tty and not platform.system() == "Windows"
 
     @property
     def is_tty(self):
-        isatty = getattr(self.stream, 'isatty', None)
+        isatty = getattr(self.stream, "isatty", None)
         return isatty and isatty()
 
     def emit(self, record):
@@ -59,7 +60,7 @@ class ColorizingStreamHandler(_logging.StreamHandler):
             try:
                 self.format(record)  # add the message to the record
                 self.stream.write(self.decorate(record))
-                self.stream.write(getattr(self, 'terminator', '\n'))
+                self.stream.write(getattr(self, "terminator", "\n"))
                 self.flush()
             except BrokenPipeError as e:
                 raise e
@@ -73,8 +74,7 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         message = record.message
         message = [message]
         if not self.nocolor and record.levelname in self.colors:
-            message.insert(0, self.COLOR_SEQ %
-                           (30 + self.colors[record.levelname]))
+            message.insert(0, self.COLOR_SEQ % (30 + self.colors[record.levelname]))
             message.append(self.RESET_SEQ)
         return "".join(message)
 
@@ -95,11 +95,14 @@ class Logger:
     def setup_logfile(self):
         if self.mode == Mode.default:
             os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
-            self.logfile = os.path.abspath(os.path.join(".snakemake",
-                                        "log",
-                                        datetime.datetime.now().isoformat()
-                                                               .replace(":", "") +
-                                        ".snakemake.log"))
+            self.logfile = os.path.abspath(
+                os.path.join(
+                    ".snakemake",
+                    "log",
+                    datetime.datetime.now().isoformat().replace(":", "")
+                    + ".snakemake.log",
+                )
+            )
 
             self.logfile_handler = _logging.FileHandler(self.logfile)
             self.logger.addHandler(self.logfile_handler)
@@ -142,7 +145,9 @@ class Logger:
         callerframerecord = inspect.stack()[1]
         frame = callerframerecord[0]
         info = inspect.getframeinfo(frame)
-        self.debug("{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info))
+        self.debug(
+            "{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info)
+        )
 
     def info(self, msg, indent=False):
         self.handler(dict(level="info", msg=msg, indent=indent))
@@ -217,9 +222,11 @@ class Logger:
                 if value != omit:
                     return "    {}: {}".format(item, valueformat(value))
 
-            yield "{}{} {}:".format("local" if msg["local"] else "",
-                                    "checkpoint" if msg["is_checkpoint"] else "rule",
-                                    msg["name"])
+            yield "{}{} {}:".format(
+                "local" if msg["local"] else "",
+                "checkpoint" if msg["is_checkpoint"] else "rule",
+                msg["name"],
+            )
             for item in ["input", "output", "log"]:
                 fmt = format_item(item, omit=[], valueformat=", ".join)
                 if fmt != None:
@@ -257,7 +264,6 @@ class Logger:
 
         level = msg["level"]
 
-
         if level == "job_info" and not self.quiet:
             if not self.last_msg_was_job_info:
                 self.logger.info("")
@@ -269,8 +275,9 @@ class Logger:
             else:
                 self.logger.info("\n".join(map(indent, job_info(msg))))
             if msg["is_checkpoint"]:
-                self.logger.warning(indent("Downstream jobs will be updated "
-                                    "after completion."))
+                self.logger.warning(
+                    indent("Downstream jobs will be updated " "after completion.")
+                )
             self.logger.info("")
 
             self.last_msg_was_job_info = True
@@ -278,17 +285,36 @@ class Logger:
             timestamp()
             if not self.last_msg_was_job_info:
                 self.logger.info("")
-            self.logger.info("group job {} (jobs in lexicogr. order):".format(msg["groupid"]))
+            self.logger.info(
+                "group job {} (jobs in lexicogr. order):".format(msg["groupid"])
+            )
         elif level == "job_error":
             timestamp()
             self.logger.error(indent("Error in rule {}:".format(msg["name"])))
             self.logger.error(indent("    jobid: {}".format(msg["jobid"])))
             if msg["output"]:
-                self.logger.error(indent("    output: {}".format(", ".join(msg["output"]))))
+                self.logger.error(
+                    indent("    output: {}".format(", ".join(msg["output"])))
+                )
             if msg["log"]:
-                self.logger.error(indent("    log: {}".format(", ".join(msg["log"]))))
+                self.logger.error(
+                    indent(
+                        "    log: {} (check log file(s) for error message)".format(
+                            ", ".join(msg["log"])
+                        )
+                    )
+                )
             if msg["conda_env"]:
                 self.logger.error(indent("    conda-env: {}".format(msg["conda_env"])))
+            if msg["shellcmd"]:
+                self.logger.error(
+                    indent(
+                        "    shell:\n        {}\n        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)".format(
+                            msg["shellcmd"]
+                        )
+                    )
+                )
+
             for item in msg["aux"].items():
                 self.logger.error(indent("    {}: {}".format(*item)))
             self.logger.error("")
@@ -313,8 +339,9 @@ class Logger:
                 total = msg["total"]
                 p = done / total
                 percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
-                self.logger.info("{} of {} steps ({}) done".format(
-                    done, total, percent_fmt))
+                self.logger.info(
+                    "{} of {} steps ({}) done".format(done, total, percent_fmt)
+                )
             elif level == "shellcmd":
                 if self.printshellcmds:
                     self.logger.warning(indent(msg["msg"]))
@@ -335,15 +362,19 @@ class Logger:
                         "{status} job {name}\n\twildcards: {wc}".format(
                             status=msg["status"],
                             name=job.rule.name,
-                            wc=format_wildcards(job.wildcards)))
+                            wc=format_wildcards(job.wildcards),
+                        )
+                    )
 
             self.last_msg_was_job_info = False
 
 
 def format_dict(dict, omit_keys=[], omit_values=[]):
-    return ", ".join("{}={}".format(name, value)
-                     for name, value in dict.items()
-                     if name not in omit_keys and value not in omit_values)
+    return ", ".join(
+        "{}={}".format(name, str(value))
+        for name, value in dict.items()
+        if name not in omit_keys and value not in omit_values
+    )
 
 
 format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
@@ -357,16 +388,18 @@ def format_resource_names(resources, omit_resources="_cores _nodes".split()):
 logger = Logger()
 
 
-def setup_logger(handler=None,
-                 quiet=False,
-                 printshellcmds=False,
-                 printreason=False,
-                 debug_dag=False,
-                 nocolor=False,
-                 stdout=False,
-                 debug=False,
-                 use_threads=False,
-                 mode=Mode.default):
+def setup_logger(
+    handler=None,
+    quiet=False,
+    printshellcmds=False,
+    printreason=False,
+    debug_dag=False,
+    nocolor=False,
+    stdout=False,
+    debug=False,
+    use_threads=False,
+    mode=Mode.default,
+):
     if handler is not None:
         # custom log handler
         logger.log_handler.append(handler)
@@ -376,7 +409,8 @@ def setup_logger(handler=None,
             nocolor=nocolor,
             stream=sys.stdout if stdout else sys.stderr,
             use_threads=use_threads,
-            mode=mode)
+            mode=mode,
+        )
         logger.set_stream_handler(stream_handler)
 
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)

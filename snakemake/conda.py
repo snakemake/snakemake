@@ -11,6 +11,7 @@ from distutils.version import StrictVersion
 import json
 from glob import glob
 import tarfile
+import uuid
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
@@ -22,17 +23,18 @@ from snakemake.io import git_content
 
 def content(env_file):
     if env_file.startswith("git+file:"):
-        return git_content(env_file).encode('utf-8')
+        return git_content(env_file).encode("utf-8")
     elif urlparse(env_file).scheme:
         try:
             return urlopen(env_file).read()
         except URLError as e:
-            raise WorkflowError("Failed to open environment file {}:".format(env_file), e)
+            raise WorkflowError(
+                "Failed to open environment file {}:".format(env_file), e
+            )
     else:
         if not os.path.exists(env_file):
-            raise WorkflowError("Conda env file does not "
-                                "exist: {}".format(env_file))
-        with open(env_file, 'rb') as f:
+            raise WorkflowError("Conda env file does not " "exist: {}".format(env_file))
+        with open(env_file, "rb") as f:
             return f.read()
 
 
@@ -117,8 +119,9 @@ class Env:
         try:
             import yaml
         except ImportError:
-            raise WorkflowError("Error importing PyYAML. "
-                "Please install PyYAML to archive workflows.")
+            raise WorkflowError(
+                "Error importing PyYAML. " "Please install PyYAML to archive workflows."
+            )
         # importing requests locally because it interferes with instantiating conda environments
         import requests
 
@@ -128,18 +131,21 @@ class Env:
 
         try:
             # Download
-            logger.info("Downloading packages for conda environment {}...".format(self.file))
+            logger.info(
+                "Downloading packages for conda environment {}...".format(self.file)
+            )
             os.makedirs(env_archive, exist_ok=True)
             try:
                 out = shell.check_output(
                     "conda list --explicit --prefix '{}'".format(self.path),
-                    stderr=subprocess.STDOUT)
+                    stderr=subprocess.STDOUT,
+                )
                 logger.debug(out.decode())
             except subprocess.CalledProcessError as e:
-                raise WorkflowError("Error exporting conda packages:\n" +
-                                    e.output.decode())
-            with open(os.path.join(env_archive,
-                                   "packages.txt"), "w") as pkg_list:
+                raise WorkflowError(
+                    "Error exporting conda packages:\n" + e.output.decode()
+                )
+            with open(os.path.join(env_archive, "packages.txt"), "w") as pkg_list:
                 for l in out.decode().split("\n"):
                     if l and not l.startswith("#") and not l.startswith("@"):
                         pkg_url = l
@@ -157,8 +163,13 @@ class Env:
                         try:
                             tarfile.open(pkg_path)
                         except:
-                            raise WorkflowError("Package is invalid tar archive: {}".format(pkg_url))
-        except (requests.exceptions.ChunkedEncodingError, requests.exceptions.HTTPError) as e:
+                            raise WorkflowError(
+                                "Package is invalid tar archive: {}".format(pkg_url)
+                            )
+        except (
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.HTTPError,
+        ) as e:
             shutil.rmtree(env_archive)
             raise WorkflowError("Error downloading conda package {}.".format(pkg_url))
         except (Exception, BaseException) as e:
@@ -175,8 +186,9 @@ class Env:
         tmp_file = None
 
         url_scheme, *_ = urlparse(env_file)
-        if (url_scheme and not url_scheme == 'file') or \
-            (not url_scheme and env_file.startswith("git+file:/")):
+        if (url_scheme and not url_scheme == "file") or (
+            not url_scheme and env_file.startswith("git+file:/")
+        ):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as tmp:
                 tmp.write(self.content)
                 env_file = tmp.name
@@ -186,48 +198,72 @@ class Env:
         env_path = self.path
 
         # Check for broken environment
-        if os.path.exists(os.path.join(env_path,"env_setup_start")) and not os.path.exists(os.path.join(env_path,"env_setup_done")):
+        if os.path.exists(
+            os.path.join(env_path, "env_setup_start")
+        ) and not os.path.exists(os.path.join(env_path, "env_setup_done")):
             if dryrun:
-                logger.info("Incomplete Conda environment {} will be recreated.".format(utils.simplify_path(self.file)))
+                logger.info(
+                    "Incomplete Conda environment {} will be recreated.".format(
+                        utils.simplify_path(self.file)
+                    )
+                )
             else:
-                logger.info("Removing incomplete Conda environment {}...".format(utils.simplify_path(self.file)))
+                logger.info(
+                    "Removing incomplete Conda environment {}...".format(
+                        utils.simplify_path(self.file)
+                    )
+                )
                 shutil.rmtree(env_path, ignore_errors=True)
 
         # Create environment if not already present.
         if not os.path.exists(env_path):
-            conda = Conda(self._singularity_img)
             if dryrun:
-                logger.info("Conda environment {} will be created.".format(utils.simplify_path(self.file)))
+                logger.info(
+                    "Conda environment {} will be created.".format(
+                        utils.simplify_path(self.file)
+                    )
+                )
                 return env_path
-            logger.info("Creating conda environment {}...".format(
-                        utils.simplify_path(self.file)))
+            conda = Conda(self._singularity_img)
+            logger.info(
+                "Creating conda environment {}...".format(
+                    utils.simplify_path(self.file)
+                )
+            )
             # Check if env archive exists. Use that if present.
             env_archive = self.archive_file
             try:
                 # Touch "start" flag file
                 os.makedirs(env_path, exist_ok=True)
-                with open(os.path.join(env_path,"env_setup_start"), "a") as f:
+                with open(os.path.join(env_path, "env_setup_start"), "a") as f:
                     pass
 
                 if os.path.exists(env_archive):
-                    logger.info("Using archived local conda packages.")
+                    logger.info("Installing archived conda packages.")
                     pkg_list = os.path.join(env_archive, "packages.txt")
                     if os.path.exists(pkg_list):
                         # read pacakges in correct order
                         # this is for newer env archives where the package list
                         # was stored
-                        packages = [os.path.join(env_archive, pkg.rstrip())
-                                    for pkg in open(pkg_list)]
+                        packages = [
+                            os.path.join(env_archive, pkg.rstrip())
+                            for pkg in open(pkg_list)
+                        ]
                     else:
                         # guess order
                         packages = glob(os.path.join(env_archive, "*.tar.bz2"))
 
                     # install packages manually from env archive
                     cmd = " ".join(
-                        ["conda", "create", "--copy", "--prefix '{}'".format(env_path)] +
-                        packages)
+                        ["conda", "create", "--copy", "--prefix '{}'".format(env_path)]
+                        + packages
+                    )
                     if self._singularity_img:
-                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
+                        cmd = singularity.shellcmd(
+                            self._singularity_img.path,
+                            cmd,
+                            envvars=self.get_singularity_envvars(),
+                        )
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
 
                 else:
@@ -238,32 +274,50 @@ class Env:
                     target_env_file = env_path + ".yaml"
                     shutil.copy(env_file, target_env_file)
 
-                    logger.info("Downloading remote packages.")
-                    cmd = " ".join(["conda", "env", "create",
-                                                "--file '{}'".format(target_env_file),
-                                                "--prefix '{}'".format(env_path)])
+                    logger.info("Downloading and installing remote packages.")
+                    cmd = " ".join(
+                        [
+                            "conda",
+                            "env",
+                            "create",
+                            "--file '{}'".format(target_env_file),
+                            "--prefix '{}'".format(env_path),
+                        ]
+                    )
                     if self._singularity_img:
-                        cmd = singularity.shellcmd(self._singularity_img.path, cmd)
+                        cmd = singularity.shellcmd(
+                            self._singularity_img.path,
+                            cmd,
+                            envvars=self.get_singularity_envvars(),
+                        )
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
                 # Touch "done" flag file
-                with open(os.path.join(env_path,"env_setup_done"), "a") as f:
+                with open(os.path.join(env_path, "env_setup_done"), "a") as f:
                     pass
 
                 logger.debug(out.decode())
-                logger.info("Environment for {} created (location: {})".format(
-                            os.path.relpath(env_file), os.path.relpath(env_path)))
+                logger.info(
+                    "Environment for {} created (location: {})".format(
+                        os.path.relpath(env_file), os.path.relpath(env_path)
+                    )
+                )
             except subprocess.CalledProcessError as e:
                 # remove potential partially installed environment
                 shutil.rmtree(env_path, ignore_errors=True)
                 raise CreateCondaEnvironmentException(
-                    "Could not create conda environment from {}:\n".format(env_file) +
-                    e.output.decode())
+                    "Could not create conda environment from {}:\n".format(env_file)
+                    + e.output.decode()
+                )
 
         if tmp_file:
             # temporary file was created
             os.remove(tmp_file)
 
         return env_path
+
+    @classmethod
+    def get_singularity_envvars(self):
+        return {"CONDA_PKGS_DIRS": "/tmp/conda/{}".format(uuid.uuid4())}
 
     def __hash__(self):
         # this hash is only for object comparison, not for env paths
@@ -290,6 +344,7 @@ class Conda:
     def __init__(self, singularity_img=None):
         from snakemake.shell import shell
         from snakemake import singularity
+
         if isinstance(singularity_img, singularity.Image):
             singularity_img = singularity_img.path
         self.singularity_img = singularity_img
@@ -310,34 +365,41 @@ class Conda:
         locate_cmd = "where conda" if utils.ON_WINDOWS else "type conda"
         try:
             shell.check_output(self._get_cmd(locate_cmd), stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             if self.singularity_img:
-                raise CreateCondaEnvironmentException("The 'conda' command is not "
-                                                      "available inside "
-                                                      "your singularity container "
-                                                      "image. Snakemake mounts "
-                                                      "your conda installation "
-                                                      "into singularity. "
-                                                      "Sometimes, this can fail "
-                                                      "because of shell restrictions. "
-                                                      "It has been tested to work "
-                                                      "with docker://ubuntu, but "
-                                                      "it e.g. fails with "
-                                                      "docker://bash ")
+                raise CreateCondaEnvironmentException(
+                    "The 'conda' command is not "
+                    "available inside "
+                    "your singularity container "
+                    "image. Snakemake mounts "
+                    "your conda installation "
+                    "into singularity. "
+                    "Sometimes, this can fail "
+                    "because of shell restrictions. "
+                    "It has been tested to work "
+                    "with docker://ubuntu, but "
+                    "it e.g. fails with "
+                    "docker://bash "
+                )
             else:
-                raise CreateCondaEnvironmentException("The 'conda' command is not "
-                                                      "available in the "
-                                                      "shell {} that will be "
-                                                      "used by Snakemake. You have "
-                                                      "to ensure that it is in your "
-                                                      "PATH, e.g., first activating "
-                                                      "the conda base environment "
-                                                      "with `conda activate base`.".format(
-                                                        shell.get_executable()))
+                raise CreateCondaEnvironmentException(
+                    "The 'conda' command is not "
+                    "available in the "
+                    "shell {} that will be "
+                    "used by Snakemake. You have "
+                    "to ensure that it is in your "
+                    "PATH, e.g., first activating "
+                    "the conda base environment "
+                    "with `conda activate base`.".format(shell.get_executable())
+                )
         try:
-            version = shell.check_output(self._get_cmd("conda --version"),
-                                              stderr=subprocess.STDOUT).decode() \
-                                                                       .split()[1]
+            version = (
+                shell.check_output(
+                    self._get_cmd("conda --version"), stderr=subprocess.STDOUT
+                )
+                .decode()
+                .split()[1]
+            )
             if StrictVersion(version) < StrictVersion("4.2"):
                 raise CreateCondaEnvironmentException(
                     "Conda must be version 4.2 or later."
@@ -355,6 +417,7 @@ class Conda:
 
     def shellcmd(self, env_path, cmd):
         from snakemake.shell import shell
+
         # get path to activate script
         activate = os.path.join(self.bin_path(), "activate")
         return "source {} '{}'; {}".format(activate, env_path, cmd)

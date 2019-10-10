@@ -1,3 +1,85 @@
+[5.7.0] - 2019-10-07
+====================
+Changed
+-------
+- Fixed various corner case bugs. Many thanks to the community for pull requests and reporting!
+- Container execution adapted to latest singularity.
+
+Added
+-----
+- First class support for Amazon cloud execution via a new `Tibanna backend <https://snakemake.readthedocs.io/en/v5.7.0/executable.html#executing-a-snakemake-workflow-via-tibanna-on-amazon-web-services>`. Thanks to Soo Lee from Harvard Biomedical Informatics!
+- Allow multiple config files to be passed via the command line.
+- A new, more detailed way to visualize the DAG (--filegraph). Thanks to Henning Timm!
+- Pathlib compatibility added. Input and output files can now also be Path objects. Thanks to Frederik Boulund!
+- New azure storage remote provider. Transparently access input and output files on Microsoft Azure. Thanks to Sebastian Kurscheid!
+
+[5.6.0] - 2019-09-06
+====================
+Changed
+-------
+- Fix compatibility with latest singularity versions.
+- Various bug fixes (e.g. in cluster error handling, remote providers, kubernetes backend).
+Added
+-----
+- Add --default-resources flag, that allows to define default resources for jobs (e.g. mem_mb, disk_mb), see `docs <https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#resources>`_.
+- Accept ``--dry-run`` as a synonym of ``--dryrun``. Other Snakemake options are similarly hyphenated, so other documentation now refers to ``--dry-run`` but both (and also ``-n``) will always be accepted equivalently.
+
+[5.5.4] - 2019-07-21
+====================
+Changed
+-------
+- Reports now automatically include workflow code and configuration for improved transparency.
+
+[5.5.3] - 2019-07-11
+====================
+Changed
+-------
+- Various bug fixes.
+- Polished reports.
+
+[5.5.2] - 2019-06-25
+====================
+Changed
+-------
+- Various minor bug fixes in reports.
+- Speed improvements when using checkpoints.
+
+[5.5.1] - 2019-06-18
+====================
+Changed
+-------
+- Improved report interface. In particular for large files.
+- Small TSV tables are automatically rendered as HTML with datatables.
+- Be more permissive with Snakefile choices: allow "Snakefile", "snakefile", "workflow/Snakefile", "workflow/snakefile". 
+
+[5.5.0] - 2019-05-31
+====================
+Added
+-----
+- Script directives now also support Julia.
+Changed
+-------
+- Various small bug fixes.
+
+[5.4.5] - 2019-04-12
+====================
+
+Changed
+-------
+- Fixed a bug with pipe output.
+- Cleaned up error output.
+
+[5.4.4] - 2019-03-22
+====================
+
+Changed
+-------
+- Vastly improved performance of HTML reports generated with --report, via a more efficient encoding of dara-uri based download links.
+- Tighter layout, plus thumbnails and a lightbox for graphical results in HTML reports.
+- Bug fix for pipe groups.
+- Updated docs.
+- Better error handling in DRMAA executor.
+
 [5.4.3] - 2019-03-11
 ====================
 

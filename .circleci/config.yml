@@ -1,4 +1,9 @@
-version: 2
+version: 2.1
+orbs:
+  singularity: singularity/singularity@1.0.8
+  conda: deepgenomics/conda@4.0.0
+  codecov: codecov/codecov@1.0.5
+
 jobs:
   build:
     machine: true
@@ -6,38 +11,49 @@ jobs:
       - GCLOUD: /opt/google-cloud-sdk/bin/gcloud
       - GSUTIL: /opt/google-cloud-sdk/bin/gsutil
       - BOTO_CONFIG: /dev/null
+      - DG_CONDA_ROOT: $HOME/miniconda
+      - CONDA_INSTALLER: https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+      - PLATFORM: linux
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - snakemake-{{ .Environment.CACHE_VERSION }}-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
       - run:
-          name: Update PATH
-          command: echo 'export PATH="`pwd`/miniconda/bin:$PATH"' >> $BASH_ENV
-      - run:
-          name: Setup Conda
-          command: .circleci/setup.sh
-      - save_cache:
-          key: snakemake-{{ .Environment.CACHE_VERSION }}-{{ checksum ".circleci/setup.sh" }}-{{ checksum "test-environment.yml" }}-{{ checksum ".circleci/common.sh" }}
-          paths:
-            - miniconda
-      - run:
-          name: Setup singularity
+          name: Setup additional dependencies
           command: |
-            # TODO only install if singularity is not yet present
-            # if type singularity > /dev/null; then exit 0; fi
-            source .circleci/common.sh
-            sudo apt-get update; sudo apt-get install squashfs-tools libarchive-dev
-            wget https://github.com/singularityware/singularity/releases/download/$SINGULARITY_VER/singularity-$SINGULARITY_VER.tar.gz
-            tar xvf singularity-$SINGULARITY_VER.tar.gz
-            cd singularity-$SINGULARITY_VER
-            ./configure --prefix=/usr/local --sysconfdir=/etc
-            make
-            sudo make install
+            sudo apt-get update
+            sudo apt-get install stress
+
+      - singularity/install-go
+      - singularity/debian-install-3
+      - conda/save-conda:
+          key: conda-install-{{ checksum ".circleci/config.yml" }}
+          steps:
+            - conda/resolve-envvars
+            - conda/install-conda
+      - conda/save-conda:
+          key: conda-envs-{{ checksum "test-environment.yml" }}
+          steps:
+            - run:
+                name: Setup codecov
+                command: |
+                  conda create -n codecov codecov
+            - run:
+                name: Setup black
+                command: |
+                  conda create -n black black
+            - run:
+                name: Setup Snakemake dependencies
+                command: |
+                  conda env create --quiet --name snakemake --file test-environment.yml
+
+      - run:
+          name: Check formatting
+          command: |
+            conda activate black
+            black --check snakemake || echo "Please run 'black snakemake'."
       - run:
           name: Setup Snakemake
           command: |
-            source activate snakemake
+            conda activate snakemake
             pip install -e .
       - run:
           name: Setup iRODS Docker image
@@ -60,9 +76,16 @@ jobs:
             $GCLOUD config set project snakemake-testing
       - run:
           name: Run tests
-          no_output_timeout: 30m
+          no_output_timeout: 60m
           command: |
             export GCLOUD_CLUSTER=t-`uuidgen`
             export GOOGLE_APPLICATION_CREDENTIALS=${HOME}/gcloud-service-key.json
-            source activate snakemake
-            py.test tests/test*.py -v -x
+            # Fix bash_env to only modify, not overwrite $PATH.
+            # This is necessary because snakemake invokes new shells, that have to inherit
+            # the outside PATH instead of overriding it.
+            sed -i -r "/PATH=/ s/$/:\$PATH/" $BASH_ENV
+            conda activate snakemake
+            pytest tests/test*.py -v -x --cov . --cov-report xml:coverage.xml
+      - codecov/upload:
+          file: coverage.xml
+          

@@ -16,12 +16,13 @@ import snakemake.io
 
 
 class StaticRemoteObjectProxy(ObjectProxy):
-    '''Proxy that implements static-ness for remote objects.
+    """Proxy that implements static-ness for remote objects.
 
     The constructor takes a real RemoteObject and returns a proxy that
     behaves the same except for the exists() and mtime() methods.
 
-    '''
+    """
+
     def exists(self):
         return True
 
@@ -44,24 +45,28 @@ class AbstractRemoteProvider:
     """ This is an abstract class to be used to derive remote provider classes. These might be used to hold common credentials,
         and are then passed to RemoteObjects.
     """
+
     __metaclass__ = ABCMeta
 
     supports_default = False
     allows_directories = False
 
-    def __init__(self, *args, keep_local=False, stay_on_remote=False, **kwargs):
+    def __init__(
+        self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
+    ):
         self.args = args
         self.stay_on_remote = stay_on_remote
         self.keep_local = keep_local
+        self.is_default = is_default
         self.kwargs = kwargs
 
-    def remote(self, value, *args, keep_local=None, stay_on_remote=None, static=False, **kwargs):
+    def remote(
+        self, value, *args, keep_local=None, stay_on_remote=None, static=False, **kwargs
+    ):
         if snakemake.io.is_flagged(value, "temp"):
-            raise SyntaxError(
-                "Remote and temporary flags are mutually exclusive.")
+            raise SyntaxError("Remote and temporary flags are mutually exclusive.")
         if snakemake.io.is_flagged(value, "protected"):
-            raise SyntaxError(
-                "Remote and protected flags are mutually exclusive.")
+            raise SyntaxError("Remote and protected flags are mutually exclusive.")
         if keep_local is None:
             keep_local = self.keep_local
         if stay_on_remote is None:
@@ -72,7 +77,7 @@ class AbstractRemoteProvider:
             protocol = self.default_protocol
             for p in self.available_protocols:
                 if value.startswith(p):
-                    value = value[len(p):]
+                    value = value[len(p) :]
                     protocol = p
                     break
             return protocol, value
@@ -83,9 +88,9 @@ class AbstractRemoteProvider:
         else:
             protocol, value = list(zip(*[_set_protocol(v) for v in value]))
             if len(set(protocol)) != 1:
-                raise SyntaxError('A single protocol must be used per RemoteObject')
+                raise SyntaxError("A single protocol must be used per RemoteObject")
             protocol = set(protocol).pop()
-            value = [protocol+v if stay_on_remote else v for v in value]
+            value = [protocol + v if stay_on_remote else v for v in value]
 
         if "protocol" not in kwargs:
             if "protocol" not in self.kwargs:
@@ -95,8 +100,11 @@ class AbstractRemoteProvider:
 
         provider = sys.modules[self.__module__]  # get module of derived class
         remote_object = provider.RemoteObject(
-            *args, keep_local=keep_local, stay_on_remote=stay_on_remote,
-            provider=provider.RemoteProvider(*self.args,  **self.kwargs), **kwargs
+            *args,
+            keep_local=keep_local,
+            stay_on_remote=stay_on_remote,
+            provider=self,
+            **kwargs
         )
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
@@ -136,9 +144,18 @@ class AbstractRemoteObject:
         different cloud storage providers. For example, there could be classes for interacting with
         Amazon AWS S3 and Google Cloud Storage, both derived from this common base class.
     """
+
     __metaclass__ = ABCMeta
 
-    def __init__(self, *args, protocol=None, keep_local=False, stay_on_remote=False, provider=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        protocol=None,
+        keep_local=False,
+        stay_on_remote=False,
+        provider=None,
+        **kwargs
+    ):
         assert protocol is not None
         # self._iofile must be set before the remote object can be used, in io.py or elsewhere
         self._iofile = None
@@ -161,7 +178,7 @@ class AbstractRemoteObject:
 
     def local_file(self):
         if self.stay_on_remote:
-            return self._file[len(self.protocol):]
+            return self._file[len(self.protocol) :]
         else:
             return self._file
 
@@ -217,20 +234,24 @@ class DomainObject(AbstractRemoteObject):
         out of a location path specified as
         (host|IP):port/remote/location
     """
+
     def __init__(self, *args, **kwargs):
-            super(DomainObject, self).__init__(*args, **kwargs)
+        super(DomainObject, self).__init__(*args, **kwargs)
 
     @property
     def _matched_address(self):
-        return re.search("^(?P<protocol>[a-zA-Z]+\://)?(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$", self.local_file())
+        return re.search(
+            "^(?P<protocol>[a-zA-Z]+\://)?(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$",
+            self.local_file(),
+        )
 
     @property
     def name(self):
         return self.path_remainder
 
     # if we ever parse out the protocol directly
-    #@property
-    #def protocol(self):
+    # @property
+    # def protocol(self):
     #    if self._matched_address:
     #        return self._matched_address.group("protocol")
 
@@ -247,7 +268,7 @@ class DomainObject(AbstractRemoteObject):
     @property
     def path_prefix(self):
         # this is the domain and port, however specified before the path remainder
-        return self._iofile._file[:self._iofile._file.index(self.path_remainder)]
+        return self._iofile._file[: self._iofile._file.index(self.path_remainder)]
 
     @property
     def path_remainder(self):

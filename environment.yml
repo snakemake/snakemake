@@ -20,6 +20,8 @@ dependencies:
   - pandas
   - nomkl
   - google-cloud-storage
+  - azure-storage
+  - azure-storage-common
   - ratelimiter
   - configargparse
   - appdirs
@@ -31,3 +33,5 @@ dependencies:
   - xorg-libxrender
   - xorg-libxpm
   - gitpython
+  - pygments
+  - imagemagick

@@ -5,7 +5,8 @@ rule all:
     input:
         "test.out",
         "test.html",
-        "rel_source.out"
+        "rel_source.out",
+        "julia.out"
 
 rule:
     input:
@@ -14,6 +15,8 @@ rule:
         txt="test.out"
     params:
         xy=True
+    conda:
+        "envs/r.yaml"
     script:
         "scripts/test.R"
 
@@ -28,11 +31,28 @@ rule:
         "test.html"
     params:
         test="testparam"
+    conda:
+        "envs/r.yaml"
     script:
         "scripts/test.Rmd"
 
 rule:
     output:
         "rel_source.out"
+    conda:
+        "envs/r.yaml"
     script:
         "scripts/rel_source.R"
+
+rule:
+    input:
+        "test.in",
+        named_input="test.in"
+    output:
+        "julia.out"
+    params:
+        integer=123
+    conda:
+        "envs/julia.yaml"
+    script:
+        "scripts/test.jl"

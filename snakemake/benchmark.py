@@ -11,13 +11,9 @@ import sys
 import time
 import threading
 
-from snakemake.exceptions import WorkflowError
+import psutil
 
-try:
-    import psutil
-except ImportError:
-    raise WorkflowError(
-        "Python 3 package psutil needs to be installed to use the benchmarking.")
+from snakemake.exceptions import WorkflowError
 
 
 #: Interval (in seconds) between measuring resource usage
@@ -32,12 +28,31 @@ class BenchmarkRecord:
 
     @classmethod
     def get_header(klass):
-        return '\t'.join(
-            ('s', 'h:m:s', 'max_rss', 'max_vms', 'max_uss', 'max_pss', 'io_in', 'io_out',
-             'mean_load'))
+        return "\t".join(
+            (
+                "s",
+                "h:m:s",
+                "max_rss",
+                "max_vms",
+                "max_uss",
+                "max_pss",
+                "io_in",
+                "io_out",
+                "mean_load",
+            )
+        )
 
-    def __init__(self, running_time=None, max_rss=None, max_vms=None, max_uss=None, max_pss=None,
-                 io_in=None, io_out=None, cpu_seconds=None):
+    def __init__(
+        self,
+        running_time=None,
+        max_rss=None,
+        max_vms=None,
+        max_uss=None,
+        max_pss=None,
+        io_in=None,
+        io_out=None,
+        cpu_seconds=None,
+    ):
         #: Running time in seconds
         self.running_time = running_time
         #: Maximal RSS in MB
@@ -61,30 +76,45 @@ class BenchmarkRecord:
 
     def to_tsv(self):
         """Return ``str`` with the TSV representation of this record"""
+
         def to_tsv_str(x):
             """Conversion of value to str for TSV (None becomes "-")"""
             if x is None:
-                return '-'
+                return "-"
             elif isinstance(x, float):
-                return '{:.2f}'.format(x)
+                return "{:.2f}".format(x)
             else:
                 return str(x)
+
         def timedelta_to_str(x):
             """Conversion of timedelta to str without fractions of seconds"""
             mm, ss = divmod(x.seconds, 60)
             hh, mm = divmod(mm, 60)
             s = "%d:%02d:%02d" % (hh, mm, ss)
             if x.days:
+
                 def plural(n):
                     return n, abs(n) != 1 and "s" or ""
+
                 s = ("%d day%s, " % plural(x.days)) + s
             return s
-        return '\t'.join(map(
-            to_tsv_str, (
-                '{:.4f}'.format(self.running_time),
-                timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
-                self.max_rss, self.max_vms, self.max_uss, self.max_pss, self.io_in, self.io_out,
-                100.0 * self.cpu_seconds / self.running_time)))
+
+        return "\t".join(
+            map(
+                to_tsv_str,
+                (
+                    "{:.4f}".format(self.running_time),
+                    timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
+                    self.max_rss,
+                    self.max_vms,
+                    self.max_uss,
+                    self.max_pss,
+                    self.io_in,
+                    self.io_out,
+                    100.0 * self.cpu_seconds / self.running_time,
+                ),
+            )
+        )
 
 
 class DaemonTimer(threading.Thread):
@@ -145,7 +175,7 @@ class ScheduledPeriodicTimer:
 
     def work(self):
         """Override to perform the action"""
-        raise NotImplementedError('Override me!')
+        raise NotImplementedError("Override me!")
 
     def cancel(self):
         """Call to cancel any events"""
@@ -160,8 +190,11 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         ScheduledPeriodicTimer.__init__(self, interval)
         #: PID of observed process
         self.pid = pid
+        self.main = psutil.Process(self.pid)
         #: ``BenchmarkRecord`` to write results to
         self.bench_record = bench_record
+        #: Cache of processes to keep track of cpu percent
+        self.procs = {}
 
     def work(self):
         """Write statistics"""
@@ -183,25 +216,29 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         cpu_seconds = 0
         # Iterate over process and all children
         try:
-            main = psutil.Process(self.pid)
             this_time = time.time()
-            for proc in chain((main,), main.children(recursive=True)):
-                meminfo = proc.memory_full_info()
-                rss += meminfo.rss
-                vms += meminfo.vms
-                uss += meminfo.uss
-                pss += meminfo.pss
-                if check_io:
-                    try:
-                        ioinfo = proc.io_counters()
-                        io_in += ioinfo.read_bytes
-                        io_out += ioinfo.write_bytes
-                    except NotImplementedError as nie:
-                        # OS doesn't track IO
-                        check_io = False
-                if self.bench_record.prev_time:
-                    cpu_seconds += proc.cpu_percent() / 100 * (
-                        this_time - self.bench_record.prev_time)
+            for proc in chain((self.main,), self.main.children(recursive=True)):
+                proc = self.procs.setdefault(proc.pid, proc)
+                with proc.oneshot():
+                    if self.bench_record.prev_time:
+                        cpu_seconds += (
+                            proc.cpu_percent()
+                            / 100
+                            * (this_time - self.bench_record.prev_time)
+                        )
+                    meminfo = proc.memory_full_info()
+                    rss += meminfo.rss
+                    vms += meminfo.vms
+                    uss += meminfo.uss
+                    pss += meminfo.pss
+                    if check_io:
+                        try:
+                            ioinfo = proc.io_counters()
+                            io_in += ioinfo.read_bytes
+                            io_out += ioinfo.write_bytes
+                        except NotImplementedError as nie:
+                            # OS doesn't track IO
+                            check_io = False
             self.bench_record.prev_time = this_time
             if not self.bench_record.first_time:
                 self.bench_record.prev_time = this_time
@@ -265,5 +302,5 @@ def print_benchmark_records(records, file_):
 
 def write_benchmark_records(records, path):
     """Write benchmark records to file at path"""
-    with open(path, 'wt') as f:
+    with open(path, "wt") as f:
         print_benchmark_records(records, f)

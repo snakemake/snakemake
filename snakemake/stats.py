@@ -38,8 +38,7 @@ class Stats:
         for job, t in self.starttime.items():
             runtimes[job.rule].append(self.endtime[job] - t)
         for rule, runtimes in runtimes.items():
-            yield (rule, sum(runtimes) / len(runtimes), min(runtimes),
-                   max(runtimes))
+            yield (rule, sum(runtimes) / len(runtimes), min(runtimes), max(runtimes))
 
     @property
     def file_stats(self):
@@ -60,7 +59,7 @@ class Stats:
             rule.name: {
                 "mean-runtime": mean_runtime,
                 "min-runtime": min_runtime,
-                "max-runtime": max_runtime
+                "max-runtime": max_runtime,
             }
             for rule, mean_runtime, min_runtime, max_runtime in self.rule_stats
         }
@@ -70,17 +69,20 @@ class Stats:
                 "stop-time": stop,
                 "duration": duration,
                 "priority": job.priority
-                if job.priority != snakemake.jobs.Job.HIGHEST_PRIORITY else
-                "highest",
-                "resources": dict(job.resources.items())
+                if job.priority != snakemake.jobs.Job.HIGHEST_PRIORITY
+                else "highest",
+                "resources": dict(job.resources.items()),
             }
             for f, start, stop, duration, job in self.file_stats
         }
-        
+
         with open(path, "w") as f:
-            json.dump({
-                "total_runtime": self.overall_runtime,
-                "rules": rule_stats,
-                "files": file_stats
-            }, f,
-                      indent=4)
+            json.dump(
+                {
+                    "total_runtime": self.overall_runtime,
+                    "rules": rule_stats,
+                    "files": file_stats,
+                },
+                f,
+                indent=4,
+            )

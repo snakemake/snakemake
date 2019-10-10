@@ -235,12 +235,19 @@ If limits for the resources are given via the command line, e.g.
     $ snakemake --resources mem_mb=100
 
 the scheduler will ensure that the given resources are not exceeded by running jobs.
-If no limits are given, the resources are ignored.
+If no limits are given, the resources are ignored in local execution.
+In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
 Resources must be ``int`` values.
+
 Note that you are free to choose any names for the given resources.
-When defining memory constraints, it is however advised to use ``mem_mb``, because there are
-Snakemake execution modes that make use of this information, (e.g., when using :ref:`kubernetes`).
+There are two **standard resources** for memory and disk usage though: ``mem_mb`` and ``disk_mb``.
+When defining memory constraints, it is advised to use ``mem_mb``, because there are
+Some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
+Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
+This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
+If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
+Any resource definitions inside a rule override what has been defined with ``--default-resources``.
 
 Resources can also be callables that return ``int`` values.
 The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
@@ -298,7 +305,7 @@ Snakemake allows rules to specify numeric priorities:
 Per default, each rule has a priority of 0. Any rule that specifies a higher priority, will be preferred by the scheduler over all rules that are ready to execute at the same time without having at least the same priority.
 
 Furthermore, the ``--prioritize`` or ``-P`` command line flag allows to specify files (or rules) that shall be created with highest priority during the workflow execution. This means that the scheduler will assign the specified target and all its dependencies highest priority, such that the target is finished as soon as possible.
-The ``--dryrun`` or ``-n`` option allows you to see the scheduling plan including the assigned priorities.
+The ``--dry-run`` (equivalently ``--dryrun``) or ``-n`` option allows you to see the scheduling plan including the assigned priorities.
 
 
 
@@ -425,6 +432,24 @@ Apart from Python scripts, this mechanism also allows you to integrate R_ and R 
             "path/to/script.R"
 
 In the R script, an S4 object named ``snakemake`` analog to the Python case above is available and allows access to input and output files and other parameters. Here the syntax follows that of S4 classes with attributes that are R lists, e.g. we can access the first input file with ``snakemake@input[[1]]`` (note that the first file does not have index ``0`` here, because R starts counting from ``1``). Named input and output files can be accessed in the same way, by just providing the name instead of an index, e.g. ``snakemake@input[["myfile"]]``.
+
+Finally, it is possible to integrate Julia_ scripts, e.g.
+
+.. _Julia: https://julialang.org
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        script:
+            "path/to/script.jl"
+
+In the Julia_ script, a ``snakemake`` object is available, which can be accessed similar to the Python case (see above), with the only difference that you have to index from 1 instead of 0.
 
 For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object. A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
 

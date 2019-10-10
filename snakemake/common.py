@@ -10,7 +10,8 @@ import os
 
 
 from ._version import get_versions
-__version__ = get_versions()['version']
+
+__version__ = get_versions()["version"]
 del get_versions
 
 
@@ -20,12 +21,34 @@ SNAKEMAKE_SEARCHPATH = os.path.dirname(os.path.dirname(__file__))
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 
 
+class TBDInt(int):
+    """An integer that prints into <TBD>"""
+
+    def __str__(self):
+        return "<TBD>"
+
+
+# A string that prints as TBD
+TBDString = "<TBD>"
+
+
+def num_if_possible(s):
+    """Convert string to number if possible, otherwise return string."""
+    try:
+        return int(s)
+    except ValueError:
+        try:
+            return float(s)
+        except ValueError:
+            return s
+
+
 def get_last_stable_version():
     return __version__.split("+")[0]
 
 
 def get_container_image():
-    return "quay.io/snakemake/snakemake:v{}".format(get_last_stable_version())
+    return "snakemake/snakemake:v{}".format(get_last_stable_version())
 
 
 def get_uuid(name):
@@ -37,6 +60,7 @@ class Mode:
     Enum for execution mode of Snakemake.
     This handles the behavior of e.g. the logger.
     """
+
     default = 0
     subprocess = 1
     cluster = 2
@@ -55,7 +79,9 @@ class lazy_property(property):
         super().__init__(method, doc=method.__doc__)
 
     def __get__(self, instance, owner):
-        cached = getattr(instance, self.cached) if hasattr(instance, self.cached) else None
+        cached = (
+            getattr(instance, self.cached) if hasattr(instance, self.cached) else None
+        )
         if cached is not None:
             return cached
         value = self.method(instance)
@@ -65,7 +91,7 @@ class lazy_property(property):
 
 def strip_prefix(text, prefix):
     if text.startswith(prefix):
-        return text[len(prefix):]
+        return text[len(prefix) :]
     return text
 
 
@@ -73,7 +99,9 @@ def log_location(msg):
     callerframerecord = inspect.stack()[1]
     frame = callerframerecord[0]
     info = inspect.getframeinfo(frame)
-    logger.debug("{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info))
+    logger.debug(
+        "{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info)
+    )
 
 
 def escape_backslash(path):

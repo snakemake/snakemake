@@ -20,31 +20,39 @@ try:
     import boto3
     import botocore
 except ImportError as e:
-    raise WorkflowError("The Python 3 package 'boto3' "
-        "needs to be installed to use S3 remote() file functionality. %s" % e.msg)
+    raise WorkflowError(
+        "The Python 3 package 'boto3' "
+        "needs to be installed to use S3 remote() file functionality. %s" % e.msg
+    )
 
 
-class RemoteProvider(AbstractRemoteProvider):
+class RemoteProvider(
+    AbstractRemoteProvider
+):  # class inherits from AbstractRemoteProvider
 
-    supports_default = True
+    supports_default = True  # class variable
 
-    def __init__(self, *args, stay_on_remote=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+    def __init__(
+        self, *args, stay_on_remote=False, **kwargs
+    ):  # this method is evaluated when instantiating this class
+        super(RemoteProvider, self).__init__(
+            *args, stay_on_remote=stay_on_remote, **kwargs
+        )  # in addition to methods provided by AbstractRemoteProvider, we add these in
 
-        self._s3c = S3Helper(*args, **kwargs)
+        self._s3c = S3Helper(*args, **kwargs)  # _private variable by convention
 
     def remote_interface(self):
         return self._s3c
 
-    @property
-    def default_protocol(self):
+    @property  # decorator, so that this function can be access as an attribute, instead of a method
+    def default_(self):
         """The protocol that is prepended to the path when no protocol is specified."""
-        return 's3://'
+        return "s3://"
 
-    @property
+    @property  # decorator, so that this function can be access as an attribute, instead of a method
     def available_protocols(self):
         """List of valid protocols for this remote provider."""
-        return ['s3://']
+        return ["s3://"]
 
 
 class RemoteObject(AbstractRemoteObject):
@@ -52,7 +60,9 @@ class RemoteObject(AbstractRemoteObject):
     """
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+        super(RemoteObject, self).__init__(
+            *args, keep_local=keep_local, provider=provider, **kwargs
+        )
 
         if provider:
             self._s3c = provider.remote_interface()
@@ -65,13 +75,18 @@ class RemoteObject(AbstractRemoteObject):
         if self._matched_s3_path:
             return self._s3c.exists_in_bucket(self.s3_bucket, self.s3_key)
         else:
-            raise S3FileException("The file cannot be parsed as an s3 path in form 'bucket/key': %s" % self.local_file())
+            raise S3FileException(
+                "The file cannot be parsed as an s3 path in form 'bucket/key': %s"
+                % self.local_file()
+            )
 
     def mtime(self):
         if self.exists():
             return self._s3c.key_last_modified(self.s3_bucket, self.s3_key)
         else:
-            raise S3FileException("The file does not seem to exist remotely: %s" % self.local_file())
+            raise S3FileException(
+                "The file does not seem to exist remotely: %s" % self.local_file()
+            )
 
     def size(self):
         if self.exists():
@@ -81,10 +96,16 @@ class RemoteObject(AbstractRemoteObject):
 
     def download(self):
         self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.local_file())
-        os_sync() # ensure flush to disk
+        os_sync()  # ensure flush to disk
 
     def upload(self):
-        self._s3c.upload_to_s3(self.s3_bucket, self.local_file(), self.s3_key, extra_args=self.kwargs.get("ExtraArgs", None), config=self.kwargs.get("Config", None))
+        self._s3c.upload_to_s3(
+            self.s3_bucket,
+            self.local_file(),
+            self.s3_key,
+            extra_args=self.kwargs.get("ExtraArgs", None),
+            config=self.kwargs.get("Config", None),
+        )
 
     @property
     def list(self):
@@ -114,14 +135,17 @@ class RemoteObject(AbstractRemoteObject):
     def s3_create_stub(self):
         if self._matched_s3_path:
             if not self.exists:
-                self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.file, create_stub_only=True)
+                self._s3c.download_from_s3(
+                    self.s3_bucket, self.s3_key, self.file, create_stub_only=True
+                )
         else:
-            raise S3FileException("The file to be downloaded cannot be parsed as an s3 path in form 'bucket/key': %s" %
-                                  self.local_file())
+            raise S3FileException(
+                "The file to be downloaded cannot be parsed as an s3 path in form 'bucket/key': %s"
+                % self.local_file()
+            )
 
 
 class S3Helper(object):
-
     def __init__(self, *args, **kwargs):
         # as per boto, expects the environment variables to be set:
         # AWS_ACCESS_KEY_ID
@@ -141,7 +165,7 @@ class S3Helper(object):
         if "host" in kwargs:
             kwargs["endpoint_url"] = kwargs.pop("host")
 
-        self.s3 = boto3.resource('s3', **kwargs)
+        self.s3 = boto3.resource("s3", **kwargs)
 
     def bucket_exists(self, bucket_name):
         try:
@@ -151,14 +175,15 @@ class S3Helper(object):
             return False
 
     def upload_to_s3(
-            self,
-            bucket_name,
-            file_path,
-            key=None,
-            use_relative_path_for_key=True,
-            relative_start_dir=None,
-            extra_args=None,
-            config=None):
+        self,
+        bucket_name,
+        file_path,
+        key=None,
+        use_relative_path_for_key=True,
+        relative_start_dir=None,
+        extra_args=None,
+        config=None,
+    ):
         """ Upload a file to S3
 
             This function uploads a file to an AWS S3 bucket.
@@ -178,8 +203,12 @@ class S3Helper(object):
         file_path = os.path.realpath(os.path.expanduser(file_path))
 
         assert bucket_name, "bucket_name must be specified"
-        assert os.path.exists(file_path), "The file path specified does not exist: %s" % file_path
-        assert os.path.isfile(file_path), "The file path specified does not appear to be a file: %s" % file_path
+        assert os.path.exists(file_path), (
+            "The file path specified does not exist: %s" % file_path
+        )
+        assert os.path.isfile(file_path), (
+            "The file path specified does not appear to be a file: %s" % file_path
+        )
 
         if not self.bucket_exists(bucket_name):
             self.s3.create_bucket(Bucket=bucket_name)
@@ -200,16 +229,16 @@ class S3Helper(object):
             k.upload_file(file_path, ExtraArgs=extra_args, Config=config)
         except:
             raise
-            return None
 
     def download_from_s3(
-            self,
-            bucket_name,
-            key,
-            destination_path=None,
-            expandKeyIntoDirs=True,
-            make_dest_dirs=True,
-            create_stub_only=False):
+        self,
+        bucket_name,
+        key,
+        destination_path=None,
+        expandKeyIntoDirs=True,
+        make_dest_dirs=True,
+        create_stub_only=False,
+    ):
         """ Download a file from s3
 
             This function downloads an object from a specified AWS S3 bucket.
@@ -231,8 +260,6 @@ class S3Helper(object):
         assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"
 
-        b = self.s3.Bucket(bucket_name)
-
         if destination_path:
             destination_path = os.path.realpath(os.path.expanduser(destination_path))
         else:
@@ -252,8 +279,11 @@ class S3Helper(object):
                 k.download_file(destination_path)
             else:
                 # just create an empty file with the right timestamps
-                with open(destination_path, 'wb') as fp:
-                    os.utime(fp.name, (k.last_modified.timestamp(), k.last_modified.timestamp()))
+                with open(destination_path, "wb") as fp:
+                    os.utime(
+                        fp.name,
+                        (k.last_modified.timestamp(), k.last_modified.timestamp()),
+                    )
             return destination_path
         except:
             return None
@@ -293,7 +323,7 @@ class S3Helper(object):
         try:
             self.s3.Object(bucket_name, key).load()
         except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == "404":
+            if e.response["Error"]["Code"] == "404":
                 return False
             else:
                 raise

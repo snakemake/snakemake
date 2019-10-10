@@ -13,24 +13,31 @@ Snakemake
 .. image:: https://img.shields.io/pypi/v/snakemake.svg
     :target: https://pypi.python.org/pypi/snakemake
 
-.. image:: https://quay.io/repository/snakemake/snakemake/status
-       :target: https://quay.io/repository/snakemake/snakemake
+.. image:: https://img.shields.io/docker/build/snakemake/snakemake
+       :target: https://hub.docker.com/r/snakemake/snakemake
 
-.. image:: https://circleci.com/bb/snakemake/snakemake/tree/master.svg?style=shield
-    :target: https://circleci.com/bb/snakemake/snakemake/tree/master
+.. image:: https://circleci.com/gh/snakemake/snakemake/tree/master.svg?style=shield
+    :target: https://circleci.com/gh/snakemake/snakemake/tree/master
 
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
-    :target: http://stackoverflow.com/questions/tagged/snakemake
+    :target: https://stackoverflow.com/questions/tagged/snakemake
 
 .. image:: https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow
     :target: https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester
+
+.. image:: https://img.shields.io/github/stars/snakemake/snakemake?style=social
+    :alt: GitHub stars
+    :target: https://github.com/snakemake/snakemake/stargazers
+
+.. raw:: html
+
+    <span class="__dimensions_badge_embed__" data-doi="https://doi.org/10.1093/bioinformatics/bts480" data-legend="always" data-style="large_rectangle"></span><script async src="https://badge.dimensions.ai/badge.js" charset="utf-8"></script>
 
 The Snakemake workflow management system is a tool to create **reproducible and scalable** data analyses.
 Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
-To get a first impression, see our `introductory slides <https://slides.com/johanneskoester/snakemake-short>`_.
 
 .. _manual-quick_example:
 
@@ -73,8 +80,9 @@ Rules describe how to create **output files** from **input files**.
 Getting started
 ---------------
 
+To get a first impression, see our `introductory slides <https://slides.com/johanneskoester/snakemake-short>`_ or watch the `live demo video <https://youtu.be/hPrXcUUp70Y>`_.
 News about Snakemake are published via `Twitter <https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester>`_.
-To get started, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
+To learn Snakemake, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
 
 .. _main-support:
 
@@ -84,10 +92,10 @@ Support
 
 * For releases, see :ref:`Changelog <changelog>`.
 * Check :ref:`frequently asked questions (FAQ) <project_info-faq>`.
-* In case of questions, please post on `stack overflow <http://stackoverflow.com/questions/tagged/snakemake>`_.
+* In case of questions, please post on `stack overflow <https://stackoverflow.com/questions/tagged/snakemake>`_.
 * To discuss with other Snakemake users, you can use the `mailing list <https://groups.google.com/forum/#!forum/snakemake>`_. **Please do not post questions there. Use stack overflow for questions.**
-* For bugs and feature requests, please use the `issue tracker <https://bitbucket.org/snakemake/snakemake/issues>`_.
-* For contributions, visit Snakemake on `bitbucket <https://bitbucket.org/snakemake/snakemake>`_ and read the :ref:`guidelines <project_info-contributing>`.
+* For bugs and feature requests, please use the `issue tracker <https://github.com/snakemake/snakemake/issues>`_.
+* For contributions, visit Snakemake on `Github <https://github.com/snakemake/snakemake>`_ and read the :ref:`guidelines <project_info-contributing>`.
 
 --------
 Citation
@@ -139,6 +147,7 @@ Please consider to add your own.
 * Meyer et al. 2017. `Differential Gene Expression in the Human Brain Is Associated with Conserved, but Not Accelerated, Noncoding Sequences <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5400397/>`_. Molecular Biology and Evolution.
 * Lonardo et al. 2017. `Priming of soil organic matter: Chemical structure of added compounds is more important than the energy content <http://www.sciencedirect.com/science/article/pii/S0038071716304539>`_. Soil Biology and Biochemistry.
 * Beisser et al. 2017. `Comprehensive transcriptome analysis provides new insights into nutritional strategies and phylogenetic relationships of chrysophytes <https://peerj.com/articles/2832/>`_. PeerJ.
+* Piro et al 2017. `MetaMeta: integrating metagenome analysis tools to improve taxonomic profiling <https://microbiomejournal.biomedcentral.com/articles/10.1186/s40168-017-0318-y>`_. Microbiome.
 * Dimitrov et al 2017. `Successive DNA extractions improve characterization of soil microbial communities <https://peerj.com/articles/2915/>`_. PeerJ.
 * de Bourcy et al. 2016. `Phylogenetic analysis of the human antibody repertoire reveals quantitative signatures of immune senescence and aging <http://www.pnas.org/content/114/5/1105.short>`_. PNAS.
 * Bray et al. 2016. `Near-optimal probabilistic RNA-seq quantification <http://www.nature.com/nbt/journal/v34/n5/abs/nbt.3519.html>`_. Nature Biotechnology.
@@ -178,6 +187,7 @@ Please consider to add your own.
    getting_started/installation
    getting_started/examples
    tutorial/tutorial
+   tutorial/short
 
 
 .. toctree::
@@ -212,6 +222,7 @@ Please consider to add your own.
 
     api_reference/snakemake
     api_reference/snakemake_utils
+    api_reference/internal/modules
 
 
 .. toctree::

@@ -1,1 +1,5 @@
 snakemake/_version.py export-subst
+snakemake/report/report.html linguist-vendored=true
+snakemake/gui.html linguist-vendored=true
+snakemake/report/table.html linguist-vendored=true
+tests/test_issue1046/expected-results/test_report.html linguist-vendored=true

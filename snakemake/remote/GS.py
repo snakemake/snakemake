@@ -15,16 +15,26 @@ try:
     import google.cloud
     from google.cloud import storage
 except ImportError as e:
-    raise WorkflowError("The Python 3 package 'google-cloud-sdk' "
-        "needs to be installed to use GS remote() file functionality. %s" % e.msg)
+    raise WorkflowError(
+        "The Python 3 package 'google-cloud-sdk' "
+        "needs to be installed to use GS remote() file functionality. %s" % e.msg
+    )
 
 
 class RemoteProvider(AbstractRemoteProvider):
 
     supports_default = True
 
-    def __init__(self, *args, stay_on_remote=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+    def __init__(
+        self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
+    ):
+        super(RemoteProvider, self).__init__(
+            *args,
+            keep_local=keep_local,
+            stay_on_remote=stay_on_remote,
+            is_default=is_default,
+            **kwargs
+        )
 
         self.client = storage.Client(*args, **kwargs)
 
@@ -44,7 +54,9 @@ class RemoteProvider(AbstractRemoteProvider):
 
 class RemoteObject(AbstractRemoteObject):
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+        super(RemoteObject, self).__init__(
+            *args, keep_local=keep_local, provider=provider, **kwargs
+        )
 
         if provider:
             self.client = provider.remote_interface()
@@ -67,7 +79,9 @@ class RemoteObject(AbstractRemoteObject):
             t = self.blob.updated
             return t.timestamp()
         else:
-            raise WorkflowError("The file does not seem to exist remotely: %s" % self.local_file())
+            raise WorkflowError(
+                "The file does not seem to exist remotely: %s" % self.local_file()
+            )
 
     def size(self):
         if self.exists():
@@ -91,11 +105,13 @@ class RemoteObject(AbstractRemoteObject):
                 self.update_blob()
             self.blob.upload_from_filename(self.local_file())
         except google.cloud.exceptions.Forbidden as e:
-            raise WorkflowError(e,
+            raise WorkflowError(
+                e,
                 "When running locally, make sure that you are authenticated "
                 "via gcloud (see Snakemake documentation). When running in a "
                 "kubernetes cluster, make sure that storage-rw is added to "
-                "--scopes (see Snakemake documentation).")
+                "--scopes (see Snakemake documentation).",
+            )
 
     @property
     def name(self):
@@ -129,6 +145,8 @@ class RemoteObject(AbstractRemoteObject):
     def parse(self):
         m = re.search("(?P<bucket>[^/]*)/(?P<key>.*)", self.local_file())
         if len(m.groups()) != 2:
-            raise WorkflowError("GS remote file {} does not have the form "
-                "<bucket>/<key>.".format(self.local_file()))
+            raise WorkflowError(
+                "GS remote file {} does not have the form "
+                "<bucket>/<key>.".format(self.local_file())
+            )
         return m

@@ -15,4 +15,6 @@ rule rule2:
 rule rule1:
 	input: 'test.in'
 	output: 'test.inter'
-	shell: "false && cp {input} {output}"
+	log: "logs/test.log"
+	shell: 
+            "touch {log} && false && cp {input} {output}"

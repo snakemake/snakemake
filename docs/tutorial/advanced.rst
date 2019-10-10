@@ -3,8 +3,8 @@
 Advanced: Decorating the example workflow
 -----------------------------------------
 
-.. _Snakemake: https://snakemake.bitbucket.io
-.. _Snakemake homepage: https://snakemake.bitbucket.io
+.. _Snakemake: https://snakemake.readthedocs.io
+.. _Snakemake homepage: https://snakemake.readthedocs.io
 .. _GNU Make: https://www.gnu.org/software/make
 .. _Python: http://www.python.org
 .. _BWA: http://bio-bwa.sourceforge.net
@@ -203,7 +203,7 @@ We modify the rule ``bwa_map`` accordingly:
   initialization to the DAG phase. In contrast to input functions, these can
   optionally take additional arguments ``input``, ``output``, ``threads``, and ``resources``.
 
-Similar to input and output files, ``params`` can be accessed from the shell command or the Python based ``run`` block (see :ref:`tutorial-report`).
+Similar to input and output files, ``params`` can be accessed from the shell command the Python based ``run`` block, or the script directive (see :ref:`tutorial-script`).
 
 Exercise
 ........

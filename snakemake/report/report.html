@@ -10,6 +10,9 @@
 
     <!-- Bootstrap CSS -->
     <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
+    <style>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css"|get_resource_as_string }}</style>
+    <style>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.18/r-2.2.2/sl-1.3.0/datatables.min.css"|get_resource_as_string }}</style>
+    <style>{{ pygments_css|safe }}</style>
 
     <!-- Custom styles for this template -->
     <style>
@@ -173,6 +176,11 @@
         color: grey;
       }
 
+      #loading-screen p#jswarning {
+	text-align: center;
+        color: red;
+      }
+
       .vega-actions .btn {
         font-size: 100%;
       }
@@ -184,16 +192,64 @@
       h6.sidebar-heading {
         text-transform: none;
       }
+
+      .preview {
+        text-align: right;
+      }
+
+      .ekko-lightbox-nav-overlay a span {
+        color: lightgrey;
+      }
+
+      .navbar {
+        opacity: 0.8;
+      }
+
+      .source {
+        background: none !important;
+      }
+
+      table.dataTable tbody tr.selected,
+      table.dataTable tbody th.selected,
+      table.dataTable tbody td.selected {
+        color: black;
+        font-weight: bold;
+      }
+
+      table.dataTable tbody tr.selected td:first-of-type {
+        font-weight: bold;
+      }
+
+      table.dataTable tbody tr.selected td {
+        border-top: 1px solid #007bff;
+        border-bottom: 1px solid #007bff;
+      }
+
+      table.dataTable tbody > tr.selected, 
+      table.dataTable tbody > tr > .selected {
+        background-color: transparent;
+      }
+
+      table.dataTable tbody tr.selected a, 
+      table.dataTable tbody th.selected a, 
+      table.dataTable tbody td.selected a {
+        color: #007bff;
+      }
+
+      table caption {
+        display: none;
+      }
     </style>
   </head>
 
   <body>
     <div id="loading-screen">
       <p id="animation">Loading Snakemake Report...</p>
-      <p id="info">Loading {{ results_size|filesizeformat }}. This can take a while.</p>
+      <p id="jswarning">Please enable Javascript in your browser to see this report.</p>
+      <p id="info">Loading {{ results_size|filesizeformat }}. For large reports, this can take a while.</p>
     </div>
 
-    <nav class="navbar navbar-dark fixed-top bg-dark flex-md-nowrap p-0 shadow">
+    <nav class="navbar fixed-top navbar-dark bg-dark flex-md-nowrap p-0 shadow">
       <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="#">Snakemake Report</a>
       <ul class="nav navbar-nav navbar-right" style="padding-right: 10px;">
         <li class="text-white">{{ now }}</li>
@@ -209,7 +265,7 @@
             <ul class="nav flex-column">
               <li class="nav-item">
                 <a class="nav-link active" href="#">
-                  <span data-feather="home"></span>
+                  <span data-feather="git-pull-request"></span>
                   Workflow <span class="sr-only">(current)</span>
                 </a>
               </li>
@@ -219,6 +275,14 @@
                   Statistics
                 </a>
               </li>
+              {% if configfiles %}
+              <li class="nav-item">
+                <a class="nav-link" href="#configuration">
+                  <span data-feather="settings"></span>
+                  Configuration
+                </a>
+              </li>
+              {% endif %}
               <li class="nav-item">
                 <a class="nav-link" href="#rules">
                   <span data-feather="list"></span>
@@ -232,23 +296,15 @@
                 <span>Results</span>
               </a>
             </h5>
+            <ul class="nav flex-column mb-2">
             {% for cat, res in results|dictsort %}
-              <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-                <a class="d-flex align-items-center text-muted" href="#results-{{ cat|replace(" ", "_") }}">
-                  <span>{{ cat }}</span>
+              <li class="nav-item">
+                <a class="nav-link" href="#{{ cat.id }}">
+                  {{ cat.name }}
                 </a>
-              </h6>
-              <ul class="nav flex-column mb-2">
-                {% for r in res %}
-                <li class="nav-item">
-                  <a class="nav-link" href="#{{ r.id }}">
-                    <span data-feather="{{ r.icon }}"></span>
-                    {{ r.name }}
-                  </a>
-                </li>
-                {% endfor %}
-              </ul>
+              </li>
             {% endfor %}
+            </ul>
           </div>
         </nav>
 
@@ -261,45 +317,134 @@
 
           <p>Detailed software versions can be found under <a href="#rules">Rules</a>.</p>
 
-          <div id="rulegraph"></div>
+          <div class="row justify-content-center">
+            <div class="col-xs-6">
+              <div id="rulegraph"></div>
+            </div>
+          </div>
 
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h2 id="results">Results</h2>
           </div>
+
+          <div class="accordion" id="categories">
           {% for cat, catresults in results|dictsort %}
-            {% if cat %}
-            <h3 id="results-{{ cat|replace(" ", "_") }}">{{ cat }}</h3>
-            {% endif %}
-            {% for res in catresults %}
-            <div class="result">
-              <h4 id="{{ res.id }}">{{ res.name }}    <a class="btn btn-outline-secondary" href="{{ res.data }}" download="{{ res.name }}"><span data-feather="{{ res.icon }}"></span> Download</a></h4>
-              {{ res.caption }}
-              <div class="preview">
-                {% if res.is_img %}
-                <a href="{{ res.data }}" download="{{ res.name }}"><img src="{{ res.data }}"></a>
-                {% endif %}
+            <div class="card">
+              <div class="card-header" id="{{ cat.id }}">
+                <h5 class="mb-0">
+                  <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#{{ cat.content_id }}" aria-expanded="false" aria-controls="{{ cat.content_id }}">
+                    {{ cat.name }}
+                  </button>
+                </h5>
+              </div>
+
+              <div id="{{ cat.content_id }}" class="collapse" aria-labelledby="{{ cat.id }}" data-parent="#categories">
+                <div class="card-body">
+                  <table class="table results-table">
+                    <caption>Workflow resultes</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">File</th>
+                        <th scope="col">Size</th>
+                        <th scope="col">Description</th>
+                        <th scope="col">Job properties</th>
+                        <th scope="col"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for res in catresults %}
+                      <tr>
+                        <th scope="row">
+                          <a id="{{ res.id }}" href="javascript:void(0)" download="{{ res.name }}">{{ res.name }}</a>
+                        </th>
+                        <td style="white-space:nowrap;">{{ res.size|filesizeformat }}</td>
+                        <td>{{ res.caption }}</td>
+                        <td>
+                          <table class="table table-sm table-borderless">
+                            <caption>Job properties</caption>
+                            <tbody>
+                              <tr>
+                                <th scope="row">Rule</th><td><a class="rule" href="javascript:void(0)">{{ res.job.rule }}</a></td>
+                              </tr>
+                              {% if res.wildcards %}
+                              <tr>
+                                <th scope="row">Wildcards</th><td>{{ res.wildcards }}</td>
+                              </tr>
+                              {% endif %}
+                              {% if res.params %}
+                              <tr>
+                                <th scope="row">Params</th><td>{{ res.params }}</td>
+                              </tr>
+                              {% endif %}
+                            </tbody>
+                          </table>
+                        </td>
+                        <td class="preview" id="{{ res.id }}-preview">
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-            {% endfor %}
           {% endfor %}
+          </div>
 
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h2 id="stats">Statistics</h2>
           </div>
           If the workflow has been executed in cluster/cloud, runtimes include the waiting time in the queue.
-          <div id="runtimes" class="plot"></div>
-          <div id="timeline" class="plot"></div>
+          <div class="row justify-content-center">
+            <div class="col-xs-6">
+              <div id="runtimes" class="plot"></div>
+            </div>
+            <div class="col-xs-6">
+              <div id="timeline" class="plot"></div>
+            </div>
+          </div>
+
+          {% if configfiles %}
+          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+          <h2 id="configuration">Configuration</h2>
+          </div>
+          <table class="table">
+            <caption>Configuration files</caption>
+            <thead>
+              <tr>
+                <th scope="col">File</th>
+                <th scope="col">Code</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for configfile in configfiles %}
+                <tr>
+                  <td>{{ configfile.name }}</td>
+                  <td>
+                    <a data-toggle="collapse" role="button" href="#configfile-{{ configfile.id }}" aria-expanded="false" aria-controls="collapse-env"><span data-feather="plus-circle"></span></a>
+                    <div class="collapse" id="configfile-{{ configfile.id }}">
+                      {{ configfile.code()|safe }}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+
           <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
           <h2 id="rules">Rules</h2>
           </div>
-          <table class="table">
+          <table class="table" id="rules-table">
+            <caption>Workflow rules</caption>
             <thead>
               <tr>
-                <th>Rule</th>
-                <th>Jobs</th>
-                <th>Output</th>
-                <th>Singularity</th>
-                <th>Conda environment</th>
+                <th scope="col">Rule</th>
+                <th scope="col">Jobs</th>
+                <th scope="col">Output</th>
+                <th scope="col">Singularity</th>
+                <th scope="col">Conda environment</th>
+                <th scope="col">Code</th>
               </tr>
             </thead>
             <tbody>
@@ -308,7 +453,7 @@
                 <td>{{ rule.name }}</td>
                 <td>{{ rule.n_jobs }}</td>
                 <td>
-                  <a data-toggle="collapse" role="button" href="#output-{{ rule.id }}" aria-expanded="false" aria-controls="collapseExample"><span data-feather="plus-circle"></span></a>
+                  <a data-toggle="collapse" role="button" href="#output-{{ rule.id }}" aria-expanded="false" aria-controls="collapse-output"><span data-feather="plus-circle"></span></a>
                   <div class="collapse" id="output-{{ rule.id }}">
                     <ul class="list-group list-group-flush">
                     {% for f in rule.output %}
@@ -320,13 +465,21 @@
                 <td>{{ rule.singularity_img_url if rule.singularity_img_url is not none }}</td>
                 <td>
                   {% if rule.conda_env %}
-                    <a data-toggle="collapse" href="#conda-env-{{ rule.id }}"><span data-feather="plus-circle"></span></a>
+                    <a data-toggle="collapse" role="button" href="#conda-env-{{ rule.id }}" aria-expanded="false" aria-controls="collapse-env"><span data-feather="plus-circle"></span></a>
                     <div class="collapse" id="conda-env-{{ rule.id }}">
                       <ul class="list-group list-group-flush">
                       {% for dep in rule.conda_env["dependencies"] %}
                         <li class="list-group-item">{{ dep }}</li>
                       {% endfor %}
                       </ul>
+                    </div>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if rule.code is not none %}
+                    <a data-toggle="collapse" role="button" href="#code-{{ rule.id }}" aria-expanded="false" aria-controls="collapse-env"><span data-feather="plus-circle"></span></a>
+                    <div class="collapse" id="code-{{ rule.id }}">
+                      {{ rule.code()|safe }}
                     </div>
                   {% endif %}
                 </td>
@@ -340,22 +493,25 @@
 
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.slim.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/js/bootstrap.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js"|get_resource_as_string }}</script>
-    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega/3.3.1/vega.min.js"|get_resource_as_string }}</script>
-    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-lite/2.4.3/vega-lite.min.js"|get_resource_as_string }}</script>
-    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.13.2/vega-embed.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega/5.6.0/vega.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-lite/3.4.0/vega-lite.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-embed/5.1.3/vega-embed.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"|get_resource_as_string }}</script>
-
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://raw.githubusercontent.com/eligrey/FileSaver.js/2.0.0/src/FileSaver.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.18/r-2.2.2/sl-1.3.0/datatables.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery-scrollTo/2.1.2/jquery.scrollTo.min.js"|get_resource_as_string }}</script>
 
     <!-- Icons -->
     <script>
+      $("#jswarning").hide()
       feather.replace()
     </script>
 
-    <!-- Graphs -->
     <script>
       var rulegraph_spec = {
         "$schema": "https://vega.github.io/schema/vega/v3.json",
@@ -472,7 +628,7 @@
             },
             "transform": [
               {
-                "type": "linkpath", "shape": "line",
+                "type": "linkpath", "shape": "diagonal",
                 "sourceX": "datum.source.x", "sourceY": "datum.source.y",
                 "targetX": "datum.target.x", "targetY": "datum.target.y"
               }
@@ -480,11 +636,7 @@
           }
         ]
       };
-      var view = new vega.View(vega.parse(rulegraph_spec))
-        .renderer("canvas")
-        .initialize("#rulegraph")
-        .hover()
-        .run();
+      vegaEmbed("#rulegraph", rulegraph_spec);
 
       var runtimes_spec = {
         "$schema": "https://vega.github.io/schema/vega-lite/v2.json",
@@ -526,7 +678,88 @@
 
       $(".vega-actions a").addClass("btn btn-outline-secondary");
       $(".vega-actions").addClass("btn-group");
-      $("#loading-screen").hide();
+
+      // add thumbnails
+      {% for cat, catresults in results|dictsort %}
+        {% for res in catresults %}
+          $("#{{ res.id }}").click(function(e) {
+            saveAs('{{ res.data_uri }}', '{{ res.name }}');
+          });
+
+          {% if res.png_uri is not none %}
+          var data_uri = "{{ res.png_uri }}";
+          var anchor = $(
+            '<a>',
+            {
+              href: data_uri,
+              "data-toggle": "lightbox",
+              "data-gallery": "results",
+              "data-title": "{{ res.name }}",
+              "data-footer": "This is a preview. Download original file via the table."
+            }
+          );
+          anchor.append($(
+            '<img>',
+            {
+              id:'{{ res.id }}-thumbnail',
+              src: data_uri,
+              width: 200
+            }
+          ));
+          $("#{{ res.id }}-preview").append(anchor);
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+
+      $(document).on('click', '[data-toggle="lightbox"]', function(event) {
+                event.preventDefault();
+                $(this).ekkoLightbox();
+            });
+
+      $('.results-table').DataTable();
+      var rule_table = $('#rules-table').DataTable({
+        paging: false,
+        fixedHeader: true
+      });
+
+      {% for cat, catresults in results|dictsort %}
+        {% for res in catresults %}
+      $('a[href="#{{ res.id }}"]').click(function() {
+        var collapse = $('#{{ res.category.id }} button');
+        if(collapse.hasClass("collapsed")) {
+          collapse.click();
+        } else {
+          collapse.focus();
+        }
+      });
+        {% endfor %}
+      {% endfor %}
+
+      // jump to row upon clicking rule
+      $("a.rule").click(function() {
+        var rule = $(this).html();
+        var row = rule_table.row(function ( idx, data, node ) {
+          return data[0] == rule;
+        });
+        if(row.length > 0) {
+          rule_table.rows().deselect();
+          var node = row.select().draw().node();
+          $("body").scrollTo(node);
+        }
+      });
+
+      $.extend($.scrollTo.defaults, {
+        axis: 'y',
+        duration: 800,
+        offset: -90
+      });
+
+      $(document).ready(function() {
+        // Hide loading screen when document is ready.
+        setTimeout(function(){
+            $("#loading-screen").hide();
+        }, 2000);
+      });
     </script>
   </body>
 </html>

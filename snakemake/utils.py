@@ -42,8 +42,10 @@ def validate(data, schema, set_default=True):
         import jsonschema
         from jsonschema import validators, RefResolver
     except ImportError:
-        raise WorkflowError("The Python 3 package jsonschema must be installed "
-                            "in order to use the validate directive.")
+        raise WorkflowError(
+            "The Python 3 package jsonschema must be installed "
+            "in order to use the validate directive."
+        )
 
     if not os.path.isabs(schema):
         frame = inspect.currentframe().f_back
@@ -55,8 +57,10 @@ def validate(data, schema, set_default=True):
     schemafile = schema
     schema = _load_configfile(schema, filetype="Schema")
     resolver = RefResolver(
-        urljoin('file:', schemafile), schema,
-        handlers={'file': lambda uri: _load_configfile(re.sub("^file://", "", uri))})
+        urljoin("file:", schemafile),
+        schema,
+        handlers={"file": lambda uri: _load_configfile(re.sub("^file://", "", uri))},
+    )
 
     # Taken from http://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
@@ -67,25 +71,30 @@ def validate(data, schema, set_default=True):
                 if "default" in subschema:
                     instance.setdefault(property, subschema["default"])
 
-            for error in validate_properties(
-                    validator, properties, instance, schema,
-            ):
+            for error in validate_properties(validator, properties, instance, schema):
                 yield error
 
-        return validators.extend(
-            validator_class, {"properties": set_defaults},
-        )
+        return validators.extend(validator_class, {"properties": set_defaults})
 
     Validator = validators.validator_for(schema)
-    if Validator.META_SCHEMA['$schema'] != schema['$schema']:
-        logger.warning("No validator found for JSON Schema version identifier '{}'".format(schema['$schema']))
-        logger.warning("Defaulting to validator for JSON Schema version '{}'".format(Validator.META_SCHEMA['$schema']))
+    if Validator.META_SCHEMA["$schema"] != schema["$schema"]:
+        logger.warning(
+            "No validator found for JSON Schema version identifier '{}'".format(
+                schema["$schema"]
+            )
+        )
+        logger.warning(
+            "Defaulting to validator for JSON Schema version '{}'".format(
+                Validator.META_SCHEMA["$schema"]
+            )
+        )
         logger.warning("Note that schema file may not be validated correctly.")
     DefaultValidator = extend_with_default(Validator)
 
     if not isinstance(data, dict):
         try:
             import pandas as pd
+
             recordlist = []
             if isinstance(data, pd.DataFrame):
                 for i, record in enumerate(data.to_dict("records")):
@@ -98,8 +107,8 @@ def validate(data, schema, set_default=True):
                             jsonschema.validate(record, schema, resolver=resolver)
                     except jsonschema.exceptions.ValidationError as e:
                         raise WorkflowError(
-                            "Error validating row {} of data frame.".format(i),
-                            e)
+                            "Error validating row {} of data frame.".format(i), e
+                        )
                 if set_default:
                     newdata = pd.DataFrame(recordlist, data.index)
                     newcol = ~newdata.columns.isin(data.columns)
@@ -156,7 +165,7 @@ def listfiles(pattern, restriction=None, omit_value=None):
     pattern = os.path.normpath(pattern)
     first_wildcard = re.search("{[^{]", pattern)
     if first_wildcard:
-        dirname = os.path.dirname(pattern[:first_wildcard.start()])
+        dirname = os.path.dirname(pattern[: first_wildcard.start()])
         if not dirname:
             dirname = "."
     else:
@@ -170,8 +179,10 @@ def listfiles(pattern, restriction=None, omit_value=None):
             if match:
                 wildcards = Namedlist(fromdict=match.groupdict())
                 if restriction is not None:
-                    invalid = any(omit_value not in v and v != wildcards[k]
-                                  for k, v in restriction.items())
+                    invalid = any(
+                        omit_value not in v and v != wildcards[k]
+                        for k, v in restriction.items()
+                    )
                     if not invalid:
                         yield f, wildcards
                 else:
@@ -188,11 +199,15 @@ def makedirs(dirnames):
         os.makedirs(dirname, exist_ok=True)
 
 
-def report(text, path,
-           stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
-           defaultenc="utf8",
-           template=None,
-           metadata=None, **files):
+def report(
+    text,
+    path,
+    stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
+    defaultenc="utf8",
+    template=None,
+    metadata=None,
+    **files
+):
     """Create an HTML report using python docutils.
 
     This is deprecated in favor of the --report flag.
@@ -237,12 +252,17 @@ def report(text, path,
         import snakemake.report
     except ImportError:
         raise WorkflowError(
-            "Python 3 package docutils needs to be installed to use the report function.")
-    snakemake.report.report(text, path,
-                            stylesheet=stylesheet,
-                            defaultenc=defaultenc,
-                            template=template,
-                            metadata=metadata, **files)
+            "Python 3 package docutils needs to be installed to use the report function."
+        )
+    snakemake.report.report(
+        text,
+        path,
+        stylesheet=stylesheet,
+        defaultenc=defaultenc,
+        template=template,
+        metadata=metadata,
+        **files
+    )
 
 
 def R(code):
@@ -259,7 +279,8 @@ def R(code):
         import rpy2.robjects as robjects
     except ImportError:
         raise ValueError(
-            "Python 3 package rpy2 needs to be installed to use the R function.")
+            "Python 3 package rpy2 needs to be installed to use the R function."
+        )
     robjects.r(format(textwrap.dedent(code), stepout=2))
 
 
@@ -275,8 +296,10 @@ class SequenceFormatter(string.Formatter):
     a separator (space by default).
 
     """
-    def __init__(self, separator=" ", element_formatter=string.Formatter(),
-                 *args, **kwargs):
+
+    def __init__(
+        self, separator=" ", element_formatter=string.Formatter(), *args, **kwargs
+    ):
         self.separator = separator
         self.element_formatter = element_formatter
 
@@ -292,12 +315,14 @@ class SequenceFormatter(string.Formatter):
 
     def format_field(self, value, format_spec):
         if isinstance(value, Wildcards):
-            return ",".join("{}={}".format(name, value)
-                            for name, value in
-                            sorted(value.items(), key=lambda item: item[0]))
+            return ",".join(
+                "{}={}".format(name, value)
+                for name, value in sorted(value.items(), key=lambda item: item[0])
+            )
         if isinstance(value, (list, tuple, set, frozenset)):
-            return self.separator.join(self.format_element(v, format_spec)
-                                       for v in value)
+            return self.separator.join(
+                self.format_element(v, format_spec) for v in value
+            )
         else:
             return self.format_element(value, format_spec)
 
@@ -328,7 +353,7 @@ class QuotedFormatter(string.Formatter):
         if do_quote:
             format_spec = format_spec[:-1]
         formatted = super().format_field(value, format_spec)
-        if do_quote and formatted != '':
+        if do_quote and formatted != "":
             formatted = self.quote_func(formatted)
         return formatted
 
@@ -377,11 +402,13 @@ def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
     try:
         return fmt.format(_pattern, *args, **variables)
     except KeyError as ex:
-        raise NameError("The name {} is unknown in this context. Please "
-                        "make sure that you defined that variable. "
-                        "Also note that braces not used for variable access "
-                        "have to be escaped by repeating them, "
-                        "i.e. {{{{print $1}}}}".format(str(ex)))
+        raise NameError(
+            "The name {} is unknown in this context. Please "
+            "make sure that you defined that variable. "
+            "Also note that braces not used for variable access "
+            "have to be escaped by repeating them, "
+            "i.e. {{{{print $1}}}}".format(str(ex))
+        )
 
 
 class Unformattable:
@@ -392,9 +419,9 @@ class Unformattable:
         raise ValueError(self.errormsg)
 
 
-def read_job_properties(jobscript,
-                        prefix="# properties",
-                        pattern=re.compile("# properties = (.*)")):
+def read_job_properties(
+    jobscript, prefix="# properties", pattern=re.compile("# properties = (.*)")
+):
     """Read the job properties defined in a snakemake jobscript.
 
     This function is a helper for writing custom wrappers for the
@@ -410,10 +437,11 @@ def read_job_properties(jobscript,
 def min_version(version):
     """Require minimum snakemake version, raise workflow error if not met."""
     import pkg_resources
-    if pkg_resources.parse_version(
-        snakemake.__version__) < pkg_resources.parse_version(version):
-        raise WorkflowError(
-            "Expecting Snakemake version {} or higher.".format(version))
+
+    if pkg_resources.parse_version(snakemake.__version__) < pkg_resources.parse_version(
+        version
+    ):
+        raise WorkflowError("Expecting Snakemake version {} or higher.".format(version))
 
 
 def update_config(config, overwrite_config):
@@ -431,7 +459,7 @@ def update_config(config, overwrite_config):
 
     def _update(d, u):
         for (key, value) in u.items():
-            if (isinstance(value, collections.Mapping)):
+            if isinstance(value, collections.Mapping):
                 d[key] = _update(d.get(key, {}), value)
             else:
                 d[key] = value
@@ -450,11 +478,11 @@ def available_cpu_count():
     Adapted from http://stackoverflow.com/a/1006301/715090
     """
     try:
-        with open('/proc/self/status') as f:
+        with open("/proc/self/status") as f:
             status = f.read()
-        m = re.search(r'(?m)^Cpus_allowed:\s*(.*)$', status)
+        m = re.search(r"(?m)^Cpus_allowed:\s*(.*)$", status)
         if m:
-            res = bin(int(m.group(1).replace(',', ''), 16)).count('1')
+            res = bin(int(m.group(1).replace(",", ""), 16)).count("1")
             if res > 0:
                 return min(res, multiprocessing.cpu_count())
     except IOError:
@@ -520,7 +548,6 @@ def find_bash_on_windows():
         except FileNotFoundError:
             bashcmd = ""
     return bashcmd if os.path.exists(bashcmd) else None
-
 
 
 ON_WINDOWS = platform.system() == "Windows"

@@ -14,20 +14,32 @@ try:
     # third-party modules
     import dropbox  # The official Dropbox API library
 except ImportError as e:
-    raise WorkflowError("The Python 3 package 'dropbox' "
-                        "must be installed to use Dropbox remote() file "
-                        "functionality. %s" % e.msg)
+    raise WorkflowError(
+        "The Python 3 package 'dropbox' "
+        "must be installed to use Dropbox remote() file "
+        "functionality. %s" % e.msg
+    )
 
 
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, stay_on_remote=False, **kwargs):
-        super(RemoteProvider, self).__init__(*args, stay_on_remote=stay_on_remote, **kwargs)
+    def __init__(
+        self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
+    ):
+        super(RemoteProvider, self).__init__(
+            *args,
+            keep_local=keep_local,
+            stay_on_remote=stay_on_remote,
+            is_default=is_default,
+            **kwargs
+        )
 
         self._dropboxc = dropbox.Dropbox(*args, **kwargs)
         try:
             self._dropboxc.users_get_current_account()
         except dropbox.exceptions.AuthError as err:
-                DropboxFileException("ERROR: Invalid Dropbox OAuth access token; try re-generating an access token from the app console on the web.")
+            DropboxFileException(
+                "ERROR: Invalid Dropbox OAuth access token; try re-generating an access token from the app console on the web."
+            )
 
     def remote_interface(self):
         return self._dropboxc
@@ -35,12 +47,12 @@ class RemoteProvider(AbstractRemoteProvider):
     @property
     def default_protocol(self):
         """The protocol that is prepended to the path when no protocol is specified."""
-        return 'dropbox://'
+        return "dropbox://"
 
     @property
     def available_protocols(self):
         """List of valid protocols for this remote provider."""
-        return ['dropbox://']
+        return ["dropbox://"]
 
 
 class RemoteObject(AbstractRemoteObject):
@@ -48,7 +60,9 @@ class RemoteObject(AbstractRemoteObject):
     """
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+        super(RemoteObject, self).__init__(
+            *args, keep_local=keep_local, provider=provider, **kwargs
+        )
 
         if provider:
             self._dropboxc = provider.remote_interface()
@@ -57,7 +71,9 @@ class RemoteObject(AbstractRemoteObject):
             try:
                 self._dropboxc.users_get_current_account()
             except dropbox.exceptions.AuthError as err:
-                    DropboxFileException("ERROR: Invalid Dropbox OAuth access token; try re-generating an access token from the app console on the web.")
+                DropboxFileException(
+                    "ERROR: Invalid Dropbox OAuth access token; try re-generating an access token from the app console on the web."
+                )
 
     # === Implementations of abstract class members ===
 
@@ -74,7 +90,9 @@ class RemoteObject(AbstractRemoteObject):
             epochTime = metadata.server_modified.timestamp()
             return epochTime
         else:
-            raise DropboxFileException("The file does not seem to exist remotely: %s" % self.dropbox_file())
+            raise DropboxFileException(
+                "The file does not seem to exist remotely: %s" % self.dropbox_file()
+            )
 
     def size(self):
         if self.exists():
@@ -89,15 +107,19 @@ class RemoteObject(AbstractRemoteObject):
             if make_dest_dirs:
                 os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
 
-            self._dropboxc.files_download_to_file(self.local_file(), self.dropbox_file())
-            os_sync() # ensure flush to disk
+            self._dropboxc.files_download_to_file(
+                self.local_file(), self.dropbox_file()
+            )
+            os_sync()  # ensure flush to disk
         else:
-            raise DropboxFileException("The file does not seem to exist remotely: %s" % self.dropbox_file())
+            raise DropboxFileException(
+                "The file does not seem to exist remotely: %s" % self.dropbox_file()
+            )
 
-    def upload(self, mode=dropbox.files.WriteMode('overwrite')):
+    def upload(self, mode=dropbox.files.WriteMode("overwrite")):
         # Chunk file into 10MB slices because Dropbox does not accept more than 150MB chunks
         chunksize = 10000000
-        with open(self.local_file(), mode='rb') as f:
+        with open(self.local_file(), mode="rb") as f:
             data = f.read(chunksize)
             # Start upload session
             res = self._dropboxc.files_upload_session_start(data)
@@ -113,10 +135,15 @@ class RemoteObject(AbstractRemoteObject):
             self._dropboxc.files_upload_session_finish(
                 f.read(chunksize),
                 dropbox.files.UploadSessionCursor(res.session_id, offset),
-                dropbox.files.CommitInfo(path=self.dropbox_file(), mode=mode))
+                dropbox.files.CommitInfo(path=self.dropbox_file(), mode=mode),
+            )
 
     def dropbox_file(self):
-        return "/"+self.local_file() if not self.local_file().startswith("/") else self.local_file()
+        return (
+            "/" + self.local_file()
+            if not self.local_file().startswith("/")
+            else self.local_file()
+        )
 
     @property
     def name(self):
@@ -127,13 +154,19 @@ class RemoteObject(AbstractRemoteObject):
         file_list = []
 
         first_wildcard = self._iofile.constant_prefix()
-        dirname = "/" + first_wildcard if not first_wildcard.startswith("/") else first_wildcard
+        dirname = (
+            "/" + first_wildcard
+            if not first_wildcard.startswith("/")
+            else first_wildcard
+        )
 
-        while '//' in dirname:
-            dirname = dirname.replace('//', '/')
-        dirname = dirname.rstrip('/')
+        while "//" in dirname:
+            dirname = dirname.replace("//", "/")
+        dirname = dirname.rstrip("/")
 
         for item in self._dropboxc.files_list_folder(dirname, recursive=True).entries:
-            file_list.append( os.path.join(os.path.dirname(item.path_lower), item.name).lstrip("/") )
+            file_list.append(
+                os.path.join(os.path.dirname(item.path_lower), item.name).lstrip("/")
+            )
 
         return file_list

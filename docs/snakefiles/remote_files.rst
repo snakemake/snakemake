@@ -14,6 +14,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 
 * Amazon Simple Storage Service (AWS S3): ``snakemake.remote.S3``
 * Google Cloud Storage (GS): ``snakemake.remote.GS``
+* Microsoft Azure Storage: ``snakemake.remote.AzureStorage``
 * File transfer over SSH (SFTP): ``snakemake.remote.SFTP``
 * Read-only web (HTTP[S]): ``snakemake.remote.HTTP``
 * File transfer protocol (FTP): ``snakemake.remote.FTP``
@@ -136,6 +137,26 @@ In the Snakefile, no additional authentication information has to be provided:
     rule all:
         input:
             GS.remote("bucket-name/file.txt")
+
+
+Microsoft Azure Storage
+=======================
+
+Usage of the Azure Storage provider is similar to the S3 provider.
+For authentication, one needs to provide an account name and a key, which can e.g. be taken
+from environment variables.
+
+.. code-block:: python
+
+    from snakemake.remote.AzureStorage import RemoteProvider as AzureRemoteProvider
+    account_key=os.environ['AZURE_KEY']
+    account_name=os.environ['AZURE_ACCOUNT']
+    AS = AzureRemoteProvider(account_name=account_name, account_key=account_key)
+
+    rule a:
+        input:
+            AS.remote("path/to/file.txt")
+
 
 File transfer over SSH (SFTP)
 =============================

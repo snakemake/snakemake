@@ -1,0 +1,46 @@
+import os
+import fnmatch
+import snakemake
+from snakemake.exceptions import MissingInputException
+from snakemake.remote.AzureStorage import RemoteProvider as AzureRemoteProvider
+
+# setup Azure Storage for remote access
+# for testing these variable can be added to CircleCI
+account_key=os.environ['AZURE_KEY']
+account_name=os.environ['AZURE_ACCOUNT']
+AS = AzureRemoteProvider(account_name=account_name, account_key=account_key)
+
+
+rule upload_to_azure_storage:
+    input:
+        "data/test.txt.gz"
+    output:
+        AS.remote("snakemake-test/data_upload/test.txt.gz")
+    run:
+        shell("cp {input} {output}")
+
+rule download_from_azure_storage:
+    input:
+        AS.remote("snakemake-test/data_upload/test.txt.gz")
+    output:
+        "test.txt.gz"
+    run:
+        shell("cp {input} {output}")
+
+rule test_globbing:
+    input:
+        AS.remote("snakemake-test/data_upload/test.txt.gz")
+    output:
+        touch("globbing.done")
+    run:
+        basenames, = AS.glob_wildcards("snakemake-test/data_upload/{base}.txt.gz")
+        assert "test" in basenames
+
+rule test_download:
+    input:
+        "globbing.done",
+        "test.txt.gz"
+
+rule test_upload:
+    input:
+        AS.remote("snakemake-test/data_upload/test.txt.gz")

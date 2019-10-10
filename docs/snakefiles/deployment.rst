@@ -25,7 +25,7 @@ Then, a workflow can be deployed to a new system via the following steps
 .. code-block:: python
 
     # clone workflow into working directory
-    git clone https://bitbucket.org/user/myworkflow.git path/to/workdir
+    git clone https://github.com/user/myworkflow.git path/to/workdir
     cd path/to/workdir
 
     # edit config and workflow as needed
@@ -80,6 +80,12 @@ with the following `environment definition <http://conda.pydata.org/docs/using/e
      - r-ggplot2=2.1.0
 
 The path to the environment definition is interpreted as **relative to the Snakefile that contains the rule** (unless it is an absolute path, which is discouraged).
+
+.. sidebar:: Note
+
+   Note that conda environments are only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
+   The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
+
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
 Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
 
@@ -112,6 +118,13 @@ When executing Snakemake with
 
 it will execute the job within a singularity container that is spawned from the given image.
 Allowed image urls entail everything supported by singularity (e.g., ``shub://`` and ``docker://``).
+
+.. sidebar:: Note
+
+   Note that singularity integration is only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
+   The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
+
+
 When ``--use-singularity`` is combined with ``--kubernetes`` (see :ref:`kubernetes`), cloud jobs will be automatically configured to run in priviledged mode, because this is a current requirement of the singularity executable.
 Importantly, those privileges won't be shared by the actual code that is executed in the singularity container though.
 

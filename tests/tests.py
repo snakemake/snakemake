@@ -1,4 +1,5 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
+__contributors__ = ["Soohyun Lee"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -72,6 +73,7 @@ gcloud = pytest.mark.skipif(not is_connected()
 connected = pytest.mark.skipif(not is_connected(), reason="no internet connection")
 
 ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
+not_ci = pytest.mark.skipif(is_ci(), reason="skipped in CI")
 
 def copy(src, dst):
     if os.path.isdir(src):
@@ -357,18 +359,8 @@ def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
-# TODO reenable once S3Mocked works with boto3
-# def test_remote():
-#     try:
-#         import moto
-#         import boto3
-#         import filechunkio
-#
-#         # only run the remote file test if the dependencies
-#         # are installed, otherwise do nothing
-#         run(dpath("test_remote"), cores=1)
-#     except ImportError:
-#         pass
+def test_remote():
+    run(dpath("test_remote"), cores=1)
 
 @skip_on_windows
 def test_cluster_sync():
@@ -386,7 +378,7 @@ def test_empty_include():
 
 @skip_on_windows
 def test_script():
-    run(dpath("test_script"))
+    run(dpath("test_script"), use_conda=True)
 
 
 def test_script_python():
@@ -433,6 +425,9 @@ def test_symlink_time_handling():
     #See Snakefile for notes on why this fails on some systems
     if os.utime in os.supports_follow_symlinks:
         run(dpath("test_symlink_time_handling"))
+
+def test_protected_symlink_output():
+    run(dpath("test_protected_symlink_output"))
 
 
 def test_issue328():
@@ -531,8 +526,7 @@ def test_remote_ncbi():
 
 @ci
 def test_remote_irods():
-    if os.environ.get("CI") == "true":
-        run(dpath("test_remote_irods"))
+    run(dpath("test_remote_irods"))
 
 
 def test_deferred_func_eval():
@@ -567,17 +561,16 @@ def test_dup_out_patterns():
     run(dpath("test_dup_out_patterns"), shouldfail=True)
 
 @skip_on_windows
-def test_restartable_job_cmd_exit_1():
+def test_restartable_job_cmd_exit_1_no_restart():
     """Test the restartable job feature on ``exit 1``
 
     The shell snippet in the Snakemake file will fail the first time
     and succeed the second time.
     """
-    # Even two consecutive times should fail as files are cleared
     run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
         restart_times=0, shouldfail=True)
-    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
-        restart_times=0, shouldfail=True)
+
+def test_restartable_job_cmd_exit_1_one_restart():
     # Restarting once is enough
     run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
         restart_times=1, printshellcmds=True)
@@ -623,12 +616,13 @@ def test_issue260():
    run(dpath("test_issue260"))
 
 @skip_on_windows
-@pytest.mark.skip(reason="moto seems to be broken currently")
+@not_ci
 def test_default_remote():
-     run(dpath("test_default_remote"),
-         cores=1,
-         default_remote_provider="S3Mocked",
-         default_remote_prefix="test-remote-bucket")
+    run(dpath("test_default_remote"),
+        cores=1,
+        default_remote_provider="S3Mocked",
+        default_remote_prefix="test-remote-bucket",
+        verbose=True)
 
 
 def test_run_namedlist():
@@ -636,15 +630,18 @@ def test_run_namedlist():
 
 
 @connected
-@ci
+@not_ci
 def test_remote_gs():
-    if not "CI" in os.environ:
-        run(dpath("test_remote_gs"))
-    else:
-        print("skipping test_remove_gs in CI")
+    run(dpath("test_remote_gs"))
 
 
+@pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
 @connected
+@ci
+def test_remote_azure():
+    run(dpath("test_remote_azure"))
+
+
 def test_remote_log():
     run(dpath("test_remote_log"), shouldfail=True)
 
@@ -677,7 +674,7 @@ def test_singularity_invalid():
 @skip_on_windows
 @connected
 def test_singularity_conda():
-    run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True)
+    run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True, verbose=True)
 
 
 def test_issue612():
@@ -740,6 +737,7 @@ def gcloud_cluster():
 
 
 @gcloud
+@pytest.mark.skip(reason="reenable once we have figured out how to fail if available core hours per month are exceeded")
 @pytest.mark.xfail
 def test_gcloud_plain(gcloud_cluster):
     gcloud_cluster.reset()
@@ -788,6 +786,14 @@ def test_issue805():
     run(dpath("test_issue805"), shouldfail=True)
 
 @skip_on_windows
+def test_pathlib():
+    run(dpath("test_pathlib"))
+
+
+def test_pathlib_missing_file():
+    run(dpath("test_pathlib_missing_file"), shouldfail=True)
+
+
 def test_group_jobs():
     run(dpath("test_group_jobs"), cluster="./qsub")
 
@@ -803,13 +809,12 @@ def test_pipes():
 def test_pipes_fail():
     run(dpath("test_pipes_fail"), shouldfail=True)
 
-
 def test_validate():
     run(dpath("test_validate"))
 
 
 def test_validate_fail():
-    run(dpath("test_validate"), configfile=dpath("test_validate/config.fail.yaml"), shouldfail=True)
+    run(dpath("test_validate"), configfiles=[dpath("test_validate/config.fail.yaml")], shouldfail=True)
 
 
 def test_issue854():
@@ -855,7 +860,7 @@ def test_convert_to_cwl():
     workdir = dpath("test_convert_to_cwl")
     #run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
     subprocess.check_call(["snakemake", "--export-cwl" , "workflow.cwl"], cwd=workdir)
-    subprocess.check_call(["cwltool", "workflow.cwl"], cwd=workdir)
+    subprocess.check_call(["cwltool", "--singularity", "workflow.cwl"], cwd=workdir)
     assert os.path.exists(os.path.join(workdir, "test.out"))
 
 def test_issue1037():
@@ -889,3 +894,47 @@ def test_issue1085():
 @skip_on_windows
 def test_issue1083():
     run(dpath("test_issue1083"), use_singularity=True)
+
+def test_pipes2():
+    run(dpath("test_pipes2"))
+
+@pytest.mark.skip(reason="need free AWS tier credentials and tibanna as a conda package first")
+def test_tibanna():
+    workdir = dpath("test_tibanna")
+    subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
+    run(workdir, use_conda=True, configfiles=["config.json"], default_remote_prefix="snakemake-tibanna-test/1",
+        tibanna_sfn='tibanna_unicorn_johannes')
+
+def test_expand_flag():
+    run(dpath("test_expand_flag"), shouldfail=True)
+
+def test_default_resources():
+    from snakemake.resources import DefaultResources
+    run(dpath("test_default_resources"), verbose=True, default_resources=DefaultResources(["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]))
+
+
+def test_issue1284():
+    run(dpath("test_issue1284"))
+
+
+def test_issue1281():
+    run(dpath("test_issue1281"))
+
+
+def test_filegraph():
+    workdir = dpath("test_filegraph")
+    dot_path = "fg.dot"
+    pdf_path = "fg.pdf"
+    # make sure the calls work
+    with open(dot_path, "wb") as dot_file:
+        dot_file.write(
+            subprocess.check_output(["snakemake", "--filegraph"], cwd=workdir)
+        )
+    # make sure the output can be interpreted by dot
+    with open(dot_path, "rb") as dot_file, open(pdf_path, "wb") as pdf_file:
+        pdf_file.write(
+            subprocess.check_output(["dot", "-Tpdf"], stdin=dot_file,
+                                    cwd=workdir)
+        )
+    # make sure the generated pdf file is not empty
+    assert os.stat(pdf_path).st_size > 0

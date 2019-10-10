@@ -13,27 +13,39 @@ from urllib.request import urlopen
 from snakemake.exceptions import WorkflowError
 from snakemake.script import script
 
+
 def is_script(path):
-    return path.endswith("wrapper.py") or path.endswith("wrapper.R")
+    return (
+        path.endswith("wrapper.py")
+        or path.endswith("wrapper.R")
+        or path.endswith("wrapper.jl")
+    )
 
 
 def get_path(path, prefix=None):
-    if not (path.startswith("http") or path.startswith("file:") or path.startswith("git+file")):
+    if not (
+        path.startswith("http")
+        or path.startswith("file:")
+        or path.startswith("git+file")
+    ):
         if prefix is None:
-            prefix = "https://bitbucket.org/snakemake/snakemake-wrappers/raw/"
+            prefix = "https://github.com/snakemake/snakemake-wrappers/raw/"
         elif prefix.startswith("git+file"):
             parts = path.split("/")
             path = "/" + "/".join(parts[1:]) + "@" + parts[0]
         path = prefix + path
     return path
 
+
 def is_local(path):
     return path.startswith("file:")
+
 
 def is_git_path(path):
     return path.startswith("git+file:")
 
-def find_extension(path, extensions=[".py", ".R", ".Rmd"]):
+
+def find_extension(path, extensions=[".py", ".R", ".Rmd", ".jl"]):
     for ext in extensions:
         if path.endswith("wrapper{}".format(ext)):
             return path
@@ -75,29 +87,48 @@ def get_conda_env(path, prefix=None):
     return path + "/environment.yaml"
 
 
-def wrapper(path,
-            input,
-            output,
-            params,
-            wildcards,
-            threads,
-            resources,
-            log,
-            config,
-            rulename,
-            conda_env,
-            singularity_img,
-            singularity_args,
-            bench_record,
-            prefix,
-            jobid,
-            bench_iteration,
-            shadow_dir):
+def wrapper(
+    path,
+    input,
+    output,
+    params,
+    wildcards,
+    threads,
+    resources,
+    log,
+    config,
+    rulename,
+    conda_env,
+    singularity_img,
+    singularity_args,
+    bench_record,
+    prefix,
+    jobid,
+    bench_iteration,
+    shadow_dir,
+):
     """
-    Load a wrapper from https://bitbucket.org/snakemake/snakemake-wrappers under
+    Load a wrapper from https://github.com/snakemake/snakemake-wrappers under
     the given path + wrapper.(py|R|Rmd) and execute it.
     """
     path = get_script(path, prefix=prefix)
-    script(path, "", input, output, params, wildcards, threads, resources,
-           log, config, rulename, conda_env, singularity_img,
-           singularity_args, bench_record, jobid, bench_iteration, shadow_dir)
+    script(
+        path,
+        "",
+        input,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        singularity_img,
+        singularity_args,
+        bench_record,
+        jobid,
+        bench_iteration,
+        shadow_dir,
+    )
