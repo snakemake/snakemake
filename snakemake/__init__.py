@@ -1539,7 +1539,7 @@ def get_argument_parser(profile=None):
         help="Execute workflow on AWS cloud using Tibanna. This requires "
         "--default-remote-prefix to be set to S3 bucket name and prefix"
         " (e.g. 'bucketname/subdirectory') where input is already stored"
-        " and output will be sent to. Using --tibanna implies --defaut-resources"
+        " and output will be sent to. Using --tibanna implies --default-resources"
         " is set as default. Optionally, use --precommand to"
         " specify any preparation command to run before snakemake command"
         " on the cloud (inside snakemake container on Tibanna VM)."
@@ -1551,7 +1551,7 @@ def get_argument_parser(profile=None):
         help="Name of Tibanna Unicorn step function (e.g. tibanna_unicorn_monty)."
         "This works as serverless scheduler/resource allocator and must be "
         "deployed first using tibanna cli. (e.g. tibanna deploy_unicorn --usergroup="
-        "monty --buckets=bucketname",
+        "monty --buckets=bucketname)",
     )
     group_tibanna.add_argument(
         "--precommand",
