@@ -28,9 +28,12 @@ from inspect import isfunction, ismethod
 
 from snakemake.common import DYNAMIC_FILL
 
+def _follow_symlink(func, should_follow=True):
+    """Create follow symlink kwarg if it is availble in func.""" 
+    return {"follow_symlinks": should_follow} if func in os.supports_follow_symlinks else {}
 
 def lstat(f):
-    return os.stat(f, follow_symlinks=os.stat not in os.supports_follow_symlinks)
+    return os.stat(f, **_follow_symlink(os.stat, False))
 
 
 def lutime(f, times):
@@ -67,7 +70,7 @@ def lutime(f, times):
 
 
 def lchmod(f, mode):
-    os.chmod(f, mode, follow_symlinks=os.chmod not in os.supports_follow_symlinks)
+    os.chmod(f, mode, **_follow_symlink(os.chmod, False))
 
 
 class IOCache:
@@ -285,7 +288,7 @@ class _IOFile(str):
         return self.exists_local and not os.access(
             self.file,
             os.W_OK,
-            follow_symlinks=os.access not in os.supports_follow_symlinks,
+            **_follow_symlink(os.access, False),
         )
 
     @property
@@ -346,7 +349,7 @@ class _IOFile(str):
                 st_mtime_file = self.file
             try:
                 return (
-                    os.stat(st_mtime_file, follow_symlinks=True).st_mtime > time
+                    os.stat(st_mtime_file, **_follow_symlink(os.stat, True)).st_mtime > time
                     or self.mtime > time
                 )
             except FileNotFoundError:
