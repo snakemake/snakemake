@@ -894,3 +894,13 @@ def test_filegraph():
 def test_batch():
     from snakemake.dag import Batch
     run(dpath("test_batch"), batch=Batch("aggregate", 1, 2))
+
+
+def test_batch_final():
+    from snakemake.dag import Batch
+    run(dpath("test_batch"), batch=Batch("aggregate", 1, 1))
+
+
+def test_batch_fail():
+    from snakemake.dag import Batch
+    run(dpath("test_batch"), batch=Batch("aggregate", 2, 2), shouldfail=True)

@@ -759,14 +759,14 @@ class DAG:
             visited = set()
         visited.add(job)
         dependencies = self.dependencies[job]
-        potential_dependencies = self.collect_potential_dependencies(job).items()
+        potential_dependencies = self.collect_potential_dependencies(job)
 
         skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 
         missing_input = set()
         producer = dict()
         exceptions = dict()
-        for file, jobs in potential_dependencies:
+        for file, jobs in potential_dependencies.items():
             if not jobs and not file.exists:
                 # file not found and no job creates it
                 missing_input.add(file)
