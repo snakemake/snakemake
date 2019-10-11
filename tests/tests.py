@@ -898,7 +898,7 @@ def test_batch():
 
 def test_batch_final():
     from snakemake.dag import Batch
-    run(dpath("test_batch"), batch=Batch("aggregate", 1, 1))
+    run(dpath("test_batch_final"), batch=Batch("aggregate", 1, 1))
 
 
 def test_batch_fail():
