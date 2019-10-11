@@ -2,4 +2,4 @@
 source=snakemake
 
 [report]
-omit = tests
+omit = tests/*
