@@ -60,7 +60,7 @@ class Batch:
             # extend the last batch to cover rest of list
             return items[i:]
         else:
-            return items[i:i + batch_len]
+            return items[i : i + batch_len]
 
     @property
     def is_final(self):
@@ -585,7 +585,7 @@ class DAG:
                 yield from filterfalse(partial(needed, job_), tempfiles & files)
 
             # temp output
-            if not job.dynamic_output:
+            if not job.dynamic_output and job not in self.targetjobs:
                 tempfiles = (
                     f
                     for f in job.expanded_output
@@ -763,10 +763,14 @@ class DAG:
 
         skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 
-        missing_input = job.missing_input
+        missing_input = set()
         producer = dict()
         exceptions = dict()
         for file, jobs in potential_dependencies:
+            if not jobs and not file.exists:
+                # file not found and no job creates it
+                missing_input.add(file)
+
             try:
                 selected_job = self.update(
                     jobs,
@@ -781,7 +785,7 @@ class DAG:
                 CyclicGraphException,
                 PeriodicWildcardError,
             ) as ex:
-                if file in missing_input:
+                if not file.exists:
                     self.delete_job(job, recursive=False)  # delete job from tree
                     raise ex
 
@@ -789,7 +793,19 @@ class DAG:
             dependencies[job_].add(file)
             self.depending[job_][job].add(file)
 
-        missing_input -= producer.keys()
+        if self.is_batch_rule(job.rule) and self.batch.is_final:
+            # For the final batch, ensure that all input files from
+            # previous batches are present on disk.
+            if any(
+                f for f in job.input if f not in potential_dependencies and not f.exists
+            ):
+                raise WorkflowError(
+                    "Unable to execute batch {} because not all previous batches "
+                    "have been completed before or files have been deleted.".format(
+                        self.batch
+                    )
+                )
+
         if missing_input:
             self.delete_job(job, recursive=False)  # delete job from tree
             raise MissingInputException(job.rule, missing_input)
@@ -1327,13 +1343,26 @@ class DAG:
 
     def collect_potential_dependencies(self, job):
         """Collect all potential dependencies of a job. These might contain
-        ambiguities."""
+        ambiguities. The keys of the returned dict represent the files to be considered."""
         dependencies = defaultdict(list)
         # use a set to circumvent multiple jobs for the same file
         # if user specified it twice
         file2jobs = self.file2jobs
 
-        for file in job.unique_input:
+        input_files = list(job.unique_input)
+
+        if self.is_batch_rule(job.rule):
+            # only consider the defined partition of the input files
+            input_batch = self.batch.get_batch(input_files)
+            if len(input_batch) != len(input_files):
+                logger.info(
+                    "Considering only batch {} for DAG computation.\n"
+                    "All jobs beyond the batching rule are omitted until the final batch.\n"
+                    "Don't forget to run the other batches too.".format(self.batch)
+                )
+                input_files = input_batch
+
+        for file in input_files:
             # omit the file if it comes from a subworkflow
             if file in job.subworkflow_input:
                 continue
@@ -1344,7 +1373,9 @@ class DAG:
                     jobs = file2jobs(file)
                 dependencies[file].extend(jobs)
             except MissingRuleException as ex:
-                pass
+                # no dependency found
+                dependencies[file] = []
+
         return dependencies
 
     def bfs(self, direction, *jobs, stop=lambda job: False):

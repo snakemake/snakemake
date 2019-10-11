@@ -889,3 +889,8 @@ def test_filegraph():
         )
     # make sure the generated pdf file is not empty
     assert os.stat(pdf_path).st_size > 0
+
+
+def test_batch():
+    from snakemake.dag import Batch
+    run(dpath("test_batch"), batch=Batch("aggregate", 1, 2))
