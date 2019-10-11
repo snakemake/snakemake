@@ -374,6 +374,7 @@ class Workflow:
         cluster_status=None,
         report=None,
         export_cwl=False,
+        batch=None,
     ):
 
         self.check_localrules()
@@ -466,6 +467,7 @@ class Workflow:
             or printfilegraph,
             notemp=notemp,
             keep_remote_local=keep_remote_local,
+            batch=batch,
         )
 
         self.persistence = Persistence(

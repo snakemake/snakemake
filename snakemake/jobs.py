@@ -130,6 +130,18 @@ class Job(AbstractJob):
         self.input, input_mapping, self.dependencies = self.rule.expand_input(
             self.wildcards_dict
         )
+
+        if dag.is_batch_rule(rule):
+            # only consider the defined partition of the input files
+            input_batch = dag.batch.get_batch(self.input)
+            if len(input_batch) != len(self.input):
+                logger.info(
+                    "Considering only batch {} for DAG computation.\n"
+                    "All jobs beyond the batching rule are omitted until the final batch.\n"
+                    "Don't forget to run the other batches too.".format(dag.batch)
+                )
+                self.input = input_batch
+
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
         # other properties are lazy to be able to use additional parameters and check already existing files
         self._params = None

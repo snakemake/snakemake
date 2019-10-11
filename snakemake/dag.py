@@ -14,6 +14,7 @@ from itertools import chain, filterfalse, groupby
 from functools import partial
 from pathlib import Path
 import uuid
+import math
 
 from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
 from snakemake.jobs import Job, Reason, GroupJob
@@ -29,6 +30,44 @@ from snakemake.common import DYNAMIC_FILL
 from snakemake import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
+
+
+class Batch:
+    """Definition of a batch for calculating only a partial DAG."""
+
+    def __init__(self, rulename: str, batch: int, batches: int):
+        assert batch <= batches
+        assert batch > 0
+        self.rulename = rulename
+        self.batch = batch
+        self.batches = batches
+
+    def get_batch(self, items: list):
+        """Return the defined batch of the given items.
+           Items are usually input files."""
+        # make sure that we always consider items in the same order
+        if len(items) < self.batches:
+            raise WorkflowError(
+                "Batching rule {} has less input files than batches. "
+                "Please choose a smaller number of batches.".format(self.rulename)
+            )
+        items = sorted(items)
+        batch_len = math.floor(len(items) / self.batches)
+        # self.batch is one-based, hence we have to subtract 1
+        batch = self.batch - 1
+        i = batch * batch_len
+        if self.is_final:
+            # extend the last batch to cover rest of list
+            return items[i:]
+        else:
+            return items[i:i + batch_len]
+
+    @property
+    def is_final(self):
+        return self.batch == self.batches
+
+    def __str__(self):
+        return "{}/{} (rule {})".format(self.batch, self.batches, self.rulename)
 
 
 class DAG:
@@ -55,8 +94,8 @@ class DAG:
         ignore_incomplete=False,
         notemp=False,
         keep_remote_local=False,
+        batch=None,
     ):
-
         self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
@@ -98,7 +137,7 @@ class DAG:
             self.forcerules.update(forcerules)
         if forcefiles:
             self.forcefiles.update(forcefiles)
-        if untilrules:  # keep only the rule names
+        if untilrules:
             self.untilrules.update(set(rule.name for rule in untilrules))
         if untilfiles:
             self.untilfiles.update(untilfiles)
@@ -108,6 +147,13 @@ class DAG:
             self.omitfiles.update(omitfiles)
 
         self.omitforce = set()
+
+        self.batch = batch
+        if batch is not None and not batch.is_final:
+            # Since not all input files of a batching rule are considered, we cannot run
+            # beyond that rule.
+            # For the final batch, we do not need to omit anything.
+            self.omitrules.add(batch.rulename)
 
         self.force_incomplete = force_incomplete
         self.ignore_incomplete = ignore_incomplete
@@ -858,11 +904,8 @@ class DAG:
         return (job for job in self.jobs if self.in_omitfrom(job))
 
     def downstream_of_omitfrom(self):
-        """Returns the downstream of --omit-from rules or files."""
-        return filter(
-            lambda job: not self.in_omitfrom(job),
-            self.bfs(self.depending, *self.omitfrom_jobs()),
-        )
+        """Returns the downstream of --omit-from rules or files and themselves."""
+        return self.bfs(self.depending, *self.omitfrom_jobs())
 
     def delete_omitfrom_jobs(self):
         """Removes jobs downstream of jobs specified by --omit-from."""
@@ -1278,6 +1321,10 @@ class DAG:
         self.rules.add(newrule)
         self.update_output_index()
 
+    def is_batch_rule(self, rule):
+        """Return True if the underlying rule is to be used for batching the DAG."""
+        return self.batch is not None and rule.name == self.batch.rulename
+
     def collect_potential_dependencies(self, job):
         """Collect all potential dependencies of a job. These might contain
         ambiguities."""
@@ -1285,6 +1332,7 @@ class DAG:
         # use a set to circumvent multiple jobs for the same file
         # if user specified it twice
         file2jobs = self.file2jobs
+
         for file in job.unique_input:
             # omit the file if it comes from a subworkflow
             if file in job.subworkflow_input:
