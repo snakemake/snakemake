@@ -35,11 +35,11 @@ from snakemake import workflow
 class Batch:
     """Definition of a batch for calculating only a partial DAG."""
 
-    def __init__(self, rulename: str, batch: int, batches: int):
-        assert batch <= batches
-        assert batch > 0
+    def __init__(self, rulename: str, idx: int, batches: int):
+        assert idx <= batches
+        assert idx > 0
         self.rulename = rulename
-        self.batch = batch
+        self.idx = idx
         self.batches = batches
 
     def get_batch(self, items: list):
@@ -54,8 +54,8 @@ class Batch:
         items = sorted(items)
         batch_len = math.floor(len(items) / self.batches)
         # self.batch is one-based, hence we have to subtract 1
-        batch = self.batch - 1
-        i = batch * batch_len
+        idx = self.idx - 1
+        i = idx * batch_len
         if self.is_final:
             # extend the last batch to cover rest of list
             return items[i:]
@@ -64,10 +64,10 @@ class Batch:
 
     @property
     def is_final(self):
-        return self.batch == self.batches
+        return self.idx == self.batches
 
     def __str__(self):
-        return "{}/{} (rule {})".format(self.batch, self.batches, self.rulename)
+        return "{}/{} (rule {})".format(self.idx, self.batches, self.rulename)
 
 
 class DAG:

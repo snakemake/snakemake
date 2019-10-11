@@ -636,7 +636,7 @@ def snakemake(
 
 
 def parse_batch(args):
-    errmsg = "Invalid batch definition: batch entry has to be defined as RULE=BATCH/BATCHES (with integers BATCH <= BATCHES)."
+    errmsg = "Invalid batch definition: batch entry has to be defined as RULE=BATCH/BATCHES (with integers BATCH <= BATCHES, BATCH >= 1)."
     if args.batch is not None:
         rule, batchdef = parse_key_value_arg(args.batch, errmsg=errmsg)
         try:
@@ -644,6 +644,8 @@ def parse_batch(args):
             batch = int(batch)
             batches = int(batches)
         except ValueError:
+            raise ValueError(errmsg)
+        if batch > batches or batch < 1:
             raise ValueError(errmsg)
         return Batch(rule, batch, batches)
     return None
