@@ -912,7 +912,6 @@ class Workflow:
 
         # put user decorator under @workflow.rule
         ast_tree = ast.parse(code)
-        print(ast.dump(ast_tree))
         for ast_elm in ast.iter_child_nodes(ast_tree):
             # if "rule:" section definition...
             if not getattr(ast_elm, 'name', '').startswith('__rule_'):
