@@ -921,7 +921,7 @@ class Workflow:
             try:
                 rule_decorator_t = next(filter(lambda x: getattr(x[1].func, 'attr', '') == 'rule', enumerate(ast_elm.decorator_list)))
             except Exception as e:
-                print(e)  # TODO replace right stack trace output!
+                logger.error(str(e))
                 continue
             rd_i, rd = rule_decorator_t
             ast_elm.decorator_list[1:rd_i+1] = ast_elm.decorator_list[:rd_i]
