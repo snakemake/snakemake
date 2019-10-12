@@ -87,7 +87,7 @@ class Workflow:
         default_remote_provider=None,
         default_remote_prefix="",
         run_local=True,
-        default_resources=dict(),
+        default_resources=None,
     ):
         """
         Create the controller.
