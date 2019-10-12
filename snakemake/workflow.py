@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import ast
 import re
 import os
 import sys
@@ -909,6 +910,23 @@ class Workflow:
         )
         self._rulecount = rulecount
 
+        # put user decorator under @workflow.rule
+        ast_tree = ast.parse(code)
+        print(ast.dump(ast_tree))
+        for ast_elm in ast.iter_child_nodes(ast_tree):
+            # if "rule:" section definition...
+            if not getattr(ast_elm, 'name', '').startswith('__rule_'):
+                continue
+            # find @workflow.rule decorator, and pull it to the first decorator
+            try:
+                rule_decorator_t = next(filter(lambda x: getattr(x[1].func, 'attr', '') == 'rule', enumerate(ast_elm.decorator_list)))
+            except Exception as e:
+                print(e)  # TODO replace right stack trace output!
+                continue
+            rd_i, rd = rule_decorator_t
+            ast_elm.decorator_list[1:rd_i+1] = ast_elm.decorator_list[:rd_i]
+            ast_elm.decorator_list[0] = rd
+
         if print_compilation:
             print(code)
 
@@ -917,7 +935,7 @@ class Workflow:
         sys.path.insert(0, os.path.dirname(snakefile))
 
         self.linemaps[snakefile] = linemap
-        exec(compile(code, snakefile, "exec"), self.globals)
+        exec(compile(ast_tree, snakefile, "exec"), self.globals)
         if not overwrite_first_rule:
             self.first_rule = first_rule
         self.included_stack.pop()
