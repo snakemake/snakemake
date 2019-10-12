@@ -693,7 +693,7 @@ def not_iterable(value):
     return (
         isinstance(value, str)
         or isinstance(value, dict)
-        or not isinstance(value, collections.Iterable)
+        or not isinstance(value, collections.abc.Iterable)
     )
 
 
@@ -893,7 +893,7 @@ def expand(*args, **wildcards):
 
     def flatten(wildcards):
         for wildcard, values in wildcards.items():
-            if isinstance(values, str) or not isinstance(values, collections.Iterable):
+            if isinstance(values, str) or not isinstance(values, collections.abc.Iterable):
                 values = [values]
             yield [(wildcard, value) for value in values]
 
