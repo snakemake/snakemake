@@ -65,7 +65,7 @@ class RemoteProvider(AbstractRemoteProvider):
     ):
         if isinstance(value, str):
             values = [value]
-        elif isinstance(value, collections.Iterable):
+        elif isinstance(value, collections.abc.Iterable):
             values = value
         else:
             raise TypeError(

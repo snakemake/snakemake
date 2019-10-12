@@ -395,7 +395,7 @@ class Rule:
         assert not callable(item)
         if isinstance(item, dict):
             return {k: apply(v) for k, v in item.items()}
-        elif isinstance(item, collections.Iterable) and not isinstance(item, str):
+        elif isinstance(item, collections.abc.Iterable) and not isinstance(item, str):
             return [apply(e) for e in item]
         else:
             return apply(item)
