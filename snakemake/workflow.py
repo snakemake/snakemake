@@ -358,6 +358,7 @@ class Workflow:
         cleanup_metadata=None,
         cleanup_conda=False,
         cleanup_shadow=False,
+        cleanup_scripts=True,
         subsnakemake=None,
         updated_files=None,
         keep_target_files=False,
@@ -382,6 +383,7 @@ class Workflow:
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
         self.immediate_submit = immediate_submit
+        self.cleanup_scripts = cleanup_scripts
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
