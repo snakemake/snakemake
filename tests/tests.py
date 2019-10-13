@@ -1,5 +1,5 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__contributors__ = ["Soohyun Lee"]
+__contributors__ = ["Soohyun Lee", "Vanessa Sochat"]
 __copyright__ = "Copyright 2015, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -142,6 +142,9 @@ def run(path,
 
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
+
+def test_github_issue_14():
+    run(dpath("test_github_issue_14"), cleanup_wrappers=False)
 
 def test_issue956():
     run(dpath("test_issue956"))

@@ -85,6 +85,7 @@ def snakemake(
     cleanup_metadata=None,
     cleanup_conda=False,
     cleanup_shadow=False,
+    cleanup_wrappers=True,
     force_incomplete=False,
     ignore_incomplete=False,
     list_version_changes=False,
@@ -190,6 +191,7 @@ def snakemake(
         cleanup_metadata (list):    just cleanup metadata of given list of output files (default None)
         cleanup_conda (bool):       just cleanup unused conda environments (default False)
         cleanup_shadow (bool):      just cleanup old shadow directories (default False)
+        cleanup_wrappers (bool):    delete wrapper scripts used for execution (default True)
         force_incomplete (bool):    force the re-creation of incomplete files (default False)
         ignore_incomplete (bool):   ignore incomplete files (default False)
         list_version_changes (bool): list output files with changed rule version (default False)
@@ -1092,6 +1094,11 @@ def get_argument_parser(profile=None):
         "to failures or power loss.",
     )
     group_utils.add_argument(
+        "--skip-wrapper-cleanup",
+        action="store_true",
+        help="Don't delete wrapper scripts used for execution",
+    )
+    group_utils.add_argument(
         "--unlock", action="store_true", help="Remove a lock on the working directory."
     )
     group_utils.add_argument(
@@ -1872,6 +1879,7 @@ def main(argv=None):
             cleanup_metadata=args.cleanup_metadata,
             cleanup_conda=args.cleanup_conda,
             cleanup_shadow=args.cleanup_shadow,
+            cleanup_wrappers=not args.skip_wrapper_cleanup,
             force_incomplete=args.rerun_incomplete,
             ignore_incomplete=args.ignore_incomplete,
             list_version_changes=args.list_version_changes,
