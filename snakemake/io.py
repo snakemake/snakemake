@@ -285,11 +285,9 @@ class _IOFile(str):
     @property
     def protected(self):
         # symlinks are never regarded as protected
-        return self.exists_local and not os.access(
-            self.file,
-            os.W_OK,
-            **_follow_symlink(os.access, False),
-        )
+        return self.exists_local and \
+               (not os.access(self.file, os.W_OK)) and \
+               (not os.path.islink(self.file))
 
     @property
     @iocache
