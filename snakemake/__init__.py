@@ -1022,7 +1022,7 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Do not execute anything and print the dependency graph "
         "of rules with their input and output files in the dot language. "
-        "This is an intermadiate solution between above DAG of jobs and the rule graph. "
+        "This is an intermediate solution between above DAG of jobs and the rule graph. "
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
@@ -1054,11 +1054,11 @@ def get_argument_parser(profile=None):
         help="Print a summary of all files created by the workflow. The "
         "has the following columns: filename, modification time, "
         "rule version, input file(s), shell command, status, plan.\n"
-        "Thereby rule version contains the version"
+        "Thereby rule version contains the version "
         "the file was created with (see the version keyword of rules), and "
         "status denotes whether the file is missing, its input files are "
         "newer or if version or implementation of the rule changed since "
-        "file creation. The input file and shell command columns are self"
+        "file creation. The input file and shell command columns are self "
         "explanatory. Finally the last column denotes whether the file "
         "will be updated or created during the next workflow execution.",
     )
@@ -1539,7 +1539,7 @@ def get_argument_parser(profile=None):
         help="Execute workflow on AWS cloud using Tibanna. This requires "
         "--default-remote-prefix to be set to S3 bucket name and prefix"
         " (e.g. 'bucketname/subdirectory') where input is already stored"
-        " and output will be sent to. Using --tibanna implies --defaut-resources"
+        " and output will be sent to. Using --tibanna implies --default-resources"
         " is set as default. Optionally, use --precommand to"
         " specify any preparation command to run before snakemake command"
         " on the cloud (inside snakemake container on Tibanna VM)."
@@ -1551,7 +1551,7 @@ def get_argument_parser(profile=None):
         help="Name of Tibanna Unicorn step function (e.g. tibanna_unicorn_monty)."
         "This works as serverless scheduler/resource allocator and must be "
         "deployed first using tibanna cli. (e.g. tibanna deploy_unicorn --usergroup="
-        "monty --buckets=bucketname",
+        "monty --buckets=bucketname)",
     )
     group_tibanna.add_argument(
         "--precommand",
