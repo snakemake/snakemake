@@ -795,10 +795,9 @@ def get_argument_parser(profile=None):
         const=available_cpu_count(),
         nargs="?",
         metavar="N",
-        type=int,
         help=(
             "Use at most N cores in parallel (default: 1). "
-            "If N is omitted, the limit is set to the number of "
+            "If N is omitted or 'all', the limit is set to the number of "
             "available cores."
         ),
     )
@@ -1674,6 +1673,15 @@ def main(argv=None):
         print("", file=sys.stderr)
         sys.exit(1)
 
+    if args.cores is not None:
+        if args.cores == "all":
+            args.cores = available_cpu_count()
+        else:
+            try:
+                args.cores = int(args.cores)
+            except ValueError:
+                print("Error parsing number of cores (--cores, --jobs, -j): must be integer, empty, or 'all'.", file=sys.stderr)
+                sys.exit(1)
     if args.cluster or args.cluster_sync or args.drmaa:
         if args.cores is None:
             if args.dryrun:
