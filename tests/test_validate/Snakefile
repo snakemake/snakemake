@@ -1,3 +1,5 @@
+shell.use_bash_on_win()
+
 import pandas as pd
 from snakemake.utils import validate
 
