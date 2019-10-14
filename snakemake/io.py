@@ -29,10 +29,6 @@ from inspect import isfunction, ismethod
 from snakemake.common import DYNAMIC_FILL
 
 
-def lstat(f):
-    return os.stat(f, follow_symlinks=os.stat not in os.supports_follow_symlinks)
-
-
 def lutime(f, times):
     # In some cases, we have a platform where os.supports_follow_symlink includes stat()
     # but not utime().  This leads to an anomaly.  In any case we never want to touch the
@@ -66,8 +62,16 @@ def lutime(f, times):
         return None
 
 
-def lchmod(f, mode):
-    os.chmod(f, mode, follow_symlinks=os.chmod not in os.supports_follow_symlinks)
+if os.chmod in os.supports_follow_symlinks:
+
+    def lchmod(f, mode):
+        os.chmod(f, mode, follow_symlinks=False)
+
+
+else:
+
+    def lchmod(f, mode):
+        os.chmod(f, mode)
 
 
 class IOCache:
@@ -281,10 +285,13 @@ class _IOFile(str):
 
     @property
     def protected(self):
+        """Returns True if the file is protected. Always False for symlinks."""
         # symlinks are never regarded as protected
-        return self.exists_local and \
-               (not os.access(self.file, os.W_OK)) and \
-               (not os.path.islink(self.file))
+        return (
+            self.exists_local
+            and not os.access(self.file, os.W_OK)
+            and not os.path.islink(self.file)
+        )
 
     @property
     @iocache
@@ -298,9 +305,9 @@ class _IOFile(str):
         if os.path.isdir(self.file) and os.path.exists(
             os.path.join(self.file, ".snakemake_timestamp")
         ):
-            return lstat(os.path.join(self.file, ".snakemake_timestamp")).st_mtime
+            return os.lstat(os.path.join(self.file, ".snakemake_timestamp")).st_mtime
         else:
-            return lstat(self.file).st_mtime
+            return os.lstat(self.file).st_mtime
 
     @property
     def flags(self):
@@ -320,7 +327,7 @@ class _IOFile(str):
 
     def check_broken_symlink(self):
         """ Raise WorkflowError if file is a broken symlink. """
-        if not self.exists_local and lstat(self.file):
+        if not self.exists_local and os.lstat(self.file):
             raise WorkflowError(
                 "File {} seems to be a broken symlink.".format(self.file)
             )
@@ -343,10 +350,7 @@ class _IOFile(str):
             else:
                 st_mtime_file = self.file
             try:
-                return (
-                    os.stat(st_mtime_file, follow_symlinks=True).st_mtime > time
-                    or self.mtime > time
-                )
+                return os.stat(st_mtime_file).st_mtime > time or self.mtime > time
             except FileNotFoundError:
                 raise WorkflowError(
                     "File {} not found although it existed before. Is there another active process that might have deleted it?".format(
@@ -386,7 +390,9 @@ class _IOFile(str):
             os.mkfifo(self._file)
 
     def protect(self):
-        mode = lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+        mode = (
+            os.lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+        )
         if os.path.isdir(self.file):
             for root, dirs, files in os.walk(self.file):
                 for d in dirs:
