@@ -4,7 +4,7 @@ HTTP = HTTPRemoteProvider()
 
 shell("touch C && sleep 1 && touch B && sleep 1 && touch A && touch D && \
     mkdir -p github.com/snakemake/snakemake/raw/master/tests/test_remote_http/expected-results && \
-    touch bitbucket.org/snakemake/snakemake/raw/master/tests/test_remote_http/expected-results/landsat-data.txt && \
+    touch github.com/snakemake/snakemake/raw/master/tests/test_remote_http/expected-results/landsat-data.txt && \
     touch -t 200101010101 old_file")
 
 #Will not be executed even though A is newer
