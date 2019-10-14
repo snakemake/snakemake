@@ -55,6 +55,8 @@ jobs:
           command: |
             conda activate snakemake
             pip install -e .
+            echo -e "import coverage\ncoverage.process_startup()" > sitecustomize.py
+            echo "export COVERAGE_PROCESS_START=true" >> $BASH_ENV
       - run:
           name: Setup iRODS Docker image
           command: |
