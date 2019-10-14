@@ -767,9 +767,13 @@ class DAG:
         producer = dict()
         exceptions = dict()
         for file, jobs in potential_dependencies.items():
-            if not jobs and not file.exists:
-                # file not found and no job creates it
-                missing_input.add(file)
+            if not jobs:
+                # no producing job found
+                if not file.exists:
+                    # file not found, hence missing input
+                    missing_input.add(file)
+                # file found, no problem
+                continue
 
             try:
                 selected_job = self.update(
