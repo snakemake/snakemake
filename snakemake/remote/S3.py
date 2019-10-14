@@ -44,7 +44,7 @@ class RemoteProvider(
         return self._s3c
 
     @property  # decorator, so that this function can be access as an attribute, instead of a method
-    def default_(self):
+    def default_protocol(self):
         """The protocol that is prepended to the path when no protocol is specified."""
         return "s3://"
 
