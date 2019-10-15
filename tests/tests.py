@@ -334,7 +334,7 @@ def test_update_config():
 def test_wildcard_keyword():
     run(dpath("test_wildcard_keyword"))
 
-
+@skip_on_windows
 def test_benchmark():
     run(dpath("test_benchmark"), check_md5=False)
 
@@ -358,7 +358,7 @@ def test_multiple_includes():
 def test_yaml_config():
     run(dpath("test_yaml_config"))
 
-
+@skip_on_windows
 def test_remote():
     run(dpath("test_remote"), cores=1)
 
@@ -388,6 +388,7 @@ def test_script_python():
 def test_shadow():
     run(dpath("test_shadow"))
 
+@skip_on_windows  # Symbolic link privileges needed to work   
 def test_shadow_prefix():
     run(dpath("test_shadow_prefix"), shadow_prefix = "shadowdir")
 
@@ -426,6 +427,7 @@ def test_symlink_time_handling():
     if os.utime in os.supports_follow_symlinks:
         run(dpath("test_symlink_time_handling"))
 
+@skip_on_windows
 def test_protected_symlink_output():
     run(dpath("test_protected_symlink_output"))
 
@@ -570,6 +572,7 @@ def test_restartable_job_cmd_exit_1_no_restart():
     run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
         restart_times=0, shouldfail=True)
 
+@skip_on_windows
 def test_restartable_job_cmd_exit_1_one_restart():
     # Restarting once is enough
     run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
@@ -631,6 +634,7 @@ def test_run_namedlist():
 
 @connected
 @not_ci
+@skip_on_windows
 def test_remote_gs():
     run(dpath("test_remote_gs"))
 
@@ -794,6 +798,7 @@ def test_pathlib_missing_file():
     run(dpath("test_pathlib_missing_file"), shouldfail=True)
 
 
+@skip_on_windows
 def test_group_jobs():
     run(dpath("test_group_jobs"), cluster="./qsub")
 
@@ -801,7 +806,7 @@ def test_group_jobs():
 def test_group_job_fail():
     run(dpath("test_group_job_fail"), cluster="./qsub", shouldfail=True)
 
-
+@skip_on_windows # Not supported, but could maybe be implemented. https://stackoverflow.com/questions/48542644/python-and-windows-named-pipes
 def test_pipes():
     run(dpath("test_pipes"))
 
@@ -895,6 +900,7 @@ def test_issue1085():
 def test_issue1083():
     run(dpath("test_issue1083"), use_singularity=True)
 
+@skip_on_windows # Fails with "The flag 'pipe' used in rule two is only valid for outputs
 def test_pipes2():
     run(dpath("test_pipes2"))
 
@@ -908,6 +914,7 @@ def test_tibanna():
 def test_expand_flag():
     run(dpath("test_expand_flag"), shouldfail=True)
 
+@skip_on_windows
 def test_default_resources():
     from snakemake.resources import DefaultResources
     run(dpath("test_default_resources"), verbose=True, default_resources=DefaultResources(["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]))
@@ -920,7 +927,7 @@ def test_issue1284():
 def test_issue1281():
     run(dpath("test_issue1281"))
 
-
+@skip_on_windows  # Currently no workable pygraphviz package
 def test_filegraph():
     workdir = dpath("test_filegraph")
     dot_path = "fg.dot"
