@@ -1600,7 +1600,7 @@ class TibannaExecutor(ClusterExecutor):
         for wfs in self.workflow_sources.copy():
             if os.path.isdir(wfs):
                 for (dirpath, dirnames, filenames) in os.walk(wfs):
-                    self.workflow_sources.extend(filenames)
+                    self.workflow_sources.extend([os.path.join(dirpath, f) for f in filenames])
                 self.workflow_sources.remove(wfs)
 
         log = "sources="
