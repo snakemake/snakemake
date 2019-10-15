@@ -1719,8 +1719,8 @@ class TibannaExecutor(ClusterExecutor):
             if src_fname != snakefile_fname:  # redundant
                 snakemake_child_fnames.append(src_fname)
         # change path for config files
-        self.workflow.overwrite_configfile, _ = self.split_filename(
-            self.workflow.overwrite_configfile, snakemake_dir
+        self.workflow.overwrite_configfiles, _ = self.split_filename(
+            self.workflow.overwrite_configfiles, snakemake_dir
         )
         tibanna_args.snakemake_directory_local = snakemake_dir
         tibanna_args.snakemake_main_filename = snakefile_fname
