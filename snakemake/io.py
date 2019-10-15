@@ -387,7 +387,7 @@ class _IOFile(str):
                 if e.errno != 17:
                     raise e
 
-        if is_flagged(self._file, "pipe") and ON_WINDOWS:
+        if is_flagged(self._file, "pipe") and not ON_WINDOWS:
             os.mkfifo(self._file)
 
     def protect(self):
