@@ -534,7 +534,7 @@ def find_bash_on_windows():
     """
     Find the path to a usable bash on windows.
     First attempt is to look for bash installed  with a git conda package. 
-    alternatively a bash installed with 'Git for Windows'.
+    alternatively try bash installed with 'Git for Windows'.
     """    
     # First look for bash in git's conda package
     bashcmd = os.path.join(os.path.dirname(sys.executable), r"Library\bin\bash.exe")

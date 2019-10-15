@@ -66,7 +66,7 @@ class shell:
         if os.path.split(cmd)[-1] == "bash":
             cls._process_prefix = "set -euo pipefail; "
         if ON_WINDOWS and cmd.lower().endswith('bash.exe'):
-            # If user tries to use bash as execulate on Windows
+            # If bash is selected as the executable on Windows
             # configure _preocess_prefix and win_quote_cmd for 
             # this to work correctly
             cls._process_prefix = '"{}" -c'.format(cmd)
