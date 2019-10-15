@@ -21,12 +21,6 @@ from snakemake import snakemake
 from snakemake.shell import shell
 
 
-if not which("snakemake"):
-    raise Exception("snakemake not in PATH. For testing, install snakemake with "
-                    "'pip install -e .'. You should do this in a separate environment "
-                    "(via conda or virtualenv).")
-
-
 def dpath(path):
     """get path to a data file (relative to the directory this
 	test lives in)"""
