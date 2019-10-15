@@ -1730,7 +1730,10 @@ def main(argv=None):
             try:
                 args.cores = int(args.cores)
             except ValueError:
-                print("Error parsing number of cores (--cores, --jobs, -j): must be integer, empty, or 'all'.", file=sys.stderr)
+                print(
+                    "Error parsing number of cores (--cores, --jobs, -j): must be integer, empty, or 'all'.",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
     if args.cluster or args.cluster_sync or args.drmaa:
         if args.cores is None:

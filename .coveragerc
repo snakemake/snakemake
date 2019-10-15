@@ -1,5 +1,7 @@
 [run]
 source=snakemake
+parallel=True
+omit = tests/*
 
 [report]
 omit = tests/*

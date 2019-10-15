@@ -49,14 +49,7 @@ jobs:
           name: Check formatting
           command: |
             conda activate black
-            black --check snakemake || echo "Please run 'black snakemake'."
-      - run:
-          name: Setup Snakemake
-          command: |
-            conda activate snakemake
-            pip install -e .
-            echo -e "import coverage\ncoverage.process_startup()" > sitecustomize.py
-            echo "export COVERAGE_PROCESS_START=.coveragerc" >> $BASH_ENV
+            black --check snakemake
       - run:
           name: Setup iRODS Docker image
           command: |
@@ -87,7 +80,9 @@ jobs:
             # the outside PATH instead of overriding it.
             sed -i -r "/PATH=/ s/$/:\$PATH/" $BASH_ENV
             conda activate snakemake
-            pytest tests/test*.py -v -x --cov . --cov-report xml:coverage.xml
+            coverage run -m pytest tests/test*.py -v -x
+            coverage combine
+            coverage xml
       - codecov/upload:
           file: coverage.xml
           
