@@ -585,7 +585,9 @@ class DAG:
                 yield from filterfalse(partial(needed, job_), tempfiles & files)
 
             # temp output
-            if not job.dynamic_output and job not in self.targetjobs:
+            if not job.dynamic_output and (
+                job not in self.targetjobs or job.rule.name == self.workflow.first_rule
+            ):
                 tempfiles = (
                     f
                     for f in job.expanded_output

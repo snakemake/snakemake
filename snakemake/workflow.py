@@ -73,6 +73,7 @@ class Workflow:
         overwrite_clusterconfig=dict(),
         config_args=None,
         debug=False,
+        verbose=False,
         use_conda=False,
         conda_prefix=None,
         use_singularity=False,
@@ -121,6 +122,7 @@ class Workflow:
         self._onstart = lambda log: None
         self._wildcard_constraints = dict()
         self.debug = debug
+        self.verbose = verbose
         self._rulecount = 0
         self.use_conda = use_conda
         self.conda_prefix = conda_prefix

@@ -439,6 +439,7 @@ def snakemake(
             overwrite_clusterconfig=cluster_config_content,
             config_args=config_args,
             debug=debug,
+            verbose=verbose,
             use_conda=use_conda or list_conda_envs or cleanup_conda,
             use_singularity=use_singularity,
             conda_prefix=conda_prefix,
