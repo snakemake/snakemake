@@ -79,8 +79,14 @@ jobs:
             # This is necessary because snakemake invokes new shells, that have to inherit
             # the outside PATH instead of overriding it.
             sed -i -r "/PATH=/ s/$/:\$PATH/" $BASH_ENV
+            # enable coverage recording for subprocesses
+            echo -e "import coverage\ncoverage.process_startup()" > sitecustomize.py
+            echo "export COVERAGE_PROCESS_START=.coveragerc" >> $BASH_ENV
+            # activate env
             conda activate snakemake
+            # run tests
             coverage run -m pytest tests/test*.py -v -x
+            # collect coverage report
             coverage combine
             coverage xml
       - codecov/upload:
