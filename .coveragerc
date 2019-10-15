@@ -1,2 +1,5 @@
 [run]
 source=snakemake
+
+[report]
+omit = tests/*
