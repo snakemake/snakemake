@@ -1,0 +1,29 @@
+SAMPLES = ["a", "b", "c"]
+
+rule all:
+    input:
+        "foo.txt",
+        "bar.txt"
+
+
+rule aggregate:
+    input:
+        expand("{sample}.inter.txt", sample=SAMPLES)
+    output:
+        "foo.txt"
+    shell:
+        "touch {output}"
+
+
+rule feed:
+    output:
+        temp("{sample}.inter.txt")
+    shell:
+        "touch {output}"
+
+
+rule independent:
+    output:
+        "bar.txt"
+    shell:
+        "touch {output}"

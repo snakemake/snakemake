@@ -129,6 +129,7 @@ class Job(AbstractJob):
         self.input, input_mapping, self.dependencies = self.rule.expand_input(
             self.wildcards_dict
         )
+
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
         # other properties are lazy to be able to use additional parameters and check already existing files
         self._params = None
