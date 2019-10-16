@@ -143,6 +143,7 @@ def snakemake(
     assume_shared_fs=True,
     cluster_status=None,
     export_cwl=None,
+    show_failed_logs=False,
 ):
     """Run snakemake on a given snakefile.
 
@@ -358,6 +359,7 @@ def snakemake(
             debug=verbose,
             use_threads=use_threads,
             mode=mode,
+            show_failed_logs=show_failed_logs,
         )
 
     if greediness is None:
@@ -1429,6 +1431,11 @@ def get_argument_parser(profile=None):
         type=int,
         help="Set execution mode of Snakemake (internal use only).",
     )
+    group_behavior.add_argument(
+        "--show-failed-logs",
+        action="store_true",
+        help="Automatically display logs of failed jobs.",
+    )
 
     group_cluster = parser.add_argument_group("CLUSTER")
 
@@ -1730,7 +1737,10 @@ def main(argv=None):
             try:
                 args.cores = int(args.cores)
             except ValueError:
-                print("Error parsing number of cores (--cores, --jobs, -j): must be integer, empty, or 'all'.", file=sys.stderr)
+                print(
+                    "Error parsing number of cores (--cores, --jobs, -j): must be integer, empty, or 'all'.",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
     if args.cluster or args.cluster_sync or args.drmaa:
         if args.cores is None:
@@ -1976,6 +1986,7 @@ def main(argv=None):
             assume_shared_fs=not args.no_shared_fs,
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
+            show_failed_logs=args.show_failed_logs,
         )
 
     if args.runtime_profile:
