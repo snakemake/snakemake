@@ -321,7 +321,10 @@ class Logger:
 
             if self.show_failed_logs and msg["log"]:
                 for f in msg["log"]:
-                    self.logger.error("Logfile {}:\n{}".format(f, open(f).read()))
+                    try:
+                        self.logger.error("Logfile {}:\n{}".format(f, open(f).read()))
+                    except FileNotFoundError:
+                        self.logger.error("Logfile {} not found.".format(f))
 
             self.logger.error("")
         elif level == "group_error":
