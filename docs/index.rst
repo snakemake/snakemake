@@ -13,7 +13,7 @@ Snakemake
 .. image:: https://img.shields.io/pypi/v/snakemake.svg
     :target: https://pypi.python.org/pypi/snakemake
 
-.. image:: https://img.shields.io/docker/build/snakemake/snakemake
+.. image:: https://img.shields.io/docker/cloud/build/snakemake/snakemake
        :target: https://hub.docker.com/r/snakemake/snakemake
 
 .. image:: https://circleci.com/gh/snakemake/snakemake/tree/master.svg?style=shield
