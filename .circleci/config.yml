@@ -82,6 +82,7 @@ jobs:
             # enable coverage recording for subprocesses
             echo -e "import coverage\ncoverage.process_startup()" > sitecustomize.py
             echo "export COVERAGE_PROCESS_START=.coveragerc" >> $BASH_ENV
+            cat $BASH_ENV
             # activate env
             conda activate snakemake
             # run tests
