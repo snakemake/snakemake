@@ -28,6 +28,8 @@ jobs:
           docker exec -u irods provider iput /incoming/infile
           cp -r tests/test_remote_irods/setup-data ~/.irods
       - name: Run tests
+        env:
+          CI: true
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
