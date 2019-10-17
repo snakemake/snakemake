@@ -15,7 +15,7 @@ jobs:
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate black
-          black --check snakemake tests
+          black --check snakemake tests/*.py
       - name: Setup Snakemake environment
         run: conda env create --quiet --name snakemake --file test-environment.yml
       - name: Setup apt dependencies
