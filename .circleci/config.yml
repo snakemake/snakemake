@@ -70,11 +70,10 @@ jobs:
             $GCLOUD auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
             $GCLOUD config set project snakemake-testing
       - run:
-          name: Run tests
-          no_output_timeout: 60m
+          name: Setup test env
           command: |
-            export GCLOUD_CLUSTER=t-`uuidgen`
-            export GOOGLE_APPLICATION_CREDENTIALS=${HOME}/gcloud-service-key.json
+            echo "export GCLOUD_CLUSTER=t-`uuidgen`" >> $BASH_ENV
+            echo "export GOOGLE_APPLICATION_CREDENTIALS=${HOME}/gcloud-service-key.json" >> $BASH_ENV
             # Fix bash_env to only modify, not overwrite $PATH.
             # This is necessary because snakemake invokes new shells, that have to inherit
             # the outside PATH instead of overriding it.
@@ -82,7 +81,10 @@ jobs:
             # enable coverage recording for subprocesses
             echo -e "import coverage\ncoverage.process_startup()" > sitecustomize.py
             echo "export COVERAGE_PROCESS_START=.coveragerc" >> $BASH_ENV
-            cat $BASH_ENV
+      - run:
+          name: Run tests
+          no_output_timeout: 60m
+          command: |
             # activate env
             conda activate snakemake
             # run tests
