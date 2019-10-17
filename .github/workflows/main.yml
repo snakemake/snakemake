@@ -26,6 +26,7 @@ jobs:
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
+          pip install -e .
           pytest tests/test*.py -v -x
       - name: Build container image
         run: docker build .
