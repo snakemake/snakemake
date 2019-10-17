@@ -88,4 +88,7 @@ jobs:
             pytest tests/test*.py -v -x --cov . --cov-report xml:coverage.xml
       - codecov/upload:
           file: coverage.xml
+      - run:
+          name: Build container image
+          command: docker build .
           
