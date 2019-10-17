@@ -6,6 +6,7 @@ rule delete_all_output:
     output: touch("delete_all_output")
     shell:
         """
+        echo $PATH
         python -m snakemake -s Snakefile_inner all && \
         rm nothere && \
         python -m snakemake -s Snakefile_inner --delete-all-output all && \
