@@ -9,10 +9,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - name: Setup Snakemake environment
-        run: conda env create --quiet --name snakemake --file test-environment.yml
       - name: Setup black environment
         run: conda create --quiet --name black black
+      - name: Check formatting
+        run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate black
+          black --check snakemake tests
+      - name: Setup Snakemake environment
+        run: conda env create --quiet --name snakemake --file test-environment.yml
       - name: Setup apt dependencies
         run: sudo apt install -y singularity-container stress
       - name: Setup iRODS
