@@ -23,6 +23,9 @@ jobs:
           docker exec -u irods provider iput /incoming/infile
           cp -r tests/test_remote_irods/setup-data ~/.irods
       - name: Run tests
-        run: pytest tests/test*.py -v -x
+        run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest tests/test*.py -v -x
       - name: Build container image
         run: docker build .
