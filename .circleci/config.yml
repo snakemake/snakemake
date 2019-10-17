@@ -87,6 +87,7 @@ jobs:
           command: |
             # activate env
             conda activate snakemake
+            echo $PATH
             # run tests
             coverage run -m pytest tests/test*.py -v -x
             # collect coverage report
