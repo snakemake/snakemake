@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - name: Setup Snakemake environment
-        run: conda env create --quiet --name snakemake --file test-environment.yaml
+        run: conda env create --name snakemake --file test-environment.yml
       - name: Setup black environment
         run: conda create --quiet --name black black
       - name: Setup singularity
