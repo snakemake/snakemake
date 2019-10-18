@@ -88,6 +88,9 @@ def run(
     There must be a Snakefile in the path and a subdirectory named
     expected-results.
     """
+    # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
+    # when subprocesses are invoked in the tempdir defined below.
+    os.environ["PYTHONPATH"] = os.getcwd()
     results_dir = join(path, "expected-results")
     snakefile = join(path, snakefile)
     assert os.path.exists(snakefile)
