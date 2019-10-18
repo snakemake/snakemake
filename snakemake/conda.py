@@ -391,12 +391,9 @@ class Conda:
                     "with `conda activate base`.".format(shell.get_executable())
                 )
         try:
-            version = (
-                shell.check_output(
-                    self._get_cmd("conda --version"), stderr=subprocess.STDOUT
-                )
-                .decode()
-            )
+            version = shell.check_output(
+                self._get_cmd("conda --version"), stderr=subprocess.STDOUT
+            ).decode()
             print(version)
             version = version.split()[1]
             if StrictVersion(version) < StrictVersion("4.2"):
