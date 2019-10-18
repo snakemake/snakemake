@@ -52,5 +52,10 @@ jobs:
           coverage combine
           coverage xml
 
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v1.0.3
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+
       - name: Build container image
         run: docker build .
