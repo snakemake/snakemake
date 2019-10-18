@@ -28,7 +28,7 @@ def dpath(path):
 
 
 def md5sum(filename):
-    data = open(filename, 'rb').read()
+    data = open(filename, "rb").read()
     return hashlib.md5(data).hexdigest()
 
 
@@ -52,17 +52,19 @@ def has_gcloud_service_key():
 def has_gcloud_cluster():
     return "GCLOUD_CLUSTER" in os.environ
 
-gcloud = pytest.mark.skipif(not is_connected()
-                                 or not has_gcloud_service_key()
-                                 or not has_gcloud_cluster(),
-                                 reason="Skipping GCLOUD tests because not on "
-                                        "CI, no inet connection or not logged "
-                                        "in to gcloud.")
+
+gcloud = pytest.mark.skipif(
+    not is_connected() or not has_gcloud_service_key() or not has_gcloud_cluster(),
+    reason="Skipping GCLOUD tests because not on "
+    "CI, no inet connection or not logged "
+    "in to gcloud.",
+)
 
 connected = pytest.mark.skipif(not is_connected(), reason="no internet connection")
 
 ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
 not_ci = pytest.mark.skipif(is_ci(), reason="skipped in CI")
+
 
 def copy(src, dst):
     if os.path.isdir(src):
@@ -71,22 +73,27 @@ def copy(src, dst):
         shutil.copy(src, dst)
 
 
-def run(path,
-        shouldfail=False,
-        snakefile="Snakefile",
-        subpath=None,
-        no_tmpdir=False,
-        check_md5=True, cores=3, **params):
+def run(
+    path,
+    shouldfail=False,
+    snakefile="Snakefile",
+    subpath=None,
+    no_tmpdir=False,
+    check_md5=True,
+    cores=3,
+    **params
+):
     """
     Test the Snakefile in path.
     There must be a Snakefile in the path and a subdirectory named
     expected-results.
     """
-    results_dir = join(path, 'expected-results')
+    results_dir = join(path, "expected-results")
     snakefile = join(path, snakefile)
     assert os.path.exists(snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
-        results_dir), '{} does not exist'.format(results_dir)
+        results_dir
+    ), "{} does not exist".format(results_dir)
     with tempfile.TemporaryDirectory(prefix="snakemake-") as tmpdir:
         config = {}
         # handle subworkflow
@@ -94,13 +101,14 @@ def run(path,
             # set up a working directory for the subworkflow and pass it in `config`
             # for now, only one subworkflow is supported
             assert os.path.exists(subpath) and os.path.isdir(
-                subpath), '{} does not exist'.format(subpath)
+                subpath
+            ), "{} does not exist".format(subpath)
             subworkdir = os.path.join(tmpdir, "subworkdir")
             os.mkdir(subworkdir)
             # copy files
             for f in os.listdir(subpath):
                 copy(os.path.join(subpath, f), subworkdir)
-            config['subworkdir'] = subworkdir
+            config["subworkdir"] = subworkdir
 
         # copy files
         for f in os.listdir(path):
@@ -108,37 +116,44 @@ def run(path,
             copy(os.path.join(path, f), tmpdir)
 
         # run snakemake
-        success = snakemake(snakefile,
-                            cores=cores,
-                            workdir=path if no_tmpdir else tmpdir,
-                            stats="stats.txt",
-                            config=config, **params)
+        success = snakemake(
+            snakefile,
+            cores=cores,
+            workdir=path if no_tmpdir else tmpdir,
+            stats="stats.txt",
+            config=config,
+            **params
+        )
         if shouldfail:
             assert not success, "expected error on execution"
         else:
             assert success, "expected successful execution"
             for resultfile in os.listdir(results_dir):
                 if resultfile == ".gitignore" or not os.path.isfile(
-                    os.path.join(results_dir, resultfile)):
+                    os.path.join(results_dir, resultfile)
+                ):
                     # this means tests cannot use directories as output files
                     continue
                 targetfile = join(tmpdir, resultfile)
                 expectedfile = join(results_dir, resultfile)
                 assert os.path.exists(
-                    targetfile), 'expected file "{}" not produced'.format(
-                        resultfile)
+                    targetfile
+                ), 'expected file "{}" not produced'.format(resultfile)
                 if check_md5:
                     # if md5sum(targetfile) != md5sum(expectedfile):
                     #     import pdb; pdb.set_trace()
                     assert md5sum(targetfile) == md5sum(
-                        expectedfile), 'wrong result produced for file "{}"'.format(
-                            resultfile)
+                        expectedfile
+                    ), 'wrong result produced for file "{}"'.format(resultfile)
+
 
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
+
 def test_issue956():
     run(dpath("test_issue956"))
+
 
 def test01():
     run(dpath("test01"))
@@ -149,11 +164,11 @@ def test02():
 
 
 def test03():
-    run(dpath("test03"), targets=['test.out'])
+    run(dpath("test03"), targets=["test.out"])
 
 
 def test04():
-    run(dpath("test04"), targets=['test.out'])
+    run(dpath("test04"), targets=["test.out"])
 
 
 def test05():
@@ -161,15 +176,15 @@ def test05():
 
 
 def test06():
-    run(dpath("test06"), targets=['test.bla.out'])
+    run(dpath("test06"), targets=["test.bla.out"])
 
 
 def test07():
-    run(dpath("test07"), targets=['test.out', 'test2.out'])
+    run(dpath("test07"), targets=["test.out", "test2.out"])
 
 
 def test08():
-    run(dpath("test08"), targets=['test.out', 'test2.out'])
+    run(dpath("test08"), targets=["test.out", "test2.out"])
 
 
 def test09():
@@ -199,17 +214,30 @@ def test14():
 def test15():
     run(dpath("test15"))
 
+
 def test_directory():
-    run(dpath("test_directory"), targets=['downstream', 'symlinked_input', "child_to_input", "some/dir-child", "some/shadow"])
-    run(dpath("test_directory"), targets=['file_expecting_dir'], shouldfail = True)
-    run(dpath("test_directory"), targets=['dir_expecting_file'], shouldfail = True)
-    run(dpath("test_directory"), targets=['child_to_other'], shouldfail = True)
+    run(
+        dpath("test_directory"),
+        targets=[
+            "downstream",
+            "symlinked_input",
+            "child_to_input",
+            "some/dir-child",
+            "some/shadow",
+        ],
+    )
+    run(dpath("test_directory"), targets=["file_expecting_dir"], shouldfail=True)
+    run(dpath("test_directory"), targets=["dir_expecting_file"], shouldfail=True)
+    run(dpath("test_directory"), targets=["child_to_other"], shouldfail=True)
+
 
 def test_ancient():
-    run(dpath("test_ancient"), targets=['D', 'old_file'])
+    run(dpath("test_ancient"), targets=["D", "old_file"])
+
 
 def test_list_untracked():
     run(dpath("test_list_untracked"))
+
 
 def test_report():
     run(dpath("test_report"), report="report.html", check_md5=False)
@@ -228,8 +256,10 @@ def test_same_wildcard():
 
 
 def test_conditional():
-    run(dpath("test_conditional"),
-        targets="test.out test.0.out test.1.out test.2.out".split())
+    run(
+        dpath("test_conditional"),
+        targets="test.out test.0.out test.1.out test.2.out".split(),
+    )
 
 
 def test_unpack_dict():
@@ -245,9 +275,7 @@ def test_shell():
 
 
 def test_temp():
-    run(dpath("test_temp"),
-        cluster="./qsub",
-        targets="test.realigned.bam".split())
+    run(dpath("test_temp"), cluster="./qsub", targets="test.realigned.bam".split())
 
 
 def test_keyword_list():
@@ -273,6 +301,7 @@ def test_ruledeps():
 def test_persistent_dict():
     try:
         import pytools
+
         run(dpath("test_persistent_dict"))
     except ImportError:
         pass
@@ -328,9 +357,8 @@ def test_remote():
 
 
 def test_cluster_sync():
-    run(dpath("test14"),
-        snakefile="Snakefile.nonstandard",
-        cluster_sync="./qsub")
+    run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster_sync="./qsub")
+
 
 @pytest.mark.skip(reason="This does not work reliably in CircleCI.")
 def test_symlink_temp():
@@ -348,22 +376,32 @@ def test_script():
 def test_shadow():
     run(dpath("test_shadow"))
 
+
 def test_shadow_prefix():
-    run(dpath("test_shadow_prefix"), shadow_prefix = "shadowdir")
-    run(dpath("test_shadow_prefix"), shadow_prefix = "shadowdir", cluster="./qsub")
+    run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir")
+    run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir", cluster="./qsub")
+
 
 def test_until():
-    run(dpath("test_until"),
-        until=["leveltwo_first", # rule name
-               "leveltwo_second.txt", # file name
-               "second_wildcard"]) # wildcard rule
+    run(
+        dpath("test_until"),
+        until=[
+            "leveltwo_first",  # rule name
+            "leveltwo_second.txt",  # file name
+            "second_wildcard",
+        ],
+    )  # wildcard rule
 
 
 def test_omitfrom():
-    run(dpath("test_omitfrom"),
-        omit_from=["leveltwo_first", # rule name
-                   "leveltwo_second.txt", # file name
-                   "second_wildcard"]) # wildcard rule
+    run(
+        dpath("test_omitfrom"),
+        omit_from=[
+            "leveltwo_first",  # rule name
+            "leveltwo_second.txt",  # file name
+            "second_wildcard",
+        ],
+    )  # wildcard rule
 
 
 def test_nonstr_params():
@@ -379,9 +417,10 @@ def test_input_generator():
 
 
 def test_symlink_time_handling():
-    #See Snakefile for notes on why this fails on some systems
+    # See Snakefile for notes on why this fails on some systems
     if os.utime in os.supports_follow_symlinks:
         run(dpath("test_symlink_time_handling"))
+
 
 def test_protected_symlink_output():
     run(dpath("test_protected_symlink_output"))
@@ -390,6 +429,7 @@ def test_protected_symlink_output():
 def test_issue328():
     try:
         import pytools
+
         run(dpath("test_issue328"), forcerun=["split"])
     except ImportError:
         # skip test if import fails
@@ -403,8 +443,7 @@ def test_conda():
 
 def test_conda_custom_prefix():
     if conda_available():
-        run(dpath("test_conda_custom_prefix"),
-            use_conda=True, conda_prefix="custom")
+        run(dpath("test_conda_custom_prefix"), use_conda=True, conda_prefix="custom")
 
 
 def test_wrapper():
@@ -437,11 +476,13 @@ def test_get_log_complex():
 
 
 def test_spaces_in_fnames():
-    run(dpath("test_spaces_in_fnames"),
+    run(
+        dpath("test_spaces_in_fnames"),
         # cluster="./qsub",
         targets=["test bam file realigned.bam"],
         verbose=True,
-        printshellcmds=True)
+        printshellcmds=True,
+    )
 
 
 # TODO deactivate because of problems with moto and boto3.
@@ -467,6 +508,7 @@ def test_remote_ncbi_simple():
         run(dpath("test_remote_ncbi_simple"))
     except ImportError:
         pass
+
 
 @connected
 def test_remote_ncbi():
@@ -509,6 +551,7 @@ def test_format_wildcards():
 def test_with_parentheses():
     run(dpath("test (with parentheses)"))
 
+
 def test_dup_out_patterns():
     """Duplicate output patterns should emit an error
 
@@ -523,13 +566,22 @@ def test_restartable_job_cmd_exit_1_no_restart():
     The shell snippet in the Snakemake file will fail the first time
     and succeed the second time.
     """
-    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
-        restart_times=0, shouldfail=True)
+    run(
+        dpath("test_restartable_job_cmd_exit_1"),
+        cluster="./qsub",
+        restart_times=0,
+        shouldfail=True,
+    )
+
 
 def test_restartable_job_cmd_exit_1_one_restart():
     # Restarting once is enough
-    run(dpath("test_restartable_job_cmd_exit_1"), cluster="./qsub",
-        restart_times=1, printshellcmds=True)
+    run(
+        dpath("test_restartable_job_cmd_exit_1"),
+        cluster="./qsub",
+        restart_times=1,
+        printshellcmds=True,
+    )
 
 
 def test_restartable_job_qsub_exit_1():
@@ -539,13 +591,25 @@ def test_restartable_job_qsub_exit_1():
     second time.
     """
     # Even two consecutive times should fail as files are cleared
-    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
-        restart_times=0, shouldfail=True)
-    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
-        restart_times=0, shouldfail=True)
+    run(
+        dpath("test_restartable_job_qsub_exit_1"),
+        cluster="./qsub",
+        restart_times=0,
+        shouldfail=True,
+    )
+    run(
+        dpath("test_restartable_job_qsub_exit_1"),
+        cluster="./qsub",
+        restart_times=0,
+        shouldfail=True,
+    )
     # Restarting once is enough
-    run(dpath("test_restartable_job_qsub_exit_1"), cluster="./qsub",
-        restart_times=1, shouldfail=False)
+    run(
+        dpath("test_restartable_job_qsub_exit_1"),
+        cluster="./qsub",
+        restart_times=1,
+        shouldfail=False,
+    )
 
 
 def test_threads():
@@ -557,7 +621,7 @@ def test_dynamic_temp():
 
 
 # TODO this currently hangs. Has to be investigated (issue #660).
-#def test_ftp_immediate_close():
+# def test_ftp_immediate_close():
 #    try:
 #        import ftputil
 #
@@ -569,15 +633,18 @@ def test_dynamic_temp():
 
 
 def test_issue260():
-   run(dpath("test_issue260"))
+    run(dpath("test_issue260"))
+
 
 @not_ci
 def test_default_remote():
-    run(dpath("test_default_remote"),
+    run(
+        dpath("test_default_remote"),
         cores=1,
         default_remote_provider="S3Mocked",
         default_remote_prefix="test-remote-bucket",
-        verbose=True)
+        verbose=True,
+    )
 
 
 def test_run_namedlist():
@@ -612,6 +679,7 @@ def test_remote_http():
 def test_remote_http_cluster():
     run(dpath("test_remote_http"), cluster=os.path.abspath(dpath("test14/qsub")))
 
+
 def test_profile():
     run(dpath("test_profile"))
 
@@ -620,12 +688,24 @@ def test_profile():
 def test_singularity():
     run(dpath("test_singularity"), use_singularity=True)
 
+
 def test_singularity_invalid():
-    run(dpath("test_singularity"), targets=["invalid.txt"], use_singularity=True, shouldfail=True)
+    run(
+        dpath("test_singularity"),
+        targets=["invalid.txt"],
+        use_singularity=True,
+        shouldfail=True,
+    )
+
 
 @connected
 def test_singularity_conda():
-    run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True, verbose=True)
+    run(
+        dpath("test_singularity_conda"),
+        use_singularity=True,
+        use_conda=True,
+        verbose=True,
+    )
 
 
 def test_issue612():
@@ -653,42 +733,52 @@ def gcloud_cluster():
     class Cluster:
         def __init__(self):
             self.cluster = os.environ["GCLOUD_CLUSTER"]
-            self.bucket_name = 'snakemake-testing-{}'.format(self.cluster)
+            self.bucket_name = "snakemake-testing-{}".format(self.cluster)
 
-            shell("""
+            shell(
+                """
             $GCLOUD container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
             $GCLOUD container clusters get-credentials {self.cluster} --zone us-central1-a
             $GSUTIL mb gs://{self.bucket_name}
-            """)
+            """
+            )
 
         def delete(self):
-            shell("""
+            shell(
+                """
             $GCLOUD container clusters delete {self.cluster} --zone us-central1-a --quiet || true
             $GSUTIL rm -r gs://{self.bucket_name} || true
-            """)
+            """
+            )
 
         def run(self, test="test_kubernetes", **kwargs):
             try:
-                run(dpath(test),
+                run(
+                    dpath(test),
                     kubernetes="default",
                     default_remote_provider="GS",
                     default_remote_prefix=self.bucket_name,
                     no_tmpdir=True,
-                    **kwargs)
+                    **kwargs
+                )
             except Exception as e:
-                shell("for p in `kubectl get pods | grep ^snakejob- | cut -f 1 -d ' '`; do kubectl logs $p; done")
+                shell(
+                    "for p in `kubectl get pods | grep ^snakejob- | cut -f 1 -d ' '`; do kubectl logs $p; done"
+                )
                 raise e
 
         def reset(self):
-            shell('$GSUTIL rm -r gs://{self.bucket_name}/* || true')
+            shell("$GSUTIL rm -r gs://{self.bucket_name}/* || true")
+
     cluster = Cluster()
     yield cluster
     cluster.delete()
 
 
-
 @gcloud
-@pytest.mark.skip(reason="reenable once we have figured out how to fail if available core hours per month are exceeded")
+@pytest.mark.skip(
+    reason="reenable once we have figured out how to fail if available core hours per month are exceeded"
+)
 @pytest.mark.xfail
 def test_gcloud_plain(gcloud_cluster):
     gcloud_cluster.reset()
@@ -760,12 +850,17 @@ def test_pipes():
 def test_pipes_fail():
     run(dpath("test_pipes_fail"), shouldfail=True)
 
+
 def test_validate():
     run(dpath("test_validate"))
 
 
 def test_validate_fail():
-    run(dpath("test_validate"), configfiles=[dpath("test_validate/config.fail.yaml")], shouldfail=True)
+    run(
+        dpath("test_validate"),
+        configfiles=[dpath("test_validate/config.fail.yaml")],
+        shouldfail=True,
+    )
 
 
 def test_issue854():
@@ -785,77 +880,112 @@ def test_issue860():
 def test_issue894():
     run(dpath("test_issue894"))
 
+
 def test_issue584():
     run(dpath("test_issue584"))
+
 
 def test_issue912():
     run(dpath("test_issue912"))
 
+
 def test_job_properties():
     run(dpath("test_job_properties"), cluster="./qsub.py")
+
 
 def test_issue916():
     run(dpath("test_issue916"))
 
+
 def test_issue930():
     run(dpath("test_issue930"), cluster="./qsub")
+
 
 def test_issue635():
     run(dpath("test_issue635"), use_conda=True, check_md5=False)
 
+
 def test_convert_to_cwl():
     workdir = dpath("test_convert_to_cwl")
-    #run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
-    subprocess.check_call(["snakemake", "--export-cwl" , "workflow.cwl"], cwd=workdir)
+    # run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
+    subprocess.check_call(["snakemake", "--export-cwl", "workflow.cwl"], cwd=workdir)
     subprocess.check_call(["cwltool", "--singularity", "workflow.cwl"], cwd=workdir)
     assert os.path.exists(os.path.join(workdir, "test.out"))
+
 
 def test_issue1037():
     run(dpath("test_issue1037"), dryrun=True, cluster="qsub", targets=["Foo_A.done"])
 
+
 def test_issue1046():
     run(dpath("test_issue1046"))
+
 
 def test_checkpoints():
     run(dpath("test_checkpoints"))
 
+
 def test_checkpoints_dir():
     run(dpath("test_checkpoints_dir"))
+
 
 def test_issue1092():
     run(dpath("test_issue1092"))
 
+
 def test_issue1093():
     run(dpath("test_issue1093"), use_conda=True)
+
 
 def test_issue958():
     run(dpath("test_issue958"), cluster="dummy", dryrun=True)
 
+
 def test_issue471():
     run(dpath("test_issue471"))
+
 
 def test_issue1085():
     run(dpath("test_issue1085"), shouldfail=True)
 
+
 def test_issue1083():
     run(dpath("test_issue1083"), use_singularity=True)
+
 
 def test_pipes2():
     run(dpath("test_pipes2"))
 
-@pytest.mark.skip(reason="need free AWS tier credentials and tibanna as a conda package first")
+
+@pytest.mark.skip(
+    reason="need free AWS tier credentials and tibanna as a conda package first"
+)
 def test_tibanna():
     workdir = dpath("test_tibanna")
     subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
-    run(workdir, use_conda=True, configfiles=["config.json"], default_remote_prefix="snakemake-tibanna-test/1",
-        tibanna_sfn='tibanna_unicorn_johannes')
+    run(
+        workdir,
+        use_conda=True,
+        configfiles=["config.json"],
+        default_remote_prefix="snakemake-tibanna-test/1",
+        tibanna_sfn="tibanna_unicorn_johannes",
+    )
+
 
 def test_expand_flag():
     run(dpath("test_expand_flag"), shouldfail=True)
 
+
 def test_default_resources():
     from snakemake.resources import DefaultResources
-    run(dpath("test_default_resources"), verbose=True, default_resources=DefaultResources(["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]))
+
+    run(
+        dpath("test_default_resources"),
+        verbose=True,
+        default_resources=DefaultResources(
+            ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
+        ),
+    )
 
 
 def test_issue1284():
@@ -878,8 +1008,7 @@ def test_filegraph():
     # make sure the output can be interpreted by dot
     with open(dot_path, "rb") as dot_file, open(pdf_path, "wb") as pdf_file:
         pdf_file.write(
-            subprocess.check_output(["dot", "-Tpdf"], stdin=dot_file,
-                                    cwd=workdir)
+            subprocess.check_output(["dot", "-Tpdf"], stdin=dot_file, cwd=workdir)
         )
     # make sure the generated pdf file is not empty
     assert os.stat(pdf_path).st_size > 0
@@ -887,14 +1016,17 @@ def test_filegraph():
 
 def test_batch():
     from snakemake.dag import Batch
+
     run(dpath("test_batch"), batch=Batch("aggregate", 1, 2))
 
 
 def test_batch_final():
     from snakemake.dag import Batch
+
     run(dpath("test_batch_final"), batch=Batch("aggregate", 1, 1))
 
 
 def test_batch_fail():
     from snakemake.dag import Batch
+
     run(dpath("test_batch"), batch=Batch("aggregate", 2, 2), shouldfail=True)
