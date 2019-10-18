@@ -38,7 +38,7 @@ jobs:
           CI: true
         run: |
           # enable coverage recording for subprocesses
-          echo -e "import coverage\ncoverage.process_startup()" > sitecustomize.py
+                echo -e "try:\n    import coverage\n    coverage.process_startup()\nexcept ModuleNotFoundError:\n    pass" > sitecustomize.py
           export COVERAGE_PROCESS_START=.coveragerc
 
           # activate conda env
