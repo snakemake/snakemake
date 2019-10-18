@@ -396,8 +396,9 @@ class Conda:
                     self._get_cmd("conda --version"), stderr=subprocess.STDOUT
                 )
                 .decode()
-                .split()[1]
             )
+            print(version)
+            version = version.split()[1]
             if StrictVersion(version) < StrictVersion("4.2"):
                 raise CreateCondaEnvironmentException(
                     "Conda must be version 4.2 or later."
