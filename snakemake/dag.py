@@ -1615,7 +1615,9 @@ class DAG:
             import colorsys
 
             hex_r, hex_g, hex_b = (round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v))
-            return "#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}".format(hex_r=hex_r, hex_g=hex_g, hex_b=hex_b)
+            return "#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}".format(
+                hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
+            )
 
         huefactor = 2 / (3 * len(self.rules))
         rulecolor = {
@@ -1657,12 +1659,16 @@ class DAG:
                 else ""
             )
             html_node = [
-                '{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="3" cellborder="0">'.format(node_id=node_id, color=color),
+                '{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="3" cellborder="0">'.format(
+                    node_id=node_id, color=color
+                ),
                 "<tr><td>",
                 '<b><font point-size="18">{node.name}</font></b>'.format(node=node),
                 "</td></tr>",
                 "<hr/>",
-                '<tr><td align="left"> {input_header} </td></tr>'.format(input_header=input_header),
+                '<tr><td align="left"> {input_header} </td></tr>'.format(
+                    input_header=input_header
+                ),
             ]
 
             for filename in sorted(input_files):
@@ -1686,8 +1692,8 @@ class DAG:
                 html_node.extend(
                     [
                         "<tr>",
-                        '<td align="left"><font face="monospace">{out_file}</font></td>'.format(out_file=out_file)
-                        "</tr>",
+                        '<td align="left"><font face="monospace">{out_file}</font></td>'
+                        "</tr>".format(out_file=out_file),
                     ]
                 )
 
