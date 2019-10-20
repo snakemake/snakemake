@@ -12,4 +12,3 @@ def reset_paths_between_tests():
     org_path = sys.path.copy()
     yield
     sys.path = org_path
-

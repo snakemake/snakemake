@@ -43,14 +43,15 @@ class shell:
     def check_output(cls, cmd, **kwargs):
         if ON_WINDOWS and cls.get_executable():
             return sp.check_output(
-                cls._process_prefix + " "+ argvquote(cmd),
+                cls._process_prefix + " " + argvquote(cmd),
                 shell=False,
                 executable=cls.get_executable(),
                 **kwargs
             )
         else:
             return sp.check_output(
-                cmd, shell=True, executable=cls.get_executable(), **kwargs)
+                cmd, shell=True, executable=cls.get_executable(), **kwargs
+            )
 
     @classmethod
     def executable(cls, cmd):
@@ -65,9 +66,9 @@ class shell:
                 )
         if os.path.split(cmd)[-1] == "bash":
             cls._process_prefix = "set -euo pipefail; "
-        if ON_WINDOWS and cmd.lower().endswith('bash.exe'):
+        if ON_WINDOWS and cmd.lower().endswith("bash.exe"):
             # If bash is selected as the executable on Windows
-            # configure _preocess_prefix and win_quote_cmd for 
+            # configure _preocess_prefix and win_quote_cmd for
             # this to work correctly
             cls._process_prefix = '"{}" -c'.format(cmd)
             cls.win_quote_cmd(True)
@@ -102,7 +103,6 @@ class shell:
         with cls._lock:
             cls._processes.clear()
 
-
     @classmethod
     def use_bash_on_win(cls, bashcmd=None):
         """ Configures the shell to use bash on Windows
@@ -116,7 +116,6 @@ class shell:
                 cls.executable(bashcmd)
             else:
                 raise ("Could not locate bash:" + str(bashcmd))
-
 
     def __new__(
         cls, cmd, *args, iterable=False, read=False, bench_record=None, **kwargs
@@ -164,7 +163,7 @@ class shell:
             logger.info("Activating conda environment: {}".format(conda_env))
 
         # shell can't be True on Windows with an explicit executable
-        use_shell = not(ON_WINDOWS and cls.get_executable())
+        use_shell = not (ON_WINDOWS and cls.get_executable())
 
         proc = sp.Popen(
             cmd,

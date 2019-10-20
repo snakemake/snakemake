@@ -8,7 +8,7 @@ import os
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject
 from snakemake.exceptions import DropboxFileException, WorkflowError
-from snakemake.utils import os_sync 
+from snakemake.utils import os_sync
 
 try:
     # third-party modules

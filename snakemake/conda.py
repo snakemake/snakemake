@@ -359,7 +359,6 @@ class Conda:
     def _check(self):
         from snakemake.shell import shell
 
-
         # Use type here since conda now is a function.
         # type allows to check for both functions and regular commands.
         locate_cmd = "where conda" if utils.ON_WINDOWS else "type conda"

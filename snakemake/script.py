@@ -533,7 +533,7 @@ def script(
                 # use python from image
                 py_exec = "python"
             if ON_WINDOWS:
-                # use forward slashes so script command still works even if 
+                # use forward slashes so script command still works even if
                 # bash is configured as executable on Windows
                 py_exec = py_exec.replace("\\", "/")
             # use the same Python as the running process or the one from the environment
