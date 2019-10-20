@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Setup black environment
+        run: conda create --quiet --name black black
+      - name: Check formatting
+        run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate black
+          black --check snakemake tests/*.py
+      - name: Setup Snakemake environment
+        run: conda env create --quiet --name snakemake --file test-environment.yml
+      - name: Setup apt dependencies
+        run: sudo apt install -y singularity-container stress
+      - name: Setup iRODS
+        run: |
+          docker build -t irods-server tests/test_remote_irods
+          docker run -d -p 1247:1247 --name provider irods-server -i run_irods
+          sleep 10
+          docker exec -u irods provider iput /incoming/infile
+          cp -r tests/test_remote_irods/setup-data ~/.irods
+      - name: Run tests
+        env:
+          CI: true
+        run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pip install -e .
+          pytest tests/test*.py -v -x
+      - name: Build container image
+        run: docker build .

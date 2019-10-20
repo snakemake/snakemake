@@ -1,3 +1,16 @@
+[5.7.1] - 2019-10-16
+====================
+Added
+-----
+- Ability to print log files of failed jobs with --show-failed-logs.
+Changed
+-------
+- Fixed bugs in tibanna executor.
+- Fixed handling of symbolic links.
+- Fixed typos in help texts.
+- Fixed handling of default resources.
+- Fixed bugs in azure storage backend.
+
 [5.7.0] - 2019-10-07
 ====================
 Changed

@@ -73,6 +73,7 @@ class Workflow:
         overwrite_clusterconfig=dict(),
         config_args=None,
         debug=False,
+        verbose=False,
         use_conda=False,
         conda_prefix=None,
         use_singularity=False,
@@ -87,7 +88,7 @@ class Workflow:
         default_remote_provider=None,
         default_remote_prefix="",
         run_local=True,
-        default_resources=dict(),
+        default_resources=None,
     ):
         """
         Create the controller.
@@ -121,6 +122,7 @@ class Workflow:
         self._onstart = lambda log: None
         self._wildcard_constraints = dict()
         self.debug = debug
+        self.verbose = verbose
         self._rulecount = 0
         self.use_conda = use_conda
         self.conda_prefix = conda_prefix
@@ -374,6 +376,7 @@ class Workflow:
         cluster_status=None,
         report=None,
         export_cwl=False,
+        batch=None,
     ):
 
         self.check_localrules()
@@ -466,6 +469,7 @@ class Workflow:
             or printfilegraph,
             notemp=notemp,
             keep_remote_local=keep_remote_local,
+            batch=batch,
         )
 
         self.persistence = Persistence(

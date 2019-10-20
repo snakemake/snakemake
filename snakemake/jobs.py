@@ -26,7 +26,6 @@ from snakemake.io import (
     is_flagged,
     get_flag_value,
     contains_wildcard,
-    lstat,
 )
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
@@ -130,6 +129,7 @@ class Job(AbstractJob):
         self.input, input_mapping, self.dependencies = self.rule.expand_input(
             self.wildcards_dict
         )
+
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
         # other properties are lazy to be able to use additional parameters and check already existing files
         self._params = None
@@ -204,7 +204,7 @@ class Job(AbstractJob):
         if not self.is_script:
             return
         assert os.path.exists(self.rule.script)  # to make sure lstat works
-        script_mtime = lstat(self.rule.script).st_mtime
+        script_mtime = os.lstat(self.rule.script).st_mtime
         for f in self.expanded_output:
             if f.exists:
                 if not f.is_newer(script_mtime):

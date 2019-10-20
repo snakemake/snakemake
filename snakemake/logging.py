@@ -91,6 +91,7 @@ class Logger:
         self.logfile = None
         self.last_msg_was_job_info = False
         self.mode = Mode.default
+        self.show_failed_logs = False
 
     def setup_logfile(self):
         if self.mode == Mode.default:
@@ -317,6 +318,14 @@ class Logger:
 
             for item in msg["aux"].items():
                 self.logger.error(indent("    {}: {}".format(*item)))
+
+            if self.show_failed_logs and msg["log"]:
+                for f in msg["log"]:
+                    try:
+                        self.logger.error("Logfile {}:\n{}".format(f, open(f).read()))
+                    except FileNotFoundError:
+                        self.logger.error("Logfile {} not found.".format(f))
+
             self.logger.error("")
         elif level == "group_error":
             timestamp()
@@ -399,6 +408,7 @@ def setup_logger(
     debug=False,
     use_threads=False,
     mode=Mode.default,
+    show_failed_logs=False,
 ):
     if handler is not None:
         # custom log handler
@@ -419,3 +429,4 @@ def setup_logger(
     logger.printreason = printreason
     logger.debug_dag = debug_dag
     logger.mode = mode
+    logger.show_failed_logs = show_failed_logs

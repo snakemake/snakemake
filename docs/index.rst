@@ -13,7 +13,7 @@ Snakemake
 .. image:: https://img.shields.io/pypi/v/snakemake.svg
     :target: https://pypi.python.org/pypi/snakemake
 
-.. image:: https://img.shields.io/docker/build/snakemake/snakemake
+.. image:: https://img.shields.io/docker/cloud/build/snakemake/snakemake
        :target: https://hub.docker.com/r/snakemake/snakemake
 
 .. image:: https://circleci.com/gh/snakemake/snakemake/tree/master.svg?style=shield
@@ -29,14 +29,15 @@ Snakemake
     :alt: GitHub stars
     :target: https://github.com/snakemake/snakemake/stargazers
 
-.. raw:: html
-
-    <span class="__dimensions_badge_embed__" data-doi="https://doi.org/10.1093/bioinformatics/bts480" data-legend="always" data-style="large_rectangle"></span><script async src="https://badge.dimensions.ai/badge.js" charset="utf-8"></script>
+.. .. raw:: html
+          <span class="__dimensions_badge_embed__" data-doi="https://doi.org/10.1093/bioinformatics/bts480" data-legend="always" data-style="large_rectangle"></span><script async src="https://badge.dimensions.ai/badge.js" charset="utf-8"></script>
 
 The Snakemake workflow management system is a tool to create **reproducible and scalable** data analyses.
 Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
+
+Snakemake is **highly popular** with, on average, `a new citation every few days <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
 
 
 .. _manual-quick_example:

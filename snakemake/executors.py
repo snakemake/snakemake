@@ -436,7 +436,7 @@ class CPUExecutor(RealExecutor):
             error_callback(job)
         except (Exception, BaseException) as ex:
             self.print_job_error(job)
-            if not (job.is_group() or job.shellcmd):
+            if not (job.is_group() or job.shellcmd) or self.workflow.verbose:
                 print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
@@ -1596,7 +1596,16 @@ class TibannaExecutor(ClusterExecutor):
         max_status_checks_per_second=1,
     ):
 
-        self.workflow_sources = workflow.get_sources()
+        self.workflow_sources = []
+        for wfs in workflow.get_sources():
+            if os.path.isdir(wfs):
+                for (dirpath, dirnames, filenames) in os.walk(wfs):
+                    self.workflow_sources.extend(
+                        [os.path.join(dirpath, f) for f in filenames]
+                    )
+            else:
+                self.workflow_sources.append(os.path.abspath(wfs))
+
         log = "sources="
         for f in self.workflow_sources:
             log += f
@@ -1719,9 +1728,10 @@ class TibannaExecutor(ClusterExecutor):
             if src_fname != snakefile_fname:  # redundant
                 snakemake_child_fnames.append(src_fname)
         # change path for config files
-        self.workflow.overwrite_configfile, _ = self.split_filename(
-            self.workflow.overwrite_configfile, snakemake_dir
-        )
+        self.workflow.overwrite_configfiles = [
+            self.split_filename(cf, snakemake_dir)[0]
+            for cf in self.workflow.overwrite_configfiles
+        ]
         tibanna_args.snakemake_directory_local = snakemake_dir
         tibanna_args.snakemake_main_filename = snakefile_fname
         tibanna_args.snakemake_child_filenames = list(set(snakemake_child_fnames))
