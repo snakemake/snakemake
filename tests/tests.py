@@ -452,7 +452,12 @@ def test_conda():
 
 def test_conda_custom_prefix():
     if conda_available():
-        run(dpath("test_conda_custom_prefix"), use_conda=True, conda_prefix="custom", set_pythonpath=False)
+        run(
+            dpath("test_conda_custom_prefix"),
+            use_conda=True,
+            conda_prefix="custom",
+            set_pythonpath=False,
+        )
 
 
 def test_wrapper():
