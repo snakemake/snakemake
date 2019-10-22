@@ -921,6 +921,10 @@ def test_issue635():
     run(dpath("test_issue635"), use_conda=True, check_md5=False)
 
 
+# TODO remove skip
+@pytest.mark.skip(
+    reason="Temporarily disable until the stable container image becomes available again."
+)
 def test_convert_to_cwl():
     workdir = dpath("test_convert_to_cwl")
     # run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
