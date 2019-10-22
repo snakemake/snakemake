@@ -145,9 +145,12 @@ def run(
                 if check_md5:
                     # if md5sum(targetfile) != md5sum(expectedfile):
                     #     import pdb; pdb.set_trace()
-                    assert md5sum(targetfile) == md5sum(
+                    if md5sum(targetfile) != md5sum(
                         expectedfile
-                    ), 'wrong result produced for file "{}"'.format(resultfile)
+                    ):
+                        with open(targetfile) as target:
+                            content = target.read()
+                        assert False, 'wrong result produced for file "{}":\n{}'.format(resultfile, content)
 
 
 def test_delete_all_output():
