@@ -81,6 +81,7 @@ def run(
     no_tmpdir=False,
     check_md5=True,
     cores=3,
+    set_pythonpath=True,
     **params
 ):
     """
@@ -88,9 +89,11 @@ def run(
     There must be a Snakefile in the path and a subdirectory named
     expected-results.
     """
-    # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
-    # when subprocesses are invoked in the tempdir defined below.
-    os.environ["PYTHONPATH"] = os.getcwd()
+    if set_pythonpath:
+        # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
+        # when subprocesses are invoked in the tempdir defined below.
+        os.environ["PYTHONPATH"] = os.getcwd()
+
     results_dir = join(path, "expected-results")
     snakefile = join(path, snakefile)
     assert os.path.exists(snakefile)
@@ -449,7 +452,7 @@ def test_conda():
 
 def test_conda_custom_prefix():
     if conda_available():
-        run(dpath("test_conda_custom_prefix"), use_conda=True, conda_prefix="custom")
+        run(dpath("test_conda_custom_prefix"), use_conda=True, conda_prefix="custom", set_pythonpath=False)
 
 
 def test_wrapper():
