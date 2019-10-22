@@ -924,7 +924,11 @@ def test_issue635():
 def test_convert_to_cwl():
     workdir = dpath("test_convert_to_cwl")
     # run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
-    subprocess.check_call(["snakemake", "--export-cwl", "workflow.cwl"], cwd=workdir)
+    subprocess.check_call(
+        ["python", "-m", "snakemake", "--export-cwl", "workflow.cwl"],
+        cwd=workdir,
+        env={"PYTHONPATH": os.getcwd()},
+    )
     subprocess.check_call(["cwltool", "--singularity", "workflow.cwl"], cwd=workdir)
     assert os.path.exists(os.path.join(workdir, "test.out"))
 
