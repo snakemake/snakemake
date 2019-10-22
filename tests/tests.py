@@ -957,7 +957,7 @@ def test_issue1092():
 
 
 def test_issue1093():
-    run(dpath("test_issue1093"), use_conda=True)
+    run(dpath("test_issue1093"), use_conda=True, verbose=True)
 
 
 def test_issue958():
