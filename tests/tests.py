@@ -93,6 +93,8 @@ def run(
         # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
         # when subprocesses are invoked in the tempdir defined below.
         os.environ["PYTHONPATH"] = os.getcwd()
+    else:
+        del os.environ["PYTHONPATH"]
 
     results_dir = join(path, "expected-results")
     snakefile = join(path, snakefile)
