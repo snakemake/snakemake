@@ -1,3 +1,9 @@
+[5.7.4] - 2019-10-23
+====================
+Changed
+-------
+- Various fixes and adaptations in the docker container image and the test suite.
+
 [5.7.1] - 2019-10-16
 ====================
 Added
