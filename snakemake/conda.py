@@ -391,16 +391,15 @@ class Conda:
                     "with `conda activate base`.".format(shell.get_executable())
                 )
         try:
-            version = (
-                shell.check_output(
-                    self._get_cmd("conda --version"), stderr=subprocess.STDOUT
-                )
-                .decode()
-                .split()[1]
-            )
+            version = shell.check_output(
+                self._get_cmd("conda --version"), stderr=subprocess.STDOUT
+            ).decode()
+            version = version.split()[1]
             if StrictVersion(version) < StrictVersion("4.2"):
                 raise CreateCondaEnvironmentException(
-                    "Conda must be version 4.2 or later."
+                    "Conda must be version 4.2 or later, found version {}.".format(
+                        version
+                    )
                 )
         except subprocess.CalledProcessError as e:
             raise CreateCondaEnvironmentException(
