@@ -21,14 +21,6 @@ from snakemake import snakemake
 from snakemake.shell import shell
 
 
-if not which("snakemake"):
-    raise Exception(
-        "snakemake not in PATH. For testing, install snakemake with "
-        "'pip install -e .'. You should do this in a separate environment "
-        "(via conda or virtualenv)."
-    )
-
-
 def dpath(path):
     """get path to a data file (relative to the directory this
 	test lives in)"""
@@ -89,6 +81,7 @@ def run(
     no_tmpdir=False,
     check_md5=True,
     cores=3,
+    set_pythonpath=True,
     **params
 ):
     """
@@ -96,6 +89,13 @@ def run(
     There must be a Snakefile in the path and a subdirectory named
     expected-results.
     """
+    if set_pythonpath:
+        # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
+        # when subprocesses are invoked in the tempdir defined below.
+        os.environ["PYTHONPATH"] = os.getcwd()
+    else:
+        del os.environ["PYTHONPATH"]
+
     results_dir = join(path, "expected-results")
     snakefile = join(path, snakefile)
     assert os.path.exists(snakefile)
@@ -150,9 +150,12 @@ def run(
                 if check_md5:
                     # if md5sum(targetfile) != md5sum(expectedfile):
                     #     import pdb; pdb.set_trace()
-                    assert md5sum(targetfile) == md5sum(
-                        expectedfile
-                    ), 'wrong result produced for file "{}"'.format(resultfile)
+                    if md5sum(targetfile) != md5sum(expectedfile):
+                        with open(targetfile) as target:
+                            content = target.read()
+                        assert False, 'wrong result produced for file "{}":\n{}'.format(
+                            resultfile, content
+                        )
 
 
 def test_delete_all_output():
@@ -451,7 +454,12 @@ def test_conda():
 
 def test_conda_custom_prefix():
     if conda_available():
-        run(dpath("test_conda_custom_prefix"), use_conda=True, conda_prefix="custom")
+        run(
+            dpath("test_conda_custom_prefix"),
+            use_conda=True,
+            conda_prefix="custom",
+            set_pythonpath=False,
+        )
 
 
 def test_wrapper():
@@ -913,11 +921,18 @@ def test_issue635():
     run(dpath("test_issue635"), use_conda=True, check_md5=False)
 
 
+# TODO remove skip
+@pytest.mark.skip(
+    reason="Temporarily disable until the stable container image becomes available again."
+)
 def test_convert_to_cwl():
     workdir = dpath("test_convert_to_cwl")
     # run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
-    subprocess.check_call(["snakemake", "--export-cwl", "workflow.cwl"], cwd=workdir)
-    subprocess.check_call(["cwltool", "--singularity", "workflow.cwl"], cwd=workdir)
+    shell(
+        "cd {workdir}; PYTHONPATH={src} python -m snakemake --export-cwl workflow.cwl",
+        src=os.getcwd(),
+    )
+    shell("cd {workdir}; cwltool --singularity workflow.cwl")
     assert os.path.exists(os.path.join(workdir, "test.out"))
 
 
@@ -942,7 +957,7 @@ def test_issue1092():
 
 
 def test_issue1093():
-    run(dpath("test_issue1093"), use_conda=True)
+    run(dpath("test_issue1093"), use_conda=True, verbose=True)
 
 
 def test_issue958():
@@ -1006,13 +1021,12 @@ def test_issue1281():
 
 def test_filegraph():
     workdir = dpath("test_filegraph")
-    dot_path = "fg.dot"
+    dot_path = os.path.abspath("fg.dot")
     pdf_path = "fg.pdf"
+
     # make sure the calls work
-    with open(dot_path, "wb") as dot_file:
-        dot_file.write(
-            subprocess.check_output(["snakemake", "--filegraph"], cwd=workdir)
-        )
+    shell("cd {workdir}; python -m snakemake --filegraph > {dot_path}")
+
     # make sure the output can be interpreted by dot
     with open(dot_path, "rb") as dot_file, open(pdf_path, "wb") as pdf_file:
         pdf_file.write(
