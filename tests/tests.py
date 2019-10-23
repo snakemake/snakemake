@@ -1023,11 +1023,10 @@ def test_filegraph():
     workdir = dpath("test_filegraph")
     dot_path = "fg.dot"
     pdf_path = "fg.pdf"
+
     # make sure the calls work
-    with open(dot_path, "wb") as dot_file:
-        dot_file.write(
-            subprocess.check_output(["snakemake", "--filegraph"], cwd=workdir)
-        )
+    shell("cd {workdir}; python -m snakemake --filegraph > {dot_path}")
+
     # make sure the output can be interpreted by dot
     with open(dot_path, "rb") as dot_file, open(pdf_path, "wb") as pdf_file:
         pdf_file.write(
