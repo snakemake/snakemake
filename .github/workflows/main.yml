@@ -1,8 +1,11 @@
 name: CI
 
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - master
+  pull_request:
+    branches_ignore: []
 
 jobs:
   formatting:
