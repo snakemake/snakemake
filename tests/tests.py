@@ -1021,7 +1021,7 @@ def test_issue1281():
 
 def test_filegraph():
     workdir = dpath("test_filegraph")
-    dot_path = "fg.dot"
+    dot_path = os.path.abspath("fg.dot")
     pdf_path = "fg.pdf"
 
     # make sure the calls work
