@@ -165,8 +165,7 @@ def run(
                 ), 'expected file "{}" not produced'.format(targetfile)
                 if check_md5:
                     md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
-                    # if md5target != md5expected:
-                    #     import pdb; pdb.set_trace()
+                    md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
                     if md5target != md5expected:
                         with open(targetfile) as target:
                             content = target.read()
