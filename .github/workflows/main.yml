@@ -68,3 +68,33 @@ jobs:
 
       - name: Build container image
         run: docker build .
+
+
+  testing-windows:
+    runs-on: windows-latest
+    needs: formatting
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Add conda to PATH
+        run: echo "::add-path::$env:CONDA\Scripts"
+      
+      # No win conda package exist for pygraphviz yet
+      - name: Remove pygraphviz test dependency
+        shell: python
+        run: |
+          import fileinput
+          for line in fileinput.input("test-environment.yml", inplace=True):
+              if "pygraphviz" not in line:
+                  print(line)
+
+      - name: Setup Snakemake environment
+        run: conda env create --quiet --name snakemake --file test-environment.yml
+        
+      - name: Run tests
+        shell: cmd
+        env:
+          CI: true
+        run: |
+          call activate snakemake
+          pytest -v -x
