@@ -597,6 +597,7 @@ def test_remote_ncbi():
 
 
 @ci
+@skip_on_windows
 def test_remote_irods():
     run(dpath("test_remote_irods"))
 
@@ -739,6 +740,7 @@ def test_remote_gs():
 @pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
 @connected
 @ci
+@skip_on_windows
 def test_remote_azure():
     run(dpath("test_remote_azure"))
 
