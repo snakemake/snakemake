@@ -22,6 +22,7 @@ from snakemake.shell import shell
 
 from .conftest import skip_on_windows, ON_WINDOWS
 
+
 def dpath(path):
     """get path to a data file (relative to the directory this
 	test lives in)"""
