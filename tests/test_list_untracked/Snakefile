@@ -2,4 +2,4 @@ shell.use_bash_on_win()
 
 rule run_test:
     output: "leftover_files"
-    shell:  "snakemake -s Snakefile_inner --list-untracked 2> {output}"
+    shell:  "python -m snakemake -s Snakefile_inner --list-untracked 2> {output}"
