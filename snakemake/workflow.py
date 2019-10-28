@@ -50,7 +50,7 @@ from snakemake.io import (
     report,
 )
 from snakemake.persistence import Persistence
-from snakemake.utils import update_config
+from snakemake.utils import update_config, ON_WINDOWS
 from snakemake.script import script
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
@@ -170,7 +170,13 @@ class Workflow:
 
         # get registered sources
         for f in self.included:
-            files.add(os.path.relpath(f))
+            if (
+                ON_WINDOWS
+                and os.path.splitdrive(f)[0] != os.path.splitdrive(os.getcwd())[0]
+            ):
+                files.add(f)
+            else:
+                files.add(os.path.relpath(f))
         for rule in self.rules:
             if rule.script:
                 script_path = norm_rule_relpath(rule.script, rule)
