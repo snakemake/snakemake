@@ -81,15 +81,15 @@ jobs:
       
       # No win conda package exist for pygraphviz yet
       - name: Remove pygraphviz test dependency
-      - shell: python
-      - run: |
+        shell: python
+        run: |
           import fileinput
           for line in fileinput.input("test-environment.yml", inplace=True):
               if "pygraphviz" not in line:
                   print(line)
 
       - name: Setup Snakemake environment
-        run: conda env create --quiet --name snakemake --file test-environment-win.yml
+        run: conda env create --quiet --name snakemake --file test-environment.yml
         
       - name: Run tests
         shell: cmd
