@@ -105,6 +105,7 @@ def wrapper(
     prefix,
     jobid,
     bench_iteration,
+    cleanup_scripts,
     shadow_dir,
 ):
     """
@@ -130,5 +131,6 @@ def wrapper(
         bench_record,
         jobid,
         bench_iteration,
+        cleanup_scripts,
         shadow_dir,
     )

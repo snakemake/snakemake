@@ -563,5 +563,7 @@ def script(
     except URLError as e:
         raise WorkflowError(e)
     finally:
-        if f:
+        if f and cleanup_scripts:
             os.remove(f.name)
+        else:
+            logger.debug("Not cleaning up %s" % f.name)
