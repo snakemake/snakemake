@@ -558,7 +558,7 @@ class Workflow:
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
-                        configfiles=subworkflow.configfile,
+                        configfiles=[subworkflow.configfile] if subworkflow.configfile else None,
                         updated_files=updated,
                     ):
                         return False
