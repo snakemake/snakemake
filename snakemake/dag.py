@@ -187,18 +187,23 @@ class DAG:
 
     def check_directory_outputs(self):
         """Check that no output file is contained in a directory output of the same or another rule."""
-        outputs = sorted({path(f) for job in self.jobs for f in job.output for path in (os.path.abspath, os.path.realpath)})
+        outputs = sorted(
+            {
+                path(f)
+                for job in self.jobs
+                for f in job.output
+                for path in (os.path.abspath, os.path.realpath)
+            }
+        )
         for i in range(len(outputs) - 1):
-            a, b = outputs[i:i+2]
+            a, b = outputs[i : i + 2]
             try:
                 common = os.path.commonpath([a, b])
             except ValueError:
                 # commonpath raises error if windows drives are different.
                 continue
             if common == os.path.commonpath([a]):
-                raise ChildIOException(
-                    parent=outputs[i], child=outputs[i + 1]
-                )
+                raise ChildIOException(parent=outputs[i], child=outputs[i + 1])
 
     @property
     def checkpoint_jobs(self):
