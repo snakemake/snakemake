@@ -741,7 +741,9 @@ class Workflow:
                 if cluster or cluster_sync or drmaa:
                     logger.resources_info("Provided cluster nodes: {}".format(nodes))
                 else:
-                    warning = "" if cores > 1 else " (use --cores to define parallelism)"
+                    warning = (
+                        "" if cores > 1 else " (use --cores to define parallelism)"
+                    )
                     logger.resources_info("Provided cores: {}{}".format(cores, warning))
                     logger.resources_info(
                         "Rules claiming more threads " "will be scaled down."
