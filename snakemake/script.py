@@ -298,6 +298,7 @@ def script(
     bench_record,
     jobid,
     bench_iteration,
+    cleanup_scripts,
     shadow_dir,
 ):
     """

@@ -99,6 +99,12 @@ def run(
     else:
         del os.environ["PYTHONPATH"]
 
+    results_dir = join(path, "expected-results")
+    snakefile = join(path, snakefile)
+    assert os.path.exists(snakefile)
+    assert os.path.exists(results_dir) and os.path.isdir(
+        results_dir), '{} does not exist'.format(results_dir)
+
     # If we need to further check results, we won't cleanup tmpdir
     tmpdir = next(tempfile._get_candidate_names())
     tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
