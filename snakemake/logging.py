@@ -92,6 +92,7 @@ class Logger:
         self.last_msg_was_job_info = False
         self.mode = Mode.default
         self.show_failed_logs = False
+        self.logfile_handler = None
 
     def setup_logfile(self):
         if self.mode == Mode.default:
@@ -109,7 +110,7 @@ class Logger:
             self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
-        if self.mode == Mode.default:
+        if self.mode == Mode.default and self.logfile_handler is not None:
             self.logger.removeHandler(self.logfile_handler)
             self.logfile_handler.close()
         self.log_handler = [self.text_handler]
