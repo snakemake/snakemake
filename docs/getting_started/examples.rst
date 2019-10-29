@@ -253,7 +253,7 @@ Assuming that the above file is saved as ``tex.rules``, the actual documents are
     FIGURES = ['fig1.pdf']
 
     include:
-        'tex.smrules'
+        'tex.rules'
 
     rule all:
         input:
