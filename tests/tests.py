@@ -1052,3 +1052,8 @@ def test_batch_fail():
     from snakemake.dag import Batch
 
     run(dpath("test_batch"), batch=Batch("aggregate", 2, 2), shouldfail=True)
+
+
+def test_github_issue52():
+    run(dpath("test_github_issue52"), shouldfail=True)
+    run(dpath("test_github_issue52"), snakefile="other.smk", shouldfail=True)

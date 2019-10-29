@@ -179,48 +179,26 @@ class DAG:
         self.delete_omitfrom_jobs()
         self.update_jobids()
 
-        # Check if there are files/dirs that are children of other outputs.
-        allfiles = {}
-
-        for job in self.jobs:
-            # This is to account also for targets of symlinks
-            allfiles.update(
-                {
-                    f(x): "input"
-                    for x in job.input
-                    for f in (os.path.abspath, os.path.realpath)
-                }
-            )
-            allfiles.update(
-                {
-                    f(x): "output"
-                    for x in job.output
-                    for f in (os.path.abspath, os.path.realpath)
-                }
-            )
-
-        sortedfiles = sorted(allfiles.keys())
-        for i in range(len(sortedfiles) - 1):
-            if allfiles[sortedfiles[i]] == "output":
-                try:
-                    common_path = os.path.commonpath(
-                        [sortedfiles[i], sortedfiles[i + 1]]
-                    )
-                except ValueError:  # commonpath raises error if windows drives are different.
-                    logger.warning(
-                        "Ambiguous filepath due to different drives between {} and {}".format(
-                            sortedfiles[i], sortedfiles[i + 1]
-                        )
-                    )
-                    continue
-                if os.path.commonpath([sortedfiles[i]]) == common_path:
-                    raise ChildIOException(
-                        parent=sortedfiles[i], child=sortedfiles[i + 1]
-                    )
+        self.check_directory_outputs()
 
         # check if remaining jobs are valid
         for i, job in enumerate(self.jobs):
             job.is_valid()
+
+    def check_directory_outputs(self):
+        """Check that no output file is contained in a directory output of the same or another rule."""
+        outputs = sorted({path(f) for job in self.jobs for f in job.output for path in (os.path.abspath, os.path.realpath)})
+        for i in range(len(outputs) - 1):
+            a, b = outputs[i:i+2]
+            try:
+                common = os.path.commonpath([a, b])
+            except ValueError:
+                # commonpath raises error if windows drives are different.
+                continue
+            if common == os.path.commonpath([a]):
+                raise ChildIOException(
+                    parent=outputs[i], child=outputs[i + 1]
+                )
 
     @property
     def checkpoint_jobs(self):
