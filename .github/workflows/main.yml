@@ -45,6 +45,7 @@ jobs:
       - name: Run tests
         env:
           CI: true
+          AWS_DEFAULT_REGION: us-east-1a
         run: |
           # enable coverage recording for subprocesses
                 echo -e "try:\n    import coverage\n    coverage.process_startup()\nexcept:\n    pass" > sitecustomize.py
