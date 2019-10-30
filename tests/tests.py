@@ -1,6 +1,6 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
 __contributors__ = ["Soohyun Lee", "Vanessa Sochat"]
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -1079,3 +1079,8 @@ def test_batch_fail():
     from snakemake.dag import Batch
 
     run(dpath("test_batch"), batch=Batch("aggregate", 2, 2), shouldfail=True)
+
+
+def test_github_issue52():
+    run(dpath("test_github_issue52"), shouldfail=True)
+    run(dpath("test_github_issue52"), snakefile="other.smk", shouldfail=True)
