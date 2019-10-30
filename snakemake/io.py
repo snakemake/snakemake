@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -17,6 +17,7 @@ import platform
 import functools
 import subprocess as sp
 from itertools import product, chain
+from contextlib import contextmanager
 import collections
 from snakemake.exceptions import (
     MissingOutputException,
@@ -152,6 +153,25 @@ class _IOFile(str):
             return func(self, *args, **kwargs)
 
         return wrapper
+
+    @contextmanager
+    def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
+        """Open this file. If necessary, download it from remote first. 
+        
+        This can (and should) be used in a `with`-statement.
+        """
+        if not self.exists:
+            raise WorkflowError(
+                "File {} cannot be opened, since it does not exist.".format(self)
+            )
+        if not self.exists_local and self.is_remote:
+            self.download_from_remote()
+
+        f = open(self)
+        try:
+            yield f
+        finally:
+            f.close()
 
     @property
     def is_remote(self):

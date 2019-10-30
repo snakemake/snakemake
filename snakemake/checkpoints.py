@@ -31,6 +31,7 @@ class Checkpoint:
             (not f.exists or f in self.checkpoints.future_output) for f in output
         ):
             raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
+
         return CheckpointJob(self.rule, output)
 
 
