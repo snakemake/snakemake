@@ -1,3 +1,5 @@
+shell.use_bash_on_win()
+
 rule All: input: "C"
 
 rule A:
