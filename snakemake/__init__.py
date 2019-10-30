@@ -1140,7 +1140,7 @@ def get_argument_parser(profile=None):
         "to failures or power loss.",
     )
     group_utils.add_argument(
-        "--skip-cleanup-scripts",
+        "--skip-script-cleanup",
         action="store_true",
         help="Don't delete wrapper scripts used for execution",
     )
