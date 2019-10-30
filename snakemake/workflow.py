@@ -15,6 +15,7 @@ from functools import partial
 from operator import attrgetter
 import copy
 import subprocess
+from pathlib import Path
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -309,6 +310,8 @@ class Workflow:
         will be applied to this file. The file is returned as _IOFile object,
         such that it can e.g. be transparently opened with _IOFile.open().
         """
+        if isinstance(path, Path):
+            path = str(path)
         if self.default_remote_provider is not None:
             path = self.apply_default_remote(path)
         return IOFile(path)
