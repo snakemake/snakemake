@@ -302,7 +302,7 @@ class Workflow:
                     "\n".join(map("\t{}".format, undefined))
                 )
             )
-    
+
     def inputfile(self, path):
         """Mark file as being an input file of the workflow.
 
@@ -320,7 +320,9 @@ class Workflow:
         """Apply the defined default remote provider to the given path and return the updated _IOFile.
         Asserts that default remote provider is defined.
         """
-        assert self.default_remote_provider is not None, "No default remote provider is defined, calling this anyway is a bug"
+        assert (
+            self.default_remote_provider is not None
+        ), "No default remote provider is defined, calling this anyway is a bug"
         path = "{}/{}".format(self.workflow.default_remote_prefix, path)
         path = os.path.normpath(path)
         return self.workflow.default_remote_provider.remote(path)
@@ -763,7 +765,9 @@ class Workflow:
                 if cluster or cluster_sync or drmaa:
                     logger.resources_info("Provided cluster nodes: {}".format(nodes))
                 else:
-                    warning = "" if cores > 1 else " (use --cores to define parallelism)"
+                    warning = (
+                        "" if cores > 1 else " (use --cores to define parallelism)"
+                    )
                     logger.resources_info("Provided cores: {}{}".format(cores, warning))
                     logger.resources_info(
                         "Rules claiming more threads " "will be scaled down."
