@@ -65,7 +65,7 @@ To generate the second batch, run
 
 .. code-block:: console
 
-    $ snakemake --cores 4 --batch myrule=1/3
+    $ snakemake --cores 4 --batch myrule=2/3
 
 Finally, when running
 
