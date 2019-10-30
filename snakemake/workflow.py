@@ -15,6 +15,7 @@ from functools import partial
 from operator import attrgetter
 import copy
 import subprocess
+from pathlib import Path
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -48,6 +49,7 @@ from snakemake.io import (
     pipe,
     repeat,
     report,
+    IOFile,
 )
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
@@ -300,6 +302,30 @@ class Workflow:
                     "\n".join(map("\t{}".format, undefined))
                 )
             )
+
+    def inputfile(self, path):
+        """Mark file as being an input file of the workflow.
+
+        This also means that eventual --default-remote-provider/prefix settings
+        will be applied to this file. The file is returned as _IOFile object,
+        such that it can e.g. be transparently opened with _IOFile.open().
+        """
+        if isinstance(path, Path):
+            path = str(path)
+        if self.default_remote_provider is not None:
+            path = self.apply_default_remote(path)
+        return IOFile(path)
+
+    def apply_default_remote(self, path):
+        """Apply the defined default remote provider to the given path and return the updated _IOFile.
+        Asserts that default remote provider is defined.
+        """
+        assert (
+            self.default_remote_provider is not None
+        ), "No default remote provider is defined, calling this anyway is a bug"
+        path = "{}/{}".format(self.workflow.default_remote_prefix, path)
+        path = os.path.normpath(path)
+        return self.workflow.default_remote_provider.remote(path)
 
     def execute(
         self,

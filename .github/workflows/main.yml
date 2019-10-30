@@ -58,13 +58,13 @@ jobs:
           coverage run -m pytest tests/test*.py -v -x
 
           # collect coverage report
-          coverage combine
-          coverage xml
+          #coverage combine
+          #coverage xml
 
-      - name: Upload coverage report
-        uses: codecov/codecov-action@v1.0.3
-        with:
-          token: ${{secrets.CODECOV_TOKEN}}
+          #- name: Upload coverage report
+          #uses: codecov/codecov-action@v1.0.3
+          #with:
+          #token: ${{secrets.CODECOV_TOKEN}}
 
       - name: Build container image
         run: docker build .
