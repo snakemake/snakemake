@@ -6,7 +6,7 @@ import local_script
 # Ensure that the __real_file__ path ends in .snakemake
 dname = os.path.dirname(__real_file__)
 print(dname)
-if not dname.endswith(".snakemake/scripts"):
+if not dname.endswith(os.path.join(".snakemake", "scripts")):
     sys.exit("We're not being written in the output directory!\n")
 
 # Write out script to indicte success.

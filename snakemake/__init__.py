@@ -1,5 +1,4 @@
 __author__ = "Johannes Köster"
-__contributors__ = ["Soohyun Lee", "Vanessa Sochat"]
 __copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
