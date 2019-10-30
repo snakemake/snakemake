@@ -16,6 +16,7 @@ import copy
 import functools
 import subprocess as sp
 from itertools import product, chain
+from contextlib import contextmanager
 import collections
 from snakemake.exceptions import (
     MissingOutputException,
