@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -15,6 +15,7 @@ from functools import partial
 from operator import attrgetter
 import copy
 import subprocess
+from pathlib import Path
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -48,6 +49,7 @@ from snakemake.io import (
     pipe,
     repeat,
     report,
+    IOFile,
 )
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
@@ -73,6 +75,7 @@ class Workflow:
         overwrite_clusterconfig=dict(),
         config_args=None,
         debug=False,
+        verbose=False,
         use_conda=False,
         conda_prefix=None,
         use_singularity=False,
@@ -87,7 +90,7 @@ class Workflow:
         default_remote_provider=None,
         default_remote_prefix="",
         run_local=True,
-        default_resources=dict(),
+        default_resources=None,
     ):
         """
         Create the controller.
@@ -121,6 +124,7 @@ class Workflow:
         self._onstart = lambda log: None
         self._wildcard_constraints = dict()
         self.debug = debug
+        self.verbose = verbose
         self._rulecount = 0
         self.use_conda = use_conda
         self.conda_prefix = conda_prefix
@@ -299,6 +303,30 @@ class Workflow:
                 )
             )
 
+    def inputfile(self, path):
+        """Mark file as being an input file of the workflow.
+
+        This also means that eventual --default-remote-provider/prefix settings
+        will be applied to this file. The file is returned as _IOFile object,
+        such that it can e.g. be transparently opened with _IOFile.open().
+        """
+        if isinstance(path, Path):
+            path = str(path)
+        if self.default_remote_provider is not None:
+            path = self.apply_default_remote(path)
+        return IOFile(path)
+
+    def apply_default_remote(self, path):
+        """Apply the defined default remote provider to the given path and return the updated _IOFile.
+        Asserts that default remote provider is defined.
+        """
+        assert (
+            self.default_remote_provider is not None
+        ), "No default remote provider is defined, calling this anyway is a bug"
+        path = "{}/{}".format(self.workflow.default_remote_prefix, path)
+        path = os.path.normpath(path)
+        return self.workflow.default_remote_provider.remote(path)
+
     def execute(
         self,
         targets=None,
@@ -374,6 +402,7 @@ class Workflow:
         cluster_status=None,
         report=None,
         export_cwl=False,
+        batch=None,
     ):
 
         self.check_localrules()
@@ -466,6 +495,7 @@ class Workflow:
             or printfilegraph,
             notemp=notemp,
             keep_remote_local=keep_remote_local,
+            batch=batch,
         )
 
         self.persistence = Persistence(
@@ -735,7 +765,10 @@ class Workflow:
                 if cluster or cluster_sync or drmaa:
                     logger.resources_info("Provided cluster nodes: {}".format(nodes))
                 else:
-                    logger.resources_info("Provided cores: {}".format(cores))
+                    warning = (
+                        "" if cores > 1 else " (use --cores to define parallelism)"
+                    )
+                    logger.resources_info("Provided cores: {}{}".format(cores, warning))
                     logger.resources_info(
                         "Rules claiming more threads " "will be scaled down."
                     )

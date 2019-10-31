@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -52,7 +52,7 @@ class REncoder:
             return "TRUE" if value else "FALSE"
         elif isinstance(value, int) or isinstance(value, float):
             return str(value)
-        elif isinstance(value, collections.Iterable):
+        elif isinstance(value, collections.abc.Iterable):
             # convert all iterables to vectors
             return cls.encode_list(value)
         else:
@@ -111,7 +111,7 @@ class JuliaEncoder:
             return "true" if value else "false"
         elif isinstance(value, int) or isinstance(value, float):
             return str(value)
-        elif isinstance(value, collections.Iterable):
+        elif isinstance(value, collections.abc.Iterable):
             # convert all iterables to vectors
             return cls.encode_list(value)
         else:

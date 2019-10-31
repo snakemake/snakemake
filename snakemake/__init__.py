@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
 __contributors__ = ["Soohyun Lee"]
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -19,6 +19,7 @@ import importlib
 import shutil
 
 from snakemake.workflow import Workflow
+from snakemake.dag import Batch
 from snakemake.exceptions import print_exception, WorkflowError
 from snakemake.logging import setup_logger, logger
 from snakemake.io import load_configfile
@@ -38,6 +39,7 @@ SNAKEFILE_CHOICES = [
 
 def snakemake(
     snakefile,
+    batch=None,
     report=None,
     listrules=False,
     list_target_rules=False,
@@ -142,6 +144,7 @@ def snakemake(
     assume_shared_fs=True,
     cluster_status=None,
     export_cwl=None,
+    show_failed_logs=False,
 ):
     """Run snakemake on a given snakefile.
 
@@ -149,6 +152,7 @@ def snakemake(
 
     Args:
         snakefile (str):            the path to the snakefile
+        batch (Batch):              whether to compute only a partial DAG, defined by the given Batch object (default None)
         report (str):               create an HTML report for a previous run at the given path
         listrules (bool):           list rules (default False)
         list_target_rules (bool):   list target rules (default False)
@@ -357,6 +361,7 @@ def snakemake(
             debug=verbose,
             use_threads=use_threads,
             mode=mode,
+            show_failed_logs=show_failed_logs,
         )
 
     if greediness is None:
@@ -438,6 +443,7 @@ def snakemake(
             overwrite_clusterconfig=cluster_config_content,
             config_args=config_args,
             debug=debug,
+            verbose=verbose,
             use_conda=use_conda or list_conda_envs or cleanup_conda,
             use_singularity=use_singularity,
             conda_prefix=conda_prefix,
@@ -611,6 +617,7 @@ def snakemake(
                     cluster_status=cluster_status,
                     report=report,
                     export_cwl=export_cwl,
+                    batch=batch,
                 )
 
     except BrokenPipeError:
@@ -633,6 +640,30 @@ def snakemake(
     return success
 
 
+def parse_batch(args):
+    errmsg = "Invalid batch definition: batch entry has to be defined as RULE=BATCH/BATCHES (with integers BATCH <= BATCHES, BATCH >= 1)."
+    if args.batch is not None:
+        rule, batchdef = parse_key_value_arg(args.batch, errmsg=errmsg)
+        try:
+            batch, batches = batchdef.split("/")
+            batch = int(batch)
+            batches = int(batches)
+        except ValueError:
+            raise ValueError(errmsg)
+        if batch > batches or batch < 1:
+            raise ValueError(errmsg)
+        return Batch(rule, batch, batches)
+    return None
+
+
+def parse_key_value_arg(arg, errmsg):
+    try:
+        key, val = arg.split("=", 1)
+    except ValueError:
+        raise ValueError(errmsg)
+    return key, val
+
+
 def parse_config(args):
     """Parse config from args."""
     parsers = [int, float, eval, str]
@@ -640,14 +671,14 @@ def parse_config(args):
     if args.config is not None:
         valid = re.compile(r"[a-zA-Z_]\w*$")
         for entry in args.config:
-            try:
-                key, val = entry.split("=", 1)
-            except ValueError:
-                raise ValueError(
-                    "Config entries have to be defined as name=value pairs."
-                )
+            key, val = parse_key_value_arg(
+                entry,
+                errmsg="Invalid config definition: Config entries have to be defined as name=value pairs.",
+            )
             if not valid.match(key):
-                raise ValueError("Config entry must start with a valid identifier.")
+                raise ValueError(
+                    "Invalid config definition: Config entry must start with a valid identifier."
+                )
             v = None
             for parser in parsers:
                 try:
@@ -797,10 +828,9 @@ def get_argument_parser(profile=None):
         const=available_cpu_count(),
         nargs="?",
         metavar="N",
-        type=int,
         help=(
             "Use at most N cores in parallel (default: 1). "
-            "If N is omitted, the limit is set to the number of "
+            "If N is omitted or 'all', the limit is set to the number of "
             "available cores."
         ),
     )
@@ -932,6 +962,20 @@ def get_argument_parser(profile=None):
         help=(
             "Tell the scheduler to assign creation of given targets "
             "(and all their dependencies) highest priority. (EXPERIMENTAL)"
+        ),
+    )
+    group_exec.add_argument(
+        "--batch",
+        metavar="RULE=BATCH/BATCHES",
+        help=(
+            "Only create the given BATCH of the input files of the given RULE. "
+            "This can be used to iteratively run parts of very large workflows. "
+            "Only the execution plan of the relevant part of the workflow has to "
+            "be calculated, thereby speeding up DAG computation. "
+            "It is recommended to provide the most suitable rule for batching when "
+            "documenting a workflow. It should be some aggregating rule that "
+            "would be executed only once, and has a large number of input files. "
+            "For example, it can be a rule that aggregates over samples."
         ),
     )
     group_exec.add_argument(
@@ -1394,6 +1438,11 @@ def get_argument_parser(profile=None):
         type=int,
         help="Set execution mode of Snakemake (internal use only).",
     )
+    group_behavior.add_argument(
+        "--show-failed-logs",
+        action="store_true",
+        help="Automatically display logs of failed jobs.",
+    )
 
     group_cluster = parser.add_argument_group("CLUSTER")
 
@@ -1665,6 +1714,12 @@ def main(argv=None):
         sys.stdout.buffer.write(cmd)
         sys.exit(0)
 
+    if args.batch is not None and args.forceall:
+        print(
+            "--batch may not be combined with --forceall, because recomputed upstream "
+            "jobs in subsequent batches may render already obtained results outdated."
+        )
+
     try:
         resources = parse_resources(args.resources)
         config = parse_config(args)
@@ -1676,11 +1731,24 @@ def main(argv=None):
                 "disk_mb=max(2*input.size, 1000)",
             ]
         default_resources = DefaultResources(args.default_resources)
+        batch = parse_batch(args)
     except ValueError as e:
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
         sys.exit(1)
 
+    if args.cores is not None:
+        if args.cores == "all":
+            args.cores = available_cpu_count()
+        else:
+            try:
+                args.cores = int(args.cores)
+            except ValueError:
+                print(
+                    "Error parsing number of cores (--cores, --jobs, -j): must be integer, empty, or 'all'.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
     if args.cluster or args.cluster_sync or args.drmaa:
         if args.cores is None:
             if args.dryrun:
@@ -1827,6 +1895,7 @@ def main(argv=None):
     else:
         success = snakemake(
             args.snakefile,
+            batch=batch,
             report=args.report,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
@@ -1925,6 +1994,7 @@ def main(argv=None):
             assume_shared_fs=not args.no_shared_fs,
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
+            show_failed_logs=args.show_failed_logs,
         )
 
     if args.runtime_profile:

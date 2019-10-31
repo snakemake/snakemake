@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -386,16 +386,14 @@ class Rule:
                 and not is_annotated_callable(value)
                 and self.workflow.default_remote_provider is not None
             ):
-                value = "{}/{}".format(self.workflow.default_remote_prefix, value)
-                value = os.path.normpath(value)
-                return self.workflow.default_remote_provider.remote(value)
+                return self.workflow.apply_default_remote(value)
             else:
                 return value
 
         assert not callable(item)
         if isinstance(item, dict):
             return {k: apply(v) for k, v in item.items()}
-        elif isinstance(item, collections.Iterable) and not isinstance(item, str):
+        elif isinstance(item, collections.abc.Iterable) and not isinstance(item, str):
             return [apply(e) for e in item]
         else:
             return apply(item)

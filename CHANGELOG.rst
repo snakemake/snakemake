@@ -1,9 +1,21 @@
-[5.7.1] - 2019-11-10
+[5.7.4] - 2019-10-23
 ====================
-
-Added
+Changed
 -------
-- Google Cloud Pipelines executor
+- Various fixes and adaptations in the docker container image and the test suite.
+
+[5.7.1] - 2019-10-16
+====================
+Added
+-----
+- Ability to print log files of failed jobs with --show-failed-logs.
+Changed
+-------
+- Fixed bugs in tibanna executor.
+- Fixed handling of symbolic links.
+- Fixed typos in help texts.
+- Fixed handling of default resources.
+- Fixed bugs in azure storage backend.
 
 [5.7.0] - 2019-10-07
 ====================

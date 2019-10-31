@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
 __contributors__ = ["Per Unneberg"]
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -459,7 +459,7 @@ def update_config(config, overwrite_config):
 
     def _update(d, u):
         for (key, value) in u.items():
-            if isinstance(value, collections.Mapping):
+            if isinstance(value, collections.abc.Mapping):
                 d[key] = _update(d.get(key, {}), value)
             else:
                 d[key] = value

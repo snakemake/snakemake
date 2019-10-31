@@ -25,9 +25,11 @@ BAR_SCHEMA = """definitions:
     default: foo
 """
 
-BAR_JSON_SCHEMA = {"definitions": {"jsonbar": {"type": "string",
-                                               "description": "bar entry",
-                                               "default": "foo"}}}
+BAR_JSON_SCHEMA = {
+    "definitions": {
+        "jsonbar": {"type": "string", "description": "bar entry", "default": "foo"}
+    }
+}
 
 DF_SCHEMA = """$schema: "http://json-schema.org/draft-04/schema#"
 description: an entry in the sample sheet
@@ -91,18 +93,24 @@ def config_schema(schemadir):
 @pytest.fixture
 def config_schema_ref(schemadir, bar_schema, json_bar_schema):
     p = schemadir.join("config.ref.schema.yaml")
-    p.write(CONFIG_SCHEMA + "\n".join(
-        [
-            "      bar:",
-            "        default: \"yaml\"",
-            "        $ref: \"{bar}\"".format(bar=str(bar_schema) +
-                                             "#/definitions/bar"),
-            "      jsonbar:",
-            "        default: \"json\"",
-            "        $ref: \"{bar}\"".format(bar=str(json_bar_schema) +
-                                             "#/definitions/jsonbar"),
-            "",
-        ]))
+    p.write(
+        CONFIG_SCHEMA
+        + "\n".join(
+            [
+                "      bar:",
+                '        default: "yaml"',
+                '        $ref: "{bar}"'.format(
+                    bar=str(bar_schema) + "#/definitions/bar"
+                ),
+                "      jsonbar:",
+                '        default: "json"',
+                '        $ref: "{bar}"'.format(
+                    bar=str(json_bar_schema) + "#/definitions/jsonbar"
+                ),
+                "",
+            ]
+        )
+    )
     return p
 
 
@@ -111,27 +119,28 @@ def test_config(config_schema):
     validate(config, str(config_schema), False)
     assert config == {}
     validate(config, str(config_schema))
-    assert dict(config) == {'param': {'foo': 'bar'}}
+    assert dict(config) == {"param": {"foo": "bar"}}
 
 
 def test_config_ref(config_schema_ref):
     config = {}
     validate(config, str(config_schema_ref))
-    assert config['param']['foo'] == 'bar'
-    assert config['param']['bar'] == 'yaml'
-    assert config['param']['jsonbar'] == 'json'
+    assert config["param"]["foo"] == "bar"
+    assert config["param"]["bar"] == "yaml"
+    assert config["param"]["jsonbar"] == "json"
     # Make sure regular validator works
-    config['param']['bar'] = 1
-    config['param']['jsonbar'] = 2
+    config["param"]["bar"] = 1
+    config["param"]["jsonbar"] = 2
     from snakemake import WorkflowError
+
     with pytest.raises(WorkflowError):
         validate(config, str(config_schema_ref), False)
 
 
 def test_dataframe(df_schema):
-    df = pd.DataFrame([{'sample': 'foo', 'condition': 'bar'}])
+    df = pd.DataFrame([{"sample": "foo", "condition": "bar"}])
     validate(df, str(df_schema), False)
-    assert sorted(df.columns) == sorted(['sample', 'condition'])
+    assert sorted(df.columns) == sorted(["sample", "condition"])
     validate(df, str(df_schema))
-    assert sorted(df.columns) == sorted(['sample', 'condition', 'case', 'date'])
+    assert sorted(df.columns) == sorted(["sample", "condition", "case", "date"])
     assert df.case.loc[0]
