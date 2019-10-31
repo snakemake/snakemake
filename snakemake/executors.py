@@ -28,6 +28,7 @@ import base64
 import uuid
 import re
 import math
+import code
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -2066,22 +2067,38 @@ def run_wrapper(
             raise WorkflowError(ex)
 
 # https://snakemake.readthedocs.io/en/stable/project_info/contributing.html
-class GoogleCloudPipelinesExecutor(ClusterExecutor):
+class GoogleCloudLifeScienceExecutor(ClusterExecutor):
     def __init__(self, workflow, dag, cores,
              jobname="snakejob.{name}.{jobid}.sh",
              printreason=False,
              quiet=False,
              printshellcmds=False,
              latency_wait=3,
-             cluster_config=None,
              local_input=None,
              restart_times=None,
              exec_job=None,
              assume_shared_fs=True,
              max_status_checks_per_second=1):
 
-        # overwrite the command to execute a single snakemake job if necessary
-        # exec_job = "..."
+        # Attach variables for easy access
+        self.workflow = workflow
+        self.quiet = quiet
+        self.snakefile = workflow.snakefile
+
+        # Quit early if we can't authenticate
+        self._get_services()
+        self._get_bucket()
+        self._set_workflow_sources()
+
+        # This is the command sent to the instance
+        exec_job = (
+            "snakemake {target} --snakefile {snakefile} "
+            "--force -j{cores} --keep-target-files  --keep-remote "
+            "--latency-wait 0 "
+            "--attempt 1 {use_threads} "
+            "{overwrite_config} {rules} --nocolor "
+            "--notemp --no-hooks --nolock "
+        )
 
         super().__init__(workflow, dag, None,
                          jobname=jobname,
@@ -2089,21 +2106,110 @@ class GoogleCloudPipelinesExecutor(ClusterExecutor):
                          quiet=quiet,
                          printshellcmds=printshellcmds,
                          latency_wait=latency_wait,
-                         cluster_config=cluster_config,
-                         local_input=local_input,
                          restart_times=restart_times,
                          exec_job=exec_job,
                          assume_shared_fs=False,
                          max_status_checks_per_second=10)
 
         # add additional attributes
+# gcloud beta lifesciences pipelines run \
+#    --regions us-east1 \
+#    --command-line 'samtools index ${BAM} ${BAI}' \
+#    --docker-image "gcr.io/genomics-tools/samtools" \
+#    --inputs BAM=gs://genomics-public-data/NA12878.chr20.sample.bam \
+#    --outputs BAI=${BUCKET}/NA12878.chr20.sample.bam.bai
+
+        # overwrite the command to execute a single snakemake job if necessary
+        # exec_job = "..."
+
+
+    def _get_services(self):
+        '''use the Google Discovery Build to generate API clients
+           for Life Sciences, and use the google storage python client 
+           for storage.
+        '''
+        from googleapiclient.discovery import build as discovery_build
+        from oauth2client.client import GoogleCredentials
+        from google.cloud import storage
+        creds = GoogleCredentials.get_application_default()
+
+        # Discovery clients for Google Cloud Storage and Life Sciences API
+        self._storage_cli = discovery_build('storage', 'v1', credentials=creds)
+        self._api = discovery_build('lifesciences', 'v2beta', credentials=creds)
+        self._bucket_service = storage.Client()
+
+        # TODO need to test what happens without credentials
+
+    def _set_workflow_sources(self):
+        '''Given a directory added to workflow sources, expand it.
+           Defines self.workflow_sources with absolute paths.
+        '''
+        self.workflow_sources = []
+        for wfs in self.workflow.get_sources():
+            if os.path.isdir(wfs):
+                for (dirpath, dirnames, filenames) in os.walk(wfs):
+                    self.workflow_sources.extend(
+                        [os.path.join(dirpath, f) for f in filenames]
+                    )
+            else:
+                self.workflow_sources.append(os.path.abspath(wfs))
+        log = "sources="
+        for f in self.workflow_sources:
+            log += "%s\n" % f
+        logger.debug(log)
+
+
+    def _get_bucket(self):
+        '''get a connection to the storage bucket (self.bucket) and exit
+           if the name is taken or otherwise invalid.
+
+           Parameters
+           ==========
+           workflow: the workflow object to derive the prefix from
+        '''
+        # Hold path to requested subdirectory and main bucket
+        bucket_name = self.workflow.default_remote_prefix.split("/")[0]
+        self.gs_subdir = re.sub(
+            "^{}/".format(bucket_name), "", self.workflow.default_remote_prefix
+        )
+
+        # Case 1: The bucket already exists
+        try:
+            self.bucket = self._bucket_service.get_bucket(bucket_name)
+
+        # Case 2: The bucket needs to be created
+        except google.cloud.exceptions.NotFound:
+            self.bucket = self._bucket_service.create_bucket(bucket_name)
+
+        # Case 2: The bucket name is already taken
+        except (Exception, BaseException) as ex:
+            logger.error(
+                "Cannot get or create {} (exit code {}):\n{}".format(
+                    bucket_name, ex.returncode, ex.output.decode()
+                )
+            )
+            log_verbose_traceback(ex)
+            raise ex
+
+        logger.debug("bucket=%s" % self.bucket.name)
+        logger.debug("subdir=%s" % self.gs_subdir)
+
 
     def shutdown(self):
+
+        funcname="shutdown"
+        code.interact(local=locals())
+ 
         # perform additional steps on shutdown if necessary
         super().shutdown()
 
     def cancel(self):
+
+        funcname="cancel"
+        code.interact(local=locals())
+
         for job in self.active_jobs:
+            print(job)
             # cancel active jobs here
         self.shutdown()
 
@@ -2111,7 +2217,9 @@ class GoogleCloudPipelinesExecutor(ClusterExecutor):
             callback=None,
             submit_callback=None,
             error_callback=None):
-        import kubernetes.client
+
+        funcname="run"
+        code.interact(local=locals())
 
         super()._run(job)
         # obtain job execution command
@@ -2131,6 +2239,10 @@ class GoogleCloudPipelinesExecutor(ClusterExecutor):
         # busy wait on job completion
         # This is only needed if your backend does not allow to use callbacks
         # for obtaining job status.
+
+        funcname="_wait_for_jobs"
+        code.interact(local=locals())
+
         while True:
             # always use self.lock to avoid race conditions
             with self.lock:
@@ -2143,6 +2255,7 @@ class GoogleCloudPipelinesExecutor(ClusterExecutor):
                 # use self.status_rate_limiter to avoid too many API calls.
                 with self.status_rate_limiter:
 
+                    print('hello')
                     # Retrieve status of job j from your backend via j.jobid
                     # Handle completion and errors, calling either j.callback(j.job)
                     # or j.error_callback(j.job)

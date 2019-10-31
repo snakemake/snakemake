@@ -19,7 +19,9 @@ dependencies:
   - psutil
   - pandas
   - nomkl
+  - google-api-python-client
   - google-cloud-storage
+  - oauth2client
   - azure-storage
   - azure-storage-common
   - ratelimiter

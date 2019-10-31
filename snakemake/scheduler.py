@@ -20,6 +20,7 @@ from snakemake.executors import (
     DRMAAExecutor,
     KubernetesExecutor,
     TibannaExecutor,
+    GoogleCloudLifeScienceExecutor
 )
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
@@ -66,6 +67,7 @@ class JobScheduler:
         container_image=None,
         tibanna=None,
         tibanna_sfn=None,
+        google_life_sciences=None,
         precommand="",
         jobname=None,
         quiet=False,
@@ -247,6 +249,28 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
             )
+        elif google_life_sciences:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                cores=local_cores,
+            )
+
+            self._executor = GoogleCloudLifeScienceExecutor(
+                workflow,
+                dag,
+                cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+            )
+
         else:
             self._executor = CPUExecutor(
                 workflow,
@@ -296,6 +320,9 @@ class JobScheduler:
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
+
+        funcname="schedule"
+        code.interact(local=locals())
 
         try:
             while True:

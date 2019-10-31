@@ -995,6 +995,23 @@ def test_tibanna():
     )
 
 
+@pytest.mark.skip(
+    reason="also need to figure out how to provide Google Cloud Project"
+)
+def test_google_cloud_life_sciences():
+    workdir = dpath("test_google_cloud_sciences")
+
+    # Files in scripts are uploaded to storage under snakemake-testing/scripts
+    subprocess.check_call(["python", "upload.py"], cwd=workdir)
+    run(
+        workdir,
+        use_conda=True,
+        configfiles=["config.json"],
+        default_remote_prefix="snakemake-testing/1",
+        google_life_sciences=True,
+    )
+
+
 def test_expand_flag():
     run(dpath("test_expand_flag"), shouldfail=True)
 

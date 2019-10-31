@@ -109,6 +109,7 @@ in order to avoid unnecessary charges.
 
 .. _kubernetes:
 
+
 Executing a Snakemake workflow via kubernetes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -145,6 +146,24 @@ to schedule jobs to the correct nodes. In particular, it will forward memory req
 defined as `mem_mb` to kubernetes. Further, it will propagate the number of threads
 a job intends to use, such that kubernetes can allocate it to the correct cloud
 computing node.
+
+
+Executing a Snakemake workflow via Google Cloud Life Sciences
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The `Google Cloud Life Sciences <https://cloud.google.com/life-sciences/docs/>`_
+provides a rich application programming interface to design pipelines.
+You'll first need to `follow instructions here <https://cloud.google.com/life-sciences/docs/quickstart>`_  to
+create a Google Cloud Project and enable Life Sciences, Storage, and Compute Engine APIs,
+and continue with the prompts to create credentials. You'll want to create
+a service account for your host, and save the json credentials. You'll want
+to export the full path to this file to `GOOGLE_APPLICATION_CREDENTIALS`:
+
+.. code-block:: console
+
+      $ export GOOGLE_APPLICATION_CREDENTIALS=$HOME/path/snakemake-credentials.json
+
+If you lose the link to the credentials interface, you can `find it here <https://console.cloud.google.com/apis/credentials>`_.
 
 
 Executing a Snakemake workflow via Tibanna on Amazon Web Services
