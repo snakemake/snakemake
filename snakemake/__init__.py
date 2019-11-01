@@ -398,15 +398,6 @@ def snakemake(
         )
         return False
 
-    # We need to change to the working directory first, as configs can be relative
-    if workdir:
-        olddir = os.getcwd()
-        if not os.path.exists(workdir):
-            logger.info("Creating specified working directory {}.".format(workdir))
-            os.makedirs(workdir)
-        workdir = os.path.abspath(workdir)
-        os.chdir(workdir)
-
     overwrite_config = dict()
     if configfiles is None:
         configfiles = []
@@ -421,6 +412,14 @@ def snakemake(
         overwrite_config.update(config)
         if config_args is None:
             config_args = unparse_config(config)
+
+    if workdir:
+        olddir = os.getcwd()
+        if not os.path.exists(workdir):
+            logger.info("Creating specified working directory {}.".format(workdir))
+            os.makedirs(workdir)
+        workdir = os.path.abspath(workdir)
+        os.chdir(workdir)
 
     logger.setup_logfile()
 
