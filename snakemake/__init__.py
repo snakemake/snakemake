@@ -62,6 +62,7 @@ def snakemake(
     prioritytargets=[],
     stats=None,
     printreason=False,
+    printinputsize=False,
     printshellcmds=False,
     debug_dag=False,
     printdag=False,
@@ -171,6 +172,7 @@ def snakemake(
         prioritytargets (list):     list of targets that shall be run with maximum priority (default [])
         stats (str):                path to file that shall contain stats about the workflow execution (default None)
         printreason (bool):         print the reason for the execution of each job (default false)
+        printinputsize (bool):      print size of each input file (in bytes) (default false)
         printshellcmds (bool):      print the shell command of each job (default False)
         printdag (bool):            print the dag in the graphviz dot language (default False)
         printrulegraph (bool):      print the graph of rules in the graphviz dot language (default False)
@@ -353,6 +355,7 @@ def snakemake(
             handler=log_handler,
             quiet=quiet,
             printreason=printreason,
+            printinputsize=printinputsize,
             printshellcmds=printshellcmds,
             debug_dag=debug_dag,
             nocolor=nocolor,
@@ -485,6 +488,7 @@ def snakemake(
                     dryrun=dryrun,
                     touch=touch,
                     printreason=printreason,
+                    printinputsize=printinputsize,
                     printshellcmds=printshellcmds,
                     debug_dag=debug_dag,
                     nocolor=nocolor,
@@ -561,6 +565,7 @@ def snakemake(
                     keepgoing=keepgoing,
                     printshellcmds=printshellcmds,
                     printreason=printreason,
+                    printinputsize=printinputsize,
                     printrulegraph=printrulegraph,
                     printfilegraph=printfilegraph,
                     printdag=printdag,
@@ -1215,6 +1220,11 @@ def get_argument_parser(profile=None):
         "-r",
         action="store_true",
         help="Print the reason for each executed rule.",
+    )
+    group_output.add_argument(
+        "--input-size",
+        action="store_true",
+        help="Print sizes of input files in bytes, where applicable.",
     )
     group_output.add_argument(
         "--gui",
@@ -1913,6 +1923,7 @@ def main(argv=None):
             dryrun=args.dryrun,
             printshellcmds=args.printshellcmds,
             printreason=args.reason,
+            printinputsize=args.input_size,
             debug_dag=args.debug_dag,
             printdag=args.dag,
             printrulegraph=args.rulegraph,

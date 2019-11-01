@@ -86,6 +86,7 @@ class Logger:
         self.stream_handler = None
         self.printshellcmds = False
         self.printreason = False
+        self.printinputsize = False
         self.debug_dag = False
         self.quiet = False
         self.logfile = None
@@ -233,6 +234,17 @@ class Logger:
                 fmt = format_item(item, omit=[], valueformat=", ".join)
                 if fmt != None:
                     yield fmt
+
+                if item == "input" and self.printinputsize:
+                    msg["input_sizes"] = [str(os.path.getsize(filename))
+                                          if os.path.exists(filename)
+                                          else "NA"
+                                          for filename in msg["input"]]
+
+                    fmt = format_item("input_sizes", omit=[],
+                                      valueformat=", ".join)
+                    if fmt != None:
+                        yield fmt
 
             singleitems = ["jobid", "benchmark"]
             if self.printreason:
@@ -403,6 +415,7 @@ def setup_logger(
     quiet=False,
     printshellcmds=False,
     printreason=False,
+    printinputsize=False,
     debug_dag=False,
     nocolor=False,
     stdout=False,
@@ -428,6 +441,7 @@ def setup_logger(
     logger.quiet = quiet
     logger.printshellcmds = printshellcmds
     logger.printreason = printreason
+    logger.printinputsize = printinputsize
     logger.debug_dag = debug_dag
     logger.mode = mode
     logger.show_failed_logs = show_failed_logs
