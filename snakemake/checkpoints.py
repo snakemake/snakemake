@@ -39,5 +39,5 @@ class CheckpointJob:
     __slots__ = ["rule", "output"]
 
     def __init__(self, rule, output):
-        self.output = output.plainstrings()
+        self.output = output
         self.rule = rule

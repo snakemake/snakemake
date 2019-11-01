@@ -406,14 +406,13 @@ class JobScheduler:
                 # by calling this behind the lock, we avoid race conditions
                 try:
                     self.get_executor(job).handle_job_success(job)
+                    self.dag.finish(job, update_dynamic=update_dynamic)
                 except (RuleException, WorkflowError) as e:
                     # if an error occurs while processing job output,
                     # we do the same as in case of errors during execution
                     print_exception(e, self.workflow.linemaps)
                     self._handle_error(job)
                     return
-
-            self.dag.finish(job, update_dynamic=update_dynamic)
 
             if update_resources:
                 # normal jobs have len=1, group jobs have len>1

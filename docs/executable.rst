@@ -42,10 +42,41 @@ By specifying the number of available cores, i.e.
 
 .. code-block:: console
 
-    $ snakemake -j 4
+    $ snakemake --cores 4
 
 one can tell Snakemake to use up to 4 cores and solve a binary knapsack problem to optimize the scheduling of jobs.
-If the number is omitted (i.e., only ``-j`` is given), the number of used cores is determined as the number of available CPU cores in the machine.
+If the number is omitted (i.e., only ``--cores`` is given), the number of used cores is determined as the number of available CPU cores in the machine.
+
+Dealing with very large workflows
+---------------------------------
+
+If your workflow has a lot of jobs, Snakemake might need some time to infer the dependencies (the job DAG) and which jobs are actually required to run.
+The major bottleneck involved is the filesystem, which has to be queried for existence and modification dates of files.
+To overcome this issue, Snakemake allows to run large workflows in batches.
+This way, fewer files have to be evaluated at once, and therefore the job DAG can be inferred faster.
+By running
+
+.. code-block:: console
+
+    $ snakemake --cores 4 --batch myrule=1/3
+
+you instruct to only compute the first of three batches of the inputs of the rule `myrule`.
+To generate the second batch, run
+
+.. code-block:: console
+
+    $ snakemake --cores 4 --batch myrule=2/3
+
+Finally, when running
+
+
+.. code-block:: console
+
+    $ snakemake --cores 4 --batch myrule=3/3
+
+Snakemake will process beyond the rule `myrule`, because all of its input files have been generated, and complete the workflow.
+Obviously, a good choice of the rule to perform the batching is a rule that has a lot of input files and upstream jobs, for example a central aggregation step within your workflow.
+We advice all workflow developers to inform potential users of the best suited batching rule.
 
 
 -------------
