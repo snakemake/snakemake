@@ -579,7 +579,7 @@ class ClusterExecutor(RealExecutor):
         with self.lock:
             self.wait = False
         self.wait_thread.join()
-        if not self.workflow.immediate_submit or self.workflow.cleanup_wrappers:
+        if not self.workflow.immediate_submit:
             # Only delete tmpdir (containing jobscripts) if not using
             # immediate_submit. With immediate_submit, jobs can be scheduled
             # after this method is completed. Hence we have to keep the
