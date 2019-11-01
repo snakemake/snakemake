@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -298,6 +298,7 @@ def script(
     bench_record,
     jobid,
     bench_iteration,
+    cleanup_scripts,
     shadow_dir,
 ):
     """
@@ -563,5 +564,7 @@ def script(
     except URLError as e:
         raise WorkflowError(e)
     finally:
-        if f:
+        if f and cleanup_scripts:
             os.remove(f.name)
+        else:
+            logger.warning("Not cleaning up %s" % f.name)

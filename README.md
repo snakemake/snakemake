@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/snakemake/snakemake/tree/master.svg?style=shield)](https://circleci.com/gh/snakemake/snakemake/tree/master)
+[![GitHub actions status](https://github.com/snakemake/snakemake/workflows/CI/badge.svg?branch=master)](https://github.com/snakemake/snakemake/actions?query=branch%3Amaster+workflow%3ACI)
 [![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=snakemake_snakemake&metric=alert_status)](https://sonarcloud.io/dashboard?id=snakemake_snakemake)
 [![Bioconda](https://img.shields.io/conda/dn/bioconda/snakemake.svg?label=Bioconda)](https://bioconda.github.io/recipes/snakemake/README.html)
 [![Pypi](https://img.shields.io/pypi/pyversions/snakemake.svg)](https://pypi.org/project/snakemake)
@@ -11,7 +11,7 @@
 
 The Snakemake workflow management system is a tool to create **reproducible and scalable** data analyses.
 Workflows are described via a human readable, Python based language.
-They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
+They can be seamlessly scaled to server, cluster, grid and cloud environments without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
 **Homepage: https://snakemake.readthedocs.io**

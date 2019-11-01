@@ -31,6 +31,7 @@ class Checkpoint:
             (not f.exists or f in self.checkpoints.future_output) for f in output
         ):
             raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
+
         return CheckpointJob(self.rule, output)
 
 
@@ -38,5 +39,5 @@ class CheckpointJob:
     __slots__ = ["rule", "output"]
 
     def __init__(self, rule, output):
-        self.output = output.plainstrings()
+        self.output = output
         self.rule = rule
