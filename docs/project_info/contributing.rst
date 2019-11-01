@@ -199,7 +199,7 @@ The easiest way to run your development version of Snakemake is perhaps to go to
 
 This will make your development version of Snakemake the one called when running snakemake. You do not need to run this command after each time you make code changes.
 
-From the base snakemake folder you call :code:`python setup.py nosetests` to run all the tests. (If it complains that you do not have nose installed, which is the testing framework we use, you can simply install it by running :code:`pip install nose`.)
+From the base snakemake folder you call :code:`pytest tests/test*.py` to run all the tests. (If it complains that you do not have pytest installed, which is the testing framework we use, you can simply install it by running :code:`pip install pytest`.)
 
 If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
 

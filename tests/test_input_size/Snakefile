@@ -1,0 +1,90 @@
+
+rule all:
+    input:
+        expand("output{num}.txt", num=range(1,5))
+
+
+rule temp_output:
+    output:
+        temp("temp.txt")
+    shell:
+        "echo temporary output... > {output}"
+
+rule touch_output:
+    output:
+        touch("touch.txt")
+    shell:
+        "echo touching {output}"
+
+rule pipe_output:
+    output:
+        pipe("pipe.txt")
+    shell:
+        "echo piping... > {output}"
+
+checkpoint checkpoint_output:
+    output:
+        "checkpoint.txt"
+    shell:
+        "echo checkpoint > {output}"
+
+rule other_outputs:
+    output:
+        base="base.txt",
+        base2="base2.txt",
+        hardln="hard_base.txt",
+        softln="soft_base.txt"
+
+    shell:
+        """
+        echo base input file > {output.base}
+        echo base input file 2 > {output.base2}
+        ln {output.base} {output.hardln}
+        ln -s {output.base} {output.softln}
+        """
+
+rule single_inputs:
+    input:
+        "base.txt"
+    output:
+        touch("output1.txt")
+    shell:
+        "echo single"
+
+def get_input_function(wildcards):
+    return {
+        "pipe": "pipe.txt",
+        "base2": "base2.txt"
+        }
+
+rule input_function:
+    input:
+        unpack(get_input_function)
+    output:
+        touch("output2.txt")
+    shell:
+        "echo function ; cat {input.pipe} "
+
+def chckpnt_fnc(wildcards):
+    checkpoints.checkpoint_output.get().output
+    if True:
+        return "checkpoint.txt"
+
+rule checkpoint_input:
+    input:
+        chckpnt_fnc
+    output:
+        touch("output3.txt")
+    shell:
+        "echo checkpoints"
+
+rule other_input:
+    input:
+        tmp="temp.txt",
+        tch="touch.txt",
+        hardln="hard_base.txt",
+        softln="soft_base.txt"
+    output:
+        touch("output4.txt")
+    shell:
+        "echo others"

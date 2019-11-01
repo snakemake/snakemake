@@ -497,6 +497,29 @@ def conda_available():
     return which("conda")
 
 
+def test_input_size(capsys):
+    run(dpath("test_input_size"), printinputsize=True)
+    output = capsys.readouterr().err.split('\n')
+
+    size_of = {}
+    for i, line in enumerate(output):
+        if line.strip().startswith('input:'):
+            for filename, size in zip(line.split()[1:],  # remove labels
+                                      output[i+1].split()[1:]):  # get next
+                size_of[filename.rstrip(',')] = size.rstrip(',')
+    assert size_of['temp.txt'] == '20'  # temp file
+    assert size_of['soft_base.txt'] == size_of['base.txt']
+    assert size_of['hard_base.txt'] == size_of['base.txt']
+    assert size_of['touch.txt'] == '0'  # empty file
+    assert size_of['pipe.txt'] == 'NA'  # pipe output has no size
+    assert size_of['base2.txt'] == '18'
+    assert size_of['checkpoint.txt'] == '11'
+
+    run(dpath("test_input_size"), printinputsize=False)
+    output = capsys.readouterr().err.split('\n')
+    assert 'size:' not in output
+
+
 def test_get_log_none():
     run(dpath("test_get_log_none"))
 
