@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/snakemake/snakemake/tree/master.svg?style=shield)](https://circleci.com/gh/snakemake/snakemake/tree/master)
+[![GitHub actions status](https://github.com/snakemake/snakemake/workflows/CI/badge.svg?branch=master)](https://github.com/snakemake/snakemake/actions?query=branch%3Amaster+workflow%3ACI)
 [![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=snakemake_snakemake&metric=alert_status)](https://sonarcloud.io/dashboard?id=snakemake_snakemake)
 [![Bioconda](https://img.shields.io/conda/dn/bioconda/snakemake.svg?label=Bioconda)](https://bioconda.github.io/recipes/snakemake/README.html)
 [![Pypi](https://img.shields.io/pypi/pyversions/snakemake.svg)](https://pypi.org/project/snakemake)
