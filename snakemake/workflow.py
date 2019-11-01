@@ -759,6 +759,9 @@ class Workflow:
             assume_shared_fs=assume_shared_fs,
         )
 
+        funcname="workflow.execute"
+        code.interact(local=locals())
+
         if not dryrun:
             if len(dag):
                 shell_exec = shell.get_executable()

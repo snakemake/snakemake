@@ -307,6 +307,9 @@ class CPUExecutor(RealExecutor):
             )
         )
 
+        funcname = "RealExecutor.init"
+        code.interact(local=locals())
+
         if self.workflow.shadow_prefix:
             self.exec_job += " --shadow-prefix {} ".format(self.workflow.shadow_prefix)
         if self.workflow.use_conda:
@@ -451,6 +454,11 @@ class CPUExecutor(RealExecutor):
 
 
 class ClusterExecutor(RealExecutor):
+    '''the cluster executor will start with the exec_job (the start of a
+       snakemake commant intended to run on some cluster) and then based
+       on input arguments from the workflow (e.g., containers? conda?)
+       build up the exec_job to be ready to send to the cluster or remote.
+    '''
 
     default_jobscript = "jobscript.sh"
 
@@ -484,6 +492,9 @@ class ClusterExecutor(RealExecutor):
             latency_wait=latency_wait,
             assume_shared_fs=assume_shared_fs,
         )
+
+        funcname = "ClusterExecutor.init"
+        code.interact(local=locals())
 
         if not self.assume_shared_fs:
             # use relative path to Snakefile
@@ -550,6 +561,7 @@ class ClusterExecutor(RealExecutor):
 
         self.restart_times = restart_times
 
+        # You can't easily insert a code.inspect after here, since threads
         self.active_jobs = list()
         self.lock = threading.Lock()
         self.wait = True
@@ -1941,6 +1953,9 @@ def run_wrapper(
     rule = job_rule.name
     is_shell = job_rule.shellcmd is not None
 
+    funcname="run_wrapper"
+    code.interact(local=locals())
+
     if os.name == "posix" and debug:
         sys.stdin = open("/dev/stdin")
 
@@ -2066,8 +2081,12 @@ def run_wrapper(
         except (Exception, BaseException) as ex:
             raise WorkflowError(ex)
 
-# https://snakemake.readthedocs.io/en/stable/project_info/contributing.html
+
 class GoogleCloudLifeScienceExecutor(ClusterExecutor):
+    '''the GoogleCloudLifeSciences executor uses Google Cloud Storage, and
+       Compute Engine paired with the Google Life Sciences API.
+       https://cloud.google.com/life-sciences/docs/quickstart
+    '''
     def __init__(self, workflow, dag, cores,
              jobname="snakejob.{name}.{jobid}.sh",
              printreason=False,

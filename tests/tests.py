@@ -1003,12 +1003,12 @@ def test_google_cloud_life_sciences():
 
     # Files in scripts are uploaded to storage under snakemake-testing/scripts
     subprocess.check_call(["python", "upload.py"], cwd=workdir)
-    run(
-        workdir,
-        use_conda=True,
-        configfiles=["config.json"],
-        default_remote_prefix="snakemake-testing/1",
-        google_life_sciences=True,
+    tmpdir = run(
+                 workdir,
+                 use_conda=True,
+                 configfiles=["config.json"],
+                 default_remote_prefix="snakemake-testing/1",
+                 google_life_sciences=True
     )
 
 

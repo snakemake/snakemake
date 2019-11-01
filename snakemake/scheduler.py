@@ -12,6 +12,7 @@ from collections import defaultdict
 from itertools import chain, accumulate
 from contextlib import ContextDecorator
 import time
+import code
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
@@ -307,6 +308,10 @@ class JobScheduler:
 
     def candidate(self, job):
         """ Return whether a job is a candidate to be executed. """
+
+        funcname="scheduler.candidate"
+        code.interact(local=locals())
+
         return (
             job not in self.running
             and job not in self.failed
@@ -316,12 +321,15 @@ class JobScheduler:
     @property
     def open_jobs(self):
         """ Return open jobs. """
+        funcname="scheduler.open_jobs"
+        code.interact(local=locals())
+
         return filter(self.candidate, list(job for job in self.dag.ready_jobs))
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
 
-        funcname="schedule"
+        funcname="scheduler.schedule"
         code.interact(local=locals())
 
         try:
@@ -404,6 +412,10 @@ class JobScheduler:
             return self._local_executor if job.is_local else self._executor
 
     def run(self, job):
+
+        funcname="scheduler.run"
+        code.interact(local=locals())
+
         self.get_executor(job).run(
             job,
             callback=self._finish_callback,
@@ -505,6 +517,9 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         Args:
             jobs (list):    list of jobs
         """
+        funcname="scheduler._job_selector"
+        code.interact(local=locals())
+
         with self._lock:
             # each job is an item with one copy (0-1 MDKP)
             n = len(jobs)
