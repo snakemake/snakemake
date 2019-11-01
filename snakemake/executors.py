@@ -910,20 +910,12 @@ class GenericClusterExecutor(ClusterExecutor):
 
             def job_status(job):
                 if os.path.exists(active_job.jobfinished):
-                    if self.workflow.cleanup_wrappers:
-                        logger.debug("--skip-wrapper-cleanup not set, cleaning.")
-                        print(active_job.job_jobfinished)
-                        print(active_job.job_jobscript)
-                        os.remove(active_job.jobfinished)
-                        os.remove(active_job.jobscript)
+                    os.remove(active_job.jobfinished)
+                    os.remove(active_job.jobscript)
                     return success
                 if os.path.exists(active_job.jobfailed):
-                    if self.workflow.cleanup_wrappers:
-                        logger.debug("--skip-wrapper-cleanup not set, cleaning.")
-                        print(active_job.job_jobfailed)
-                        print(active_job.job_jobscript)
-                        os.remove(active_job.jobfailed)
-                        os.remove(active_job.jobscript)
+                    os.remove(active_job.jobfailed)
+                    os.remove(active_job.jobscript)
                     return failed
                 return running
 
@@ -1056,15 +1048,11 @@ class SynchronousClusterExecutor(ClusterExecutor):
                         still_running.append(active_job)
                     elif exitcode == 0:
                         # job finished successfully
-                        if self.workflow.cleanup_wrappers:
-                            logger.debug("--skip-wrapper-cleanup not set, cleaning.")
-                            os.remove(active_job.jobscript)
+                        os.remove(active_job.jobscript)
                         active_job.callback(active_job.job)
                     else:
                         # job failed
-                        if self.workflow.cleanup_wrappers:
-                            logger.debug("--skip-wrapper-cleanup not set, cleaning.")
-                            os.remove(active_job.jobscript)
+                        os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
                         self.print_cluster_job_error(
                             active_job, self.dag.jobid(active_job.job)
@@ -1218,15 +1206,11 @@ class DRMAAExecutor(ClusterExecutor):
                             WorkflowError("DRMAA Error: {}".format(e)),
                             self.workflow.linemaps,
                         )
-                        if self.workflow.cleanup_wrappers:
-                            logger.debug("--skip-wrapper-cleanup not set, cleaning.")
-                            os.remove(active_job.jobscript)
+                        os.remove(active_job.jobscript)
                         active_job.error_callback(active_job.job)
                         continue
                     # job exited
-                    if self.workflow.cleanup_wrappers:
-                        logger.debug("--skip-wrapper-cleanup not set, cleaning.")
-                        os.remove(active_job.jobscript)
+                    os.remove(active_job.jobscript)
                     if (
                         not retval.wasAborted
                         and retval.hasExited

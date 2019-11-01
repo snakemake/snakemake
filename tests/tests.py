@@ -1003,7 +1003,7 @@ def test_google_cloud_life_sciences():
     configpath = dpath(os.path.join("test_google_cloud_sciences", "config.json"))
 
     # Files in scripts are uploaded to storage under snakemake-testing/scripts
-    subprocess.check_call(["python", "upload.py"], cwd=workdir)
+    #subprocess.check_call(["python", "upload.py"], cwd=workdir)
     run(
          workdir,
          use_conda=True,
