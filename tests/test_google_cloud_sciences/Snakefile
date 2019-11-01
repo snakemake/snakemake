@@ -1,5 +1,38 @@
-rule a:
+import os
+
+# This test file is taken from Kubernetes - both use Google Cloud
+from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
+GS = GSRemoteProvider()
+
+rule all:
+    input:
+        "landsat-data.txt.bz2"
+
+rule copy:
+    input:
+        GS.remote("gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt")
     output:
-        "test.txt"
+        "landsat-data.txt"
+    resources:
+        mem_mb=100
+    run:
+        # we could test volume size like this but it is currently unclear what f1-micro instances provide as boot disk size
+        #stats = os.statvfs('.')
+        #volume_gib = stats.f_bsize * stats.f_blocks / 1.074e9
+        #assert volume_gib > 90
+        shell("cp {input} {output}")
+
+
+rule pack:
+    input:
+        "landsat-data.txt"
+    output:
+        "landsat-data.txt.bz2"
+    conda:
+        "envs/gzip.yaml"
+    singularity:
+        "docker://continuumio/miniconda3:4.4.10"
+    log:
+        "logs/pack.log"
     shell:
-         "touch {output}"
+        "bzip2 -c {input} > {output}; echo successful > {log}"

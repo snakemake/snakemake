@@ -15,7 +15,6 @@ from functools import partial
 from pathlib import Path
 import uuid
 import math
-import code
 
 from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
 from snakemake.jobs import Job, Reason, GroupJob
@@ -165,9 +164,6 @@ class DAG:
 
     def init(self, progress=False):
         """ Initialise the DAG. """
-
-        funcname="DAG.init"
-        code.interact(local=locals())
 
         for job in map(self.rule2job, self.targetrules):
             job = self.update([job], progress=progress)
@@ -603,9 +599,6 @@ class DAG:
 
     def handle_remote(self, job, upload=True):
         """ Remove local files if they are no longer needed and upload. """
-
-        funcname="DAG.handle_remove"
-        code.interact(local=locals())
 
         if upload:
             # handle output files

@@ -306,9 +306,6 @@ class CPUExecutor(RealExecutor):
             )
         )
 
-        funcname = "RealExecutor.init"
-        code.interact(local=locals())
-
         if self.workflow.shadow_prefix:
             self.exec_job += " --shadow-prefix {} ".format(self.workflow.shadow_prefix)
         if self.workflow.use_conda:
@@ -492,9 +489,6 @@ class ClusterExecutor(RealExecutor):
             latency_wait=latency_wait,
             assume_shared_fs=assume_shared_fs,
         )
-
-        funcname = "ClusterExecutor.init"
-        code.interact(local=locals())
 
         if not self.assume_shared_fs:
             # use relative path to Snakefile
@@ -1938,9 +1932,6 @@ def run_wrapper(
     rule = job_rule.name
     is_shell = job_rule.shellcmd is not None
 
-    funcname="run_wrapper"
-    code.interact(local=locals())
-
     if os.name == "posix" and debug:
         sys.stdin = open("/dev/stdin")
 
@@ -2070,16 +2061,23 @@ def run_wrapper(
             raise WorkflowError(ex)
 
 
-class GoogleCloudLifeScienceExecutor(ClusterExecutor):
-    '''the GoogleCloudLifeSciences executor uses Google Cloud Storage, and
+GoogleLifeScienceJob = namedtuple(
+    "GoogleLifeScienceJob", "job jobname jobid exec_arn callback error_callback"
+)
+
+
+class GoogleLifeScienceExecutor(ClusterExecutor):
+    '''the GoogleLifeSciences executor uses Google Cloud Storage, and
        Compute Engine paired with the Google Life Sciences API.
        https://cloud.google.com/life-sciences/docs/quickstart
     '''
-    def __init__(self, workflow, dag, cores,
+    def __init__(self, workflow, dag, cores, envvars,
              jobname="snakejob.{name}.{jobid}.sh",
              printreason=False,
              quiet=False,
              printshellcmds=False,
+             container_image=None,
+             regions=None,
              latency_wait=3,
              local_input=None,
              restart_times=None,
@@ -2092,10 +2090,18 @@ class GoogleCloudLifeScienceExecutor(ClusterExecutor):
         self.quiet = quiet
         self.snakefile = workflow.snakefile
 
+        # We might eventually want different logic for secrets
+        self.envvars = envvars or []
+
         # Quit early if we can't authenticate
         self._get_services()
         self._get_bucket()
         self._set_workflow_sources()
+
+        # Akin to Kubernetes, create a run namespace, default container image
+        self.run_namespace = str(uuid.uuid4())
+        self.container_image = container_image or get_container_image()
+        self.regions = regions or ["us-east1", "us-west1", 'us-central1']
 
         # This is the command sent to the instance
         exec_job = (
@@ -2136,16 +2142,21 @@ class GoogleCloudLifeScienceExecutor(ClusterExecutor):
            for storage.
         '''
         from googleapiclient.discovery import build as discovery_build
-        from oauth2client.client import GoogleCredentials
+        from oauth2client.client import GoogleCredentials, ApplicationDefaultCredentialsError
         from google.cloud import storage
-        creds = GoogleCredentials.get_application_default()
+
+        # Credentials must be exported to environment
+        try:
+            creds = GoogleCredentials.get_application_default()
+        except ApplicationDefaultCredentialsError as ex:
+            log_verbose_traceback(ex)
+            raise ex
 
         # Discovery clients for Google Cloud Storage and Life Sciences API
         self._storage_cli = discovery_build('storage', 'v1', credentials=creds)
         self._api = discovery_build('lifesciences', 'v2beta', credentials=creds)
         self._bucket_service = storage.Client()
 
-        # TODO need to test what happens without credentials
 
     def _set_workflow_sources(self):
         '''Given a directory added to workflow sources, expand it.
@@ -2211,7 +2222,6 @@ class GoogleCloudLifeScienceExecutor(ClusterExecutor):
         super().shutdown()
 
     def cancel(self):
-
         funcname="cancel"
         code.interact(local=locals())
 
@@ -2220,35 +2230,311 @@ class GoogleCloudLifeScienceExecutor(ClusterExecutor):
             # cancel active jobs here
         self.shutdown()
 
+
+    def _generate_job_resources(self, job):
+        '''given a particular job, generate the resources that it needs,
+           including default regions and the virtual machine configuration
+        '''
+        # Right now, do a best effort mapping of resources to instance types
+        cores = job.resources.get('_cores', 1)
+        nodes = job.resources.get('_nodes', 1)
+        mem_mb = job.resources.get('mem_mb', 100)
+
+        # Need to convert mem_mb to GB
+        # Question: can the user provide a mem_gb, or always in mb?
+        mem_gb = mem_mb / 1000.0
+
+        # For now just map vCPU (virtual CPU) to requested CPU/memory
+        # https://cloud.google.com/compute/docs/machine-types
+        machineTypes = [
+
+            {"name": "n1-standard-1", "mem_gb": 3.75, "vcpu": 1},
+            {"name": "n1-standard-2", "mem_gb": 7.5, "vcpu": 2},
+            {"name": "n1-standard-4", "mem_gb": 15, "vcpu": 4},
+            {"name": "n1-standard-8", "mem_gb": 30, "vcpu": 8},
+            {"name": "n1-standard-16", "mem_gb": 60, "vcpu": 16},
+            {"name": "n1-standard-32", "mem_gb": 120, "vcpu": 32},
+            {"name": "n1-standard-64", "mem_gb": 240, "vcpu": 64},
+            {"name": "n1-standard-96", "mem_gb": 360, "vcpu": 96},
+
+            {"name": "n1-highmem-2", "mem_gb": 13, "vcpu": 2},
+            {"name": "n1-highmem-4", "mem_gb": 26, "vcpu": 4},
+            {"name": "n1-highmem-8", "mem_gb": 52, "vcpu": 8},
+            {"name": "n1-highmem-16", "mem_gb": 104, "vcpu": 16},
+            {"name": "n1-highmem-32", "mem_gb": 208, "vcpu": 32},
+            {"name": "n1-highmem-64", "mem_gb": 416, "vcpu": 64},
+            {"name": "n1-highmem-96", "mem_gb": 624, "vcpu": 96},
+
+            {"name": "n1-highcpu-2", "mem_gb": 1.8, "vcpu": 2},
+            {"name": "n1-highcpu-4", "mem_gb": 3.6, "vcpu": 4},
+            {"name": "n1-highcpu-8", "mem_gb": 7.2, "vcpu": 8},
+            {"name": "n1-highcpu-16", "mem_gb": 14.4, "vcpu": 16},
+            {"name": "n1-highcpu-32", "mem_gb": 28.8, "vcpu": 32},
+            {"name": "n1-highcpu-64", "mem_gb": 57.6, "vcpu": 64},
+            {"name": "n1-highcpu-96", "mem_gb": 86.4, "vcpu": 96},
+
+            {"name": "n2-standard-2", "mem_gb": 8, "vcpu": 2},
+            {"name": "n2-standard-4", "mem_gb": 16, "vcpu": 4},
+            {"name": "n2-standard-8", "mem_gb": 32, "vcpu": 8},
+            {"name": "n2-standard-16", "mem_gb": 64, "vcpu": 16},
+            {"name": "n2-standard-32", "mem_gb": 128, "vcpu": 32},
+            {"name": "n2-standard-48", "mem_gb": 192, "vcpu": 48},
+            {"name": "n2-standard-64", "mem_gb": 256, "vcpu": 64},
+            {"name": "n2-standard-80", "mem_gb": 320, "vcpu": 80},
+
+            {"name": "n2-highmem-2", "mem_gb": 16, "vcpu": 2},
+            {"name": "n2-highmem-4", "mem_gb": 32, "vcpu": 4},
+            {"name": "n2-highmem-8", "mem_gb": 64, "vcpu": 8},
+            {"name": "n2-highmem-16", "mem_gb": 128, "vcpu": 16},
+            {"name": "n2-highmem-32", "mem_gb": 256, "vcpu": 32},
+            {"name": "n2-highmem-48", "mem_gb": 384, "vcpu": 48},
+            {"name": "n2-highmem-64", "mem_gb": 512, "vcpu": 64},
+            {"name": "n2-highmem-80", "mem_gb": 640, "vcpu": 80},
+
+            {"name": "n2-highcpu-2", "mem_gb": 2, "vcpu": 2},
+            {"name": "n2-highcpu-4", "mem_gb": 4, "vcpu": 4},
+            {"name": "n2-highcpu-8", "mem_gb": 8, "vcpu": 8},
+            {"name": "n2-highcpu-16", "mem_gb": 16, "vcpu": 16},
+            {"name": "n2-highcpu-32", "mem_gb": 32, "vcpu": 32},
+            {"name": "n2-highcpu-48", "mem_gb": 48, "vcpu": 48},
+            {"name": "n2-highcpu-64", "mem_gb": 64, "vcpu": 64},
+            {"name": "n2-highcpu-80", "mem_gb": 80, "vcpu": 80},
+
+            {"name": "m1-ultramem-40", "mem_gb": 961, "vcpu": 40},
+            {"name": "m1-ultramem-80", "mem_gb": 1922, "vcpu": 80},
+            {"name": "m1-ultramem-160", "mem_gb": 3844, "vcpu": 160},
+            {"name": "m1-megamem-96", "mem_gb": 1433.6, "vcpu": 96},
+
+            {"name": "m2-ultramem-208", "mem_gb": 5888, "vcpu": 208},
+            {"name": "m2-ultramem-416", "mem_gb": 11776, "vcpu": 416},
+
+            # Compute optimized
+            {"name": "c2-standard-4", "mem_gb": 16, "vcpu": 4},
+            {"name": "c2-standard-8", "mem_gb": 32, "vcpu": 8},
+            {"name": "c2-standard-16", "mem_gb": 64, "vcpu": 16},
+            {"name": "c2-standard-30", "mem_gb": 128, "vcpu": 30},
+            {"name": "c2-standard-60", "mem_gb": 240, "vcpu": 60},
+
+        ]
+
+        # First pass - eliminate anything that too low in cpu/memory
+        keepers = []
+        for machineType in machineTypes:
+            if machineType['vcpu'] < cores or machineType['mem_gb'] < mem_gb:
+                continue
+            keepers.append(machineType)
+
+        # Now find (quasi) minimal to satisfy constraints
+        machineTypes = keepers
+        keepers = []
+
+        minCores = 1
+        minMem = 3.75
+        smallest = "n1-standard-1"
+
+        for machineType in machineTypes:
+           if machineType['vcpu'] < minCores and machineType['mem_gb'] < minMem:
+               smallest = machineType['name']
+               minCores = machineType['vcpu']
+               minMem = machineType['mem_gb']
+
+        virtualMachine = {
+            "machineType": smallest,
+            "labels": {"app": "snakemake"},
+            "bootDiskSizeGb": 100, # default is likely 10
+            # Question: Do we specify additional disks here?
+            #"disks": {
+            #    "name": string,
+            #    "sizeGb": number,
+            #    "type": string,
+            #    "sourceImage": string
+            #}
+            # Try leaving network, serviceaccount, accelerators out
+            # network: {}
+            # accelerators: [{}]
+            # serviceaccount
+            # "cpuPlatform": string,
+            # "bootImage": "projects/cos-cloud/global/images/family/cos-stable"
+            # "nvidiaDriverVersion": string,
+            # "enableStackdriverMonitoring": boolean
+        }
+
+        resources = {
+            # only set one of regions or zones
+            "regions": self.regions,
+            "virtualMachine": virtualMachine,
+        }
+        return resources
+
+
+    def _generate_job_action(self, job):
+        '''generate a single action to execute the job.
+        '''     
+         # Put together the execution command
+        # Question for Johannes: how can this be remote?
+        exec_job = self.format_job(
+            self.exec_job,
+            job,
+            _quote_all=True,
+            use_threads="--force-use-threads" if not job.is_group() else "",
+        )
+
+        # We are only generating one action, one job per run
+        action = {
+            "containerName": "snakejob-{}-{}".format(job.name, job.jobid),
+            "imageUri": self.container_image,
+
+            #TODO: how to specify workdir?
+            # container.working_dir = "/workdir"
+
+            # TODO this seems to have local paths (needs to be for container)
+            "commands": ["-c", exec_job],
+            "entrypoint": "/bin/sh",   
+            "environment": self._generate_environment(),
+            "labels": self._generate_pipeline_labels(job),
+            
+            # Disk mounts would need to be specified under resources 
+            # Question: what about mounting to boot disk?
+            #"mounts": [
+            #   {"disk": "workdir",
+            #    "path": "/workdir",
+            #    "readOnly": False},
+            #   {"disk": "source",
+            #    "path": "/source",
+            #    "readOnly": False}]
+        }
+
+            # "credentials" only if need to pull private container
+
+            # don't specify and use isolated pidspace
+            # "pidNamespace": string,
+            # "portMappings": map (key: number, value: number)
+
+            # Settings not changed from default
+            # "timeout": use default, expose if needed
+            # "ignoreExitStatus": boolean,
+            #  "runInBackground": boolean,
+            #  "alwaysRun": boolean,
+            #  "enableFuse": boolean,
+            #  "publishExposedPorts": boolean,
+            #  "disableImagePrefetch": boolean,
+            #  "disableStandardErrorCapture": boolean
+
+        return action
+
+
+    def _get_jobname(self, job):
+         # Use a dummy job name (human readable and also namespaced)
+        return "snakejob-%s-%s-%s" %(self.run_namespace, job.name, job.jobid)
+
+
+    def _generate_pipeline_labels(self, job):
+        '''generate basic labels to identify the job, namespace, and that 
+           snakemake is running the show!
+        '''
+        jobname = self._get_jobname(job)
+        labels = {"name": jobname, "app": "snakemake"}
+        return labels
+
+
+    def _generate_environment(self):
+        '''loop through envvars (keys to host environment) and add
+           any that are requested for the container environment.
+        '''
+        envvars = {}
+        for key in self.envvars:
+            try:
+                envvars[key] = os.environ[key]
+            except KeyError:
+                continue
+        return envvars
+
+    def _generate_pipeline(self, job):
+        '''based on the job details, generate a google Pipeline object
+           to pass to pipelines.run. This includes actions, resources,
+           environment, and timeout.
+        '''
+        # Generate actions (one per job) and resources
+        action = self._generate_job_action(job)
+        resources = self._generate_job_resources(job)
+
+        pipeline = {
+
+            # Ordered list of actions to execute
+            "actions": [action],
+
+            # resources required for execution
+            "resources": resources,
+
+            # Technical question - difference between resource and action environment
+            # For now we will set them to be the same.
+            "environment": self._generate_environment(),
+        }
+
+        # "timeout": string is not included (defaults to 7 days)
+        # Maximum amount of time (e.g., 3.5s where s is seconds) to complete 
+        # (waiting for worker included). If the pipeline fails to 
+        # complete, is cancelled with error code DEADLINE_EXCEEDED
+        return pipeline
+
+
     def run(self, job,
             callback=None,
             submit_callback=None,
             error_callback=None):
 
-        funcname="run"
+        funcname="GoogleCloudLifeSciencesExecutor.run"
         code.interact(local=locals())
+        # STOPPED HERE - need to be able to test this without being in thread
 
         super()._run(job)
-        # obtain job execution command
-        exec_job = self.format_job(
-            self.exec_job, job, _quote_all=True,
-            use_threads="--force-use-threads" if not job.is_group() else "")
 
-        # submit job here, and obtain job ids from the backend
+        # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines
+        pipelines = self._api.projects().locations().pipelines()
 
-        # register job as active, using your own namedtuple.
-        # The namedtuple must at least contain the attributes
-        # job, jobid, callback, error_callback.
-        self.active_jobs.append(MyJob(
-            job, jobid, callback, error_callback))
+        # pipelines.run 
+        # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines/run
+
+        labels = self._generate_pipeline_labels(job)
+        pipeline = self._generate_pipeline(job)
+       
+        # The body of the request is a Pipeline and labels
+        body = {"pipeline": pipeline, "labels": labels}
+
+        # This is how we might query locations (not sure what these are)
+        # locations = self._api.projects().locations().list(name="projects/*").execute()
+        # Remote files should be referenced via GS for the snakemake run to download
+        # This is different from Kubernetes, which copies them to a secret volume
+        # Question: would we need to copy the workdir to GS, and then the instance?
+
+        # capabilities - this won't currently work (Singularity in Docker)
+        # We either need to add CAPS or run in privileged mode (ehh)
+        if job.needs_singularity and self.workflow.use_singularity:
+            logger.warning(
+                "Singularity requires additional capabilities that "
+                "aren't yet supported for standard Docker runs."
+            )
+        
+        # Note that parent might need to be filtered down
+        operation = pipelines.run(parent="projects/*/locations/*", body=body)
+
+        # TODO: need to act on output of operation when test
+        # Give some logging for how to get status
+        logger.info(
+            "Get status with:\n"
+            "gcloud beta lifesciences operations describe {jobid}\n"
+            "gcloud beta lifesciences operations list".format(jobid=job.jobid)
+        )
+
+        self.active_jobs.append(
+            GoogleLifeScienceJob(job, jobid, callback, error_callback)
+        )
+
 
     def _wait_for_jobs(self):
         # busy wait on job completion
         # This is only needed if your backend does not allow to use callbacks
         # for obtaining job status.
-
-        funcname="_wait_for_jobs"
-        code.interact(local=locals())
 
         while True:
             # always use self.lock to avoid race conditions

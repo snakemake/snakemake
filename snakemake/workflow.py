@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-import code
 import re
 import os
 import sys
@@ -362,6 +361,8 @@ class Workflow:
         tibanna=None,
         tibanna_sfn=None,
         google_life_sciences=None,
+        google_life_sciences_envvars=None,
+        google_life_sciences_regions=None,
         precommand="",
         container_image=None,
         stats=None,
@@ -751,6 +752,8 @@ class Workflow:
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
             google_life_sciences=google_life_sciences,
+            google_life_sciences_envvars=google_life_sciences_envvars,
+            google_life_sciences_regions=google_life_sciences_regions,
             precommand=precommand,
             container_image=container_image,
             printreason=printreason,
@@ -760,9 +763,6 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
         )
-
-        funcname="workflow.execute"
-        code.interact(local=locals())
 
         if not dryrun:
             if len(dag):

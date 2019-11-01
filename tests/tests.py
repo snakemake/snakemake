@@ -1011,11 +1011,12 @@ def test_pipes2():
 )
 def test_tibanna():
     workdir = dpath("test_tibanna")
+    configpath = os.path.join(workdir, "config.json")
     subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
     run(
         workdir,
         use_conda=True,
-        configfiles=["config.json"],
+        configfiles=[configpath],
         default_remote_prefix="snakemake-tibanna-test/1",
         tibanna_sfn="tibanna_unicorn_johannes",
     )
@@ -1026,16 +1027,17 @@ def test_tibanna():
 )
 def test_google_cloud_life_sciences():
     workdir = dpath("test_google_cloud_sciences")
-    configpath = dpath(os.path.join("test_google_cloud_sciences", "config.json"))
+    configpath = os.path.join(workdir, "config.json")
 
     # Files in scripts are uploaded to storage under snakemake-testing/scripts
-    #subprocess.check_call(["python", "upload.py"], cwd=workdir)
-    run(
+    subprocess.check_call(["python", "upload.py"], cwd=workdir)
+    tmpdir = run(
          workdir,
          use_conda=True,
          configfiles=[configpath],
          default_remote_prefix="snakemake-testing/1",
-         google_life_sciences=True
+         google_life_sciences=True,
+         cleanup=False
     )
 
 

@@ -11,7 +11,6 @@ from collections import defaultdict
 from itertools import chain, accumulate
 from contextlib import ContextDecorator
 import time
-import code
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
@@ -20,7 +19,7 @@ from snakemake.executors import (
     DRMAAExecutor,
     KubernetesExecutor,
     TibannaExecutor,
-    GoogleCloudLifeScienceExecutor
+    GoogleLifeScienceExecutor
 )
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
@@ -68,6 +67,8 @@ class JobScheduler:
         tibanna=None,
         tibanna_sfn=None,
         google_life_sciences=None,
+        google_life_sciences_envvars=None,
+        google_life_sciences_regions=None,
         precommand="",
         jobname=None,
         quiet=False,
@@ -261,10 +262,13 @@ class JobScheduler:
                 cores=local_cores,
             )
 
-            self._executor = GoogleCloudLifeScienceExecutor(
+            self._executor = GoogleLifeScienceExecutor(
                 workflow,
                 dag,
                 cores,
+                envvars=google_life_sciences_envvars,
+                container_image=container_image,
+                regions=google_life_sciences_regions,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
@@ -308,9 +312,6 @@ class JobScheduler:
     def candidate(self, job):
         """ Return whether a job is a candidate to be executed. """
 
-        funcname="scheduler.candidate"
-        code.interact(local=locals())
-
         return (
             job not in self.running
             and job not in self.failed
@@ -320,17 +321,10 @@ class JobScheduler:
     @property
     def open_jobs(self):
         """ Return open jobs. """
-        funcname="scheduler.open_jobs"
-        code.interact(local=locals())
-
         return filter(self.candidate, list(job for job in self.dag.ready_jobs))
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
-
-        funcname="scheduler.schedule"
-        code.interact(local=locals())
-
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
@@ -411,9 +405,6 @@ class JobScheduler:
             return self._local_executor if job.is_local else self._executor
 
     def run(self, job):
-
-        funcname="scheduler.run"
-        code.interact(local=locals())
 
         self.get_executor(job).run(
             job,
@@ -515,8 +506,6 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         Args:
             jobs (list):    list of jobs
         """
-        funcname="scheduler._job_selector"
-        code.interact(local=locals())
 
         with self._lock:
             # each job is an item with one copy (0-1 MDKP)
