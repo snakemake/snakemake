@@ -1140,7 +1140,10 @@ To illustrate the possibilities of this mechanism, consider the following comple
   # input function for the rule aggregate
   def aggregate_input(wildcards):
       # decision based on content of output file
-      with open(checkpoints.somestep.get(sample=wildcards.sample).output[0]) as f:
+      # Important: use the method open() of the returned file!
+      # This way, Snakemake is able to automatically download the file if it is generated in 
+      # a cloud environment without a shared filesystem.
+      with checkpoints.somestep.get(sample=wildcards.sample).output[0].open() as f:
           if f.read().strip() == "a":
               return "post/{sample}.txt"
           else:

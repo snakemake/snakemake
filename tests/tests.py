@@ -1,5 +1,4 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__contributors__ = ["Soohyun Lee"]
 __copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
@@ -88,12 +87,15 @@ def run(
     check_md5=True,
     cores=3,
     set_pythonpath=True,
+    cleanup=True,
     **params
 ):
     """
     Test the Snakefile in path.
     There must be a Snakefile in the path and a subdirectory named
-    expected-results.
+    expected-results. If cleanup is False, we return the temporary
+    directory to the calling test for inspection, and the test should
+    clean it up.
     """
     if set_pythonpath:
         # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
@@ -108,70 +110,82 @@ def run(
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir
     ), "{} does not exist".format(results_dir)
-    with tempfile.TemporaryDirectory(prefix="snakemake-") as tmpdir:
-        config = {}
-        # handle subworkflow
-        if subpath is not None:
-            # set up a working directory for the subworkflow and pass it in `config`
-            # for now, only one subworkflow is supported
-            assert os.path.exists(subpath) and os.path.isdir(
-                subpath
-            ), "{} does not exist".format(subpath)
-            subworkdir = os.path.join(tmpdir, "subworkdir")
-            os.mkdir(subworkdir)
-            # copy files
-            for f in os.listdir(subpath):
-                copy(os.path.join(subpath, f), subworkdir)
-            config["subworkdir"] = subworkdir
+
+    # If we need to further check results, we won't cleanup tmpdir
+    tmpdir = next(tempfile._get_candidate_names())
+    tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
+    os.mkdir(tmpdir)
+
+    config = {}
+
+    # handle subworkflow
+    if subpath is not None:
+        # set up a working directory for the subworkflow and pass it in `config`
+        # for now, only one subworkflow is supported
+        assert os.path.exists(subpath) and os.path.isdir(
+            subpath
+        ), "{} does not exist".format(subpath)
+        subworkdir = os.path.join(tmpdir, "subworkdir")
+        os.mkdir(subworkdir)
 
         # copy files
-        for f in os.listdir(path):
-            print(f)
-            copy(os.path.join(path, f), tmpdir)
+        for f in os.listdir(subpath):
+            copy(os.path.join(subpath, f), subworkdir)
+        config["subworkdir"] = subworkdir
 
-        # run snakemake
-        success = snakemake(
-            snakefile,
-            cores=cores,
-            workdir=path if no_tmpdir else tmpdir,
-            stats="stats.txt",
-            config=config,
-            **params
-        )
-        if shouldfail:
-            assert not success, "expected error on execution"
-        else:
-            assert success, "expected successful execution"
-            for resultfile in os.listdir(results_dir):
-                if resultfile == ".gitignore" or not os.path.isfile(
-                    os.path.join(results_dir, resultfile)
-                ):
-                    # this means tests cannot use directories as output files
-                    continue
-                targetfile = join(tmpdir, resultfile)
-                expectedfile = join(results_dir, resultfile)
+    # copy files
+    for f in os.listdir(path):
+        print(f)
+        copy(os.path.join(path, f), tmpdir)
 
-                if ON_WINDOWS:
-                    if os.path.exists(join(results_dir, resultfile + "_WIN")):
-                        continue  # Skip test if a Windows specific file exists
-                    if resultfile.endswith("_WIN"):
-                        targetfile = join(tmpdir, resultfile[:-4])
-                elif resultfile.endswith("_WIN"):
-                    # Skip win specific result files on Posix platforms
-                    continue
+    # run snakemake
+    success = snakemake(
+        snakefile,
+        cores=cores,
+        workdir=path if no_tmpdir else tmpdir,
+        stats="stats.txt",
+        config=config,
+        **params
+    )
+    if shouldfail:
+        assert not success, "expected error on execution"
+    else:
+        assert success, "expected successful execution"
+        for resultfile in os.listdir(results_dir):
+            if resultfile == ".gitignore" or not os.path.isfile(
+                os.path.join(results_dir, resultfile)
+            ):
+                # this means tests cannot use directories as output files
+                continue
+            targetfile = join(tmpdir, resultfile)
+            expectedfile = join(results_dir, resultfile)
 
-                assert os.path.exists(
-                    targetfile
-                ), 'expected file "{}" not produced'.format(targetfile)
-                if check_md5:
-                    md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
-                    md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
-                    if md5target != md5expected:
-                        with open(targetfile) as target:
-                            content = target.read()
-                        assert False, 'wrong result produced for file "{}":\n{}'.format(
-                            resultfile, content
-                        )
+
+            if ON_WINDOWS:
+                if os.path.exists(join(results_dir, resultfile + "_WIN")):
+                    continue  # Skip test if a Windows specific file exists
+                if resultfile.endswith("_WIN"):
+                    targetfile = join(tmpdir, resultfile[:-4])
+            elif resultfile.endswith("_WIN"):
+                # Skip win specific result files on Posix platforms
+                continue
+
+
+            assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(
+                resultfile
+            )
+            if check_md5:
+                md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
+                md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS
+                if md5target != md5expected:
+                    # import pdb; pdb.set_trace()                    with open(targetfile) as target:
+                        content = target.read()
+                    assert False, 'wrong result produced for file "{}":\n{}'.format(
+                        resultfile, content
+                    )
+    if not cleanup:
+        return tmpdir
+    shutil.rmtree(tmpdir)
 
 
 xfail_permissionerror_on_win = (
@@ -183,6 +197,19 @@ xfail_permissionerror_on_win = (
 @xfail_permissionerror_on_win
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
+
+
+def test_github_issue_14():
+    """Add cleanup_scripts argument to allow the user to keep scripts"""
+    # Return temporary directory for inspection - we should keep scripts here
+    tmpdir = run(dpath("test_github_issue_14"), cleanup=False, cleanup_scripts=False)
+    assert os.listdir(os.path.join(tmpdir, ".snakemake", "scripts"))
+    shutil.rmtree(tmpdir)
+
+    # And not here
+    tmpdir = run(dpath("test_github_issue_14"), cleanup=False)
+    assert not os.listdir(os.path.join(tmpdir, ".snakemake", "scripts"))
+    shutil.rmtree(tmpdir)
 
 
 def test_issue956():
