@@ -52,7 +52,10 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-    def __init__(self, *args, keep_local=False, provider=None, **kwargs):
+    def __init__(
+            self, *args, keep_local=False, provider=None, user_project=None,
+            **kwargs
+    ):
         super(RemoteObject, self).__init__(
             *args, keep_local=keep_local, provider=provider, **kwargs
         )
@@ -61,6 +64,9 @@ class RemoteObject(AbstractRemoteObject):
             self.client = provider.remote_interface()
         else:
             self.client = storage.Client(*args, **kwargs)
+
+        # keep user_project available for when bucket is initialized
+        self._user_project = user_project
 
         self._key = None
         self._bucket_name = None
@@ -127,7 +133,9 @@ class RemoteObject(AbstractRemoteObject):
 
     @lazy_property
     def bucket(self):
-        return self.client.bucket(self.bucket_name)
+        return self.client.bucket(
+            self.bucket_name, user_project=self._user_project
+        )
 
     @lazy_property
     def blob(self):
