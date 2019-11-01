@@ -160,7 +160,6 @@ def run(
             targetfile = join(tmpdir, resultfile)
             expectedfile = join(results_dir, resultfile)
 
-
             if ON_WINDOWS:
                 if os.path.exists(join(results_dir, resultfile + "_WIN")):
                     continue  # Skip test if a Windows specific file exists
@@ -170,15 +169,15 @@ def run(
                 # Skip win specific result files on Posix platforms
                 continue
 
-
             assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(
                 resultfile
             )
             if check_md5:
                 md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
-                md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS
+                md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
                 if md5target != md5expected:
-                    # import pdb; pdb.set_trace()                    with open(targetfile) as target:
+                    # import pdb; pdb.set_trace()
+                    with open(targetfile) as target:
                         content = target.read()
                     assert False, 'wrong result produced for file "{}":\n{}'.format(
                         resultfile, content
