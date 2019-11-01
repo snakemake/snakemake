@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import code
 import re
 import os
 import sys
@@ -323,9 +324,9 @@ class Workflow:
         assert (
             self.default_remote_provider is not None
         ), "No default remote provider is defined, calling this anyway is a bug"
-        path = "{}/{}".format(self.workflow.default_remote_prefix, path)
+        path = "{}/{}".format(self.default_remote_prefix, path)
         path = os.path.normpath(path)
-        return self.workflow.default_remote_provider.remote(path)
+        return self.default_remote_provider.remote(path)
 
     def execute(
         self,
@@ -360,6 +361,7 @@ class Workflow:
         kubernetes_envvars=None,
         tibanna=None,
         tibanna_sfn=None,
+        google_life_sciences=None,
         precommand="",
         container_image=None,
         stats=None,
@@ -407,7 +409,6 @@ class Workflow:
     ):
 
         self.check_localrules()
-
         self.global_resources = dict() if resources is None else resources
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
@@ -749,6 +750,7 @@ class Workflow:
             kubernetes_envvars=kubernetes_envvars,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
+            google_life_sciences=google_life_sciences,
             precommand=precommand,
             container_image=container_image,
             printreason=printreason,
@@ -758,6 +760,9 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
         )
+
+        funcname="workflow.execute"
+        code.interact(local=locals())
 
         if not dryrun:
             if len(dag):

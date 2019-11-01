@@ -16,6 +16,7 @@ import webbrowser
 from functools import partial
 import importlib
 import shutil
+import code
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -137,6 +138,7 @@ def snakemake(
     container_image=None,
     tibanna=False,
     tibanna_sfn=None,
+    google_life_sciences=False,
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
@@ -242,8 +244,9 @@ def snakemake(
         container_image (str):      Docker image to use, e.g., for kubernetes.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
-        tibanna (str):              submit jobs to AWS cloud using Tibanna.
+        tibanna (bool):             submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
+        google_life_sciences (bool):submit jobs to Google Cloud Life Sciences (pipelines API).
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
@@ -307,10 +310,16 @@ def snakemake(
         ), "default_remote_prefix needed if tibanna is specified"
         assert tibanna_sfn, "tibanna_sfn needed if tibanna is specified"
 
+    # Google Cloud Life Sciences API uses compute engine and storage
+    if google_life_sciences:
+        assume_shared_fs = False
+        default_remote_provider = "GS"
+        default_remote_prefix = default_remote_prefix.rstrip("/")
+
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa or tibanna:
+    if cluster or cluster_sync or drmaa or tibanna or google_life_sciences:
         cores = sys.maxsize
     else:
         nodes = sys.maxsize
@@ -330,7 +339,7 @@ def snakemake(
     else:
         cluster_config_content = dict()
 
-    run_local = not (cluster or cluster_sync or drmaa or kubernetes or tibanna)
+    run_local = not (cluster or cluster_sync or drmaa or kubernetes or tibanna or google_life_sciences)
     if run_local and not dryrun:
         # clean up all previously recorded jobids.
         shell.cleanup()
@@ -339,6 +348,7 @@ def snakemake(
     use_threads = (
         force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
     )
+
     if not keep_logger:
         stdout = (
             (
@@ -460,6 +470,7 @@ def snakemake(
             default_resources=default_resources,
         )
         success = True
+
         workflow.include(
             snakefile, overwrite_first_rule=True, print_compilation=print_compilation
         )
@@ -537,6 +548,7 @@ def snakemake(
                     default_remote_prefix=default_remote_prefix,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    google_life_sciences=google_life_sciences,
                     precommand=precommand,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
@@ -574,6 +586,7 @@ def snakemake(
                     container_image=container_image,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    google_life_sciences=google_life_sciences,
                     precommand=precommand,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
@@ -1558,6 +1571,7 @@ def get_argument_parser(profile=None):
     group_cloud = parser.add_argument_group("CLOUD")
     group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tibanna = parser.add_argument_group("TIBANNA")
+    group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
 
     group_kubernetes.add_argument(
         "--kubernetes",
@@ -1617,6 +1631,17 @@ def get_argument_parser(profile=None):
         "Do not include input/output download/upload commands - file transfer"
         " between S3 bucket and the run environment (container) is automatically"
         " handled by Tibanna.",
+    )
+    group_google_life_science.add_argument(
+        "--google-life-sciences",
+        action="store_true",
+        help="Execute workflow on Google Cloud cloud using the Google Life. "
+        " Science API. This requires default application credentials (json) "
+        " to be created and export to the environment to use Google Cloud "
+        " Storage, Compute Engine, and Life Sciences. The credential file "
+        " should be exported as GOOGLE_APPLICATION_CREDENTIALS for snakemake "
+        " to discover. Also, --use-conda, --use-singularity, --config, "
+        "--configfile are supported and will be carried over.",
     )
 
     group_conda = parser.add_argument_group("CONDA")
@@ -1831,6 +1856,16 @@ def main(argv=None):
                     file=sys.stderr,
                 )
                 sys.exit(1)
+
+    if args.google_life_sciences:
+        if not args.default_remote_prefix:
+            print(
+                "Error: --google-life-sciences must be combined with "
+                " --default-remote-prefix to provide bucket name and "
+                "subdirectory (prefix) (e.g. 'bucketname/projectname'",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     if args.delete_all_output and args.delete_temp_output:
         print(

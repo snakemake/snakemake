@@ -15,6 +15,7 @@ from functools import partial
 from pathlib import Path
 import uuid
 import math
+import code
 
 from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
 from snakemake.jobs import Job, Reason, GroupJob
@@ -164,6 +165,10 @@ class DAG:
 
     def init(self, progress=False):
         """ Initialise the DAG. """
+
+        funcname="DAG.init"
+        code.interact(local=locals())
+
         for job in map(self.rule2job, self.targetrules):
             job = self.update([job], progress=progress)
             self.targetjobs.add(job)
@@ -598,6 +603,10 @@ class DAG:
 
     def handle_remote(self, job, upload=True):
         """ Remove local files if they are no longer needed and upload. """
+
+        funcname="DAG.handle_remove"
+        code.interact(local=locals())
+
         if upload:
             # handle output files
             files = list(job.expanded_output)
@@ -669,6 +678,7 @@ class DAG:
         self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False
     ):
         """ Update the DAG by adding given jobs and their dependencies. """
+
         if visited is None:
             visited = set()
         producer = None
@@ -720,6 +730,7 @@ class DAG:
                     if file
                     else "",
                 )
+
         if producer is None:
             if cycles:
                 job = cycles[0]
@@ -738,6 +749,7 @@ class DAG:
 
     def update_(self, job, visited=None, skip_until_dynamic=False, progress=False):
         """ Update the DAG by adding the given job and its dependencies. """
+
         if job in self.dependencies:
             return
         if visited is None:
@@ -802,6 +814,7 @@ class DAG:
         if skip_until_dynamic:
             self._dynamic.add(job)
 
+
     def update_needrun(self):
         """ Update the information whether a job needs to be executed. """
 
@@ -865,6 +878,7 @@ class DAG:
         _needrun.clear()
         candidates = set(self.jobs)
 
+        # The queue is None
         queue = list(filter(reason, map(needrun, candidates)))
         visited = set(queue)
         while queue:
@@ -1017,6 +1031,7 @@ class DAG:
     def postprocess(self):
         """Postprocess the DAG. This has to be invoked after any change to the
         DAG topology."""
+
         self.update_jobids()
         self.update_needrun()
         self.update_priority()
