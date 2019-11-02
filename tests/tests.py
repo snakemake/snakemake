@@ -1035,6 +1035,7 @@ def test_google_cloud_life_sciences():
          use_conda=True,
          default_remote_prefix="snakemake-testing/1",
          google_life_sciences=True,
+         container_image="snakemake/snakemake:v5.7.2", # bug with latest
          cleanup=False
     )
 
