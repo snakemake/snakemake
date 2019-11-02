@@ -196,6 +196,14 @@ to export the full path to this file to `GOOGLE_APPLICATION_CREDENTIALS`:
 
 If you lose the link to the credentials interface, you can `find it here <https://console.cloud.google.com/apis/credentials>`_.
 
+Optionally, you can export `GOOGLE_CLOUD_PROJECT` as the name of your Google
+Cloud Project. If you do not, you will need to provide it to snakemake
+directly as `--google-project`.
+
+.. code-block:: console
+
+      $ export GOOGLE_CLOUD_PROJECT=my-project-name
+
 
 Executing a Snakemake workflow via Tibanna on Amazon Web Services
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

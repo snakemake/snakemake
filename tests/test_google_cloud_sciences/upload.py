@@ -2,6 +2,9 @@ from google.cloud import storage
 import glob
 import os
 
+# TODO: change this into an example file for a user to upload dependencies
+# the workdir is upload on its own
+
 # Upload files to storage for testing
 client = storage.Client()
 here = os.path.dirname(os.path.abspath(__file__))
@@ -28,7 +31,4 @@ for filename, remotename in filenames.items():
 
     if not blob.exists():
         print("Uploading %s to %s" %(remotename, bucket_name))
-        with open(filename, 'r') as filey:
-            blob.upload_from_string(
-                filey.read(),
-                content_type="text/plain")
+        blob.upload_from_filename(filename, content_type="text/plain")

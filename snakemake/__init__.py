@@ -140,6 +140,7 @@ def snakemake(
     google_life_sciences=False,
     google_life_sciences_envvars=None,
     google_life_sciences_regions=None,
+    google_project=None,
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
@@ -250,6 +251,7 @@ def snakemake(
         google_life_sciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
         google_life_sciences_envvars (list):  environment variable keys to lookup and pass to pipeline.
         google_life_sciences_regions (list): a list of regions (e.g., us-east1)
+        google_project (str):       the name of your Google Cloud project (for Google Life Sciences).
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
@@ -554,6 +556,7 @@ def snakemake(
                     google_life_sciences=google_life_sciences,
                     google_life_sciences_envvars=google_life_sciences_envvars,
                     google_life_sciences_regions=google_life_sciences_regions,
+                    google_project=google_project,
                     precommand=precommand,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
@@ -594,6 +597,7 @@ def snakemake(
                     google_life_sciences=google_life_sciences,
                     google_life_sciences_envvars=google_life_sciences_envvars,
                     google_life_sciences_regions=google_life_sciences_regions,
+                    google_project=google_project,
                     precommand=precommand,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
@@ -1663,6 +1667,11 @@ def get_argument_parser(profile=None):
         default=[],
         help="Specify one or more valid instance regions (defaults to US)",
     )
+    group_google_life_science.add_argument(
+        "--google-project",
+        help="The full name of the Google Project to target for the Google "
+        "Life Sciences API."
+    )
 
     group_conda = parser.add_argument_group("CONDA")
 
@@ -1997,6 +2006,7 @@ def main(argv=None):
             google_life_sciences=args.google_life_sciences,
             google_life_sciences_envvars=args.google_life_sciences_env,
             google_life_sciences_regions=args.google_life_sciences_regions,
+            google_project=google_project,
             precommand=args.precommand,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,

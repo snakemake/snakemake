@@ -164,7 +164,6 @@ class DAG:
 
     def init(self, progress=False):
         """ Initialise the DAG. """
-
         for job in map(self.rule2job, self.targetrules):
             job = self.update([job], progress=progress)
             self.targetjobs.add(job)
