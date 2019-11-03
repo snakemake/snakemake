@@ -28,7 +28,7 @@ rule pack:
     output:
         "landsat-data.txt.bz2"
     conda:
-        "env.yaml"
+        "env.yml"
     log:
         "logs/pack.log"
     shell:

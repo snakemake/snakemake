@@ -2086,7 +2086,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
              local_input=None,
              restart_times=None,
              exec_job=None,
-             assume_shared_fs=True,
              max_status_checks_per_second=1):
 
         # Attach variables for easy access
@@ -2099,8 +2098,17 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         snakefile = os.path.join(
             self.workdir, os.path.basename(self.workflow.snakefile)
         )
-        self.snakefile = snakefile.replace(self.workdir, '/workdir')
-        print("Snakefile is %s" % self.snakefile)
+
+        # Needs to be relative for commands run in worker (linux base)
+        self.snakefile = snakefile.replace(self.workdir + '/', '')
+        exec_job = (
+            "snakemake {target} --snakefile %s "
+            "--force -j{cores} --keep-target-files  --keep-remote "
+            "--latency-wait 0 "
+            "--attempt 1 {use_threads} "
+            "{overwrite_config} {rules} --nocolor "
+            "--notemp --no-hooks --nolock " % self.snakefile
+        )
 
         # We might eventually want different logic for secrets
         self.envvars = envvars or []
@@ -2410,6 +2418,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         jobscript = self.get_jobscript(job)
         self.write_jobscript(job, jobscript)
 
+        
         # Remote files (within Snakefile) should be referenced via remotes.GS
         # For the workdir, we need to upload it, named based on hash of contents
         targz = self._generate_build_package()
@@ -2417,6 +2426,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         # Upload to temporary storage, only if doesn't exist
         destination='source/cache/%s' % os.path.basename(targz)
         blob = self.bucket.blob(destination)
+        logger.debug("build-package=%s" % destination)
         if not blob.exists():
             blob.upload_from_filename(targz, content_type="application/gzip")
 
@@ -2559,8 +2569,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/Event
         for event in status['metadata']['events']:
 
-            print(event['description'])
-            #logger.debug(event)
+            logger.info(event['description'])
 
             # Does it always result in fail for other failure reasons?
             if "failed" in event:

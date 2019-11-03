@@ -1032,7 +1032,7 @@ def test_google_cloud_life_sciences():
          use_conda=True,
          default_remote_prefix="snakemake-testing/1",
          google_life_sciences=True,
-         container_image="vanessa/snakemake:dev", # need custom entrypoint
+         google_life_sciences_cache=True,
     )
 
 
