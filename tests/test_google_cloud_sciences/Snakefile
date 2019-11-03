@@ -22,16 +22,13 @@ rule copy:
         #assert volume_gib > 90
         shell("cp {input} {output}")
 
-
 rule pack:
     input:
         "landsat-data.txt"
     output:
         "landsat-data.txt.bz2"
     conda:
-        "envs/gzip.yaml"
-    singularity:
-        "docker://continuumio/miniconda3:4.4.10"
+        "env.yaml"
     log:
         "logs/pack.log"
     shell:

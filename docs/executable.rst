@@ -204,6 +204,47 @@ directly as `--google-project`.
 
       $ export GOOGLE_CLOUD_PROJECT=my-project-name
 
+Using this executor typically requires you to start with large data files
+already in Google Storage, and then interact with them via the Google Storage
+remote executor. Here is an example script that shows you how you might
+want to upload files in advance using the Google API Python Client. 
+
+.. code-block:: python
+
+    from google.cloud import storage
+    import glob
+    import os
+
+    client = storage.Client()
+    here = os.path.dirname(os.path.abspath(__file__))
+
+    bucket_name = "snakemake-testing"
+
+    try:
+        bucket = client.get_bucket(bucket_name)
+    except:
+        bucket = client.create_bucket(bucket_name)
+
+    # key, full path, value: upload path in storage
+    filenames = dict()
+
+    for x in os.walk(os.path.join(here, 'scripts')):
+        for name in glob.glob(os.path.join(x[0], '*')):
+            if not os.path.isdir(name):
+                filenames[name] = name.replace(here + os.path.sep, '')
+
+    # Upload files in script and base gooogle life sciences folder
+    for filename, remotename in filenames.items():
+        blob = bucket.blob(remotename)
+
+        if not blob.exists():
+            print("Uploading %s to %s" %(remotename, bucket_name))
+            blob.upload_from_filename(filename, content_type="text/plain")
+
+
+Note that you can also easily use the Google Cloud Console interface, if
+a graphical interface is preferable to you.
+
 
 Executing a Snakemake workflow via Tibanna on Amazon Web Services
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

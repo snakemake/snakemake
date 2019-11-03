@@ -69,6 +69,7 @@ class JobScheduler:
         google_life_sciences=None,
         google_life_sciences_envvars=None,
         google_life_sciences_regions=None,
+        google_life_sciences_cache=False,
         google_project=None,
         precommand="",
         jobname=None,
@@ -270,6 +271,7 @@ class JobScheduler:
                 envvars=google_life_sciences_envvars,
                 container_image=container_image,
                 regions=google_life_sciences_regions,
+                cache=google_life_sciences_cache,
                 project=google_project,
                 printreason=printreason,
                 quiet=quiet,
@@ -313,7 +315,6 @@ class JobScheduler:
 
     def candidate(self, job):
         """ Return whether a job is a candidate to be executed. """
-
         return (
             job not in self.running
             and job not in self.failed
@@ -407,7 +408,6 @@ class JobScheduler:
             return self._local_executor if job.is_local else self._executor
 
     def run(self, job):
-
         self.get_executor(job).run(
             job,
             callback=self._finish_callback,
@@ -508,7 +508,6 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
         Args:
             jobs (list):    list of jobs
         """
-
         with self._lock:
             # each job is an item with one copy (0-1 MDKP)
             n = len(jobs)

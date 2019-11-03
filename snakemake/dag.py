@@ -598,7 +598,6 @@ class DAG:
 
     def handle_remote(self, job, upload=True):
         """ Remove local files if they are no longer needed and upload. """
-
         if upload:
             # handle output files
             files = list(job.expanded_output)
@@ -670,7 +669,6 @@ class DAG:
         self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False
     ):
         """ Update the DAG by adding given jobs and their dependencies. """
-
         if visited is None:
             visited = set()
         producer = None
@@ -722,7 +720,6 @@ class DAG:
                     if file
                     else "",
                 )
-
         if producer is None:
             if cycles:
                 job = cycles[0]
@@ -741,7 +738,6 @@ class DAG:
 
     def update_(self, job, visited=None, skip_until_dynamic=False, progress=False):
         """ Update the DAG by adding the given job and its dependencies. """
-
         if job in self.dependencies:
             return
         if visited is None:
@@ -809,7 +805,6 @@ class DAG:
 
     def update_needrun(self):
         """ Update the information whether a job needs to be executed. """
-
         def output_mintime(job):
             for job_ in self.bfs(self.depending, job):
                 t = job_.output_mintime
@@ -870,7 +865,6 @@ class DAG:
         _needrun.clear()
         candidates = set(self.jobs)
 
-        # The queue is None
         queue = list(filter(reason, map(needrun, candidates)))
         visited = set(queue)
         while queue:
@@ -1023,7 +1017,6 @@ class DAG:
     def postprocess(self):
         """Postprocess the DAG. This has to be invoked after any change to the
         DAG topology."""
-
         self.update_jobids()
         self.update_needrun()
         self.update_priority()

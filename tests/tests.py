@@ -1027,16 +1027,12 @@ def test_tibanna():
 )
 def test_google_cloud_life_sciences():
     workdir = dpath("test_google_cloud_sciences")
-
-    # Files in scripts are uploaded to storage under snakemake-testing/scripts
-    subprocess.check_call(["python", "upload.py"], cwd=workdir)
     tmpdir = run(
          workdir,
          use_conda=True,
          default_remote_prefix="snakemake-testing/1",
          google_life_sciences=True,
          container_image="snakemake/snakemake:v5.7.2", # bug with latest
-         cleanup=False
     )
 
 

@@ -19,10 +19,10 @@ import concurrent.futures
 import subprocess
 import signal
 import tarfile
+import tempfile
 from functools import partial
 from itertools import chain
 from collections import namedtuple
-from tempfile import mkdtemp
 from snakemake.io import _IOFile
 import random
 import base64
@@ -594,7 +594,7 @@ class ClusterExecutor(RealExecutor):
     @property
     def tmpdir(self):
         if self._tmpdir is None:
-            self._tmpdir = mkdtemp(dir=".snakemake", prefix="tmp.")
+            self._tmpdir = tempfile.mkdtemp(dir=".snakemake", prefix="tmp.")
         return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
@@ -2080,6 +2080,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
              printshellcmds=False,
              container_image=None,
              regions=None,
+             cache=False,
              project=None,
              latency_wait=3,
              local_input=None,
@@ -2092,6 +2093,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         self.workflow = workflow
         self.quiet = quiet
         self.workdir = os.path.dirname(self.workflow.persistence.path)
+        self._save_storage_cache = cache
 
         # Relative path for running on instance
         snakefile = os.path.join(
@@ -2099,16 +2101,12 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         )
         self.snakefile = snakefile.replace(self.workdir, '/workdir')
 
-        # TODO: what is a configfile (overwrite_config) and can we use it?
-        # If so, need to change relative path like Snakefile above
-
         # We might eventually want different logic for secrets
         self.envvars = envvars or []
 
         # Quit early if we can't authenticate
         self._get_services()
         self._get_bucket()
-        self._set_workflow_sources()
 
         # Akin to Kubernetes, create a run namespace, default container image
         self.run_namespace = str(uuid.uuid4())
@@ -2122,16 +2120,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
                 "You must provide a --google-project or export "
                 "GOOGLE_CLOUD_PROJECT to use the Life Sciences API. ",
             )
-
-        # Question - does this actually overwrite? Why would it?
-        exec_job = (
-            "snakemake {target} --snakefile {snakefile} "
-            "--force -j{cores} --keep-target-files  --keep-remote "
-            "--latency-wait 0 "
-            "--attempt 1 {use_threads} "
-            "{overwrite_config} {rules} --nocolor "
-            "--notemp --no-hooks --nolock "
-        )
 
         # Keep track of build packages to clean up shutdown
         self._build_packages = set()
@@ -2168,25 +2156,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         self._storage_cli = discovery_build('storage', 'v1', credentials=creds)
         self._api = discovery_build('lifesciences', 'v2beta', credentials=creds)
         self._bucket_service = storage.Client()
-
-
-    def _set_workflow_sources(self):
-        '''Given a directory added to workflow sources, expand it.
-           Defines self.workflow_sources with absolute paths.
-        '''
-        self.workflow_sources = []
-        for wfs in self.workflow.get_sources():
-            if os.path.isdir(wfs):
-                for (dirpath, dirnames, filenames) in os.walk(wfs):
-                    self.workflow_sources.extend(
-                        [os.path.join(dirpath, f) for f in filenames]
-                    )
-            else:
-                self.workflow_sources.append(os.path.abspath(wfs))
-        log = "sources="
-        for f in self.workflow_sources:
-            log += "%s\n" % f
-        logger.debug(log)
 
 
     def _get_bucket(self):
@@ -2227,26 +2196,39 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
 
     def shutdown(self):
 
-        funcname="shutdown"
-        code.interact(local=locals())
+        #funcname="shutdown"
+        #code.interact(local=locals())
 
-        # Delete build packages, currently no option to save cache
-        for package in self._build_packages:
-            blob = self.bucket.blob(package)
-            if blob.exists():
-                logger.debug("Deleting blob %s" % package)
-                blob.delete()
+        # Delete build packages only if user requested no cache
+        if self._save_storage_cache:
+             logger.debug("Requested to save workflow cache, skipping cleanup.")
+        else:
+            for package in self._build_packages:
+                blob = self.bucket.blob(package)
+                if blob.exists():
+                    logger.debug("Deleting blob %s" % package)
+                    blob.delete()
  
         # perform additional steps on shutdown if necessary
         super().shutdown()
 
     def cancel(self):
-        funcname="cancel"
-        code.interact(local=locals())
+        '''cancel execution, usually by way of control+c. Cleanup is done in
+           shutdown (deleting cached workdirs in Google Cloud Storage
+        '''
+        import googleapiclient
+
+        # projects.locations.operations/cancel
+        operations = self._api.projects().locations().operations()
 
         for job in self.active_jobs:
-            print(job)
-            # cancel active jobs here
+            request = operations.cancel(name=j.jobname)
+            logger.debug("Cancelling operation {}".format(j.jobid))
+            try:
+                status = self._retry_request(request)
+            except (Exception, BaseException, googleapiclient.errors.HttpError) as ex:
+                continue
+
         self.shutdown()
 
 
@@ -2361,25 +2343,9 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             "machineType": smallest,
             "labels": {"app": "snakemake"},
             "bootDiskSizeGb": 100, # default is likely 10
-            # Question: Do we specify additional disks here?
-            #"disks": {
-            #    "name": string,
-            #    "sizeGb": number,
-            #    "type": string,
-            #    "sourceImage": string
-            #}
-            # Try leaving network, serviceaccount, accelerators out
-            # network: {}
-            # accelerators: [{}]
-            # serviceaccount
-            # "cpuPlatform": string,
-            # "bootImage": "projects/cos-cloud/global/images/family/cos-stable"
-            # "nvidiaDriverVersion": string,
-            # "enableStackdriverMonitoring": boolean
         }
 
         resources = {
-            # only set one of regions or zones
             "regions": self.regions,
             "virtualMachine": virtualMachine,
         }
@@ -2422,7 +2388,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         return hash_tar
 
 
-    def get_file_hash(filename):
+    def get_file_hash(self, filename):
         '''find the SHA256 hash string of a file. We use this so that the
            user can choose to cache working directories in storage.
         '''
@@ -2443,11 +2409,14 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         #TODO this should be part of snakemake
         script = "https://gist.githubusercontent.com/vsoch/84886ef6469bedeeb9a79a4eb7aec0d1/raw/181499f8f17163dcb2f89822079938cbfbd258cc/download.py"
         dest = "/tmp/workdir.tar.gz"
+
+        # QUESTION: I shouldn't need to install Snakemake here - what's going on?
         cmd = (
-               "mkdir -p /workdir && cd /workdir && wget {script} && "
-               " chmod +x {script} && python {script} && "
-               " download {bucket} {blob} {dest} && "
-               " tar -xzvf {dest} && ./{jobscript} ".format(
+               "mkdir -p /workdir && cd /workdir && wget -O download.py {script} && "
+               "chmod +x download.py && pip install --upgrade google-api-python-client && " 
+               "pip install google-cloud-storage && pip install snakemake==5.7.2 &&"
+               "python download.py download {bucket} {blob} {dest} && "
+               "tar -xzvf {dest} && ./{jobscript} ".format(
                    script=script, blob=blob, dest=dest, bucket=self.bucket.name, jobscript=jobscript
                )
         )
@@ -2472,51 +2441,20 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             blob.upload_from_filename(targz, content_type="application/gzip")
 
         # Generate the command to download the blob and run snakemake
-        relative_script = jobscript.replace(workdir + os.sep, '')
+        relative_script = jobscript.replace(self.workdir + os.sep, '')
         cmd = self._generate_cmd(destination, jobscript=relative_script)
 
         # We are only generating one action, one job per run
+        # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines/run#Action
         action = {
             "containerName": "snakejob-{}-{}".format(job.name, job.jobid),
             "imageUri": self.container_image,
-
-            #TODO: how to specify workdir?
-            # container.working_dir = "/workdir"
-
-            # TODO this seems to have local paths (needs to be for container)
-            "commands": ["-c", exec_job],
+            "commands": ["-c", cmd],
             "entrypoint": "/bin/sh",   
             "environment": self._generate_environment(),
             "labels": self._generate_pipeline_labels(job),
-            
-            # Disk mounts would need to be specified under resources 
-            # Question: what about mounting to boot disk?
-            #"mounts": [
-            #   {"disk": "workdir",
-            #    "path": "/workdir",
-            #    "readOnly": False},
-            #   {"disk": "source",
-            #    "path": "/source",
-            #    "readOnly": False}]
         }
-
-            # "credentials" only if need to pull private container
-
-            # don't specify and use isolated pidspace
-            # "pidNamespace": string,
-            # "portMappings": map (key: number, value: number)
-            # "ignoreExitStatus": True,
-            # "timeout": "86400s", # one day
-
-            # Settings not changed from default
-            # "timeout": use default, expose if needed
-            #  "runInBackground": boolean,
-            #  "alwaysRun": boolean,
-            #  "enableFuse": boolean,
-            #  "publishExposedPorts": boolean,
-            #  "disableImagePrefetch": boolean,
-            #  "disableStandardErrorCapture": boolean
-
+   
         return action
 
 
@@ -2546,6 +2484,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
                 continue
         return envvars
 
+
     def _generate_pipeline(self, job):
         '''based on the job details, generate a google Pipeline object
            to pass to pipelines.run. This includes actions, resources,
@@ -2568,10 +2507,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             "environment": self._generate_environment(),
         }
 
-        # "timeout": string is not included (defaults to 7 days)
-        # Maximum amount of time (e.g., 3.5s where s is seconds) to complete 
-        # (waiting for worker included). If the pipeline fails to 
-        # complete, is cancelled with error code DEADLINE_EXCEEDED
+        # "timeout": string in seconds (3.5s) is not included (defaults to 7 days)
         return pipeline
 
 
@@ -2611,8 +2547,8 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         parent = "projects/%s/locations/*" % self.project
         operation = pipelines.run(parent=parent, body=body)
 
-        funcname="GoogleCloudLifeSciencesExecutor.run"
-        code.interact(local=locals())
+        #funcname="GoogleCloudLifeSciencesExecutor.run"
+        #code.interact(local=locals())
 
         # 403 will result if no permission to use pipelines or project
         result = self._retry_request(operation)
@@ -2641,18 +2577,21 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         '''
         success = True
 
+        # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/Event
         for event in status['metadata']['events']:
 
-            # An event can have any of the following keys
-            action = (event.get('workerReleased') or
-                      event.get('containerStopped') or
-                      event.get('containerStarted') or
-                      event.get('pullStarted') or 
-                      event.get('pullStopped') or
-                      event.get('workerAssigned'))
+            print(event)
+            #logger.debug(event)
 
-            # Check for exit status
-            if "exitStatus" in action:
+            # Does it always result in fail for other failure reasons?
+            if "failed" in event:
+                success = False
+                action = event.get("failed")
+                logger.error("{}: {}".format(action['code'], action['cause']))
+ 
+            elif "unexpectedExitStatus" in event:
+                action = event.get('unexpectedExitStatus')
+
                 if action['exitStatus'] != 0:
                     success = False
 
@@ -2693,9 +2632,10 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
 
 
     def _wait_for_jobs(self):
-        # busy wait on job completion
-        # This is only needed if your backend does not allow to use callbacks
-        # for obtaining job status.
+        '''wait for jobs to complete. This means requesting their status,
+           and then marking them as finished when a "done" parameter
+           shows up. Even for finished jobs, the status should still return
+        '''
         import googleapiclient
 
         while True:
@@ -2706,6 +2646,8 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 still_running = list()
+
+            # Loop through active jobs and act on status
             for j in active_jobs:
 
                 # use self.status_rate_limiter to avoid too many API calls.
@@ -2737,7 +2679,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
                         continue
 
                     # The operation is done
-                    if status['done']:
+                    if status.get('done', False) == True:
 
                         # Derive success/failure from status codes (prints too)
                         if self._job_was_successful(status):
