@@ -2100,6 +2100,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             self.workdir, os.path.basename(self.workflow.snakefile)
         )
         self.snakefile = snakefile.replace(self.workdir, '/workdir')
+        print("Snakefile is %s" % self.snakefile)
 
         # We might eventually want different logic for secrets
         self.envvars = envvars or []
@@ -2110,7 +2111,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
 
         # Akin to Kubernetes, create a run namespace, default container image
         self.run_namespace = str(uuid.uuid4())
-        self.container_image = container_image or get_container_image()
+        self.container_image = container_image or "vanessa/snakemake:dev"
         self.regions = regions or ["us-east1", "us-west1", 'us-central1']
 
         # The project name is required, either from client or environment
@@ -2401,27 +2402,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         logger.warning("%s does not exist." % filename)
 
 
-    def _generate_cmd(self, blob, jobscript):
-        '''generate the cmd (to be used with entrypoint /bin/sh) for the container
-           This must include obtaining the file from storage, extraction,
-           changing directory to it, and running the job script needed
-        '''
-        #TODO this should be part of snakemake
-        script = "https://gist.githubusercontent.com/vsoch/84886ef6469bedeeb9a79a4eb7aec0d1/raw/181499f8f17163dcb2f89822079938cbfbd258cc/download.py"
-        dest = "/tmp/workdir.tar.gz"
-
-        # QUESTION: I shouldn't need to install Snakemake here - what's going on?
-        cmd = (
-               "mkdir -p /workdir && cd /workdir && wget -O download.py {script} && "
-               "chmod +x download.py && pip install --upgrade google-api-python-client && " 
-               "pip install google-cloud-storage && pip install snakemake==5.7.2 &&"
-               "python download.py download {bucket} {blob} {dest} && "
-               "tar -xzvf {dest} && ./{jobscript} ".format(
-                   script=script, blob=blob, dest=dest, bucket=self.bucket.name, jobscript=jobscript
-               )
-        )
-        return cmd
-
     def _generate_job_action(self, job):
         '''generate a single action to execute the job.
         '''
@@ -2440,17 +2420,16 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         if not blob.exists():
             blob.upload_from_filename(targz, content_type="application/gzip")
 
-        # Generate the command to download the blob and run snakemake
+        # The command to run snakemake needs to be relative
         relative_script = jobscript.replace(self.workdir + os.sep, '')
-        cmd = self._generate_cmd(destination, jobscript=relative_script)
 
         # We are only generating one action, one job per run
+        # entrypoint vanessa/snakemake:dev is /bin/bash, cmd is also expected
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines/run#Action
         action = {
             "containerName": "snakejob-{}-{}".format(job.name, job.jobid),
             "imageUri": self.container_image,
-            "commands": ["-c", cmd],
-            "entrypoint": "/bin/sh",   
+            "commands": [self.bucket.name, destination, relative_script],
             "environment": self._generate_environment(),
             "labels": self._generate_pipeline_labels(job),
         }
@@ -2580,7 +2559,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/Event
         for event in status['metadata']['events']:
 
-            print(event)
+            print(event['description'])
             #logger.debug(event)
 
             # Does it always result in fail for other failure reasons?

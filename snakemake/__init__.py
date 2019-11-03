@@ -1611,14 +1611,15 @@ def get_argument_parser(profile=None):
     group_kubernetes.add_argument(
         "--container-image",
         metavar="IMAGE",
-        help="Docker image to use, e.g., when submitting jobs to kubernetes. "
-        "By default, this is 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
+        help="Docker image to use, e.g., when submitting jobs to kubernetes "
+        "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
         "the same version as the currently running Snakemake instance. "
         "Note that overwriting this value is up to your responsibility. "
         "Any used image has to contain a working snakemake installation "
         "that is compatible with (or ideally the same as) the currently "
         "running version.",
     )
+
     group_tibanna.add_argument(
         "--tibanna",
         action="store_true",
@@ -1685,15 +1686,6 @@ def get_argument_parser(profile=None):
         "directory is compressed to a .tar.gz, named by the hash of the "
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
-    )
-    group_google_life_science.add_argument(
-        "--container-image",
-        metavar="IMAGE",
-        help="Docker image to use as a base for the Google Cloud Life Science "
-        "Pipeline worker. By default, we use snakemake/snakemake tagged with "
-        "the same version as the currently running Snakemake instance. "
-        "If you choose to override this value, make sure that your container "
-        "is installed with a compatible version of Snakemake for the one here.",
     )
 
     group_conda = parser.add_argument_group("CONDA")
