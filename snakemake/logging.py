@@ -236,13 +236,14 @@ class Logger:
                     yield fmt
 
                 if item == "input" and self.printinputsize:
-                    msg["size"] = [str(os.path.getsize(filename))
-                                   if os.path.exists(filename)
-                                   else "NA"
-                                   for filename in msg["input"]]
+                    msg["size"] = [
+                        str(os.path.getsize(filename))
+                        if os.path.exists(filename)
+                        else "NA"
+                        for filename in msg["input"]
+                    ]
 
-                    fmt = format_item("size", omit=[],
-                                      valueformat=", ".join)
+                    fmt = format_item("size", omit=[], valueformat=", ".join)
                     if fmt != None:
                         yield fmt
 
