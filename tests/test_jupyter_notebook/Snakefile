@@ -1,0 +1,18 @@
+rule all:
+    input:
+        'result.txt'
+
+rule foo:
+    output:
+        fname = 'data.txt'
+    run:
+        with open(output.fname, 'w') as fd:
+            fd.write('result of serious computation')
+
+rule bar:
+    input:
+        infile = 'data.txt'
+    output:
+        outfile = 'result.txt'
+    script:
+        'Notebook.ipynb'
