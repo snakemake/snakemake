@@ -2082,6 +2082,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
              regions=None,
              cache=False,
              project=None,
+             machine_type_prefix=None,
              latency_wait=3,
              local_input=None,
              restart_times=None,
@@ -2093,6 +2094,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         self.quiet = quiet
         self.workdir = os.path.dirname(self.workflow.persistence.path)
         self._save_storage_cache = cache
+        self._machine_type_prefix = machine_type_prefix
 
         # Relative path for running on instance
         snakefile = os.path.join(
@@ -2251,7 +2253,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         mem_mb = job.resources.get('mem_mb', 100)
 
         # Need to convert mem_mb to GB
-        # Question: can the user provide a mem_gb, or always in mb?
         mem_gb = mem_mb / 1000.0
 
         # For now just map vCPU (virtual CPU) to requested CPU/memory
@@ -2333,6 +2334,21 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             if machineType['vcpu'] < cores or machineType['mem_gb'] < mem_gb:
                 continue
             keepers.append(machineType)
+
+        # If a prefix is set, filter down to it
+        if self._machine_type_prefix:
+            machineTypes = keepers
+            keepers = []
+            for machineType in machineTypes:
+                if machineType['name'].startswith(self._machine_type_prefix):
+                    keepers.append(machineType)
+
+        # If we don't have any contenders, workflow error
+        if not keepers:
+            raise WorkflowError(
+                "Machine prefix {prefix} is too strict, and there are no options "
+                "available.".format(prefix=self._machine_type_prefix)
+            )
 
         # Now find (quasi) minimal to satisfy constraints
         machineTypes = keepers
@@ -2418,7 +2434,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         jobscript = self.get_jobscript(job)
         self.write_jobscript(job, jobscript)
 
-        
         # Remote files (within Snakefile) should be referenced via remotes.GS
         # For the workdir, we need to upload it, named based on hash of contents
         targz = self._generate_build_package()
@@ -2443,12 +2458,11 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             "environment": self._generate_environment(),
             "labels": self._generate_pipeline_labels(job),
         }
-   
         return action
 
 
     def _get_jobname(self, job):
-         # Use a dummy job name (human readable and also namespaced)
+        # Use a dummy job name (human readable and also namespaced)
         return "snakejob-%s-%s-%s" %(self.run_namespace, job.name, job.jobid)
 
 

@@ -142,6 +142,7 @@ def snakemake(
     google_life_sciences_regions=None,
     google_life_sciences_cache=False,
     google_project=None,
+    google_machine_type_prefix=None,
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
@@ -254,6 +255,7 @@ def snakemake(
         google_life_sciences_regions (list): a list of regions (e.g., us-east1)
         google_life_sciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
         google_project (str):       the name of your Google Cloud project (for Google Life Sciences).
+        google_machine_type_prefix (str): The prefix of a machine type to filter to, if desired.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
@@ -560,6 +562,7 @@ def snakemake(
                     google_life_sciences_regions=google_life_sciences_regions,
                     google_life_sciences_cache=google_life_sciences_cache,
                     google_project=google_project,
+                    google_machine_type_prefix=google_machine_type_prefix,
                     precommand=precommand,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
@@ -602,6 +605,7 @@ def snakemake(
                     google_life_sciences_regions=google_life_sciences_regions,
                     google_life_sciences_cache=google_life_sciences_cache,
                     google_project=google_project,
+                    google_machine_type_prefix=google_machine_type_prefix,
                     precommand=precommand,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
@@ -1687,6 +1691,14 @@ def get_argument_parser(profile=None):
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
     )
+    group_google_life_science.add_argument(
+        "--google-machine-type-prefix",
+        help="By default, the machine type is chosen based on memory and cores "
+        "that are needed. If you have preference for a family of machines (for "
+        "example n1-standard, n1-highmem, n1-highcpu, n2, c2, etc., provide "
+        "the prefix with this argument to better filter down the options. See "
+        "https://cloud.google.com/compute/docs/machine-types for a full list."
+    )
 
     group_conda = parser.add_argument_group("CONDA")
 
@@ -2023,6 +2035,7 @@ def main(argv=None):
             google_life_sciences_regions=args.google_life_sciences_regions,
             google_life_sciences_cache=args.google_life_sciences_cache,
             google_project=args.google_project,
+            google_machine_type_prefix=args.google_machine_type_prefix,
             precommand=args.precommand,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,
