@@ -17,6 +17,9 @@ from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 from itertools import islice
 
+import nbformat
+from nbconvert.preprocessors import ExecutePreprocessor
+
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
@@ -266,6 +269,8 @@ def get_source(path, basedir="."):
     language = None
     if path.endswith(".py"):
         language = "python"
+    elif path.endswith(".ipynb"):
+        language = "jupyter"
     elif path.endswith(".R"):
         language = "r"
     elif path.endswith(".Rmd"):
@@ -309,7 +314,7 @@ def script(
     f = None
     try:
         path, source, language = get_source(path, basedir)
-        if language == "python":
+        if language == "python" or language == "jupyter":
             wrapper_path = path[7:] if path.startswith("file://") else path
             snakemake = Snakemake(
                 input,
@@ -335,17 +340,25 @@ def script(
             # For local scripts, add their location to the path in case they use path-based imports
             if path.startswith("file://"):
                 searchpath += ', "{}"'.format(os.path.dirname(path[7:]))
+
+            if language != "jupyter":
+                file_addendum = '__real_file__ = __file__; __file__ = {file_override};'.format(
+                    file_override=repr(os.path.realpath(wrapper_path)),
+                )
+            else:
+                file_addendum = ''
+
             preamble = textwrap.dedent(
                 """
             ######## Snakemake header ########
-            import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; __real_file__ = __file__; __file__ = {file_override};
+            import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {file_addendum}
             ######## Original script #########
             """
             ).format(
                 searchpath=escape_backslash(searchpath),
                 snakemake=snakemake,
                 printshellcmds=logger.printshellcmds,
-                file_override=repr(os.path.realpath(wrapper_path)),
+                file_addendum=file_addendum,
             )
         elif language == "r" or language == "rmarkdown":
             preamble = textwrap.dedent(
@@ -484,10 +497,10 @@ def script(
         with tempfile.NamedTemporaryFile(
             suffix="." + os.path.basename(path), dir=dir, delete=False
         ) as f:
-            if not language == "rmarkdown":
-                f.write(preamble.encode())
+            if language == "jupyter":
+                # Handle insertion of preamble right before execution
                 f.write(source)
-            else:
+            elif language == "rmarkdown":
                 # Insert Snakemake object after the RMarkdown header
                 code = source.decode()
                 pos = next(islice(re.finditer(r"---\n", code), 1, 2)).start() + 3
@@ -502,6 +515,9 @@ def script(
                 )
                 f.write(preamble.encode())
                 f.write(str.encode(code[pos:]))
+            else:
+                f.write(preamble.encode())
+                f.write(source)
 
         if language == "python":
             py_exec = sys.executable
@@ -535,6 +551,27 @@ def script(
                 py_exec = "python"
             # use the same Python as the running process or the one from the environment
             shell("{py_exec} {f.name:q}", bench_record=bench_record)
+        elif language == "jupyter":
+            nb_path = f.name
+            version = 4
+
+            # read notebook
+            with open(nb_path) as fd:
+                nb = nbformat.read(fd, as_version=version)
+
+            # add preamble
+            preamble_cell = nbformat.v4.new_code_cell(preamble)
+            nb["cells"].insert(0, preamble_cell)
+
+            # execute notebook (TODO: handle kernel selection)
+            ep = ExecutePreprocessor(
+                timeout=-1,
+                kernel_name="python",
+                allow_errors=False
+            )
+
+            ep.preprocess(nb, resources={})
+            # TODO: save notebook output
         elif language == "r":
             if conda_env is not None and "R_LIBS" in os.environ:
                 logger.warning(
