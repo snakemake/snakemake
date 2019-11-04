@@ -60,6 +60,8 @@ Rules describe how to create **output files** from **input files**.
             "raw/{dataset}.csv"
         output:
             "transformed/{dataset}.csv"
+        singularity:
+            "docker://somecontainer:v1.0"
         shell:
             "somecommand {input} {output}"
 
@@ -68,6 +70,8 @@ Rules describe how to create **output files** from **input files**.
             expand("transformed/{dataset}.csv", dataset=[1, 2])
         output:
             "plots/myplot.pdf"
+        conda:
+            "envs/matplotlib.yaml"
         script:
             "scripts/plot.py"
 
