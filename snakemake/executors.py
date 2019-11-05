@@ -2134,7 +2134,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         if not self.project:
             raise WorkflowError(
                 "You must provide a --google-project or export "
-                "GOOGLE_CLOUD_PROJECT to use the Life Sciences API. ",
+                "GOOGLE_CLOUD_PROJECT to use the Life Sciences API. "
             )
 
         # Keep track of build packages to clean up shutdown
@@ -2367,10 +2367,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             "bootDiskSizeGb": 100,  # default is likely 10
         }
 
-        resources = {
-            "regions": self.regions,
-            "virtualMachine": virtualMachine,
-        }
+        resources = {"regions": self.regions, "virtualMachine": virtualMachine}
         return resources
 
     def _generate_build_package(self):
