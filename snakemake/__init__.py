@@ -141,7 +141,6 @@ def snakemake(
     google_life_sciences_envvars=None,
     google_life_sciences_regions=None,
     google_life_sciences_cache=False,
-    google_project=None,
     google_machine_type_prefix=None,
     precommand="",
     default_remote_provider=None,
@@ -254,7 +253,6 @@ def snakemake(
         google_life_sciences_envvars (list):  environment variable keys to lookup and pass to pipeline.
         google_life_sciences_regions (list): a list of regions (e.g., us-east1)
         google_life_sciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
-        google_project (str):       the name of your Google Cloud project (for Google Life Sciences).
         google_machine_type_prefix (str): The prefix of a machine type to filter to, if desired.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
@@ -568,7 +566,6 @@ def snakemake(
                     google_life_sciences_envvars=google_life_sciences_envvars,
                     google_life_sciences_regions=google_life_sciences_regions,
                     google_life_sciences_cache=google_life_sciences_cache,
-                    google_project=google_project,
                     google_machine_type_prefix=google_machine_type_prefix,
                     precommand=precommand,
                     assume_shared_fs=assume_shared_fs,
@@ -611,7 +608,6 @@ def snakemake(
                     google_life_sciences_envvars=google_life_sciences_envvars,
                     google_life_sciences_regions=google_life_sciences_regions,
                     google_life_sciences_cache=google_life_sciences_cache,
-                    google_project=google_project,
                     google_machine_type_prefix=google_machine_type_prefix,
                     precommand=precommand,
                     max_jobs_per_second=max_jobs_per_second,
@@ -1684,12 +1680,6 @@ def get_argument_parser(profile=None):
         help="Specify one or more valid instance regions (defaults to US)",
     )
     group_google_life_science.add_argument(
-        "--google-project",
-        help="The full name of the Google Project to target for the Google "
-        "Life Sciences API. You can also export this on your host as "
-        " GOOGLE_CLOUD_PROJECT.",
-    )
-    group_google_life_science.add_argument(
         "--google-life-sciences-cache",
         action="store_true",
         help="Cache workflows in your Google Cloud Storage Bucket specified "
@@ -2041,7 +2031,6 @@ def main(argv=None):
             google_life_sciences_envvars=args.google_life_sciences_env,
             google_life_sciences_regions=args.google_life_sciences_regions,
             google_life_sciences_cache=args.google_life_sciences_cache,
-            google_project=args.google_project,
             google_machine_type_prefix=args.google_machine_type_prefix,
             precommand=args.precommand,
             jobname=args.jobname,

@@ -2085,7 +2085,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         container_image=None,
         regions=None,
         cache=False,
-        project=None,
         machine_type_prefix=None,
         latency_wait=3,
         local_input=None,
@@ -2130,7 +2129,9 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         self.regions = regions or ["us-east1", "us-west1", "us-central1"]
 
         # The project name is required, either from client or environment
-        self.project = project or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        self.project = (
+            os.environ.get("GOOGLE_CLOUD_PROJECT") or self._bucket_service.project
+        )
         if not self.project:
             raise WorkflowError(
                 "You must provide a --google-project or export "
@@ -2218,7 +2219,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         """shutdown deletes build packages if the user didn't request to clean
            up the cache. At this point we've already cancelled running jobs.
         """
-        # Delete build packages only if user requested no cache
+        # Delete build packages only if user regooglquested no cache
         if self._save_storage_cache:
             logger.debug("Requested to save workflow cache, skipping cleanup.")
         else:
