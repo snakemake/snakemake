@@ -53,8 +53,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 class RemoteObject(AbstractRemoteObject):
     def __init__(
-            self, *args, keep_local=False, provider=None, user_project=None,
-            **kwargs
+        self, *args, keep_local=False, provider=None, user_project=None, **kwargs
     ):
         super(RemoteObject, self).__init__(
             *args, keep_local=keep_local, provider=provider, **kwargs
@@ -133,9 +132,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @lazy_property
     def bucket(self):
-        return self.client.bucket(
-            self.bucket_name, user_project=self._user_project
-        )
+        return self.client.bucket(self.bucket_name, user_project=self._user_project)
 
     @lazy_property
     def blob(self):
