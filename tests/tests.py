@@ -673,6 +673,40 @@ def test_remote_gs():
     run(dpath("test_remote_gs"))
 
 
+@pytest.mark.skip(reason="Need to choose how to provide billable project")
+@connected
+@not_ci
+def test_pr79(
+    requesting_project=None,
+    requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
+):
+    """ Tests pull-request 79 (user_project billing for Google cloud buckets)
+
+    If requesting_project None, behaves as test_remote_gs().
+
+    Parameters
+    ----------
+    requesting_project: Optional[str]
+        User project to bill for download. None will not provide project for
+        requester-pays as is the usual default
+    requesting_url: str
+        URL of bucket to download. Default will match expected output, but is a
+        bucket that doesn't require requester pays.
+    """
+    # create temporary config file
+    with tempfile.NamedTemporaryFile(suffix=".yaml") as handle:
+        # specify project and url for download
+        if requesting_project is None:
+            handle.write(b"project: null\n")
+        else:
+            handle.write('project: "{}"\n'.format(requesting_project).encode())
+        handle.write('url: "{}"\n'.format(requesting_url).encode())
+        # make sure we can read them
+        handle.flush()
+        # run the pipeline
+        run(dpath("test_pr79"), configfiles=[handle.name], forceall=True)
+
+
 @pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
 @connected
 @ci
