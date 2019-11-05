@@ -1,6 +1,5 @@
 __author__ = "Johannes Köster"
-__contributors__ = ["Soohyun Lee"]
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -87,6 +86,7 @@ def snakemake(
     cleanup_metadata=None,
     cleanup_conda=False,
     cleanup_shadow=False,
+    cleanup_scripts=True,
     force_incomplete=False,
     ignore_incomplete=False,
     list_version_changes=False,
@@ -194,6 +194,7 @@ def snakemake(
         cleanup_metadata (list):    just cleanup metadata of given list of output files (default None)
         cleanup_conda (bool):       just cleanup unused conda environments (default False)
         cleanup_shadow (bool):      just cleanup old shadow directories (default False)
+        cleanup_scripts (bool):     delete wrapper scripts used for execution (default True)
         force_incomplete (bool):    force the re-creation of incomplete files (default False)
         ignore_incomplete (bool):   ignore incomplete files (default False)
         list_version_changes (bool): list output files with changed rule version (default False)
@@ -504,6 +505,7 @@ def snakemake(
                     cleanup_metadata=cleanup_metadata,
                     cleanup_conda=cleanup_conda,
                     cleanup_shadow=cleanup_shadow,
+                    cleanup_scripts=cleanup_scripts,
                     force_incomplete=force_incomplete,
                     ignore_incomplete=ignore_incomplete,
                     latency_wait=latency_wait,
@@ -604,6 +606,7 @@ def snakemake(
                     cleanup_metadata=cleanup_metadata,
                     cleanup_conda=cleanup_conda,
                     cleanup_shadow=cleanup_shadow,
+                    cleanup_scripts=cleanup_scripts,
                     subsnakemake=subsnakemake,
                     updated_files=updated_files,
                     allowed_rules=allowed_rules,
@@ -1134,6 +1137,11 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Cleanup old shadow directories which have not been deleted due "
         "to failures or power loss.",
+    )
+    group_utils.add_argument(
+        "--skip-script-cleanup",
+        action="store_true",
+        help="Don't delete wrapper scripts used for execution",
     )
     group_utils.add_argument(
         "--unlock", action="store_true", help="Remove a lock on the working directory."
@@ -1941,6 +1949,7 @@ def main(argv=None):
             cleanup_metadata=args.cleanup_metadata,
             cleanup_conda=args.cleanup_conda,
             cleanup_shadow=args.cleanup_shadow,
+            cleanup_scripts=not args.skip_script_cleanup,
             force_incomplete=args.rerun_incomplete,
             ignore_incomplete=args.ignore_incomplete,
             list_version_changes=args.list_version_changes,

@@ -985,7 +985,7 @@ Defining groups for execution
 
 From Snakemake 5.0 on, it is possible to assign rules to groups.
 Such groups will be executed together in **cluster** or **cloud mode**, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node.
-By this, queueing and execution time can be safed, in particular if one or several short-running rules are involved.
+By this, queueing and execution time can be saved, in particular if one or several short-running rules are involved.
 When executing locally, group definitions are ignored.
 
 Groups can be defined via the ``group`` keyword, e.g.,
@@ -1140,7 +1140,10 @@ To illustrate the possibilities of this mechanism, consider the following comple
   # input function for the rule aggregate
   def aggregate_input(wildcards):
       # decision based on content of output file
-      with open(checkpoints.somestep.get(sample=wildcards.sample).output[0]) as f:
+      # Important: use the method open() of the returned file!
+      # This way, Snakemake is able to automatically download the file if it is generated in 
+      # a cloud environment without a shared filesystem.
+      with checkpoints.somestep.get(sample=wildcards.sample).output[0].open() as f:
           if f.read().strip() == "a":
               return "post/{sample}.txt"
           else:

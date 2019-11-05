@@ -1,6 +1,5 @@
 __author__ = "Johannes Köster"
-__contributors__ = ["David Alexander", "Soohyun Lee"]
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -367,6 +366,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.use_singularity,
             self.workflow.linemaps,
             self.workflow.debug,
+            self.workflow.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
         )
@@ -1903,6 +1903,7 @@ def run_wrapper(
     use_singularity,
     linemaps,
     debug,
+    cleanup_scripts,
     shadow_dir,
     jobid,
 ):
@@ -1979,6 +1980,7 @@ def run_wrapper(
                             jobid,
                             is_shell,
                             bench_iteration,
+                            cleanup_scripts,
                             passed_shadow_dir,
                         )
                     else:
@@ -2004,6 +2006,7 @@ def run_wrapper(
                                 jobid,
                                 is_shell,
                                 bench_iteration,
+                                cleanup_scripts,
                                 passed_shadow_dir,
                             )
                     # Store benchmark record for this iteration
@@ -2027,6 +2030,7 @@ def run_wrapper(
                     jobid,
                     is_shell,
                     None,
+                    cleanup_scripts,
                     passed_shadow_dir,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
