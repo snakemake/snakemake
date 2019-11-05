@@ -342,23 +342,27 @@ def script(
                 searchpath += ', "{}"'.format(os.path.dirname(path[7:]))
 
             if language != "jupyter":
-                file_addendum = '__real_file__ = __file__; __file__ = {file_override};'.format(
+                preamble_addendum = "__real_file__ = __file__; __file__ = {file_override};".format(
                     file_override=repr(os.path.realpath(wrapper_path)),
                 )
             else:
-                file_addendum = ''
+                # nbconvert sets cwd to notebook directory.
+                # This is problematic because we create a temporary file.
+                preamble_addendum = "import os; os.chdir('{cwd}');".format(
+                    cwd=os.getcwd()
+                )
 
             preamble = textwrap.dedent(
                 """
             ######## Snakemake header ########
-            import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {file_addendum}
+            import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
             ######## Original script #########
             """
             ).format(
                 searchpath=escape_backslash(searchpath),
                 snakemake=snakemake,
                 printshellcmds=logger.printshellcmds,
-                file_addendum=file_addendum,
+                preamble_addendum=preamble_addendum,
             )
         elif language == "r" or language == "rmarkdown":
             preamble = textwrap.dedent(
@@ -498,8 +502,12 @@ def script(
             suffix="." + os.path.basename(path), dir=dir, delete=False
         ) as f:
             if language == "jupyter":
-                # Handle insertion of preamble right before execution
-                f.write(source)
+                nb = nbformat.reads(source, as_version=4)  # nbformat.NO_CONVERT
+
+                preamble_cell = nbformat.v4.new_code_cell(preamble)
+                nb["cells"].insert(0, preamble_cell)
+
+                f.write(nbformat.writes(nb).encode())
             elif language == "rmarkdown":
                 # Insert Snakemake object after the RMarkdown header
                 code = source.decode()
@@ -552,26 +560,11 @@ def script(
             # use the same Python as the running process or the one from the environment
             shell("{py_exec} {f.name:q}", bench_record=bench_record)
         elif language == "jupyter":
-            nb_path = f.name
-            version = 4
-
-            # read notebook
-            with open(nb_path) as fd:
-                nb = nbformat.read(fd, as_version=version)
-
-            # add preamble
-            preamble_cell = nbformat.v4.new_code_cell(preamble)
-            nb["cells"].insert(0, preamble_cell)
-
-            # execute notebook (TODO: handle kernel selection)
-            ep = ExecutePreprocessor(
-                timeout=-1,
-                kernel_name="python",
-                allow_errors=False
+            # TODO: save notebook output?
+            shell(
+                "jupyter nbconvert --execute --inplace --to notebook --ExecutePreprocessor.timeout=-1 {f.name:q}",
+                bench_record=bench_record
             )
-
-            ep.preprocess(nb, resources={})
-            # TODO: save notebook output
         elif language == "r":
             if conda_env is not None and "R_LIBS" in os.environ:
                 logger.warning(
