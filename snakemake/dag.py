@@ -802,9 +802,9 @@ class DAG:
         if skip_until_dynamic:
             self._dynamic.add(job)
 
-
     def update_needrun(self):
         """ Update the information whether a job needs to be executed. """
+
         def output_mintime(job):
             for job_ in self.bfs(self.depending, job):
                 t = job_.output_mintime

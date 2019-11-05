@@ -348,7 +348,14 @@ def snakemake(
     else:
         cluster_config_content = dict()
 
-    run_local = not (cluster or cluster_sync or drmaa or kubernetes or tibanna or google_life_sciences)
+    run_local = not (
+        cluster
+        or cluster_sync
+        or drmaa
+        or kubernetes
+        or tibanna
+        or google_life_sciences
+    )
     if run_local and not dryrun:
         # clean up all previously recorded jobids.
         shell.cleanup()
@@ -1680,7 +1687,7 @@ def get_argument_parser(profile=None):
         "--google-project",
         help="The full name of the Google Project to target for the Google "
         "Life Sciences API. You can also export this on your host as "
-        " GOOGLE_CLOUD_PROJECT."
+        " GOOGLE_CLOUD_PROJECT.",
     )
     group_google_life_science.add_argument(
         "--google-life-sciences-cache",
@@ -1697,7 +1704,7 @@ def get_argument_parser(profile=None):
         "that are needed. If you have preference for a family of machines (for "
         "example n1-standard, n1-highmem, n1-highcpu, n2, c2, etc., provide "
         "the prefix with this argument to better filter down the options. See "
-        "https://cloud.google.com/compute/docs/machine-types for a full list."
+        "https://cloud.google.com/compute/docs/machine-types for a full list.",
     )
 
     group_conda = parser.add_argument_group("CONDA")

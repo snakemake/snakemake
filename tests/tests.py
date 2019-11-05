@@ -1022,17 +1022,15 @@ def test_tibanna():
     )
 
 
-@pytest.mark.skip(
-    reason="also need to figure out how to provide Google Cloud Project"
-)
+@pytest.mark.skip(reason="also need to figure out how to provide Google Cloud Project")
 def test_google_cloud_life_sciences():
     workdir = dpath("test_google_cloud_sciences")
     tmpdir = run(
-         workdir,
-         use_conda=True,
-         default_remote_prefix="snakemake-testing/1",
-         google_life_sciences=True,
-         google_life_sciences_cache=True,
+        workdir,
+        use_conda=True,
+        default_remote_prefix="snakemake-testing/1",
+        google_life_sciences=True,
+        google_life_sciences_cache=True,
     )
 
 

@@ -29,7 +29,6 @@ import base64
 import uuid
 import re
 import math
-import code
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -453,11 +452,11 @@ class CPUExecutor(RealExecutor):
 
 
 class ClusterExecutor(RealExecutor):
-    '''the cluster executor will start with the exec_job (the start of a
+    """the cluster executor will start with the exec_job (the start of a
        snakemake commant intended to run on some cluster) and then based
        on input arguments from the workflow (e.g., containers? conda?)
        build up the exec_job to be ready to send to the cluster or remote.
-    '''
+    """
 
     default_jobscript = "jobscript.sh"
 
@@ -557,7 +556,6 @@ class ClusterExecutor(RealExecutor):
 
         self.restart_times = restart_times
 
-        # You can't easily insert a code.inspect after here, since threads
         self.active_jobs = list()
         self.lock = threading.Lock()
         self.wait = True
@@ -1786,8 +1784,8 @@ class TibannaExecutor(ClusterExecutor):
                     + ("true" if o.remote_object.provider.is_default else "false")
                 )
         file_prefix = (
-            "file:///data1/snakemake"
-        )  # working dir inside snakemake container on VM
+            "file:///data1/snakemake"  # working dir inside snakemake container on VM
+        )
         input_source = dict()
         for ip in job.input:
             ip_rel = self.adjust_filepath(ip)
@@ -2069,25 +2067,32 @@ GoogleLifeScienceJob = namedtuple(
 
 
 class GoogleLifeScienceExecutor(ClusterExecutor):
-    '''the GoogleLifeSciences executor uses Google Cloud Storage, and
+    """the GoogleLifeSciences executor uses Google Cloud Storage, and
        Compute Engine paired with the Google Life Sciences API.
        https://cloud.google.com/life-sciences/docs/quickstart
-    '''
-    def __init__(self, workflow, dag, cores, envvars,
-             jobname="snakejob.{name}.{jobid}.sh",
-             printreason=False,
-             quiet=False,
-             printshellcmds=False,
-             container_image=None,
-             regions=None,
-             cache=False,
-             project=None,
-             machine_type_prefix=None,
-             latency_wait=3,
-             local_input=None,
-             restart_times=None,
-             exec_job=None,
-             max_status_checks_per_second=1):
+    """
+
+    def __init__(
+        self,
+        workflow,
+        dag,
+        cores,
+        envvars,
+        jobname="snakejob.{name}.{jobid}.sh",
+        printreason=False,
+        quiet=False,
+        printshellcmds=False,
+        container_image=None,
+        regions=None,
+        cache=False,
+        project=None,
+        machine_type_prefix=None,
+        latency_wait=3,
+        local_input=None,
+        restart_times=None,
+        exec_job=None,
+        max_status_checks_per_second=1,
+    ):
 
         # Attach variables for easy access
         self.workflow = workflow
@@ -2102,7 +2107,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         )
 
         # Needs to be relative for commands run in worker (linux base)
-        self.snakefile = snakefile.replace(self.workdir + '/', '')
+        self.snakefile = snakefile.replace(self.workdir + "/", "")
         exec_job = (
             "snakemake {target} --snakefile %s "
             "--force -j{cores} --keep-target-files  --keep-remote "
@@ -2122,10 +2127,10 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         # Akin to Kubernetes, create a run namespace, default container image
         self.run_namespace = str(uuid.uuid4())
         self.container_image = container_image or "vanessa/snakemake:dev"
-        self.regions = regions or ["us-east1", "us-west1", 'us-central1']
+        self.regions = regions or ["us-east1", "us-west1", "us-central1"]
 
         # The project name is required, either from client or environment
-        self.project = project or os.environ.get('GOOGLE_CLOUD_PROJECT')
+        self.project = project or os.environ.get("GOOGLE_CLOUD_PROJECT")
         if not self.project:
             raise WorkflowError(
                 "You must provide a --google-project or export "
@@ -2135,25 +2140,31 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         # Keep track of build packages to clean up shutdown
         self._build_packages = set()
 
-        super().__init__(workflow, dag, None,
-                         jobname=jobname,
-                         printreason=printreason,
-                         quiet=quiet,
-                         printshellcmds=printshellcmds,
-                         latency_wait=latency_wait,
-                         restart_times=restart_times,
-                         exec_job=exec_job,
-                         assume_shared_fs=False,
-                         max_status_checks_per_second=10)
-
+        super().__init__(
+            workflow,
+            dag,
+            None,
+            jobname=jobname,
+            printreason=printreason,
+            quiet=quiet,
+            printshellcmds=printshellcmds,
+            latency_wait=latency_wait,
+            restart_times=restart_times,
+            exec_job=exec_job,
+            assume_shared_fs=False,
+            max_status_checks_per_second=10,
+        )
 
     def _get_services(self):
-        '''use the Google Discovery Build to generate API clients
+        """use the Google Discovery Build to generate API clients
            for Life Sciences, and use the google storage python client 
            for storage.
-        '''
+        """
         from googleapiclient.discovery import build as discovery_build
-        from oauth2client.client import GoogleCredentials, ApplicationDefaultCredentialsError
+        from oauth2client.client import (
+            GoogleCredentials,
+            ApplicationDefaultCredentialsError,
+        )
         from google.cloud import storage
 
         # Credentials must be exported to environment
@@ -2164,19 +2175,18 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             raise ex
 
         # Discovery clients for Google Cloud Storage and Life Sciences API
-        self._storage_cli = discovery_build('storage', 'v1', credentials=creds)
-        self._api = discovery_build('lifesciences', 'v2beta', credentials=creds)
+        self._storage_cli = discovery_build("storage", "v1", credentials=creds)
+        self._api = discovery_build("lifesciences", "v2beta", credentials=creds)
         self._bucket_service = storage.Client()
 
-
     def _get_bucket(self):
-        '''get a connection to the storage bucket (self.bucket) and exit
+        """get a connection to the storage bucket (self.bucket) and exit
            if the name is taken or otherwise invalid.
 
            Parameters
            ==========
            workflow: the workflow object to derive the prefix from
-        '''
+        """
         # Hold path to requested subdirectory and main bucket
         bucket_name = self.workflow.default_remote_prefix.split("/")[0]
         self.gs_subdir = re.sub(
@@ -2204,29 +2214,27 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         logger.debug("bucket=%s" % self.bucket.name)
         logger.debug("subdir=%s" % self.gs_subdir)
 
-
     def shutdown(self):
-
-        #funcname="shutdown"
-        #code.interact(local=locals())
-
+        """shutdown deletes build packages if the user didn't request to clean
+           up the cache. At this point we've already cancelled running jobs.
+        """
         # Delete build packages only if user requested no cache
         if self._save_storage_cache:
-             logger.debug("Requested to save workflow cache, skipping cleanup.")
+            logger.debug("Requested to save workflow cache, skipping cleanup.")
         else:
             for package in self._build_packages:
                 blob = self.bucket.blob(package)
                 if blob.exists():
                     logger.debug("Deleting blob %s" % package)
                     blob.delete()
- 
+
         # perform additional steps on shutdown if necessary
         super().shutdown()
 
     def cancel(self):
-        '''cancel execution, usually by way of control+c. Cleanup is done in
+        """cancel execution, usually by way of control+c. Cleanup is done in
            shutdown (deleting cached workdirs in Google Cloud Storage
-        '''
+        """
         import googleapiclient
 
         # projects.locations.operations/cancel
@@ -2242,15 +2250,14 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
 
         self.shutdown()
 
-
     def _generate_job_resources(self, job):
-        '''given a particular job, generate the resources that it needs,
+        """given a particular job, generate the resources that it needs,
            including default regions and the virtual machine configuration
-        '''
+        """
         # Right now, do a best effort mapping of resources to instance types
-        cores = job.resources.get('_cores', 1)
-        nodes = job.resources.get('_nodes', 1)
-        mem_mb = job.resources.get('mem_mb', 100)
+        cores = job.resources.get("_cores", 1)
+        nodes = job.resources.get("_nodes", 1)
+        mem_mb = job.resources.get("mem_mb", 100)
 
         # Need to convert mem_mb to GB
         mem_gb = mem_mb / 1000.0
@@ -2258,7 +2265,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         # For now just map vCPU (virtual CPU) to requested CPU/memory
         # https://cloud.google.com/compute/docs/machine-types
         machineTypes = [
-
             {"name": "n1-standard-1", "mem_gb": 3.75, "vcpu": 1},
             {"name": "n1-standard-2", "mem_gb": 7.5, "vcpu": 2},
             {"name": "n1-standard-4", "mem_gb": 15, "vcpu": 4},
@@ -2267,7 +2273,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             {"name": "n1-standard-32", "mem_gb": 120, "vcpu": 32},
             {"name": "n1-standard-64", "mem_gb": 240, "vcpu": 64},
             {"name": "n1-standard-96", "mem_gb": 360, "vcpu": 96},
-
             {"name": "n1-highmem-2", "mem_gb": 13, "vcpu": 2},
             {"name": "n1-highmem-4", "mem_gb": 26, "vcpu": 4},
             {"name": "n1-highmem-8", "mem_gb": 52, "vcpu": 8},
@@ -2275,7 +2280,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             {"name": "n1-highmem-32", "mem_gb": 208, "vcpu": 32},
             {"name": "n1-highmem-64", "mem_gb": 416, "vcpu": 64},
             {"name": "n1-highmem-96", "mem_gb": 624, "vcpu": 96},
-
             {"name": "n1-highcpu-2", "mem_gb": 1.8, "vcpu": 2},
             {"name": "n1-highcpu-4", "mem_gb": 3.6, "vcpu": 4},
             {"name": "n1-highcpu-8", "mem_gb": 7.2, "vcpu": 8},
@@ -2283,7 +2287,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             {"name": "n1-highcpu-32", "mem_gb": 28.8, "vcpu": 32},
             {"name": "n1-highcpu-64", "mem_gb": 57.6, "vcpu": 64},
             {"name": "n1-highcpu-96", "mem_gb": 86.4, "vcpu": 96},
-
             {"name": "n2-standard-2", "mem_gb": 8, "vcpu": 2},
             {"name": "n2-standard-4", "mem_gb": 16, "vcpu": 4},
             {"name": "n2-standard-8", "mem_gb": 32, "vcpu": 8},
@@ -2292,7 +2295,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             {"name": "n2-standard-48", "mem_gb": 192, "vcpu": 48},
             {"name": "n2-standard-64", "mem_gb": 256, "vcpu": 64},
             {"name": "n2-standard-80", "mem_gb": 320, "vcpu": 80},
-
             {"name": "n2-highmem-2", "mem_gb": 16, "vcpu": 2},
             {"name": "n2-highmem-4", "mem_gb": 32, "vcpu": 4},
             {"name": "n2-highmem-8", "mem_gb": 64, "vcpu": 8},
@@ -2301,7 +2303,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             {"name": "n2-highmem-48", "mem_gb": 384, "vcpu": 48},
             {"name": "n2-highmem-64", "mem_gb": 512, "vcpu": 64},
             {"name": "n2-highmem-80", "mem_gb": 640, "vcpu": 80},
-
             {"name": "n2-highcpu-2", "mem_gb": 2, "vcpu": 2},
             {"name": "n2-highcpu-4", "mem_gb": 4, "vcpu": 4},
             {"name": "n2-highcpu-8", "mem_gb": 8, "vcpu": 8},
@@ -2310,28 +2311,24 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             {"name": "n2-highcpu-48", "mem_gb": 48, "vcpu": 48},
             {"name": "n2-highcpu-64", "mem_gb": 64, "vcpu": 64},
             {"name": "n2-highcpu-80", "mem_gb": 80, "vcpu": 80},
-
             {"name": "m1-ultramem-40", "mem_gb": 961, "vcpu": 40},
             {"name": "m1-ultramem-80", "mem_gb": 1922, "vcpu": 80},
             {"name": "m1-ultramem-160", "mem_gb": 3844, "vcpu": 160},
             {"name": "m1-megamem-96", "mem_gb": 1433.6, "vcpu": 96},
-
             {"name": "m2-ultramem-208", "mem_gb": 5888, "vcpu": 208},
             {"name": "m2-ultramem-416", "mem_gb": 11776, "vcpu": 416},
-
             # Compute optimized
             {"name": "c2-standard-4", "mem_gb": 16, "vcpu": 4},
             {"name": "c2-standard-8", "mem_gb": 32, "vcpu": 8},
             {"name": "c2-standard-16", "mem_gb": 64, "vcpu": 16},
             {"name": "c2-standard-30", "mem_gb": 128, "vcpu": 30},
             {"name": "c2-standard-60", "mem_gb": 240, "vcpu": 60},
-
         ]
 
         # First pass - eliminate anything that too low in cpu/memory
         keepers = []
         for machineType in machineTypes:
-            if machineType['vcpu'] < cores or machineType['mem_gb'] < mem_gb:
+            if machineType["vcpu"] < cores or machineType["mem_gb"] < mem_gb:
                 continue
             keepers.append(machineType)
 
@@ -2340,7 +2337,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             machineTypes = keepers
             keepers = []
             for machineType in machineTypes:
-                if machineType['name'].startswith(self._machine_type_prefix):
+                if machineType["name"].startswith(self._machine_type_prefix):
                     keepers.append(machineType)
 
         # If we don't have any contenders, workflow error
@@ -2359,15 +2356,15 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         smallest = "n1-standard-1"
 
         for machineType in machineTypes:
-           if machineType['vcpu'] < minCores and machineType['mem_gb'] < minMem:
-               smallest = machineType['name']
-               minCores = machineType['vcpu']
-               minMem = machineType['mem_gb']
+            if machineType["vcpu"] < minCores and machineType["mem_gb"] < minMem:
+                smallest = machineType["name"]
+                minCores = machineType["vcpu"]
+                minMem = machineType["mem_gb"]
 
         virtualMachine = {
             "machineType": smallest,
             "labels": {"app": "snakemake"},
-            "bootDiskSizeGb": 100, # default is likely 10
+            "bootDiskSizeGb": 100,  # default is likely 10
         }
 
         resources = {
@@ -2376,12 +2373,11 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         }
         return resources
 
-
     def _generate_build_package(self):
-        '''in order for the instance to access the working directory in storage,
+        """in order for the instance to access the working directory in storage,
            we need to upload it. This file is cleaned up at the end of the run.
            We do this, and then obtain from the instance and extract.
-        '''
+        """
         # We will generate a tar.gz package, renamed by hash
         tmpname = next(tempfile._get_candidate_names())
         targz = os.path.join(tempfile.gettempdir(), "snakemake-%s.tar.gz" % tmpname)
@@ -2391,9 +2387,10 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         for root, dirs, files in os.walk(self.workdir):
             for filename in files:
                 filename = os.path.join(root, filename)
-                if not filename.endswith('lock') and \
-                   not filename.startswith('snakeworkdir'):
-                    arcname = filename.replace(self.workdir + os.path.sep, '')
+                if not filename.endswith("lock") and not filename.startswith(
+                    "snakeworkdir"
+                ):
+                    arcname = filename.replace(self.workdir + os.path.sep, "")
                     tar.add(filename, arcname=arcname)
         tar.close()
 
@@ -2412,11 +2409,10 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
 
         return hash_tar
 
-
     def get_file_hash(self, filename):
-        '''find the SHA256 hash string of a file. We use this so that the
+        """find the SHA256 hash string of a file. We use this so that the
            user can choose to cache working directories in storage.
-        '''
+        """
         if os.path.exists(filename):
             hasher = hashlib.sha256()
             with open(filename, "rb") as f:
@@ -2425,10 +2421,9 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             return hasher.hexdigest()
         logger.warning("%s does not exist." % filename)
 
-
     def _generate_job_action(self, job):
-        '''generate a single action to execute the job.
-        '''
+        """generate a single action to execute the job.
+        """
         # Write the jobscript, this will be the container entrypoint along
         # with obtaining the working directory for the run
         jobscript = self.get_jobscript(job)
@@ -2439,14 +2434,14 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         targz = self._generate_build_package()
 
         # Upload to temporary storage, only if doesn't exist
-        destination='source/cache/%s' % os.path.basename(targz)
+        destination = "source/cache/%s" % os.path.basename(targz)
         blob = self.bucket.blob(destination)
         logger.debug("build-package=%s" % destination)
         if not blob.exists():
             blob.upload_from_filename(targz, content_type="application/gzip")
 
         # The command to run snakemake needs to be relative
-        relative_script = jobscript.replace(self.workdir + os.sep, '')
+        relative_script = jobscript.replace(self.workdir + os.sep, "")
 
         # We are only generating one action, one job per run
         # entrypoint vanessa/snakemake:dev is /bin/bash, cmd is also expected
@@ -2460,25 +2455,22 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         }
         return action
 
-
     def _get_jobname(self, job):
         # Use a dummy job name (human readable and also namespaced)
-        return "snakejob-%s-%s-%s" %(self.run_namespace, job.name, job.jobid)
-
+        return "snakejob-%s-%s-%s" % (self.run_namespace, job.name, job.jobid)
 
     def _generate_pipeline_labels(self, job):
-        '''generate basic labels to identify the job, namespace, and that 
+        """generate basic labels to identify the job, namespace, and that 
            snakemake is running the show!
-        '''
+        """
         jobname = self._get_jobname(job)
         labels = {"name": jobname, "app": "snakemake"}
         return labels
 
-
     def _generate_environment(self):
-        '''loop through envvars (keys to host environment) and add
+        """loop through envvars (keys to host environment) and add
            any that are requested for the container environment.
-        '''
+        """
         envvars = {}
         for key in self.envvars:
             try:
@@ -2487,24 +2479,20 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
                 continue
         return envvars
 
-
     def _generate_pipeline(self, job):
-        '''based on the job details, generate a google Pipeline object
+        """based on the job details, generate a google Pipeline object
            to pass to pipelines.run. This includes actions, resources,
            environment, and timeout.
-        '''
+        """
         # Generate actions (one per job) and resources
         action = self._generate_job_action(job)
         resources = self._generate_job_resources(job)
 
         pipeline = {
-
             # Ordered list of actions to execute
             "actions": [action],
-
             # resources required for execution
             "resources": resources,
-
             # Technical question - difference between resource and action environment
             # For now we will set them to be the same.
             "environment": self._generate_environment(),
@@ -2513,23 +2501,19 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         # "timeout": string in seconds (3.5s) is not included (defaults to 7 days)
         return pipeline
 
-
-    def run(self, job,
-            callback=None,
-            submit_callback=None,
-            error_callback=None):
+    def run(self, job, callback=None, submit_callback=None, error_callback=None):
 
         super()._run(job)
 
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines
         pipelines = self._api.projects().locations().pipelines()
 
-        # pipelines.run 
+        # pipelines.run
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines/run
 
         labels = self._generate_pipeline_labels(job)
         pipeline = self._generate_pipeline(job)
-       
+
         # The body of the request is a Pipeline and labels
         body = {"pipeline": pipeline, "labels": labels}
 
@@ -2545,69 +2529,66 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
                 "Singularity requires additional capabilities that "
                 "aren't yet supported for standard Docker runs."
             )
-        
+
         # Note that locations might need to be filtered down
         parent = "projects/%s/locations/*" % self.project
         operation = pipelines.run(parent=parent, body=body)
-
-        #funcname="GoogleCloudLifeSciencesExecutor.run"
-        #code.interact(local=locals())
 
         # 403 will result if no permission to use pipelines or project
         result = self._retry_request(operation)
 
         # The jobid is the last number of the full name
-        jobid = result['name'].split('/')[-1]
+        jobid = result["name"].split("/")[-1]
 
         # Give some logging for how to get status
         logger.info(
             "Get status with:\n"
             "gcloud config set project {project}\n"
             "gcloud beta lifesciences operations describe {jobid}\n"
-            "gcloud beta lifesciences operations list".format(project=self.project, jobid=jobid)
+            "gcloud beta lifesciences operations list".format(
+                project=self.project, jobid=jobid
+            )
         )
 
         self.active_jobs.append(
-            GoogleLifeScienceJob(job, result['name'], jobid, callback, error_callback)
+            GoogleLifeScienceJob(job, result["name"], jobid, callback, error_callback)
         )
 
-
     def _job_was_successful(self, status):
-        '''based on a status response (a [pipeline].projects.locations.operations.get
+        """based on a status response (a [pipeline].projects.locations.operations.get
            debug print the list of events, return True if all return codes 0
            and False otherwise (indication of failure). In that a nonzero exit
            status is found, we also debug print it for the user.
-        '''
+        """
         success = True
 
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/Event
-        for event in status['metadata']['events']:
+        for event in status["metadata"]["events"]:
 
-            logger.info(event['description'])
+            logger.info(event["description"])
 
             # Does it always result in fail for other failure reasons?
             if "failed" in event:
                 success = False
                 action = event.get("failed")
-                logger.error("{}: {}".format(action['code'], action['cause']))
- 
-            elif "unexpectedExitStatus" in event:
-                action = event.get('unexpectedExitStatus')
+                logger.error("{}: {}".format(action["code"], action["cause"]))
 
-                if action['exitStatus'] != 0:
+            elif "unexpectedExitStatus" in event:
+                action = event.get("unexpectedExitStatus")
+
+                if action["exitStatus"] != 0:
                     success = False
 
                     # Provide reason for the failure (desc includes exit code)
-                    msg = "%s" % event['description']
-                    if 'stderr' in action:
-                        msg += ": %s" % action['stderr']
+                    msg = "%s" % event["description"]
+                    if "stderr" in action:
+                        msg += ": %s" % action["stderr"]
                         logger.error(msg)
 
         return success
 
-
     def _retry_request(self, request, timeout=2, attempts=3):
-        '''The Google Python API client frequently has BrokenPipe errors. This
+        """The Google Python API client frequently has BrokenPipe errors. This
            function takes a request, and executes it up to number of retry,
            each time with a 2* increase in timeout.
 
@@ -2616,15 +2597,16 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
            request: the Google Cloud request that needs to be executed
            timeout: time to sleep (in seconds) before trying again
            attempts: remaining attempts, throw error when hit 0
-        '''
+        """
         import googleapiclient
+
         try:
             return request.execute()
         except BrokenPipeError as ex:
             if attempts > 0:
                 sleep(timeout)
-                return self._retry_request(request, timeout*2, attempts-1)
-            raise ex 
+                return self._retry_request(request, timeout * 2, attempts - 1)
+            raise ex
         except googleapiclient.errors.HttpError as ex:
             log_verbose_traceback(ex)
             raise ex
@@ -2632,12 +2614,11 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             log_verbose_traceback(ex)
             raise ex
 
-
     def _wait_for_jobs(self):
-        '''wait for jobs to complete. This means requesting their status,
+        """wait for jobs to complete. This means requesting their status,
            and then marking them as finished when a "done" parameter
            shows up. Even for finished jobs, the status should still return
-        '''
+        """
         import googleapiclient
 
         while True:
@@ -2672,7 +2653,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
 
                         # Unpredictable server (500) error
                         elif ex.status == 500:
-                            logger.error(ex['content'].decode('utf-8'))
+                            logger.error(ex["content"].decode("utf-8"))
                             j.error_callback(j.job)
 
                     except WorkflowError as ex:
@@ -2681,7 +2662,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
                         continue
 
                     # The operation is done
-                    if status.get('done', False) == True:
+                    if status.get("done", False) == True:
 
                         # Derive success/failure from status codes (prints too)
                         if self._job_was_successful(status):
@@ -2689,11 +2670,10 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
                         else:
                             self.print_job_error(j.job, jobid=j.jobid)
                             j.error_callback(j.job)
- 
+
                     # The operation is still running
                     else:
                         still_running.append(j)
-
 
             with self.lock:
                 self.active_jobs.extend(still_running)
