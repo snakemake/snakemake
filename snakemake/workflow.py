@@ -161,7 +161,7 @@ class Workflow:
         self.report_text = None
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
-        self.envvars = []
+        self.envvars = set()
 
         if cache is not None:
             self.cache_rules = set(cache)
@@ -881,6 +881,7 @@ class Workflow:
     def register_envvars(self, *envvars):
         """
         Register environment variables that shall be passed to jobs.
+        If used multiple times, union is taken.
         """
         undefined = [var for var in envvars if var not in os.environ]
         if undefined:
@@ -889,7 +890,7 @@ class Workflow:
                 "Please make sure that they are correctly defined before running Snakemake:\n"
                 "{}".format("\n".join(undefined))
             )
-        self.envvars = envvars
+        self.envvars.update(envvars)
 
     def include(
         self,
