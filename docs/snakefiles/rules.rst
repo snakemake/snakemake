@@ -985,7 +985,7 @@ Defining groups for execution
 
 From Snakemake 5.0 on, it is possible to assign rules to groups.
 Such groups will be executed together in **cluster** or **cloud mode**, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node.
-By this, queueing and execution time can be safed, in particular if one or several short-running rules are involved.
+By this, queueing and execution time can be saved, in particular if one or several short-running rules are involved.
 When executing locally, group definitions are ignored.
 
 Groups can be defined via the ``group`` keyword, e.g.,
