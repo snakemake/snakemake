@@ -18,7 +18,6 @@ from urllib.error import URLError
 from itertools import islice
 
 import nbformat
-from nbconvert.preprocessors import ExecutePreprocessor
 
 from snakemake.utils import format
 from snakemake.logging import logger
