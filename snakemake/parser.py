@@ -227,6 +227,12 @@ class SubworkflowKeywordState(KeywordState):
 # Global keyword states
 
 
+class Envvars(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "register_envvars"
+
+
 class Include(GlobalKeywordState):
     pass
 
@@ -730,6 +736,7 @@ class OnStart(DecoratorKeywordState):
 class Python(TokenAutomaton):
 
     subautomata = dict(
+        envvars=Envvars,
         include=Include,
         workdir=Workdir,
         configfile=Configfile,

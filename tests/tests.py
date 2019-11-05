@@ -1087,3 +1087,11 @@ def test_github_issue52():
 
 def test_github_issue78():
     run(dpath("test_github_issue78"), use_singularity=True)
+
+
+def test_envvars():
+    run(dpath("test_envvars"), shouldfail=True)
+    os.environ["TEST_ENV_VAR"] = "test"
+    run(dpath("test_envvars"), verbose=True)
+
+

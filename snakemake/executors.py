@@ -1241,7 +1241,6 @@ class KubernetesExecutor(ClusterExecutor):
         workflow,
         dag,
         namespace,
-        envvars,
         container_image=None,
         jobname="{rulename}.{jobid}",
         printreason=False,
@@ -1297,7 +1296,7 @@ class KubernetesExecutor(ClusterExecutor):
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
-        self.envvars = envvars or []
+        self.envvars = workflow.envvars
         self.secret_files = {}
         self.run_namespace = str(uuid.uuid4())
         self.secret_envvars = {}
