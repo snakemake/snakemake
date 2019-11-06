@@ -433,6 +433,27 @@ Apart from Python scripts, this mechanism also allows you to integrate R_ and R 
 
 In the R script, an S4 object named ``snakemake`` analog to the Python case above is available and allows access to input and output files and other parameters. Here the syntax follows that of S4 classes with attributes that are R lists, e.g. we can access the first input file with ``snakemake@input[[1]]`` (note that the first file does not have index ``0`` here, because R starts counting from ``1``). Named input and output files can be accessed in the same way, by just providing the name instead of an index, e.g. ``snakemake@input[["myfile"]]``.
 
+Furthermore, one can integrate Jupyter_ Notebooks as follows:
+
+.. _Jupyter: https://jupyter.org/
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile",
+            notebook_output = "path/to/processed_notebook.ipynb"
+        script:
+            "path/to/notebook.ipynb"
+
+In the notebook, a snakemake object is available, which can be accessed similar to the Python case (see above).
+Note that this requires ``nbconvert`` and ``nbformat``.
+Additionally, the processed notebook can be stored in other formats by providing one of the following extensions: ``.html``, ``.tex``, ``.pdf``, ``.slides``, ``.md``, ``.txt``, ``.rst``.
+
 Finally, it is possible to integrate Julia_ scripts, e.g.
 
 .. _Julia: https://julialang.org
