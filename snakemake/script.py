@@ -560,25 +560,50 @@ def script(
             shell("{py_exec} {f.name:q}", bench_record=bench_record)
         elif language == "jupyter":
             # determine whether to save output
-            output_addendum = ''
+            output_addendum = ""
             notebook_output = None
-            notebook_relpath = output.get('notebook_output', None)
+            notebook_relpath = output.get("notebook_output", None)
 
             if notebook_relpath is not None:
                 notebook_output = os.path.join(os.getcwd(), notebook_relpath)
-                output_addendum = '--output {notebook_output}'.format(
+                output_addendum = "--output {notebook_output}".format(
                     notebook_output=notebook_output
                 )
 
+            # determine output format
+            output_format = "notebook"
+            if notebook_relpath is not None:
+                _, ext = os.path.splitext(notebook_relpath)
+                output_format = {
+                    ".ipynb": "notebook",
+                    ".html": "html",
+                    ".tex": 'latex',
+                    ".pdf": "pdf",
+                    ".slides": "slides",
+                    ".md": "markdown",
+                    ".txt": "asciidoc",
+                    ".rst": "rst",
+                    # ".py": "script",
+                }.get(ext, None)
+
+                if output_format is None:
+                    raise WorkflowError(
+                        "Invalid Jupyter Notebook output format: '{ext}'".format(
+                            ext=ext
+                        )
+                    )
+
             # execute notebook
             shell(
-                "jupyter nbconvert --execute {output_addendum} --to notebook --ExecutePreprocessor.timeout=-1 {f.name:q}",
+                "jupyter nbconvert --execute {output_addendum} --to {output_format} --ExecutePreprocessor.timeout=-1 {f.name:q}",
                 bench_record=bench_record,
-                output_addendum=output_addendum
+                output_addendum=output_addendum,
+                output_format=output_format
             )
 
-            # remove preamble from output
-            if notebook_output is not None:
+            # remove preamble from output (if possible)
+            # TODO: remove preamble even for non-notebook formats
+            if notebook_output is not None and output_format == "notebook":
                 nb = nbformat.read(
                     notebook_output,
                     as_version=nbformat.NO_CONVERT
