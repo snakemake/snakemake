@@ -559,27 +559,26 @@ def script(
             # use the same Python as the running process or the one from the environment
             shell("{py_exec} {f.name:q}", bench_record=bench_record)
         elif language == "jupyter":
+            # execute notebook
+            tmp_output = "{fname}.processed.ipynb".format(fname=f.name)
+            shell(
+                "jupyter nbconvert --execute --output {tmp_output:q} --to notebook --ExecutePreprocessor.timeout=-1 {f.name:q}",
+                bench_record=bench_record,
+                tmp_output=tmp_output
+            )
+
             # determine whether to save output
-            output_addendum = ""
-            notebook_output = None
             notebook_relpath = output.get("notebook_output", None)
 
             if notebook_relpath is not None:
-                notebook_output = os.path.join(os.getcwd(), notebook_relpath)
-                output_addendum = "--output {notebook_output}".format(
-                    notebook_output=notebook_output
-                )
-
-            # determine output format
-            output_format = "notebook"
-            if notebook_relpath is not None:
+                # determine output format
                 _, ext = os.path.splitext(notebook_relpath)
                 output_format = {
                     ".ipynb": "notebook",
                     ".html": "html",
-                    ".tex": 'latex',
+                    ".tex": "latex",
                     ".pdf": "pdf",
-                    ".slides": "slides",
+                    # ".slides": "slides",
                     ".md": "markdown",
                     ".txt": "asciidoc",
                     ".rst": "rst",
@@ -593,24 +592,30 @@ def script(
                         )
                     )
 
-            # execute notebook
-            shell(
-                "jupyter nbconvert --execute {output_addendum} --to {output_format} --ExecutePreprocessor.timeout=-1 {f.name:q}",
-                bench_record=bench_record,
-                output_addendum=output_addendum,
-                output_format=output_format
-            )
-
-            # remove preamble from output (if possible)
-            # TODO: remove preamble even for non-notebook formats
-            if notebook_output is not None and output_format == "notebook":
+                # remove preamble from output
                 nb = nbformat.read(
-                    notebook_output,
+                    tmp_output,
                     as_version=nbformat.NO_CONVERT
                 )
-                nb['cells'].pop(0)
-                with open(notebook_output, 'w') as fd:
+
+                nb["cells"].pop(0)
+
+                with open(tmp_output, "w") as fd:
                     nbformat.write(nb, fd)
+
+                # save to destination
+                notebook_output = os.path.join(os.getcwd(), notebook_relpath)
+
+                if output_format == "notebook":
+                    os.rename(tmp_output, notebook_output)
+                else:
+                    # convert to required format
+                    shell(
+                        "jupyter nbconvert --output {notebook_output:q} --to {output_format:q} --ExecutePreprocessor.timeout=-1 {tmp_output:q}",
+                        notebook_output=notebook_output,
+                        output_format=output_format,
+                        tmp_output=tmp_output
+                    )
         elif language == "r":
             if conda_env is not None and "R_LIBS" in os.environ:
                 logger.warning(
