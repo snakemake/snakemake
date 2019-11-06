@@ -1,6 +1,6 @@
 rule all:
     input:
-        'result.txt'
+        'result_final.txt'
 
 rule foo:
     output:
@@ -13,6 +13,15 @@ rule bar:
     input:
         infile = 'data.txt'
     output:
-        outfile = 'result.txt'
+        outfile = 'result_intermediate.txt'
+    script:
+        'Notebook.ipynb'
+
+rule baz:
+    input:
+        infile = 'result_intermediate.txt'
+    output:
+        notebook_output = 'Notebook_Processed.ipynb',
+        outfile = 'result_final.txt'
     script:
         'Notebook.ipynb'
