@@ -373,10 +373,10 @@ class CPUExecutor(RealExecutor):
 
     def run_single_job(self, job):
         if self.use_threads or (not job.is_shadow and not job.is_run):
-            future = self.pool.submit(run_wrapper, *self.job_args_and_prepare(job))
+            future = self.pool.submit(cached_or_run, run_wrapper, *self.job_args_and_prepare(job))
         else:
             # run directive jobs are spawned into subprocesses
-            future = self.pool.submit(self.spawn_job, job)
+            future = self.pool.submit(cached_or_run, self.spawn_job, job)
         return future
 
     def run_group_job(self, job):
@@ -415,6 +415,18 @@ class CPUExecutor(RealExecutor):
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
             raise SpawnedJobError()
+    
+    def cached_or_run(self, job, run_func, *args):
+        """
+        Either retrieve result from cache, or run job with given function.
+        """
+        try:
+            if self.workflow.is_cached_job(job):
+                self.workflow.output_file_cache.fetch(job)
+                return
+        except CacheMissException:
+            pass
+        run_func(*args)
 
     def shutdown(self):
         self.pool.shutdown()

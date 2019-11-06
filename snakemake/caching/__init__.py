@@ -9,6 +9,8 @@ from snakemake.jobs import Job
 from snakemake.exceptions import WorkflowError
 from snakemake.caching import ProvenanceHashTable
 
+LOCATION_ENVVAR = "SNAKEMAKE_OUTPUT_CACHE"
+
 
 class OutputFileCache:
     """
@@ -18,7 +20,14 @@ class OutputFileCache:
     """
 
     def __init__(self):
-        self.path = Path(os.environ["SNAKEMAKE_OUTPUT_CACHE"])
+        try:
+            self.path = Path(os.environ[LOCATION_ENVVAR])
+        except KeyError:
+            raise WorkflowError(
+                "Output file cache activated (--cache), but no cache "
+                "location specified. Please set the environment variable "
+                "${}.".format(LOCATION_ENVVAR)
+            )
         self.provenance_hash_map = ProvenanceHashMap()
 
     def check_writeable(self, entry):
@@ -41,13 +50,14 @@ class OutputFileCache:
         """
         Store generated job output in the cache.
         """
+        assert (
+            len(job.expanded_output) == 1
+        ), "Bug: Only single output files are supported"
+
         provenance_hash = self.provenance_hash_map.provenance_hash(job)
         self.check_writeable(provenance_hash)
         path = self.path / provenance_hash
         # copy output file
-        assert (
-            len(job.expanded_output) == 1
-        ), "Bug: Only single output files are supported"
         assert os.path.exists(job.expanded_output[0])
 
         logger.info("Copying output file {} to cache.".format(job.expanded_output[0]))
@@ -57,10 +67,15 @@ class OutputFileCache:
         """
         Retrieve cached output file and copy to the place where the job expects it's output.
         """
-        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
-        self.check_readable(provenance_hash)
-        path = self.path / provenance_hash
         assert len(job.output) == 1, "Bug: Only single output files are supported"
+
+        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
+        path = self.path / provenance_hash
+
+        if not path.exists():
+            raise CacheMissException("Job {} not yet cached.".format(job))
+
+        self.check_readable(provenance_hash)
 
         logger.info("Copying output file {} from cache.".format(job.output[0]))
         shutil.copyfile(path, job.output[0])

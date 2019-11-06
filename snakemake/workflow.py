@@ -91,6 +91,7 @@ class Workflow:
         default_remote_prefix="",
         run_local=True,
         default_resources=None,
+        cache=cache,
     ):
         """
         Create the controller.
@@ -143,6 +144,14 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
+        
+        if cache is not None:
+            self.cache_rules = set(cache)
+            self.output_file_cache = OutputFileCache()
+        else:
+            self.output_file_cache = None
+            self.cache_rules = set()
+
         if default_resources is not None:
             self.default_resources = default_resources
         else:
@@ -161,6 +170,9 @@ class Workflow:
         rules = Rules()
         global checkpoints
         checkpoints = Checkpoints()
+    
+    def is_cached_job(self, job):
+        return job.rule.name in self.cache_rules
 
     def get_sources(self):
         files = set()

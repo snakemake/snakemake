@@ -234,6 +234,11 @@ class Rule:
             return branch, non_dynamic_wildcards
         return branch
 
+    def check_caching(self):
+        if self.name in self.workflow.cache_rules and len(self.output) != 1:
+            raise WorkflowError("Only rules with exactly 1 output file may be cached.")
+
+
     def has_wildcards(self):
         """
         Return True if rule contains wildcards.
@@ -352,6 +357,7 @@ class Rule:
             self.register_wildcards(item.get_wildcard_names())
         # Check output file name list for duplicates
         self.check_output_duplicates()
+        self.check_caching()
 
     def check_output_duplicates(self):
         """Check ``Namedlist`` for duplicate entries and raise a ``WorkflowError``

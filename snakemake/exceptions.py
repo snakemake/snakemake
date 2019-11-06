@@ -482,3 +482,7 @@ class IncompleteCheckpointException(Exception):
         from snakemake.io import checkpoint_target
 
         self.targetfile = checkpoint_target(targetfile)
+
+
+class CacheMissException(Exception):
+    pass
