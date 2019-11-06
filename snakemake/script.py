@@ -559,11 +559,33 @@ def script(
             # use the same Python as the running process or the one from the environment
             shell("{py_exec} {f.name:q}", bench_record=bench_record)
         elif language == "jupyter":
-            # TODO: save notebook output?
+            # determine whether to save output
+            output_addendum = ''
+            notebook_output = None
+            notebook_relpath = output.get('notebook_output', None)
+
+            if notebook_relpath is not None:
+                notebook_output = os.path.join(os.getcwd(), notebook_relpath)
+                output_addendum = '--output {notebook_output}'.format(
+                    notebook_output=notebook_output
+                )
+
+            # execute notebook
             shell(
-                "jupyter nbconvert --execute --inplace --to notebook --ExecutePreprocessor.timeout=-1 {f.name:q}",
-                bench_record=bench_record
+                "jupyter nbconvert --execute {output_addendum} --to notebook --ExecutePreprocessor.timeout=-1 {f.name:q}",
+                bench_record=bench_record,
+                output_addendum=output_addendum
             )
+
+            # remove preamble from output
+            if notebook_output is not None:
+                nb = nbformat.read(
+                    notebook_output,
+                    as_version=nbformat.NO_CONVERT
+                )
+                nb['cells'].pop(0)
+                with open(notebook_output, 'w') as fd:
+                    nbformat.write(nb, fd)
         elif language == "r":
             if conda_env is not None and "R_LIBS" in os.environ:
                 logger.warning(
