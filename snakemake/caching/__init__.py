@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2019, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from tempfile import NamedTemporaryFile
 from pathlib import Path
 
 from snakemake.jobs import Job
@@ -61,7 +62,14 @@ class OutputFileCache:
         assert os.path.exists(job.expanded_output[0])
 
         logger.info("Copying output file {} to cache.".format(job.expanded_output[0]))
-        shutil.copyfile(job.expanded_output[0], path)
+        with NamedTemporaryFile(dir=self.path, delete=False) as tmp, open(job.expanded_output[0], "b") as outfile:
+            # Copy is performed into a tempfile.
+            # This is important, such that network filesystem latency 
+            # does not lead to concurrent writes to the same file.
+            shutil.copyfileobj(outfile, tmp)
+        
+        # rename (as atomic as possible) to the actual path
+        os.rename(tmp.name, path)
 
     def fetch(self, job: Job):
         """
@@ -79,3 +87,16 @@ class OutputFileCache:
 
         logger.info("Copying output file {} from cache.".format(job.output[0]))
         shutil.copyfile(path, job.output[0])
+    
+    def exists(self, job: Job):
+        """
+        Return True if job is already cached
+        """
+        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
+        path = self.path / provenance_hash
+
+        if not path.exists():
+            raise CacheMissException("Job {} not yet cached.".format(job))
+
+        self.check_readable(provenance_hash)
+        return True

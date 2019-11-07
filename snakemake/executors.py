@@ -119,7 +119,14 @@ class AbstractExecutor:
 
 
 class DryrunExecutor(AbstractExecutor):
-    pass
+    def printjob(self, job):
+        super().printjob(job)
+        if self.workflow.is_cached_rule(job.rule):
+            if self.workflow.output_file_cache.exists(job):
+                logger.info("Output file {} will be obtained from cache.".format(job.output[0]))
+            else:
+                logger.info("Output file {} will be written to cache.".format(job.output[0]))
+                
 
 
 class RealExecutor(AbstractExecutor):
