@@ -676,7 +676,7 @@ def test_remote_gs():
 @pytest.mark.skip(reason="Need to choose how to provide billable project")
 @connected
 @not_ci
-def test_issue96(
+def test_github_issue96(
     requesting_project=None,
     requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
 ):
@@ -704,7 +704,7 @@ def test_issue96(
         # make sure we can read them
         handle.flush()
         # run the pipeline
-        run(dpath("test_issue96"), configfiles=[handle.name], forceall=True)
+        run(dpath("test_github_issue96"), configfiles=[handle.name], forceall=True)
 
 
 @pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
