@@ -171,8 +171,8 @@ class Workflow:
         global checkpoints
         checkpoints = Checkpoints()
     
-    def is_cached_job(self, job):
-        return job.rule.name in self.cache_rules
+    def is_cached_rule(self, rule: Rule):
+        return rule.name in self.cache_rules
 
     def get_sources(self):
         files = set()

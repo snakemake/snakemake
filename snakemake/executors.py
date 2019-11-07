@@ -420,13 +420,16 @@ class CPUExecutor(RealExecutor):
         """
         Either retrieve result from cache, or run job with given function.
         """
+        to_cache = self.workflow.is_cached_rule(job.rule)
         try:
-            if self.workflow.is_cached_job(job):
+            if to_cache:
                 self.workflow.output_file_cache.fetch(job)
                 return
         except CacheMissException:
             pass
         run_func(*args)
+        if to_cache:
+            self.workflow.output_file_cache.store(job)
 
     def shutdown(self):
         self.pool.shutdown()
