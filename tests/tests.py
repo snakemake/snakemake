@@ -1171,5 +1171,6 @@ def test_github_issue52():
     run(dpath("test_github_issue52"), snakefile="other.smk", shouldfail=True)
 
 
+@skip_on_windows
 def test_github_issue78():
     run(dpath("test_github_issue78"), use_singularity=True)
