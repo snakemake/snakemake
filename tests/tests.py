@@ -676,11 +676,11 @@ def test_remote_gs():
 @pytest.mark.skip(reason="Need to choose how to provide billable project")
 @connected
 @not_ci
-def test_pr79(
+def test_issue96(
     requesting_project=None,
     requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
 ):
-    """ Tests pull-request 79 (user_project billing for Google cloud buckets)
+    """ Tests pull-request 79 / issue 96 for billable user projects on GS
 
     If requesting_project None, behaves as test_remote_gs().
 
@@ -704,7 +704,7 @@ def test_pr79(
         # make sure we can read them
         handle.flush()
         # run the pipeline
-        run(dpath("test_pr79"), configfiles=[handle.name], forceall=True)
+        run(dpath("test_issue96"), configfiles=[handle.name], forceall=True)
 
 
 @pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
