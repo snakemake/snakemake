@@ -41,6 +41,7 @@ from snakemake.exceptions import (
     WorkflowError,
     ImproperShadowException,
     SpawnedJobError,
+    CacheMissException,
 )
 from snakemake.common import Mode, __version__, get_container_image, get_uuid
 
@@ -380,10 +381,10 @@ class CPUExecutor(RealExecutor):
 
     def run_single_job(self, job):
         if self.use_threads or (not job.is_shadow and not job.is_run):
-            future = self.pool.submit(cached_or_run, run_wrapper, *self.job_args_and_prepare(job))
+            future = self.pool.submit(self.cached_or_run, job, run_wrapper, *self.job_args_and_prepare(job))
         else:
             # run directive jobs are spawned into subprocesses
-            future = self.pool.submit(cached_or_run, self.spawn_job, job)
+            future = self.pool.submit(self.cached_or_run, job, self.spawn_job)
         return future
 
     def run_group_job(self, job):

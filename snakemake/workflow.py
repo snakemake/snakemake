@@ -61,6 +61,7 @@ from snakemake.common import Mode
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
+from snakemake.caching import OutputFileCache
 
 
 class Workflow:
@@ -91,7 +92,7 @@ class Workflow:
         default_remote_prefix="",
         run_local=True,
         default_resources=None,
-        cache=cache,
+        cache=None,
     ):
         """
         Create the controller.

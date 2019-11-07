@@ -5,10 +5,13 @@ __license__ = "MIT"
 
 from tempfile import NamedTemporaryFile
 from pathlib import Path
+import os
+import shutil
 
+from snakemake.logging import logger
 from snakemake.jobs import Job
-from snakemake.exceptions import WorkflowError
-from snakemake.caching import ProvenanceHashTable
+from snakemake.exceptions import WorkflowError, CacheMissException
+from snakemake.caching.hash import ProvenanceHashMap
 
 LOCATION_ENVVAR = "SNAKEMAKE_OUTPUT_CACHE"
 
@@ -32,7 +35,8 @@ class OutputFileCache:
         self.provenance_hash_map = ProvenanceHashMap()
 
     def check_writeable(self, entry):
-        if not os.access(self.path / entry, os.W_OK):
+        if not (os.access(self.path, os.W_OK) or os.access(self.path / entry, os.W_OK)):
+
             raise WorkflowError(
                 "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not writeable.".format(
                     entry, self.path
@@ -51,22 +55,24 @@ class OutputFileCache:
         """
         Store generated job output in the cache.
         """
+        output = list(job.expanded_output)
         assert (
-            len(job.expanded_output) == 1
+            len(output) == 1
         ), "Bug: Only single output files are supported"
+        outputfile = output[0]
 
-        provenance_hash = self.provenance_hash_map.provenance_hash(job)
+        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
         self.check_writeable(provenance_hash)
         path = self.path / provenance_hash
         # copy output file
-        assert os.path.exists(job.expanded_output[0])
+        assert os.path.exists(outputfile)
 
-        logger.info("Copying output file {} to cache.".format(job.expanded_output[0]))
-        with NamedTemporaryFile(dir=self.path, delete=False) as tmp, open(job.expanded_output[0], "b") as outfile:
+        logger.info("Copying output file {} to cache.".format(outputfile))
+        with NamedTemporaryFile(dir=self.path, delete=False) as tmp, open(outputfile, "rb") as out:
             # Copy is performed into a tempfile.
             # This is important, such that network filesystem latency 
             # does not lead to concurrent writes to the same file.
-            shutil.copyfileobj(outfile, tmp)
+            shutil.copyfileobj(out, tmp)
         
         # rename (as atomic as possible) to the actual path
         os.rename(tmp.name, path)
@@ -85,8 +91,16 @@ class OutputFileCache:
 
         self.check_readable(provenance_hash)
 
-        logger.info("Copying output file {} from cache.".format(job.output[0]))
-        shutil.copyfile(path, job.output[0])
+        outputfile = job.output[0]
+        
+        if os.utime in os.supports_follow_symlinks:
+            logger.info("Symlinking output file {} from cache.".format(outputfile))
+            os.symlink(path, outputfile)
+            os.utime(outputfile, follow_symlinks=False)
+        else:
+            logger.info("Copying output file {} from cache (OS does not support updating the modification date of symlinks).".format(outputfile))
+            shutil.copyfile(path, outputfile)
+
     
     def exists(self, job: Job):
         """
@@ -96,7 +110,7 @@ class OutputFileCache:
         path = self.path / provenance_hash
 
         if not path.exists():
-            raise CacheMissException("Job {} not yet cached.".format(job))
+            return False
 
         self.check_readable(provenance_hash)
         return True
