@@ -329,9 +329,9 @@ class Workflow:
         assert (
             self.default_remote_provider is not None
         ), "No default remote provider is defined, calling this anyway is a bug"
-        path = "{}/{}".format(self.workflow.default_remote_prefix, path)
+        path = "{}/{}".format(self.default_remote_prefix, path)
         path = os.path.normpath(path)
-        return self.workflow.default_remote_provider.remote(path)
+        return self.default_remote_provider.remote(path)
 
     def execute(
         self,

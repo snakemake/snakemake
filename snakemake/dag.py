@@ -1662,13 +1662,19 @@ class DAG:
                 html_node.extend(
                     [
                         "<tr>",
-                        f'<td align="left"><font face="monospace">{in_file}</font></td>'
+                        '<td align="left"><font face="monospace">{in_file}</font></td>'.format(
+                            in_file=in_file
+                        ),
                         "</tr>",
                     ]
                 )
 
             html_node.append("<hr/>")
-            html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>')
+            html_node.append(
+                '<tr><td align="right"> {output_header} </td> </tr>'.format(
+                    output_header=output_header
+                )
+            )
 
             for filename in sorted(output_files):
                 out_file = html.escape(filename)

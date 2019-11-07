@@ -920,7 +920,12 @@ def get_argument_parser(profile=None):
             "changing them) instead of running their commands. This is "
             "used to pretend that the rules were executed, in order to "
             "fool future invocations of snakemake. Fails if a file does "
-            "not yet exist."
+            "not yet exist. Note that this will only touch files that would "
+            "otherwise be recreated by Snakemake (e.g. because their input "
+            "files are newer). For enforcing a touch, combine this with "
+            "--force, --forceall, or --forcerun. Note however that you loose "
+            "the provenance information when the files have been created in "
+            "realitiy. Hence, this should be used only as a last resort."
         ),
     )
     group_exec.add_argument(
