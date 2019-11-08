@@ -815,10 +815,10 @@ def get_argument_parser(profile=None):
         nargs="+",
         metavar="RULE",
         help="Store output files of given rules in a central cache given by the environment "
-             "variable $SNAKEMAKE_OUTPUT_CACHE. Likewise, retrieve output files of the given rules "
-             "from this cache if they have been created before (by anybody writing to the same cache), "
-             "instead of actually executing the rules. Output files are identified by hashing all "
-             "steps, parameters and software stack (conda envs or containers) needed to create them."
+        "variable $SNAKEMAKE_OUTPUT_CACHE. Likewise, retrieve output files of the given rules "
+        "from this cache if they have been created before (by anybody writing to the same cache), "
+        "instead of actually executing the rules. Output files are identified by hashing all "
+        "steps, parameters and software stack (conda envs or containers) needed to create them.",
     )
 
     group_exec.add_argument(

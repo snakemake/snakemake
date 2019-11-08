@@ -124,10 +124,13 @@ class DryrunExecutor(AbstractExecutor):
         super().printjob(job)
         if self.workflow.is_cached_rule(job.rule):
             if self.workflow.output_file_cache.exists(job):
-                logger.info("Output file {} will be obtained from cache.".format(job.output[0]))
+                logger.info(
+                    "Output file {} will be obtained from cache.".format(job.output[0])
+                )
             else:
-                logger.info("Output file {} will be written to cache.".format(job.output[0]))
-                
+                logger.info(
+                    "Output file {} will be written to cache.".format(job.output[0])
+                )
 
 
 class RealExecutor(AbstractExecutor):
@@ -381,7 +384,9 @@ class CPUExecutor(RealExecutor):
 
     def run_single_job(self, job):
         if self.use_threads or (not job.is_shadow and not job.is_run):
-            future = self.pool.submit(self.cached_or_run, job, run_wrapper, *self.job_args_and_prepare(job))
+            future = self.pool.submit(
+                self.cached_or_run, job, run_wrapper, *self.job_args_and_prepare(job)
+            )
         else:
             # run directive jobs are spawned into subprocesses
             future = self.pool.submit(self.cached_or_run, job, self.spawn_job)
@@ -423,7 +428,7 @@ class CPUExecutor(RealExecutor):
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
             raise SpawnedJobError()
-    
+
     def cached_or_run(self, job, run_func, *args):
         """
         Either retrieve result from cache, or run job with given function.

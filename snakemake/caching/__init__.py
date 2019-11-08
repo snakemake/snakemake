@@ -56,9 +56,7 @@ class OutputFileCache:
         Store generated job output in the cache.
         """
         output = list(job.expanded_output)
-        assert (
-            len(output) == 1
-        ), "Bug: Only single output files are supported"
+        assert len(output) == 1, "Bug: Only single output files are supported"
         outputfile = output[0]
 
         provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
@@ -68,12 +66,14 @@ class OutputFileCache:
         assert os.path.exists(outputfile)
 
         logger.info("Copying output file {} to cache.".format(outputfile))
-        with NamedTemporaryFile(dir=self.path, delete=False) as tmp, open(outputfile, "rb") as out:
+        with NamedTemporaryFile(dir=self.path, delete=False) as tmp, open(
+            outputfile, "rb"
+        ) as out:
             # Copy is performed into a tempfile.
-            # This is important, such that network filesystem latency 
+            # This is important, such that network filesystem latency
             # does not lead to concurrent writes to the same file.
             shutil.copyfileobj(out, tmp)
-        
+
         # rename (as atomic as possible) to the actual path
         os.rename(tmp.name, path)
 
@@ -92,16 +92,19 @@ class OutputFileCache:
         self.check_readable(provenance_hash)
 
         outputfile = job.output[0]
-        
+
         if os.utime in os.supports_follow_symlinks:
             logger.info("Symlinking output file {} from cache.".format(outputfile))
             os.symlink(path, outputfile)
             os.utime(outputfile, follow_symlinks=False)
         else:
-            logger.info("Copying output file {} from cache (OS does not support updating the modification date of symlinks).".format(outputfile))
+            logger.info(
+                "Copying output file {} from cache (OS does not support updating the modification date of symlinks).".format(
+                    outputfile
+                )
+            )
             shutil.copyfile(path, outputfile)
 
-    
     def exists(self, job: Job):
         """
         Return True if job is already cached

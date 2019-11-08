@@ -238,7 +238,6 @@ class Rule:
         if self.name in self.workflow.cache_rules and len(self.output) != 1:
             raise WorkflowError("Only rules with exactly 1 output file may be cached.")
 
-
     def has_wildcards(self):
         """
         Return True if rule contains wildcards.

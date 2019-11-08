@@ -145,7 +145,7 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
-        
+
         if cache is not None:
             self.cache_rules = set(cache)
             self.output_file_cache = OutputFileCache()
@@ -171,7 +171,7 @@ class Workflow:
         rules = Rules()
         global checkpoints
         checkpoints = Checkpoints()
-    
+
     def is_cached_rule(self, rule: Rule):
         return rule.name in self.cache_rules
 
