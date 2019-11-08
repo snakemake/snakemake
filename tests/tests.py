@@ -1090,4 +1090,4 @@ def test_github_issue78():
 
 
 def test_output_file_cache():
-    run(dpath("test_output_file_cache"), config={"a": 1.5}, cache=["a", "b", "c"])
+    run(dpath("test_output_file_cache"), cache=["a", "b", "c"])

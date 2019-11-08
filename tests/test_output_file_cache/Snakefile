@@ -26,6 +26,6 @@ rule c:
     output:
         "test3.{w}.out"
     params:
-        a=config["a"]
+        a=1.5
     shell:
         "echo test3 {params.a} > {output}"
