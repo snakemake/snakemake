@@ -128,7 +128,7 @@ class DryrunExecutor(AbstractExecutor):
                 self.printcache(j)
         else:
             self.printcache(job)
-    
+
     def printcache(self, job):
         if self.workflow.is_cached_rule(job.rule):
             if self.workflow.output_file_cache.exists(job):
