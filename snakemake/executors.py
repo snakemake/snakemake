@@ -122,6 +122,14 @@ class AbstractExecutor:
 class DryrunExecutor(AbstractExecutor):
     def printjob(self, job):
         super().printjob(job)
+
+        if job.is_group:
+            for j in job.jobs:
+                self.printcache(j)
+        else:
+            self.printcache(job)
+    
+    def printcache(self, job):
         if self.workflow.is_cached_rule(job.rule):
             if self.workflow.output_file_cache.exists(job):
                 logger.info(
