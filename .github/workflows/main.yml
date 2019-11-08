@@ -45,9 +45,6 @@ jobs:
       - name: Run tests
         env:
           CI: true
-          AWS_DEFAULT_REGION: us-east-1
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           # enable coverage recording for subprocesses
                 echo -e "try:\n    import coverage\n    coverage.process_startup()\nexcept:\n    pass" > sitecustomize.py
@@ -58,6 +55,9 @@ jobs:
           source activate snakemake
           
           # run tests
+          export AWS_DEFAULT_REGION=us-east-1
+          export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
           coverage run -m pytest tests/test*.py -v -x
 
           # collect coverage report
