@@ -389,7 +389,7 @@ class CPUExecutor(RealExecutor):
             )
         else:
             # run directive jobs are spawned into subprocesses
-            future = self.pool.submit(self.cached_or_run, job, self.spawn_job)
+            future = self.pool.submit(self.cached_or_run, job, self.spawn_job, job)
         return future
 
     def run_group_job(self, job):
