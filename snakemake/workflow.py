@@ -9,6 +9,7 @@ import sys
 import signal
 import json
 import urllib
+import posixpath
 from collections import OrderedDict
 from itertools import filterfalse, chain
 from functools import partial
@@ -425,7 +426,7 @@ class Workflow:
         else:
 
             def files(items):
-                relpath = lambda f: f if os.path.isabs(f) else os.path.relpath(f)
+                relpath = lambda f: f if os.path.isabs(f) else posixpath.relpath(f)
                 return map(relpath, filterfalse(self.is_rule, items))
 
         if not targets:
