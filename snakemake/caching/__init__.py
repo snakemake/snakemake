@@ -73,13 +73,20 @@ class OutputFileCache:
             # does not lead to concurrent writes to the same file.
             shutil.move(outputfile, tmp)
             # make readable/writeable for all
-            os.chmod(tmp, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)
+            os.chmod(
+                tmp,
+                stat.S_IRUSR
+                | stat.S_IWUSR
+                | stat.S_IRGRP
+                | stat.S_IWGRP
+                | stat.S_IROTH
+                | stat.S_IWOTH,
+            )
 
             # Move to the actual path (now we are on the same FS, hence move is atomic).
             shutil.move(tmp, path)
         # now restore the outputfile via a symlink
         self.symlink(path, outputfile, utime=False)
-        
 
     def fetch(self, job: Job):
         """
