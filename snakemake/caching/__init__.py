@@ -66,16 +66,20 @@ class OutputFileCache:
         assert os.path.exists(outputfile)
 
         logger.info("Copying output file {} to cache.".format(outputfile))
-        with NamedTemporaryFile(dir=self.path, delete=False) as tmp, open(
-            outputfile, "rb"
-        ) as out:
-            # Copy is performed into a tempfile.
+        with TemporaryDirectory(dir=self.path) as tmpdirname:
+            tmp = Path(tmpdirname) / provenance_hash
+            # First move is performed into a tempdir (it might involve a copy if not on the same FS).
             # This is important, such that network filesystem latency
             # does not lead to concurrent writes to the same file.
-            shutil.copyfileobj(out, tmp)
+            shutil.move(outputfile, tmp)
+            # make readable/writeable for all
+            os.chmod(tmp, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)
 
-        # rename (as atomic as possible) to the actual path
-        os.rename(tmp.name, path)
+            # Move to the actual path (now we are on the same FS, hence move is atomic).
+            shutil.move(tmp, path)
+        # now restore the outputfile via a symlink
+        self.symlink(path, outputfile, utime=False)
+        
 
     def fetch(self, job: Job):
         """
@@ -93,17 +97,7 @@ class OutputFileCache:
 
         outputfile = job.output[0]
 
-        if os.utime in os.supports_follow_symlinks:
-            logger.info("Symlinking output file {} from cache.".format(outputfile))
-            os.symlink(path, outputfile)
-            os.utime(outputfile, follow_symlinks=False)
-        else:
-            logger.info(
-                "Copying output file {} from cache (OS does not support updating the modification date of symlinks).".format(
-                    outputfile
-                )
-            )
-            shutil.copyfile(path, outputfile)
+        self.symlink(path, outputfile)
 
     def exists(self, job: Job):
         """
@@ -117,3 +111,17 @@ class OutputFileCache:
 
         self.check_readable(provenance_hash)
         return True
+
+    def symlink(self, path, outputfile, utime=True):
+        if os.utime in os.supports_follow_symlinks or not utime:
+            logger.info("Symlinking output file {} from cache.".format(outputfile))
+            os.symlink(path, outputfile)
+            if utime:
+                os.utime(outputfile, follow_symlinks=False)
+        else:
+            logger.info(
+                "Copying output file {} from cache (OS does not support updating the modification date of symlinks).".format(
+                    outputfile
+                )
+            )
+            shutil.copyfile(path, outputfile)
