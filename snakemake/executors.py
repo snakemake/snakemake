@@ -122,8 +122,7 @@ class AbstractExecutor:
 class DryrunExecutor(AbstractExecutor):
     def printjob(self, job):
         super().printjob(job)
-
-        if job.is_group:
+        if job.is_group():
             for j in job.jobs:
                 self.printcache(j)
         else:

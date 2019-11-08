@@ -6,7 +6,7 @@ Within certain data analysis fields, there are certain intermediate results that
 For example, in bioinformatics, reference genomes or annotations are downloaded, and read mapping indexes are built.
 Since such steps are independent of the actual data or measurements that are analyzed, but still computationally or timely expensive to conduct, it has been common practice to externalize their computation and assume the presence of the resulting files before execution of a workflow.
 
-Snakemake now offers a way to keep those steps inside the actual analysis without requiring from redundant computations.
+From version 5.8.0 on, Snakemake offers a way to keep those steps inside the actual analysis without requiring from redundant computations.
 By hashing all steps, parameters, software stacks (in terms of conda environments or containers), and raw input required up to a certain step in a `blockchain <https://en.wikipedia.org/wiki/Blockchain>`_, Snakemake is able to recognize **before** the computation whether a certain result is already available in a central cache on the same system.
 
 Such caching has to be explitly activated per rule, which can be done via the command line interface.
@@ -26,3 +26,5 @@ It is not allowed to directly use ``wildcards``, ``config`` or any global variab
 
 Also note that Snakemake will store everything in the cache as readable and writeable for all users on the system.
 Hence, caching is not intended for private data, just for steps that deal with publicly available resources.
+
+Finally, be aware that the implementation has to be considered **experimental** until this note is removed.
