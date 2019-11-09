@@ -1938,7 +1938,7 @@ def run_wrapper(
     # Change workdir if shadow defined and not using singularity.
     # Otherwise, we do the change from inside the container.
     passed_shadow_dir = None
-    if use_singularity:
+    if use_singularity and singularity_img:
         passed_shadow_dir = shadow_dir
         shadow_dir = None
 

@@ -1083,3 +1083,7 @@ def test_batch_fail():
 def test_github_issue52():
     run(dpath("test_github_issue52"), shouldfail=True)
     run(dpath("test_github_issue52"), snakefile="other.smk", shouldfail=True)
+
+
+def test_github_issue78():
+    run(dpath("test_github_issue78"), use_singularity=True)
