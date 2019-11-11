@@ -146,7 +146,7 @@ def run(
     else:
         assert success, "expected successful execution"
         for resultfile in os.listdir(results_dir):
-            if resultfile == ".gitignore" or not os.path.isfile(
+            if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
                 os.path.join(results_dir, resultfile)
             ):
                 # this means tests cannot use directories as output files
@@ -1006,16 +1006,13 @@ def test_pipes2():
     run(dpath("test_pipes2"))
 
 
-@pytest.mark.skip(
-    reason="need free AWS tier credentials and tibanna as a conda package first"
-)
 def test_tibanna():
     workdir = dpath("test_tibanna")
     subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
     run(
         workdir,
         use_conda=True,
-        configfiles=["config.json"],
+        configfiles=[os.path.join(workdir, "config.json")],
         default_remote_prefix="snakemake-tibanna-test/1",
         tibanna_sfn="tibanna_unicorn_johannes",
     )
