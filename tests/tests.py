@@ -1090,4 +1090,6 @@ def test_github_issue78():
 
 
 def test_output_file_cache():
-    run(dpath("test_output_file_cache"), cache=["a", "b", "c"])
+    test_path = dpath("test_output_file_cache")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
+    run(test_path, cache=["a", "b", "c"])
