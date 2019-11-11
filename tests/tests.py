@@ -139,6 +139,7 @@ def run(
         workdir=path if no_tmpdir else tmpdir,
         stats="stats.txt",
         config=config,
+        verbose=True,
         **params
     )
     if shouldfail:
@@ -522,7 +523,6 @@ def test_spaces_in_fnames():
         dpath("test_spaces_in_fnames"),
         # cluster="./qsub",
         targets=["test bam file realigned.bam"],
-        verbose=True,
         printshellcmds=True,
     )
 
@@ -685,7 +685,6 @@ def test_default_remote():
         cores=1,
         default_remote_provider="S3Mocked",
         default_remote_prefix="test-remote-bucket",
-        verbose=True,
     )
 
 
@@ -746,7 +745,6 @@ def test_singularity_conda():
         dpath("test_singularity_conda"),
         use_singularity=True,
         use_conda=True,
-        verbose=True,
     )
 
 
@@ -983,7 +981,7 @@ def test_issue1092():
 
 
 def test_issue1093():
-    run(dpath("test_issue1093"), use_conda=True, verbose=True)
+    run(dpath("test_issue1093"), use_conda=True)
 
 
 def test_issue958():
@@ -1030,7 +1028,6 @@ def test_default_resources():
 
     run(
         dpath("test_default_resources"),
-        verbose=True,
         default_resources=DefaultResources(
             ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
         ),

@@ -3,10 +3,11 @@ __copyright__ = "Copyright 2019, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from tempfile import NamedTemporaryFile
+from tempfile import TemporaryDirectory
 from pathlib import Path
 import os
 import shutil
+import stat
 
 from snakemake.logging import logger
 from snakemake.jobs import Job
@@ -65,13 +66,14 @@ class OutputFileCache:
         # copy output file
         assert os.path.exists(outputfile)
 
-        logger.info("Copying output file {} to cache.".format(outputfile))
+        logger.info("Moving output file {} to cache.".format(outputfile))
         with TemporaryDirectory(dir=self.path) as tmpdirname:
             tmp = Path(tmpdirname) / provenance_hash
             # First move is performed into a tempdir (it might involve a copy if not on the same FS).
             # This is important, such that network filesystem latency
             # does not lead to concurrent writes to the same file.
-            shutil.move(outputfile, tmp)
+            # We can use the plain copy method of shutil, because we do not care about the metadata.
+            shutil.move(outputfile, tmp, copy_function=shutil.copy)
             # make readable/writeable for all
             os.chmod(
                 tmp,
@@ -84,6 +86,8 @@ class OutputFileCache:
             )
 
             # Move to the actual path (now we are on the same FS, hence move is atomic).
+            # Here we use the default copy function, also copying metadata (which is important here).
+            # It will always work, because we are guaranteed to be in the same FS.
             shutil.move(tmp, path)
         # now restore the outputfile via a symlink
         self.symlink(path, outputfile, utime=False)
