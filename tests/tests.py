@@ -146,7 +146,7 @@ def run(
     else:
         assert success, "expected successful execution"
         for resultfile in os.listdir(results_dir):
-            if resultfile == ".gitignore" or not os.path.isfile(
+            if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
                 os.path.join(results_dir, resultfile)
             ):
                 # this means tests cannot use directories as output files
