@@ -1012,7 +1012,7 @@ def test_tibanna():
     run(
         workdir,
         use_conda=True,
-        configfiles=["config.json"],
+        configfiles=[os.path.join(workdir, "config.json")],
         default_remote_prefix="snakemake-tibanna-test/1",
         tibanna_sfn="tibanna_unicorn_johannes",
     )
