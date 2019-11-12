@@ -451,7 +451,7 @@ Furthermore, one can integrate Jupyter_ Notebooks as follows:
             "path/to/notebook.ipynb"
 
 In the notebook, a snakemake object is available, which can be accessed similar to the Python case (see above).
-Note that this requires ``nbconvert`` and ``nbformat``.
+Note that this requires the ``jupyter`` extra install requirement.
 Additionally, the processed notebook can be stored in other formats by providing one of the following extensions: ``.html``, ``.tex``, ``.pdf``, ``.slides``, ``.md``, ``.txt``, ``.rst``.
 
 Finally, it is possible to integrate Julia_ scripts, e.g.

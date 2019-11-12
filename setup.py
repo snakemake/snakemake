@@ -58,7 +58,10 @@ setup(
         "gitpython",
         "psutil",
     ],
-    extras_require={"reports": ["jinja2", "networkx", "pygments", "pygraphviz"]},
+    extras_require={
+        "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
+        "jupyter": ["jupyter", "jupyter_contrib_nbextensions"]
+    },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
