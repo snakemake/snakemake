@@ -342,7 +342,7 @@ def script(
 
             if language != "jupyter":
                 preamble_addendum = "__real_file__ = __file__; __file__ = {file_override};".format(
-                    file_override=repr(os.path.realpath(wrapper_path)),
+                    file_override=repr(os.path.realpath(wrapper_path))
                 )
             else:
                 # nbconvert sets cwd to notebook directory.
@@ -564,7 +564,7 @@ def script(
             shell(
                 "jupyter nbconvert --execute --output {tmp_output:q} --to notebook --ExecutePreprocessor.timeout=-1 {f.name:q}",
                 bench_record=bench_record,
-                tmp_output=tmp_output
+                tmp_output=tmp_output,
             )
 
             # determine whether to save output
@@ -593,10 +593,7 @@ def script(
                     )
 
                 # remove preamble from output
-                nb = nbformat.read(
-                    tmp_output,
-                    as_version=nbformat.NO_CONVERT
-                )
+                nb = nbformat.read(tmp_output, as_version=nbformat.NO_CONVERT)
 
                 nb["cells"].pop(0)
 
@@ -614,7 +611,7 @@ def script(
                         "jupyter nbconvert --output {notebook_output:q} --to {output_format:q} --ExecutePreprocessor.timeout=-1 {tmp_output:q}",
                         notebook_output=notebook_output,
                         output_format=output_format,
-                        tmp_output=tmp_output
+                        tmp_output=tmp_output,
                     )
         elif language == "r":
             if conda_env is not None and "R_LIBS" in os.environ:
