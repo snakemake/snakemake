@@ -491,7 +491,7 @@ def script(
             )
         else:
             raise ValueError(
-                "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd) or Julia (.jl) script."
+                "Unsupported script: Expecting either Python (.py), Jupyter Notebook (.ipynb), R (.R), RMarkdown (.Rmd) or Julia (.jl) script."
             )
 
         dir = ".snakemake/scripts"
