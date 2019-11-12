@@ -51,6 +51,7 @@ syn keyword pythonStatement	ruleorder localrules configfile group
 syn keyword pythonStatement	touch protected temp wrapper conda shadow
 syn keyword pythonStatement	input output params message threads resources singularity
 syn keyword pythonStatement	version run shell benchmark snakefile log script
+syn keyword pythonStatement	wildcard_constraints
 syn keyword pythonStatement	rule subworkflow nextgroup=pythonFunction skipwhite
 
 " similar to special def and class treatment from python.vim, except
