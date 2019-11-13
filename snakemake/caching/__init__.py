@@ -49,7 +49,9 @@ class AbstractOutputFileCache:
         return outputfile
 
     def check_job(self, job: Job):
-        assert not job.dynamic_output, "Bug: Rules with dynamic output may not be cached."
+        assert (
+            not job.dynamic_output
+        ), "Bug: Rules with dynamic output may not be cached."
         assert len(job.output) == 1, "Bug: Only single output files are supported."
 
     def raise_write_error(self, entry, exception=None):
@@ -65,7 +67,7 @@ class AbstractOutputFileCache:
             "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not readable.".format(
                 entry, self.cache_location
             ),
-            *[exception]
+            *[exception],
         )
 
     def raise_cache_miss_exception(self, job):
