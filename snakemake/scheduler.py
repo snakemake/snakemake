@@ -476,25 +476,28 @@ class JobScheduler:
         from pulp import lpSum
         print(f"Possible Jobs: {list(jobs)}")
         scheduled_jobs = [pulp.LpVariable(f"{job}_{i}", lowBound=0, upBound=1, cat=pulp.LpInteger) for i, job in enumerate(jobs)]
-        prob = pulp.LpProblem("Job scheduler", pulp.LpMaximize)
+        
         temp_files = {temp_file for job in jobs for temp_file in self.dag.temp_input(job)}
         deletable = {temp_file: pulp.LpVariable(temp_file, lowBound=0, upBound=1, cat=pulp.LpInteger) for temp_file in temp_files}
         max_priority = sum([job.priority+1 for job in jobs])
+
+        prob = pulp.LpProblem("Job scheduler", pulp.LpMaximize)
         
         # Objective function
-        #prob += max_priority * lpSum([self.temp_can_be_deleted(scheduled_jobs, jobs, temp_file) for temp_file in temp_files]) + lpSum([(job.priority+1) * scheduled_jobs[i] for i, job in enumerate(jobs)])
         prob += lpSum([(job.priority+1) * scheduled_jobs[i] for i, job in enumerate(jobs)]) + max_priority * lpSum(deletable)
         
-        #Constrains:
+        #Constraints:
         resources = [(name, self.resources[name]) for name in self.workflow.global_resources]
         print(resources)
+        #Limitation of resources
         for (name, resource_limit) in resources:
             prob += lpSum([scheduled_jobs[i] * job.resources.get(name, 0) for i, job in enumerate(jobs)]) <= resource_limit
+        
+        #Only delete file if not needed anymore
         for i, job in enumerate(jobs):
             for temp_file in self.dag.temp_input(job):
                 prob += deletable[temp_file] <= scheduled_jobs[i]
-        #for temp_file in temp_files:
-        #    prob += lpSum([scheduled_jobs[i] * self.uses_temp_file(temp_file, job) for i, job in enumerate(jobs)]) >= (deletable[temp_file] * lpSum([self.uses_temp_file(temp_file, job) for job in jobs]))
+
         prob.writeLP("WhiskasModel.lp")
         prob.solve()
         print(f"Scheduled jobs: {[job for (job, variable) in zip(jobs, prob.variables()) if variable.value() == 1]}")
