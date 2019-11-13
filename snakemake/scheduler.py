@@ -8,9 +8,10 @@ import threading
 import operator
 from functools import partial
 from collections import defaultdict
-from itertools import chain, accumulate
+from itertools import chain, accumulate, product
 from contextlib import ContextDecorator
 import time
+
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
@@ -347,7 +348,7 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
-                    run = self.job_selector(needrun)
+                    run = self.job_selector_ilp(needrun)
                     logger.debug(
                         "Selected jobs ({}):\n\t".format(len(run))
                         + "\n\t".join(map(str, run))
@@ -467,11 +468,44 @@ class JobScheduler:
             self._user_kill = "graceful"
         self._open_jobs.release()
 
+    def job_selector_ilp(self, jobs):
+        """
+        Job scheduling by optimization of resource usage by solving ILP using pulp 
+        """
+        import pulp
+        from pulp import lpSum
+        print(f"Possible Jobs: {list(jobs)}")
+        scheduled_jobs = [pulp.LpVariable(f"{job}_{i}", lowBound=0, upBound=1, cat=pulp.LpInteger) for i, job in enumerate(jobs)]
+        prob = pulp.LpProblem("Job scheduler", pulp.LpMaximize)
+        temp_files = {temp_file for job in jobs for temp_file in self.dag.temp_input(job)}
+        deletable = {temp_file: pulp.LpVariable(temp_file, lowBound=0, upBound=1, cat=pulp.LpInteger) for temp_file in temp_files}
+        max_priority = sum([job.priority+1 for job in jobs])
+        
+        # Objective function
+        #prob += max_priority * lpSum([self.temp_can_be_deleted(scheduled_jobs, jobs, temp_file) for temp_file in temp_files]) + lpSum([(job.priority+1) * scheduled_jobs[i] for i, job in enumerate(jobs)])
+        prob += lpSum([(job.priority+1) * scheduled_jobs[i] for i, job in enumerate(jobs)]) + max_priority * lpSum(deletable)
+        
+        #Constrains:
+        resources = [(name, self.resources[name]) for name in self.workflow.global_resources]
+        print(resources)
+        for (name, resource_limit) in resources:
+            prob += lpSum([scheduled_jobs[i] * job.resources.get(name, 0) for i, job in enumerate(jobs)]) <= resource_limit
+        for i, job in enumerate(jobs):
+            for temp_file in self.dag.temp_input(job):
+                prob += deletable[temp_file] <= scheduled_jobs[i]
+        #for temp_file in temp_files:
+        #    prob += lpSum([scheduled_jobs[i] * self.uses_temp_file(temp_file, job) for i, job in enumerate(jobs)]) >= (deletable[temp_file] * lpSum([self.uses_temp_file(temp_file, job) for job in jobs]))
+        prob.writeLP("WhiskasModel.lp")
+        prob.solve()
+        print(f"Scheduled jobs: {[job for (job, variable) in zip(jobs, prob.variables()) if variable.value() == 1]}")
+        return [job for (job, variable) in zip(jobs, prob.variables()) if variable.value() == 1]
+                
+
     def job_selector(self, jobs):
         """
         Using the greedy heuristic from
         "A Greedy Algorithm for the General Multidimensional Knapsack
-Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
+        Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
         Args:
             jobs (list):    list of jobs

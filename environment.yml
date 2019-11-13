@@ -35,3 +35,4 @@ dependencies:
   - gitpython
   - pygments
   - imagemagick
+  - pulp
