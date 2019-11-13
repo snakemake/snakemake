@@ -61,7 +61,8 @@ from snakemake.common import Mode
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
-from snakemake.caching import OutputFileCache
+from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
+from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 
 
 class Workflow:
@@ -148,7 +149,12 @@ class Workflow:
 
         if cache is not None:
             self.cache_rules = set(cache)
-            self.output_file_cache = OutputFileCache()
+            if self.default_remote_provider is not None:
+                self.output_file_cache = RemoteOutputFileCache(
+                    self.default_remote_provider
+                )
+            else:
+                self.output_file_cache = LocalOutputFileCache()
         else:
             self.output_file_cache = None
             self.cache_rules = set()

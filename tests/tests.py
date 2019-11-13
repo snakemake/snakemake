@@ -1086,3 +1086,14 @@ def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
     run(test_path, cache=["a", "b", "c"])
+
+
+def test_output_file_cache_remote():
+    test_path = dpath("test_output_file_cache_remote")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+    run(
+        test_path,
+        cache=["a", "b", "c"],
+        default_remote_provider="S3Mocked",
+        default_remote_prefix="test-remote-bucket",
+    )

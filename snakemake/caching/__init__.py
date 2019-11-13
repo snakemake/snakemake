@@ -3,13 +3,9 @@ __copyright__ = "Copyright 2019, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from tempfile import TemporaryDirectory
-from pathlib import Path
+from abc import ABCMeta, abstractmethod
 import os
-import shutil
-import stat
 
-from snakemake.logging import logger
 from snakemake.jobs import Job
 from snakemake.exceptions import WorkflowError, CacheMissException
 from snakemake.caching.hash import ProvenanceHashMap
@@ -17,16 +13,12 @@ from snakemake.caching.hash import ProvenanceHashMap
 LOCATION_ENVVAR = "SNAKEMAKE_OUTPUT_CACHE"
 
 
-class OutputFileCache:
-    """
-    A cache for output files that uses a provenance hash value that
-    describes all steps, parameters, and software needed to generate
-    each output file.
-    """
+class AbstractOutputFileCache:
+    __metaclass__ = ABCMeta
 
     def __init__(self):
         try:
-            self.path = Path(os.environ[LOCATION_ENVVAR])
+            self.cache_location = os.environ[LOCATION_ENVVAR]
         except KeyError:
             raise WorkflowError(
                 "Output file cache activated (--cache), but no cache "
@@ -35,104 +27,45 @@ class OutputFileCache:
             )
         self.provenance_hash_map = ProvenanceHashMap()
 
-    def check_writeable(self, entry):
-        if not (os.access(self.path, os.W_OK) or os.access(self.path / entry, os.W_OK)):
-
-            raise WorkflowError(
-                "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not writeable.".format(
-                    entry, self.path
-                )
-            )
-
-    def check_readable(self, entry):
-        if not os.access(self.path / entry, os.R_OK):
-            raise WorkflowError(
-                "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not readable.".format(
-                    entry, self.path
-                )
-            )
-
+    @abstractmethod
     def store(self, job: Job):
-        """
-        Store generated job output in the cache.
-        """
-        output = list(job.expanded_output)
-        assert len(output) == 1, "Bug: Only single output files are supported"
-        outputfile = output[0]
+        pass
 
-        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
-        self.check_writeable(provenance_hash)
-        path = self.path / provenance_hash
-        # copy output file
-        assert os.path.exists(outputfile)
-
-        logger.info("Moving output file {} to cache.".format(outputfile))
-        with TemporaryDirectory(dir=self.path) as tmpdirname:
-            tmp = Path(tmpdirname) / provenance_hash
-            # First move is performed into a tempdir (it might involve a copy if not on the same FS).
-            # This is important, such that network filesystem latency
-            # does not lead to concurrent writes to the same file.
-            # We can use the plain copy method of shutil, because we do not care about the metadata.
-            shutil.move(outputfile, tmp, copy_function=shutil.copy)
-            # make readable/writeable for all
-            os.chmod(
-                tmp,
-                stat.S_IRUSR
-                | stat.S_IWUSR
-                | stat.S_IRGRP
-                | stat.S_IWGRP
-                | stat.S_IROTH
-                | stat.S_IWOTH,
-            )
-
-            # Move to the actual path (now we are on the same FS, hence move is atomic).
-            # Here we use the default copy function, also copying metadata (which is important here).
-            # It will always work, because we are guaranteed to be in the same FS.
-            shutil.move(tmp, path)
-        # now restore the outputfile via a symlink
-        self.symlink(path, outputfile, utime=False)
-
+    @abstractmethod
     def fetch(self, job: Job):
-        """
-        Retrieve cached output file and copy to the place where the job expects it's output.
-        """
-        assert len(job.output) == 1, "Bug: Only single output files are supported"
+        pass
 
-        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
-        path = self.path / provenance_hash
-
-        if not path.exists():
-            raise CacheMissException("Job {} not yet cached.".format(job))
-
-        self.check_readable(provenance_hash)
-
-        outputfile = job.output[0]
-
-        self.symlink(path, outputfile)
-
+    @abstractmethod
     def exists(self, job: Job):
-        """
-        Return True if job is already cached
-        """
-        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
-        path = self.path / provenance_hash
+        pass
 
-        if not path.exists():
-            return False
+    def get_outputfile(self, job: Job):
+        output = list(
+            job.expanded_output
+        )  # TODO remove one dynamic is removed from codebase
+        assert len(output) == 1, "Bug: Only single output files are supported."
+        outputfile = output[0]
+        assert os.path.exists(
+            outputfile
+        ), "Bug: Output file does not exist although it should be cached."
+        return outputfile
 
-        self.check_readable(provenance_hash)
-        return True
+    def check_job(self, job: Job):
+        assert len(job.output) == 1, "Bug: Only single output files are supported."
 
-    def symlink(self, path, outputfile, utime=True):
-        if os.utime in os.supports_follow_symlinks or not utime:
-            logger.info("Symlinking output file {} from cache.".format(outputfile))
-            os.symlink(path, outputfile)
-            if utime:
-                os.utime(outputfile, follow_symlinks=False)
-        else:
-            logger.info(
-                "Copying output file {} from cache (OS does not support updating the modification date of symlinks).".format(
-                    outputfile
-                )
+    def raise_write_error(self, entry):
+        raise WorkflowError(
+            "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not writeable.".format(
+                entry, self.cache_location
             )
-            shutil.copyfile(path, outputfile)
+        )
+
+    def raise_read_error(self, entry):
+        raise WorkflowError(
+            "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not readable.".format(
+                entry, self.cache_location
+            )
+        )
+
+    def raise_cache_miss_exception(self, job):
+        raise CacheMissException("Job {} not yet cached.".format(job))
