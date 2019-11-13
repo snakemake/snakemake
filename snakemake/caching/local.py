@@ -39,7 +39,7 @@ class OutputFileCache(AbstractOutputFileCache):
         """
         Store generated job output in the cache.
         """
-        outputfile = self.get_outputfile(job)
+        outputfile = self.get_outputfile(job, check_exists=True)
 
         provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
         self.check_writeable(provenance_hash)

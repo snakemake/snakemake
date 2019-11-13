@@ -22,33 +22,41 @@ class OutputFileCache(AbstractOutputFileCache):
 
     def store(self, job: Job):
         outputfile = self.get_outputfile(job)
-        entry = self._get_remote(job)
+        entry = self._get_remote(job, check_output_exists=True)
 
         # upload to remote
-        entry.upload()
+        try:
+            entry.upload()
+        except Exception as e:
+            self.raise_write_error(entry, exception=e)
 
     def fetch(self, job: Job):
         self.check_job(job)
         entry = self._get_remote(job)
-        outputfile = job.output[0]
 
         if not entry.exists():
             self.raise_cache_miss_exception(job)
 
         # download to outputfile
-        entry.download()
+        try:
+            entry.download()
+        except Exception as e:
+            self.raise_read_error(entry, exception=e)
 
     def exists(self, job: Job):
         self.check_job(job)
-        outputfile = job.output[0]
         entry = self._get_remote(job)
-        entry.exists()
 
-    def _get_remote(self, job: Job):
+        try:
+            return entry.exists()
+        except Exception as e:
+            self.raise_read_error(entry, exception=e)
+
+    def _get_remote(self, job: Job, check_output_exists=False):
         provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
         f = self.remote_provider.remote(
             "{}/{}".format(self.cache_location, provenance_hash)
         )
         remote = get_flag_value(f, "remote_object")
-        remote._iofile = job.output[0]
+        remote._iofile = self.get_outputfile(job, check_exists=check_output_exists)
         return remote

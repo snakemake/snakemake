@@ -20,12 +20,14 @@ For example,
 
 would instruct Snakemake to cache and reuse the results of the rules ``download_reference``and ``create_index``.
 The environment variable definition that happens in the first line (defining the location of the cache) should of course be done only once and system wide in reality.
+When Snakemake is executed without a shared filesystem (e.g., in the cloud, see :ref:`cloud`), the environment variable has to point to a location compatible with the given remote provider (e.g. an S3 or Google Storage bucket).
+In any case, the provided location should be shared between all workflows of your group, institute or computing environment, in order to benefit from the reuse of previously obtained intermediate results.
 
 Note that only rules with just a single output file are eligible for caching.
 Also note that the rules need to retrieve all their parameters via the ``params`` directive (except input files).
 It is not allowed to directly use ``wildcards``, ``config`` or any global variable in the shell command or script, because these are not captured in the hash (otherwise, reuse would be unnecessarily limited).
 
-Also note that Snakemake will store everything in the cache as readable and writeable for all users on the system.
+Also note that Snakemake will store everything in the cache as readable and writeable for **all users** on the system (except in the remote case, where permissions are not enforced and depend on your storage configuration).
 Hence, caching is not intended for private data, just for steps that deal with publicly available resources.
 
 Finally, be aware that the implementation has to be considered **experimental** until this note is removed.

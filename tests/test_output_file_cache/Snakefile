@@ -29,3 +29,12 @@ rule c:
         a=1.5
     shell:
         "echo test3 {params.a} > {output}"
+
+
+rule invalid_multi:
+    output:
+        "invalid1.txt",
+        "invalid2.txt"
+    shell:
+        "touch {output}"
+
