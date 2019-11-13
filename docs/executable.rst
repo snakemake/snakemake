@@ -245,6 +245,10 @@ want to upload files in advance using the Google API Python Client.
 Note that you can also easily use the Google Cloud Console interface, if
 a graphical interface is preferable to you.
 
+**Important:** Google Cloud Life Sciences uses Google Compute, and does
+**not** encrypt environment variables. If you specify environment
+variables with `--envars` they will **not** be secrets.
+
 
 Executing a Snakemake workflow via Tibanna on Amazon Web Services
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

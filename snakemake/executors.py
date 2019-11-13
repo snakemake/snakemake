@@ -2116,7 +2116,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
             "--notemp --no-hooks --nolock " % self.snakefile
         )
 
-        # We might eventually want different logic for secrets
+        # IMPORTANT: using Compute Engine API and not k8s == no support secrets
         self.envvars = envvars or []
 
         # Quit early if we can't authenticate
@@ -2475,6 +2475,10 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
                 envvars[key] = os.environ[key]
             except KeyError:
                 continue
+
+        # Warn the user that we cannot support secrets
+        if envars:
+            logger.warning("This API does not support environment secrets.")
         return envvars
 
     def _generate_pipeline(self, job):
