@@ -53,16 +53,27 @@ Rules describe how to create **output files** from **input files**.
 
     rule targets:
         input:
-            "plots/dataset1.pdf",
-            "plots/dataset2.pdf"
+            "plots/myplot.pdf"
 
-    rule plot:
+    rule transform:
         input:
             "raw/{dataset}.csv"
         output:
-            "plots/{dataset}.pdf"
+            "transformed/{dataset}.csv"
+        singularity:
+            "docker://somecontainer:v1.0"
         shell:
             "somecommand {input} {output}"
+
+    rule aggregate_and_plot:
+        input:
+            expand("transformed/{dataset}.csv", dataset=[1, 2])
+        output:
+            "plots/myplot.pdf"
+        conda:
+            "envs/matplotlib.yaml"
+        script:
+            "scripts/plot.py"
 
 
 * Similar to GNU Make, you specify targets in terms of a pseudo-rule at the top.
