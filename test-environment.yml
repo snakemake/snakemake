@@ -43,3 +43,4 @@ dependencies:
   - pygraphviz
   - python-kubernetes
   - gitpython
+  - tibanna
