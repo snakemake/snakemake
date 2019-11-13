@@ -2177,6 +2177,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
 
         # Discovery clients for Google Cloud Storage and Life Sciences API
         self._storage_cli = discovery_build("storage", "v1", credentials=creds)
+        self._compute_cli = discovery_build("compute", "v1", credentials=creds)
         self._api = discovery_build("lifesciences", "v2beta", credentials=creds)
         self._bucket_service = storage.Client()
 
@@ -2260,86 +2261,62 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         nodes = job.resources.get("_nodes", 1)
         mem_mb = job.resources.get("mem_mb", 100)
 
-        # Need to convert mem_mb to GB
-        mem_gb = mem_mb / 1000.0
+        # Regular expression to determine if zone in region
+        regexp = "^(%s)" % "|".join(self.regions)
 
-        # For now just map vCPU (virtual CPU) to requested CPU/memory
+        # Retrieve zones, filter down to selected regions
+        zones = self._retry_request(
+            self._compute_cli.zones().list(project=self.project)
+        )
+        zones = [z for z in zones["items"] if re.search(regexp, z["name"])]
+
+        # Retrieve machine types available across zones
+        # https://cloud.google.com/compute/docs/regions-zones/
+        lookup = {}
+        for zone in zones:
+            request = self._compute_cli.machineTypes().list(
+                project=self.project, zone=zone["name"]
+            )
+            lookup[zone["name"]] = self._retry_request(request)["items"]
+
+        # Only keep those that are shared, use last zone as a base
+        machineTypes = {mt["name"]: mt for mt in lookup[zone["name"]]}
+        del lookup[zone["name"]]
+
+        # Update final list based on the remaining
+        to_remove = set()
+        for zone, types in lookup.items():
+            names = [x["name"] for x in types]
+            for machineType in list(machineTypes.keys()):
+                if machineType not in names:
+                    to_remove.add(machineType)
+
+        for machineType in to_remove:
+            del machineTypes[machineType]
+
+        # Alert the user of machineTypes available before filtering
         # https://cloud.google.com/compute/docs/machine-types
-        machineTypes = [
-            {"name": "n1-standard-1", "mem_gb": 3.75, "vcpu": 1},
-            {"name": "n1-standard-2", "mem_gb": 7.5, "vcpu": 2},
-            {"name": "n1-standard-4", "mem_gb": 15, "vcpu": 4},
-            {"name": "n1-standard-8", "mem_gb": 30, "vcpu": 8},
-            {"name": "n1-standard-16", "mem_gb": 60, "vcpu": 16},
-            {"name": "n1-standard-32", "mem_gb": 120, "vcpu": 32},
-            {"name": "n1-standard-64", "mem_gb": 240, "vcpu": 64},
-            {"name": "n1-standard-96", "mem_gb": 360, "vcpu": 96},
-            {"name": "n1-highmem-2", "mem_gb": 13, "vcpu": 2},
-            {"name": "n1-highmem-4", "mem_gb": 26, "vcpu": 4},
-            {"name": "n1-highmem-8", "mem_gb": 52, "vcpu": 8},
-            {"name": "n1-highmem-16", "mem_gb": 104, "vcpu": 16},
-            {"name": "n1-highmem-32", "mem_gb": 208, "vcpu": 32},
-            {"name": "n1-highmem-64", "mem_gb": 416, "vcpu": 64},
-            {"name": "n1-highmem-96", "mem_gb": 624, "vcpu": 96},
-            {"name": "n1-highcpu-2", "mem_gb": 1.8, "vcpu": 2},
-            {"name": "n1-highcpu-4", "mem_gb": 3.6, "vcpu": 4},
-            {"name": "n1-highcpu-8", "mem_gb": 7.2, "vcpu": 8},
-            {"name": "n1-highcpu-16", "mem_gb": 14.4, "vcpu": 16},
-            {"name": "n1-highcpu-32", "mem_gb": 28.8, "vcpu": 32},
-            {"name": "n1-highcpu-64", "mem_gb": 57.6, "vcpu": 64},
-            {"name": "n1-highcpu-96", "mem_gb": 86.4, "vcpu": 96},
-            {"name": "n2-standard-2", "mem_gb": 8, "vcpu": 2},
-            {"name": "n2-standard-4", "mem_gb": 16, "vcpu": 4},
-            {"name": "n2-standard-8", "mem_gb": 32, "vcpu": 8},
-            {"name": "n2-standard-16", "mem_gb": 64, "vcpu": 16},
-            {"name": "n2-standard-32", "mem_gb": 128, "vcpu": 32},
-            {"name": "n2-standard-48", "mem_gb": 192, "vcpu": 48},
-            {"name": "n2-standard-64", "mem_gb": 256, "vcpu": 64},
-            {"name": "n2-standard-80", "mem_gb": 320, "vcpu": 80},
-            {"name": "n2-highmem-2", "mem_gb": 16, "vcpu": 2},
-            {"name": "n2-highmem-4", "mem_gb": 32, "vcpu": 4},
-            {"name": "n2-highmem-8", "mem_gb": 64, "vcpu": 8},
-            {"name": "n2-highmem-16", "mem_gb": 128, "vcpu": 16},
-            {"name": "n2-highmem-32", "mem_gb": 256, "vcpu": 32},
-            {"name": "n2-highmem-48", "mem_gb": 384, "vcpu": 48},
-            {"name": "n2-highmem-64", "mem_gb": 512, "vcpu": 64},
-            {"name": "n2-highmem-80", "mem_gb": 640, "vcpu": 80},
-            {"name": "n2-highcpu-2", "mem_gb": 2, "vcpu": 2},
-            {"name": "n2-highcpu-4", "mem_gb": 4, "vcpu": 4},
-            {"name": "n2-highcpu-8", "mem_gb": 8, "vcpu": 8},
-            {"name": "n2-highcpu-16", "mem_gb": 16, "vcpu": 16},
-            {"name": "n2-highcpu-32", "mem_gb": 32, "vcpu": 32},
-            {"name": "n2-highcpu-48", "mem_gb": 48, "vcpu": 48},
-            {"name": "n2-highcpu-64", "mem_gb": 64, "vcpu": 64},
-            {"name": "n2-highcpu-80", "mem_gb": 80, "vcpu": 80},
-            {"name": "m1-ultramem-40", "mem_gb": 961, "vcpu": 40},
-            {"name": "m1-ultramem-80", "mem_gb": 1922, "vcpu": 80},
-            {"name": "m1-ultramem-160", "mem_gb": 3844, "vcpu": 160},
-            {"name": "m1-megamem-96", "mem_gb": 1433.6, "vcpu": 96},
-            {"name": "m2-ultramem-208", "mem_gb": 5888, "vcpu": 208},
-            {"name": "m2-ultramem-416", "mem_gb": 11776, "vcpu": 416},
-            # Compute optimized
-            {"name": "c2-standard-4", "mem_gb": 16, "vcpu": 4},
-            {"name": "c2-standard-8", "mem_gb": 32, "vcpu": 8},
-            {"name": "c2-standard-16", "mem_gb": 64, "vcpu": 16},
-            {"name": "c2-standard-30", "mem_gb": 128, "vcpu": 30},
-            {"name": "c2-standard-60", "mem_gb": 240, "vcpu": 60},
-        ]
+        logger.debug(
+            "found {} machine types across regions {} before filtering"
+            "to increase selection, define fewer regions".format(
+                len(machineTypes), self.regions
+            )
+        )
 
         # First pass - eliminate anything that too low in cpu/memory
-        keepers = []
-        for machineType in machineTypes:
-            if machineType["vcpu"] < cores or machineType["mem_gb"] < mem_gb:
+        keepers = dict()
+        for name, machineType in machineTypes.items():
+            if machineType["guestCpus"] < cores or machineType["memoryMb"] < mem_mb:
                 continue
-            keepers.append(machineType)
+            keepers[name] = machineType
 
         # If a prefix is set, filter down to it
         if self._machine_type_prefix:
             machineTypes = keepers
-            keepers = []
-            for machineType in machineTypes:
-                if machineType["name"].startswith(self._machine_type_prefix):
-                    keepers.append(machineType)
+            keepers = dict()
+            for name, machineType in machineTypes.items():
+                if name.startswith(self._machine_type_prefix):
+                    keepers[name] = machineType
 
         # If we don't have any contenders, workflow error
         if not keepers:
@@ -2350,18 +2327,22 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
 
         # Now find (quasi) minimal to satisfy constraints
         machineTypes = keepers
-        keepers = []
+        keepers = dict()
 
         minCores = 1
         minMem = 3.75
         smallest = "n1-standard-1"
 
-        for machineType in machineTypes:
-            if machineType["vcpu"] < minCores and machineType["mem_gb"] < minMem:
-                smallest = machineType["name"]
-                minCores = machineType["vcpu"]
-                minMem = machineType["mem_gb"]
+        for name, machineType in machineTypes.items():
+            if machineType["guestCpus"] < minCores and machineType["memoryMb"] < minMem:
+                smallest = name
+                minCores = machineType["guestCpus"]
+                minMem = machineType["memoryMb"]
 
+        selected = machineTypes[smallest]
+        logger.debug(
+            "Selected machine type {}:{}".format(smallest, selected["description"])
+        )
         virtualMachine = {
             "machineType": smallest,
             "labels": {"app": "snakemake"},
@@ -2477,7 +2458,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
                 continue
 
         # Warn the user that we cannot support secrets
-        if envars:
+        if envvars:
             logger.warning("This API does not support environment secrets.")
         return envvars
 
