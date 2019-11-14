@@ -57,11 +57,9 @@ setup(
         "docutils",
         "gitpython",
         "psutil",
+        "nbformat"
     ],
-    extras_require={
-        "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
-        "jupyter": ["jupyter", "jupyter_contrib_nbextensions"]
-    },
+    extras_require={"reports": ["jinja2", "networkx", "pygments", "pygraphviz"]},
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
