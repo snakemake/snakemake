@@ -206,8 +206,20 @@ credentials will be used.
 
 Using this executor typically requires you to start with large data files
 already in Google Storage, and then interact with them via the Google Storage
-remote executor. Here is an example script that shows you how you might
-want to upload files in advance using the Google API Python Client. 
+remote executor. An easy way to do this is to use the
+`gsutil <https://cloud.google.com/storage/docs/uploading-objects>`_
+command line client. For example, here is how we might upload a file
+to storage using it:
+
+
+.. code-block:: console
+
+      $ gsutil cp mydata.txt gs://snakemake-bucket/1/mydata.txt
+
+And note that you'll need to modify the file and bucket names.
+If you want a programmatic method in Python, here is an example script 
+that shows you how you might want to upload files in advance using the 
+Google API Python Client. 
 
 .. code-block:: python
 

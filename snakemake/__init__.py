@@ -1681,11 +1681,11 @@ def get_argument_parser(profile=None):
     group_google_life_science.add_argument(
         "--google-life-sciences-regions",
         nargs="+",
-        default=[],
+        default=["us-east1", "us-west1", "us-central1"],
         help="Specify one or more valid instance regions (defaults to US)",
     )
     group_google_life_science.add_argument(
-        "--google-life-sciences-cache",
+        "--google-life-sciences-keep-cache",
         action="store_true",
         help="Cache workflows in your Google Cloud Storage Bucket specified "
         "by --default-remote-prefix/{source}/{cache}. Each workflow working "
@@ -2035,7 +2035,7 @@ def main(argv=None):
             google_life_sciences=args.google_life_sciences,
             google_life_sciences_envvars=args.google_life_sciences_env,
             google_life_sciences_regions=args.google_life_sciences_regions,
-            google_life_sciences_cache=args.google_life_sciences_cache,
+            google_life_sciences_cache=args.google_life_sciences_keep_cache,
             google_machine_type_prefix=args.google_machine_type_prefix,
             precommand=args.precommand,
             jobname=args.jobname,
