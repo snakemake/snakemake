@@ -494,9 +494,6 @@ class JobScheduler:
         for i, job in enumerate(jobs):
             for temp_file in self.dag.temp_input(job):
                 prob += deletable[temp_file] <= scheduled_jobs[i]
-        
-        #At least one job needs to be scheduled
-        prob += lpSum(scheduled_jobs) >= 1
 
         #prob.writeLP("WhiskasModel.lp")
         prob.solve()
