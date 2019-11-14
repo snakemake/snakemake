@@ -4,6 +4,7 @@ __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
 from functools import update_wrapper
+import hashlib
 import inspect
 import uuid
 import os
@@ -53,6 +54,28 @@ def get_container_image():
 
 def get_uuid(name):
     return uuid.uuid5(UUID_NAMESPACE, name)
+
+
+def get_file_hash(filename, algorithm="sha256"):
+    """find the SHA256 hash string of a file. We use this so that the
+       user can choose to cache working directories in storage.
+    """
+    if os.path.exists(filename):
+
+        # The algorithm must be available
+        try:
+            hasher = hashlib.new(algorithm)
+        except ValueError as ex:
+            logger.error("%s is not an available algorithm." % algorithm)
+            raise ex
+
+        with open(filename, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+
+    logger.warning("%s does not exist." % filename)
+    raise FileNotFoundError
 
 
 class Mode:

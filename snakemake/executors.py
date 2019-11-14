@@ -8,7 +8,6 @@ import sys
 import contextlib
 import time
 import datetime
-import hashlib
 import json
 import textwrap
 import stat
@@ -44,7 +43,13 @@ from snakemake.exceptions import (
     ImproperShadowException,
     SpawnedJobError,
 )
-from snakemake.common import Mode, __version__, get_container_image, get_uuid
+from snakemake.common import (
+    Mode,
+    __version__,
+    get_container_image,
+    get_uuid,
+    get_file_hash,
+)
 
 
 def sleep():
@@ -452,10 +457,6 @@ class CPUExecutor(RealExecutor):
 
 
 class ClusterExecutor(RealExecutor):
-    """the cluster executor will start with the exec_job (the start of a
-       snakemake commant intended to run on some cluster) and then based
-       on input arguments from the workflow (e.g., containers? conda?)
-       build up the exec_job to be ready to send to the cluster or remote.
     """Backend for distributed execution. 
     
         The key idea is that a job is converted into a script that invokes Snakemake again, in whatever environment is targeted. The script is submitted to some job management platform (e.g. a cluster scheduler like slurm).
@@ -2130,7 +2131,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         # Akin to Kubernetes, create a run namespace, default container image
         self.run_namespace = str(uuid.uuid4())
         self.container_image = container_image or "vanessa/snakemake:dev"
-        self.regions = regions
+        self.regions = regions or ["us-east1", "us-west1", "us-central1"]
 
         # The project name is required, either from client or environment
         self.project = (
@@ -2224,9 +2225,9 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         """shutdown deletes build packages if the user didn't request to clean
            up the cache. At this point we've already cancelled running jobs.
         """
-        # Delete build packages only if user regooglquested no cache
+        # Delete build source packages only if user regooglquested no cache
         if self._save_storage_cache:
-            logger.debug("Requested to save workflow cache, skipping cleanup.")
+            logger.debug("Requested to save workflow sources, skipping cleanup.")
         else:
             for package in self._build_packages:
                 blob = self.bucket.blob(package)
@@ -2356,7 +2357,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         resources = {"regions": self.regions, "virtualMachine": virtualMachine}
         return resources
 
-    def _generate_build_package(self):
+    def _generate_build_source_package(self):
         """in order for the instance to access the working directory in storage,
            we need to upload it. This file is cleaned up at the end of the run.
            We do this, and then obtain from the instance and extract.
@@ -2378,7 +2379,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         tar.close()
 
         # Rename based on hash, in case user wants to save cache
-        sha256 = self.get_file_hash(targz)
+        sha256 = get_file_hash(targz)
         hash_tar = os.path.join(self.workdir, "snakeworkdir-%s.tar.gz" % sha256)
 
         # Only copy if we don't have it yet, clean up if we do
@@ -2392,18 +2393,6 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
 
         return hash_tar
 
-    def get_file_hash(self, filename):
-        """find the SHA256 hash string of a file. We use this so that the
-           user can choose to cache working directories in storage.
-        """
-        if os.path.exists(filename):
-            hasher = hashlib.sha256()
-            with open(filename, "rb") as f:
-                for chunk in iter(lambda: f.read(4096), b""):
-                    hasher.update(chunk)
-            return hasher.hexdigest()
-        logger.warning("%s does not exist." % filename)
-
     def _generate_job_action(self, job):
         """generate a single action to execute the job.
         """
@@ -2414,7 +2403,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
 
         # Remote files (within Snakefile) should be referenced via remotes.GS
         # For the workdir, we need to upload it, named based on hash of contents
-        targz = self._generate_build_package()
+        targz = self._generate_build_source_package()
 
         # Upload to temporary storage, only if doesn't exist
         destination = "source/cache/%s" % os.path.basename(targz)
