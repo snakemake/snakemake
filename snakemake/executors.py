@@ -456,6 +456,10 @@ class ClusterExecutor(RealExecutor):
        snakemake commant intended to run on some cluster) and then based
        on input arguments from the workflow (e.g., containers? conda?)
        build up the exec_job to be ready to send to the cluster or remote.
+    """Backend for distributed execution. 
+    
+        The key idea is that a job is converted into a script that invokes Snakemake again, in whatever environment is targeted. The script is submitted to some job management platform (e.g. a cluster scheduler like slurm).
+        This class can be specialized to generate more specific backends, also for the cloud.
     """
 
     default_jobscript = "jobscript.sh"
