@@ -475,8 +475,8 @@ class JobScheduler:
         import pulp
         from pulp import lpSum
         print(f"Possible Jobs: {list(jobs)}")
-        scheduled_jobs = [pulp.LpVariable(f"{job}_{i}", lowBound=0, upBound=1, cat=pulp.LpInteger) for i, job in enumerate(jobs)]
-        
+        scheduled_jobs = [pulp.LpVariable(f"job_{job}_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger) for idx, job in enumerate(jobs)]
+
         temp_files = {temp_file for job in jobs for temp_file in self.dag.temp_input(job)}
         deletable = {temp_file: pulp.LpVariable(temp_file, lowBound=0, upBound=1, cat=pulp.LpInteger) for temp_file in temp_files}
         max_priority = sum([job.priority+1 for job in jobs])
@@ -485,24 +485,25 @@ class JobScheduler:
         
         # Objective function
         prob += lpSum([(job.priority+1) * scheduled_jobs[i] for i, job in enumerate(jobs)]) + max_priority * lpSum(deletable)
-        
         #Constraints:
-        resources = [(name, self.resources[name]) for name in self.workflow.global_resources]
-        print(resources)
-        #Limitation of resources
-        for (name, resource_limit) in resources:
-            prob += lpSum([scheduled_jobs[i] * job.resources.get(name, 0) for i, job in enumerate(jobs)]) <= resource_limit
+        for (name, resource_limit) in  self.workflow.global_resources.items():
+            print(f"{name} {resource_limit}")
+            prob += lpSum([scheduled_jobs[i] * job.resources.get(name, 0) for i, job in enumerate(jobs)]) <= resource_limit, f"Limitation of resource: {name}"
         
         #Only delete file if not needed anymore
         for i, job in enumerate(jobs):
             for temp_file in self.dag.temp_input(job):
                 prob += deletable[temp_file] <= scheduled_jobs[i]
+        
+        #At least one job needs to be scheduled
+        prob += lpSum(scheduled_jobs) >= 1
 
-        prob.writeLP("WhiskasModel.lp")
+        #prob.writeLP("WhiskasModel.lp")
         prob.solve()
-        print(f"Scheduled jobs: {[job for (job, variable) in zip(jobs, prob.variables()) if variable.value() == 1]}")
-        return [job for (job, variable) in zip(jobs, prob.variables()) if variable.value() == 1]
-                
+        print("Status:", pulp.LpStatus[prob.status])
+        solution = [jobs[int(variable.name.split("_")[-1])] for variable in prob.variables() if (variable.name.startswith("job_") and variable.value() == 1.0)]
+        print(f"Scheduled jobs: {solution}")
+        return solution
 
     def job_selector(self, jobs):
         """
