@@ -19,7 +19,7 @@ from snakemake.executors import (
     DRMAAExecutor,
     KubernetesExecutor,
     TibannaExecutor,
-    GoogleLifeScienceExecutor,
+    GoogleLifeSciencesExecutor,
 )
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
@@ -66,10 +66,10 @@ class JobScheduler:
         container_image=None,
         tibanna=None,
         tibanna_sfn=None,
-        google_life_sciences=None,
-        google_life_sciences_envvars=None,
-        google_life_sciences_regions=None,
-        google_life_sciences_cache=False,
+        google_lifesciences=None,
+        google_lifesciences_envvars=None,
+        google_lifesciences_regions=None,
+        google_lifesciences_cache=False,
         google_machine_type_prefix=None,
         precommand="",
         jobname=None,
@@ -252,7 +252,7 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
             )
-        elif google_life_sciences:
+        elif google_lifesciences:
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
@@ -264,14 +264,14 @@ class JobScheduler:
                 cores=local_cores,
             )
 
-            self._executor = GoogleLifeScienceExecutor(
+            self._executor = GoogleLifeSciencesExecutor(
                 workflow,
                 dag,
                 cores,
-                envvars=google_life_sciences_envvars,
+                envvars=google_lifesciences_envvars,
                 container_image=container_image,
-                regions=google_life_sciences_regions,
-                cache=google_life_sciences_cache,
+                regions=google_lifesciences_regions,
+                cache=google_lifesciences_cache,
                 machine_type_prefix=google_machine_type_prefix,
                 printreason=printreason,
                 quiet=quiet,

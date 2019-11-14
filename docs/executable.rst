@@ -214,8 +214,10 @@ to storage using it:
 
 .. code-block:: console
 
-      $ gsutil cp mydata.txt gs://snakemake-bucket/1/mydata.txt
+      $ gsutil -m cp mydata.txt gs://snakemake-bucket/1/mydata.txt
 
+The `-m` parameter enables multipart uploads for large files, so you
+can remove it if you are uploading one or more smaller files.
 And note that you'll need to modify the file and bucket names.
 If you want a programmatic method in Python, here is an example script 
 that shows you how you might want to upload files in advance using the 

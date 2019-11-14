@@ -2066,12 +2066,12 @@ def run_wrapper(
             raise WorkflowError(ex)
 
 
-GoogleLifeScienceJob = namedtuple(
-    "GoogleLifeScienceJob", "job jobname jobid callback error_callback"
+GoogleLifeSciencesJob = namedtuple(
+    "GoogleLifeSciencesJob", "job jobname jobid callback error_callback"
 )
 
 
-class GoogleLifeScienceExecutor(ClusterExecutor):
+class GoogleLifeSciencesExecutor(ClusterExecutor):
     """the GoogleLifeSciences executor uses Google Cloud Storage, and
        Compute Engine paired with the Google Life Sciences API.
        https://cloud.google.com/life-sciences/docs/quickstart
@@ -2265,6 +2265,10 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         cores = job.resources.get("_cores", 1)
         nodes = job.resources.get("_nodes", 1)
         mem_mb = job.resources.get("mem_mb", 100)
+        disk_mb = job.resources.get("disk_mb", 102400)  # 100 GB default
+
+        # Convert mb to gb, add buffer of 50
+        disk_gb = math.ceil(disk_mb / 1024) + 10
 
         # Regular expression to determine if zone in region
         regexp = "^(%s)" % "|".join(self.regions)
@@ -2351,7 +2355,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         virtualMachine = {
             "machineType": smallest,
             "labels": {"app": "snakemake"},
-            "bootDiskSizeGb": 100,  # default is likely 10
+            "bootDiskSizeGb": disk_gb,
         }
 
         resources = {"regions": self.regions, "virtualMachine": virtualMachine}
@@ -2527,7 +2531,7 @@ class GoogleLifeScienceExecutor(ClusterExecutor):
         )
 
         self.active_jobs.append(
-            GoogleLifeScienceJob(job, result["name"], jobid, callback, error_callback)
+            GoogleLifeSciencesJob(job, result["name"], jobid, callback, error_callback)
         )
 
     def _job_was_successful(self, status):

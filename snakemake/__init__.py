@@ -137,10 +137,10 @@ def snakemake(
     container_image=None,
     tibanna=False,
     tibanna_sfn=None,
-    google_life_sciences=False,
-    google_life_sciences_envvars=None,
-    google_life_sciences_regions=None,
-    google_life_sciences_cache=False,
+    google_lifesciences=False,
+    google_lifesciences_envvars=None,
+    google_lifesciences_regions=None,
+    google_lifesciences_cache=False,
     google_machine_type_prefix=None,
     precommand="",
     default_remote_provider=None,
@@ -249,10 +249,10 @@ def snakemake(
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
-        google_life_sciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
-        google_life_sciences_envvars (list):  environment variable keys to lookup and pass to pipeline.
-        google_life_sciences_regions (list): a list of regions (e.g., us-east1)
-        google_life_sciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
+        google_lifesciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
+        google_lifesciences_envvars (list):  environment variable keys to lookup and pass to pipeline.
+        google_lifesciences_regions (list): a list of regions (e.g., us-east1)
+        google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
         google_machine_type_prefix (str): The prefix of a machine type to filter to, if desired.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
@@ -318,7 +318,7 @@ def snakemake(
         assert tibanna_sfn, "tibanna_sfn needed if tibanna is specified"
 
     # Google Cloud Life Sciences API uses compute engine and storage
-    if google_life_sciences:
+    if google_lifesciences:
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
@@ -326,7 +326,7 @@ def snakemake(
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa or tibanna or google_life_sciences:
+    if cluster or cluster_sync or drmaa or tibanna or google_lifesciences:
         cores = sys.maxsize
     else:
         nodes = sys.maxsize
@@ -347,12 +347,7 @@ def snakemake(
         cluster_config_content = dict()
 
     run_local = not (
-        cluster
-        or cluster_sync
-        or drmaa
-        or kubernetes
-        or tibanna
-        or google_life_sciences
+        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences
     )
     if run_local and not dryrun:
         # clean up all previously recorded jobids.
@@ -562,10 +557,10 @@ def snakemake(
                     default_remote_prefix=default_remote_prefix,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
-                    google_life_sciences=google_life_sciences,
-                    google_life_sciences_envvars=google_life_sciences_envvars,
-                    google_life_sciences_regions=google_life_sciences_regions,
-                    google_life_sciences_cache=google_life_sciences_cache,
+                    google_lifesciences=google_lifesciences,
+                    google_lifesciences_envvars=google_lifesciences_envvars,
+                    google_lifesciences_regions=google_lifesciences_regions,
+                    google_lifesciences_cache=google_lifesciences_cache,
                     google_machine_type_prefix=google_machine_type_prefix,
                     precommand=precommand,
                     assume_shared_fs=assume_shared_fs,
@@ -604,10 +599,10 @@ def snakemake(
                     container_image=container_image,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
-                    google_life_sciences=google_life_sciences,
-                    google_life_sciences_envvars=google_life_sciences_envvars,
-                    google_life_sciences_regions=google_life_sciences_regions,
-                    google_life_sciences_cache=google_life_sciences_cache,
+                    google_lifesciences=google_lifesciences,
+                    google_lifesciences_envvars=google_lifesciences_envvars,
+                    google_lifesciences_regions=google_lifesciences_regions,
+                    google_lifesciences_cache=google_lifesciences_cache,
                     google_machine_type_prefix=google_machine_type_prefix,
                     precommand=precommand,
                     max_jobs_per_second=max_jobs_per_second,
@@ -1661,7 +1656,7 @@ def get_argument_parser(profile=None):
         " handled by Tibanna.",
     )
     group_google_life_science.add_argument(
-        "--google-life-sciences",
+        "--google-lifesciences",
         action="store_true",
         help="Execute workflow on Google Cloud cloud using the Google Life. "
         " Science API. This requires default application credentials (json) "
@@ -1672,20 +1667,20 @@ def get_argument_parser(profile=None):
         "--configfile are supported and will be carried over.",
     )
     group_google_life_science.add_argument(
-        "--google-life-sciences-env",
+        "--google-lifesciences-env",
         nargs="+",
         metavar="ENVVAR",
         default=[],
         help="Specify environment variables to pass to the pipeline.",
     )
     group_google_life_science.add_argument(
-        "--google-life-sciences-regions",
+        "--google-lifesciences-regions",
         nargs="+",
         default=["us-east1", "us-west1", "us-central1"],
         help="Specify one or more valid instance regions (defaults to US)",
     )
     group_google_life_science.add_argument(
-        "--google-life-sciences-keep-cache",
+        "--google-lifesciences-keep-cache",
         action="store_true",
         help="Cache workflows in your Google Cloud Storage Bucket specified "
         "by --default-remote-prefix/{source}/{cache}. Each workflow working "
@@ -1915,7 +1910,7 @@ def main(argv=None):
                 )
                 sys.exit(1)
 
-    if args.google_life_sciences:
+    if args.google_lifesciences:
         if not args.default_remote_prefix:
             print(
                 "Error: --google-life-sciences must be combined with "
@@ -2032,10 +2027,10 @@ def main(argv=None):
             container_image=args.container_image,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
-            google_life_sciences=args.google_life_sciences,
-            google_life_sciences_envvars=args.google_life_sciences_env,
-            google_life_sciences_regions=args.google_life_sciences_regions,
-            google_life_sciences_cache=args.google_life_sciences_keep_cache,
+            google_lifesciences=args.google_lifesciences,
+            google_lifesciences_envvars=args.google_lifesciences_env,
+            google_lifesciences_regions=args.google_lifesciences_regions,
+            google_lifesciences_cache=args.google_lifesciences_keep_cache,
             google_machine_type_prefix=args.google_machine_type_prefix,
             precommand=args.precommand,
             jobname=args.jobname,
