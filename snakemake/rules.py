@@ -235,14 +235,15 @@ class Rule:
         return branch
 
     def check_caching(self):
-        if self.name in self.workflow.cache_rules and len(self.output) != 1:
-            raise RuleException(
-                "Only rules with exactly 1 output file may be cached.", rule=self
-            )
-        if self.dynamic_output:
-            raise RuleException(
-                "Rules with dynamic output files may not be cached.", rule=self
-            )
+        if self.name in self.workflow.cache_rules:
+            if len(self.output) != 1:
+                raise RuleException(
+                    "Only rules with exactly 1 output file may be cached.", rule=self
+                )
+            if self.dynamic_output:
+                raise RuleException(
+                    "Rules with dynamic output files may not be cached.", rule=self
+                )
 
     def has_wildcards(self):
         """
