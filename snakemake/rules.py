@@ -608,6 +608,7 @@ class Rule:
         raw_exceptions=False,
         **aux_params
     ):
+        incomplete = False
         if isinstance(func, _IOFile):
             func = func._file.callable
         elif isinstance(func, AnnotatedString):
@@ -618,12 +619,13 @@ class Rule:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)
         except IncompleteCheckpointException as e:
             value = incomplete_checkpoint_func(e)
+            incomplete = True
         except (Exception, BaseException) as e:
             if raw_exceptions:
                 raise e
             else:
                 raise InputFunctionException(e, rule=self, wildcards=wildcards)
-        return value
+        return value, incomplete
 
     def _apply_wildcards(
         self,
@@ -650,16 +652,17 @@ class Rule:
             if _is_callable:
                 if omit_callable:
                     continue
-                item = self.apply_input_function(
+                item, incomplete = self.apply_input_function(
                     item,
                     wildcards,
                     incomplete_checkpoint_func=incomplete_checkpoint_func,
+                    is_unpack=is_unpack,
                     **aux_params
                 )
                 if apply_default_remote:
                     item = self.apply_default_remote(item)
 
-            if is_unpack:
+            if is_unpack and not incomplete:
                 if not allow_unpack:
                     raise WorkflowError(
                         "unpack() is not allowed with params. "
@@ -876,7 +879,7 @@ class Rule:
                     aux["threads"] = threads
                 try:
                     try:
-                        res = self.apply_input_function(
+                        res, _ = self.apply_input_function(
                             res,
                             wildcards,
                             input=input,
@@ -914,7 +917,8 @@ class Rule:
     def expand_group(self, wildcards):
         """Expand the group given wildcards."""
         if callable(self.group):
-            return self.apply_input_function(self.group, wildcards)
+            item, _ = self.apply_input_function(self.group, wildcards)
+            return item
         elif isinstance(self.group, str):
             return apply_wildcards(self.group, wildcards, dynamic_fill=DYNAMIC_FILL)
         else:

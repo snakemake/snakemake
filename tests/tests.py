@@ -1084,3 +1084,7 @@ def test_github_issue52():
 
 def test_github_issue78():
     run(dpath("test_github_issue78"), use_singularity=True)
+
+
+def test_github_issue105():
+    run(dpath("test_github_issue105"))
