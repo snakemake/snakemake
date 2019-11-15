@@ -204,6 +204,9 @@ credentials will be used.
 
       $ export GOOGLE_CLOUD_PROJECT=my-project-name
 
+Data in Google Storage
+::::::::::::::::::::::
+
 Using this executor typically requires you to start with large data files
 already in Google Storage, and then interact with them via the Google Storage
 remote executor. An easy way to do this is to use the
@@ -259,9 +262,31 @@ Google API Python Client.
 Note that you can also easily use the Google Cloud Console interface, if
 a graphical interface is preferable to you.
 
+Environment Variables
+:::::::::::::::::::::
+
 **Important:** Google Cloud Life Sciences uses Google Compute, and does
 **not** encrypt environment variables. If you specify environment
 variables with `--envars` they will **not** be secrets.
+
+
+Container Bases
+:::::::::::::::
+
+By default, Google Life Sciences uses the latest stable version of
+`snakemake/snakemake <https://hub.docker.com/r/snakemake/snakemake/tags>`_
+on Docker Hub. You can choose to modify the container base with
+the `--container-image` (or `container_image` from within Python), 
+however if you do so, your container must meet the following requirements:
+
+ - have an entrypoint that can execute a `/bin/bash` command
+ - have snakemake installed, either via `source conda snakemake` or already on the path
+ - also include snakemake Python dependencies for google.cloud
+
+If you use any Snakemake container as a base, you should be good to go. If you'd
+like to get a reference for requirements, it's helpful to look at the
+`Dockerfile <https://github.com/snakemake/snakemake/blob/master/Dockerfile>`_
+for Snakemake.
 
 
 Executing a Snakemake workflow via Tibanna on Amazon Web Services

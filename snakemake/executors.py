@@ -2130,7 +2130,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # Akin to Kubernetes, create a run namespace, default container image
         self.run_namespace = str(uuid.uuid4())
-        self.container_image = container_image or "vanessa/snakemake:dev"
+        self.container_image = container_image or "snakemake/snakemake:v5.7.2"
         self.regions = regions or ["us-east1", "us-west1", "us-central1"]
 
         # The project name is required, either from client or environment
@@ -2419,13 +2419,22 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # The command to run snakemake needs to be relative
         relative_script = jobscript.replace(self.workdir + os.sep, "")
 
+        # The full command to download the archive, extract, and run
+        # For snakemake bases, we must activate the conda environment, but
+        # for custom images we must allow this to fail (hence || true)
+        commands = [
+            "/bin/bash",
+            "-c",
+            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://gist.githubusercontent.com/vsoch/84886ef6469bedeeb9a79a4eb7aec0d1/raw/181499f8f17163dcb2f89822079938cbfbd258cc/download.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && /bin/bash %s"
+            % (self.bucket.name, destination, relative_script),
+        ]
+
         # We are only generating one action, one job per run
-        # entrypoint vanessa/snakemake:dev is /bin/bash, cmd is also expected
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines/run#Action
         action = {
             "containerName": "snakejob-{}-{}".format(job.name, job.jobid),
             "imageUri": self.container_image,
-            "commands": [self.bucket.name, destination, relative_script],
+            "commands": commands,
             "environment": self._generate_environment(),
             "labels": self._generate_pipeline_labels(job),
         }
