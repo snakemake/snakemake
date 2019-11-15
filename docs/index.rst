@@ -208,7 +208,10 @@ Please consider to add your own.
   :hidden:
   :maxdepth: 1
 
-  executable
+  executing/cli
+  executing/cluster-cloud
+  executing/caching
+  executing/interoperability
 
 .. toctree::
     :caption: Defining workflows
