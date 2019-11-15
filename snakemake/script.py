@@ -25,6 +25,7 @@ from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import MIN_PY_VERSION, escape_backslash, SNAKEMAKE_SEARCHPATH
 from snakemake.io import git_content, split_git_path
+from snakemake.jupyter import Snakemake, get_executor_class
 from snakemake import singularity
 
 
@@ -166,85 +167,6 @@ class JuliaEncoder:
         return source
 
 
-class Snakemake:
-    def __init__(
-        self,
-        input,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
-        bench_iteration,
-        scriptdir=None,
-    ):
-        # convert input and output to plain strings as some remote objects cannot
-        # be pickled
-        self.input = input.plainstrings()
-        self.output = output.plainstrings()
-        self.params = params
-        self.wildcards = wildcards
-        self.threads = threads
-        self.resources = resources
-        self.log = log.plainstrings()
-        self.config = config
-        self.rule = rulename
-        self.bench_iteration = bench_iteration
-        self.scriptdir = scriptdir
-
-    def log_fmt_shell(self, stdout=True, stderr=True, append=False):
-        """
-        Return a shell redirection string to be used in `shell()` calls
-
-        This function allows scripts and wrappers support optional `log` files
-        specified in the calling rule.  If no `log` was specified, then an
-        empty string "" is returned, regardless of the values of `stdout`,
-        `stderr`, and `append`.
-
-        Parameters
-        ---------
-
-        stdout : bool
-            Send stdout to log
-
-        stderr : bool
-            Send stderr to log
-
-        append : bool
-            Do not overwrite the log file. Useful for sending output of
-            multiple commands to the same log. Note however that the log will
-            not be truncated at the start.
-
-        The following table describes the output:
-
-        -------- -------- -------- ----- -------------
-        stdout   stderr   append   log   return value
-        -------- -------- -------- ----- ------------
-        True     True     True     fn    >> fn 2>&1
-        True     False    True     fn    >> fn
-        False    True     True     fn    2>> fn
-        True     True     False    fn    > fn 2>&1
-        True     False    False    fn    > fn
-        False    True     False    fn    2> fn
-        any      any      any      None  ""
-        -------- -------- -------- ----- -----------
-        """
-        if not self.log:
-            return ""
-        lookup = {
-            (True, True, True): " >> {0} 2>&1",
-            (True, False, True): " >> {0}",
-            (False, True, True): " 2>> {0}",
-            (True, True, False): " > {0} 2>&1",
-            (True, False, False): " > {0}",
-            (False, True, False): " 2> {0}",
-        }
-        return lookup[(stdout, stderr, append)].format(self.log)
-
-
 def get_source(path, basedir="."):
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
@@ -313,7 +235,7 @@ def script(
     f = None
     try:
         path, source, language = get_source(path, basedir)
-        if language == "python" or language == "jupyter":
+        if language == "python":
             wrapper_path = path[7:] if path.startswith("file://") else path
             snakemake = Snakemake(
                 input,
@@ -340,16 +262,9 @@ def script(
             if path.startswith("file://"):
                 searchpath += ', "{}"'.format(os.path.dirname(path[7:]))
 
-            if language != "jupyter":
-                preamble_addendum = "__real_file__ = __file__; __file__ = {file_override};".format(
-                    file_override=repr(os.path.realpath(wrapper_path))
-                )
-            else:
-                # nbconvert sets cwd to notebook directory.
-                # This is problematic because we create a temporary file.
-                preamble_addendum = "import os; os.chdir('{cwd}');".format(
-                    cwd=os.getcwd()
-                )
+            preamble_addendum = "__real_file__ = __file__; __file__ = {file_override};".format(
+                file_override=repr(os.path.realpath(wrapper_path))
+            )
 
             preamble = textwrap.dedent(
                 """
@@ -489,6 +404,34 @@ def script(
                     "'", '"'
                 )
             )
+        elif language == 'jupyter':
+            # special handling of Jupyter Notebooks to test refactoring
+            ExecClass = get_executor_class(language)
+
+            executor = ExecClass(
+                path, source,
+                basedir,
+                input,
+                output,
+                params,
+                wildcards,
+                threads,
+                resources,
+                log,
+                config,
+                rulename,
+                conda_env,
+                singularity_img,
+                singularity_args,
+                bench_record,
+                jobid,
+                bench_iteration,
+                cleanup_scripts,
+                shadow_dir,
+            )
+
+            executor.evaluate()
+            return
         else:
             raise ValueError(
                 "Unsupported script: Expecting either Python (.py), Jupyter Notebook (.ipynb), R (.R), RMarkdown (.Rmd) or Julia (.jl) script."
@@ -500,14 +443,7 @@ def script(
         with tempfile.NamedTemporaryFile(
             suffix="." + os.path.basename(path), dir=dir, delete=False
         ) as f:
-            if language == "jupyter":
-                nb = nbformat.reads(source, as_version=4)  # nbformat.NO_CONVERT
-
-                preamble_cell = nbformat.v4.new_code_cell(preamble)
-                nb["cells"].insert(0, preamble_cell)
-
-                f.write(nbformat.writes(nb).encode())
-            elif language == "rmarkdown":
+            if language == "rmarkdown":
                 # Insert Snakemake object after the RMarkdown header
                 code = source.decode()
                 pos = next(islice(re.finditer(r"---\n", code), 1, 2)).start() + 3
@@ -558,61 +494,6 @@ def script(
                 py_exec = "python"
             # use the same Python as the running process or the one from the environment
             shell("{py_exec} {f.name:q}", bench_record=bench_record)
-        elif language == "jupyter":
-            # execute notebook
-            tmp_output = "{fname}.processed.ipynb".format(fname=f.name)
-            shell(
-                "jupyter nbconvert --execute --output {tmp_output:q} --to notebook --ExecutePreprocessor.timeout=-1 {f.name:q}",
-                bench_record=bench_record,
-                tmp_output=tmp_output,
-            )
-
-            # determine whether to save output
-            notebook_relpath = output.get("notebook_output", None)
-
-            if notebook_relpath is not None:
-                # determine output format
-                _, ext = os.path.splitext(notebook_relpath)
-                output_format = {
-                    ".ipynb": "notebook",
-                    ".html": "html",
-                    ".tex": "latex",
-                    ".pdf": "pdf",
-                    # ".slides": "slides",
-                    ".md": "markdown",
-                    ".txt": "asciidoc",
-                    ".rst": "rst",
-                    # ".py": "script",
-                }.get(ext, None)
-
-                if output_format is None:
-                    raise WorkflowError(
-                        "Invalid Jupyter Notebook output format: '{ext}'".format(
-                            ext=ext
-                        )
-                    )
-
-                # remove preamble from output
-                nb = nbformat.read(tmp_output, as_version=nbformat.NO_CONVERT)
-
-                nb["cells"].pop(0)
-
-                with open(tmp_output, "w") as fd:
-                    nbformat.write(nb, fd)
-
-                # save to destination
-                notebook_output = os.path.join(os.getcwd(), notebook_relpath)
-
-                if output_format == "notebook":
-                    os.rename(tmp_output, notebook_output)
-                else:
-                    # convert to required format
-                    shell(
-                        "jupyter nbconvert --output {notebook_output:q} --to {output_format:q} --ExecutePreprocessor.timeout=-1 {tmp_output:q}",
-                        notebook_output=notebook_output,
-                        output_format=output_format,
-                        tmp_output=tmp_output,
-                    )
         elif language == "r":
             if conda_env is not None and "R_LIBS" in os.environ:
                 logger.warning(
@@ -638,11 +519,14 @@ def script(
             )
         elif language == "julia":
             shell("julia {f.name:q}", bench_record=bench_record)
-
     except URLError as e:
         raise WorkflowError(e)
     finally:
         if f and cleanup_scripts:
             os.remove(f.name)
         else:
-            logger.warning("Not cleaning up %s" % f.name)
+            if f:
+                logger.warning("Not cleaning up %s" % f.name)
+            else:
+                # nothing to clean up (TODO: ??)
+                pass
