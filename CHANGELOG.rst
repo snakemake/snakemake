@@ -1,3 +1,14 @@
+[5.8.0] - 2019-11-15
+====================
+Added
+-----
+- Blockchain based caching between workflows (in collaboration with Sven Nahnsen from QBiC), see `the docs <https://snakemake.readthedocs.io/en/v5.8.0/executing/caching.html>`_.
+- New flag --skip-cleanup-scripts, that leads to temporary scripts (coming from script or wrapper directive) are not deleted (by Vanessa Sochat).
+Changed
+-------
+- Various bug fixes.
+
+
 [5.7.4] - 2019-10-23
 ====================
 Changed
