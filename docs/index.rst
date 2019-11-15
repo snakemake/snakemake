@@ -37,7 +37,7 @@ Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
-Snakemake is **highly popular** with, on average, `a new citation every few days <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
+Snakemake is **highly popular** with, `~3 new citations per week <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
 
 
 .. _manual-quick_example:
