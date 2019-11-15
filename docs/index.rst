@@ -16,8 +16,8 @@ Snakemake
 .. image:: https://img.shields.io/docker/cloud/build/snakemake/snakemake
        :target: https://hub.docker.com/r/snakemake/snakemake
 
-.. image:: https://circleci.com/gh/snakemake/snakemake/tree/master.svg?style=shield
-    :target: https://circleci.com/gh/snakemake/snakemake/tree/master
+.. image:: https://github.com/snakemake/snakemake/workflows/CI/badge.svg?branch=master
+    :target: https://github.com/snakemake/snakemake/actions?query=branch%3Amaster+workflow%3ACI
 
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
     :target: https://stackoverflow.com/questions/tagged/snakemake
