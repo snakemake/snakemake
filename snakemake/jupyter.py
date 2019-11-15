@@ -82,7 +82,11 @@ class ScriptBase(ABC):
             if fd and self.cleanup_scripts:
                 os.remove(fd.name)
             else:
-                logger.warning("Not cleaning up %s" % fd.name)
+                if fd:
+                    logger.warning("Not cleaning up %s" % fd.name)
+                else:
+                    # nothing to clean up (TODO: ??)
+                    pass
 
     @abstractmethod
     def get_preamble(self):
@@ -176,8 +180,77 @@ class Snakemake:
         return lookup[(stdout, stderr, append)].format(self.log)
 
 
+class REncoder:
+    """Encoding Pyton data structures into R."""
+
+    @classmethod
+    def encode_numeric(cls, value):
+        if value is None:
+            return "as.numeric(NA)"
+        return str(value)
+
+    @classmethod
+    def encode_value(cls, value):
+        if value is None:
+            return "NULL"
+        elif isinstance(value, str):
+            return repr(value)
+        elif isinstance(value, dict):
+            return cls.encode_dict(value)
+        elif isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        elif isinstance(value, int) or isinstance(value, float):
+            return str(value)
+        elif isinstance(value, collections.abc.Iterable):
+            # convert all iterables to vectors
+            return cls.encode_list(value)
+        else:
+            # Try to convert from numpy if numpy is present
+            try:
+                import numpy as np
+
+                if isinstance(value, np.number):
+                    return str(value)
+            except ImportError:
+                pass
+        raise ValueError("Unsupported value for conversion into R: {}".format(value))
+
+    @classmethod
+    def encode_list(cls, l):
+        return "c({})".format(", ".join(map(cls.encode_value, l)))
+
+    @classmethod
+    def encode_items(cls, items):
+        def encode_item(item):
+            name, value = item
+            return '"{}" = {}'.format(name, cls.encode_value(value))
+
+        return ", ".join(map(encode_item, items))
+
+    @classmethod
+    def encode_dict(cls, d):
+        d = "list({})".format(cls.encode_items(d.items()))
+        return d
+
+    @classmethod
+    def encode_namedlist(cls, namedlist):
+        positional = ", ".join(map(cls.encode_value, namedlist))
+        named = cls.encode_items(namedlist.items())
+        source = "list("
+        if positional:
+            source += positional
+        if named:
+            source += ", " + named
+        source += ")"
+        return source
+
+
 class JupyterNotebook(ScriptBase):
-    def get_preamble(self):
+    def _get_kernel_language(self):
+        nb = nbformat.reads(self.source, as_version=nbformat.NO_CONVERT)
+        return nb['metadata']['language_info']['name']
+
+    def _get_python_preamble(self):
         wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
         snakemake = Snakemake(
             self.input,
@@ -210,7 +283,7 @@ class JupyterNotebook(ScriptBase):
             cwd=os.getcwd()
         )
 
-        preamble = textwrap.dedent(
+        return textwrap.dedent(
             """
         ######## Snakemake header ########
         import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
@@ -223,7 +296,92 @@ class JupyterNotebook(ScriptBase):
             preamble_addendum=preamble_addendum,
         )
 
-        return preamble
+    def _get_r_preamble(self):
+        # nbconvert sets cwd to notebook directory.
+        # This is problematic because we create a temporary file.
+        preamble_addendum = "setwd('{cwd}');".format(
+            cwd=os.getcwd()
+        )
+
+        return textwrap.dedent(
+            """
+        ######## Snakemake header ########
+        library(methods)
+        Snakemake <- setClass(
+            "Snakemake",
+            slots = c(
+                input = "list",
+                output = "list",
+                params = "list",
+                wildcards = "list",
+                threads = "numeric",
+                log = "list",
+                resources = "list",
+                config = "list",
+                rule = "character",
+                bench_iteration = "numeric",
+                scriptdir = "character",
+                source = "function"
+            )
+        )
+        snakemake <- Snakemake(
+            input = {},
+            output = {},
+            params = {},
+            wildcards = {},
+            threads = {},
+            log = {},
+            resources = {},
+            config = {},
+            rule = {},
+            bench_iteration = {},
+            scriptdir = {},
+            source = function(...){{
+                wd <- getwd()
+                setwd(snakemake@scriptdir)
+                source(...)
+                setwd(wd)
+            }}
+        )
+        {preamble_addendum}
+
+        ######## Original script #########
+        """
+        ).format(
+            REncoder.encode_namedlist(self.input),
+            REncoder.encode_namedlist(self.output),
+            REncoder.encode_namedlist(self.params),
+            REncoder.encode_namedlist(self.wildcards),
+            self.threads,
+            REncoder.encode_namedlist(self.log),
+            REncoder.encode_namedlist(
+                {
+                    name: value
+                    for name, value in self.resources.items()
+                    if name != "_cores" and name != "_nodes"
+                }
+            ),
+            REncoder.encode_dict(self.config),
+            REncoder.encode_value(self.rulename),
+            REncoder.encode_numeric(self.bench_iteration),
+            REncoder.encode_value(
+                os.path.dirname(self.path[7:])
+                if self.path.startswith("file://")
+                else os.path.dirname(self.path)
+            ),
+            preamble_addendum=preamble_addendum
+        )
+
+    def get_preamble(self):
+        kernel_language = self._get_kernel_language()
+        if kernel_language == 'python':
+            return self._get_python_preamble()
+        elif kernel_language == 'R':
+            return self._get_r_preamble()
+        else:
+            raise ValueError(
+                "Unsupported Jupyter kernel: Expecting one of the following: Python"
+            )
 
     def write_script(self, preamble, fd):
         nb = nbformat.reads(self.source, as_version=4)  # nbformat.NO_CONVERT

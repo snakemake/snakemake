@@ -25,78 +25,13 @@ from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import MIN_PY_VERSION, escape_backslash, SNAKEMAKE_SEARCHPATH
 from snakemake.io import git_content, split_git_path
-from snakemake.jupyter import Snakemake, get_executor_class
+from snakemake.jupyter import Snakemake, REncoder, get_executor_class
 from snakemake import singularity
 
 
 PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
-
-
-class REncoder:
-    """Encoding Pyton data structures into R."""
-
-    @classmethod
-    def encode_numeric(cls, value):
-        if value is None:
-            return "as.numeric(NA)"
-        return str(value)
-
-    @classmethod
-    def encode_value(cls, value):
-        if value is None:
-            return "NULL"
-        elif isinstance(value, str):
-            return repr(value)
-        elif isinstance(value, dict):
-            return cls.encode_dict(value)
-        elif isinstance(value, bool):
-            return "TRUE" if value else "FALSE"
-        elif isinstance(value, int) or isinstance(value, float):
-            return str(value)
-        elif isinstance(value, collections.abc.Iterable):
-            # convert all iterables to vectors
-            return cls.encode_list(value)
-        else:
-            # Try to convert from numpy if numpy is present
-            try:
-                import numpy as np
-
-                if isinstance(value, np.number):
-                    return str(value)
-            except ImportError:
-                pass
-        raise ValueError("Unsupported value for conversion into R: {}".format(value))
-
-    @classmethod
-    def encode_list(cls, l):
-        return "c({})".format(", ".join(map(cls.encode_value, l)))
-
-    @classmethod
-    def encode_items(cls, items):
-        def encode_item(item):
-            name, value = item
-            return '"{}" = {}'.format(name, cls.encode_value(value))
-
-        return ", ".join(map(encode_item, items))
-
-    @classmethod
-    def encode_dict(cls, d):
-        d = "list({})".format(cls.encode_items(d.items()))
-        return d
-
-    @classmethod
-    def encode_namedlist(cls, namedlist):
-        positional = ", ".join(map(cls.encode_value, namedlist))
-        named = cls.encode_items(namedlist.items())
-        source = "list("
-        if positional:
-            source += positional
-        if named:
-            source += ", " + named
-        source += ")"
-        return source
 
 
 class JuliaEncoder:
