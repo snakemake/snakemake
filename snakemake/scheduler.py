@@ -478,22 +478,22 @@ class JobScheduler:
         scheduled_jobs = [pulp.LpVariable(f"job_{job}_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger) for idx, job in enumerate(jobs)]
 
         temp_files = {temp_file for job in jobs for temp_file in self.dag.temp_input(job)}
-        deletable = {temp_file: pulp.LpVariable(temp_file, lowBound=0, upBound=1, cat=pulp.LpInteger) for temp_file in temp_files}
-        max_priority = sum([job.priority+1 for job in jobs])
+        
+        improvement = {temp_file: pulp.LpVariable(temp_file, lowBound=0, cat="Continuous") for temp_file in temp_files}
 
         prob = pulp.LpProblem("Job scheduler", pulp.LpMaximize)
         
         # Objective function
-        prob += lpSum([(job.priority+1) * scheduled_jobs[i] for i, job in enumerate(jobs)]) + max_priority * lpSum(deletable)
+        prob += lpSum([(job.priority+1) * scheduled_jobs[i] for i, job in enumerate(jobs)]) + lpSum(improvement)
         #Constraints:
         for (name, resource_limit) in  self.workflow.global_resources.items():
             print(f"{name} {resource_limit}")
             prob += lpSum([scheduled_jobs[i] * job.resources.get(name, 0) for i, job in enumerate(jobs)]) <= resource_limit, f"Limitation of resource: {name}"
         
-        #Only delete file if not needed anymore
-        for i, job in enumerate(jobs):
-            for temp_file in self.dag.temp_input(job):
-                prob += deletable[temp_file] <= scheduled_jobs[i]
+        #Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
+        for temp_file in temp_files:
+            prob += improvement[temp_file] <= lpSum([scheduled_jobs[i] * self.required_by_job(temp_file, job) for i, job in enumerate(jobs)]) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
+            
 
         #prob.writeLP("WhiskasModel.lp")
         prob.solve()
@@ -501,6 +501,9 @@ class JobScheduler:
         solution = [jobs[int(variable.name.split("_")[-1])] for variable in prob.variables() if (variable.name.startswith("job_") and variable.value() == 1.0)]
         print(f"Scheduled jobs: {solution}")
         return solution
+
+    def required_by_job(self, temp_file, job):
+        return 1 if temp_file in self.dag.temp_input(job) else 0
 
     def job_selector(self, jobs):
         """
