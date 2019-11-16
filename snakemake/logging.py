@@ -14,6 +14,8 @@ import threading
 import tempfile
 from functools import partial
 import inspect
+import requests
+import traceback
 
 from snakemake.common import DYNAMIC_FILL
 from snakemake.common import Mode
@@ -208,6 +210,28 @@ class Logger:
     def d3dag(self, **msg):
         msg["level"] = "d3dag"
         self.handler(msg)
+
+    def custom_server_handler(self, msg):
+        """Custom server log handler.
+
+        Sends the log to the server.
+
+        Args:
+            msg (dict):     the log message dictionary
+        """
+
+        level = msg["level"]
+
+        if level == "dag_debug":
+            msg["job"] = str(msg["job"].rule.name)
+
+        server_info = {'msg': repr(msg), 'timestamp': time.asctime(), 'id': self.server["id"]}
+
+        try:
+            requests.post(self.server["url"] + "/update_workflow_status", data=server_info)
+        except:
+            traceback.print_exc()
+            pass
 
     def text_handler(self, msg):
         """The default snakemake log handler.
@@ -410,6 +434,7 @@ def setup_logger(
     use_threads=False,
     mode=Mode.default,
     show_failed_logs=False,
+    wms_monitor=None
 ):
     if handler is not None:
         # custom log handler
@@ -423,6 +448,16 @@ def setup_logger(
             mode=mode,
         )
         logger.set_stream_handler(stream_handler)
+        if wms_monitor is not None:
+            logger.log_handler.append(logger.custom_server_handler)
+
+            try:
+                r = requests.get(wms_monitor + "/create_workflow")
+            except:
+                traceback.print_exc()
+                pass
+            else:
+                logger.server = {"url": wms_monitor, "id": r.json()["id"]}
 
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
     logger.quiet = quiet

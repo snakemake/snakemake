@@ -117,6 +117,7 @@ def snakemake(
     updated_files=None,
     log_handler=None,
     keep_logger=False,
+    wms_monitor=None,
     max_jobs_per_second=None,
     max_status_checks_per_second=100,
     restart_times=0,
@@ -234,6 +235,7 @@ def snakemake(
         conda_prefix (str):         the directory in which conda environments will be created (default None)
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
         shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
+        wms-monitor (str):          workflow management system monitor. Send post requests to the specified (server/IP). (default None)
         create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
         list_conda_envs (bool):     list conda environments and their location on disk.
         mode (snakemake.common.Mode): execution mode
@@ -362,6 +364,7 @@ def snakemake(
             use_threads=use_threads,
             mode=mode,
             show_failed_logs=show_failed_logs,
+            wms_monitor=wms_monitor
         )
 
     if greediness is None:
@@ -1035,6 +1038,13 @@ def get_argument_parser(profile=None):
             "If not supplied, the value is set to the '.snakemake' directory relative "
             "to the working directory."
         ),
+    )
+
+    group_exec.add_argument(
+        "--wms-monitor",
+        action="store",
+        nargs="?",
+        help=("IP of workflow management system to monitor the execution of snakemake"),
     )
 
     group_utils = parser.add_argument_group("UTILITIES")
@@ -2016,6 +2026,7 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
+            wms_monitor=args.wms_monitor
         )
 
     if args.runtime_profile:
