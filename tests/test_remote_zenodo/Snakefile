@@ -1,0 +1,17 @@
+from snakemake.remote.zenodo import RemoteProvider
+ZEN = RemoteProvider(deposition = "3248545", access_token = os.environ["ZENODO_PAT"])
+
+rule all:
+    input: ZEN.remote("upload.txt"), "download.txt"
+
+rule download:
+    input:
+        ZEN.remote("upload.txt")
+    output:
+        "download.txt"
+    shell:
+        "cp {input} {output}"
+
+rule upload:
+    output: ZEN.remote("upload.txt")
+    shell: "touch {output}"
