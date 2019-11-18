@@ -1,0 +1,60 @@
+digraph snakemake_dag {
+    graph[bgcolor=white, margin=0];
+    node[shape=box, style=rounded, fontname=sans,                 fontsize=10, penwidth=2];
+    edge[penwidth=2, color=grey];
+0 [ shape=none, margin=0, label=<<table border="2" color="#57D9AD" cellspacing="3" cellborder="0">
+<tr><td>
+<b><font point-size="18">all</font></b>
+</td></tr>
+<hr/>
+<tr><td align="left"> <b><font point-size="14">&#8618; input</font></b> </td></tr>
+<tr>
+<td align="left"><font face="monospace">folder/file_1_a.dat</font></td>
+</tr>
+<tr>
+<td align="left"><font face="monospace">folder/file_1_b.dat</font></td>
+</tr>
+<tr>
+<td align="left"><font face="monospace">folder/file_2_a.dat</font></td>
+</tr>
+<tr>
+<td align="left"><font face="monospace">folder/file_2_b.dat</font></td>
+</tr>
+<tr>
+<td align="left"><font face="monospace">visualization_of_1_a.pdf</font></td>
+</tr>
+<hr/>
+<tr><td align="right">  </td> </tr>
+</table>>]
+1 [ shape=none, margin=0, label=<<table border="2" color="#D95757" cellspacing="3" cellborder="0">
+<tr><td>
+<b><font point-size="18">data</font></b>
+</td></tr>
+<hr/>
+<tr><td align="left">  </td></tr>
+<hr/>
+<tr><td align="right"> <b><font point-size="14">output &rarr;</font></b> </td> </tr>
+<tr>
+<td align="left"><font face="monospace">folder/file_{v1}_{v2}.dat</font></td></tr>
+</table>>]
+2 [ shape=none, margin=0, label=<<table border="2" color="#ADD957" cellspacing="3" cellborder="0">
+<tr><td>
+<b><font point-size="18">visualization</font></b>
+</td></tr>
+<hr/>
+<tr><td align="left"> <b><font point-size="14">&#8618; input</font></b> </td></tr>
+<tr>
+<td align="left"><font face="monospace">&lt;input function&gt;</font></td>
+</tr>
+<tr>
+<td align="left"><font face="monospace">folder/file_1_a.dat</font></td>
+</tr>
+<hr/>
+<tr><td align="right"> <b><font point-size="14">output &rarr;</font></b> </td> </tr>
+<tr>
+<td align="left"><font face="monospace">visualization_of_1_a.pdf</font></td></tr>
+</table>>]
+	1 -> 0
+	2 -> 0
+	1 -> 2
+}            
