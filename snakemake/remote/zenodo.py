@@ -26,11 +26,11 @@ class RemoteProvider(AbstractRemoteProvider):
 
     @property
     def default_protocol(self):
-        return 'https://'
+        return "https://"
     
     @property
     def available_protocols(self):
-        return ['https://']
+        return ["http://", "https://"]
 
 class RemoteObject(AbstractRemoteObject):
     def __init__(self, *args, keep_local=False, stay_on_remote=False, provider=None, deposition=None, **kwargs):
@@ -71,7 +71,6 @@ class RemoteObject(AbstractRemoteObject):
 
 class ZENHelper(object):
     def __init__(self, *args, deposition=None, **kwargs):
-        # Deposition id and access_token are necessary to interact with zenodo API. 
         if not deposition:
             raise IndexError("Deposition number must be supplied.")
         self.deposition = deposition
@@ -95,7 +94,7 @@ class ZENHelper(object):
         
         # Create a session with a hook to raise error on bad request.
         session = requests.Session()
-        session.hooks = {'response': lambda r, *args, **kwargs: r.raise_for_status()}
+        session.hooks = {"response": lambda r, *args, **kwargs: r.raise_for_status()}
         session.headers["Authorization"] = "Bearer {}".format(self._access_token)
         session.headers.update(headers)
 
@@ -110,7 +109,7 @@ class ZENHelper(object):
     def get_files(self):
         headers = {"Content-Type": "application/json"}
         files = self._api_request(
-            "https://zenodo.org/api/deposit/depositions/{}/files".format(self.deposition),
+            self._baseurl + "api/deposit/depositions/{}/files".format(self.deposition),
             headers = headers,
             json = True)
         return {os.path.basename(f["filename"]): 
@@ -141,7 +140,7 @@ class ZENHelper(object):
         # Current stable API supports 100MB per file.
         with open(local_file, "rb") as lf:
             self._api_request(
-                "https://zenodo.org/api/deposit/depositions/{}/files".format(self.deposition),
+                self._baseurl + "api/deposit/depositions/{}/files".format(self.deposition),
                 method = "POST",
-                data = {'filename': remote_file},
+                data = {"filename": remote_file},
                 files = {"file": lf})
