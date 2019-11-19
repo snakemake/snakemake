@@ -71,18 +71,29 @@ class RemoteObject(AbstractRemoteObject):
 
 class ZENHelper(object):
     def __init__(self, *args, deposition=None, **kwargs):
-        if not deposition:
-            raise IndexError("Deposition number must be supplied.")
-        self.deposition = deposition
-
-        if "access_token" in kwargs:
+        
+        try:
             self._access_token = kwargs.pop("access_token")
+        except KeyError:
+            raise WorkflowError("Zenodo personal access token must be passed in as 'access_token' argument.\n"
+                                "Separate registration and access token is needed for Zenodo sandbox "
+                                "environment at https://sandbox.zenodo.org.")
+
+        if "sandbox" in kwargs:
+            self._sandbox = kwargs.pop("sandbox")
         else:
-            try:
-                self._access_token = os.environ["ZENODO_PAT"]
-            except KeyError:
-                raise WorkflowError("$ZENODO_PAT must be given as environment variable. "
-                                    "Otherwise 'access_token' need to be passed in as kwargs.")
+            self._sandbox = False
+        
+        if self._sandbox:
+            self._baseurl = "https://sandbox.zenodo.org"
+        else:
+            self._baseurl = "https://zenodo.org"
+
+        if not deposition:
+            # Creating a new deposition, as deposition id was not supplied.
+            self.deposition = self.create_deposition()
+        else:
+            self.deposition = deposition
 
     def _api_request(self,
                     url,
@@ -106,11 +117,19 @@ class ZENHelper(object):
         else:
             return r
     
+    def create_deposition(self):
+        resp = self._api_request(
+            method = "POST",
+            url = self._baseurl + "/api/deposit/depositions",
+            headers = {"Content-Type": "application/json"},
+            data = "{}",
+            json = True)
+        return resp["id"]
+
     def get_files(self):
-        headers = {"Content-Type": "application/json"}
         files = self._api_request(
-            self._baseurl + "api/deposit/depositions/{}/files".format(self.deposition),
-            headers = headers,
+            self._baseurl + "/api/deposit/depositions/{}/files".format(self.deposition),
+            headers = {"Content-Type": "application/json"},
             json = True)
         return {os.path.basename(f["filename"]): 
             ZenFileInfo(f["checksum"], int(f["filesize"]), f["id"], f["links"]["download"]) 
@@ -140,7 +159,7 @@ class ZENHelper(object):
         # Current stable API supports 100MB per file.
         with open(local_file, "rb") as lf:
             self._api_request(
-                self._baseurl + "api/deposit/depositions/{}/files".format(self.deposition),
+                self._baseurl + "/api/deposit/depositions/{}/files".format(self.deposition),
                 method = "POST",
                 data = {"filename": remote_file},
                 files = {"file": lf})
