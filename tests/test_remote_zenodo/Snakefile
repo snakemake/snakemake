@@ -1,12 +1,8 @@
 from snakemake.remote.zenodo import RemoteProvider
 import os
 
-# Setup a Zenodo sandbox account at https://sandbox.zenodo.org and create personal access token
 access_token=os.environ["ZENODO_SANDBOX_PAT"]
 ZEN = RemoteProvider(access_token=access_token, sandbox=True)
-
-rule all:
-    input: ZEN.remote("upload.txt"), "download.txt"
 
 rule download:
     input:
