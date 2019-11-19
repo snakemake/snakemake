@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+      - remote/zenodo
+      - remote/zenodo-depositions
   pull_request:
     branches_ignore: []
 
