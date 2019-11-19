@@ -769,3 +769,32 @@ Note that the filename should not include the ``.cip`` ending that is sometimes 
         "cp {input} {output}"
 
 Upon download, Snakemake will automatically decrypt the file and check the MD5 hash.
+
+Zenodo
+======
+
+`Zenodo <https://zenodo.org>`_ is a catch-all open data and software repository. 
+Snakemake allows file download and upload from Zenodo. 
+To access Zenodo files you need to set up Zenodo account and create a personal access token.
+Personal access token must be supplied as ``access_token`` argument.
+You need to supply deposition id as ``deposition`` to download files from deposition.
+If no deposition id is supplied, Snakemake creates a new deposition.
+
+.. code-block:: python
+    from snakemake.remote.zenodo import RemoteProvider
+    import os
+
+    access_token=os.environ["your_zenodo_pat_environment_variable"]
+    ZEN = RemoteProvider(deposition="your deposition id", access_token=access_token)
+
+    rule download:
+        input:
+            ZEN.remote("your_file.txt")
+        output:
+            "your_file.txt"
+        shell:
+            "cp {input} {output}"
+
+
+It is possible to use `Zenodo sandbox environment <https://sandbox.zenodo.org>`_ for testing by setting ``sandbox=True`` argument.
+Using sandbox environment requires setting up separate account and personal access token.
