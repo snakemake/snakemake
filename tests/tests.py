@@ -1100,6 +1100,7 @@ def test_output_file_cache_remote():
         default_remote_prefix="test-remote-bucket",
     )
 
+
 @connected
 def test_remote_zenodo():
     run(dpath("test_remote_zenodo"))
