@@ -46,12 +46,12 @@ source $VIMRUNTIME/syntax/python.vim
 
 syn keyword pythonStatement include workdir onsuccess onerror onstart
 syn keyword pythonStatement ruleorder localrules configfile group 
-syn keyword pythonStatement touch protected temp wrapper conda shadow
+syn keyword pythonStatement wrapper conda shadow
 syn keyword pythonStatement input output params wildcards priority message threads resources singularity wildcard_constraints
 syn keyword pythonStatement version run shell benchmark snakefile log script
 syn keyword pythonStatement rule subworkflow checkpoint nextgroup=pythonFunction skipwhite
 syn keyword pythonStatement config checkpoints rules
-syn keyword pythonFunction directory ancient pipe unpack expand
+syn keyword pythonFunction directory ancient pipe unpack expand temp touch protected
 
 " similar to special def and class treatment from python.vim, except
 " parenthetical part of def and class
