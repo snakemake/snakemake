@@ -1,7 +1,7 @@
 " Vim syntax file
 " Language:	Snakemake (extended from python.vim)
 " Maintainer:	Jay Hesselberth (jay.hesselberth@gmail.com)
-" Last Change:	2019 Jul 26
+" Last Change:	2019 Nov 22
 "
 " Usage
 "
@@ -21,10 +21,8 @@
 source $VIMRUNTIME/syntax/python.vim
 
 "
-" Snakemake rules, as of version 3.3
+" Snakemake rules, as of version 5.8
 "
-" XXX N.B. several of the new defs are missing from this table i.e.
-" subworkflow, touch etc
 "
 " rule        = "rule" (identifier | "") ":" ruleparams
 " include     = "include:" stringliteral
@@ -49,9 +47,10 @@ source $VIMRUNTIME/syntax/python.vim
 syn keyword pythonStatement	include workdir onsuccess onerror
 syn keyword pythonStatement	ruleorder localrules configfile group
 syn keyword pythonStatement	touch protected temp wrapper conda shadow
-syn keyword pythonStatement	input output params wildcards message threads resources singularity wildcard_constraints
+syn keyword pythonStatement	input output params wildcards priority message threads resources singularity wildcard_constraints
 syn keyword pythonStatement	version run shell benchmark snakefile log script
 syn keyword pythonStatement	rule subworkflow nextgroup=pythonFunction skipwhite
+syn keyword pythonStatement	config checkpoints rules
 
 " similar to special def and class treatment from python.vim, except
 " parenthetical part of def and class
