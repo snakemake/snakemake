@@ -44,18 +44,18 @@ source $VIMRUNTIME/syntax/python.vim
 " group      = "group" ":" stringliteral
 
 
-syn keyword pythonStatement	include workdir onsuccess onerror onstart
-syn keyword pythonStatement	ruleorder localrules configfile group 
-syn keyword pythonStatement	touch protected temp wrapper conda shadow
-syn keyword pythonStatement	input output params wildcards priority message threads resources singularity wildcard_constraints
-syn keyword pythonStatement	version run shell benchmark snakefile log script
-syn keyword pythonStatement	rule subworkflow nextgroup=pythonFunction skipwhite
-syn keyword pythonStatement	config checkpoints rules
-syn keyword pythonStatement    directory ancient pipe unpack expand
+syn keyword pythonStatement include workdir onsuccess onerror onstart
+syn keyword pythonStatement ruleorder localrules configfile group 
+syn keyword pythonStatement touch protected temp wrapper conda shadow
+syn keyword pythonStatement input output params wildcards priority message threads resources singularity wildcard_constraints
+syn keyword pythonStatement version run shell benchmark snakefile log script
+syn keyword pythonStatement rule subworkflow checkpoint nextgroup=pythonFunction skipwhite
+syn keyword pythonStatement config checkpoints rules
+syn keyword pythonFunction directory ancient pipe unpack expand
 
 " similar to special def and class treatment from python.vim, except
 " parenthetical part of def and class
-syn match   pythonFunction
+syn match pythonFunction
       \ "\%(\%(rule\s\|subworkflow\s\|checkpoint\s\)\s*\)\@<=\h\w*" contained
 
 syn sync match pythonSync grouphere NONE "^\s*\%(rule\|subworkflow\|checkpoint\)\s\+\h\w*\s*"
@@ -63,4 +63,3 @@ syn sync match pythonSync grouphere NONE "^\s*\%(rule\|subworkflow\|checkpoint\)
 let b:current_syntax = "snakemake"
 
 " vim:set sw=2 sts=2 ts=8 noet:
-
