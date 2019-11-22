@@ -55,7 +55,7 @@ syn keyword pythonStatement	config checkpoints rules
 " similar to special def and class treatment from python.vim, except
 " parenthetical part of def and class
 syn match   pythonFunction
-      \ "\%(\%(rule\s\|subworkflow\s\)\s*\)\@<=\h\w*" contained
+      \ "\%(\%(rule\s\|subworkflow\s\|checkpoint\s\)\s*\)\@<=\h\w*" contained
 
 syn sync match pythonSync grouphere NONE "^\s*\%(rule\|subworkflow\|checkpoint\)\s\+\h\w*\s*"
 
