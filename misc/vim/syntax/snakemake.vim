@@ -57,7 +57,7 @@ syn keyword pythonStatement	config checkpoints rules
 syn match   pythonFunction
       \ "\%(\%(rule\s\|subworkflow\s\)\s*\)\@<=\h\w*" contained
 
-syn sync match pythonSync grouphere NONE "^\s*\%(rule\|subworkflow\)\s\+\h\w*\s*"
+syn sync match pythonSync grouphere NONE "^\s*\%(rule\|subworkflow\|checkpoint\)\s\+\h\w*\s*"
 
 let b:current_syntax = "snakemake"
 
