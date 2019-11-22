@@ -51,6 +51,7 @@ syn keyword pythonStatement	input output params wildcards priority message threa
 syn keyword pythonStatement	version run shell benchmark snakefile log script
 syn keyword pythonStatement	rule subworkflow nextgroup=pythonFunction skipwhite
 syn keyword pythonStatement	config checkpoints rules
+syn keyword pythonStatement    directory ancient pipe unpack expand
 
 " similar to special def and class treatment from python.vim, except
 " parenthetical part of def and class
