@@ -228,7 +228,7 @@ class Logger:
                 "checkpoint" if msg["is_checkpoint"] else "rule",
                 msg["name"],
             )
-            for item in ["input", "output", "log"]:
+            for item in ["input", "output", "log", "params"]:
                 fmt = format_item(item, omit=[], valueformat=", ".join)
                 if fmt != None:
                     yield fmt

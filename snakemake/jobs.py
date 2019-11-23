@@ -895,6 +895,7 @@ class Job(AbstractJob):
             wildcards=self.wildcards_dict,
             reason=str(self.dag.reason(self)),
             resources=self.resources,
+            params=self.params,
             priority="highest" if priority == Job.HIGHEST_PRIORITY else priority,
             threads=self.threads,
             indent=indent,
