@@ -4,17 +4,18 @@ from snakemake.remote.zenodo import RemoteProvider
 access_token_sandbox=os.environ["ZENODO_SANDBOX_PAT"]
 zen_sandbox = RemoteProvider(access_token=access_token_sandbox, sandbox=True)
 
-rule upload:
-    output:
-        zen_sandbox.remote("upload.txt")
-    shell:
-        "touch {output}"
-
 rule download:
     input:
-        zen_sandbox.remote("upload.txt")
+        zen_sandbox.remote("uploaded.txt")
     output:
         "download.txt"
+    shell:
+        "cp {input} {output}"
+
+rule upload:
+    input: "test.txt"
+    output:
+        zen_sandbox.remote("uploaded.txt")
     shell:
         "cp {input} {output}"
 
