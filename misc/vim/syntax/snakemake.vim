@@ -52,7 +52,7 @@ syn keyword pythonStatement input output params wildcards priority message threa
 syn keyword pythonStatement version run shell benchmark snakefile log script
 syn keyword pythonStatement rule subworkflow checkpoint nextgroup=pythonFunction skipwhite
 syn keyword pythonBuiltinObj config checkpoints rules
-syn keyword pythonFunction directory ancient pipe unpack expand temp touch protected
+syn keyword pythonBuiltinFunc directory ancient pipe unpack expand temp touch protected
 
 " similar to special def and class treatment from python.vim, except
 " parenthetical part of def and class
