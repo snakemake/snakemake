@@ -4,15 +4,24 @@ __email__ = "tapa741@gmail.com"
 __license__ = "MIT"
 
 import os
-import requests
 import re
 import hashlib
 from collections import namedtuple
 
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
-from snakemake.exceptions import WorkflowError
+from snakemake.exceptions import ZenodoFileException, WorkflowError
 from snakemake.common import lazy_property
 from snakemake.utils import makedirs
+
+try:
+    # Third-party modules
+    import requests
+    from requests.exceptions import HTTPError
+except ImportError as e:
+    raise WorkflowError(
+        "The Python 3 package 'requests' "
+        + "must be installed to use Zenodo remote() file functionality. %s" % e.msg
+    )
 
 ZenFileInfo = namedtuple("ZenFileInfo", ["checksum", "filesize", "id", "download"])
 
@@ -67,7 +76,11 @@ class RemoteObject(AbstractRemoteObject):
         return os.path.basename(self.local_file()) in self._zen.get_files()
 
     def size(self):
-        return self._stats().filesize
+        if self.exists():
+            return self._stats().filesize
+        else:
+            return self._iofile.size_local
+        
 
     def mtime(self):
         # There is no mtime info provided by Zenodo
@@ -146,17 +159,20 @@ class ZENHelper(object):
         return resp["id"]
 
     def get_files(self):
-        files = self._api_request(
-            self._baseurl + "/api/deposit/depositions/{}/files".format(self.deposition),
-            headers={"Content-Type": "application/json"},
-            json=True,
-        )
-        return {
+        try:
+            files = self._api_request(
+                self._baseurl + "/api/deposit/depositions/{}/files".format(self.deposition),
+                headers={"Content-Type": "application/json"},
+                json=True,
+            )
+            return {
             os.path.basename(f["filename"]): ZenFileInfo(
                 f["checksum"], int(f["filesize"]), f["id"], f["links"]["download"]
             )
             for f in files
-        }
+            }
+        except HTTPError:
+            print("Use HTTP remote do download files from other user's Zenodo repos.")
 
     def download(self, remote_file):
         # Get stats with download link
@@ -176,17 +192,21 @@ class ZENHelper(object):
         local_md5 = local_md5.hexdigest()
 
         if local_md5 != stats.checksum:
-            raise WorkflowError(
+            raise ZenodoFileException(
                 "File checksums do not match for remote file id: {}".format(stats.id)
             )
 
     def upload(self, local_file, remote_file):
-        # Current stable API supports 100MB per file.
-        with open(local_file, "rb") as lf:
-            self._api_request(
-                self._baseurl
-                + "/api/deposit/depositions/{}/files".format(self.deposition),
-                method="POST",
-                data={"filename": remote_file},
-                files={"file": lf},
-            )
+        if self.size() <= 100000000:
+            with open(local_file, "rb") as lf:
+                self._api_request(
+                    self._baseurl
+                    + "/api/deposit/depositions/{}/files".format(self.deposition),
+                    method="POST",
+                    data={"filename": remote_file},
+                    files={"file": lf},
+                )
+        else:
+            raise ZenodoFileException(
+                "Current Zenodo stable API supports <=100MB per file."
+                )
