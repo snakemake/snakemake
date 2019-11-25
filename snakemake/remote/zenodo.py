@@ -80,7 +80,6 @@ class RemoteObject(AbstractRemoteObject):
             return self._stats().filesize
         else:
             return self._iofile.size_local
-        
 
     def mtime(self):
         # There is no mtime info provided by Zenodo
@@ -91,7 +90,12 @@ class RemoteObject(AbstractRemoteObject):
         self._zen.download(self.local_file())
 
     def upload(self):
-        self._zen.upload(self.local_file(), self.remote_file())
+        if self.size() <= 100000000:
+            self._zen.upload(self.local_file(), self.remote_file())
+        else:
+            raise ZenodoFileException(
+                "Current Zenodo stable API supports <=100MB per file."
+            )
 
     @property
     def list(self):
@@ -161,15 +165,16 @@ class ZENHelper(object):
     def get_files(self):
         try:
             files = self._api_request(
-                self._baseurl + "/api/deposit/depositions/{}/files".format(self.deposition),
+                self._baseurl
+                + "/api/deposit/depositions/{}/files".format(self.deposition),
                 headers={"Content-Type": "application/json"},
                 json=True,
             )
             return {
-            os.path.basename(f["filename"]): ZenFileInfo(
-                f["checksum"], int(f["filesize"]), f["id"], f["links"]["download"]
-            )
-            for f in files
+                os.path.basename(f["filename"]): ZenFileInfo(
+                    f["checksum"], int(f["filesize"]), f["id"], f["links"]["download"]
+                )
+                for f in files
             }
         except HTTPError:
             print("Use HTTP remote do download files from other user's Zenodo repos.")
@@ -197,16 +202,11 @@ class ZENHelper(object):
             )
 
     def upload(self, local_file, remote_file):
-        if self.size() <= 100000000:
-            with open(local_file, "rb") as lf:
-                self._api_request(
-                    self._baseurl
-                    + "/api/deposit/depositions/{}/files".format(self.deposition),
-                    method="POST",
-                    data={"filename": remote_file},
-                    files={"file": lf},
-                )
-        else:
-            raise ZenodoFileException(
-                "Current Zenodo stable API supports <=100MB per file."
-                )
+        with open(local_file, "rb") as lf:
+            self._api_request(
+                self._baseurl
+                + "/api/deposit/depositions/{}/files".format(self.deposition),
+                method="POST",
+                data={"filename": remote_file},
+                files={"file": lf},
+            )
