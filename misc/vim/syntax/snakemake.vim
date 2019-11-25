@@ -19,6 +19,7 @@
 
 " load settings from system python.vim (7.4)
 source $VIMRUNTIME/syntax/python.vim
+source $VIMRUNTIME/indent/python.vim
 
 "
 " Snakemake rules, as of version 5.8
