@@ -325,19 +325,42 @@ class ScriptBase(ABC):
 
 
 class PythonScript(ScriptBase):
-    def get_preamble(self):
-        wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
+    @staticmethod
+    def generate_preamble(
+        path,
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        singularity_img,
+        singularity_args,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
+        preamble_addendum="",
+    ):
+        wrapper_path = path[7:] if path.startswith("file://") else path
         snakemake = Snakemake(
-            self.input,
-            self.output,
-            self.params,
-            self.wildcards,
-            self.threads,
-            self.resources,
-            self.log,
-            self.config,
-            self.rulename,
-            self.bench_iteration,
+            input_,
+            output,
+            params,
+            wildcards,
+            threads,
+            resources,
+            log,
+            config,
+            rulename,
+            bench_iteration,
             os.path.dirname(wrapper_path),
         )
         snakemake = pickle.dumps(snakemake)
@@ -345,16 +368,12 @@ class PythonScript(ScriptBase):
         # The module is needed for unpickling in the script.
         # We append it at the end (as a fallback).
         searchpath = SNAKEMAKE_SEARCHPATH
-        if self.singularity_img is not None:
+        if singularity_img is not None:
             searchpath = singularity.SNAKEMAKE_MOUNTPOINT
         searchpath = '"{}"'.format(searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
-        if self.path.startswith("file://"):
-            searchpath += ', "{}"'.format(os.path.dirname(self.path[7:]))
-
-        preamble_addendum = "__real_file__ = __file__; __file__ = {file_override};".format(
-            file_override=repr(os.path.realpath(wrapper_path))
-        )
+        if path.startswith("file://"):
+            searchpath += ', "{}"'.format(os.path.dirname(path[7:]))
 
         return textwrap.dedent(
             """
@@ -366,6 +385,36 @@ class PythonScript(ScriptBase):
             searchpath=escape_backslash(searchpath),
             snakemake=snakemake,
             printshellcmds=logger.printshellcmds,
+            preamble_addendum=preamble_addendum,
+        )
+
+    def get_preamble(self):
+        wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
+        preamble_addendum = "__real_file__ = __file__; __file__ = {file_override};".format(
+            file_override=repr(os.path.realpath(wrapper_path))
+        )
+
+        return PythonScript.generate_preamble(
+            self.path,
+            self.source,
+            self.basedir,
+            self.input,
+            self.output,
+            self.params,
+            self.wildcards,
+            self.threads,
+            self.resources,
+            self.log,
+            self.config,
+            self.rulename,
+            self.conda_env,
+            self.singularity_img,
+            self.singularity_args,
+            self.bench_record,
+            self.jobid,
+            self.bench_iteration,
+            self.cleanup_scripts,
+            self.shadow_dir,
             preamble_addendum=preamble_addendum,
         )
 
@@ -406,7 +455,30 @@ class PythonScript(ScriptBase):
 
 
 class RScript(ScriptBase):
-    def get_preamble(self):
+    @staticmethod
+    def generate_preamble(
+        path,
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        singularity_img,
+        singularity_args,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
+        preamble_addendum="",
+    ):
         return textwrap.dedent(
             """
         ######## Snakemake header ########
@@ -447,31 +519,57 @@ class RScript(ScriptBase):
                 setwd(wd)
             }}
         )
+        {preamble_addendum}
 
         ######## Original script #########
         """
         ).format(
-            REncoder.encode_namedlist(self.input),
-            REncoder.encode_namedlist(self.output),
-            REncoder.encode_namedlist(self.params),
-            REncoder.encode_namedlist(self.wildcards),
-            self.threads,
-            REncoder.encode_namedlist(self.log),
+            REncoder.encode_namedlist(input_),
+            REncoder.encode_namedlist(output),
+            REncoder.encode_namedlist(params),
+            REncoder.encode_namedlist(wildcards),
+            threads,
+            REncoder.encode_namedlist(log),
             REncoder.encode_namedlist(
                 {
                     name: value
-                    for name, value in self.resources.items()
+                    for name, value in resources.items()
                     if name != "_cores" and name != "_nodes"
                 }
             ),
-            REncoder.encode_dict(self.config),
-            REncoder.encode_value(self.rulename),
-            REncoder.encode_numeric(self.bench_iteration),
+            REncoder.encode_dict(config),
+            REncoder.encode_value(rulename),
+            REncoder.encode_numeric(bench_iteration),
             REncoder.encode_value(
-                os.path.dirname(self.path[7:])
-                if self.path.startswith("file://")
-                else os.path.dirname(self.path)
+                os.path.dirname(path[7:])
+                if path.startswith("file://")
+                else os.path.dirname(path)
             ),
+            preamble_addendum=preamble_addendum,
+        )
+
+    def get_preamble(self):
+        return RScript.generate_preamble(
+            self.path,
+            self.source,
+            self.basedir,
+            self.input,
+            self.output,
+            self.params,
+            self.wildcards,
+            self.threads,
+            self.resources,
+            self.log,
+            self.config,
+            self.rulename,
+            self.conda_env,
+            self.singularity_img,
+            self.singularity_args,
+            self.bench_record,
+            self.jobid,
+            self.bench_iteration,
+            self.cleanup_scripts,
+            self.shadow_dir,
         )
 
     def write_script(self, preamble, fd):
@@ -660,139 +758,6 @@ class JuliaScript(ScriptBase):
 
 
 class JupyterNotebook(ScriptBase):
-    def _get_kernel_language(self):
-        nb = nbformat.reads(self.source, as_version=nbformat.NO_CONVERT)
-        return nb["metadata"]["language_info"]["name"]
-
-    def _get_python_preamble(self):
-        wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
-        snakemake = Snakemake(
-            self.input,
-            self.output,
-            self.params,
-            self.wildcards,
-            self.threads,
-            self.resources,
-            self.log,
-            self.config,
-            self.rulename,
-            self.bench_iteration,
-            os.path.dirname(wrapper_path),
-        )
-        snakemake = pickle.dumps(snakemake)
-        # Obtain search path for current snakemake module.
-        # The module is needed for unpickling in the script.
-        # We append it at the end (as a fallback).
-        searchpath = SNAKEMAKE_SEARCHPATH
-        if self.singularity_img is not None:
-            searchpath = singularity.SNAKEMAKE_MOUNTPOINT
-        searchpath = '"{}"'.format(searchpath)
-        # For local scripts, add their location to the path in case they use path-based imports
-        if self.path.startswith("file://"):
-            searchpath += ', "{}"'.format(os.path.dirname(self.path[7:]))
-
-        # nbconvert sets cwd to notebook directory.
-        # This is problematic because we create a temporary file.
-        preamble_addendum = "import os; os.chdir('{cwd}');".format(cwd=os.getcwd())
-
-        return textwrap.dedent(
-            """
-        ######## Snakemake header ########
-        import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
-        ######## Original script #########
-        """
-        ).format(
-            searchpath=escape_backslash(searchpath),
-            snakemake=snakemake,
-            printshellcmds=logger.printshellcmds,
-            preamble_addendum=preamble_addendum,
-        )
-
-    def _get_r_preamble(self):
-        # nbconvert sets cwd to notebook directory.
-        # This is problematic because we create a temporary file.
-        preamble_addendum = "setwd('{cwd}');".format(cwd=os.getcwd())
-
-        return textwrap.dedent(
-            """
-        ######## Snakemake header ########
-        library(methods)
-        Snakemake <- setClass(
-            "Snakemake",
-            slots = c(
-                input = "list",
-                output = "list",
-                params = "list",
-                wildcards = "list",
-                threads = "numeric",
-                log = "list",
-                resources = "list",
-                config = "list",
-                rule = "character",
-                bench_iteration = "numeric",
-                scriptdir = "character",
-                source = "function"
-            )
-        )
-        snakemake <- Snakemake(
-            input = {},
-            output = {},
-            params = {},
-            wildcards = {},
-            threads = {},
-            log = {},
-            resources = {},
-            config = {},
-            rule = {},
-            bench_iteration = {},
-            scriptdir = {},
-            source = function(...){{
-                wd <- getwd()
-                setwd(snakemake@scriptdir)
-                source(...)
-                setwd(wd)
-            }}
-        )
-        {preamble_addendum}
-
-        ######## Original script #########
-        """
-        ).format(
-            REncoder.encode_namedlist(self.input),
-            REncoder.encode_namedlist(self.output),
-            REncoder.encode_namedlist(self.params),
-            REncoder.encode_namedlist(self.wildcards),
-            self.threads,
-            REncoder.encode_namedlist(self.log),
-            REncoder.encode_namedlist(
-                {
-                    name: value
-                    for name, value in self.resources.items()
-                    if name != "_cores" and name != "_nodes"
-                }
-            ),
-            REncoder.encode_dict(self.config),
-            REncoder.encode_value(self.rulename),
-            REncoder.encode_numeric(self.bench_iteration),
-            REncoder.encode_value(
-                os.path.dirname(self.path[7:])
-                if self.path.startswith("file://")
-                else os.path.dirname(self.path)
-            ),
-            preamble_addendum=preamble_addendum,
-        )
-
-    def get_preamble(self):
-        kernel_language = self._get_kernel_language()
-        if kernel_language == "python":
-            return self._get_python_preamble()
-        elif kernel_language == "R":
-            return self._get_r_preamble()
-        else:
-            raise ValueError(
-                "Unsupported Jupyter kernel: Expecting one of the following: Python, R"
-            )
-
     def write_script(self, preamble, fd):
         nb = nbformat.reads(self.source, as_version=4)  # nbformat.NO_CONVERT
 
@@ -856,13 +821,72 @@ class JupyterNotebook(ScriptBase):
                 )
 
 
+class PythonJupyterNotebook(JupyterNotebook):
+    def get_preamble(self):
+        preamble_addendum = "import os; os.chdir('{cwd}');".format(cwd=os.getcwd())
+
+        return PythonScript.generate_preamble(
+            self.path,
+            self.source,
+            self.basedir,
+            self.input,
+            self.output,
+            self.params,
+            self.wildcards,
+            self.threads,
+            self.resources,
+            self.log,
+            self.config,
+            self.rulename,
+            self.conda_env,
+            self.singularity_img,
+            self.singularity_args,
+            self.bench_record,
+            self.jobid,
+            self.bench_iteration,
+            self.cleanup_scripts,
+            self.shadow_dir,
+            preamble_addendum=preamble_addendum,
+        )
+
+
+class RJupyterNotebook(JupyterNotebook):
+    def get_preamble(self):
+        preamble_addendum = "setwd('{cwd}');".format(cwd=os.getcwd())
+
+        return RScript.generate_preamble(
+            self.path,
+            self.source,
+            self.basedir,
+            self.input,
+            self.output,
+            self.params,
+            self.wildcards,
+            self.threads,
+            self.resources,
+            self.log,
+            self.config,
+            self.rulename,
+            self.conda_env,
+            self.singularity_img,
+            self.singularity_args,
+            self.bench_record,
+            self.jobid,
+            self.bench_iteration,
+            self.cleanup_scripts,
+            self.shadow_dir,
+            preamble_addendum=preamble_addendum,
+        )
+
+
 def get_executor_class(language):
     ExecClass = {
         "python": PythonScript,
         "r": RScript,
         "rmarkdown": RMarkdown,
         "julia": JuliaScript,
-        "jupyter": JupyterNotebook,
+        "jupyter_python": PythonJupyterNotebook,
+        "jupyter_r": RJupyterNotebook,
     }.get(language, None)
 
     if ExecClass is None:

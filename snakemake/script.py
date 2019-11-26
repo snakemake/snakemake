@@ -6,6 +6,8 @@ __license__ = "MIT"
 import os
 from urllib.request import urlopen, pathname2url
 
+import nbformat
+
 from snakemake.utils import format
 from snakemake.io import git_content, split_git_path
 from snakemake.script_handlers import get_executor_class
@@ -31,6 +33,10 @@ def get_source(path, basedir="."):
     else:
         sourceurl = path
 
+    if source is None:
+        with urlopen(sourceurl) as source:
+            source = source.read()
+
     language = None
     if path.endswith(".py"):
         language = "python"
@@ -43,11 +49,14 @@ def get_source(path, basedir="."):
     elif path.endswith(".jl"):
         language = "julia"
 
-    if source is None:
-        with urlopen(sourceurl) as source:
-            return path, source.read(), language
-    else:
-        return path, source, language
+    # detect kernel language for Jupyter Notebooks
+    if language == "jupyter":
+        nb = nbformat.reads(source, as_version=nbformat.NO_CONVERT)
+        kernel_language = nb["metadata"]["language_info"]["name"]
+
+        language += "_" + kernel_language.lower()
+
+    return path, source, language
 
 
 def script(
