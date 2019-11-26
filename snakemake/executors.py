@@ -2148,7 +2148,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # Needs to be relative for commands run in worker (linux base)
         self.snakefile = snakefile.replace(self.workdir + "/", "")
-        exec_job = (
+
+        exec_job = exec_job or (
             "snakemake {target} --snakefile %s "
             "--force -j{cores} --keep-target-files  --keep-remote "
             "--latency-wait 0 "
@@ -2331,12 +2332,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         to_remove = set()
         for zone, types in lookup.items():
             names = [x["name"] for x in types]
-            for machineType in list(machine_types.keys()):
-                if machineType not in names:
-                    to_remove.add(machineType)
+            for machine_type in list(machine_types.keys()):
+                if machine_type not in names:
+                    to_remove.add(machine_type)
 
-        for machineType in to_remove:
-            del machine_types[machineType]
+        for machine_type in to_remove:
+            del machine_types[machine_type]
 
         # Alert the user of machine_types available before filtering
         # https://cloud.google.com/compute/docs/machine-types
