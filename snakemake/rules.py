@@ -234,6 +234,17 @@ class Rule:
             return branch, non_dynamic_wildcards
         return branch
 
+    def check_caching(self):
+        if self.name in self.workflow.cache_rules:
+            if len(self.output) != 1:
+                raise RuleException(
+                    "Only rules with exactly 1 output file may be cached.", rule=self
+                )
+            if self.dynamic_output:
+                raise RuleException(
+                    "Rules with dynamic output files may not be cached.", rule=self
+                )
+
     def has_wildcards(self):
         """
         Return True if rule contains wildcards.
@@ -352,6 +363,7 @@ class Rule:
             self.register_wildcards(item.get_wildcard_names())
         # Check output file name list for duplicates
         self.check_output_duplicates()
+        self.check_caching()
 
     def check_output_duplicates(self):
         """Check ``Namedlist`` for duplicate entries and raise a ``WorkflowError``
@@ -608,6 +620,7 @@ class Rule:
         raw_exceptions=False,
         **aux_params
     ):
+        incomplete = False
         if isinstance(func, _IOFile):
             func = func._file.callable
         elif isinstance(func, AnnotatedString):
@@ -618,12 +631,13 @@ class Rule:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)
         except IncompleteCheckpointException as e:
             value = incomplete_checkpoint_func(e)
+            incomplete = True
         except (Exception, BaseException) as e:
             if raw_exceptions:
                 raise e
             else:
                 raise InputFunctionException(e, rule=self, wildcards=wildcards)
-        return value
+        return value, incomplete
 
     def _apply_wildcards(
         self,
@@ -650,16 +664,17 @@ class Rule:
             if _is_callable:
                 if omit_callable:
                     continue
-                item = self.apply_input_function(
+                item, incomplete = self.apply_input_function(
                     item,
                     wildcards,
                     incomplete_checkpoint_func=incomplete_checkpoint_func,
+                    is_unpack=is_unpack,
                     **aux_params
                 )
                 if apply_default_remote:
                     item = self.apply_default_remote(item)
 
-            if is_unpack:
+            if is_unpack and not incomplete:
                 if not allow_unpack:
                     raise WorkflowError(
                         "unpack() is not allowed with params. "
@@ -876,7 +891,7 @@ class Rule:
                     aux["threads"] = threads
                 try:
                     try:
-                        res = self.apply_input_function(
+                        res, _ = self.apply_input_function(
                             res,
                             wildcards,
                             input=input,
@@ -914,7 +929,8 @@ class Rule:
     def expand_group(self, wildcards):
         """Expand the group given wildcards."""
         if callable(self.group):
-            return self.apply_input_function(self.group, wildcards)
+            item, _ = self.apply_input_function(self.group, wildcards)
+            return item
         elif isinstance(self.group, str):
             return apply_wildcards(self.group, wildcards, dynamic_fill=DYNAMIC_FILL)
         else:

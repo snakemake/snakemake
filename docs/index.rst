@@ -16,8 +16,8 @@ Snakemake
 .. image:: https://img.shields.io/docker/cloud/build/snakemake/snakemake
        :target: https://hub.docker.com/r/snakemake/snakemake
 
-.. image:: https://circleci.com/gh/snakemake/snakemake/tree/master.svg?style=shield
-    :target: https://circleci.com/gh/snakemake/snakemake/tree/master
+.. image:: https://github.com/snakemake/snakemake/workflows/CI/badge.svg?branch=master
+    :target: https://github.com/snakemake/snakemake/actions?query=branch%3Amaster+workflow%3ACI
 
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
     :target: https://stackoverflow.com/questions/tagged/snakemake
@@ -37,7 +37,7 @@ Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
-Snakemake is **highly popular** with, on average, `a new citation every few days <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
+Snakemake is **highly popular** with, `~3 new citations per week <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
 
 
 .. _manual-quick_example:
@@ -208,7 +208,10 @@ Please consider to add your own.
   :hidden:
   :maxdepth: 1
 
-  executable
+  executing/cli
+  executing/cluster-cloud
+  executing/caching
+  executing/interoperability
 
 .. toctree::
     :caption: Defining workflows

@@ -39,6 +39,7 @@ SNAKEFILE_CHOICES = [
 def snakemake(
     snakefile,
     batch=None,
+    cache=None,
     report=None,
     listrules=False,
     list_target_rules=False,
@@ -477,6 +478,7 @@ def snakemake(
             default_remote_prefix=default_remote_prefix,
             run_local=run_local,
             default_resources=default_resources,
+            cache=cache,
         )
         success = True
 
@@ -500,6 +502,7 @@ def snakemake(
                     cores=cores,
                     nodes=nodes,
                     local_cores=local_cores,
+                    cache=cache,
                     resources=resources,
                     default_resources=default_resources,
                     dryrun=dryrun,
@@ -835,6 +838,17 @@ def get_argument_parser(profile=None):
                         """.format(
             dirs.site_config_dir, dirs.user_config_dir
         ),
+    )
+
+    group_exec.add_argument(
+        "--cache",
+        nargs="+",
+        metavar="RULE",
+        help="Store output files of given rules in a central cache given by the environment "
+        "variable $SNAKEMAKE_OUTPUT_CACHE. Likewise, retrieve output files of the given rules "
+        "from this cache if they have been created before (by anybody writing to the same cache), "
+        "instead of actually executing the rules. Output files are identified by hashing all "
+        "steps, parameters and software stack (conda envs or containers) needed to create them.",
     )
 
     group_exec.add_argument(
@@ -1985,6 +1999,7 @@ def main(argv=None):
         success = snakemake(
             args.snakefile,
             batch=batch,
+            cache=args.cache,
             report=args.report,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
