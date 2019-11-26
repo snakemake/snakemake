@@ -9,7 +9,6 @@ import inspect
 import uuid
 import os
 
-from snakemake.logging import logger
 from ._version import get_versions
 
 __version__ = get_versions()["version"]
@@ -60,6 +59,8 @@ def get_file_hash(filename, algorithm="sha256"):
     """find the SHA256 hash string of a file. We use this so that the
        user can choose to cache working directories in storage.
     """
+    from snakemake.logging import logger
+
     if os.path.exists(filename):
 
         # The algorithm must be available
@@ -119,6 +120,8 @@ def strip_prefix(text, prefix):
 
 
 def log_location(msg):
+    from snakemake.logging import logger
+
     callerframerecord = inspect.stack()[1]
     frame = callerframerecord[0]
     info = inspect.getframeinfo(frame)

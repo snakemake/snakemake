@@ -2287,8 +2287,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             request = operations.cancel(name=job.jobname)
             logger.debug("Cancelling operation {}".format(job.jobid))
             try:
-                status = self._retry_request(request)
-            except (Exception, BaseException, googleapiclient.errors.HttpError) as ex:
+                self._retry_request(request)
+            except (Exception, BaseException, googleapiclient.errors.HttpError):
                 continue
 
         self.shutdown()
@@ -2299,7 +2299,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """
         # Right now, do a best effort mapping of resources to instance types
         cores = job.resources.get("_cores", 1)
-        nodes = job.resources.get("_nodes", 1)
         mem_mb = job.resources.get("mem_mb", 100)
         disk_mb = job.resources.get("disk_mb", 102400)  # 100 GB default
 
@@ -2325,41 +2324,41 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             lookup[zone["name"]] = self._retry_request(request)["items"]
 
         # Only keep those that are shared, use last zone as a base
-        machineTypes = {mt["name"]: mt for mt in lookup[zone["name"]]}
+        machine_types = {mt["name"]: mt for mt in lookup[zone["name"]]}
         del lookup[zone["name"]]
 
         # Update final list based on the remaining
         to_remove = set()
         for zone, types in lookup.items():
             names = [x["name"] for x in types]
-            for machineType in list(machineTypes.keys()):
+            for machineType in list(machine_types.keys()):
                 if machineType not in names:
                     to_remove.add(machineType)
 
         for machineType in to_remove:
-            del machineTypes[machineType]
+            del machine_types[machineType]
 
-        # Alert the user of machineTypes available before filtering
+        # Alert the user of machine_types available before filtering
         # https://cloud.google.com/compute/docs/machine-types
         logger.debug(
             "found {} machine types across regions {} before filtering"
             "to increase selection, define fewer regions".format(
-                len(machineTypes), self.regions
+                len(machine_types), self.regions
             )
         )
 
         # First pass - eliminate anything that too low in cpu/memory
         keepers = dict()
-        for name, machineType in machineTypes.items():
+        for name, machineType in machine_types.items():
             if machineType["guestCpus"] < cores or machineType["memoryMb"] < mem_mb:
                 continue
             keepers[name] = machineType
 
         # If a prefix is set, filter down to it
         if self._machine_type_prefix:
-            machineTypes = keepers
+            machine_types = keepers
             keepers = dict()
-            for name, machineType in machineTypes.items():
+            for name, machineType in machine_types.items():
                 if name.startswith(self._machine_type_prefix):
                     keepers[name] = machineType
 
@@ -2371,30 +2370,32 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             )
 
         # Now find (quasi) minimal to satisfy constraints
-        machineTypes = keepers
-        keepers = dict()
+        machine_types = keepers
 
-        minCores = 1
-        minMem = 3.75
+        min_cores = 1
+        min_mem = 3.75
         smallest = "n1-standard-1"
 
-        for name, machineType in machineTypes.items():
-            if machineType["guestCpus"] < minCores and machineType["memoryMb"] < minMem:
+        for name, machineType in machine_types.items():
+            if (
+                machineType["guestCpus"] < min_cores
+                and machineType["memoryMb"] < min_mem
+            ):
                 smallest = name
-                minCores = machineType["guestCpus"]
-                minMem = machineType["memoryMb"]
+                min_cores = machineType["guestCpus"]
+                min_mem = machineType["memoryMb"]
 
-        selected = machineTypes[smallest]
+        selected = machine_types[smallest]
         logger.debug(
             "Selected machine type {}:{}".format(smallest, selected["description"])
         )
-        virtualMachine = {
+        virtual_machine = {
             "machineType": smallest,
             "labels": {"app": "snakemake"},
             "bootDiskSizeGb": disk_gb,
         }
 
-        resources = {"regions": self.regions, "virtualMachine": virtualMachine}
+        resources = {"regions": self.regions, "virtualMachine": virtual_machine}
         return resources
 
     def _generate_build_source_package(self):
