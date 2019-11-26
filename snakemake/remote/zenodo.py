@@ -4,24 +4,15 @@ __email__ = "tapa741@gmail.com"
 __license__ = "MIT"
 
 import os
-import re
 import hashlib
 from collections import namedtuple
-
+import requests
+from requests.exceptions import HTTPError
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import ZenodoFileException, WorkflowError
 from snakemake.common import lazy_property
 from snakemake.utils import makedirs
 
-try:
-    # Third-party modules
-    import requests
-    from requests.exceptions import HTTPError
-except ImportError as e:
-    raise WorkflowError(
-        "The Python 3 package 'requests' "
-        + "must be installed to use Zenodo remote() file functionality. %s" % e.msg
-    )
 
 ZenFileInfo = namedtuple("ZenFileInfo", ["checksum", "filesize", "id", "download"])
 
