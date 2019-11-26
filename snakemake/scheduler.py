@@ -482,20 +482,18 @@ class JobScheduler:
         improvement = {temp_file: pulp.LpVariable(temp_file, lowBound=0, cat="Continuous") for temp_file in temp_files}
 
         prob = pulp.LpProblem("Job scheduler", pulp.LpMaximize)
-        
+
         # Objective function
-        prob += lpSum([(job.priority+1) * scheduled_jobs[i] for i, job in enumerate(jobs)]) + lpSum(improvement)
+        prob += lpSum([(job.priority + job.resources.get("_cores", 1)) * scheduled_jobs[i] for i, job in enumerate(jobs)]) + lpSum(improvement) #job priority equals 0 if not set (Do not set to 1 as cores do not get prioritized)
         #Constraints:
         for (name, resource_limit) in  self.workflow.global_resources.items():
-            print(f"{name} {resource_limit}")
             prob += lpSum([scheduled_jobs[i] * job.resources.get(name, 0) for i, job in enumerate(jobs)]) <= resource_limit, f"Limitation of resource: {name}"
         
         #Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
         for temp_file in temp_files:
             prob += improvement[temp_file] <= lpSum([scheduled_jobs[i] * self.required_by_job(temp_file, job) for i, job in enumerate(jobs)]) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
-            
 
-        #prob.writeLP("WhiskasModel.lp")
+        prob.writeLP(f"WhiskasModel_{len(jobs)}.lp")
         prob.solve()
         print("Status:", pulp.LpStatus[prob.status])
         solution = [jobs[int(variable.name.split("_")[-1])] for variable in prob.variables() if (variable.name.startswith("job_") and variable.value() == 1.0)]
