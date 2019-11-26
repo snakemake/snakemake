@@ -8,6 +8,7 @@ import sys
 import contextlib
 import time
 import datetime
+import google
 import json
 import textwrap
 import stat
@@ -2283,8 +2284,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         operations = self._api.projects().locations().operations()
 
         for job in self.active_jobs:
-            request = operations.cancel(name=j.jobname)
-            logger.debug("Cancelling operation {}".format(j.jobid))
+            request = operations.cancel(name=job.jobname)
+            logger.debug("Cancelling operation {}".format(job.jobid))
             try:
                 status = self._retry_request(request)
             except (Exception, BaseException, googleapiclient.errors.HttpError) as ex:
