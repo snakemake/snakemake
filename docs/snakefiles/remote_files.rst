@@ -774,27 +774,27 @@ Zenodo
 ======
 
 `Zenodo <https://zenodo.org>`_ is a catch-all open data and software repository. 
-Snakemake allows file download and upload from Zenodo. 
-To access Zenodo files you need to set up Zenodo account and create a personal access token.
+Snakemake allows file upload and download from Zenodo. 
+To access your Zenodo files you need to set up Zenodo account and create a personal access token with at least write scope.
 Personal access token must be supplied as ``access_token`` argument.
-You need to supply deposition id as ``deposition`` to download files from deposition.
-If no deposition id is supplied, Snakemake creates a new deposition.
+You need to supply deposition id as ``deposition`` to upload or download files from your deposition.
+If no deposition id is supplied, Snakemake creates a new deposition for upload.
 
 .. code-block:: python
     from snakemake.remote.zenodo import RemoteProvider
     import os
 
-    access_token=os.environ["your_zenodo_pat_environment_variable"]
+    access_token=os.environ["MYZENODO_PAT"]
     ZEN = RemoteProvider(deposition="your deposition id", access_token=access_token)
 
-    rule download:
+    rule upload:
         input:
-            ZEN.remote("your_file.txt")
+            "output/results.csv"
         output:
-            "your_file.txt"
+            ZEN.remote("results.csv")
         shell:
             "cp {input} {output}"
 
 
 It is possible to use `Zenodo sandbox environment <https://sandbox.zenodo.org>`_ for testing by setting ``sandbox=True`` argument.
-Using sandbox environment requires setting up separate account and personal access token.
+Using sandbox environment requires setting up sandbox account with its personal access token.
