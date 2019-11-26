@@ -100,6 +100,24 @@ In order to infer the IDs from present files, Snakemake provides the ``glob_wild
 
 The function matches the given pattern against the files present in the filesystem and thereby infers the values for all wildcards in the pattern. A named tuple that contains a list of values for each wildcard is returned. Here, this named tuple has only one item, that is the list of values for the wildcard ``{id}``.
 
+I don't want expand to use the product of every wildcard, what can I do?
+------------------------------------------------------------------------
+
+By default the expand function uses ``itertools.product`` to create every combination of the supplied wildcards.
+Expand takes an optional, second positional argument which can customize how wildcards are combined.
+To create the list ``["a_1.txt", "b_2.txt", "c_3.txt"]``, invoke expand as:
+``expand("{sample}_{id}.txt", zip, sample=["a", "b", "c"], id=["1", "2", "3"])``
+
+I don't want expand to use every wildcard, what can I do?
+---------------------------------------------------------
+
+Sometimes partially expanding wildcards is useful to define inputs which still depend on some input values.
+Expand takes an optional keyword argument that will format only wildcards which are supplied.
+To create the list ``["{sample}_1.txt", "{sample}_2.txt"]``, invoke expand as:
+``expand("{sample}_{id}.txt", id=["1", "2"], allow_missing=True)``
+If the filename contains the wildcard ``allow_missing``, it will be formatted normally.
+
+
 Snakemake complains about a cyclic dependency or a PeriodicWildcardError. What can I do?
 ----------------------------------------------------------------------------------------
 
