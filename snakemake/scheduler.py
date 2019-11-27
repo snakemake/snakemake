@@ -482,9 +482,8 @@ class JobScheduler:
         improvement = {temp_file: pulp.LpVariable(temp_file, lowBound=0, cat="Continuous") for temp_file in temp_files}
 
         prob = pulp.LpProblem("Job scheduler", pulp.LpMaximize)
-
         # Objective function
-        prob += lpSum([(job.priority + job.resources.get("_cores", 1)) * scheduled_jobs[i] for i, job in enumerate(jobs)]) + lpSum(improvement) #job priority equals 0 if not set (Do not set to 1 as cores do not get prioritized)
+        prob += lpSum([job.resources.get("_cores", 1) for job in jobs]) * lpSum([job.priority * scheduled_jobs[i] for i, job in enumerate(jobs)]) + lpSum(improvement) + lpSum([job.resources.get("_cores", 1) * scheduled_jobs[i] for i, job in enumerate(jobs)])
         #Constraints:
         for (name, resource_limit) in  self.workflow.global_resources.items():
             prob += lpSum([scheduled_jobs[i] * job.resources.get(name, 0) for i, job in enumerate(jobs)]) <= resource_limit, f"Limitation of resource: {name}"
