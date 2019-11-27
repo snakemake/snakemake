@@ -479,20 +479,29 @@ class JobScheduler:
 
         temp_files = {temp_file for job in jobs for temp_file in self.dag.temp_input(job)}
         
-        improvement = {temp_file: pulp.LpVariable(temp_file, lowBound=0, cat="Continuous") for temp_file in temp_files}
+        temp_job_improvement = {temp_file: pulp.LpVariable(temp_file, lowBound=0, cat="Continuous") for temp_file in temp_files}
 
         prob = pulp.LpProblem("Job scheduler", pulp.LpMaximize)
+
+        total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
+        total_core_requirement = sum([job.resources.get("_cores", 1)  for job in jobs])
         # Objective function
-        prob += lpSum([job.resources.get("_cores", 1) for job in jobs]) * lpSum([job.priority * scheduled_jobs[i] for i, job in enumerate(jobs)]) \
-            + lpSum(improvement) \
-            + lpSum([job.resources.get("_cores", 1) * scheduled_jobs[i] for i, job in enumerate(jobs)])
+        # Always prefere priority
+        # Core load > temp file removal
+        # TODO Prefere instant removal of small temp files over big temp files
+        prob += total_core_requirement * total_temp_size * lpSum([job.priority * scheduled_jobs[i] for i, job in enumerate(jobs)]) \
+            + total_temp_size * lpSum([job.resources.get("_cores", 1) * scheduled_jobs[i] for i, job in enumerate(jobs)]) \
+            + lpSum([temp_job_improvement[temp_file] * temp_file.size for temp_file in temp_files])
+
         #Constraints:
         for (name, resource_limit) in  self.workflow.global_resources.items():
             prob += lpSum([scheduled_jobs[i] * job.resources.get(name, 0) for i, job in enumerate(jobs)]) <= resource_limit, f"Limitation of resource: {name}"
         
         #Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
         for temp_file in temp_files:
-            prob += improvement[temp_file] <= lpSum([scheduled_jobs[i] * self.required_by_job(temp_file, job) for i, job in enumerate(jobs)]) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
+            prob += temp_job_improvement[temp_file] <= lpSum([scheduled_jobs[i] * self.required_by_job(temp_file, job) for i, job in enumerate(jobs)]) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
+
+        
 
         prob.writeLP(f"WhiskasModel_{len(jobs)}.lp")
         prob.solve()
