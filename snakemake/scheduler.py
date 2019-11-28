@@ -479,8 +479,7 @@ class JobScheduler:
 
         temp_files = {temp_file for job in jobs for temp_file in self.dag.temp_input(job)}
         
-        temp_job_improvement = {temp_file: pulp.LpVariable(temp_file, lowBound=0, cat="Continuous") for temp_file in temp_files}
-
+        temp_job_improvement = {temp_file: pulp.LpVariable(temp_file, lowBound=0, upBound= 1, cat="Continuous") for temp_file in temp_files}
         prob = pulp.LpProblem("Job scheduler", pulp.LpMaximize)
 
         total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
@@ -500,7 +499,7 @@ class JobScheduler:
         #Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
         for temp_file in temp_files:
             prob += temp_job_improvement[temp_file] <= lpSum([scheduled_jobs[i] * self.required_by_job(temp_file, job) for i, job in enumerate(jobs)]) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
-
+            prob += temp_job_improvement[temp_file] <= self.consider_temp_file(temp_file, temp_files, temp_job_improvement) # TODO instant deletion + optimization not possible -> preference of maximum cpu load preferes  
         
 
         prob.writeLP(f"WhiskasModel_{len(jobs)}.lp")
@@ -509,6 +508,16 @@ class JobScheduler:
         solution = [jobs[int(variable.name.split("_")[-1])] for variable in prob.variables() if (variable.name.startswith("job_") and variable.value() == 1.0)]
         print(f"Scheduled jobs: {solution}")
         return solution
+
+    def consider_temp_file(self, current_temp_file, temp_files, temp_job_improvement):
+        # If temp file can be deleted instantly do not allow other temp files
+        # TODO This only allows jobs deleting other temp files (Needs to be resolved)
+        if temp_job_improvement[current_temp_file].value() == 1.0:
+            return 1.0
+        for temp_file in temp_files:
+            if temp_job_improvement[temp_file].value() == 1.0:
+                return 0
+        return 1.0
 
     def required_by_job(self, temp_file, job):
         return 1 if temp_file in self.dag.temp_input(job) else 0
