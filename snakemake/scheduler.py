@@ -412,7 +412,7 @@ class JobScheduler:
                     print_exception(e, self.workflow.linemaps)
                     self._handle_error(job)
                     return
-            
+
             try:
                 self.dag.finish(job, update_dynamic=update_dynamic)
             except (RuleException, WorkflowError) as e:
