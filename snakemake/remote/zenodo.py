@@ -78,7 +78,27 @@ class RemoteObject(AbstractRemoteObject):
         return 0
 
     def download(self):
-        self._zen.download(self.local_file())
+        # Setup remote file for download
+        stats=self._stats()
+        r = self._zen._api_request(stats.download)
+
+        local_md5 = hashlib.md5()
+
+        # Make dir if missing
+        makedirs(os.path.dirname(os.path.realpath(remote_file)))
+
+        # Download file
+        with open(remote_file, "wb") as rf:
+            for chunk in r.iter_content(chunk_size=1024 * 1024 * 10):
+                local_md5.update(chunk)
+                rf.write(chunk)
+        local_md5 = local_md5.hexdigest()
+
+        if local_md5 != stats.checksum:
+            raise ZenodoFileException(
+                "File checksums do not match for remote file id: {}".format(stats.id)
+            )
+        
 
     def upload(self):
         if self.size() <= 100000000:
@@ -171,27 +191,6 @@ class ZENHelper(object):
             print("The server could not verify that you are authorized to access the URL requested. "
                   "Please check that your access token is valid.")
 
-    def download(self, remote_file):
-        # Get stats with download link
-        stats = self.get_files()[os.path.basename(remote_file)]
-        r = self._api_request(stats.download)
-
-        local_md5 = hashlib.md5()
-
-        # Make dir if missing
-        makedirs(os.path.dirname(os.path.realpath(remote_file)))
-
-        # Download file
-        with open(remote_file, "wb") as rf:
-            for chunk in r.iter_content(chunk_size=1024 * 1024 * 10):
-                local_md5.update(chunk)
-                rf.write(chunk)
-        local_md5 = local_md5.hexdigest()
-
-        if local_md5 != stats.checksum:
-            raise ZenodoFileException(
-                "File checksums do not match for remote file id: {}".format(stats.id)
-            )
 
     def upload(self, local_file, remote_file):
         with open(local_file, "rb") as lf:
