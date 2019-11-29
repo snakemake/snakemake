@@ -63,7 +63,6 @@ class RemoteObject(AbstractRemoteObject):
     def _stats(self):
         return self._zen.get_files()[os.path.basename(self.local_file())]
 
-
     def exists(self):
         return os.path.basename(self.local_file()) in self._zen.get_files()
 
@@ -98,7 +97,6 @@ class RemoteObject(AbstractRemoteObject):
             raise ZenodoFileException(
                 "File checksums do not match for remote file id: {}".format(stats.id)
             )
-        
 
     def upload(self):
         if self.size() <= 100000000:
@@ -188,9 +186,10 @@ class ZENHelper(object):
                 for f in files
             }
         except HTTPError:
-            print("The server could not verify that you are authorized to access the URL requested. "
-                  "Please check that your access token is valid.")
-
+            print(
+                "The server could not verify that you are authorized to access the URL requested. "
+                "Please check that your access token is valid."
+            )
 
     def upload(self, local_file, remote_file):
         with open(local_file, "rb") as lf:
