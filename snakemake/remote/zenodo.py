@@ -168,7 +168,8 @@ class ZENHelper(object):
                 for f in files
             }
         except HTTPError:
-            print("Use HTTP remote do download files from other user's Zenodo repos.")
+            print("The server could not verify that you are authorized to access the URL requested. "
+                  "Please check that your access token is valid.")
 
     def download(self, remote_file):
         # Get stats with download link
