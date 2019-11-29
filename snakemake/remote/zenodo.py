@@ -63,6 +63,7 @@ class RemoteObject(AbstractRemoteObject):
     def _stats(self):
         return self._zen.get_files()[os.path.basename(self.local_file())]
 
+
     def exists(self):
         return os.path.basename(self.local_file()) in self._zen.get_files()
 
@@ -78,9 +79,8 @@ class RemoteObject(AbstractRemoteObject):
         return 0
 
     def download(self):
-        # Setup remote file for download
-        stats=self._stats()
-        r = self._zen._api_request(stats.download)
+        download_url = self._stats().download
+        r = self._zen._api_request(download_url)
 
         local_md5 = hashlib.md5()
 
