@@ -95,6 +95,68 @@ class REncoder:
         source += ")"
         return source
 
+class StataEncoder:
+    """Encoding Python data structures into Stata."""
+
+    @classmethod
+    def encode_value(cls, value):
+        if value is None:
+            # empty string for Stata as none
+            return ""
+        elif isinstance(value, str):
+            return repr(value)
+        elif isinstance(value, dict):
+            return cls.encode_dict(value)
+        elif isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        elif isinstance(value, int) or isinstance(value, float):
+            return str(value)
+        elif isinstance(value, collections.abc.Iterable):
+            # convert all iterables to space separated string of quoted values
+            return cls.encode_list(value)
+        else:
+            # Try to convert from numpy if numpy is present
+            try:
+                import numpy as np
+
+                if isinstance(value, np.number):
+                    return str(value)
+            except ImportError:
+                pass
+        raise ValueError(
+            "Unsupported value for conversion into Stata: {}".format(value)
+        )
+
+    @classmethod
+    def encode_list(cls, l):
+        # note that the quoted list items are wrapped in the stata syntax for quoted strings 
+        return '`"'+" ".join(['"{}"'.format(listitem) for listitem in map(cls.encode_value, l)])+'"\''
+
+    @classmethod
+    def encode_items(cls, items):
+        def encode_item(item):
+            name, value = item
+            return 'string {} = {}'.format(name, cls.encode_value(value))
+        return "\n".join(map(encode_item, items))
+
+    @classmethod
+    def encode_dict(cls, d):
+        # return dictionaries as a raw string
+        d = "{}".format(str(d.items()))
+        return d
+
+    @classmethod
+    def encode_namedlist(cls, namedlist):
+        positional = " ".join(map(cls.encode_value, namedlist))
+        named = cls.encode_items(namedlist.items())
+        source = ""
+        if positional:
+            source += positional
+        if named:
+            source += named
+        source += ""
+        return source
+
 
 class JuliaEncoder:
     """Encoding Pyton data structures into Julia."""
@@ -272,6 +334,8 @@ def get_source(path, basedir="."):
         language = "rmarkdown"
     elif path.endswith(".jl"):
         language = "julia"
+    elif path.endswith(".do"):
+        language = "stata"
 
     if source is None:
         with urlopen(sourceurl) as source:
@@ -473,9 +537,22 @@ def script(
                     "'", '"'
                 )
             )
+        elif language == "stata":
+            preamble = textwrap.dedent(
+                """
+                    ######## Snakemake header ########
+                    version 13
+                    class snakemake {{
+                        .string test
+                    }}
+                    .snakemake.test = "{}"
+
+                    ######## Original script #########
+                """.format('testme')
+            )
         else:
             raise ValueError(
-                "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd) or Julia (.jl) script."
+                "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd), Stata (.do) or Julia (.jl) script."
             )
 
         dir = ".snakemake/scripts"
@@ -560,6 +637,9 @@ def script(
             )
         elif language == "julia":
             shell("julia {f.name:q}", bench_record=bench_record)
+        elif language == "stata":
+            # it's possible to have multiple installations of stata (MP vs SE/IC) and they have different executables, so need to put a good way of detecting the correct executable (or instruct the user to put an alias for stata-mp)
+            shell("stata-mp -q < {f.name:q}", bench_record=bench_record)
 
     except URLError as e:
         raise WorkflowError(e)
