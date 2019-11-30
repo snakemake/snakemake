@@ -11,7 +11,6 @@ from requests.exceptions import HTTPError
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import ZenodoFileException, WorkflowError
 from snakemake.common import lazy_property
-from snakemake.utils import makedirs
 
 
 ZenFileInfo = namedtuple("ZenFileInfo", ["checksum", "filesize", "id", "download"])
@@ -82,9 +81,6 @@ class RemoteObject(AbstractRemoteObject):
         r = self._zen._api_request(download_url)
 
         local_md5 = hashlib.md5()
-
-        # Make dir if missing
-        makedirs(os.path.dirname(os.path.realpath(self.remote_file())))
 
         # Download file
         with open(self.remote_file(), "wb") as rf:
