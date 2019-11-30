@@ -136,7 +136,7 @@ class StataEncoder:
     def encode_items(cls, items):
         def encode_item(item):
             name, value = item
-            return 'string {} = {}'.format(name, cls.encode_value(value))
+            return 'string {} = {}'.format(name, '"'+cls.encode_value(value).strip("'")+'"')
         return "\n".join(map(encode_item, items))
 
     @classmethod
@@ -150,8 +150,8 @@ class StataEncoder:
         positional = " ".join(map(cls.encode_value, namedlist))
         named = cls.encode_items(namedlist.items())
         source = ""
-        if positional:
-            source += positional
+#        if positional:
+#            source += positional
         if named:
             source += named
         source += ""
@@ -540,15 +540,28 @@ def script(
         elif language == "stata":
             preamble = textwrap.dedent(
                 """
-                    ######## Snakemake header ########
+                    * ######## Snakemake header ########
                     version 13
                     class snakemake {{
                         .string test
                     }}
                     .snakemake.test = "{}"
 
-                    ######## Original script #########
-                """.format('testme')
+                    class input {{
+                        {}
+                    }}
+
+                    class _params {{
+                        {}
+                    }}
+
+                    .params = ._params.new
+                    * ######## Original script #########
+                """.format(
+                    'testme',
+                    StataEncoder.encode_namedlist(input),
+                    StataEncoder.encode_namedlist(params),
+                )
             )
         else:
             raise ValueError(
