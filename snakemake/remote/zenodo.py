@@ -151,12 +151,15 @@ class ZENHelper(object):
         session.headers.update(headers)
 
         # Run query
-        r = session.request(method=method, url=url, data=data, files=files)
-        if json:
-            msg = r.json()
-            return msg
-        else:
-            return r
+        try:
+            r = session.request(method=method, url=url, data=data, files=files)
+            if json:
+                msg = r.json()
+                return msg
+            else:
+                return r
+        except HTTPError as e:
+            print(e)
 
     def create_deposition(self):
         resp = self._api_request(
@@ -177,21 +180,14 @@ class ZENHelper(object):
         return resp["links"]["bucket"]
 
     def get_files(self):
-        try:
-            files = self._api_request(
-                self._baseurl
-                + "/api/deposit/depositions/{}/files".format(self.deposition),
-                headers={"Content-Type": "application/json"},
-                json=True,
+        files = self._api_request(
+            self._baseurl + "/api/deposit/depositions/{}/files".format(self.deposition),
+            headers={"Content-Type": "application/json"},
+            json=True,
+        )
+        return {
+            os.path.basename(f["filename"]): ZenFileInfo(
+                f["checksum"], int(f["filesize"]), f["id"], f["links"]["download"]
             )
-            return {
-                os.path.basename(f["filename"]): ZenFileInfo(
-                    f["checksum"], int(f["filesize"]), f["id"], f["links"]["download"]
-                )
-                for f in files
-            }
-        except HTTPError:
-            print(
-                "The server could not verify that you are authorized to access the URL requested. "
-                "Please check that your access token is valid."
-            )
+            for f in files
+        }
