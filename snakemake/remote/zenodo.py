@@ -101,10 +101,9 @@ class RemoteObject(AbstractRemoteObject):
     def upload(self):
         with open(self.local_file(), "rb") as lf:
             self._zen._api_request(
-                self._zen.bucket
-                + "/{}".format(os.path.basename(self.remote_file())),
+                self._zen.bucket + "/{}".format(os.path.basename(self.remote_file())),
                 method="PUT",
-                data=lf
+                data=lf,
             )
 
     @property
@@ -172,17 +171,14 @@ class ZENHelper(object):
             json=True,
         )
         return {"id": resp["id"], "bucket": resp["links"]["bucket"]}
-    
 
     def get_bucket(self):
         resp = self._api_request(
-                self._baseurl
-                + "/api/deposit/depositions/{}".format(self.deposition),
-                headers={"Content-Type": "application/json"},
-                json=True,
-            )
+            self._baseurl + "/api/deposit/depositions/{}".format(self.deposition),
+            headers={"Content-Type": "application/json"},
+            json=True,
+        )
         return resp["links"]["bucket"]
-
 
     def get_files(self):
         try:
@@ -203,4 +199,3 @@ class ZENHelper(object):
                 "The server could not verify that you are authorized to access the URL requested. "
                 "Please check that your access token is valid."
             )
-
