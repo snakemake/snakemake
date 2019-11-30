@@ -2332,6 +2332,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         to_remove = set()
         for zone, types in lookup.items():
             names = [x["name"] for x in types]
+            names = [name for name in names if "micro" not in name]
             for machine_type in list(machine_types.keys()):
                 if machine_type not in names:
                     to_remove.add(machine_type)
@@ -2350,18 +2351,18 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # First pass - eliminate anything that too low in cpu/memory
         keepers = dict()
-        for name, machineType in machine_types.items():
-            if machineType["guestCpus"] < cores or machineType["memoryMb"] < mem_mb:
+        for name, machine_type in machine_types.items():
+            if machine_type["guestCpus"] < cores or machine_type["memoryMb"] < mem_mb:
                 continue
-            keepers[name] = machineType
+            keepers[name] = machine_type
 
         # If a prefix is set, filter down to it
         if self._machine_type_prefix:
             machine_types = keepers
             keepers = dict()
-            for name, machineType in machine_types.items():
+            for name, machine_type in machine_types.items():
                 if name.startswith(self._machine_type_prefix):
-                    keepers[name] = machineType
+                    keepers[name] = machine_type
 
         # If we don't have any contenders, workflow error
         if not keepers:
@@ -2373,18 +2374,19 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Now find (quasi) minimal to satisfy constraints
         machine_types = keepers
 
-        min_cores = 1
-        min_mem = 3.75
-        smallest = "n1-standard-1"
+        # Select the first as the smallest
+        smallest = list(machine_types.keys())[0]
+        min_cores = machine_types[smallest]["guestCpus"]
+        min_mem = machine_types[smallest]["memoryMb"]
 
-        for name, machineType in machine_types.items():
+        for name, machine_type in machine_types.items():
             if (
-                machineType["guestCpus"] < min_cores
-                and machineType["memoryMb"] < min_mem
+                machine_type["guestCpus"] < min_cores
+                and machine_type["memoryMb"] < min_mem
             ):
                 smallest = name
-                min_cores = machineType["guestCpus"]
-                min_mem = machineType["memoryMb"]
+                min_cores = machine_type["guestCpus"]
+                min_mem = machine_type["memoryMb"]
 
         selected = machine_types[smallest]
         logger.debug(

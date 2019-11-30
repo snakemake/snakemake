@@ -112,8 +112,8 @@ provides a rich application programming interface to design pipelines.
 You'll first need to `follow instructions here <https://cloud.google.com/life-sciences/docs/quickstart>`_  to
 create a Google Cloud Project and enable Life Sciences, Storage, and Compute Engine APIs,
 and continue with the prompts to create credentials. You'll want to create
-a service account for your host, and save the json credentials. You'll want
-to export the full path to this file to `GOOGLE_APPLICATION_CREDENTIALS`:
+a service account for your host (it's easiest to give project Owner permissions), 
+and save the json credentials. You'll want to export the full path to this file to `GOOGLE_APPLICATION_CREDENTIALS`:
 
 .. code-block:: console
 
@@ -128,6 +128,14 @@ credentials will be used.
 .. code-block:: console
 
       $ export GOOGLE_CLOUD_PROJECT=my-project-name
+
+The dependencies that you'll need for snakemake are:
+
+ - gcc
+ - python dev
+ - google cloud python client libraries
+ - oauth2client
+
 
 Data in Google Storage
 ::::::::::::::::::::::
