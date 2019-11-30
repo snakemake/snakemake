@@ -104,7 +104,7 @@ class StataEncoder:
             # empty string for Stata as none
             return ""
         elif isinstance(value, str):
-            return str(value)
+            return '`"{}"\''.format(str(value))
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
@@ -130,7 +130,8 @@ class StataEncoder:
     @classmethod
     def encode_list(cls, l):
         # note that the quoted list items are wrapped in the stata syntax for quoted strings 
-        return '`"'+" ".join(['"{}"'.format(listitem) for listitem in map(cls.encode_value, l)])+'"\''
+        # return '`"'+" ".join(['"{}"'.format(listitem) for listitem in map(cls.encode_value, l)])+'"\''
+        return ", ".join(['{}'.format(listitem) for listitem in map(cls.encode_value, l)])
 
     @classmethod
     def encode_items(cls, items):
@@ -147,15 +148,14 @@ class StataEncoder:
 
     @classmethod
     def encode_namedlist(cls, namedlist):
-        positional = "string _all ="+'`"'+" ".join(['"{}"'.format(listitem) for listitem in map(cls.encode_value, namedlist)])+'"\''
+        positional = "array _all ="+ "{{ {} }}".format(cls.encode_list(namedlist))
         named = cls.encode_items(namedlist.items())
         source = ""
         if positional:
             source += positional
-        source += "\n"
         if named:
+            source += "\n"
             source += named
-        source += ""
         return source
 
 
