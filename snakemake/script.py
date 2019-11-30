@@ -104,7 +104,7 @@ class StataEncoder:
             # empty string for Stata as none
             return ""
         elif isinstance(value, str):
-            return repr(value)
+            return str(value)
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
@@ -147,11 +147,12 @@ class StataEncoder:
 
     @classmethod
     def encode_namedlist(cls, namedlist):
-        positional = " ".join(map(cls.encode_value, namedlist))
+        positional = "string _all ="+'`"'+" ".join(['"{}"'.format(listitem) for listitem in map(cls.encode_value, namedlist)])+'"\''
         named = cls.encode_items(namedlist.items())
         source = ""
-#        if positional:
-#            source += positional
+        if positional:
+            source += positional
+        source += "\n"
         if named:
             source += named
         source += ""
@@ -542,12 +543,12 @@ def script(
                 """
                     * ######## Snakemake header ########
                     version 13
-                    class snakemake {{
-                        .string test
-                    }}
-                    .snakemake.test = "{}"
 
-                    class input {{
+                    class _input {{
+                        {}
+                    }}
+
+                    class _output {{
                         {}
                     }}
 
@@ -555,12 +556,31 @@ def script(
                         {}
                     }}
 
+                    class _wildcards {{
+                        {}
+                    }}
+                    class _threads {{
+                        double n = {}
+                    }}
+                    class _log {{
+                        {}
+                    }}
+
+                    .input = ._input.new
+                    .output = ._output.new
                     .params = ._params.new
+                    .wildcards = ._wildcards.new
+                    .threads = ._threads.new
+                    .log = ._log.new
+
                     * ######## Original script #########
                 """.format(
-                    'testme',
                     StataEncoder.encode_namedlist(input),
+                    StataEncoder.encode_namedlist(output),
                     StataEncoder.encode_namedlist(params),
+                    StataEncoder.encode_namedlist(wildcards),
+                    StataEncoder.encode_value(threads),
+                    StataEncoder.encode_namedlist(log),
                 )
             )
         else:
