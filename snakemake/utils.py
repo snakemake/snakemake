@@ -247,7 +247,7 @@ def report(
         metadata (str):     E.g. an optional author name or email address.
 
     """
-    if stylesheeet is None:
+    if stylesheet is None:
         os.path.join(os.path.dirname(__file__), "report.css")
     try:
         import snakemake.report
