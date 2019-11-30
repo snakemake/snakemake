@@ -84,10 +84,10 @@ class RemoteObject(AbstractRemoteObject):
         local_md5 = hashlib.md5()
 
         # Make dir if missing
-        makedirs(os.path.dirname(os.path.realpath(remote_file)))
+        makedirs(os.path.dirname(os.path.realpath(self.remote_file())))
 
         # Download file
-        with open(remote_file, "wb") as rf:
+        with open(self.remote_file(), "wb") as rf:
             for chunk in r.iter_content(chunk_size=1024 * 1024 * 10):
                 local_md5.update(chunk)
                 rf.write(chunk)
@@ -99,11 +99,12 @@ class RemoteObject(AbstractRemoteObject):
             )
 
     def upload(self):
-        if self.size() <= 100000000:
-            self._zen.upload(self.local_file(), self.remote_file())
-        else:
-            raise ZenodoFileException(
-                "Current Zenodo stable API supports <=100MB per file."
+        with open(self.local_file(), "rb") as lf:
+            self._zen._api_request(
+                self._zen.bucket
+                + "/{}".format(os.path.basename(self.remote_file())),
+                method="PUT",
+                data=lf
             )
 
     @property
@@ -137,11 +138,12 @@ class ZENHelper(object):
         else:
             self._baseurl = "https://zenodo.org"
 
-        if not deposition:
-            # Creating a new deposition, as deposition id was not supplied.
-            self.deposition = self.create_deposition()
-        else:
+        if deposition:
             self.deposition = deposition
+            self.bucket = self.get_bucket()
+        else:
+            # Creating a new deposition, as deposition id was not supplied.
+            self.deposition, self.bucket = self.create_deposition().values()
 
     def _api_request(
         self, url, method="GET", data=None, headers={}, files=None, json=False
@@ -169,7 +171,18 @@ class ZENHelper(object):
             data="{}",
             json=True,
         )
-        return resp["id"]
+        return {"id": resp["id"], "bucket": resp["links"]["bucket"]}
+    
+
+    def get_bucket(self):
+        resp = self._api_request(
+                self._baseurl
+                + "/api/deposit/depositions/{}".format(self.deposition),
+                headers={"Content-Type": "application/json"},
+                json=True,
+            )
+        return resp["links"]["bucket"]
+
 
     def get_files(self):
         try:
@@ -191,12 +204,3 @@ class ZENHelper(object):
                 "Please check that your access token is valid."
             )
 
-    def upload(self, local_file, remote_file):
-        with open(local_file, "rb") as lf:
-            self._api_request(
-                self._baseurl
-                + "/api/deposit/depositions/{}/files".format(self.deposition),
-                method="POST",
-                data={"filename": remote_file},
-                files={"file": lf},
-            )
