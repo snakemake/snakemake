@@ -137,13 +137,14 @@ class StataEncoder:
     def encode_items(cls, items):
         def encode_item(item):
             name, value = item
-            return 'string {} = {}'.format(name, '"'+cls.encode_value(value).strip("'")+'"')
+            # spaces to get indenting right
+            return '                        string {} = {}'.format(name, '"'+cls.encode_value(value).strip("'")+'"')
         return "\n".join(map(encode_item, items))
 
     @classmethod
     def encode_dict(cls, d):
         # return dictionaries as a raw string
-        d = "{}".format(str(d.items()))
+        d ='`"{}"\''.format(str(d.items()))
         return d
 
     @classmethod
@@ -559,20 +560,40 @@ def script(
                     class _wildcards {{
                         {}
                     }}
-                    class _threads {{
-                        double n = {}
-                    }}
+
+                    .threads = .double.new
+                    .threads = {}
+
                     class _log {{
                         {}
                     }}
+
+                    class _resources {{
+                        {}
+                    }}
+
+                    class _config {{
+                        {}
+                    }}
+
+                    .rule = .string.new
+                    .rule = {}
+
+                    .bench_iteration = .double.new
+                    .bench_iteration = {}
+
+                    .scriptdir = .string.new
+                    .scriptdir = {}
 
                     .input = ._input.new
                     .output = ._output.new
                     .params = ._params.new
                     .wildcards = ._wildcards.new
-                    .threads = ._threads.new
                     .log = ._log.new
+                    .resources = ._resources.new
+                    .config = ._config.new
 
+                    * to get the value of the objects above use `.input.name' for named inputs, `.input.name[1]' for named inputs containing lists (note that the indexing starts with 1, not 0, or in case the of simple lists use `.input._all[2]' to get the required item
                     * ######## Original script #########
                 """.format(
                     StataEncoder.encode_namedlist(input),
@@ -581,6 +602,22 @@ def script(
                     StataEncoder.encode_namedlist(wildcards),
                     StataEncoder.encode_value(threads),
                     StataEncoder.encode_namedlist(log),
+                    StataEncoder.encode_namedlist(
+                        {
+                            name: value
+                            for name, value in resources.items()
+                            if name != "_cores" and name != "_nodes"
+                        }
+                    ),
+                    # will unravel the first layer of the configuration (the alternative is to pass the raw config as as a single string)
+                    StataEncoder.encode_namedlist(config),
+                    StataEncoder.encode_value(rulename),
+                    StataEncoder.encode_value(bench_iteration if bench_iteration else 0),
+                    StataEncoder.encode_value(
+                        os.path.dirname(path[7:])
+                        if path.startswith("file://")
+                        else os.path.dirname(path)
+                    ),
                 )
             )
         else:
