@@ -672,7 +672,10 @@ def script(
             shell("julia {f.name:q}", bench_record=bench_record)
         elif language == "stata":
             # it's possible to have multiple installations of stata (MP vs SE/IC) and they have different executables, so need to put a good way of detecting the correct executable (or instruct the user to put an alias for stata-mp)
-            shell("stata-mp -q < {f.name:q}", bench_record=bench_record)
+            # note that the batch mode is preferred over the 'stata < dofile' method because the latter method doesn't handle multiline comments/line breaks well
+            # stata batch mode automatically creates a log file, this log file is moved to .snakemake/stata folder, since it may be needed for inspection (another alternative is to delete it completely)
+            statalog = '{}.log'.format(os.path.basename(f.name).replace('.'+os.path.basename(path),''))
+            shell("stata-mp -q -b {f.name:q}; mkdir -p .snakemake/stata && mv -v {statalog:q} $_", bench_record=bench_record)
 
     except URLError as e:
         raise WorkflowError(e)
