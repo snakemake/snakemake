@@ -1,5 +1,5 @@
 channels:
   - conda-forge
 dependencies:
-  - r-base =3.4.1
-  - r-rmarkdown =1.9
+  - r-base =3.5.0
+  - r-rmarkdown =1.17

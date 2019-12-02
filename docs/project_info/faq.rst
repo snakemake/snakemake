@@ -111,11 +111,12 @@ To create the list ``["a_1.txt", "b_2.txt", "c_3.txt"]``, invoke expand as:
 I don't want expand to use every wildcard, what can I do?
 ---------------------------------------------------------
 
-Sometimes partially expanding wildcards is useful to define inputs which still depend on some input values.
-Expand takes an optional keyword argument that will format only wildcards which are supplied.
+Sometimes partially expanding wildcards is useful to define inputs which still depend on some wildcards.
+Expand takes an optional keyword argument, allow_missing=True, that will format only wildcards which are supplied, leaving others as is.
 To create the list ``["{sample}_1.txt", "{sample}_2.txt"]``, invoke expand as:
 ``expand("{sample}_{id}.txt", id=["1", "2"], allow_missing=True)``
-If the filename contains the wildcard ``allow_missing``, it will be formatted normally.
+If the filename contains the wildcard ``allow_missing``, it will be formatted normally:
+``expand("{allow_missing}.txt", allow_missing=True)`` returns ``["True.txt"]``.
 
 
 Snakemake complains about a cyclic dependency or a PeriodicWildcardError. What can I do?
