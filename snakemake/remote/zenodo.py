@@ -17,11 +17,11 @@ ZenFileInfo = namedtuple("ZenFileInfo", ["checksum", "filesize", "id", "download
 
 
 class RemoteProvider(AbstractRemoteProvider):
-    def __init__(self, *args, stay_on_remote=False, deposition=None, **kwargs):
+    def __init__(self, *args, stay_on_remote=False, **kwargs):
         super(RemoteProvider, self).__init__(
-            *args, stay_on_remote=stay_on_remote, deposition=deposition, **kwargs
+            *args, stay_on_remote=stay_on_remote, **kwargs
         )
-        self._zen = ZENHelper(*args, deposition=deposition, **kwargs)
+        self._zen = ZENHelper(*args, **kwargs)
 
     def remote_interface(self):
         return self._zen
@@ -37,26 +37,19 @@ class RemoteProvider(AbstractRemoteProvider):
 
 class RemoteObject(AbstractRemoteObject):
     def __init__(
-        self,
-        *args,
-        keep_local=False,
-        stay_on_remote=False,
-        provider=None,
-        deposition=None,
-        **kwargs
+        self, *args, keep_local=False, stay_on_remote=False, provider=None, **kwargs
     ):
         super(RemoteObject, self).__init__(
             *args,
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             provider=provider,
-            deposition=deposition,
             **kwargs
         )
         if provider:
             self._zen = provider.remote_interface()
         else:
-            self._zen = ZENHelper(*args, deposition=deposition, **kwargs)
+            self._zen = ZENHelper(*args, **kwargs)
 
     # === Implementations of abstract class members ===
     def _stats(self):
@@ -72,7 +65,7 @@ class RemoteObject(AbstractRemoteObject):
             return self._iofile.size_local
 
     def mtime(self):
-        # There is no mtime info provided by Zenodo
+        # There is no mtime info provided by Zenodo.
         # Hence, the files are always considered to be "ancient".
         return 0
 
@@ -82,7 +75,7 @@ class RemoteObject(AbstractRemoteObject):
 
         local_md5 = hashlib.md5()
 
-        # Download file
+        # Download file.
         with open(self.remote_file(), "wb") as rf:
             for chunk in r.iter_content(chunk_size=1024 * 1024 * 10):
                 local_md5.update(chunk)
@@ -112,7 +105,7 @@ class RemoteObject(AbstractRemoteObject):
 
 
 class ZENHelper(object):
-    def __init__(self, *args, deposition=None, **kwargs):
+    def __init__(self, *args, **kwargs):
 
         try:
             self._access_token = kwargs.pop("access_token")
@@ -133,8 +126,8 @@ class ZENHelper(object):
         else:
             self._baseurl = "https://zenodo.org"
 
-        if deposition:
-            self.deposition = deposition
+        if "deposition" in kwargs:
+            self.deposition = kwargs.pop("deposition")
             self.bucket = self.get_bucket()
         else:
             # Creating a new deposition, as deposition id was not supplied.
@@ -150,7 +143,7 @@ class ZENHelper(object):
         session.headers["Authorization"] = "Bearer {}".format(self._access_token)
         session.headers.update(headers)
 
-        # Run query
+        # Run query.
         try:
             r = session.request(method=method, url=url, data=data, files=files)
             if json:
