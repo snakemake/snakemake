@@ -56,16 +56,16 @@ class shell:
                     "PATH.".format(cmd)
                 )
         if os.path.split(cmd)[-1] == "bash":
-            cls._process_prefix = "set -euo pipefail; "
+            cls._process_prefix += "set -euo pipefail; "
         cls._process_args["executable"] = cmd
 
     @classmethod
     def prefix(cls, prefix):
-        cls._process_prefix = format(prefix, stepout=2)
+        cls._process_prefix = prefix
 
     @classmethod
     def suffix(cls, suffix):
-        cls._process_suffix = format(suffix, stepout=2)
+        cls._process_suffix = suffix
 
     @classmethod
     def kill(cls, jobid):
@@ -101,7 +101,9 @@ class shell:
         shadow_dir = context.get("shadow_dir", None)
 
         cmd = "{} {} {}".format(
-            cls._process_prefix, cmd.strip(), cls._process_suffix
+            format(cls._process_prefix, stepout=2),
+            cmd.strip(),
+            format(cls._process_suffix, stepout=2)
         ).strip()
 
         conda = None
