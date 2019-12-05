@@ -1702,7 +1702,7 @@ def get_argument_parser(profile=None):
     return parser
 
 
-def main(argv=None):
+def main(argv=None, python_args={}):
     """Main entry point."""
     parser = get_argument_parser()
     args = parser.parse_args(argv)
@@ -2016,6 +2016,7 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
+            **python_args,
         )
 
     if args.runtime_profile:
