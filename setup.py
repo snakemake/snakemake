@@ -37,7 +37,7 @@ setup(
     zip_safe=False,
     license="MIT",
     url="https://snakemake.readthedocs.io",
-    packages=["snakemake", "snakemake.remote", "snakemake.report"],
+    packages=["snakemake", "snakemake.remote", "snakemake.report", "snakemake.caching"],
     entry_points={
         "console_scripts": [
             "snakemake = snakemake:main",

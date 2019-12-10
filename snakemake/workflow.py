@@ -61,6 +61,8 @@ from snakemake.common import Mode
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
+from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
+from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 
 
 class Workflow:
@@ -91,6 +93,7 @@ class Workflow:
         default_remote_prefix="",
         run_local=True,
         default_resources=None,
+        cache=None,
     ):
         """
         Create the controller.
@@ -143,6 +146,19 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
+
+        if cache is not None:
+            self.cache_rules = set(cache)
+            if self.default_remote_provider is not None:
+                self.output_file_cache = RemoteOutputFileCache(
+                    self.default_remote_provider
+                )
+            else:
+                self.output_file_cache = LocalOutputFileCache()
+        else:
+            self.output_file_cache = None
+            self.cache_rules = set()
+
         if default_resources is not None:
             self.default_resources = default_resources
         else:
@@ -161,6 +177,9 @@ class Workflow:
         rules = Rules()
         global checkpoints
         checkpoints = Checkpoints()
+
+    def is_cached_rule(self, rule: Rule):
+        return rule.name in self.cache_rules
 
     def get_sources(self):
         files = set()
