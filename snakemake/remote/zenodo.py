@@ -70,7 +70,8 @@ class RemoteObject(AbstractRemoteObject):
         return 0
 
     def download(self):
-        download_url = self._stats().download
+        stats = self._stats()
+        download_url = stats.download
         r = self._zen._api_request(download_url)
 
         local_md5 = hashlib.md5()
