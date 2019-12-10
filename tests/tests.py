@@ -95,7 +95,7 @@ def run(
         # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
         # when subprocesses are invoked in the tempdir defined below.
         os.environ["PYTHONPATH"] = os.getcwd()
-    else:
+    elif "PYTHONPATH" in os.environ:
         del os.environ["PYTHONPATH"]
 
     results_dir = join(path, "expected-results")
@@ -170,6 +170,10 @@ def run(
     if not cleanup:
         return tmpdir
     shutil.rmtree(tmpdir)
+
+
+def test_list_untracked():
+    run(dpath("test_list_untracked"))
 
 
 def test_delete_all_output():
@@ -271,10 +275,6 @@ def test_directory():
 
 def test_ancient():
     run(dpath("test_ancient"), targets=["D", "old_file"])
-
-
-def test_list_untracked():
-    run(dpath("test_list_untracked"))
 
 
 def test_report():
