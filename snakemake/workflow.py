@@ -174,8 +174,9 @@ class Workflow:
         for f in self.included:
             files.add(os.path.relpath(f))
         for rule in self.rules:
-            if rule.script:
-                script_path = norm_rule_relpath(rule.script, rule)
+            script_path = rule.script or rule.notebook
+            if script_path:
+                script_path = norm_rule_relpath(script_path, rule)
                 files.add(script_path)
                 script_dir = os.path.dirname(script_path)
                 files.update(
@@ -1027,10 +1028,10 @@ class Workflow:
                 # TODO retrieve suitable singularity image
 
             if ruleinfo.conda_env and self.use_conda:
-                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
+                if not (ruleinfo.script or ruleinfo.notebook or ruleinfo.wrapper or ruleinfo.shellcmd):
                     raise RuleException(
                         "Conda environments are only allowed "
-                        "with shell, script, or wrapper directives "
+                        "with shell, script, notebook, or wrapper directives "
                         "(not with run).",
                         rule=rule,
                     )
@@ -1045,13 +1046,13 @@ class Workflow:
 
             if self.use_singularity:
                 invalid_rule = not (
-                    ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd
+                    ruleinfo.script or ruleinfo.notebook or ruleinfo.wrapper or ruleinfo.shellcmd
                 )
                 if ruleinfo.singularity_img:
                     if invalid_rule:
                         raise RuleException(
                             "Singularity directive is only allowed "
-                            "with shell, script or wrapper directives "
+                            "with shell, script notebook, or wrapper directives "
                             "(not with run).",
                             rule=rule,
                         )
@@ -1066,6 +1067,7 @@ class Workflow:
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
             rule.script = ruleinfo.script
+            rule.notebook = ruleinfo.notebook
             rule.wrapper = ruleinfo.wrapper
             rule.cwl = ruleinfo.cwl
             rule.restart_times = self.restart_times
@@ -1211,6 +1213,13 @@ class Workflow:
             return ruleinfo
 
         return decorate
+    
+    def notebook(self, notebook):
+        def decorate(ruleinfo):
+            ruleinfo.notebook = notebook
+            return ruleinfo
+        
+        return decorate
 
     def wrapper(self, wrapper):
         def decorate(ruleinfo):
@@ -1263,6 +1272,7 @@ class RuleInfo:
         self.docstring = None
         self.group = None
         self.script = None
+        self.notebook = None
         self.wrapper = None
         self.cwl = None
 
