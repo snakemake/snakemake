@@ -54,6 +54,7 @@ from snakemake.io import (
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
+from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
