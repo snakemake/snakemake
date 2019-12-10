@@ -84,7 +84,8 @@ class shell:
     ):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
-        cmd = format(cmd, *args, stepout=2, **kwargs)
+        fmt = lambda to_fmt: format(to_fmt, *args, stepout=2, **kwargs).strip()
+
         context = inspect.currentframe().f_back.f_locals
 
         stdout = sp.PIPE if iterable or read else STDOUT
@@ -93,7 +94,7 @@ class shell:
 
         jobid = context.get("jobid")
         if not context.get("is_shell"):
-            logger.shellcmd(cmd)
+            logger.shellcmd(fmt(cmd))
 
         env_prefix = ""
         conda_env = context.get("conda_env", None)
@@ -101,10 +102,8 @@ class shell:
         shadow_dir = context.get("shadow_dir", None)
 
         cmd = "{} {} {}".format(
-            format(cls._process_prefix, stepout=2),
-            cmd.strip(),
-            format(cls._process_suffix, stepout=2)
-        ).strip()
+            fmt(cls._process_prefix), fmt(cmd), fmt(cls._process_suffix),
+        )
 
         conda = None
         if conda_env:
