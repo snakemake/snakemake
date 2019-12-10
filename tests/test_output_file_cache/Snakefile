@@ -14,9 +14,9 @@ rule b:
     input:
         "test.out"
     output:
-        "test2.out"
+        multiext("test2", ".out", ".out2")
     shell:
-        "echo test2 > {output}"
+        "echo test2 > {output[0]}; echo test22 > {output[1]}"
 
 
 rule c:
