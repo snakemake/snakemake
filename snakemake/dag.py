@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -179,48 +179,31 @@ class DAG:
         self.delete_omitfrom_jobs()
         self.update_jobids()
 
-        # Check if there are files/dirs that are children of other outputs.
-        allfiles = {}
-
-        for job in self.jobs:
-            # This is to account also for targets of symlinks
-            allfiles.update(
-                {
-                    f(x): "input"
-                    for x in job.input
-                    for f in (os.path.abspath, os.path.realpath)
-                }
-            )
-            allfiles.update(
-                {
-                    f(x): "output"
-                    for x in job.output
-                    for f in (os.path.abspath, os.path.realpath)
-                }
-            )
-
-        sortedfiles = sorted(allfiles.keys())
-        for i in range(len(sortedfiles) - 1):
-            if allfiles[sortedfiles[i]] == "output":
-                try:
-                    common_path = os.path.commonpath(
-                        [sortedfiles[i], sortedfiles[i + 1]]
-                    )
-                except ValueError:  # commonpath raises error if windows drives are different.
-                    logger.warning(
-                        "Ambiguous filepath due to different drives between {} and {}".format(
-                            sortedfiles[i], sortedfiles[i + 1]
-                        )
-                    )
-                    continue
-                if os.path.commonpath([sortedfiles[i]]) == common_path:
-                    raise ChildIOException(
-                        parent=sortedfiles[i], child=sortedfiles[i + 1]
-                    )
+        self.check_directory_outputs()
 
         # check if remaining jobs are valid
         for i, job in enumerate(self.jobs):
             job.is_valid()
+
+    def check_directory_outputs(self):
+        """Check that no output file is contained in a directory output of the same or another rule."""
+        outputs = sorted(
+            {
+                path(f)
+                for job in self.jobs
+                for f in job.output
+                for path in (os.path.abspath, os.path.realpath)
+            }
+        )
+        for i in range(len(outputs) - 1):
+            a, b = outputs[i : i + 2]
+            try:
+                common = os.path.commonpath([a, b])
+            except ValueError:
+                # commonpath raises error if windows drives are different.
+                continue
+            if common == os.path.commonpath([a]):
+                raise ChildIOException(parent=outputs[i], child=outputs[i + 1])
 
     @property
     def checkpoint_jobs(self):
@@ -1615,7 +1598,9 @@ class DAG:
             import colorsys
 
             hex_r, hex_g, hex_b = (round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v))
-            return f"#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}"
+            return "#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}".format(
+                hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
+            )
 
         huefactor = 2 / (3 * len(self.rules))
         rulecolor = {
@@ -1657,12 +1642,16 @@ class DAG:
                 else ""
             )
             html_node = [
-                f'{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="3" cellborder="0">',
-                f"<tr><td>",
-                f'<b><font point-size="18">{node.name}</font></b>',
-                f"</td></tr>",
-                f"<hr/>",
-                f'<tr><td align="left"> {input_header} </td></tr>',
+                '{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="3" cellborder="0">'.format(
+                    node_id=node_id, color=color
+                ),
+                "<tr><td>",
+                '<b><font point-size="18">{node.name}</font></b>'.format(node=node),
+                "</td></tr>",
+                "<hr/>",
+                '<tr><td align="left"> {input_header} </td></tr>'.format(
+                    input_header=input_header
+                ),
             ]
 
             for filename in sorted(input_files):
@@ -1673,21 +1662,27 @@ class DAG:
                 html_node.extend(
                     [
                         "<tr>",
-                        f'<td align="left"><font face="monospace">{in_file}</font></td>'
+                        '<td align="left"><font face="monospace">{in_file}</font></td>'.format(
+                            in_file=in_file
+                        ),
                         "</tr>",
                     ]
                 )
 
             html_node.append("<hr/>")
-            html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>')
+            html_node.append(
+                '<tr><td align="right"> {output_header} </td> </tr>'.format(
+                    output_header=output_header
+                )
+            )
 
             for filename in sorted(output_files):
                 out_file = html.escape(filename)
                 html_node.extend(
                     [
                         "<tr>",
-                        f'<td align="left"><font face="monospace">{out_file}</font></td>'
-                        "</tr>",
+                        '<td align="left"><font face="monospace">{out_file}</font></td>'
+                        "</tr>".format(out_file=out_file),
                     ]
                 )
 

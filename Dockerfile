@@ -18,4 +18,4 @@ RUN /bin/bash -c "install_packages wget bzip2 ca-certificates gnupg2 squashfs-to
     which python && \
     pip install ."
 RUN echo "source activate snakemake" > ~/.bashrc
-ENV PATH /opt/conda/envs/env/bin:${PATH}
+ENV PATH /opt/conda/envs/snakemake/bin:${PATH}

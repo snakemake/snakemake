@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -15,6 +15,7 @@ from functools import partial
 from operator import attrgetter
 import copy
 import subprocess
+from pathlib import Path
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -48,6 +49,7 @@ from snakemake.io import (
     pipe,
     repeat,
     report,
+    IOFile,
 )
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
@@ -59,6 +61,8 @@ from snakemake.common import Mode
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
+from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
+from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 
 
 class Workflow:
@@ -89,6 +93,7 @@ class Workflow:
         default_remote_prefix="",
         run_local=True,
         default_resources=None,
+        cache=None,
     ):
         """
         Create the controller.
@@ -141,6 +146,19 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
+
+        if cache is not None:
+            self.cache_rules = set(cache)
+            if self.default_remote_provider is not None:
+                self.output_file_cache = RemoteOutputFileCache(
+                    self.default_remote_provider
+                )
+            else:
+                self.output_file_cache = LocalOutputFileCache()
+        else:
+            self.output_file_cache = None
+            self.cache_rules = set()
+
         if default_resources is not None:
             self.default_resources = default_resources
         else:
@@ -159,6 +177,9 @@ class Workflow:
         rules = Rules()
         global checkpoints
         checkpoints = Checkpoints()
+
+    def is_cached_rule(self, rule: Rule):
+        return rule.name in self.cache_rules
 
     def get_sources(self):
         files = set()
@@ -301,6 +322,30 @@ class Workflow:
                 )
             )
 
+    def inputfile(self, path):
+        """Mark file as being an input file of the workflow.
+
+        This also means that eventual --default-remote-provider/prefix settings
+        will be applied to this file. The file is returned as _IOFile object,
+        such that it can e.g. be transparently opened with _IOFile.open().
+        """
+        if isinstance(path, Path):
+            path = str(path)
+        if self.default_remote_provider is not None:
+            path = self.apply_default_remote(path)
+        return IOFile(path)
+
+    def apply_default_remote(self, path):
+        """Apply the defined default remote provider to the given path and return the updated _IOFile.
+        Asserts that default remote provider is defined.
+        """
+        assert (
+            self.default_remote_provider is not None
+        ), "No default remote provider is defined, calling this anyway is a bug"
+        path = "{}/{}".format(self.default_remote_prefix, path)
+        path = os.path.normpath(path)
+        return self.default_remote_provider.remote(path)
+
     def execute(
         self,
         targets=None,
@@ -360,6 +405,7 @@ class Workflow:
         cleanup_metadata=None,
         cleanup_conda=False,
         cleanup_shadow=False,
+        cleanup_scripts=True,
         subsnakemake=None,
         updated_files=None,
         keep_target_files=False,
@@ -385,6 +431,7 @@ class Workflow:
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
         self.immediate_submit = immediate_submit
+        self.cleanup_scripts = cleanup_scripts
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
@@ -739,7 +786,10 @@ class Workflow:
                 if cluster or cluster_sync or drmaa:
                     logger.resources_info("Provided cluster nodes: {}".format(nodes))
                 else:
-                    logger.resources_info("Provided cores: {}".format(cores))
+                    warning = (
+                        "" if cores > 1 else " (use --cores to define parallelism)"
+                    )
+                    logger.resources_info("Provided cores: {}{}".format(cores, warning))
                     logger.resources_info(
                         "Rules claiming more threads " "will be scaled down."
                     )

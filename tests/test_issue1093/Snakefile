@@ -16,7 +16,7 @@ checkpoint clustering:
 def aggregate_input(wildcards):
     checkpoint_output = checkpoints.clustering.get(**wildcards).output[0]
     return expand("post/{i}.txt",
-           i=glob_wildcards(os.path.join(checkpoint_output, "{i}.txt")).i)
+           i=sorted(glob_wildcards(os.path.join(checkpoint_output, "{i}.txt")).i))
 
 
 # an aggregation over all produced clusters

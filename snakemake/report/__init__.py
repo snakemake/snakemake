@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -102,12 +102,14 @@ def data_uri_from_file(file, defaultenc="utf8"):
 def report(
     text,
     path,
-    stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
+    stylesheet=None,
     defaultenc="utf8",
     template=None,
     metadata=None,
     **files
 ):
+    if stylesheet is None:
+        os.path.join(os.path.dirname(__file__), "report.css")
     outmime, _ = mimetypes.guess_type(path)
     if outmime != "text/html":
         raise ValueError("Path to report output has to be an HTML file.")

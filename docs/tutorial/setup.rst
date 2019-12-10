@@ -123,7 +123,7 @@ First, we download some example data on which the workflow shall be executed:
 .. code:: console
 
     $ wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.4.5.tar.gz
-    $ tar -xf v5.2.3.tar.gz --strip 1
+    $ tar -xf v5.4.5.tar.gz --strip 1
 
 This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
 

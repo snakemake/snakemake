@@ -1,6 +1,5 @@
 __author__ = "Johannes Köster"
-__contributors__ = ["Soohyun Lee"]
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -40,6 +39,7 @@ SNAKEFILE_CHOICES = [
 def snakemake(
     snakefile,
     batch=None,
+    cache=None,
     report=None,
     listrules=False,
     list_target_rules=False,
@@ -87,6 +87,7 @@ def snakemake(
     cleanup_metadata=None,
     cleanup_conda=False,
     cleanup_shadow=False,
+    cleanup_scripts=True,
     force_incomplete=False,
     ignore_incomplete=False,
     list_version_changes=False,
@@ -194,6 +195,7 @@ def snakemake(
         cleanup_metadata (list):    just cleanup metadata of given list of output files (default None)
         cleanup_conda (bool):       just cleanup unused conda environments (default False)
         cleanup_shadow (bool):      just cleanup old shadow directories (default False)
+        cleanup_scripts (bool):     delete wrapper scripts used for execution (default True)
         force_incomplete (bool):    force the re-creation of incomplete files (default False)
         ignore_incomplete (bool):   ignore incomplete files (default False)
         list_version_changes (bool): list output files with changed rule version (default False)
@@ -457,6 +459,7 @@ def snakemake(
             default_remote_prefix=default_remote_prefix,
             run_local=run_local,
             default_resources=default_resources,
+            cache=cache,
         )
         success = True
         workflow.include(
@@ -479,6 +482,7 @@ def snakemake(
                     cores=cores,
                     nodes=nodes,
                     local_cores=local_cores,
+                    cache=cache,
                     resources=resources,
                     default_resources=default_resources,
                     dryrun=dryrun,
@@ -504,6 +508,7 @@ def snakemake(
                     cleanup_metadata=cleanup_metadata,
                     cleanup_conda=cleanup_conda,
                     cleanup_shadow=cleanup_shadow,
+                    cleanup_scripts=cleanup_scripts,
                     force_incomplete=force_incomplete,
                     ignore_incomplete=ignore_incomplete,
                     latency_wait=latency_wait,
@@ -604,6 +609,7 @@ def snakemake(
                     cleanup_metadata=cleanup_metadata,
                     cleanup_conda=cleanup_conda,
                     cleanup_shadow=cleanup_shadow,
+                    cleanup_scripts=cleanup_scripts,
                     subsnakemake=subsnakemake,
                     updated_files=updated_files,
                     allowed_rules=allowed_rules,
@@ -805,6 +811,17 @@ def get_argument_parser(profile=None):
     )
 
     group_exec.add_argument(
+        "--cache",
+        nargs="+",
+        metavar="RULE",
+        help="Store output files of given rules in a central cache given by the environment "
+        "variable $SNAKEMAKE_OUTPUT_CACHE. Likewise, retrieve output files of the given rules "
+        "from this cache if they have been created before (by anybody writing to the same cache), "
+        "instead of actually executing the rules. Output files are identified by hashing all "
+        "steps, parameters and software stack (conda envs or containers) needed to create them.",
+    )
+
+    group_exec.add_argument(
         "--snakefile",
         "-s",
         metavar="FILE",
@@ -913,7 +930,12 @@ def get_argument_parser(profile=None):
             "changing them) instead of running their commands. This is "
             "used to pretend that the rules were executed, in order to "
             "fool future invocations of snakemake. Fails if a file does "
-            "not yet exist."
+            "not yet exist. Note that this will only touch files that would "
+            "otherwise be recreated by Snakemake (e.g. because their input "
+            "files are newer). For enforcing a touch, combine this with "
+            "--force, --forceall, or --forcerun. Note however that you loose "
+            "the provenance information when the files have been created in "
+            "realitiy. Hence, this should be used only as a last resort."
         ),
     )
     group_exec.add_argument(
@@ -1134,6 +1156,11 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Cleanup old shadow directories which have not been deleted due "
         "to failures or power loss.",
+    )
+    group_utils.add_argument(
+        "--skip-script-cleanup",
+        action="store_true",
+        help="Don't delete wrapper scripts used for execution",
     )
     group_utils.add_argument(
         "--unlock", action="store_true", help="Remove a lock on the working directory."
@@ -1889,6 +1916,7 @@ def main(argv=None):
         success = snakemake(
             args.snakefile,
             batch=batch,
+            cache=args.cache,
             report=args.report,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
@@ -1941,6 +1969,7 @@ def main(argv=None):
             cleanup_metadata=args.cleanup_metadata,
             cleanup_conda=args.cleanup_conda,
             cleanup_shadow=args.cleanup_shadow,
+            cleanup_scripts=not args.skip_script_cleanup,
             force_incomplete=args.rerun_incomplete,
             ignore_incomplete=args.ignore_incomplete,
             list_version_changes=args.list_version_changes,

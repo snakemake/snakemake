@@ -1,6 +1,5 @@
 __author__ = "Johannes Köster"
-__contributors__ = ["David Alexander", "Soohyun Lee"]
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -42,6 +41,7 @@ from snakemake.exceptions import (
     WorkflowError,
     ImproperShadowException,
     SpawnedJobError,
+    CacheMissException,
 )
 from snakemake.common import Mode, __version__, get_container_image, get_uuid
 
@@ -120,7 +120,24 @@ class AbstractExecutor:
 
 
 class DryrunExecutor(AbstractExecutor):
-    pass
+    def printjob(self, job):
+        super().printjob(job)
+        if job.is_group():
+            for j in job.jobs:
+                self.printcache(j)
+        else:
+            self.printcache(job)
+
+    def printcache(self, job):
+        if self.workflow.is_cached_rule(job.rule):
+            if self.workflow.output_file_cache.exists(job):
+                logger.info(
+                    "Output file {} will be obtained from cache.".format(job.output[0])
+                )
+            else:
+                logger.info(
+                    "Output file {} will be written to cache.".format(job.output[0])
+                )
 
 
 class RealExecutor(AbstractExecutor):
@@ -367,16 +384,19 @@ class CPUExecutor(RealExecutor):
             self.workflow.use_singularity,
             self.workflow.linemaps,
             self.workflow.debug,
+            self.workflow.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
         )
 
     def run_single_job(self, job):
         if self.use_threads or (not job.is_shadow and not job.is_run):
-            future = self.pool.submit(run_wrapper, *self.job_args_and_prepare(job))
+            future = self.pool.submit(
+                self.cached_or_run, job, run_wrapper, *self.job_args_and_prepare(job)
+            )
         else:
             # run directive jobs are spawned into subprocesses
-            future = self.pool.submit(self.spawn_job, job)
+            future = self.pool.submit(self.cached_or_run, job, self.spawn_job, job)
         return future
 
     def run_group_job(self, job):
@@ -415,6 +435,21 @@ class CPUExecutor(RealExecutor):
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
             raise SpawnedJobError()
+
+    def cached_or_run(self, job, run_func, *args):
+        """
+        Either retrieve result from cache, or run job with given function.
+        """
+        to_cache = self.workflow.is_cached_rule(job.rule)
+        try:
+            if to_cache:
+                self.workflow.output_file_cache.fetch(job)
+                return
+        except CacheMissException:
+            pass
+        run_func(*args)
+        if to_cache:
+            self.workflow.output_file_cache.store(job)
 
     def shutdown(self):
         self.pool.shutdown()
@@ -1600,7 +1635,9 @@ class TibannaExecutor(ClusterExecutor):
         for wfs in workflow.get_sources():
             if os.path.isdir(wfs):
                 for (dirpath, dirnames, filenames) in os.walk(wfs):
-                    self.workflow_sources.extend([os.path.join(dirpath, f) for f in filenames])
+                    self.workflow_sources.extend(
+                        [os.path.join(dirpath, f) for f in filenames]
+                    )
             else:
                 self.workflow_sources.append(os.path.abspath(wfs))
 
@@ -1726,8 +1763,10 @@ class TibannaExecutor(ClusterExecutor):
             if src_fname != snakefile_fname:  # redundant
                 snakemake_child_fnames.append(src_fname)
         # change path for config files
-        self.workflow.overwrite_configfiles = [self.split_filename(cf, snakemake_dir)[0]
-            for cf in self.workflow.overwrite_configfiles]
+        self.workflow.overwrite_configfiles = [
+            self.split_filename(cf, snakemake_dir)[0]
+            for cf in self.workflow.overwrite_configfiles
+        ]
         tibanna_args.snakemake_directory_local = snakemake_dir
         tibanna_args.snakemake_main_filename = snakefile_fname
         tibanna_args.snakemake_child_filenames = list(set(snakemake_child_fnames))
@@ -1899,6 +1938,7 @@ def run_wrapper(
     use_singularity,
     linemaps,
     debug,
+    cleanup_scripts,
     shadow_dir,
     jobid,
 ):
@@ -1933,7 +1973,7 @@ def run_wrapper(
     # Change workdir if shadow defined and not using singularity.
     # Otherwise, we do the change from inside the container.
     passed_shadow_dir = None
-    if use_singularity:
+    if use_singularity and singularity_img:
         passed_shadow_dir = shadow_dir
         shadow_dir = None
 
@@ -1975,6 +2015,7 @@ def run_wrapper(
                             jobid,
                             is_shell,
                             bench_iteration,
+                            cleanup_scripts,
                             passed_shadow_dir,
                         )
                     else:
@@ -2000,6 +2041,7 @@ def run_wrapper(
                                 jobid,
                                 is_shell,
                                 bench_iteration,
+                                cleanup_scripts,
                                 passed_shadow_dir,
                             )
                     # Store benchmark record for this iteration
@@ -2023,6 +2065,7 @@ def run_wrapper(
                     jobid,
                     is_shell,
                     None,
+                    cleanup_scripts,
                     passed_shadow_dir,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
