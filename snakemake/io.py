@@ -1193,6 +1193,10 @@ class Namedlist(list):
         index -- the item index
         """
         self._names[name] = (index, end)
+        if hasattr(self.__class__, name):
+            raise AttributeError(
+                f"Namedlist attribute '{name}' is read only.  Cannot set to '{self[index]}'"
+            )
         if end is None:
             setattr(self, name, self[index])
         else:
