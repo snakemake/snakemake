@@ -14,7 +14,7 @@ rule bench_shell:
         repeat("test.benchmark_shell.txt", 2)
     threads: 2
     shell:
-        "sleep 10"
+        "stress --cpu {threads} --timeout 10"
 
 
 rule bench_script:
