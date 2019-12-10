@@ -215,7 +215,45 @@ class Logger:
         Prints the output to the console.
 
         Args:
-            msg (dict):     the log message dictionary
+            msg (dict):     the log message dictionary. text_handler supports logging for msg if it contains any of the following entries:
+
+                :level:
+                    the log level ("info", "error", "debug", "progress", "job_info")
+
+                :level="info", "error" or "debug":
+                    :msg:
+                        the log message
+                :level="progress":
+                    :done:
+                        number of already executed jobs
+
+                    :total:
+                        number of total jobs
+
+                :level="job_info":
+                    :input:
+                        list of input files of a job
+
+                    :output:
+                        list of output files of a job
+
+                    :log:
+                        path to log file of a job
+
+                    :local:
+                        whether a job is executed locally (i.e. ignoring cluster)
+
+                    :msg:
+                        the job message
+
+                    :reason:
+                        the job reason
+
+                    :priority:
+                        the job priority
+
+                    :threads:
+                        the threads of the job
         """
 
         def job_info(msg):
