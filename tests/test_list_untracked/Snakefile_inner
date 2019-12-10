@@ -4,7 +4,7 @@ shell("mkdir -p some_workdir/some_subdir && \
     touch some_workdir/some_subdir/not_used && \
     touch some_workdir/log && \
     touch some_workdir/.hiddenfile && \
-    mkdir some_workdir/.hiddendir && \
+    mkdir -p some_workdir/.hiddendir && \
     touch some_workdir/.hiddendir/not_used2")
 
 workdir: "some_workdir"
