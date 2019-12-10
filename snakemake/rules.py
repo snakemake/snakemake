@@ -94,6 +94,7 @@ class Rule:
             self.run_func = None
             self.shellcmd = None
             self.script = None
+            self.notebook = None
             self.wrapper = None
             self.cwl = None
             self.norun = False
@@ -137,6 +138,7 @@ class Rule:
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
             self.script = other.script
+            self.notebook = other.notebook
             self.wrapper = other.wrapper
             self.cwl = other.cwl
             self.norun = other.norun
