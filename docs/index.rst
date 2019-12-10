@@ -82,7 +82,7 @@ Rules describe how to create **output files** from **input files**.
 * Input and output files can contain multiple named wildcards.
 * Rules can either use shell commands, plain Python code or external Python or R scripts to create output files from input files.
 * Snakemake workflows can be easily executed on **workstations**, **clusters**, **the grid**, and **in the cloud** without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
-* Snakemake can automatically deploy required software dependencies of a workflow using `Conda <https://conda.io>`_ or `Singularity <http://singularity.lbl.gov/>`_.
+* Snakemake can automatically deploy required software dependencies of a workflow using `Conda <https://conda.io>`_ or `Singularity <https://sylabs.io/docs/>`_.
 * Snakemake can use Amazon S3, Google Storage, Dropbox, FTP, WebDAV, SFTP and iRODS to access input or output files and further access input files via HTTP and HTTPS.
 
 
