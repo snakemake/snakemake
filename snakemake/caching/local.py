@@ -68,8 +68,8 @@ class OutputFileCache(AbstractOutputFileCache):
                 # Here we use the default copy function, also copying metadata (which is important here).
                 # It will always work, because we are guaranteed to be in the same FS.
                 shutil.move(tmp, cachefile)
-            # now restore the outputfile via a symlink
-            self.symlink(cachefile, outputfile, utime=False)
+                # now restore the outputfile via a symlink
+                self.symlink(cachefile, outputfile, utime=False)
 
     def fetch(self, job: Job):
         """
