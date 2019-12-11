@@ -236,10 +236,20 @@ class Rule:
 
     def check_caching(self):
         if self.name in self.workflow.cache_rules:
-            if len(self.output) != 1:
+            if len(self.output) == 0:
                 raise RuleException(
-                    "Only rules with exactly 1 output file may be cached.", rule=self
+                    "Rules without output files cannot be cached.", rule=self
                 )
+            if len(self.output) > 1:
+                prefixes = set(out.multiext_prefix for out in self.output)
+                if None in prefixes or len(prefixes) > 1:
+                    raise RuleException(
+                        "Rules with multiple output files must define them as a single multiext() "
+                        '(e.g. multiext("path/to/index", ".bwt", ".ann")). '
+                        "The rationale is that multiple output files can only be unambiously resolved "
+                        "if they can be distinguished by a fixed set of extensions (i.e. mime types).",
+                        rule=self,
+                    )
             if self.dynamic_output:
                 raise RuleException(
                     "Rules with dynamic output files may not be cached.", rule=self

@@ -49,6 +49,7 @@ from snakemake.io import (
     pipe,
     repeat,
     report,
+    multiext,
     IOFile,
 )
 from snakemake.persistence import Persistence

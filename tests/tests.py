@@ -1102,3 +1102,7 @@ def test_output_file_cache_remote():
         default_remote_provider="S3Mocked",
         default_remote_prefix="test-remote-bucket",
     )
+
+
+def test_multiext():
+    run(dpath("test_multiext"))
