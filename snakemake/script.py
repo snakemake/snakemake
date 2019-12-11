@@ -154,7 +154,7 @@ class JuliaEncoder:
     @classmethod
     def encode_namedlist(cls, namedlist):
         positional = cls.encode_positional_items(namedlist)
-        named = cls.encode_items(namedlist.items())
+        named = cls.encode_items(namedlist._items())
         source = "Dict("
         if positional:
             source += positional
@@ -181,13 +181,13 @@ class Snakemake:
     ):
         # convert input and output to plain strings as some remote objects cannot
         # be pickled
-        self.input = input.plainstrings()
-        self.output = output.plainstrings()
+        self.input = input._plainstrings()
+        self.output = output._plainstrings()
         self.params = params
         self.wildcards = wildcards
         self.threads = threads
         self.resources = resources
-        self.log = log.plainstrings()
+        self.log = log._plainstrings()
         self.config = config
         self.rule = rulename
         self.bench_iteration = bench_iteration
@@ -401,7 +401,7 @@ def script(
                 REncoder.encode_namedlist(
                     {
                         name: value
-                        for name, value in resources.items()
+                        for name, value in resources._items()
                         if name != "_cores" and name != "_nodes"
                     }
                 ),
@@ -457,7 +457,7 @@ def script(
                     JuliaEncoder.encode_namedlist(
                         {
                             name: value
-                            for name, value in resources.items()
+                            for name, value in resources._items()
                             if name != "_cores" and name != "_nodes"
                         }
                     ),

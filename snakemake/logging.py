@@ -379,10 +379,18 @@ class Logger:
             self.last_msg_was_job_info = False
 
 
-def format_dict(dict, omit_keys=[], omit_values=[]):
+def format_dict(dict_like, omit_keys=[], omit_values=[]):
+    from snakemake.io import Namedlist
+    
+    if isinstance(dict_like, Namedlist):
+        items = dict_like._items()
+    elif isinstance(dict_like, dict):
+        items = dict_like.items()
+    else:
+        raise ValueError("bug: format_dict applied to something neither a dict nor a Namedlist")
     return ", ".join(
         "{}={}".format(name, str(value))
-        for name, value in dict.items()
+        for name, value in items
         if name not in omit_keys and value not in omit_values
     )
 

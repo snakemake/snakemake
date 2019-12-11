@@ -369,13 +369,13 @@ class CPUExecutor(RealExecutor):
             benchmark = str(job.benchmark)
         return (
             job.rule,
-            job.input.plainstrings(),
-            job.output.plainstrings(),
+            job.input._plainstrings(),
+            job.output._plainstrings(),
             job.params,
             job.wildcards,
             job.threads,
             job.resources,
-            job.log.plainstrings(),
+            job.log._plainstrings(),
             benchmark,
             benchmark_repeats,
             conda_env,
@@ -1467,7 +1467,7 @@ class KubernetesExecutor(ClusterExecutor):
         container.resources = kubernetes.client.V1ResourceRequirements()
         container.resources.requests = {}
         container.resources.requests["cpu"] = job.resources["_cores"]
-        if "mem_mb" in job.resources.keys():
+        if "mem_mb" in job.resources._keys():
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"]
             )

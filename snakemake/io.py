@@ -1152,22 +1152,22 @@ class Namedlist(list):
             else:
                 self.extend(toclone)
             if isinstance(toclone, Namedlist):
-                self.take_names(toclone.get_names())
+                self._take_names(toclone._get_names())
         if fromdict:
             for key, item in fromdict.items():
                 self.append(item)
-                self.add_name(key)
+                self._add_name(key)
 
-    def add_name(self, name):
+    def _add_name(self, name):
         """
         Add a name to the last item.
 
         Arguments
         name -- a name
         """
-        self.set_name(name, len(self) - 1)
+        self._set_name(name, len(self) - 1)
 
-    def set_name(self, name, index, end=None):
+    def _set_name(self, name, index, end=None):
         """
         Set the name of an item.
 
@@ -1176,23 +1176,19 @@ class Namedlist(list):
         index -- the item index
         """
         self._names[name] = (index, end)
-        if hasattr(self.__class__, name):
-            raise AttributeError(
-                f"Namedlist attribute '{name}' is read only.  Cannot set to '{self[index]}'"
-            )
         if end is None:
             setattr(self, name, self[index])
         else:
             setattr(self, name, Namedlist(toclone=self[index:end]))
 
-    def get_names(self):
+    def _get_names(self):
         """
         Get the defined names as (name, index) pairs.
         """
         for name, index in self._names.items():
             yield name, index
 
-    def take_names(self, names):
+    def _take_names(self, names):
         """
         Take over the given names.
 
@@ -1200,13 +1196,13 @@ class Namedlist(list):
         names -- the given names as (name, index) pairs
         """
         for name, (i, j) in names:
-            self.set_name(name, i, end=j)
+            self._set_name(name, i, end=j)
 
-    def items(self):
+    def _items(self):
         for name in self._names:
             yield name, getattr(self, name)
 
-    def allitems(self):
+    def _allitems(self):
         next = 0
         for name, index in sorted(
             self._names.items(),
@@ -1227,25 +1223,25 @@ class Namedlist(list):
         for item in self[next:]:
             yield None, item
 
-    def insert_items(self, index, items):
+    def _insert_items(self, index, items):
         self[index : index + 1] = items
         add = len(items) - 1
         for name, (i, j) in self._names.items():
             if i > index:
                 self._names[name] = (i + add, None if j is None else j + add)
             elif i == index:
-                self.set_name(name, i, end=i + len(items))
+                self._set_name(name, i, end=i + len(items))
 
-    def keys(self):
+    def _keys(self):
         return self._names
 
-    def plainstrings(self):
+    def _plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)
 
-    def stripped_constraints(self):
+    def _stripped_constraints(self):
         return self.__class__.__call__(toclone=self, strip_constraints=True)
 
-    def clone(self):
+    def _clone(self):
         return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):

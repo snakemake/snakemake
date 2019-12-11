@@ -318,7 +318,7 @@ class SequenceFormatter(string.Formatter):
         if isinstance(value, Wildcards):
             return ",".join(
                 "{}={}".format(name, value)
-                for name, value in sorted(value.items(), key=lambda item: item[0])
+                for name, value in sorted(value._items(), key=lambda item: item[0])
             )
         if isinstance(value, (list, tuple, set, frozenset)):
             return self.separator.join(

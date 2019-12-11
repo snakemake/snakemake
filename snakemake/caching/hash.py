@@ -63,7 +63,7 @@ class ProvenanceHashMap:
             h.update(source.encode())
 
         # Hash params.
-        for key, value in sorted(job.params.allitems()):
+        for key, value in sorted(job.params._allitems()):
             h.update(key.encode())
             # If this raises a TypeError, we cannot calculate a reliable hash.
             h.update(json.dumps(value, sort_keys=True).encode())

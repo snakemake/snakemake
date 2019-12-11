@@ -64,10 +64,10 @@ def cwl(
         return [file_spec(f_) for f_ in f]
 
     inputs = dict()
-    inputs.update({name: file_spec(f) for name, f in input.items()})
-    inputs.update({name: p for name, p in params.items()})
-    inputs.update({name: f for name, f in output.items()})
-    inputs.update({name: f for name, f in log.items()})
+    inputs.update({name: file_spec(f) for name, f in input._items()})
+    inputs.update({name: p for name, p in params._items()})
+    inputs.update({name: f for name, f in output._items()})
+    inputs.update({name: f for name, f in log._items()})
 
     args = "--singularity" if use_singularity else ""
 
@@ -165,7 +165,7 @@ def job_to_cwl(job, dag, outputs, inputs):
         },
         "in": {
             "cores": {"default": job.threads},
-            "target_files": {"default": job.output.plainstrings()},
+            "target_files": {"default": job.output._plainstrings()},
             "rules": {"default": [job.rule.name]},
         },
         "out": ["output_files"],

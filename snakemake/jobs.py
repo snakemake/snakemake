@@ -434,7 +434,7 @@ class Job(AbstractJob):
         for f, f_ in zip(self.output, self.rule.output):
             if f in self.dynamic_output:
                 for f, w in self.expand_dynamic(f_):
-                    combinations.add(tuple(w.items()))
+                    combinations.add(tuple(w._items()))
         wildcards = defaultdict(list)
         for combination in combinations:
             for name, value in combination:
@@ -818,10 +818,10 @@ class Job(AbstractJob):
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
         resources = {
             name: res
-            for name, res in self.resources.items()
+            for name, res in self.resources._items()
             if name not in omit_resources
         }
-        params = {name: value for name, value in self.params.items()}
+        params = {name: value for name, value in self.params._items()}
         properties = {
             "type": "single",
             "rule": self.rule.name,
@@ -1160,7 +1160,7 @@ class GroupJob(AbstractJob):
                     # This will be caused by an inner job, which needs files created by the same group.
                     # All we can do is to ignore such jobs for now.
                     continue
-                for res, value in job_resources.items():
+                for res, value in job_resources._items():
                     if self.dag.workflow.run_local or pipe_group:
                         # in case of local execution, this must be a
                         # group of jobs that are connected with pipes
@@ -1204,7 +1204,7 @@ class GroupJob(AbstractJob):
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
         resources = {
             name: res
-            for name, res in self.resources.items()
+            for name, res in self.resources._items()
             if name not in omit_resources
         }
         properties = {
