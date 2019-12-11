@@ -86,7 +86,7 @@ class REncoder:
     @classmethod
     def encode_namedlist(cls, namedlist):
         positional = ", ".join(map(cls.encode_value, namedlist))
-        named = cls.encode_items(namedlist.items())
+        named = cls.encode_items(namedlist._items())
         source = "list("
         if positional:
             source += positional
@@ -398,7 +398,7 @@ def script(
                 REncoder.encode_namedlist(wildcards),
                 threads,
                 REncoder.encode_namedlist(log),
-                REncoder.encode_namedlist(
+                REncoder.encode_dict(
                     {
                         name: value
                         for name, value in resources._items()
@@ -454,7 +454,7 @@ def script(
                     JuliaEncoder.encode_namedlist(wildcards),
                     JuliaEncoder.encode_value(threads),
                     JuliaEncoder.encode_namedlist(log),
-                    JuliaEncoder.encode_namedlist(
+                    JuliaEncoder.encode_dict(
                         {
                             name: value
                             for name, value in resources._items()
