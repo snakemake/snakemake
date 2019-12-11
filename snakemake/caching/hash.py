@@ -26,7 +26,7 @@ class ProvenanceHashMap:
 
     def _get_provenance_hash(self, job: Job):
         """
-        Recursively calculate hash for the single output file of the given job
+        Recursively calculate hash for the output of the given job
         and all upstream jobs in a blockchain fashion.
 
         This is based on an idea of Sven Nahnsen.
@@ -37,13 +37,6 @@ class ProvenanceHashMap:
         """
         if job in self._hashes:
             return self._hashes[job]
-
-        if len(job.output) > 1:
-            raise WorkflowError(
-                "Cannot generate hash for rule {}: it has more than one output file.".format(
-                    job.rule.name
-                )
-            )
 
         workflow = job.dag.workflow
         h = hashlib.sha256()

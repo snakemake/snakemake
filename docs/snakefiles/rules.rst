@@ -120,10 +120,111 @@ Finally, you can also define global wildcard constraints that apply for all rule
 See the `Python documentation on regular expressions <http://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
 
 
+Aggregation
+-----------
+
+Input files can be Python lists, allowing to easily aggregate over parameters or samples:
+
+.. code-block:: python
+
+    rule aggregate:
+        input: 
+            ["{dataset}/a.txt".format(dataset=dataset) for dataset in DATASETS]
+        output:
+            "aggregated.txt"
+        shell:
+            ...
+
+Above expression can be simplified in two ways.
+
+The expand function
+~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    rule aggregate:
+        input: 
+            expand("{dataset}/a.txt", dataset=DATASETS)
+        output:
+            "aggregated.txt"
+        shell:
+            ...
+
+
+Note that *dataset* is NOT a wildcard here because it is resolved by Snakemake due to the ``expand`` statement.
+The ``expand`` function thereby allows also to combine different variables, e.g.
+
+.. code-block:: python
+
+    rule aggregate:
+        input: 
+            expand("{dataset}/a.{ext}", dataset=DATASETS, ext=FORMATS)
+        output:
+            "aggregated.txt"
+        shell:
+            ...
+
+If now ``FORMATS=["txt", "csv"]`` contains a list of desired output formats then expand will automatically combine any dataset with any of these extensions.
+
+Further, the first argument can also be a list of strings. In that case, the transformation is applied to all elements of the list. E.g.
+
+.. code-block:: python
+
+    expand(["{dataset}/a.{ext}", "{dataset}/b.{ext}"], dataset=DATASETS, ext=FORMATS)
+
+leads to
+
+.. code-block:: python
+
+    ["ds1/a.txt", "ds1/b.txt", "ds2/a.txt", "ds2/b.txt", "ds1/a.csv", "ds1/b.csv", "ds2/a.csv", "ds2/b.csv"]
+
+Per default, ``expand`` uses the python itertools function ``product`` that yields all combinations of the provided wildcard values. However by inserting a second positional argument this can be replaced by any combinatoric function, e.g. ``zip``:
+
+.. code-block:: python
+
+    expand(["{dataset}/a.{ext}", "{dataset}/b.{ext}"], zip, dataset=DATASETS, ext=FORMATS)
+
+leads to
+
+.. code-block:: python
+
+    ["ds1/a.txt", "ds1/b.txt", "ds2/a.csv", "ds2/b.csv"]
+
+You can also mask a wildcard expression in expand such that it will be kept, e.g.
+
+.. code-block:: python
+
+    expand("{{dataset}}/a.{ext}", ext=FORMATS)
+
+will create strings with all values for ext but starting with the wildcard ``"{dataset}"``.
+
+
+.. _snakefiles-multiext:
+
+The multiext function
+~~~~~~~~~~~~~~~~~~~~~
+
+``multiext`` provides a simplified variant of ``expand`` that allows to define a set of output or input files that just differ by their extension:
+
+
+.. code-block:: python
+
+    rule plot:
+        input: 
+            ...
+        output:
+            multiext("some/plot", ".pdf", ".svg", ".png")
+        shell:
+            ...
+
+The effect is the same as if you would write ``expand("some/plot.{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
+Moreover, defining output with ``multiext`` is the only way to use :ref:`between workflow caching <caching>` for rules with multiple output files.
+
+
 .. _snakefiles-targets:
 
-Targets
--------
+Targets and aggregation
+-----------------------
 
 By default snakemake executes the first rule in the snakefile. This gives rise to pseudo-rules at the beginning of the file that can be used to define build-targets similar to GNU Make:
 
@@ -134,60 +235,6 @@ By default snakemake executes the first rule in the snakefile. This gives rise t
 
 
 Here, for each dataset in a python list ``DATASETS`` defined before, the file ``{dataset}/file.A.txt`` is requested. In this example, Snakemake recognizes automatically that these can be created by multiple applications of the rule ``complex_conversion`` shown above.
-
-Above expression can be simplified to the following:
-
-.. code-block:: python
-
-    rule all:
-      input: expand("{dataset}/file.A.txt", dataset=DATASETS)
-
-
-This may be used for "aggregation" rules for which files from multiple or all datasets are needed to produce a specific output (say, *allSamplesSummary.pdf*).
-Note that *dataset* is NOT a wildcard here because it is resolved by Snakemake due to the ``expand`` statement (see below also for more information).
-
-
-
-The ``expand`` function thereby allows also to combine different variables, e.g.
-
-.. code-block:: python
-
-    rule all:
-      input: expand("{dataset}/file.A.{ext}", dataset=DATASETS, ext=PLOTFORMATS)
-
-If now ``PLOTFORMATS=["pdf", "png"]`` contains a list of desired output formats then expand will automatically combine any dataset with any of these extensions.
-
-Further, the first argument can also be a list of strings. In that case, the transformation is applied to all elements of the list. E.g.
-
-.. code-block:: python
-
-    expand(["{dataset}/plot1.{ext}", "{dataset}/plot2.{ext}"], dataset=DATASETS, ext=PLOTFORMATS)
-
-leads to
-
-.. code-block:: python
-
-    ["ds1/plot1.pdf", "ds1/plot2.pdf", "ds2/plot1.pdf", "ds2/plot2.pdf", "ds1/plot1.png", "ds1/plot2.png", "ds2/plot1.png", "ds2/plot2.png"]
-
-Per default, ``expand`` uses the python itertools function ``product`` that yields all combinations of the provided wildcard values. However by inserting a second positional argument this can be replaced by any combinatoric function, e.g. ``zip``:
-
-.. code-block:: python
-
-    expand("{dataset}/plot1.{ext} {dataset}/plot2.{ext}".split(), zip, dataset=DATASETS, ext=PLOTFORMATS)
-
-leads to
-
-.. code-block:: python
-
-    ["ds1/plot1.pdf", "ds1/plot2.pdf", "ds2/plot1.png", "ds2/plot2.png"]
-
-You can also mask a wildcard expression in expand such that it will be kept, e.g.
-
-.. code-block:: python
-
-    expand("{{dataset}}/plot1.{ext}", ext=PLOTFORMATS)
-
-will create strings with all values for ext but starting with ``"{dataset}"``.
 
 
 .. _snakefiles-threads:
