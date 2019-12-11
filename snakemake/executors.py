@@ -46,6 +46,7 @@ from snakemake.exceptions import (
     CacheMissException,
 )
 from snakemake.common import (
+    bytesto,
     Mode,
     __version__,
     get_container_image,
@@ -2146,6 +2147,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             self.workdir, os.path.basename(self.workflow.snakefile)
         )
 
+        # import code
+        # code.interact(local=locals())
+
+        # Prepare workflow sources for build package
+        self._set_workflow_sources()
+
         # Needs to be relative for commands run in worker (linux base)
         self.snakefile = snakefile.replace(self.workdir + "/", "")
 
@@ -2343,7 +2350,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Alert the user of machine_types available before filtering
         # https://cloud.google.com/compute/docs/machine-types
         logger.debug(
-            "found {} machine types across regions {} before filtering"
+            "found {} machine types across regions {} before filtering "
             "to increase selection, define fewer regions".format(
                 len(machine_types), self.regions
             )
@@ -2401,18 +2408,59 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         resources = {"regions": self.regions, "virtualMachine": virtual_machine}
         return resources
 
+    def _set_workflow_sources(self, warning_size_gb=20):
+        """We only add files from the working directory that are config related
+           (e.g., the Snakefile or a config.yml equivalent), or checked into git. 
+           Additionally, given that we encourage these packages to be small,
+           we set a warning at 20GB.
+        """
+
+        def check_size(f):
+            """A helper function to check the filesize, and return the file
+               to the calling function
+            """
+            gb = bytesto(os.stat(f).st_size, "g")
+            if gb > warning_size_gb:
+                logger.warning(
+                    "File {} (size {} GB) is greater than the {} GB suggested size "
+                    "Consider uploading larger files to storage first.".format(
+                        f, gb, warning_size_gb
+                    )
+                )
+            return f
+
+        self.workflow_sources = []
+
+        for wfs in self.workflow.get_sources():
+            if os.path.isdir(wfs):
+                for (dirpath, dirnames, filenames) in os.walk(wfs):
+                    self.workflow_sources.extend(
+                        [check_size(os.path.join(dirpath, f)) for f in filenames]
+                    )
+            else:
+                self.workflow_sources.append(check_size(os.path.abspath(wfs)))
+
     def _generate_build_source_package(self):
         """in order for the instance to access the working directory in storage,
            we need to upload it. This file is cleaned up at the end of the run.
            We do this, and then obtain from the instance and extract.
         """
+        # Add the execution scripts
+        # import code
+        # code.interact(local=locals())
+
         # We will generate a tar.gz package, renamed by hash
         tmpname = next(tempfile._get_candidate_names())
         targz = os.path.join(tempfile.gettempdir(), "snakemake-%s.tar.gz" % tmpname)
         tar = tarfile.open(targz, "w:gz")
 
-        # Add all files to a package
-        for root, dirs, files in os.walk(self.workdir):
+        # Add all workflow_sources files
+        for filename in self.workflow_sources:
+            arcname = filename.replace(self.workflow.basedir + os.path.sep, "")
+            tar.add(filename, arcname=arcname)
+
+        # Add snakemake hidden directory
+        for root, dirs, files in os.walk(os.path.join(self.workdir, ".snakemake")):
             for filename in files:
                 filename = os.path.join(root, filename)
                 if not filename.endswith("lock") and not filename.startswith(
@@ -2420,6 +2468,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 ):
                     arcname = filename.replace(self.workdir + os.path.sep, "")
                     tar.add(filename, arcname=arcname)
+
         tar.close()
 
         # Rename based on hash, in case user wants to save cache
