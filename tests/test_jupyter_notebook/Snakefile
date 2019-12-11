@@ -14,7 +14,7 @@ rule bar:
         infile = 'data.txt'
     output:
         outfile = 'result_intermediate.txt'
-    script:
+    notebook:
         'Notebook.ipynb'
 
 rule baz:
@@ -23,5 +23,5 @@ rule baz:
     output:
         notebook_output = 'Notebook_Processed.ipynb',
         outfile = 'result_final.txt'
-    script:
+    notebook:
         'Notebook.ipynb'
