@@ -172,7 +172,11 @@ def listfiles(pattern, restriction=None, omit_value=None):
     pattern = re.compile(regex(pattern))
 
     if restriction is not None:
-        restriction_items = list(restriction.items() if isinstance(restriction, dict) else restriction._items())
+        restriction_items = list(
+            restriction.items()
+            if isinstance(restriction, dict)
+            else restriction._items()
+        )
 
     for dirpath, dirnames, filenames in os.walk(dirname):
         for f in chain(filenames, dirnames):
