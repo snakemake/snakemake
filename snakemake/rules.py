@@ -161,7 +161,7 @@ class Rule:
             """
             # perform the partial expansion from f's string representation
             s = str(f).replace("{", "{{").replace("}", "}}")
-            for key in wildcards._keys():
+            for key in wildcards.keys():
                 s = s.replace("{{{{{}}}}}".format(key), "{{{}}}".format(key))
             # build result
             anno_s = AnnotatedString(s)
@@ -209,7 +209,7 @@ class Rule:
             branch.wildcard_names.clear()
             non_dynamic_wildcards = dict(
                 (name, values[0])
-                for name, values in wildcards._items()
+                for name, values in wildcards.items()
                 if len(set(values)) == 1
             )
             # TODO have a look into how to concretize dependencies here
