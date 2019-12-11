@@ -7,6 +7,7 @@ from abc import ABCMeta, abstractmethod
 import os
 
 from snakemake.jobs import Job
+from snakemake.io import is_flagged, get_flag_value, apply_wildcards
 from snakemake.exceptions import WorkflowError, CacheMissException
 from snakemake.caching.hash import ProvenanceHashMap
 
@@ -39,20 +40,14 @@ class AbstractOutputFileCache:
     def exists(self, job: Job):
         pass
 
-    def get_outputfile(self, job: Job, check_exists=True):
-        self.check_job(job)
-        outputfile = job.output[0]
-        if check_exists:
-            assert os.path.exists(
-                outputfile
-            ), "Bug: Output file does not exist although it should be cached."
-        return outputfile
-
-    def check_job(self, job: Job):
-        assert (
-            not job.dynamic_output
-        ), "Bug: Rules with dynamic output may not be cached."
-        assert len(job.output) == 1, "Bug: Only single output files are supported."
+    def get_outputfiles(self, job: Job):
+        if job.rule.output[0].is_multiext:
+            prefix_len = len(
+                apply_wildcards(job.rule.output[0].multiext_prefix, job.wildcards)
+            )
+            yield from ((f, f[prefix_len:]) for f in job.output)
+        else:
+            yield (job.output[0], "")
 
     def raise_write_error(self, entry, exception=None):
         raise WorkflowError(
