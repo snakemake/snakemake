@@ -157,7 +157,7 @@ class Rule:
             """Expand the wildcards in f from the ones present in wildcards
 
             This is done by replacing all wildcard delimiters by `{{` or `}}`
-            that are not in `wildcards._keys()`.
+            that are not in `wildcards.keys()`.
             """
             # perform the partial expansion from f's string representation
             s = str(f).replace("{", "{{").replace("}", "}}")
@@ -226,7 +226,7 @@ class Rule:
                 resources,
                 omit_callable=True,
             )
-            branch.resources = dict(resources._items())
+            branch.resources = dict(resources.items())
 
             branch._log = branch.expand_log(non_dynamic_wildcards)
             branch._benchmark = branch.expand_benchmark(non_dynamic_wildcards)

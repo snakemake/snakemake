@@ -383,7 +383,7 @@ def format_dict(dict_like, omit_keys=[], omit_values=[]):
     from snakemake.io import Namedlist
 
     if isinstance(dict_like, Namedlist):
-        items = dict_like._items()
+        items = dict_like.items()
     elif isinstance(dict_like, dict):
         items = dict_like.items()
     else:

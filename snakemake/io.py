@@ -1195,6 +1195,7 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
+
         self._names[name] = (index, end)
         if end is None:
             setattr(self, name, self[index])
@@ -1217,8 +1218,8 @@ class Namedlist(list):
         """
         for name, (i, j) in names:
             self._set_name(name, i, end=j)
-
-    def _items(self):
+    
+    def items(self):
         for name in self._names:
             yield name, getattr(self, name)
 
@@ -1251,9 +1252,9 @@ class Namedlist(list):
                 self._names[name] = (i + add, None if j is None else j + add)
             elif i == index:
                 self._set_name(name, i, end=i + len(items))
-
-    def _keys(self):
-        return self._names
+    
+    def keys(self):
+        return self._names.keys()
 
     def _plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)

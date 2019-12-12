@@ -196,7 +196,7 @@ class InputFunctionException(WorkflowError):
             self.format_arg(msg)
             + "\nWildcards:\n"
             + "\n".join(
-                "{}={}".format(name, value) for name, value in wildcards._items()
+                "{}={}".format(name, value) for name, value in wildcards.items()
             )
         )
         super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)

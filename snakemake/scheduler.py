@@ -387,7 +387,7 @@ class JobScheduler:
         pass
 
     def _free_resources(self, job):
-        for name, value in job.resources._items():
+        for name, value in job.resources.items():
             if name in self.resources:
                 value = self.calc_resource(name, value)
                 self.resources[name] += value

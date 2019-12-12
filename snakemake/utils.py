@@ -175,7 +175,7 @@ def listfiles(pattern, restriction=None, omit_value=None):
         restriction_items = list(
             restriction.items()
             if isinstance(restriction, dict)
-            else restriction._items()
+            else restriction.items()
         )
 
     for dirpath, dirnames, filenames in os.walk(dirname):
@@ -326,7 +326,7 @@ class SequenceFormatter(string.Formatter):
         if isinstance(value, Wildcards):
             return ",".join(
                 "{}={}".format(name, value)
-                for name, value in sorted(value._items(), key=lambda item: item[0])
+                for name, value in sorted(value.items(), key=lambda item: item[0])
             )
         if isinstance(value, (list, tuple, set, frozenset)):
             return self.separator.join(

@@ -1424,7 +1424,7 @@ class DAG:
     def new_wildcards(self, job):
         """Return wildcards that are newly introduced in this job,
         compared to its ancestors."""
-        new_wildcards = set(job.wildcards._items())
+        new_wildcards = set(job.wildcards.items())
         for job_ in self.dependencies[job]:
             if not new_wildcards:
                 return set()

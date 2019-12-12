@@ -71,7 +71,7 @@ class Stats:
                 "priority": job.priority
                 if job.priority != snakemake.jobs.Job.HIGHEST_PRIORITY
                 else "highest",
-                "resources": dict(job.resources._items()),
+                "resources": dict(job.resources.items()),
             }
             for f, start, stop, duration, job in self.file_stats
         }
