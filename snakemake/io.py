@@ -1195,6 +1195,11 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
+        if name == "items" or name == "keys" or name == "get":
+            raise AttributeError(
+                "invalid name for input, output, wildcard, "
+                "params or log: 'items', 'keys', and 'get' are reserved for internal use"
+            )
 
         self._names[name] = (index, end)
         if end is None:
@@ -1218,7 +1223,7 @@ class Namedlist(list):
         """
         for name, (i, j) in names:
             self._set_name(name, i, end=j)
-    
+
     def items(self):
         for name in self._names:
             yield name, getattr(self, name)
@@ -1252,7 +1257,7 @@ class Namedlist(list):
                 self._names[name] = (i + add, None if j is None else j + add)
             elif i == index:
                 self._set_name(name, i, end=i + len(items))
-    
+
     def keys(self):
         return self._names.keys()
 
