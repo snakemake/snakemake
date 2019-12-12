@@ -171,13 +171,6 @@ def listfiles(pattern, restriction=None, omit_value=None):
         dirname = os.path.dirname(pattern)
     pattern = re.compile(regex(pattern))
 
-    if restriction is not None:
-        restriction_items = list(
-            restriction.items()
-            if isinstance(restriction, dict)
-            else restriction.items()
-        )
-
     for dirpath, dirnames, filenames in os.walk(dirname):
         for f in chain(filenames, dirnames):
             if dirpath != ".":
@@ -188,7 +181,7 @@ def listfiles(pattern, restriction=None, omit_value=None):
                 if restriction is not None:
                     invalid = any(
                         omit_value not in v and v != wildcards[k]
-                        for k, v in restriction_items
+                        for k, v in restriction.items()
                     )
                     if not invalid:
                         yield f, wildcards
