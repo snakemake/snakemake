@@ -75,7 +75,7 @@ class ProvenanceHashMap:
         if workflow.use_conda and job.conda_env:
             if workflow.use_singularity and job.conda_env.singularity_img_url:
                 h.update(job.conda_env.singularity_img_url.encode())
-            h.update(job.conda_env.content.encode())
+            h.update(job.conda_env.content)
         elif workflow.use_singularity and job.singularity_img_url:
             h.update(job.singularity_img_url.encode())
 
