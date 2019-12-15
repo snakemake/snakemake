@@ -191,6 +191,7 @@ def run(
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
+
 xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
 )
