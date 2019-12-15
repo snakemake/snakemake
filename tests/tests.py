@@ -1180,6 +1180,7 @@ def test_output_file_cache():
     run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
 
 
+@skip_on_windows
 def test_output_file_cache_remote():
     test_path = dpath("test_output_file_cache_remote")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
