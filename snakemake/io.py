@@ -185,6 +185,14 @@ class _IOFile(str):
     def is_directory(self):
         return is_flagged(self._file, "directory")
 
+    @property
+    def is_multiext(self):
+        return is_flagged(self._file, "multiext")
+
+    @property
+    def multiext_prefix(self):
+        return get_flag_value(self._file, "multiext")
+
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
@@ -936,6 +944,18 @@ def expand(*args, **wildcards):
         raise WildcardError("No values given for wildcard {}.".format(e))
 
 
+def multiext(prefix, *extensions):
+    """Expand a given prefix with multiple extensions (e.g. .txt, .csv, ...)."""
+    if any(
+        ("/" in ext or "\\" in ext or not ext.startswith(".")) for ext in extensions
+    ):
+        raise WorkflowError(
+            "Extensions for multiext may not contain path delimiters "
+            "(/,\) and must start with '.' (e.g. .txt)."
+        )
+    return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
+
+
 def limit(pattern, **wildcards):
     """
     Limit wildcards to the given values.
@@ -1179,6 +1199,10 @@ class Namedlist(list):
         index -- the item index
         """
         self._names[name] = (index, end)
+        if hasattr(self.__class__, name):
+            raise AttributeError(
+                f"Namedlist attribute '{name}' is read only.  Cannot set to '{self[index]}'"
+            )
         if end is None:
             setattr(self, name, self[index])
         else:

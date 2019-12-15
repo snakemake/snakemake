@@ -101,7 +101,7 @@ def run(
         # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
         # when subprocesses are invoked in the tempdir defined below.
         os.environ["PYTHONPATH"] = os.getcwd()
-    else:
+    elif "PYTHONPATH" in os.environ:
         del os.environ["PYTHONPATH"]
 
     results_dir = join(path, "expected-results")
@@ -145,6 +145,7 @@ def run(
         workdir=path if no_tmpdir else tmpdir,
         stats="stats.txt",
         config=config,
+        verbose=True,
         **params
     )
     if shouldfail:
@@ -152,7 +153,7 @@ def run(
     else:
         assert success, "expected successful execution"
         for resultfile in os.listdir(results_dir):
-            if resultfile == ".gitignore" or not os.path.isfile(
+            if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
                 os.path.join(results_dir, resultfile)
             ):
                 # this means tests cannot use directories as output files
@@ -186,6 +187,9 @@ def run(
         return tmpdir
     shutil.rmtree(tmpdir)
 
+
+def test_list_untracked():
+    run(dpath("test_list_untracked"))
 
 xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
@@ -303,10 +307,6 @@ def test_directory2():
 
 def test_ancient():
     run(dpath("test_ancient"), targets=["D", "old_file"])
-
-
-def test_list_untracked():
-    run(dpath("test_list_untracked"))
 
 
 @skip_on_windows  # No conda-forge version of pygraphviz for windows
@@ -580,7 +580,6 @@ def test_spaces_in_fnames():
         dpath("test_spaces_in_fnames"),
         # cluster="./qsub",
         targets=["test bam file realigned.bam"],
-        verbose=True,
         printshellcmds=True,
     )
 
@@ -748,7 +747,6 @@ def test_default_remote():
         cores=1,
         default_remote_provider="S3Mocked",
         default_remote_prefix="test-remote-bucket",
-        verbose=True,
     )
 
 
@@ -811,12 +809,7 @@ def test_singularity_invalid():
 @skip_on_windows
 @connected
 def test_singularity_conda():
-    run(
-        dpath("test_singularity_conda"),
-        use_singularity=True,
-        use_conda=True,
-        verbose=True,
-    )
+    run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True)
 
 
 def test_issue612():
@@ -1065,7 +1058,7 @@ def test_issue1092():
 
 @skip_on_windows
 def test_issue1093():
-    run(dpath("test_issue1093"), use_conda=True, verbose=True)
+    run(dpath("test_issue1093"), use_conda=True)
 
 
 def test_issue958():
@@ -1091,7 +1084,7 @@ def test_pipes2():
 
 
 @pytest.mark.skip(
-    reason="need free AWS tier credentials and tibanna as a conda package first"
+    reason="The AWS Access Key Id you provided does not exist in our records."
 )
 def test_tibanna():
     workdir = dpath("test_tibanna")
@@ -1099,7 +1092,7 @@ def test_tibanna():
     run(
         workdir,
         use_conda=True,
-        configfiles=["config.json"],
+        configfiles=[os.path.join(workdir, "config.json")],
         default_remote_prefix="snakemake-tibanna-test/1",
         tibanna_sfn="tibanna_unicorn_johannes",
     )
@@ -1115,7 +1108,6 @@ def test_default_resources():
 
     run(
         dpath("test_default_resources"),
-        verbose=True,
         default_resources=DefaultResources(
             ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
         ),
@@ -1174,3 +1166,29 @@ def test_github_issue52():
 @skip_on_windows
 def test_github_issue78():
     run(dpath("test_github_issue78"), use_singularity=True)
+
+
+def test_github_issue105():
+    run(dpath("test_github_issue105"))
+
+
+def test_output_file_cache():
+    test_path = dpath("test_output_file_cache")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
+    run(test_path, cache=["a", "b", "c"])
+    run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
+
+
+def test_output_file_cache_remote():
+    test_path = dpath("test_output_file_cache_remote")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+    run(
+        test_path,
+        cache=["a", "b", "c"],
+        default_remote_provider="S3Mocked",
+        default_remote_prefix="test-remote-bucket",
+    )
+
+
+def test_multiext():
+    run(dpath("test_multiext"))

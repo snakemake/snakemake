@@ -2,8 +2,8 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - r-base >=3.4.1
-  - r-rmarkdown =1.6
+  - r-base =3.6.1
+  - r-rmarkdown =1.17
   - xorg-libxrender
   - xorg-libxext
   - xorg-libxau

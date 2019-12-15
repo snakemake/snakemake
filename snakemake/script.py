@@ -570,5 +570,5 @@ def script(
     finally:
         if f and cleanup_scripts:
             os.remove(f.name)
-        else:
-            logger.warning("Not cleaning up %s" % f.name)
+        elif f:
+            logger.warning("Not cleaning up {} upon request.".format(f.name))
