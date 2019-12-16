@@ -48,7 +48,7 @@ from snakemake.common import Mode, __version__, get_container_image, get_uuid
 
 def sleep():
     # do not sleep on CI. In that case we just want to quickly test everything.
-    if os.environ.get("CIRCLECI") != "true":
+    if os.environ.get("CI") != "true":
         time.sleep(10)
 
 
