@@ -181,13 +181,13 @@ class Snakemake:
     ):
         # convert input and output to plain strings as some remote objects cannot
         # be pickled
-        self.input = input.plainstrings()
-        self.output = output.plainstrings()
+        self.input = input._plainstrings()
+        self.output = output._plainstrings()
         self.params = params
         self.wildcards = wildcards
         self.threads = threads
         self.resources = resources
-        self.log = log.plainstrings()
+        self.log = log._plainstrings()
         self.config = config
         self.rule = rulename
         self.bench_iteration = bench_iteration
@@ -398,7 +398,7 @@ def script(
                 REncoder.encode_namedlist(wildcards),
                 threads,
                 REncoder.encode_namedlist(log),
-                REncoder.encode_namedlist(
+                REncoder.encode_dict(
                     {
                         name: value
                         for name, value in resources.items()
@@ -454,7 +454,7 @@ def script(
                     JuliaEncoder.encode_namedlist(wildcards),
                     JuliaEncoder.encode_value(threads),
                     JuliaEncoder.encode_namedlist(log),
-                    JuliaEncoder.encode_namedlist(
+                    JuliaEncoder.encode_dict(
                         {
                             name: value
                             for name, value in resources.items()

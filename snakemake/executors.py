@@ -48,7 +48,7 @@ from snakemake.common import Mode, __version__, get_container_image, get_uuid
 
 def sleep():
     # do not sleep on CI. In that case we just want to quickly test everything.
-    if os.environ.get("CIRCLECI") != "true":
+    if os.environ.get("CI") != "true":
         time.sleep(10)
 
 
@@ -369,13 +369,13 @@ class CPUExecutor(RealExecutor):
             benchmark = str(job.benchmark)
         return (
             job.rule,
-            job.input.plainstrings(),
-            job.output.plainstrings(),
+            job.input._plainstrings(),
+            job.output._plainstrings(),
             job.params,
             job.wildcards,
             job.threads,
             job.resources,
-            job.log.plainstrings(),
+            job.log._plainstrings(),
             benchmark,
             benchmark_repeats,
             conda_env,
