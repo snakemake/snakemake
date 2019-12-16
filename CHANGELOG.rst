@@ -1,3 +1,10 @@
+[5.8.2] - 2019-12-16
+====================
+Changed
+-------
+- Fixed a failure when caching jobs with conda environments.
+- Fixed various minor bugs.
+
 [5.8.1] - 2019-11-15
 ====================
 Changed
