@@ -1710,7 +1710,7 @@ def get_argument_parser(profile=None):
         "--use-envmodules",
         action="store_true",
         help="If defined in the rule, run job within the given environment "
-        "modules, loaded in the given order."
+        "modules, loaded in the given order.",
     )
 
     return parser
