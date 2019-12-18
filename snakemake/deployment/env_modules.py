@@ -13,9 +13,8 @@ class EnvModules:
         loads = " ".join(self._load_module(name) for name in self.names)
         return "{} {}".format(loads, cmd)
 
-    @classmethod
-    def _load_module(name):
-        return "module load {};"
+    def _load_module(self, name):
+        return "module load {};".format(name)
 
     def __str__(self):
         return ", ".join(self.names)

@@ -1106,3 +1106,7 @@ def test_output_file_cache_remote():
 
 def test_multiext():
     run(dpath("test_multiext"))
+
+
+def test_env_modules():
+    run(dpath("test_env_modules"), use_env_modules=True)

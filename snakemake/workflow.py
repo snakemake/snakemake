@@ -82,6 +82,7 @@ class Workflow:
         use_conda=False,
         conda_prefix=None,
         use_singularity=False,
+        use_env_modules=False,
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
@@ -133,6 +134,7 @@ class Workflow:
         self.use_conda = use_conda
         self.conda_prefix = conda_prefix
         self.use_singularity = use_singularity
+        self.use_env_modules = use_env_modules
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
@@ -1094,7 +1096,7 @@ class Workflow:
                         )
                     from snakemake.deployment.env_modules import EnvModules
 
-                    rule.env_modules = Modules(*ruleinfo.env_modules)
+                    rule.env_modules = EnvModules(*ruleinfo.env_modules)
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
@@ -1181,7 +1183,7 @@ class Workflow:
 
         return decorate
 
-    def env_modules(self, *env_modules):
+    def envmodules(self, *env_modules):
         def decorate(ruleinfo):
             ruleinfo.env_modules = env_modules
             return ruleinfo
