@@ -17,58 +17,22 @@ class JupyterNotebook(ScriptBase):
         fd.write(nbformat.writes(nb).encode())
 
     def execute_script(self, fname):
-        # execute notebook
-        tmp_output = "{fname}.processed.ipynb".format(fname=fname)
-        shell(
-            "jupyter nbconvert --execute --output {tmp_output:q} --to notebook --ExecutePreprocessor.timeout=-1 {fname:q}",
-            bench_record=self.bench_record,
-            tmp_output=tmp_output,
+        fname_out = self.log.get("notebook", None)
+        if fname_out is None:
+            output_parameter = ""
+        else:
+            fname_out = os.path.join(os.getcwd(), fname_out)
+            output_parameter = "--output {fname_out:q}"
+
+        cmd = "jupyter nbconvert --execute {output_parameter} --to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
+            output_parameter=output_parameter,
         )
+        print(cmd)
 
-        # determine whether to save output
-        notebook_relpath = self.log.get("notebook", None)
-
-        if notebook_relpath is not None:
-            # determine output format
-            _, ext = os.path.splitext(notebook_relpath)
-            output_format = {
-                ".ipynb": "notebook",
-                ".html": "html",
-                ".tex": "latex",
-                ".pdf": "pdf",
-                # ".slides": "slides",
-                ".md": "markdown",
-                ".txt": "asciidoc",
-                ".rst": "rst",
-                # ".py": "script",
-            }.get(ext, None)
-
-            if output_format is None:
-                raise WorkflowError(
-                    "Invalid Jupyter Notebook output format: '{ext}'".format(ext=ext)
-                )
-
-            # remove preamble from output
-            nb = nbformat.read(tmp_output, as_version=nbformat.NO_CONVERT)
-
-            nb["cells"].pop(0)
-
-            with open(tmp_output, "w") as fd:
-                nbformat.write(nb, fd)
-
-            # save to destination
-            notebook_output = os.path.join(os.getcwd(), notebook_relpath)
-
-            if output_format == "notebook":
-                os.rename(tmp_output, notebook_output)
-            else:
-                # convert to required format
-                shell(
-                    "jupyter nbconvert --output {notebook_output:q} --to {output_format:q} --ExecutePreprocessor.timeout=-1 {tmp_output:q}",
-                    notebook_output=notebook_output,
-                    output_format=output_format,
-                    tmp_output=tmp_output,
-                )
+        shell(
+            cmd,
+            bench_record=self.bench_record,
+        )
 
 
 class PythonJupyterNotebook(JupyterNotebook):
