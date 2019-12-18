@@ -420,6 +420,10 @@ class Singularity(RuleKeywordState):
     pass
 
 
+class EnvModules(RuleKeywordState):
+    pass
+
+
 class Group(RuleKeywordState):
     pass
 
@@ -596,6 +600,7 @@ class Rule(GlobalKeywordState):
         benchmark=Benchmark,
         conda=Conda,
         singularity=Singularity,
+        envmodules=EnvModules,
         wildcard_constraints=WildcardConstraints,
         shadow=Shadow,
         group=Group,
