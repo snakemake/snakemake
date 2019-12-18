@@ -552,7 +552,7 @@ class Script(AbstractCmd):
         # other args
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, singularity_img, singularity_args, use_singularity, env_modules, "
+            "config, rule, conda_env, singularity_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir"
         )
 
@@ -564,7 +564,7 @@ class Wrapper(Script):
     def args(self):
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, singularity_img, singularity_args, use_singularity, env_modules, "
+            "config, rule, conda_env, singularity_img, singularity_args, env_modules, "
             "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
             "cleanup_scripts, shadow_dir"
         )

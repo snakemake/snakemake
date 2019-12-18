@@ -295,6 +295,7 @@ def script(
     conda_env,
     singularity_img,
     singularity_args,
+    env_modules,
     bench_record,
     jobid,
     bench_iteration,
@@ -532,6 +533,9 @@ def script(
                         )
             if singularity_img is not None:
                 # use python from image
+                py_exec = "python"
+            if env_modules is not None:
+                # use python from environment module
                 py_exec = "python"
             # use the same Python as the running process or the one from the environment
             shell("{py_exec} {f.name:q}", bench_record=bench_record)
