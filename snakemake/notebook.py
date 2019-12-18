@@ -26,7 +26,7 @@ class JupyterNotebook(ScriptBase):
         )
 
         # determine whether to save output
-        notebook_relpath = self.output.get("notebook_output", None)
+        notebook_relpath = self.log.get("notebook", None)
 
         if notebook_relpath is not None:
             # determine output format
