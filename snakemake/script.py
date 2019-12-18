@@ -23,7 +23,7 @@ from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import MIN_PY_VERSION, escape_backslash, SNAKEMAKE_SEARCHPATH
 from snakemake.io import git_content, split_git_path
-from snakemake import singularity
+from snakemake.deployment import singularity
 
 
 PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")

@@ -362,6 +362,7 @@ class CPUExecutor(RealExecutor):
 
         conda_env = job.conda_env_path
         singularity_img = job.singularity_img_path
+        env_modules = job.env_modules
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1
@@ -381,6 +382,7 @@ class CPUExecutor(RealExecutor):
             conda_env,
             singularity_img,
             self.workflow.singularity_args,
+            env_modules,
             self.workflow.use_singularity,
             self.workflow.linemaps,
             self.workflow.debug,

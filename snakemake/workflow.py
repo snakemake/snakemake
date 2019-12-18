@@ -1080,6 +1080,20 @@ class Workflow:
                     if not invalid_rule:
                         # skip rules with run directive
                         rule.singularity_img = self.global_singularity_img
+            
+            if self.use_env_modules:
+                invalid_rule = not (
+                    ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd
+                )
+                if ruleinfo.env_modules:
+                    if invalid_rule:
+                        raise RuleException(
+                            "Modules directive is only allowed with "
+                            "shell, script or wrapper directives (not with run)",
+                            rule=rule
+                        )
+                    from snakemake.deployment.env_modules import EnvModules
+                    rule.env_modules = Modules(*ruleinfo.env_modules)
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
@@ -1164,6 +1178,13 @@ class Workflow:
             ruleinfo.singularity_img = singularity_img
             return ruleinfo
 
+        return decorate
+    
+    def env_modules(self, *env_modules):
+        def decorate(ruleinfo):
+            ruleinfo.env_modules = env_modules
+            return ruleinfo
+        
         return decorate
 
     def global_singularity(self, singularity_img):
@@ -1273,6 +1294,7 @@ class RuleInfo:
         self.benchmark = None
         self.conda_env = None
         self.singularity_img = None
+        self.env_modules = None
         self.wildcard_constraints = None
         self.threads = None
         self.shadow_depth = None
