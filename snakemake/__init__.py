@@ -1469,7 +1469,7 @@ def get_argument_parser(profile=None):
         "--log-handler-script",
         metavar="FILE",
         default=None,
-        help="Provide a custom script containing a function 'def log(msg):'. "
+        help="Provide a custom script containing a function 'def log_handler(msg):'. "
         "Snakemake will call this function for every logging output (given as a dictionary msg), 
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
