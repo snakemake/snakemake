@@ -16,6 +16,7 @@ import webbrowser
 from functools import partial
 import importlib
 import shutil
+from importlib.machinery import SourceFileLoader
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -294,7 +295,6 @@ def snakemake(
         bool:   True if workflow execution was successful.
 
     """
-
     assert not immediate_submit or (
         immediate_submit and notemp
     ), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
@@ -340,6 +340,7 @@ def snakemake(
     use_threads = (
         force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
     )
+
     if not keep_logger:
         stdout = (
             (
@@ -350,6 +351,7 @@ def snakemake(
             or list_target_rules
             or list_resources
         )
+
         setup_logger(
             handler=log_handler,
             quiet=quiet,
@@ -1463,6 +1465,12 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Automatically display logs of failed jobs.",
     )
+    group_behavior.add_argument(
+        "--log-handler-script",
+        metavar="FILE",
+        default=None,
+        help="Provide a logging script.",
+    )
 
     group_cluster = parser.add_argument_group("CLUSTER")
 
@@ -1913,6 +1921,29 @@ def main(argv=None):
             # silently close
             pass
     else:
+        if args.log_handler_script is not None:
+            if not os.path.exists(args.log_handler_script):
+                print(
+                    "Error: no log handler script found, {}.".format(
+                        args.log_handler_script
+                    ),
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            log_script = SourceFileLoader("log", args.log_handler_script).load_module()
+            try:
+                log_handler = log_script.log_handler
+            except:
+                print(
+                    'Error: Invalid log handler script, {}. Expect python function "log_handler(msg)".'.format(
+                        args.log_handler_script
+                    ),
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        else:
+            log_handler = None
+
         success = snakemake(
             args.snakefile,
             batch=batch,
@@ -2016,6 +2047,7 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
+            log_handler=log_handler,
         )
 
     if args.runtime_profile:
