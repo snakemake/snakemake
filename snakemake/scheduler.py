@@ -473,6 +473,7 @@ class JobScheduler:
         Job scheduling by optimization of resource usage by solving ILP using pulp 
         """
         import pulp
+        import math
         from pulp import lpSum
         print(f"Possible Jobs: {list(jobs)}")
         scheduled_jobs = [pulp.LpVariable(f"job_{job}_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger) for idx, job in enumerate(jobs)]
@@ -480,6 +481,7 @@ class JobScheduler:
         temp_files = {temp_file for job in jobs for temp_file in self.dag.temp_input(job)}
         
         temp_job_improvement = {temp_file: pulp.LpVariable(temp_file, lowBound=0, upBound= 1, cat="Continuous") for temp_file in temp_files}
+        delete_temp = {temp_file: pulp.LpVariable(temp_file, lowBound=0, upBound= 1, cat=pulp.LpInteger) for temp_file in temp_files}
         prob = pulp.LpProblem("Job scheduler", pulp.LpMaximize)
 
         total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
@@ -489,10 +491,10 @@ class JobScheduler:
         # Core load > temp file removal
         # Instant removal > temp size
         # temp file size > fast removal?!
-        prefere_temp_file = lambda x: total_temp_size if temp_job_improvement[x].value() == 1.0 else 1
-        prob += total_core_requirement * total_temp_size * lpSum([job.priority * scheduled_jobs[i] for i, job in enumerate(jobs)]) \
-            + total_temp_size * lpSum([job.resources.get("_cores", 1) * scheduled_jobs[i] for i, job in enumerate(jobs)]) \
-            + lpSum([prefere_temp_file(temp_file) * temp_job_improvement[temp_file] * temp_file.size for temp_file in temp_files])
+        prob += total_core_requirement * math.pow(total_temp_size, 2) * lpSum([job.priority * scheduled_jobs[i] for i, job in enumerate(jobs)]) \
+            + math.pow(total_temp_size, 2) * lpSum([job.resources.get("_cores", 1) * scheduled_jobs[i] for i, job in enumerate(jobs)]) \
+            + total_temp_size * lpSum([delete_temp[temp_file] * temp_file.size for temp_file in temp_files]) \
+            + lpSum([(1-delete_temp[temp_file]) * temp_job_improvement[temp_file] * temp_file.size for temp_file in temp_files])
 
         #Constraints:
         for (name, resource_limit) in  self.workflow.global_resources.items():
@@ -501,10 +503,9 @@ class JobScheduler:
         #Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
         for temp_file in temp_files:
             prob += temp_job_improvement[temp_file] <= lpSum([scheduled_jobs[i] * self.required_by_job(temp_file, job) for i, job in enumerate(jobs)]) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
+            prob += delete_temp[temp_file] <= temp_job_improvement[temp_file]
 
-        prob.writeLP(f"WhiskasModel_{len(jobs)}.lp")
         prob.solve()
-        print("Status:", pulp.LpStatus[prob.status])
         solution = [jobs[int(variable.name.split("_")[-1])] for variable in prob.variables() if (variable.name.startswith("job_") and variable.value() == 1.0)]
         print(f"Scheduled jobs: {solution}")
         return solution
