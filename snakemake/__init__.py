@@ -1469,7 +1469,9 @@ def get_argument_parser(profile=None):
         "--log-handler-script",
         metavar="FILE",
         default=None,
-        help="Provide a logging script.",
+        help="Provide a custom script containing a function 'def log(msg):'. "
+        "Snakemake will call this function for every logging output (given as a dictionary msg), 
+        "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
 
     group_cluster = parser.add_argument_group("CLUSTER")
