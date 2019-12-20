@@ -24,7 +24,7 @@ from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import MIN_PY_VERSION, escape_backslash, SNAKEMAKE_SEARCHPATH
 from snakemake.io import git_content, split_git_path
-from snakemake import singularity
+from snakemake.deployment import singularity
 
 
 PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
@@ -49,13 +49,13 @@ class Snakemake:
     ):
         # convert input and output to plain strings as some remote objects cannot
         # be pickled
-        self.input = input_.plainstrings()
-        self.output = output.plainstrings()
+        self.input = input_._plainstrings()
+        self.output = output._plainstrings()
         self.params = params
         self.wildcards = wildcards
         self.threads = threads
         self.resources = resources
-        self.log = log.plainstrings()
+        self.log = log._plainstrings()
         self.config = config
         self.rule = rulename
         self.bench_iteration = bench_iteration
@@ -262,6 +262,7 @@ class ScriptBase(ABC):
         conda_env,
         singularity_img,
         singularity_args,
+        env_modules,
         bench_record,
         jobid,
         bench_iteration,
@@ -284,6 +285,7 @@ class ScriptBase(ABC):
         self.conda_env = conda_env
         self.singularity_img = singularity_img
         self.singularity_args = singularity_args
+        self.env_modules = env_modules
         self.bench_record = bench_record
         self.jobid = jobid
         self.bench_iteration = bench_iteration
@@ -350,6 +352,7 @@ class PythonScript(ScriptBase):
         conda_env,
         singularity_img,
         singularity_args,
+        env_modules,
         bench_record,
         jobid,
         bench_iteration,
@@ -418,6 +421,7 @@ class PythonScript(ScriptBase):
             self.conda_env,
             self.singularity_img,
             self.singularity_args,
+            self.env_modules,
             self.bench_record,
             self.jobid,
             self.bench_iteration,
@@ -458,6 +462,9 @@ class PythonScript(ScriptBase):
         if self.singularity_img is not None:
             # use python from image
             py_exec = "python"
+        if self.env_modules is not None:
+            # use python from environment module
+            py_exec = "python"
         # use the same Python as the running process or the one from the environment
         shell("{py_exec} {fname:q}", bench_record=self.bench_record)
 
@@ -480,6 +487,7 @@ class RScript(ScriptBase):
         conda_env,
         singularity_img,
         singularity_args,
+        env_modules,
         bench_record,
         jobid,
         bench_iteration,
@@ -573,6 +581,7 @@ class RScript(ScriptBase):
             self.conda_env,
             self.singularity_img,
             self.singularity_args,
+            self.env_modules,
             self.bench_record,
             self.jobid,
             self.bench_iteration,
@@ -826,6 +835,7 @@ def script(
     conda_env,
     singularity_img,
     singularity_args,
+    env_modules,
     bench_record,
     jobid,
     bench_iteration,
@@ -864,6 +874,7 @@ def script(
         conda_env,
         singularity_img,
         singularity_args,
+        env_modules,
         bench_record,
         jobid,
         bench_iteration,

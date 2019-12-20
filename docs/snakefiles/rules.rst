@@ -120,10 +120,111 @@ Finally, you can also define global wildcard constraints that apply for all rule
 See the `Python documentation on regular expressions <http://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
 
 
+Aggregation
+-----------
+
+Input files can be Python lists, allowing to easily aggregate over parameters or samples:
+
+.. code-block:: python
+
+    rule aggregate:
+        input: 
+            ["{dataset}/a.txt".format(dataset=dataset) for dataset in DATASETS]
+        output:
+            "aggregated.txt"
+        shell:
+            ...
+
+Above expression can be simplified in two ways.
+
+The expand function
+~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    rule aggregate:
+        input: 
+            expand("{dataset}/a.txt", dataset=DATASETS)
+        output:
+            "aggregated.txt"
+        shell:
+            ...
+
+
+Note that *dataset* is NOT a wildcard here because it is resolved by Snakemake due to the ``expand`` statement.
+The ``expand`` function thereby allows also to combine different variables, e.g.
+
+.. code-block:: python
+
+    rule aggregate:
+        input: 
+            expand("{dataset}/a.{ext}", dataset=DATASETS, ext=FORMATS)
+        output:
+            "aggregated.txt"
+        shell:
+            ...
+
+If now ``FORMATS=["txt", "csv"]`` contains a list of desired output formats then expand will automatically combine any dataset with any of these extensions.
+
+Further, the first argument can also be a list of strings. In that case, the transformation is applied to all elements of the list. E.g.
+
+.. code-block:: python
+
+    expand(["{dataset}/a.{ext}", "{dataset}/b.{ext}"], dataset=DATASETS, ext=FORMATS)
+
+leads to
+
+.. code-block:: python
+
+    ["ds1/a.txt", "ds1/b.txt", "ds2/a.txt", "ds2/b.txt", "ds1/a.csv", "ds1/b.csv", "ds2/a.csv", "ds2/b.csv"]
+
+Per default, ``expand`` uses the python itertools function ``product`` that yields all combinations of the provided wildcard values. However by inserting a second positional argument this can be replaced by any combinatoric function, e.g. ``zip``:
+
+.. code-block:: python
+
+    expand(["{dataset}/a.{ext}", "{dataset}/b.{ext}"], zip, dataset=DATASETS, ext=FORMATS)
+
+leads to
+
+.. code-block:: python
+
+    ["ds1/a.txt", "ds1/b.txt", "ds2/a.csv", "ds2/b.csv"]
+
+You can also mask a wildcard expression in expand such that it will be kept, e.g.
+
+.. code-block:: python
+
+    expand("{{dataset}}/a.{ext}", ext=FORMATS)
+
+will create strings with all values for ext but starting with the wildcard ``"{dataset}"``.
+
+
+.. _snakefiles-multiext:
+
+The multiext function
+~~~~~~~~~~~~~~~~~~~~~
+
+``multiext`` provides a simplified variant of ``expand`` that allows to define a set of output or input files that just differ by their extension:
+
+
+.. code-block:: python
+
+    rule plot:
+        input: 
+            ...
+        output:
+            multiext("some/plot", ".pdf", ".svg", ".png")
+        shell:
+            ...
+
+The effect is the same as if you would write ``expand("some/plot.{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
+Moreover, defining output with ``multiext`` is the only way to use :ref:`between workflow caching <caching>` for rules with multiple output files.
+
+
 .. _snakefiles-targets:
 
-Targets
--------
+Targets and aggregation
+-----------------------
 
 By default snakemake executes the first rule in the snakefile. This gives rise to pseudo-rules at the beginning of the file that can be used to define build-targets similar to GNU Make:
 
@@ -134,60 +235,6 @@ By default snakemake executes the first rule in the snakefile. This gives rise t
 
 
 Here, for each dataset in a python list ``DATASETS`` defined before, the file ``{dataset}/file.A.txt`` is requested. In this example, Snakemake recognizes automatically that these can be created by multiple applications of the rule ``complex_conversion`` shown above.
-
-Above expression can be simplified to the following:
-
-.. code-block:: python
-
-    rule all:
-      input: expand("{dataset}/file.A.txt", dataset=DATASETS)
-
-
-This may be used for "aggregation" rules for which files from multiple or all datasets are needed to produce a specific output (say, *allSamplesSummary.pdf*).
-Note that *dataset* is NOT a wildcard here because it is resolved by Snakemake due to the ``expand`` statement (see below also for more information).
-
-
-
-The ``expand`` function thereby allows also to combine different variables, e.g.
-
-.. code-block:: python
-
-    rule all:
-      input: expand("{dataset}/file.A.{ext}", dataset=DATASETS, ext=PLOTFORMATS)
-
-If now ``PLOTFORMATS=["pdf", "png"]`` contains a list of desired output formats then expand will automatically combine any dataset with any of these extensions.
-
-Further, the first argument can also be a list of strings. In that case, the transformation is applied to all elements of the list. E.g.
-
-.. code-block:: python
-
-    expand(["{dataset}/plot1.{ext}", "{dataset}/plot2.{ext}"], dataset=DATASETS, ext=PLOTFORMATS)
-
-leads to
-
-.. code-block:: python
-
-    ["ds1/plot1.pdf", "ds1/plot2.pdf", "ds2/plot1.pdf", "ds2/plot2.pdf", "ds1/plot1.png", "ds1/plot2.png", "ds2/plot1.png", "ds2/plot2.png"]
-
-Per default, ``expand`` uses the python itertools function ``product`` that yields all combinations of the provided wildcard values. However by inserting a second positional argument this can be replaced by any combinatoric function, e.g. ``zip``:
-
-.. code-block:: python
-
-    expand("{dataset}/plot1.{ext} {dataset}/plot2.{ext}".split(), zip, dataset=DATASETS, ext=PLOTFORMATS)
-
-leads to
-
-.. code-block:: python
-
-    ["ds1/plot1.pdf", "ds1/plot2.pdf", "ds2/plot1.png", "ds2/plot2.png"]
-
-You can also mask a wildcard expression in expand such that it will be kept, e.g.
-
-.. code-block:: python
-
-    expand("{{dataset}}/plot1.{ext}", ext=PLOTFORMATS)
-
-will create strings with all values for ext but starting with ``"{dataset}"``.
 
 
 .. _snakefiles-threads:
@@ -205,8 +252,30 @@ Further, a rule can be given a number of threads to use, i.e.
         threads: 8
         shell: "somecommand --threads {threads} {input} {output}"
 
+.. sidebar:: Note
+
+    On a cluster node, Snakemake uses as many cores as available on that node.
+    Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node. 
+    Note: This behavior is not affected by ``--local-cores``, which only applies to jobs running on the master node.
+
 Snakemake can alter the number of cores available based on command line options. Therefore it is useful to propagate it via the built in variable ``threads`` rather than hardcoding it into the shell command.
-In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``). On a cluster node, Snakemake uses as many cores as available on that node. Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node. Note: This behavior is not affected by ``--local-cores``, which only applies to jobs running on the master node.
+In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``). 
+
+Hardcoding a particular maximum number of threads like above is useful when a certain tool has a natural maximum beyond it parallelization won't help to further speed it up.
+This is often the case, and should be evaluated carefully for production workflows.
+If it is certain that no such maximum exists for a tool, one can instead define threads as a function of the number of cores given to Snakemake:
+
+.. code-block:: python
+
+    rule NAME:
+        input: "path/to/inputfile", "path/to/other/inputfile"
+        output: "path/to/outputfile", "path/to/another/outputfile"
+        threads: workflow.cores * 0.75
+        shell: "somecommand --threads {threads} {input} {output}"
+
+The number of given cores is globally available in the Snakefile as an attribute of the workflow object: ``workflow.cores``.
+Any arithmetic operation can be performed to derive a number of threads from this. E.g., in the above example, we reserve 75% of the given cores for the rule.
+Snakemake will always round the calculated value down (while enforcing a minimum of 1 thread).
 
 Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards[, input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
 
@@ -1006,7 +1075,7 @@ Defining groups for execution
 
 From Snakemake 5.0 on, it is possible to assign rules to groups.
 Such groups will be executed together in **cluster** or **cloud mode**, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node.
-By this, queueing and execution time can be safed, in particular if one or several short-running rules are involved.
+By this, queueing and execution time can be saved, in particular if one or several short-running rules are involved.
 When executing locally, group definitions are ignored.
 
 Groups can be defined via the ``group`` keyword, e.g.,

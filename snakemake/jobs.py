@@ -35,7 +35,8 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid
-from snakemake import conda, wrapper
+from snakemake.deployment import conda
+from snakemake import wrapper
 
 
 def format_files(job, io, dynamicio):
@@ -314,6 +315,10 @@ class Job(AbstractJob):
         if self.singularity_img_url:
             return self.dag.singularity_imgs[self.singularity_img_url]
         return None
+
+    @property
+    def env_modules(self):
+        return self.rule.env_modules
 
     @property
     def singularity_img_path(self):

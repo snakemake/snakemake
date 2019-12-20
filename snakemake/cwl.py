@@ -165,7 +165,7 @@ def job_to_cwl(job, dag, outputs, inputs):
         },
         "in": {
             "cores": {"default": job.threads},
-            "target_files": {"default": job.output.plainstrings()},
+            "target_files": {"default": job.output._plainstrings()},
             "rules": {"default": [job.rule.name]},
         },
         "out": ["output_files"],

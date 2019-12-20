@@ -170,6 +170,7 @@ def listfiles(pattern, restriction=None, omit_value=None):
     else:
         dirname = os.path.dirname(pattern)
     pattern = re.compile(regex(pattern))
+
     for dirpath, dirnames, filenames in os.walk(dirname):
         for f in chain(filenames, dirnames):
             if dirpath != ".":
@@ -201,7 +202,7 @@ def makedirs(dirnames):
 def report(
     text,
     path,
-    stylesheet=os.path.join(os.path.dirname(__file__), "report.css"),
+    stylesheet=None,
     defaultenc="utf8",
     template=None,
     metadata=None,
@@ -247,6 +248,8 @@ def report(
         metadata (str):     E.g. an optional author name or email address.
 
     """
+    if stylesheet is None:
+        os.path.join(os.path.dirname(__file__), "report.css")
     try:
         import snakemake.report
     except ImportError:

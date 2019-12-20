@@ -41,13 +41,14 @@ from snakemake.exceptions import (
     WorkflowError,
     ImproperShadowException,
     SpawnedJobError,
+    CacheMissException,
 )
 from snakemake.common import Mode, __version__, get_container_image, get_uuid
 
 
 def sleep():
     # do not sleep on CI. In that case we just want to quickly test everything.
-    if os.environ.get("CIRCLECI") != "true":
+    if os.environ.get("CI") != "true":
         time.sleep(10)
 
 
@@ -119,7 +120,24 @@ class AbstractExecutor:
 
 
 class DryrunExecutor(AbstractExecutor):
-    pass
+    def printjob(self, job):
+        super().printjob(job)
+        if job.is_group():
+            for j in job.jobs:
+                self.printcache(j)
+        else:
+            self.printcache(job)
+
+    def printcache(self, job):
+        if self.workflow.is_cached_rule(job.rule):
+            if self.workflow.output_file_cache.exists(job):
+                logger.info(
+                    "Output file {} will be obtained from cache.".format(job.output[0])
+                )
+            else:
+                logger.info(
+                    "Output file {} will be written to cache.".format(job.output[0])
+                )
 
 
 class RealExecutor(AbstractExecutor):
@@ -344,6 +362,7 @@ class CPUExecutor(RealExecutor):
 
         conda_env = job.conda_env_path
         singularity_img = job.singularity_img_path
+        env_modules = job.env_modules
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1
@@ -351,18 +370,19 @@ class CPUExecutor(RealExecutor):
             benchmark = str(job.benchmark)
         return (
             job.rule,
-            job.input.plainstrings(),
-            job.output.plainstrings(),
+            job.input._plainstrings(),
+            job.output._plainstrings(),
             job.params,
             job.wildcards,
             job.threads,
             job.resources,
-            job.log.plainstrings(),
+            job.log._plainstrings(),
             benchmark,
             benchmark_repeats,
             conda_env,
             singularity_img,
             self.workflow.singularity_args,
+            env_modules,
             self.workflow.use_singularity,
             self.workflow.linemaps,
             self.workflow.debug,
@@ -373,10 +393,12 @@ class CPUExecutor(RealExecutor):
 
     def run_single_job(self, job):
         if self.use_threads or (not job.is_shadow and not job.is_run):
-            future = self.pool.submit(run_wrapper, *self.job_args_and_prepare(job))
+            future = self.pool.submit(
+                self.cached_or_run, job, run_wrapper, *self.job_args_and_prepare(job)
+            )
         else:
             # run directive jobs are spawned into subprocesses
-            future = self.pool.submit(self.spawn_job, job)
+            future = self.pool.submit(self.cached_or_run, job, self.spawn_job, job)
         return future
 
     def run_group_job(self, job):
@@ -415,6 +437,21 @@ class CPUExecutor(RealExecutor):
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
             raise SpawnedJobError()
+
+    def cached_or_run(self, job, run_func, *args):
+        """
+        Either retrieve result from cache, or run job with given function.
+        """
+        to_cache = self.workflow.is_cached_rule(job.rule)
+        try:
+            if to_cache:
+                self.workflow.output_file_cache.fetch(job)
+                return
+        except CacheMissException:
+            pass
+        run_func(*args)
+        if to_cache:
+            self.workflow.output_file_cache.store(job)
 
     def shutdown(self):
         self.pool.shutdown()
@@ -1900,6 +1937,7 @@ def run_wrapper(
     conda_env,
     singularity_img,
     singularity_args,
+    env_modules,
     use_singularity,
     linemaps,
     debug,
@@ -1938,7 +1976,7 @@ def run_wrapper(
     # Change workdir if shadow defined and not using singularity.
     # Otherwise, we do the change from inside the container.
     passed_shadow_dir = None
-    if use_singularity:
+    if use_singularity and singularity_img:
         passed_shadow_dir = shadow_dir
         shadow_dir = None
 
@@ -1976,6 +2014,7 @@ def run_wrapper(
                             singularity_img,
                             singularity_args,
                             use_singularity,
+                            env_modules,
                             bench_record,
                             jobid,
                             is_shell,
@@ -2002,6 +2041,7 @@ def run_wrapper(
                                 singularity_img,
                                 singularity_args,
                                 use_singularity,
+                                env_modules,
                                 bench_record,
                                 jobid,
                                 is_shell,
@@ -2026,6 +2066,7 @@ def run_wrapper(
                     singularity_img,
                     singularity_args,
                     use_singularity,
+                    env_modules,
                     None,
                     jobid,
                     is_shell,

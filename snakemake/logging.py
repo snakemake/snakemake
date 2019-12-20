@@ -379,10 +379,20 @@ class Logger:
             self.last_msg_was_job_info = False
 
 
-def format_dict(dict, omit_keys=[], omit_values=[]):
+def format_dict(dict_like, omit_keys=[], omit_values=[]):
+    from snakemake.io import Namedlist
+
+    if isinstance(dict_like, Namedlist):
+        items = dict_like.items()
+    elif isinstance(dict_like, dict):
+        items = dict_like.items()
+    else:
+        raise ValueError(
+            "bug: format_dict applied to something neither a dict nor a Namedlist"
+        )
     return ", ".join(
         "{}={}".format(name, str(value))
-        for name, value in dict.items()
+        for name, value in items
         if name not in omit_keys and value not in omit_values
     )
 
@@ -414,15 +424,15 @@ def setup_logger(
     if handler is not None:
         # custom log handler
         logger.log_handler.append(handler)
-    else:
-        # console output only if no custom logger was specified
-        stream_handler = ColorizingStreamHandler(
-            nocolor=nocolor,
-            stream=sys.stdout if stdout else sys.stderr,
-            use_threads=use_threads,
-            mode=mode,
-        )
-        logger.set_stream_handler(stream_handler)
+
+    # console output only if no custom logger was specified
+    stream_handler = ColorizingStreamHandler(
+        nocolor=nocolor,
+        stream=sys.stdout if stdout else sys.stderr,
+        use_threads=use_threads,
+        mode=mode,
+    )
+    logger.set_stream_handler(stream_handler)
 
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
     logger.quiet = quiet
