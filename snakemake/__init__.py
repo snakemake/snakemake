@@ -1801,12 +1801,8 @@ def main(argv=None):
         if args.dryrun:
             args.cores = 1
         else:
-            print(
-                "Error: you need to specify the maximum number of cores to "
-                "be used at the same time with --cores.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+            # if nothing specified, use all avaiable cores
+            args.cores = available_cpu_count()
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
