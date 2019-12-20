@@ -250,6 +250,10 @@ class Workflow:
     @property
     def cores(self):
         return self.global_resources["_cores"]
+    
+    @property
+    def nodes(self):
+        return self.global_resources["_nodes"]
 
     @property
     def concrete_files(self):
@@ -789,7 +793,7 @@ class Workflow:
                 if shell_exec is not None:
                     logger.info("Using shell: {}".format(shell_exec))
                 if cluster or cluster_sync or drmaa:
-                    logger.resources_info("Provided cluster nodes: {}".format(nodes))
+                    logger.resources_info("Provided cluster nodes: {}".format(self.nodes))
                 else:
                     warning = (
                         "" if self.cores > 1 else " (use --cores to define parallelism)"
