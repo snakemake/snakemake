@@ -246,7 +246,7 @@ class Workflow:
     @property
     def rules(self):
         return self._rules.values()
-    
+
     @property
     def cores(self):
         return self.global_resources["_cores"]
@@ -794,7 +794,9 @@ class Workflow:
                     warning = (
                         "" if self.cores > 1 else " (use --cores to define parallelism)"
                     )
-                    logger.resources_info("Provided cores: {}{}".format(self.cores, warning))
+                    logger.resources_info(
+                        "Provided cores: {}{}".format(self.cores, warning)
+                    )
                     logger.resources_info(
                         "Rules claiming more threads " "will be scaled down."
                     )
@@ -991,12 +993,14 @@ class Workflow:
             if self.default_resources is not None:
                 rule.resources = copy.deepcopy(self.default_resources.parsed)
             if ruleinfo.threads:
-                if not isinstance(ruleinfo.threads, int) and not isinstance(ruleinfo.threads, float) and not callable(
-                    ruleinfo.threads
+                if (
+                    not isinstance(ruleinfo.threads, int)
+                    and not isinstance(ruleinfo.threads, float)
+                    and not callable(ruleinfo.threads)
                 ):
                     raise RuleException(
                         "Threads value has to be an integer, float, or a callable.",
-                        rule=rule
+                        rule=rule,
                     )
                 rule.resources["_cores"] = int(ruleinfo.threads)
             if ruleinfo.shadow_depth:

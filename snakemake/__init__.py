@@ -465,7 +465,6 @@ def snakemake(
             cores=cores,
             nodes=nodes,
             resources=resources,
-            
         )
         success = True
         workflow.include(
