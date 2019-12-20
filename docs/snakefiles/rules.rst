@@ -252,8 +252,30 @@ Further, a rule can be given a number of threads to use, i.e.
         threads: 8
         shell: "somecommand --threads {threads} {input} {output}"
 
+.. sidebar:: Note
+
+    On a cluster node, Snakemake uses as many cores as available on that node.
+    Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node. 
+    Note: This behavior is not affected by ``--local-cores``, which only applies to jobs running on the master node.
+
 Snakemake can alter the number of cores available based on command line options. Therefore it is useful to propagate it via the built in variable ``threads`` rather than hardcoding it into the shell command.
-In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``). On a cluster node, Snakemake uses as many cores as available on that node. Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node. Note: This behavior is not affected by ``--local-cores``, which only applies to jobs running on the master node.
+In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``). 
+
+Hardcoding a particular maximum number of threads like above is useful when a certain tool has a natural maximum beyond it parallelization won't help to further speed it up.
+This is often the case, and should be evaluated carefully for production workflows.
+If it is certain that no such maximum exists for a tool, one can instead define threads as a function of the number of cores given to Snakemake:
+
+.. code-block:: python
+
+    rule NAME:
+        input: "path/to/inputfile", "path/to/other/inputfile"
+        output: "path/to/outputfile", "path/to/another/outputfile"
+        threads: workflow.cores * 0.75
+        shell: "somecommand --threads {threads} {input} {output}"
+
+The number of given cores is globally available in the Snakefile as an attribute of the workflow object: ``workflow.cores``.
+Any arithmetic operation can be performed to derive a number of threads from this. E.g., in the above example, we reserve 75% of the given cores for the rule.
+Snakemake will always round the calculated value down (while enforcing a minimum of 1 thread).
 
 Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards[, input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
 
