@@ -24,13 +24,11 @@ class JupyterNotebook(ScriptBase):
             fname_out = os.path.join(os.getcwd(), fname_out)
             output_parameter = "--output {fname_out:q}"
 
-        cmd = "jupyter-nbconvert --execute {output_parameter} --to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
+        cmd_tmp = "jupyter-nbconvert --execute {output_parameter} --to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
             output_parameter=output_parameter,
         )
 
-        shell(
-            cmd, bench_record=self.bench_record,
-        )
+        self._execute_cmd(cmd_tmp)
 
 
 class PythonJupyterNotebook(JupyterNotebook):

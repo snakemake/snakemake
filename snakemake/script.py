@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import inspect
 import itertools
 import os
 import tempfile
@@ -333,6 +334,19 @@ class ScriptBase(ABC):
     def execute_script(self, fname):
         ...
 
+    def _execute_cmd(self, cmd, **kwargs):
+        context = inspect.currentframe().f_back.f_locals
+        context.update(kwargs)
+
+        shell(
+            cmd,
+            bench_record=self.bench_record,
+            conda_env=self.conda_env,
+            singularity_img=self.singularity_img,
+            shadow_dir=self.shadow_dir,
+            env_modules=self.env_modules,
+            **context)
+
 
 class PythonScript(ScriptBase):
     @staticmethod
@@ -466,7 +480,7 @@ class PythonScript(ScriptBase):
             # use python from environment module
             py_exec = "python"
         # use the same Python as the running process or the one from the environment
-        shell("{py_exec} {fname:q}", bench_record=self.bench_record)
+        self._execute_cmd("{py_exec} {fname:q}")
 
 
 class RScript(ScriptBase):
@@ -604,7 +618,7 @@ class RScript(ScriptBase):
                 "remove it entirely before executing "
                 "Snakemake."
             )
-        shell("Rscript --vanilla {fname:q}", bench_record=self.bench_record)
+        self._execute_cmd("Rscript --vanilla {fname:q}")
 
 
 class RMarkdown(ScriptBase):
@@ -698,9 +712,8 @@ class RMarkdown(ScriptBase):
                 "RMarkdown scripts (.Rmd) may only have a single output file."
             )
         out = os.path.abspath(self.output[0])
-        shell(
+        self._execute_cmd(
             'Rscript --vanilla -e \'rmarkdown::render("{fname}", output_file="{out}", quiet=TRUE, knit_root_dir = "{workdir}", params = list(rmd="{fname}"))\'',
-            bench_record=self.bench_record,
             workdir=os.getcwd(),
         )
 
@@ -771,7 +784,7 @@ class JuliaScript(ScriptBase):
         fd.write(self.source)
 
     def execute_script(self, fname):
-        shell("julia {fname:q}", bench_record=self.bench_record)
+        self._execute_cmd("julia {fname:q}")
 
 
 def get_source(path, basedir="."):
