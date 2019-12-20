@@ -424,15 +424,15 @@ def setup_logger(
     if handler is not None:
         # custom log handler
         logger.log_handler.append(handler)
-    else:
-        # console output only if no custom logger was specified
-        stream_handler = ColorizingStreamHandler(
-            nocolor=nocolor,
-            stream=sys.stdout if stdout else sys.stderr,
-            use_threads=use_threads,
-            mode=mode,
-        )
-        logger.set_stream_handler(stream_handler)
+
+    # console output only if no custom logger was specified
+    stream_handler = ColorizingStreamHandler(
+        nocolor=nocolor,
+        stream=sys.stdout if stdout else sys.stderr,
+        use_threads=use_threads,
+        mode=mode,
+    )
+    logger.set_stream_handler(stream_handler)
 
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
     logger.quiet = quiet
