@@ -14,6 +14,8 @@ rule bar:
         infile = 'data.txt'
     output:
         outfile = 'result_intermediate.txt'
+    conda:
+        'env.yaml'
     notebook:
         'Notebook.ipynb'
 
@@ -21,7 +23,10 @@ rule baz:
     input:
         infile = 'result_intermediate.txt'
     output:
-        notebook_output = 'Notebook_Processed.ipynb',
         outfile = 'result_final.txt'
+    log:
+        notebook = 'Notebook_Processed.ipynb'
+    conda:
+        'env.yaml'
     notebook:
         'Notebook.ipynb'
