@@ -1,3 +1,7 @@
+__author__ = "Alban Gaignard, Johannes Köster"
+__copyright__ = "Copyright 2019, Alban Gaignard, Johannes Köster"
+__license__ = "MIT"
+
 from snakemake.provenance_tracking import ProvenanceTracker
 
 class PROV(ProvenanceTracker):
