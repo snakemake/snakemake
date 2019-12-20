@@ -4,6 +4,7 @@ __license__ = "MIT"
 
 from snakemake.provenance_tracking import ProvenanceTracker
 
+
 class PROV(ProvenanceTracker):
     def record_metadata(self, output_path, metadata):
         """store metadata for given output in PROV"""

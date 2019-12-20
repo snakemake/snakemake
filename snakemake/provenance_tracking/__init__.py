@@ -9,7 +9,6 @@ from snakemake.io import is_flagged
 
 
 class ProvenanceTracker:
-
     @abstractmethod
     def record_metadata(self, output_path, metadata):
         pass
@@ -27,7 +26,7 @@ class ProvenanceTracker:
             for f in itertools.chain(job.expanded_output, job.input):
                 if f in recorded_files:
                     continue
-                
+
                 meta = persistence.metadata(f)
 
                 # include metadata
@@ -36,4 +35,3 @@ class ProvenanceTracker:
                 if is_flagged(f, "report"):
                     # include content
                     self.record_content(f)
-                
