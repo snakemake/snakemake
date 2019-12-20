@@ -1798,11 +1798,8 @@ def main(argv=None):
                 )
                 sys.exit(1)
     elif args.cores is None:
-        if args.dryrun:
-            args.cores = 1
-        else:
-            # if nothing specified, use all avaiable cores
-            args.cores = available_cpu_count()
+        # if nothing specified, use all avaiable cores
+        args.cores = available_cpu_count()
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
