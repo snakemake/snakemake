@@ -847,8 +847,9 @@ def get_argument_parser(profile=None):
         const=available_cpu_count(),
         nargs="?",
         metavar="N",
+        required=True,
         help=(
-            "Use at most N cores in parallel (default: 1). "
+            "Use at most N cores in parallel. "
             "If N is omitted or 'all', the limit is set to the number of "
             "available cores."
         ),
@@ -1797,7 +1798,15 @@ def main(argv=None):
                 )
                 sys.exit(1)
     elif args.cores is None:
-        args.cores = 1
+        if args.dryrun:
+            args.cores = 1
+        else:
+            print(
+                "Error: you need to specify the maximum number of cores to "
+                "be used at the same time with --cores.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
