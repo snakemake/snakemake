@@ -847,7 +847,6 @@ def get_argument_parser(profile=None):
         const=available_cpu_count(),
         nargs="?",
         metavar="N",
-        required=True,
         help=(
             "Use at most N cores in parallel. "
             "If N is omitted or 'all', the limit is set to the number of "
