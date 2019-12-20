@@ -126,6 +126,7 @@ def snakemake(
     force_use_threads=False,
     use_conda=False,
     use_singularity=False,
+    use_env_modules=False,
     singularity_args="",
     conda_prefix=None,
     list_conda_envs=False,
@@ -229,8 +230,9 @@ def snakemake(
         restart_times (int):        number of times to restart failing jobs (default 0)
         attempt (int):              initial value of Job.attempt. This is intended for internal use only (default 1).
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
-        use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
+        use_conda (bool):           use conda environments for each job (defined with conda directive of rules)
         use_singularity (bool):     run jobs in singularity containers (if defined with singularity directive)
+        use_env_modules (bool):     load environment modules if defined in rules
         singularity_args (str):     additional arguments to pass to singularity
         conda_prefix (str):         the directory in which conda environments will be created (default None)
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
@@ -448,6 +450,7 @@ def snakemake(
             verbose=verbose,
             use_conda=use_conda or list_conda_envs or cleanup_conda,
             use_singularity=use_singularity,
+            use_env_modules=use_env_modules,
             conda_prefix=conda_prefix,
             singularity_prefix=singularity_prefix,
             shadow_prefix=shadow_prefix,
@@ -529,6 +532,7 @@ def snakemake(
                     force_use_threads=use_threads,
                     use_conda=use_conda,
                     use_singularity=use_singularity,
+                    use_env_modules=use_env_modules,
                     conda_prefix=conda_prefix,
                     singularity_prefix=singularity_prefix,
                     shadow_prefix=shadow_prefix,
@@ -843,7 +847,7 @@ def get_argument_parser(profile=None):
         nargs="?",
         metavar="N",
         help=(
-            "Use at most N cores in parallel (default: 1). "
+            "Use at most N cores in parallel. "
             "If N is omitted or 'all', the limit is set to the number of "
             "available cores."
         ),
@@ -1706,6 +1710,18 @@ def get_argument_parser(profile=None):
         metavar="ARGS",
         help="Pass additional args to singularity.",
     )
+
+    group_env_modules = parser.add_argument_group("ENVIRONMENT MODULES")
+
+    group_env_modules.add_argument(
+        "--use-envmodules",
+        action="store_true",
+        help="If defined in the rule, run job within the given environment "
+        "modules, loaded in the given order. This can be combined with "
+        "--use-conda and --use-singularity, which will then be only used as a "
+        "fallback for rules which don't define environment modules.",
+    )
+
     return parser
 
 
@@ -1788,7 +1804,8 @@ def main(argv=None):
                 )
                 sys.exit(1)
     elif args.cores is None:
-        args.cores = 1
+        # if nothing specified, use all avaiable cores
+        args.cores = available_cpu_count()
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
@@ -2034,6 +2051,7 @@ def main(argv=None):
             conda_prefix=args.conda_prefix,
             list_conda_envs=args.list_conda_envs,
             use_singularity=args.use_singularity,
+            use_env_modules=args.use_envmodules,
             singularity_prefix=args.singularity_prefix,
             shadow_prefix=args.shadow_prefix,
             singularity_args=args.singularity_args,

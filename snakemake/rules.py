@@ -87,6 +87,7 @@ class Rule:
             self._benchmark = None
             self._conda_env = None
             self._singularity_img = None
+            self.env_modules = None
             self.group = None
             self._wildcard_names = None
             self.lineno = lineno
@@ -126,6 +127,7 @@ class Rule:
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
             self._singularity_img = other._singularity_img
+            self.env_modules = other.env_modules
             self.group = other.group
             self._wildcard_names = (
                 set(other._wildcard_names)

@@ -1110,3 +1110,7 @@ def test_multiext():
 
 def test_core_dependent_threads():
     run(dpath("test_core_dependent_threads"))
+
+
+def test_env_modules():
+    run(dpath("test_env_modules"), use_env_modules=True)
