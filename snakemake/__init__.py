@@ -465,6 +465,9 @@ def snakemake(
             run_local=run_local,
             default_resources=default_resources,
             cache=cache,
+            cores=cores,
+            nodes=nodes,
+            resources=resources,
         )
         success = True
         workflow.include(
@@ -484,11 +487,8 @@ def snakemake(
                 # handle subworkflows
                 subsnakemake = partial(
                     snakemake,
-                    cores=cores,
-                    nodes=nodes,
                     local_cores=local_cores,
                     cache=cache,
-                    resources=resources,
                     default_resources=default_resources,
                     dryrun=dryrun,
                     touch=touch,
@@ -557,8 +557,6 @@ def snakemake(
                     targets=targets,
                     dryrun=dryrun,
                     touch=touch,
-                    cores=cores,
-                    nodes=nodes,
                     local_cores=local_cores,
                     forcetargets=forcetargets,
                     forceall=forceall,
@@ -607,7 +605,6 @@ def snakemake(
                     detailed_summary=detailed_summary,
                     nolock=not lock,
                     unlock=unlock,
-                    resources=resources,
                     notemp=notemp,
                     keep_remote_local=keep_remote_local,
                     nodeps=nodeps,

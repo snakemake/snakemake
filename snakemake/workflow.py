@@ -96,10 +96,18 @@ class Workflow:
         run_local=True,
         default_resources=None,
         cache=None,
+        nodes=1,
+        cores=1,
+        resources=None,
     ):
         """
         Create the controller.
         """
+
+        self.global_resources = dict() if resources is None else resources
+        self.global_resources["_cores"] = cores
+        self.global_resources["_nodes"] = nodes
+
         self._rules = OrderedDict()
         self.first_rule = None
         self._workdir = None
@@ -115,7 +123,6 @@ class Workflow:
         self.included_stack = []
         self.jobscript = jobscript
         self.persistence = None
-        self.global_resources = None
         self.globals = globals()
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
@@ -243,6 +250,14 @@ class Workflow:
         return self._rules.values()
 
     @property
+    def cores(self):
+        return self.global_resources["_cores"]
+
+    @property
+    def nodes(self):
+        return self.global_resources["_nodes"]
+
+    @property
     def concrete_files(self):
         return (
             file
@@ -354,8 +369,6 @@ class Workflow:
         targets=None,
         dryrun=False,
         touch=False,
-        cores=1,
-        nodes=1,
         local_cores=1,
         forcetargets=False,
         forceall=False,
@@ -402,7 +415,6 @@ class Workflow:
         wait_for_files=None,
         nolock=False,
         unlock=False,
-        resources=None,
         notemp=False,
         nodeps=False,
         cleanup_metadata=None,
@@ -429,10 +441,6 @@ class Workflow:
     ):
 
         self.check_localrules()
-
-        self.global_resources = dict() if resources is None else resources
-        self.global_resources["_cores"] = cores
-        self.global_resources["_nodes"] = nodes
         self.immediate_submit = immediate_submit
         self.cleanup_scripts = cleanup_scripts
 
@@ -752,7 +760,7 @@ class Workflow:
         scheduler = JobScheduler(
             self,
             dag,
-            cores,
+            self.cores,
             local_cores=local_cores,
             dryrun=dryrun,
             touch=touch,
@@ -787,17 +795,21 @@ class Workflow:
                 if shell_exec is not None:
                     logger.info("Using shell: {}".format(shell_exec))
                 if cluster or cluster_sync or drmaa:
-                    logger.resources_info("Provided cluster nodes: {}".format(nodes))
+                    logger.resources_info(
+                        "Provided cluster nodes: {}".format(self.nodes)
+                    )
                 else:
                     warning = (
-                        "" if cores > 1 else " (use --cores to define parallelism)"
+                        "" if self.cores > 1 else " (use --cores to define parallelism)"
                     )
-                    logger.resources_info("Provided cores: {}{}".format(cores, warning))
+                    logger.resources_info(
+                        "Provided cores: {}{}".format(self.cores, warning)
+                    )
                     logger.resources_info(
                         "Rules claiming more threads " "will be scaled down."
                     )
 
-                provided_resources = format_resources(resources)
+                provided_resources = format_resources(self.global_resources)
                 if provided_resources:
                     logger.resources_info("Provided resources: " + provided_resources)
 
@@ -989,13 +1001,16 @@ class Workflow:
             if self.default_resources is not None:
                 rule.resources = copy.deepcopy(self.default_resources.parsed)
             if ruleinfo.threads:
-                if not isinstance(ruleinfo.threads, int) and not callable(
-                    ruleinfo.threads
+                if (
+                    not isinstance(ruleinfo.threads, int)
+                    and not isinstance(ruleinfo.threads, float)
+                    and not callable(ruleinfo.threads)
                 ):
                     raise RuleException(
-                        "Threads value has to be an integer or a callable.", rule=rule
+                        "Threads value has to be an integer, float, or a callable.",
+                        rule=rule,
                     )
-                rule.resources["_cores"] = ruleinfo.threads
+                rule.resources["_cores"] = int(ruleinfo.threads)
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
                     raise RuleException(
