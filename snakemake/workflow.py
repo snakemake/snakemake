@@ -82,6 +82,7 @@ class Workflow:
         use_conda=False,
         conda_prefix=None,
         use_singularity=False,
+        use_env_modules=False,
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
@@ -133,6 +134,7 @@ class Workflow:
         self.use_conda = use_conda
         self.conda_prefix = conda_prefix
         self.use_singularity = use_singularity
+        self.use_env_modules = use_env_modules
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
@@ -1046,40 +1048,59 @@ class Workflow:
                     )
                 # TODO retrieve suitable singularity image
 
-            if ruleinfo.conda_env and self.use_conda:
-                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
-                    raise RuleException(
-                        "Conda environments are only allowed "
-                        "with shell, script, or wrapper directives "
-                        "(not with run).",
-                        rule=rule,
-                    )
-                if not (
-                    urllib.parse.urlparse(ruleinfo.conda_env).scheme
-                    or os.path.isabs(ruleinfo.conda_env)
-                ):
-                    ruleinfo.conda_env = os.path.join(
-                        self.current_basedir, ruleinfo.conda_env
-                    )
-                rule.conda_env = ruleinfo.conda_env
-
-            if self.use_singularity:
+            if self.use_env_modules and ruleinfo.env_modules:
+                # If using environment modules and they are defined for the rule,
+                # ignore conda and singularity directive below.
+                # The reason is that this is likely intended in order to use
+                # a software stack specifically compiled for a particular
+                # HPC cluster.
                 invalid_rule = not (
                     ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd
                 )
-                if ruleinfo.singularity_img:
-                    if invalid_rule:
+                if invalid_rule:
+                    raise RuleException(
+                        "Modules directive is only allowed with "
+                        "shell, script or wrapper directives (not with run)",
+                        rule=rule,
+                    )
+                from snakemake.deployment.env_modules import EnvModules
+
+                rule.env_modules = EnvModules(*ruleinfo.env_modules)
+            else:
+                if ruleinfo.conda_env and self.use_conda:
+                    if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
                         raise RuleException(
-                            "Singularity directive is only allowed "
-                            "with shell, script or wrapper directives "
+                            "Conda environments are only allowed "
+                            "with shell, script, or wrapper directives "
                             "(not with run).",
                             rule=rule,
                         )
-                    rule.singularity_img = ruleinfo.singularity_img
-                elif self.global_singularity_img:
-                    if not invalid_rule:
-                        # skip rules with run directive
-                        rule.singularity_img = self.global_singularity_img
+                    if not (
+                        urllib.parse.urlparse(ruleinfo.conda_env).scheme
+                        or os.path.isabs(ruleinfo.conda_env)
+                    ):
+                        ruleinfo.conda_env = os.path.join(
+                            self.current_basedir, ruleinfo.conda_env
+                        )
+                    rule.conda_env = ruleinfo.conda_env
+
+                if self.use_singularity:
+                    invalid_rule = not (
+                        ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd
+                    )
+                    if ruleinfo.singularity_img:
+                        if invalid_rule:
+                            raise RuleException(
+                                "Singularity directive is only allowed "
+                                "with shell, script or wrapper directives "
+                                "(not with run).",
+                                rule=rule,
+                            )
+                        rule.singularity_img = ruleinfo.singularity_img
+                    elif self.global_singularity_img:
+                        if not invalid_rule:
+                            # skip rules with run directive
+                            rule.singularity_img = self.global_singularity_img
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
@@ -1162,6 +1183,13 @@ class Workflow:
     def singularity(self, singularity_img):
         def decorate(ruleinfo):
             ruleinfo.singularity_img = singularity_img
+            return ruleinfo
+
+        return decorate
+
+    def envmodules(self, *env_modules):
+        def decorate(ruleinfo):
+            ruleinfo.env_modules = env_modules
             return ruleinfo
 
         return decorate
@@ -1273,6 +1301,7 @@ class RuleInfo:
         self.benchmark = None
         self.conda_env = None
         self.singularity_img = None
+        self.env_modules = None
         self.wildcard_constraints = None
         self.threads = None
         self.shadow_depth = None

@@ -362,6 +362,7 @@ class CPUExecutor(RealExecutor):
 
         conda_env = job.conda_env_path
         singularity_img = job.singularity_img_path
+        env_modules = job.env_modules
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1
@@ -381,6 +382,7 @@ class CPUExecutor(RealExecutor):
             conda_env,
             singularity_img,
             self.workflow.singularity_args,
+            env_modules,
             self.workflow.use_singularity,
             self.workflow.linemaps,
             self.workflow.debug,
@@ -1935,6 +1937,7 @@ def run_wrapper(
     conda_env,
     singularity_img,
     singularity_args,
+    env_modules,
     use_singularity,
     linemaps,
     debug,
@@ -2011,6 +2014,7 @@ def run_wrapper(
                             singularity_img,
                             singularity_args,
                             use_singularity,
+                            env_modules,
                             bench_record,
                             jobid,
                             is_shell,
@@ -2037,6 +2041,7 @@ def run_wrapper(
                                 singularity_img,
                                 singularity_args,
                                 use_singularity,
+                                env_modules,
                                 bench_record,
                                 jobid,
                                 is_shell,
@@ -2061,6 +2066,7 @@ def run_wrapper(
                     singularity_img,
                     singularity_args,
                     use_singularity,
+                    env_modules,
                     None,
                     jobid,
                     is_shell,
