@@ -86,6 +86,8 @@ class shell:
             raise KeyError("Argument stepout is not allowed in shell command.")
         cmd = format(cmd, *args, stepout=2, **kwargs)
         context = inspect.currentframe().f_back.f_locals
+        # add kwargs to context (overwriting the locals of the caller)
+        context.update(kwargs)
 
         stdout = sp.PIPE if iterable or read else STDOUT
 
