@@ -1106,3 +1106,7 @@ def test_output_file_cache_remote():
 
 def test_multiext():
     run(dpath("test_multiext"))
+
+
+def test_core_dependent_threads():
+    run(dpath("test_core_dependent_threads"))
