@@ -18,6 +18,7 @@ import inspect
 from snakemake.common import DYNAMIC_FILL
 from snakemake.common import Mode
 
+from slacker import Slacker
 
 class ColorizingStreamHandler(_logging.StreamHandler):
 
@@ -77,6 +78,26 @@ class ColorizingStreamHandler(_logging.StreamHandler):
             message.insert(0, self.COLOR_SEQ % (30 + self.colors[record.levelname]))
             message.append(self.RESET_SEQ)
         return "".join(message)
+
+
+class SlackLogger:
+    def __init__(self):
+        self.token = "xoxp-274144964932-275032254116-880475827029-420063c1291d1c27b43626d91cabc5f51"
+        slack = Slacker(self.token)
+
+        # Check for success
+        auth = slack.auth.test().body
+        if not auth["ok"]:
+            raise Error("Slack connection failed.")
+        self.own_id = auth["user_id"]
+
+    def log_handler(self, msg):
+        print(msg)
+        return
+        if msg["level"] =="progress":
+            if msg["done"] ==msg["total"]:
+                # workflow finished
+                slack.chat.post_message(own_id, text="workflow complete", username="snakemake")
 
 
 class Logger:
@@ -409,7 +430,7 @@ logger = Logger()
 
 
 def setup_logger(
-    handler=None,
+    handler=[],
     quiet=False,
     printshellcmds=False,
     printreason=False,
@@ -421,9 +442,7 @@ def setup_logger(
     mode=Mode.default,
     show_failed_logs=False,
 ):
-    if handler is not None:
-        # custom log handler
-        logger.log_handler.append(handler)
+    logger.log_handler.extend(handler)
 
     # console output only if no custom logger was specified
     stream_handler = ColorizingStreamHandler(
