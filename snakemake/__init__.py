@@ -1476,6 +1476,15 @@ def get_argument_parser(profile=None):
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
 
+    group_behavior.add_argument(
+        "--log-service",
+        default=None,
+        choices=["none", "slack"],
+        help="Set a specific messaging service for logging output."
+        "Snakemake will notify the service on errors and completed execution."
+        "Currently only slack is supported.",
+    )
+
     group_cluster = parser.add_argument_group("CLUSTER")
 
     # TODO extend below description to explain the wildcards that can be used
@@ -1959,8 +1968,10 @@ def main(argv=None):
                     file=sys.stderr,
                 )
                 sys.exit(1)
-        slack_logger = logging.SlackLogger()
-        log_handler.append(slack_logger.log_handler)
+
+        if args.log_service == "slack":
+            slack_logger = logging.SlackLogger()
+            log_handler.append(slack_logger.log_handler)
 
         success = snakemake(
             args.snakefile,
