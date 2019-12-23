@@ -20,6 +20,7 @@ from snakemake.common import Mode
 
 from slacker import Slacker
 
+
 class ColorizingStreamHandler(_logging.StreamHandler):
 
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
@@ -82,22 +83,37 @@ class ColorizingStreamHandler(_logging.StreamHandler):
 
 class SlackLogger:
     def __init__(self):
-        self.token = "xoxp-274144964932-275032254116-880475827029-420063c1291d1c27b43626d91cabc5f51"
-        slack = Slacker(self.token)
-
+        self.token = os.getenv("SLACK_TOKEN")
+        if not self.token:
+            print(
+                "The use of slack logging requires the user to set a user specific slack legacy token to the SLACK_TOKEN environment variable. Set this variable by 'export SLACK_TOKEN=your_token'. To generate your token please visit https://api.slack.com/custom-integrations/legacy-tokens."
+            )
+            exit(-1)
+        self.slack = Slacker(self.token)
         # Check for success
-        auth = slack.auth.test().body
-        if not auth["ok"]:
-            raise Error("Slack connection failed.")
+        try:
+            auth = self.slack.auth.test().body
+        except Exception as e:
+            print(
+                "Slack connection failed. Please compare your provided slack token exported in the SLACK_TOKEN environment variable with your online token at https://api.slack.com/custom-integrations/legacy-tokens. A different token can be set up by 'export SLACK_TOKEN=your_token'."
+            )
+            exit(-1)
         self.own_id = auth["user_id"]
+        self.error_occured = False
 
     def log_handler(self, msg):
-        print(msg)
-        return
-        if msg["level"] =="progress":
-            if msg["done"] ==msg["total"]:
+        if msg["level"] == "error" and not self.error_occured:
+            self.slack.chat.post_message(
+                self.own_id, text="At least one error occured.", username="snakemake"
+            )
+            self.error_occured = True
+
+        if msg["level"] == "progress":
+            if msg["done"] == msg["total"]:
                 # workflow finished
-                slack.chat.post_message(own_id, text="workflow complete", username="snakemake")
+                self.slack.chat.post_message(
+                    self.own_id, text="Workflow complete.", username="snakemake"
+                )
 
 
 class Logger:
