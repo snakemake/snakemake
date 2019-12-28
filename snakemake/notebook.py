@@ -25,7 +25,7 @@ class JupyterNotebook(ScriptBase):
             output_parameter = "--output {fname_out:q}"
 
         cmd_tmp = "jupyter-nbconvert --execute {output_parameter} --to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
-            output_parameter=output_parameter,
+            output_parameter=output_parameter
         )
 
         self._execute_cmd(cmd_tmp)
