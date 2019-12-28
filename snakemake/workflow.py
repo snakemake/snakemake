@@ -76,6 +76,7 @@ class Workflow:
         overwrite_workdir=None,
         overwrite_configfiles=None,
         overwrite_clusterconfig=dict(),
+        overwrite_threads=dict(),
         config_args=None,
         debug=False,
         verbose=False,
@@ -129,6 +130,7 @@ class Workflow:
         self.overwrite_config = overwrite_config
         self.overwrite_configfiles = overwrite_configfiles
         self.overwrite_clusterconfig = overwrite_clusterconfig
+        self.overwrite_threads = overwrite_threads
         self.config_args = config_args
         self.immediate_submit = None
         self._onsuccess = lambda log: None
@@ -1010,7 +1012,10 @@ class Workflow:
                         "Threads value has to be an integer, float, or a callable.",
                         rule=rule,
                     )
-                rule.resources["_cores"] = int(ruleinfo.threads)
+                if name in self.overwrite_threads:
+                    rule.resources["_cores"] = self.overwrite_threads[name]
+                else:
+                    rule.resources["_cores"] = int(ruleinfo.threads)
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
                     raise RuleException(
