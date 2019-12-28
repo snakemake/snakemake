@@ -898,11 +898,12 @@ def get_argument_parser(profile=None):
     )
     group_exec.add_argument(
         "--set-threads",
-        metavar="NAME=INT",
+        metavar="RULE=THREADS",
         nargs="*",
         help="Overwrite thread usage of rules. This allows to fine-tune workflow "
         "parallelization. In particular, this is helpful to target certain cluster nodes "
-        "by e.g. shifting a rule to use more, or less threads than defined in the workflow."
+        "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
+        "Thereby, THREADS has to be a positive integer, and RULE has to be the name of the rule."
     )
     group_exec.add_argument(
         "--default-resources",
