@@ -77,7 +77,7 @@ class RemoteObject(AbstractRemoteObject):
         local_md5 = hashlib.md5()
 
         # Download file.
-        with open(self.remote_file(), "wb") as rf:
+        with open(self.local_file(), "wb") as rf:
             for chunk in r.iter_content(chunk_size=1024 * 1024 * 10):
                 local_md5.update(chunk)
                 rf.write(chunk)
