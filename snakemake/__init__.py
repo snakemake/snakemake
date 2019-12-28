@@ -650,7 +650,7 @@ def snakemake(
 
 
 def parse_set_threads(args):
-    errmsg = "Invalid threads definition: entries have to be defined as RULE=THREADS pairs."
+    errmsg = "Invalid threads definition: entries have to be defined as RULE=THREADS pairs (with THREADS being a positive integer)."
     overwrite_threads = dict()
     if args.set_threads is not None:
         for entry in args.set_threads:
