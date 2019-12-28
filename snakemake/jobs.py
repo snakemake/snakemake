@@ -391,7 +391,7 @@ class Job(AbstractJob):
     @property
     def is_script(self):
         return self.rule.script is not None
-    
+
     @property
     def is_notebook(self):
         return self.rule.notebook is not None

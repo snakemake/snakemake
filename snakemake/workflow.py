@@ -1072,7 +1072,10 @@ class Workflow:
                 # a software stack specifically compiled for a particular
                 # HPC cluster.
                 invalid_rule = not (
-                    ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd or ruleinfo.notebook
+                    ruleinfo.script
+                    or ruleinfo.wrapper
+                    or ruleinfo.shellcmd
+                    or ruleinfo.notebook
                 )
                 if invalid_rule:
                     raise RuleException(
@@ -1085,7 +1088,12 @@ class Workflow:
                 rule.env_modules = EnvModules(*ruleinfo.env_modules)
             else:
                 if ruleinfo.conda_env and self.use_conda:
-                    if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd or ruleinfo.notebook):
+                    if not (
+                        ruleinfo.script
+                        or ruleinfo.wrapper
+                        or ruleinfo.shellcmd
+                        or ruleinfo.notebook
+                    ):
                         raise RuleException(
                             "Conda environments are only allowed "
                             "with shell, script, notebook, or wrapper directives "
@@ -1103,7 +1111,10 @@ class Workflow:
 
                 if self.use_singularity:
                     invalid_rule = not (
-                        ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd or ruleinfo.notebook
+                        ruleinfo.script
+                        or ruleinfo.wrapper
+                        or ruleinfo.shellcmd
+                        or ruleinfo.notebook
                     )
                     if ruleinfo.singularity_img:
                         if invalid_rule:
@@ -1277,12 +1288,12 @@ class Workflow:
             return ruleinfo
 
         return decorate
-    
+
     def notebook(self, notebook):
         def decorate(ruleinfo):
             ruleinfo.notebook = notebook
             return ruleinfo
-        
+
         return decorate
 
     def wrapper(self, wrapper):
