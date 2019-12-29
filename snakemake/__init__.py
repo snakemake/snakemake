@@ -48,6 +48,7 @@ def snakemake(
     nodes=1,
     local_cores=1,
     resources=dict(),
+    overwrite_threads=dict(),
     default_resources=None,
     config=dict(),
     configfiles=None,
@@ -445,6 +446,7 @@ def snakemake(
             overwrite_workdir=workdir,
             overwrite_configfiles=configfiles,
             overwrite_clusterconfig=cluster_config_content,
+            overwrite_threads=overwrite_threads,
             config_args=config_args,
             debug=debug,
             verbose=verbose,
@@ -645,6 +647,22 @@ def snakemake(
     if not keep_logger:
         logger.cleanup()
     return success
+
+
+def parse_set_threads(args):
+    errmsg = "Invalid threads definition: entries have to be defined as RULE=THREADS pairs (with THREADS being a positive integer)."
+    overwrite_threads = dict()
+    if args.set_threads is not None:
+        for entry in args.set_threads:
+            rule, threads = parse_key_value_arg(entry, errmsg=errmsg)
+            try:
+                threads = int(threads)
+            except ValueError:
+                raise ValueError(errmsg)
+            if threads < 0:
+                raise ValueError(errmsg)
+            overwrite_threads[rule] = threads
+    return overwrite_threads
 
 
 def parse_batch(args):
@@ -877,6 +895,15 @@ def get_argument_parser(profile=None):
             "resources: gpu=1. If now two rules require 1 of the resource "
             "'gpu' they won't be run in parallel by the scheduler."
         ),
+    )
+    group_exec.add_argument(
+        "--set-threads",
+        metavar="RULE=THREADS",
+        nargs="*",
+        help="Overwrite thread usage of rules. This allows to fine-tune workflow "
+        "parallelization. In particular, this is helpful to target certain cluster nodes "
+        "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
+        "Thereby, THREADS has to be a positive integer, and RULE has to be the name of the rule.",
     )
     group_exec.add_argument(
         "--default-resources",
@@ -1775,6 +1802,7 @@ def main(argv=None):
             ]
         default_resources = DefaultResources(args.default_resources)
         batch = parse_batch(args)
+        overwrite_threads = parse_set_threads(args)
     except ValueError as e:
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
@@ -1971,6 +1999,7 @@ def main(argv=None):
             local_cores=args.local_cores,
             nodes=args.cores,
             resources=resources,
+            overwrite_threads=overwrite_threads,
             default_resources=default_resources,
             config=config,
             configfiles=args.configfile,
