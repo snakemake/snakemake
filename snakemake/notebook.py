@@ -28,7 +28,7 @@ class JupyterNotebook(ScriptBase):
             output_parameter=output_parameter
         )
 
-        self._execute_cmd(cmd_tmp)
+        self._execute_cmd(cmd_tmp, fname_out=fname_out, fname=fname)
 
 
 class PythonJupyterNotebook(JupyterNotebook):

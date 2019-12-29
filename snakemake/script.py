@@ -335,9 +335,6 @@ class ScriptBase(ABC):
         ...
 
     def _execute_cmd(self, cmd, **kwargs):
-        context = inspect.currentframe().f_back.f_locals
-        context.update(kwargs)
-
         shell(
             cmd,
             bench_record=self.bench_record,
@@ -345,7 +342,7 @@ class ScriptBase(ABC):
             singularity_img=self.singularity_img,
             shadow_dir=self.shadow_dir,
             env_modules=self.env_modules,
-            **context
+            **kwargs
         )
 
 
@@ -479,7 +476,7 @@ class PythonScript(ScriptBase):
             # use python from environment module
             py_exec = "python"
         # use the same Python as the running process or the one from the environment
-        self._execute_cmd("{py_exec} {fname:q}")
+        self._execute_cmd("{py_exec} {fname:q}", py_exec=py_exec, fname=fname)
 
 
 class RScript(ScriptBase):
@@ -617,7 +614,7 @@ class RScript(ScriptBase):
                 "remove it entirely before executing "
                 "Snakemake."
             )
-        self._execute_cmd("Rscript --vanilla {fname:q}")
+        self._execute_cmd("Rscript --vanilla {fname:q}", fname=fname)
 
 
 class RMarkdown(ScriptBase):
@@ -713,6 +710,8 @@ class RMarkdown(ScriptBase):
         out = os.path.abspath(self.output[0])
         self._execute_cmd(
             'Rscript --vanilla -e \'rmarkdown::render("{fname}", output_file="{out}", quiet=TRUE, knit_root_dir = "{workdir}", params = list(rmd="{fname}"))\'',
+            fname=fname,
+            out=out,
             workdir=os.getcwd(),
         )
 
@@ -783,7 +782,7 @@ class JuliaScript(ScriptBase):
         fd.write(self.source)
 
     def execute_script(self, fname):
-        self._execute_cmd("julia {fname:q}")
+        self._execute_cmd("julia {fname:q}", fname=fname)
 
 
 def get_source(path, basedir="."):
