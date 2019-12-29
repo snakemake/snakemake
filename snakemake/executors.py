@@ -1814,8 +1814,8 @@ class TibannaExecutor(ClusterExecutor):
                     + ("true" if o.remote_object.provider.is_default else "false")
                 )
         file_prefix = (
-            "file:///data1/snakemake"
-        )  # working dir inside snakemake container on VM
+            "file:///data1/snakemake"  # working dir inside snakemake container on VM
+        )
         input_source = dict()
         for ip in job.input:
             ip_rel = self.adjust_filepath(ip)

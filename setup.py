@@ -57,6 +57,7 @@ setup(
         "docutils",
         "gitpython",
         "psutil",
+        "nbformat"
     ],
     extras_require={"reports": ["jinja2", "networkx", "pygments", "pygraphviz"]},
     classifiers=[

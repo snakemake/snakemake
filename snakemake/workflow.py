@@ -55,6 +55,7 @@ from snakemake.io import (
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
+from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
@@ -205,8 +206,9 @@ class Workflow:
         for f in self.included:
             files.add(os.path.relpath(f))
         for rule in self.rules:
-            if rule.script:
-                script_path = norm_rule_relpath(rule.script, rule)
+            script_path = rule.script or rule.notebook
+            if script_path:
+                script_path = norm_rule_relpath(script_path, rule)
                 files.add(script_path)
                 script_dir = os.path.dirname(script_path)
                 files.update(
@@ -711,7 +713,7 @@ class Workflow:
         elif list_code_changes:
             items = list(chain(*map(self.persistence.code_changed, dag.jobs)))
             for j in dag.jobs:
-                items.extend(list(j.outputs_older_than_script()))
+                items.extend(list(j.outputs_older_than_script_or_notebook()))
             if items:
                 print(*items, sep="\n")
             return True
@@ -1075,12 +1077,15 @@ class Workflow:
                 # a software stack specifically compiled for a particular
                 # HPC cluster.
                 invalid_rule = not (
-                    ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd
+                    ruleinfo.script
+                    or ruleinfo.wrapper
+                    or ruleinfo.shellcmd
+                    or ruleinfo.notebook
                 )
                 if invalid_rule:
                     raise RuleException(
                         "Modules directive is only allowed with "
-                        "shell, script or wrapper directives (not with run)",
+                        "shell, script, notebook, or wrapper directives (not with run)",
                         rule=rule,
                     )
                 from snakemake.deployment.env_modules import EnvModules
@@ -1088,10 +1093,15 @@ class Workflow:
                 rule.env_modules = EnvModules(*ruleinfo.env_modules)
             else:
                 if ruleinfo.conda_env and self.use_conda:
-                    if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
+                    if not (
+                        ruleinfo.script
+                        or ruleinfo.wrapper
+                        or ruleinfo.shellcmd
+                        or ruleinfo.notebook
+                    ):
                         raise RuleException(
                             "Conda environments are only allowed "
-                            "with shell, script, or wrapper directives "
+                            "with shell, script, notebook, or wrapper directives "
                             "(not with run).",
                             rule=rule,
                         )
@@ -1106,13 +1116,16 @@ class Workflow:
 
                 if self.use_singularity:
                     invalid_rule = not (
-                        ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd
+                        ruleinfo.script
+                        or ruleinfo.wrapper
+                        or ruleinfo.shellcmd
+                        or ruleinfo.notebook
                     )
                     if ruleinfo.singularity_img:
                         if invalid_rule:
                             raise RuleException(
                                 "Singularity directive is only allowed "
-                                "with shell, script or wrapper directives "
+                                "with shell, script, notebook or wrapper directives "
                                 "(not with run).",
                                 rule=rule,
                             )
@@ -1127,6 +1140,7 @@ class Workflow:
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
             rule.script = ruleinfo.script
+            rule.notebook = ruleinfo.notebook
             rule.wrapper = ruleinfo.wrapper
             rule.cwl = ruleinfo.cwl
             rule.restart_times = self.restart_times
@@ -1280,6 +1294,13 @@ class Workflow:
 
         return decorate
 
+    def notebook(self, notebook):
+        def decorate(ruleinfo):
+            ruleinfo.notebook = notebook
+            return ruleinfo
+
+        return decorate
+
     def wrapper(self, wrapper):
         def decorate(ruleinfo):
             ruleinfo.wrapper = wrapper
@@ -1332,6 +1353,7 @@ class RuleInfo:
         self.docstring = None
         self.group = None
         self.script = None
+        self.notebook = None
         self.wrapper = None
         self.cwl = None
 

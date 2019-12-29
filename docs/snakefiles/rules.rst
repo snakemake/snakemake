@@ -502,6 +502,27 @@ Apart from Python scripts, this mechanism also allows you to integrate R_ and R 
 
 In the R script, an S4 object named ``snakemake`` analog to the Python case above is available and allows access to input and output files and other parameters. Here the syntax follows that of S4 classes with attributes that are R lists, e.g. we can access the first input file with ``snakemake@input[[1]]`` (note that the first file does not have index ``0`` here, because R starts counting from ``1``). Named input and output files can be accessed in the same way, by just providing the name instead of an index, e.g. ``snakemake@input[["myfile"]]``.
 
+Furthermore, one can integrate Jupyter_ Notebooks as follows (note the use of `notebook:` instead of `script:`):
+
+.. _Jupyter: https://jupyter.org/
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        log:
+            notebook = "path/to/processed_notebook.ipynb"
+        notebook:
+            "path/to/notebook.ipynb"
+
+In the notebook, a snakemake object is available, which can be accessed similar to the Python case (see above).
+Note that this requires the ``jupyter`` extra install requirement.
+
 Finally, it is possible to integrate Julia_ scripts, e.g.
 
 .. _Julia: https://julialang.org
@@ -1210,7 +1231,7 @@ To illustrate the possibilities of this mechanism, consider the following comple
   def aggregate_input(wildcards):
       # decision based on content of output file
       # Important: use the method open() of the returned file!
-      # This way, Snakemake is able to automatically download the file if it is generated in 
+      # This way, Snakemake is able to automatically download the file if it is generated in
       # a cloud environment without a shared filesystem.
       with checkpoints.somestep.get(sample=wildcards.sample).output[0].open() as f:
           if f.read().strip() == "a":
