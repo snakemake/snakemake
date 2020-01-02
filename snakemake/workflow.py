@@ -918,7 +918,7 @@ class Workflow:
                 continue
             # find @workflow.rule decorator, and pull it to the first decorator
             try:
-                rule_decorator_t = next(filter(lambda x: getattr(x[1].func, 'attr', '') == 'rule', enumerate(ast_elm.decorator_list)))
+                rule_decorator_t = next(filter(lambda x: getattr(getattr(x[1], 'func', ''), 'attr', '') == 'rule', enumerate(ast_elm.decorator_list)))
             except Exception as e:
                 logger.error(str(e))
                 continue
