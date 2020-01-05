@@ -942,7 +942,7 @@ Note that dry-runs do not trigger any of the handlers.
 Rule dependencies
 -----------------
 
-From verion 2.4.8 on, rules can also refer to the output of other rules in the Snakefile, e.g.:
+From version 2.4.8 on, rules can also refer to the output of other rules in the Snakefile, e.g.:
 
 .. code-block:: python
 
