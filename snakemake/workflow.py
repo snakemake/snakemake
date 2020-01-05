@@ -914,16 +914,22 @@ class Workflow:
         ast_tree = ast.parse(code)
         for ast_elm in ast.iter_child_nodes(ast_tree):
             # if "rule:" section definition...
-            if not getattr(ast_elm, 'name', '').startswith('__rule_'):
+            if not getattr(ast_elm, "name", "").startswith("__rule_"):
                 continue
             # find @workflow.rule decorator, and pull it to the first decorator
             try:
-                rule_decorator_t = next(filter(lambda x: getattr(getattr(x[1], 'func', ''), 'attr', '') == 'rule', enumerate(ast_elm.decorator_list)))
+                rule_decorator_t = next(
+                    filter(
+                        lambda x: getattr(getattr(x[1], "func", ""), "attr", "")
+                        == "rule",
+                        enumerate(ast_elm.decorator_list),
+                    )
+                )
             except Exception as e:
                 logger.error(str(e))
                 continue
             rd_i, rd = rule_decorator_t
-            ast_elm.decorator_list[1:rd_i+1] = ast_elm.decorator_list[:rd_i]
+            ast_elm.decorator_list[1 : rd_i + 1] = ast_elm.decorator_list[:rd_i]
             ast_elm.decorator_list[0] = rd
 
         if print_compilation:
