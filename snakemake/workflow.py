@@ -450,10 +450,6 @@ class Workflow:
     ):
 
         self.check_localrules()
-        self.global_resources = dict() if resources is None else resources
-        self.global_resources["_cores"] = cores
-        self.global_resources["_nodes"] = nodes
-
         self.immediate_submit = immediate_submit
         self.cleanup_scripts = cleanup_scripts
 
