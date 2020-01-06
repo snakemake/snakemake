@@ -2451,10 +2451,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
            we need to upload it. This file is cleaned up at the end of the run.
            We do this, and then obtain from the instance and extract.
         """
-        # Add the execution scripts
-        # import code
-        # code.interact(local=locals())
-
         # We will generate a tar.gz package, renamed by hash
         tmpname = next(tempfile._get_candidate_names())
         targz = os.path.join(tempfile.gettempdir(), "snakemake-%s.tar.gz" % tmpname)
@@ -2464,16 +2460,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         for filename in self.workflow_sources:
             arcname = filename.replace(self.workflow.basedir + os.path.sep, "")
             tar.add(filename, arcname=arcname)
-
-        # Add snakemake hidden directory
-        for root, dirs, files in os.walk(os.path.join(self.workdir, ".snakemake")):
-            for filename in files:
-                filename = os.path.join(root, filename)
-                if not filename.endswith("lock") and not filename.startswith(
-                    "snakeworkdir"
-                ):
-                    arcname = filename.replace(self.workdir + os.path.sep, "")
-                    tar.add(filename, arcname=arcname)
 
         tar.close()
 
@@ -2495,24 +2481,11 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
     def _generate_job_action(self, job):
         """generate a single action to execute the job.
         """
-        # Write the jobscript, this will be the container entrypoint along
-        # with obtaining the working directory for the run
-        jobscript = self.get_jobscript(job)
-        self.write_jobscript(job, jobscript)
-
-        # Remote files (within Snakefile) should be referenced via remotes.GS
-        # For the workdir, we need to upload it, named based on hash of contents
-        targz = self._generate_build_source_package()
-
-        # Upload to temporary storage, only if doesn't exist
-        destination = "source/cache/%s" % os.path.basename(targz)
-        blob = self.bucket.blob(destination)
-        logger.debug("build-package=%s" % destination)
-        if not blob.exists():
-            blob.upload_from_filename(targz, content_type="application/gzip")
-
-        # The command to run snakemake needs to be relative
-        relative_script = jobscript.replace(self.workdir + os.sep, "")
+        # Derive the entrypoint command, the same content that might be written by self.get_jobscript(job)
+        use_threads = "--force-use-threads" if not job.is_group() else ""
+        exec_job = self.format_job(
+            self.exec_job, job, _quote_all=True, use_threads=use_threads
+        )
 
         # The full command to download the archive, extract, and run
         # For snakemake bases, we must activate the conda environment, but
@@ -2520,8 +2493,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         commands = [
             "/bin/bash",
             "-c",
-            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://gist.githubusercontent.com/vsoch/84886ef6469bedeeb9a79a4eb7aec0d1/raw/181499f8f17163dcb2f89822079938cbfbd258cc/download.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && /bin/bash %s"
-            % (self.bucket.name, destination, relative_script),
+            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://gist.githubusercontent.com/vsoch/84886ef6469bedeeb9a79a4eb7aec0d1/raw/181499f8f17163dcb2f89822079938cbfbd258cc/download.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
+            % (self.bucket.name, self.pipeline_package, exec_job),
         ]
 
         # We are only generating one action, one job per run
@@ -2568,6 +2541,16 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
            to pass to pipelines.run. This includes actions, resources,
            environment, and timeout.
         """
+        # Generate targz with Snakefile and other context
+        targz = self._generate_build_source_package()
+
+        # Upload to temporary storage, only if doesn't exist
+        self.pipeline_package = "source/cache/%s" % os.path.basename(targz)
+        blob = self.bucket.blob(self.pipeline_package)
+        logger.debug("build-package=%s" % self.pipeline_package)
+        if not blob.exists():
+            blob.upload_from_filename(targz, content_type="application/gzip")
+
         # Generate actions (one per job) and resources
         action = self._generate_job_action(job)
         resources = self._generate_job_resources(job)
