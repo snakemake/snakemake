@@ -146,6 +146,7 @@ Publications using Snakemake
 In the following you find an **incomplete list** of publications making use of Snakemake for their analyses.
 Please consider to add your own.
 
+* Kuzniar et al. 2020. `sv-callers: a highly portable parallel workflow for structural variant detection in whole-genome sequence data <https://doi.org/10.7717/peerj.8214>`_. PeerJ.
 * Doris et al. 2018. `Spt6 is required for the fidelity of promoter selection <https://doi.org/10.1016/j.molcel.2018.09.005>`_. Molecular Cell.
 * Karlsson et al. 2018. `Four evolutionary trajectories underlie genetic intratumoral variation in childhood cancer <https://www.nature.com/articles/s41588-018-0131-y>`_. Nature Genetics.
 * Planchard et al. 2018. `The translational landscape of Arabidopsis mitochondria <https://academic.oup.com/nar/advance-article/doi/10.1093/nar/gky489/5033161>`_. Nucleic acids research.
