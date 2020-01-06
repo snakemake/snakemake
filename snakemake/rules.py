@@ -87,6 +87,7 @@ class Rule:
             self._benchmark = None
             self._conda_env = None
             self._singularity_img = None
+            self.env_modules = None
             self.group = None
             self._wildcard_names = None
             self.lineno = lineno
@@ -94,6 +95,7 @@ class Rule:
             self.run_func = None
             self.shellcmd = None
             self.script = None
+            self.notebook = None
             self.wrapper = None
             self.cwl = None
             self.norun = False
@@ -126,6 +128,7 @@ class Rule:
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
             self._singularity_img = other._singularity_img
+            self.env_modules = other.env_modules
             self.group = other.group
             self._wildcard_names = (
                 set(other._wildcard_names)
@@ -137,6 +140,7 @@ class Rule:
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
             self.script = other.script
+            self.notebook = other.notebook
             self.wrapper = other.wrapper
             self.cwl = other.cwl
             self.norun = other.norun
@@ -192,7 +196,7 @@ class Rule:
         replacements = [(i, io[i], e) for i, e in reversed(list(expansion.items()))]
         for i, old, exp in replacements:
             dynamic_io_.remove(old)
-            io_.insert_items(i, exp)
+            io_._insert_items(i, exp)
 
         if not input:
             for i, old, exp in replacements:
@@ -236,10 +240,20 @@ class Rule:
 
     def check_caching(self):
         if self.name in self.workflow.cache_rules:
-            if len(self.output) != 1:
+            if len(self.output) == 0:
                 raise RuleException(
-                    "Only rules with exactly 1 output file may be cached.", rule=self
+                    "Rules without output files cannot be cached.", rule=self
                 )
+            if len(self.output) > 1:
+                prefixes = set(out.multiext_prefix for out in self.output)
+                if None in prefixes or len(prefixes) > 1:
+                    raise RuleException(
+                        "Rules with multiple output files must define them as a single multiext() "
+                        '(e.g. multiext("path/to/index", ".bwt", ".ann")). '
+                        "The rationale is that multiple output files can only be unambiously resolved "
+                        "if they can be distinguished by a fixed set of extensions (i.e. mime types).",
+                        rule=self,
+                    )
             if self.dynamic_output:
                 raise RuleException(
                     "Rules with dynamic output files may not be cached.", rule=self
@@ -371,7 +385,7 @@ class Rule:
         """
         seen = dict()
         idx = None
-        for name, value in self.output.allitems():
+        for name, value in self.output._allitems():
             if name is None:
                 if idx is None:
                     idx = 0
@@ -523,13 +537,13 @@ class Rule:
                     self.subworkflow_input[_item] = sub
             inoutput.append(_item)
             if name:
-                inoutput.add_name(name)
+                inoutput._add_name(name)
         elif callable(item):
             if output:
                 raise SyntaxError("Only input files can be specified as functions")
             inoutput.append(item)
             if name:
-                inoutput.add_name(name)
+                inoutput._add_name(name)
         else:
             try:
                 start = len(inoutput)
@@ -537,7 +551,7 @@ class Rule:
                     self._set_inoutput_item(i, output=output)
                 if name:
                     # if the list was named, make it accessible
-                    inoutput.set_name(name, start, end=len(inoutput))
+                    inoutput._set_name(name, start, end=len(inoutput))
             except TypeError:
                 raise SyntaxError(
                     "Input and output files have to be specified as strings or lists of strings."
@@ -556,7 +570,7 @@ class Rule:
     def _set_params_item(self, item, name=None):
         self.params.append(item)
         if name:
-            self.params.add_name(name)
+            self.params._add_name(name)
 
     @property
     def wildcard_constraints(self):
@@ -589,14 +603,14 @@ class Rule:
 
             self.log.append(IOFile(item, rule=self) if isinstance(item, str) else item)
             if name:
-                self.log.add_name(name)
+                self.log._add_name(name)
         else:
             try:
                 start = len(self.log)
                 for i in item:
                     self._set_log_item(i)
                 if name:
-                    self.log.set_name(name, start, end=len(self.log))
+                    self.log._set_name(name, start, end=len(self.log))
             except TypeError:
                 raise SyntaxError("Log files have to be specified as strings.")
 
@@ -656,7 +670,7 @@ class Rule:
     ):
         if aux_params is None:
             aux_params = dict()
-        for name, item in olditems.allitems():
+        for name, item in olditems._allitems():
             start = len(newitems)
             is_unpack = is_flagged(item, "unpack")
             _is_callable = is_callable(item)
@@ -715,7 +729,7 @@ class Rule:
                         mapping[concrete] = item_
 
                 if name:
-                    newitems.set_name(
+                    newitems._set_name(
                         name, start, end=len(newitems) if is_iterable else None
                     )
                     start = len(newitems)
@@ -803,9 +817,9 @@ class Rule:
                 no_flattening=True,
                 apply_default_remote=False,
                 aux_params={
-                    "input": input.plainstrings(),
+                    "input": input._plainstrings(),
                     "resources": resources,
-                    "output": output.plainstrings(),
+                    "output": output._plainstrings(),
                     "threads": resources._cores,
                 },
                 incomplete_checkpoint_func=lambda e: "<incomplete checkpoint>",
@@ -825,7 +839,7 @@ class Rule:
 
     def expand_output(self, wildcards):
         output = OutputFiles(o.apply_wildcards(wildcards) for o in self.output)
-        output.take_names(self.output.get_names())
+        output._take_names(self.output._get_names())
         mapping = {f: f_ for f, f_ in zip(output, self.output)}
 
         for f in output:
@@ -1079,11 +1093,11 @@ class RuleProxy:
 
     @lazy_property
     def input(self):
-        return self.rule.input.stripped_constraints()
+        return self.rule.input._stripped_constraints()
 
     @lazy_property
     def params(self):
-        return self.rule.params.clone()
+        return self.rule.params._clone()
 
     @property
     def benchmark(self):

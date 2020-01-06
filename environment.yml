@@ -37,3 +37,4 @@ dependencies:
   - gitpython
   - pygments
   - imagemagick
+  - nbformat
