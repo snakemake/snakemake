@@ -16,8 +16,8 @@ Snakemake
 .. image:: https://img.shields.io/docker/cloud/build/snakemake/snakemake
        :target: https://hub.docker.com/r/snakemake/snakemake
 
-.. image:: https://circleci.com/gh/snakemake/snakemake/tree/master.svg?style=shield
-    :target: https://circleci.com/gh/snakemake/snakemake/tree/master
+.. image:: https://github.com/snakemake/snakemake/workflows/CI/badge.svg?branch=master
+    :target: https://github.com/snakemake/snakemake/actions?query=branch%3Amaster+workflow%3ACI
 
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
     :target: https://stackoverflow.com/questions/tagged/snakemake
@@ -37,7 +37,7 @@ Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
-Snakemake is **highly popular** with, on average, `a new citation every few days <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
+Snakemake is **highly popular** with, `~3 new citations per week <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
 
 
 .. _manual-quick_example:
@@ -82,7 +82,7 @@ Rules describe how to create **output files** from **input files**.
 * Input and output files can contain multiple named wildcards.
 * Rules can either use shell commands, plain Python code or external Python or R scripts to create output files from input files.
 * Snakemake workflows can be easily executed on **workstations**, **clusters**, **the grid**, and **in the cloud** without modification. The job scheduling can be constrained by arbitrary resources like e.g. available CPU cores, memory or GPUs.
-* Snakemake can automatically deploy required software dependencies of a workflow using `Conda <https://conda.io>`_ or `Singularity <http://singularity.lbl.gov/>`_.
+* Snakemake can automatically deploy required software dependencies of a workflow using `Conda <https://conda.io>`_ or `Singularity <https://sylabs.io/docs/>`_.
 * Snakemake can use Amazon S3, Google Storage, Dropbox, FTP, WebDAV, SFTP and iRODS to access input or output files and further access input files via HTTP and HTTPS.
 
 
@@ -146,6 +146,7 @@ Publications using Snakemake
 In the following you find an **incomplete list** of publications making use of Snakemake for their analyses.
 Please consider to add your own.
 
+* Kuzniar et al. 2020. `sv-callers: a highly portable parallel workflow for structural variant detection in whole-genome sequence data <https://doi.org/10.7717/peerj.8214>`_. PeerJ.
 * Doris et al. 2018. `Spt6 is required for the fidelity of promoter selection <https://doi.org/10.1016/j.molcel.2018.09.005>`_. Molecular Cell.
 * Karlsson et al. 2018. `Four evolutionary trajectories underlie genetic intratumoral variation in childhood cancer <https://www.nature.com/articles/s41588-018-0131-y>`_. Nature Genetics.
 * Planchard et al. 2018. `The translational landscape of Arabidopsis mitochondria <https://academic.oup.com/nar/advance-article/doi/10.1093/nar/gky489/5033161>`_. Nucleic acids research.
@@ -208,7 +209,10 @@ Please consider to add your own.
   :hidden:
   :maxdepth: 1
 
-  executable
+  executing/cli
+  executing/cluster-cloud
+  executing/caching
+  executing/interoperability
 
 .. toctree::
     :caption: Defining workflows

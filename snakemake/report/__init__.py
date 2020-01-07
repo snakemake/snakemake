@@ -108,7 +108,7 @@ def report(
     metadata=None,
     **files
 ):
-    if stylesheeet is None:
+    if stylesheet is None:
         os.path.join(os.path.dirname(__file__), "report.css")
     outmime, _ = mimetypes.guess_type(path)
     if outmime != "text/html":

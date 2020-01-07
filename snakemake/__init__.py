@@ -16,6 +16,7 @@ import webbrowser
 from functools import partial
 import importlib
 import shutil
+from importlib.machinery import SourceFileLoader
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -39,6 +40,7 @@ SNAKEFILE_CHOICES = [
 def snakemake(
     snakefile,
     batch=None,
+    cache=None,
     report=None,
     listrules=False,
     list_target_rules=False,
@@ -46,6 +48,7 @@ def snakemake(
     nodes=1,
     local_cores=1,
     resources=dict(),
+    overwrite_threads=dict(),
     default_resources=None,
     config=dict(),
     configfiles=None,
@@ -124,6 +127,7 @@ def snakemake(
     force_use_threads=False,
     use_conda=False,
     use_singularity=False,
+    use_env_modules=False,
     singularity_args="",
     conda_prefix=None,
     list_conda_envs=False,
@@ -226,8 +230,9 @@ def snakemake(
         restart_times (int):        number of times to restart failing jobs (default 0)
         attempt (int):              initial value of Job.attempt. This is intended for internal use only (default 1).
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
-        use_conda (bool):           create conda environments for each job (defined with conda directive of rules)
+        use_conda (bool):           use conda environments for each job (defined with conda directive of rules)
         use_singularity (bool):     run jobs in singularity containers (if defined with singularity directive)
+        use_env_modules (bool):     load environment modules if defined in rules
         singularity_args (str):     additional arguments to pass to singularity
         conda_prefix (str):         the directory in which conda environments will be created (default None)
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
@@ -291,7 +296,6 @@ def snakemake(
         bool:   True if workflow execution was successful.
 
     """
-
     assert not immediate_submit or (
         immediate_submit and notemp
     ), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
@@ -337,6 +341,7 @@ def snakemake(
     use_threads = (
         force_use_threads or (os.name != "posix") or cluster or cluster_sync or drmaa
     )
+
     if not keep_logger:
         stdout = (
             (
@@ -347,6 +352,7 @@ def snakemake(
             or list_target_rules
             or list_resources
         )
+
         setup_logger(
             handler=log_handler,
             quiet=quiet,
@@ -438,11 +444,13 @@ def snakemake(
             overwrite_workdir=workdir,
             overwrite_configfiles=configfiles,
             overwrite_clusterconfig=cluster_config_content,
+            overwrite_threads=overwrite_threads,
             config_args=config_args,
             debug=debug,
             verbose=verbose,
             use_conda=use_conda or list_conda_envs or cleanup_conda,
             use_singularity=use_singularity,
+            use_env_modules=use_env_modules,
             conda_prefix=conda_prefix,
             singularity_prefix=singularity_prefix,
             shadow_prefix=shadow_prefix,
@@ -456,6 +464,10 @@ def snakemake(
             default_remote_prefix=default_remote_prefix,
             run_local=run_local,
             default_resources=default_resources,
+            cache=cache,
+            cores=cores,
+            nodes=nodes,
+            resources=resources,
         )
         success = True
         workflow.include(
@@ -475,10 +487,8 @@ def snakemake(
                 # handle subworkflows
                 subsnakemake = partial(
                     snakemake,
-                    cores=cores,
-                    nodes=nodes,
                     local_cores=local_cores,
-                    resources=resources,
+                    cache=cache,
                     default_resources=default_resources,
                     dryrun=dryrun,
                     touch=touch,
@@ -522,6 +532,7 @@ def snakemake(
                     force_use_threads=use_threads,
                     use_conda=use_conda,
                     use_singularity=use_singularity,
+                    use_env_modules=use_env_modules,
                     conda_prefix=conda_prefix,
                     singularity_prefix=singularity_prefix,
                     shadow_prefix=shadow_prefix,
@@ -545,8 +556,6 @@ def snakemake(
                     targets=targets,
                     dryrun=dryrun,
                     touch=touch,
-                    cores=cores,
-                    nodes=nodes,
                     local_cores=local_cores,
                     forcetargets=forcetargets,
                     forceall=forceall,
@@ -594,7 +603,6 @@ def snakemake(
                     detailed_summary=detailed_summary,
                     nolock=not lock,
                     unlock=unlock,
-                    resources=resources,
                     notemp=notemp,
                     keep_remote_local=keep_remote_local,
                     nodeps=nodeps,
@@ -635,6 +643,22 @@ def snakemake(
     if not keep_logger:
         logger.cleanup()
     return success
+
+
+def parse_set_threads(args):
+    errmsg = "Invalid threads definition: entries have to be defined as RULE=THREADS pairs (with THREADS being a positive integer)."
+    overwrite_threads = dict()
+    if args.set_threads is not None:
+        for entry in args.set_threads:
+            rule, threads = parse_key_value_arg(entry, errmsg=errmsg)
+            try:
+                threads = int(threads)
+            except ValueError:
+                raise ValueError(errmsg)
+            if threads < 0:
+                raise ValueError(errmsg)
+            overwrite_threads[rule] = threads
+    return overwrite_threads
 
 
 def parse_batch(args):
@@ -804,6 +828,17 @@ def get_argument_parser(profile=None):
     )
 
     group_exec.add_argument(
+        "--cache",
+        nargs="+",
+        metavar="RULE",
+        help="Store output files of given rules in a central cache given by the environment "
+        "variable $SNAKEMAKE_OUTPUT_CACHE. Likewise, retrieve output files of the given rules "
+        "from this cache if they have been created before (by anybody writing to the same cache), "
+        "instead of actually executing the rules. Output files are identified by hashing all "
+        "steps, parameters and software stack (conda envs or containers) needed to create them.",
+    )
+
+    group_exec.add_argument(
         "--snakefile",
         "-s",
         metavar="FILE",
@@ -826,7 +861,7 @@ def get_argument_parser(profile=None):
         nargs="?",
         metavar="N",
         help=(
-            "Use at most N cores in parallel (default: 1). "
+            "Use at most N cores in parallel. "
             "If N is omitted or 'all', the limit is set to the number of "
             "available cores."
         ),
@@ -856,6 +891,15 @@ def get_argument_parser(profile=None):
             "resources: gpu=1. If now two rules require 1 of the resource "
             "'gpu' they won't be run in parallel by the scheduler."
         ),
+    )
+    group_exec.add_argument(
+        "--set-threads",
+        metavar="RULE=THREADS",
+        nargs="*",
+        help="Overwrite thread usage of rules. This allows to fine-tune workflow "
+        "parallelization. In particular, this is helpful to target certain cluster nodes "
+        "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
+        "Thereby, THREADS has to be a positive integer, and RULE has to be the name of the rule.",
     )
     group_exec.add_argument(
         "--default-resources",
@@ -1445,6 +1489,14 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Automatically display logs of failed jobs.",
     )
+    group_behavior.add_argument(
+        "--log-handler-script",
+        metavar="FILE",
+        default=None,
+        help="Provide a custom script containing a function 'def log_handler(msg):'. "
+        "Snakemake will call this function for every logging output (given as a dictionary msg)"
+        "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
+    )
 
     group_cluster = parser.add_argument_group("CLUSTER")
 
@@ -1674,6 +1726,18 @@ def get_argument_parser(profile=None):
         metavar="ARGS",
         help="Pass additional args to singularity.",
     )
+
+    group_env_modules = parser.add_argument_group("ENVIRONMENT MODULES")
+
+    group_env_modules.add_argument(
+        "--use-envmodules",
+        action="store_true",
+        help="If defined in the rule, run job within the given environment "
+        "modules, loaded in the given order. This can be combined with "
+        "--use-conda and --use-singularity, which will then be only used as a "
+        "fallback for rules which don't define environment modules.",
+    )
+
     return parser
 
 
@@ -1727,6 +1791,7 @@ def main(argv=None):
             ]
         default_resources = DefaultResources(args.default_resources)
         batch = parse_batch(args)
+        overwrite_threads = parse_set_threads(args)
     except ValueError as e:
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
@@ -1756,7 +1821,8 @@ def main(argv=None):
                 )
                 sys.exit(1)
     elif args.cores is None:
-        args.cores = 1
+        # if nothing specified, use all avaiable cores
+        args.cores = available_cpu_count()
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
@@ -1888,9 +1954,33 @@ def main(argv=None):
             # silently close
             pass
     else:
+        if args.log_handler_script is not None:
+            if not os.path.exists(args.log_handler_script):
+                print(
+                    "Error: no log handler script found, {}.".format(
+                        args.log_handler_script
+                    ),
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            log_script = SourceFileLoader("log", args.log_handler_script).load_module()
+            try:
+                log_handler = log_script.log_handler
+            except:
+                print(
+                    'Error: Invalid log handler script, {}. Expect python function "log_handler(msg)".'.format(
+                        args.log_handler_script
+                    ),
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        else:
+            log_handler = None
+
         success = snakemake(
             args.snakefile,
             batch=batch,
+            cache=args.cache,
             report=args.report,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
@@ -1898,6 +1988,7 @@ def main(argv=None):
             local_cores=args.local_cores,
             nodes=args.cores,
             resources=resources,
+            overwrite_threads=overwrite_threads,
             default_resources=default_resources,
             config=config,
             configfiles=args.configfile,
@@ -1977,6 +2068,7 @@ def main(argv=None):
             conda_prefix=args.conda_prefix,
             list_conda_envs=args.list_conda_envs,
             use_singularity=args.use_singularity,
+            use_env_modules=args.use_envmodules,
             singularity_prefix=args.singularity_prefix,
             shadow_prefix=args.shadow_prefix,
             singularity_args=args.singularity_args,
@@ -1989,6 +2081,7 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
+            log_handler=log_handler,
         )
 
     if args.runtime_profile:
