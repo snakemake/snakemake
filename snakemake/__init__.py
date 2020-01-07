@@ -1558,7 +1558,8 @@ def get_argument_parser(profile=None):
             "For example, for rule 'job' you may define: "
             "{ 'job' : { 'time' : '24:00:00' } } to specify the time for rule 'job'. "
             "You can specify more than one file.  The configuration files are merged "
-            "with later values overriding earlier ones."
+            "with later values overriding earlier ones. This option is deprecated in favor "
+            "of using --profile, see docs."
         ),
     ),
     group_cluster.add_argument(
