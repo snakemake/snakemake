@@ -1647,6 +1647,9 @@ class TibannaExecutor(ClusterExecutor):
             log += f
         logger.debug(log)
         self.snakefile = workflow.snakefile
+        self.envvars = {e: os.environ.get(e, '') for e in workflow.envvars}
+        if self.envvars:
+            logger.debug("envvars = %s" % str(self.envvars))
         self.tibanna_sfn = tibanna_sfn
         if precommand:
             self.precommand = precommand
@@ -1854,6 +1857,7 @@ class TibannaExecutor(ClusterExecutor):
             container_image="snakemake/snakemake",
             input_files=input_source,
             output_target=output_target,
+            input_env=self.envvars
         )
         self.add_workflow_files(job, tibanna_args)
         self.add_command(job, tibanna_args, tibanna_config)
