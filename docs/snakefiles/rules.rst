@@ -1203,7 +1203,7 @@ To illustrate the possibilities of this mechanism, consider the following comple
       output:
           "somestep/{sample}.txt"
       shell:
-          # simulate some output vale
+          # simulate some output value
           "echo {wildcards.sample} > somestep/{wildcards.sample}.txt"
 
 
