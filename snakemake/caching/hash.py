@@ -8,6 +8,8 @@ import hashlib
 import json
 
 from snakemake.jobs import Job
+from snakemake import script
+from snakemake import wrapper
 
 # ATTENTION: increase version number whenever the hashing algorithm below changes!
 __version__ = "0.1"
