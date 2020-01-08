@@ -18,6 +18,7 @@ import inspect
 from snakemake.common import DYNAMIC_FILL
 from snakemake.common import Mode
 
+
 class ColorizingStreamHandler(_logging.StreamHandler):
 
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
@@ -81,6 +82,7 @@ class ColorizingStreamHandler(_logging.StreamHandler):
 class SlackLogger:
     def __init__(self):
         from slacker import Slacker
+
         self.token = os.getenv("SLACK_TOKEN")
         if not self.token:
             print(
