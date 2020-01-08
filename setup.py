@@ -57,7 +57,7 @@ setup(
         "docutils",
         "gitpython",
         "psutil",
-        "slacker",
+        "nbformat"
     ],
     extras_require={"reports": ["jinja2", "networkx", "pygments", "pygraphviz"], "messaging": ["slacker"]},
     classifiers=[

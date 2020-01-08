@@ -557,6 +557,11 @@ class Script(AbstractCmd):
         )
 
 
+class Notebook(Script):
+    start_func = "@workflow.notebook"
+    end_func = "notebook"
+
+
 class Wrapper(Script):
     start_func = "@workflow.wrapper"
     end_func = "wrapper"
@@ -607,6 +612,7 @@ class Rule(GlobalKeywordState):
         run=Run,
         shell=Shell,
         script=Script,
+        notebook=Notebook,
         wrapper=Wrapper,
         cwl=CWL,
     )
