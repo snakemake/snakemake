@@ -50,12 +50,12 @@ class ProvenanceHashMap:
             h.update(job.rule.shellcmd.encode())
         elif job.is_script:
             _, source, _ = script.get_source(job.rule.script)
-            h.update(source.encode())
+            h.update(source)
         elif job.is_wrapper:
             _, source, _ = script.get_source(
                 wrapper.get_script(job.rule.wrapper, prefix=workflow.wrapper_prefix)
             )
-            h.update(source.encode())
+            h.update(source)
 
         # Hash params.
         for key, value in sorted(job.params._allitems()):
