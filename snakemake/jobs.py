@@ -35,7 +35,8 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid
-from snakemake import conda, wrapper
+from snakemake.deployment import conda
+from snakemake import wrapper
 
 
 def format_files(job, io, dynamicio):
@@ -199,12 +200,13 @@ class Job(AbstractJob):
         self.rule.expand_benchmark(self.wildcards_dict)
         self.rule.expand_log(self.wildcards_dict)
 
-    def outputs_older_than_script(self):
+    def outputs_older_than_script_or_notebook(self):
         """return output that's older than script, i.e. script has changed"""
-        if not self.is_script:
+        path = self.rule.script or self.rule.notebook
+        if not path:
             return
-        assert os.path.exists(self.rule.script)  # to make sure lstat works
-        script_mtime = os.lstat(self.rule.script).st_mtime
+        assert os.path.exists(path)  # to make sure lstat works
+        script_mtime = os.lstat(path).st_mtime
         for f in self.expanded_output:
             if f.exists:
                 if not f.is_newer(script_mtime):
@@ -315,6 +317,10 @@ class Job(AbstractJob):
         return None
 
     @property
+    def env_modules(self):
+        return self.rule.env_modules
+
+    @property
     def singularity_img_path(self):
         return self.singularity_img.path if self.singularity_img else None
 
@@ -385,6 +391,10 @@ class Job(AbstractJob):
     @property
     def is_script(self):
         return self.rule.script is not None
+
+    @property
+    def is_notebook(self):
+        return self.rule.notebook is not None
 
     @property
     def is_wrapper(self):

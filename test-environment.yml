@@ -42,3 +42,5 @@ dependencies:
   - python-kubernetes
   - gitpython
   - tibanna
+  - environment-modules
+  - nbformat

@@ -48,7 +48,7 @@ from snakemake.common import Mode, __version__, get_container_image, get_uuid
 
 def sleep():
     # do not sleep on CI. In that case we just want to quickly test everything.
-    if os.environ.get("CIRCLECI") != "true":
+    if os.environ.get("CI") != "true":
         time.sleep(10)
 
 
@@ -362,6 +362,7 @@ class CPUExecutor(RealExecutor):
 
         conda_env = job.conda_env_path
         singularity_img = job.singularity_img_path
+        env_modules = job.env_modules
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1
@@ -369,18 +370,19 @@ class CPUExecutor(RealExecutor):
             benchmark = str(job.benchmark)
         return (
             job.rule,
-            job.input.plainstrings(),
-            job.output.plainstrings(),
+            job.input._plainstrings(),
+            job.output._plainstrings(),
             job.params,
             job.wildcards,
             job.threads,
             job.resources,
-            job.log.plainstrings(),
+            job.log._plainstrings(),
             benchmark,
             benchmark_repeats,
             conda_env,
             singularity_img,
             self.workflow.singularity_args,
+            env_modules,
             self.workflow.use_singularity,
             self.workflow.linemaps,
             self.workflow.debug,
@@ -1812,8 +1814,8 @@ class TibannaExecutor(ClusterExecutor):
                     + ("true" if o.remote_object.provider.is_default else "false")
                 )
         file_prefix = (
-            "file:///data1/snakemake"
-        )  # working dir inside snakemake container on VM
+            "file:///data1/snakemake"  # working dir inside snakemake container on VM
+        )
         input_source = dict()
         for ip in job.input:
             ip_rel = self.adjust_filepath(ip)
@@ -1935,6 +1937,7 @@ def run_wrapper(
     conda_env,
     singularity_img,
     singularity_args,
+    env_modules,
     use_singularity,
     linemaps,
     debug,
@@ -2011,6 +2014,7 @@ def run_wrapper(
                             singularity_img,
                             singularity_args,
                             use_singularity,
+                            env_modules,
                             bench_record,
                             jobid,
                             is_shell,
@@ -2037,6 +2041,7 @@ def run_wrapper(
                                 singularity_img,
                                 singularity_args,
                                 use_singularity,
+                                env_modules,
                                 bench_record,
                                 jobid,
                                 is_shell,
@@ -2061,6 +2066,7 @@ def run_wrapper(
                     singularity_img,
                     singularity_args,
                     use_singularity,
+                    env_modules,
                     None,
                     jobid,
                     is_shell,
