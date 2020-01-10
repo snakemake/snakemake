@@ -1004,7 +1004,7 @@ class Workflow:
             # handle default resources
             if self.default_resources is not None:
                 rule.resources = copy.deepcopy(self.default_resources.parsed)
-            if ruleinfo.threads:
+            if ruleinfo.threads is not None:
                 if (
                     not isinstance(ruleinfo.threads, int)
                     and not isinstance(ruleinfo.threads, float)

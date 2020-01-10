@@ -927,7 +927,9 @@ class Rule:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
                 if not isinstance(res, int):
-                    raise WorkflowError("Resources function did not return int.")
+                    raise WorkflowError(
+                        "Resources function did not return int.", rule=self
+                    )
             res = min(self.workflow.global_resources.get(name, res), res)
             return res
 
