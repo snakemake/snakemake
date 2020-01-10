@@ -396,7 +396,7 @@ class PythonScript(ScriptBase):
         searchpath = repr(searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if path.startswith("file://"):
-            searchpath += ', ' + repr(os.path.dirname(path[7:]))
+            searchpath += ", " + repr(os.path.dirname(path[7:]))
 
         return textwrap.dedent(
             """

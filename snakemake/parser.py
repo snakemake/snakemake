@@ -545,9 +545,7 @@ class Script(AbstractCmd):
 
     def args(self):
         # basedir
-        yield ', {!r}'.format(
-            os.path.abspath(os.path.dirname(self.snakefile.path))
-        )
+        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
         # other args
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
@@ -580,9 +578,7 @@ class CWL(Script):
 
     def args(self):
         # basedir
-        yield ', {!r}'.format(
-            os.path.abspath(os.path.dirname(self.snakefile.path))
-        )
+        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
         # other args
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
@@ -628,10 +624,10 @@ class Rule(GlobalKeywordState):
         yield (
             "@workflow.rule(name={rulename!r}, lineno={lineno}, "
             "snakefile={snakefile!r}{aux})".format(
-                rulename = self.rulename,
-                lineno = self.lineno,
-                snakefile = self.snakefile.path,
-                aux = aux,
+                rulename=self.rulename,
+                lineno=self.lineno,
+                snakefile=self.snakefile.path,
+                aux=aux,
             )
         )
 

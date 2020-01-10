@@ -102,4 +102,3 @@ def log_location(msg):
     logger.debug(
         "{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info)
     )
-
