@@ -203,7 +203,7 @@ From the base snakemake folder you call :code:`nosetests` to run all the tests, 
 
 .. code-block:: console
 
-   $ pip install nose nbformat
+   $ pip install nose
    $ nosetests
    $ nosetests tests.tests:test_log_input
 
