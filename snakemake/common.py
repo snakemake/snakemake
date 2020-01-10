@@ -103,6 +103,3 @@ def log_location(msg):
         "{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info)
     )
 
-
-def escape_backslash(path):
-    return path.replace("\\", "\\\\")
