@@ -1052,11 +1052,13 @@ class GroupJob(AbstractJob):
         "_inputsize",
         "_all_products",
         "_attempt",
+        "toposorted",
     ]
 
     def __init__(self, id, jobs):
         self.groupid = id
         self.jobs = frozenset(jobs)
+        self.toposorted = None
         self._resources = None
         self._input = None
         self._output = None
@@ -1074,12 +1076,13 @@ class GroupJob(AbstractJob):
         self.jobs = self.jobs | other.jobs
 
     def finalize(self):
-        dag = {
-            job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
-            for job in self.jobs
-        }
+        if self.toposorted is None:
+            dag = {
+                job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
+                for job in self.jobs
+            }
 
-        self.toposorted = toposort(dag)
+            self.toposorted = list(toposort(dag))
 
     @property
     def all_products(self):
@@ -1088,7 +1091,10 @@ class GroupJob(AbstractJob):
         return self._all_products
 
     def __iter__(self):
-        return itertools.flatten(self.toposorted)
+        if self.toposorted is None:
+            yield from self.jobs
+        else:
+            yield from chain.from_iterable(self.toposorted)
 
     def __repr__(self):
         return "JobGroup({},{})".format(self.groupid, repr(self.jobs))
@@ -1163,7 +1169,7 @@ class GroupJob(AbstractJob):
             )
             # iterate over siblings that can be executed in parallel
             for siblings in self.toposorted:
-                sibling_resources = dict()
+                sibling_resources = defaultdict(int)
                 for job in siblings:
                     try:
                         job_resources = job.resources
@@ -1184,6 +1190,7 @@ class GroupJob(AbstractJob):
                     else:
                         # take the maximum with previous values
                         self._resources[res] = max(self._resources.get(res, 0), value)
+            
         return Resources(fromdict=self._resources)
 
     @property
