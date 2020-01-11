@@ -38,3 +38,4 @@ dependencies:
   - pygments
   - imagemagick
   - nbformat
+  - toposort

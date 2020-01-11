@@ -46,3 +46,4 @@ dependencies:
   - tibanna
   - environment-modules
   - nbformat
+  - toposort
