@@ -2153,9 +2153,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             self.workdir, os.path.basename(self.workflow.snakefile)
         )
 
-        # import code
-        # code.interact(local=locals())
-
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
@@ -2346,6 +2343,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         for zone, types in lookup.items():
             names = [x["name"] for x in types]
             names = [name for name in names if "micro" not in name]
+            names = [name for name in names if not name.startswith("e2")]
             for machine_type in list(machine_types.keys()):
                 if machine_type not in names:
                     to_remove.add(machine_type)
