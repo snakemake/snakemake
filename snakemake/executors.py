@@ -2343,7 +2343,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         for zone, types in lookup.items():
             names = [x["name"] for x in types]
             names = [name for name in names if "micro" not in name]
-            names = [name for name in names if not name.startswith("e2")]
+            names = [name for name in names if not re.search("^(e2|m1)", name)]
             for machine_type in list(machine_types.keys()):
                 if machine_type not in names:
                     to_remove.add(machine_type)
