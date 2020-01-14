@@ -523,7 +523,7 @@ In the Julia_ script, a ``snakemake`` object is available, which can be accessed
 
 For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object. A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
 
-An example external Python script would could look like this:
+An example external Python script could look like this:
 
 .. code-block:: python
 
