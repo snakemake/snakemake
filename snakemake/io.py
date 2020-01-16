@@ -1325,9 +1325,8 @@ def _load_configfile(configpath, filetype="Config"):
                 import yaml
             except ImportError:
                 raise WorkflowError(
-                    "{} file is not valid JSON and PyYAML "
-                    "has not been installed. Please install "
-                    "PyYAML to use YAML config files.".format(filetype)
+                    "Unable to import module 'yaml'."
+                    "Please check that your installation supports PyYAML"
                 )
             try:
                 # From http://stackoverflow.com/a/21912744/84349

@@ -1774,6 +1774,9 @@ def main(argv=None):
         args = parser.parse_args(argv)
 
         def adjust_path(f):
+            # add environment variables to the path string, if one has been present
+            # in the yaml file:
+            f = os.path.expandvars(f)
             if os.path.exists(f) or os.path.isabs(f):
                 return f
             else:
