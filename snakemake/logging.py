@@ -79,6 +79,42 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         return "".join(message)
 
 
+class SlackLogger:
+    def __init__(self):
+        from slacker import Slacker
+
+        self.token = os.getenv("SLACK_TOKEN")
+        if not self.token:
+            print(
+                "The use of slack logging requires the user to set a user specific slack legacy token to the SLACK_TOKEN environment variable. Set this variable by 'export SLACK_TOKEN=your_token'. To generate your token please visit https://api.slack.com/custom-integrations/legacy-tokens."
+            )
+            exit(-1)
+        self.slack = Slacker(self.token)
+        # Check for success
+        try:
+            auth = self.slack.auth.test().body
+        except Exception:
+            print(
+                "Slack connection failed. Please compare your provided slack token exported in the SLACK_TOKEN environment variable with your online token at https://api.slack.com/custom-integrations/legacy-tokens. A different token can be set up by 'export SLACK_TOKEN=your_token'."
+            )
+            exit(-1)
+        self.own_id = auth["user_id"]
+        self.error_occured = False
+
+    def log_handler(self, msg):
+        if msg["level"] == "error" and not self.error_occured:
+            self.slack.chat.post_message(
+                self.own_id, text="At least one error occured.", username="snakemake"
+            )
+            self.error_occured = True
+
+        if msg["level"] == "progress" and msg["done"] == msg["total"]:
+            # workflow finished
+            self.slack.chat.post_message(
+                self.own_id, text="Workflow complete.", username="snakemake"
+            )
+
+
 class Logger:
     def __init__(self):
         self.logger = _logging.getLogger(__name__)
@@ -409,7 +445,7 @@ logger = Logger()
 
 
 def setup_logger(
-    handler=None,
+    handler=[],
     quiet=False,
     printshellcmds=False,
     printreason=False,
@@ -421,9 +457,7 @@ def setup_logger(
     mode=Mode.default,
     show_failed_logs=False,
 ):
-    if handler is not None:
-        # custom log handler
-        logger.log_handler.append(handler)
+    logger.log_handler.extend(handler)
 
     # console output only if no custom logger was specified
     stream_handler = ColorizingStreamHandler(
