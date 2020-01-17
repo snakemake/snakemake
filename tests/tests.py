@@ -658,6 +658,10 @@ def test_threads():
     run(dpath("test_threads"), cores=20)
 
 
+def test_threads0():
+    run(dpath("test_threads0"))
+
+
 def test_dynamic_temp():
     run(dpath("test_dynamic_temp"))
 
@@ -696,6 +700,40 @@ def test_run_namedlist():
 @not_ci
 def test_remote_gs():
     run(dpath("test_remote_gs"))
+
+
+@pytest.mark.skip(reason="Need to choose how to provide billable project")
+@connected
+@not_ci
+def test_gs_requester_pays(
+    requesting_project=None,
+    requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
+):
+    """ Tests pull-request 79 / issue 96 for billable user projects on GS
+
+    If requesting_project None, behaves as test_remote_gs().
+
+    Parameters
+    ----------
+    requesting_project: Optional[str]
+        User project to bill for download. None will not provide project for
+        requester-pays as is the usual default
+    requesting_url: str
+        URL of bucket to download. Default will match expected output, but is a
+        bucket that doesn't require requester pays.
+    """
+    # create temporary config file
+    with tempfile.NamedTemporaryFile(suffix=".yaml") as handle:
+        # specify project and url for download
+        if requesting_project is None:
+            handle.write(b"project: null\n")
+        else:
+            handle.write('project: "{}"\n'.format(requesting_project).encode())
+        handle.write('url: "{}"\n'.format(requesting_url).encode())
+        # make sure we can read them
+        handle.flush()
+        # run the pipeline
+        run(dpath("test_gs_requester_pays"), configfiles=[handle.name], forceall=True)
 
 
 @pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
@@ -1102,3 +1140,15 @@ def test_output_file_cache_remote():
         default_remote_provider="S3Mocked",
         default_remote_prefix="test-remote-bucket",
     )
+
+
+def test_multiext():
+    run(dpath("test_multiext"))
+
+
+def test_core_dependent_threads():
+    run(dpath("test_core_dependent_threads"))
+
+
+def test_env_modules():
+    run(dpath("test_env_modules"), use_env_modules=True)
