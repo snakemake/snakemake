@@ -17,8 +17,6 @@ from abc import ABC, abstractmethod
 from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
-import nbformat
-
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
@@ -786,6 +784,8 @@ class JuliaScript(ScriptBase):
 
 
 def get_source(path, basedir="."):
+    import nbformat
+
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
         if path.startswith("file://"):
