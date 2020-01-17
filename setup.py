@@ -60,7 +60,7 @@ setup(
         "nbformat",
         "toposort",
     ],
-    extras_require={"reports": ["jinja2", "networkx", "pygments", "pygraphviz"]},
+    extras_require={"reports": ["jinja2", "networkx", "pygments", "pygraphviz"], "messaging": ["slacker"]},
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
