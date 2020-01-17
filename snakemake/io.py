@@ -18,6 +18,9 @@ import subprocess as sp
 from itertools import product, chain
 from contextlib import contextmanager
 import collections
+
+import yaml
+
 from snakemake.exceptions import (
     MissingOutputException,
     WorkflowError,
@@ -1321,13 +1324,6 @@ def _load_configfile(configpath, filetype="Config"):
                 return json.load(f, object_pairs_hook=collections.OrderedDict)
             except ValueError:
                 f.seek(0)  # try again
-            try:
-                import yaml
-            except ImportError:
-                raise WorkflowError(
-                    "Unable to import module 'yaml'."
-                    "Please check that your installation supports PyYAML"
-                )
             try:
                 # From http://stackoverflow.com/a/21912744/84349
                 class OrderedLoader(yaml.Loader):
