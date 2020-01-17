@@ -11,7 +11,6 @@ import urllib.request
 from io import TextIOWrapper
 
 from snakemake.exceptions import WorkflowError
-from snakemake.common import escape_backslash
 
 dd = textwrap.dedent
 
@@ -254,7 +253,7 @@ class Ruleorder(GlobalKeywordState):
         if is_greater(token):
             yield ",", token
         elif is_name(token):
-            yield '"{}"'.format(token.string), token
+            yield repr(token.string), token
         else:
             self.error(
                 "Expected a descending order of rule names, "
@@ -316,7 +315,7 @@ class Subworkflow(GlobalKeywordState):
 
     def name(self, token):
         if is_name(token):
-            yield "workflow.subworkflow('{name}'".format(name=token.string), token
+            yield "workflow.subworkflow({name!r}".format(name=token.string), token
             self.has_name = True
         elif is_colon(token) and self.has_name:
             self.primary_token = token
@@ -362,7 +361,7 @@ class Localrules(GlobalKeywordState):
         if is_comma(token):
             yield ",", token
         elif is_name(token):
-            yield '"{}"'.format(token.string), token
+            yield repr(token.string), token
         else:
             self.error(
                 "Expected a comma separated list of rules that shall "
@@ -533,7 +532,7 @@ class AbstractCmd(Run):
     def overwrite_block_content(self, token):
         if self.token is None:
             self.token = token
-            cmd = '"{}"'.format(self.overwrite_cmd)
+            cmd = repr(self.overwrite_cmd)
             self.cmd.append(cmd)
             yield cmd, token
 
@@ -552,9 +551,7 @@ class Script(AbstractCmd):
 
     def args(self):
         # basedir
-        yield ', "{}"'.format(
-            escape_backslash(os.path.abspath(os.path.dirname(self.snakefile.path)))
-        )
+        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
         # other args
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
@@ -587,9 +584,7 @@ class CWL(Script):
 
     def args(self):
         # basedir
-        yield ', "{}"'.format(
-            escape_backslash(os.path.abspath(os.path.dirname(self.snakefile.path)))
-        )
+        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
         # other args
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
@@ -633,13 +628,11 @@ class Rule(GlobalKeywordState):
 
     def start(self, aux=""):
         yield (
-            "@workflow.rule(name={rulename}, lineno={lineno}, "
-            "snakefile='{snakefile}'{aux})".format(
-                rulename=(
-                    "'{}'".format(self.rulename) if self.rulename is not None else None
-                ),
+            "@workflow.rule(name={rulename!r}, lineno={lineno}, "
+            "snakefile={snakefile!r}{aux})".format(
+                rulename=self.rulename,
                 lineno=self.lineno,
-                snakefile=self.snakefile.path.replace("\\", "\\\\"),
+                snakefile=self.snakefile.path,
                 aux=aux,
             )
         )
@@ -699,7 +692,7 @@ class Rule(GlobalKeywordState):
                     yield t
             except KeyError:
                 self.error(
-                    "Unexpected keyword {} in " "rule definition".format(token.string),
+                    "Unexpected keyword {} in rule definition".format(token.string),
                     token,
                 )
             except StopAutomaton as e:

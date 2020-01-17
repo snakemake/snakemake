@@ -17,7 +17,11 @@ import functools
 import subprocess as sp
 from itertools import product, chain
 from contextlib import contextmanager
+import string
 import collections
+
+import yaml
+
 from snakemake.exceptions import (
     MissingOutputException,
     WorkflowError,
@@ -889,7 +893,8 @@ def expand(*args, **wildcards):
         second arg (optional): a function to combine wildcard values
         (itertools.product per default)
     **wildcards -- the wildcards as keyword arguments
-        with their values as lists
+        with their values as lists. If allow_missing=True is included
+        wildcards in filepattern without values will stay unformatted.
     """
     filepatterns = args[0]
     if len(args) == 1:
@@ -913,12 +918,27 @@ def expand(*args, **wildcards):
             "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
         )
 
+    # check if remove missing is provided
+    format_dict = dict
+    if "allow_missing" in wildcards and wildcards["allow_missing"] is True:
+
+        class FormatDict(dict):
+            def __missing__(self, key):
+                return "{" + key + "}"
+
+        format_dict = FormatDict
+        # check that remove missing is not a wildcard in the filepatterns
+        for filepattern in filepatterns:
+            if "allow_missing" in re.findall(r"{([^}\.[!:]+)", filepattern):
+                format_dict = dict
+                break
+
     # remove unused wildcards to avoid duplicate filepatterns
     wildcards = {
         filepattern: {
             k: v
             for k, v in wildcards.items()
-            if k in re.findall("{([^}\.[!:]+)", filepattern)
+            if k in re.findall(r"{([^}\.[!:]+)", filepattern)
         }
         for filepattern in filepatterns
     }
@@ -931,11 +951,12 @@ def expand(*args, **wildcards):
                 values = [values]
             yield [(wildcard, value) for value in values]
 
+    formatter = string.Formatter()
     try:
         return [
-            filepattern.format(**comb)
+            formatter.vformat(filepattern, (), comb)
             for filepattern in filepatterns
-            for comb in map(dict, combinator(*flatten(wildcards[filepattern])))
+            for comb in map(format_dict, combinator(*flatten(wildcards[filepattern])))
         ]
     except KeyError as e:
         raise WildcardError("No values given for wildcard {}.".format(e))
@@ -1047,7 +1068,7 @@ def update_wildcard_constraints(
 
 
 def split_git_path(path):
-    file_sub = re.sub("^git\+file:/+", "/", path)
+    file_sub = re.sub(r"^git\+file:/+", "/", path)
     (file_path, version) = file_sub.split("@")
     file_path = os.path.realpath(file_path)
     root_path = get_git_root(file_path)
@@ -1321,14 +1342,6 @@ def _load_configfile(configpath, filetype="Config"):
                 return json.load(f, object_pairs_hook=collections.OrderedDict)
             except ValueError:
                 f.seek(0)  # try again
-            try:
-                import yaml
-            except ImportError:
-                raise WorkflowError(
-                    "{} file is not valid JSON and PyYAML "
-                    "has not been installed. Please install "
-                    "PyYAML to use YAML config files.".format(filetype)
-                )
             try:
                 # From http://stackoverflow.com/a/21912744/84349
                 class OrderedLoader(yaml.Loader):

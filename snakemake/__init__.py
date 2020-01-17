@@ -21,7 +21,7 @@ from importlib.machinery import SourceFileLoader
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
 from snakemake.exceptions import print_exception, WorkflowError
-from snakemake.logging import setup_logger, logger
+from snakemake.logging import setup_logger, logger, SlackLogger
 from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
@@ -117,7 +117,7 @@ def snakemake(
     no_hooks=False,
     overwrite_shellcmd=None,
     updated_files=None,
-    log_handler=None,
+    log_handler=[],
     keep_logger=False,
     max_jobs_per_second=None,
     max_status_checks_per_second=100,
@@ -147,6 +147,8 @@ def snakemake(
     cluster_status=None,
     export_cwl=None,
     show_failed_logs=False,
+    keep_incomplete=False,
+    messaging=None,
 ):
     """Run snakemake on a given snakefile.
 
@@ -252,6 +254,8 @@ def snakemake(
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
+        keep_incomplete (bool):      keep incomplete output files of failed jobs
+        log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -551,7 +555,6 @@ def snakemake(
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                 )
-
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
@@ -623,6 +626,7 @@ def snakemake(
                     report=report,
                     export_cwl=export_cwl,
                     batch=batch,
+                    keepincomplete=keep_incomplete,
                 )
 
     except BrokenPipeError:
@@ -1252,6 +1256,11 @@ def get_argument_parser(profile=None):
         "`snakemake --bash-completion` or issue it in an open terminal "
         "session.",
     )
+    group_utils.add_argument(
+        "--keep-incomplete",
+        action="store_true",
+        help="Do not remove incomplete output files by failed jobs.",
+    )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
     group_output = parser.add_argument_group("OUTPUT")
@@ -1498,6 +1507,15 @@ def get_argument_parser(profile=None):
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
 
+    group_behavior.add_argument(
+        "--log-service",
+        default=None,
+        choices=["none", "slack"],
+        help="Set a specific messaging service for logging output."
+        "Snakemake will notify the service on errors and completed execution."
+        "Currently only slack is supported.",
+    )
+
     group_cluster = parser.add_argument_group("CLUSTER")
 
     # TODO extend below description to explain the wildcards that can be used
@@ -1554,7 +1572,8 @@ def get_argument_parser(profile=None):
             "For example, for rule 'job' you may define: "
             "{ 'job' : { 'time' : '24:00:00' } } to specify the time for rule 'job'. "
             "You can specify more than one file.  The configuration files are merged "
-            "with later values overriding earlier ones."
+            "with later values overriding earlier ones. This option is deprecated in favor "
+            "of using --profile, see docs."
         ),
     ),
     group_cluster.add_argument(
@@ -1954,6 +1973,7 @@ def main(argv=None):
             # silently close
             pass
     else:
+        log_handler = []
         if args.log_handler_script is not None:
             if not os.path.exists(args.log_handler_script):
                 print(
@@ -1965,7 +1985,7 @@ def main(argv=None):
                 sys.exit(1)
             log_script = SourceFileLoader("log", args.log_handler_script).load_module()
             try:
-                log_handler = log_script.log_handler
+                log_handler.append(log_script.log_handler)
             except:
                 print(
                     'Error: Invalid log handler script, {}. Expect python function "log_handler(msg)".'.format(
@@ -1974,8 +1994,10 @@ def main(argv=None):
                     file=sys.stderr,
                 )
                 sys.exit(1)
-        else:
-            log_handler = None
+
+        if args.log_service == "slack":
+            slack_logger = logging.SlackLogger()
+            log_handler.append(slack_logger.log_handler)
 
         success = snakemake(
             args.snakefile,
@@ -2081,6 +2103,7 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
+            keep_incomplete=args.keep_incomplete,
             log_handler=log_handler,
         )
 

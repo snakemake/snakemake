@@ -444,6 +444,7 @@ class Workflow:
         report=None,
         export_cwl=False,
         batch=None,
+        keepincomplete=False,
     ):
 
         self.check_localrules()
@@ -792,6 +793,7 @@ class Workflow:
             greediness=greediness,
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
+            keepincomplete=keepincomplete,
         )
 
         if not dryrun:
@@ -1018,7 +1020,7 @@ class Workflow:
             # handle default resources
             if self.default_resources is not None:
                 rule.resources = copy.deepcopy(self.default_resources.parsed)
-            if ruleinfo.threads:
+            if ruleinfo.threads is not None:
                 if (
                     not isinstance(ruleinfo.threads, int)
                     and not isinstance(ruleinfo.threads, float)
