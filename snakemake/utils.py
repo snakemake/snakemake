@@ -170,6 +170,7 @@ def listfiles(pattern, restriction=None, omit_value=None):
     else:
         dirname = os.path.dirname(pattern)
     pattern = re.compile(regex(pattern))
+
     for dirpath, dirnames, filenames in os.walk(dirname):
         for f in chain(filenames, dirnames):
             if dirpath != ".":

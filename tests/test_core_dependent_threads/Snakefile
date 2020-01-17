@@ -1,0 +1,6 @@
+rule a:
+    output:
+        "test.out"
+    threads: workflow.cores * 0.75
+    shell:
+        "echo {threads} > {output}"
