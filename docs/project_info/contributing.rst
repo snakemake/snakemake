@@ -189,17 +189,23 @@ To ensure that you do not introduce bugs into Snakemake, you should test your co
 
 To have integration tests run automatically when commiting code changes to Github, you need to sign up on wercker.com and register a user.
 
-The easiest way to run your development version of Snakemake is perhaps to go to the folder containing your local copy of Snakemake and call
+The easiest way to run your development version of Snakemake is perhaps to go to the folder containing your local copy of Snakemake and call:
 
-.. code-block:: bash
+.. code-block:: console
 
-    conda env create -f environment.yml -n snakemake-testing
-    source activate snakemake-testing
-    pip install -e .
+    $ conda env create -f environment.yml -n snakemake-testing
+    $ conda activate snakemake-testing
+    $ pip install -e .
 
 This will make your development version of Snakemake the one called when running snakemake. You do not need to run this command after each time you make code changes.
 
-From the base snakemake folder you call :code:`python setup.py nosetests` to run all the tests. (If it complains that you do not have nose installed, which is the testing framework we use, you can simply install it by running :code:`pip install nose`.)
+From the base snakemake folder you call :code:`nosetests` to run all the tests, or choose one specific test. For this to work, Nose (the testing framework we use) can be installed to the conda environment using pip:
+
+.. code-block:: console
+
+   $ pip install nose
+   $ nosetests
+   $ nosetests tests.tests:test_log_input
 
 If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
 

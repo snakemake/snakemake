@@ -18,6 +18,8 @@ from operator import attrgetter
 from urllib.request import urlopen
 from urllib.parse import urlparse
 
+from toposort import toposort
+
 from snakemake.io import (
     IOFile,
     Wildcards,
@@ -1050,11 +1052,13 @@ class GroupJob(AbstractJob):
         "_inputsize",
         "_all_products",
         "_attempt",
+        "toposorted",
     ]
 
     def __init__(self, id, jobs):
         self.groupid = id
         self.jobs = frozenset(jobs)
+        self.toposorted = None
         self._resources = None
         self._input = None
         self._output = None
@@ -1072,15 +1076,13 @@ class GroupJob(AbstractJob):
         self.jobs = self.jobs | other.jobs
 
     def finalize(self):
-        # TODO determine resources based on toposort
-        dag = {
-            job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
-            for job in self.jobs
-        }
-        from toposort import toposort
+        if self.toposorted is None:
+            dag = {
+                job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
+                for job in self.jobs
+            }
 
-        t = toposort(dag)
-        print(t)
+            self.toposorted = list(toposort(dag))
 
     @property
     def all_products(self):
@@ -1089,7 +1091,10 @@ class GroupJob(AbstractJob):
         return self._all_products
 
     def __iter__(self):
-        return iter(self.jobs)
+        if self.toposorted is None:
+            yield from self.jobs
+        else:
+            yield from chain.from_iterable(self.toposorted)
 
     def __repr__(self):
         return "JobGroup({},{})".format(self.groupid, repr(self.jobs))
@@ -1162,25 +1167,34 @@ class GroupJob(AbstractJob):
             pipe_group = any(
                 [any([is_flagged(o, "pipe") for o in job.output]) for job in self.jobs]
             )
-            for job in self.jobs:
-                try:
-                    job_resources = job.resources
-                except FileNotFoundError:
-                    # Skip job if resource evaluation leads to a file not found error.
-                    # This will be caused by an inner job, which needs files created by the same group.
-                    # All we can do is to ignore such jobs for now.
-                    continue
-                for res, value in job_resources.items():
-                    if self.dag.workflow.run_local or pipe_group:
-                        # in case of local execution, this must be a
-                        # group of jobs that are connected with pipes
-                        # and have to run simultaneously
-                        self._resources[res] += value
-                    else:
-                        # take the maximum over all jobs
-                        self._resources[res] = max(
-                            self._resources.get(res, value), value
-                        )
+            # iterate over siblings that can be executed in parallel
+            for siblings in self.toposorted:
+                sibling_resources = defaultdict(int)
+                for job in siblings:
+                    try:
+                        job_resources = job.resources
+                    except FileNotFoundError:
+                        # Skip job if resource evaluation leads to a file not found error.
+                        # This will be caused by an inner job, which needs files created by the same group.
+                        # All we can do is to ignore such jobs for now.
+                        continue
+                    for res, value in job_resources.items():
+                        if res != "_nodes":
+                            sibling_resources[res] += value
+
+                for res, value in sibling_resources.items():
+                    if res != "_nodes":
+                        if self.dag.workflow.run_local or pipe_group:
+                            # in case of local execution, this must be a
+                            # group of jobs that are connected with pipes
+                            # and have to run simultaneously
+                            self._resources[res] += value
+                        else:
+                            # take the maximum with previous values
+                            self._resources[res] = max(
+                                self._resources.get(res, 0), value
+                            )
+
         return Resources(fromdict=self._resources)
 
     @property

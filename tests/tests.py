@@ -591,7 +591,7 @@ def test_format_wildcards():
 
 
 def test_with_parentheses():
-    run(dpath("test (with parentheses)"))
+    run(dpath("test (with parenthese's)"))
 
 
 def test_dup_out_patterns():
@@ -656,6 +656,10 @@ def test_restartable_job_qsub_exit_1():
 
 def test_threads():
     run(dpath("test_threads"), cores=20)
+
+
+def test_threads0():
+    run(dpath("test_threads0"))
 
 
 def test_dynamic_temp():
