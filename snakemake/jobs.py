@@ -18,8 +18,6 @@ from operator import attrgetter
 from urllib.request import urlopen
 from urllib.parse import urlparse
 
-from toposort import toposort
-
 from snakemake.io import (
     IOFile,
     Wildcards,
@@ -1076,6 +1074,7 @@ class GroupJob(AbstractJob):
         self.jobs = self.jobs | other.jobs
 
     def finalize(self):
+        from toposort import toposort
         if self.toposorted is None:
             dag = {
                 job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
