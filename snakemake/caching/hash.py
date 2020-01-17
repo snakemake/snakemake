@@ -8,6 +8,8 @@ import hashlib
 import json
 
 from snakemake.jobs import Job
+from snakemake import script
+from snakemake import wrapper
 
 # ATTENTION: increase version number whenever the hashing algorithm below changes!
 __version__ = "0.1"
@@ -26,7 +28,7 @@ class ProvenanceHashMap:
 
     def _get_provenance_hash(self, job: Job):
         """
-        Recursively calculate hash for the single output file of the given job
+        Recursively calculate hash for the output of the given job
         and all upstream jobs in a blockchain fashion.
 
         This is based on an idea of Sven Nahnsen.
@@ -38,13 +40,6 @@ class ProvenanceHashMap:
         if job in self._hashes:
             return self._hashes[job]
 
-        if len(job.output) > 1:
-            raise WorkflowError(
-                "Cannot generate hash for rule {}: it has more than one output file.".format(
-                    job.rule.name
-                )
-            )
-
         workflow = job.dag.workflow
         h = hashlib.sha256()
 
@@ -55,15 +50,15 @@ class ProvenanceHashMap:
             h.update(job.rule.shellcmd.encode())
         elif job.is_script:
             _, source, _ = script.get_source(job.rule.script)
-            h.update(source.encode())
+            h.update(source)
         elif job.is_wrapper:
             _, source, _ = script.get_source(
                 wrapper.get_script(job.rule.wrapper, prefix=workflow.wrapper_prefix)
             )
-            h.update(source.encode())
+            h.update(source)
 
         # Hash params.
-        for key, value in sorted(job.params.allitems()):
+        for key, value in sorted(job.params._allitems()):
             h.update(key.encode())
             # If this raises a TypeError, we cannot calculate a reliable hash.
             h.update(json.dumps(value, sort_keys=True).encode())
@@ -82,7 +77,7 @@ class ProvenanceHashMap:
         if workflow.use_conda and job.conda_env:
             if workflow.use_singularity and job.conda_env.singularity_img_url:
                 h.update(job.conda_env.singularity_img_url.encode())
-            h.update(job.conda_env.content.encode())
+            h.update(job.conda_env.content)
         elif workflow.use_singularity and job.singularity_img_url:
             h.update(job.singularity_img_url.encode())
 
