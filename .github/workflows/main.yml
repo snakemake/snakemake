@@ -65,6 +65,7 @@ jobs:
           source activate snakemake
           
           # run tests
+          echo $AWS_DEFAULT_REGION
           coverage run -m pytest tests/test*.py -v -x
 
           # collect coverage report
