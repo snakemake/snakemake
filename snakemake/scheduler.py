@@ -241,6 +241,7 @@ class JobScheduler:
                 cores,
                 tibanna_sfn,
                 precommand=precommand,
+                container_image=container_image,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
