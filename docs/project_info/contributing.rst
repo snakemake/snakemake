@@ -185,7 +185,7 @@ Feel free to ask questions about this if you want to contribute to Snakemake :)
 Testing Guidelines
 ------------------
 
-To ensure that you do not introduce bugs into Snakemake, you should test your code thouroughly.
+To ensure that you do not introduce bugs into Snakemake, you should test your code thoroughly.
 
 To have integration tests run automatically when commiting code changes to Github, you need to sign up on wercker.com and register a user.
 
@@ -199,7 +199,9 @@ The easiest way to run your development version of Snakemake is perhaps to go to
 
 This will make your development version of Snakemake the one called when running snakemake. You do not need to run this command after each time you make code changes.
 
-From the base snakemake folder you call :code:`python setup.py nosetests` to run all the tests. (If it complains that you do not have nose installed, which is the testing framework we use, you can simply install it by running :code:`pip install nose`.)
+From the base snakemake folder you call :code:`pytest tests/test*.py` to run all the tests. (If it complains that you do not have pytest installed, which is the testing framework we use, you can simply install it by running :code:`pip install pytest`.)
+
+Automated tests also run `black <https://pypi.org/project/black/>`_ to ensure proper code formatting.
 
 If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
 
