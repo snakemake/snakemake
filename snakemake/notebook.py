@@ -8,6 +8,7 @@ from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 class JupyterNotebook(ScriptBase):
     def write_script(self, preamble, fd):
         import nbformat
+
         nb = nbformat.reads(self.source, as_version=4)  # nbformat.NO_CONVERT
 
         preamble_cell = nbformat.v4.new_code_cell(preamble)

@@ -1075,6 +1075,7 @@ class GroupJob(AbstractJob):
 
     def finalize(self):
         from toposort import toposort
+
         if self.toposorted is None:
             dag = {
                 job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}

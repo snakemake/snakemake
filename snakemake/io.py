@@ -1335,6 +1335,7 @@ class Log(Namedlist):
 def _load_configfile(configpath, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
     import yaml
+
     try:
         with open(configpath) as f:
             try:
