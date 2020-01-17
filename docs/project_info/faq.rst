@@ -22,7 +22,7 @@ My shell command fails with with errors about an "unbound variable", what's wron
 
 This happens often when calling virtual environments from within Snakemake. Snakemake is using `bash strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_, to ensure e.g. proper error behavior of shell scripts.
 Unfortunately, virtualenv and some other tools violate bash strict mode.
-he quick fix for virtualenv is to temporarily deactivate the check for unbound variables
+The quick fix for virtualenv is to temporarily deactivate the check for unbound variables
 
 .. code-block:: bash
 

@@ -368,6 +368,7 @@ class CPUExecutor(RealExecutor):
 
         conda_env = job.conda_env_path
         singularity_img = job.singularity_img_path
+        env_modules = job.env_modules
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1
@@ -387,6 +388,7 @@ class CPUExecutor(RealExecutor):
             conda_env,
             singularity_img,
             self.workflow.singularity_args,
+            env_modules,
             self.workflow.use_singularity,
             self.workflow.linemaps,
             self.workflow.debug,
@@ -1634,6 +1636,7 @@ class TibannaExecutor(ClusterExecutor):
         cores,
         tibanna_sfn,
         precommand="",
+        container_image=None,
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -1697,6 +1700,7 @@ class TibannaExecutor(ClusterExecutor):
             max_status_checks_per_second=max_status_checks_per_second,
             disable_default_remote_provider_args=True,
         )
+        self.container_image = container_image or get_container_image()
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary
@@ -1864,7 +1868,7 @@ class TibannaExecutor(ClusterExecutor):
         tibanna_args = ec2_utils.Args(
             output_S3_bucket=self.s3_bucket,
             language="snakemake",
-            container_image="snakemake/snakemake",
+            container_image=self.container_image,
             input_files=input_source,
             output_target=output_target,
         )
@@ -1949,6 +1953,7 @@ def run_wrapper(
     conda_env,
     singularity_img,
     singularity_args,
+    env_modules,
     use_singularity,
     linemaps,
     debug,
@@ -2025,6 +2030,7 @@ def run_wrapper(
                             singularity_img,
                             singularity_args,
                             use_singularity,
+                            env_modules,
                             bench_record,
                             jobid,
                             is_shell,
@@ -2051,6 +2057,7 @@ def run_wrapper(
                                 singularity_img,
                                 singularity_args,
                                 use_singularity,
+                                env_modules,
                                 bench_record,
                                 jobid,
                                 is_shell,
@@ -2075,6 +2082,7 @@ def run_wrapper(
                     singularity_img,
                     singularity_args,
                     use_singularity,
+                    env_modules,
                     None,
                     jobid,
                     is_shell,

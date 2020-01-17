@@ -87,6 +87,7 @@ class Rule:
             self._benchmark = None
             self._conda_env = None
             self._singularity_img = None
+            self.env_modules = None
             self.group = None
             self._wildcard_names = None
             self.lineno = lineno
@@ -94,6 +95,7 @@ class Rule:
             self.run_func = None
             self.shellcmd = None
             self.script = None
+            self.notebook = None
             self.wrapper = None
             self.cwl = None
             self.norun = False
@@ -126,6 +128,7 @@ class Rule:
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
             self._singularity_img = other._singularity_img
+            self.env_modules = other.env_modules
             self.group = other.group
             self._wildcard_names = (
                 set(other._wildcard_names)
@@ -137,6 +140,7 @@ class Rule:
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
             self.script = other.script
+            self.notebook = other.notebook
             self.wrapper = other.wrapper
             self.cwl = other.cwl
             self.norun = other.norun
@@ -923,7 +927,9 @@ class Rule:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
                 if not isinstance(res, int):
-                    raise WorkflowError("Resources function did not return int.")
+                    raise WorkflowError(
+                        "Resources function did not return int.", rule=self
+                    )
             res = min(self.workflow.global_resources.get(name, res), res)
             return res
 

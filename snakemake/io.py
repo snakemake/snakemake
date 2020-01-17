@@ -248,7 +248,7 @@ class _IOFile(str):
                 "File path '{}' contains line break. "
                 "This is likely unintended. {}".format(self._file, hint)
             )
-        if _double_slash_regex.search(self._file) is not None:
+        if _double_slash_regex.search(self._file) is not None and not self.is_remote:
             logger.warning(
                 "File path {} contains double '{}'. "
                 "This is likely unintended. {}".format(self._file, os.path.sep, hint)
