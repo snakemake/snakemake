@@ -97,6 +97,7 @@ def run(
         os.environ["PYTHONPATH"] = os.getcwd()
     elif "PYTHONPATH" in os.environ:
         del os.environ["PYTHONPATH"]
+    print(os.environ)
 
     results_dir = join(path, "expected-results")
     snakefile = join(path, snakefile)
@@ -1123,7 +1124,7 @@ def test_github_issue78():
 def test_envvars():
     run(dpath("test_envvars"), shouldfail=True)
     os.environ["TEST_ENV_VAR"] = "test"
-    run(dpath("test_envvars"), verbose=True)
+    run(dpath("test_envvars"))
 
 
 def test_github_issue105():
