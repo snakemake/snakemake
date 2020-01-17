@@ -420,6 +420,10 @@ class Singularity(RuleKeywordState):
     pass
 
 
+class EnvModules(RuleKeywordState):
+    pass
+
+
 class Group(RuleKeywordState):
     pass
 
@@ -442,7 +446,7 @@ class Run(RuleKeywordState):
         yield (
             "def __rule_{rulename}(input, output, params, wildcards, threads, "
             "resources, log, version, rule, conda_env, singularity_img, "
-            "singularity_args, use_singularity, bench_record, jobid, "
+            "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir):".format(
                 rulename=self.rulename
                 if self.rulename is not None
@@ -548,9 +552,14 @@ class Script(AbstractCmd):
         # other args
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, singularity_img, singularity_args, "
+            "config, rule, conda_env, singularity_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir"
         )
+
+
+class Notebook(Script):
+    start_func = "@workflow.notebook"
+    end_func = "notebook"
 
 
 class Wrapper(Script):
@@ -560,7 +569,7 @@ class Wrapper(Script):
     def args(self):
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, singularity_img, singularity_args, "
+            "config, rule, conda_env, singularity_img, singularity_args, env_modules, "
             "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
             "cleanup_scripts, shadow_dir"
         )
@@ -596,12 +605,14 @@ class Rule(GlobalKeywordState):
         benchmark=Benchmark,
         conda=Conda,
         singularity=Singularity,
+        envmodules=EnvModules,
         wildcard_constraints=WildcardConstraints,
         shadow=Shadow,
         group=Group,
         run=Run,
         shell=Shell,
         script=Script,
+        notebook=Notebook,
         wrapper=Wrapper,
         cwl=CWL,
     )

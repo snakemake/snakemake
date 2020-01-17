@@ -27,7 +27,7 @@ from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOExce
 from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
-from snakemake import conda, singularity
+from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
 
@@ -988,7 +988,9 @@ class DAG:
                 if job.group is None:
                     self._ready_jobs.add(job)
                 else:
-                    candidate_groups.add(self._group[job])
+                    group = self._group[job]
+                    group.finalize()
+                    candidate_groups.add(group)
 
         self._ready_jobs.update(
             group

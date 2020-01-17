@@ -184,6 +184,14 @@ class _IOFile(str):
     def is_directory(self):
         return is_flagged(self._file, "directory")
 
+    @property
+    def is_multiext(self):
+        return is_flagged(self._file, "multiext")
+
+    @property
+    def multiext_prefix(self):
+        return get_flag_value(self._file, "multiext")
+
     def update_remote_filepath(self):
         # if the file string is different in the iofile, update the remote object
         # (as in the case of wildcard expansion)
@@ -240,7 +248,7 @@ class _IOFile(str):
                 "File path '{}' contains line break. "
                 "This is likely unintended. {}".format(self._file, hint)
             )
-        if _double_slash_regex.search(self._file) is not None:
+        if _double_slash_regex.search(self._file) is not None and not self.is_remote:
             logger.warning(
                 "File path {} contains double '{}'. "
                 "This is likely unintended. {}".format(self._file, os.path.sep, hint)
@@ -950,6 +958,18 @@ def expand(*args, **wildcards):
         raise WildcardError("No values given for wildcard {}.".format(e))
 
 
+def multiext(prefix, *extensions):
+    """Expand a given prefix with multiple extensions (e.g. .txt, .csv, ...)."""
+    if any(
+        ("/" in ext or "\\" in ext or not ext.startswith(".")) for ext in extensions
+    ):
+        raise WorkflowError(
+            "Extensions for multiext may not contain path delimiters "
+            "(/,\) and must start with '.' (e.g. .txt)."
+        )
+    return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
+
+
 def limit(pattern, **wildcards):
     """
     Limit wildcards to the given values.
@@ -1169,22 +1189,22 @@ class Namedlist(list):
             else:
                 self.extend(toclone)
             if isinstance(toclone, Namedlist):
-                self.take_names(toclone.get_names())
+                self._take_names(toclone._get_names())
         if fromdict:
             for key, item in fromdict.items():
                 self.append(item)
-                self.add_name(key)
+                self._add_name(key)
 
-    def add_name(self, name):
+    def _add_name(self, name):
         """
         Add a name to the last item.
 
         Arguments
         name -- a name
         """
-        self.set_name(name, len(self) - 1)
+        self._set_name(name, len(self) - 1)
 
-    def set_name(self, name, index, end=None):
+    def _set_name(self, name, index, end=None):
         """
         Set the name of an item.
 
@@ -1192,24 +1212,26 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
-        self._names[name] = (index, end)
-        if hasattr(self.__class__, name):
+        if name == "items" or name == "keys" or name == "get":
             raise AttributeError(
-                f"Namedlist attribute '{name}' is read only.  Cannot set to '{self[index]}'"
+                "invalid name for input, output, wildcard, "
+                "params or log: 'items', 'keys', and 'get' are reserved for internal use"
             )
+
+        self._names[name] = (index, end)
         if end is None:
             setattr(self, name, self[index])
         else:
             setattr(self, name, Namedlist(toclone=self[index:end]))
 
-    def get_names(self):
+    def _get_names(self):
         """
         Get the defined names as (name, index) pairs.
         """
         for name, index in self._names.items():
             yield name, index
 
-    def take_names(self, names):
+    def _take_names(self, names):
         """
         Take over the given names.
 
@@ -1217,13 +1239,13 @@ class Namedlist(list):
         names -- the given names as (name, index) pairs
         """
         for name, (i, j) in names:
-            self.set_name(name, i, end=j)
+            self._set_name(name, i, end=j)
 
     def items(self):
         for name in self._names:
             yield name, getattr(self, name)
 
-    def allitems(self):
+    def _allitems(self):
         next = 0
         for name, index in sorted(
             self._names.items(),
@@ -1244,25 +1266,25 @@ class Namedlist(list):
         for item in self[next:]:
             yield None, item
 
-    def insert_items(self, index, items):
+    def _insert_items(self, index, items):
         self[index : index + 1] = items
         add = len(items) - 1
         for name, (i, j) in self._names.items():
             if i > index:
                 self._names[name] = (i + add, None if j is None else j + add)
             elif i == index:
-                self.set_name(name, i, end=i + len(items))
+                self._set_name(name, i, end=i + len(items))
 
     def keys(self):
-        return self._names
+        return self._names.keys()
 
-    def plainstrings(self):
+    def _plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)
 
-    def stripped_constraints(self):
+    def _stripped_constraints(self):
         return self.__class__.__call__(toclone=self, strip_constraints=True)
 
-    def clone(self):
+    def _clone(self):
         return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):

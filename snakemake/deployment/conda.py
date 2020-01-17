@@ -1,3 +1,8 @@
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
+__license__ = "MIT"
+
 import os
 import re
 import subprocess
@@ -17,7 +22,7 @@ from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import strip_prefix
 from snakemake import utils
-from snakemake import singularity
+from snakemake.deployment import singularity
 from snakemake.io import git_content
 
 
@@ -343,7 +348,7 @@ class Conda:
 
     def __init__(self, singularity_img=None):
         from snakemake.shell import shell
-        from snakemake import singularity
+        from snakemake.deployment import singularity
 
         if isinstance(singularity_img, singularity.Image):
             singularity_img = singularity_img.path

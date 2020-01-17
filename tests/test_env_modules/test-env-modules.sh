@@ -1,0 +1,1 @@
+echo test > $1
