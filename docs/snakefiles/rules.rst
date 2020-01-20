@@ -478,9 +478,10 @@ A rule can also point to an external script instead of a shell command or inline
             "path/to/outputfile",
             "path/to/another/outputfile"
         script:
-            "path/to/script.py"
+            "scripts/script.py"
 
 The script path is always relative to the Snakefile (in contrast to the input and output file paths, which are relative to the working directory).
+It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
 
 Apart from Python scripts, this mechanism also allows you to integrate R_ and R Markdown_ scripts with Snakemake, e.g.
@@ -498,7 +499,7 @@ Apart from Python scripts, this mechanism also allows you to integrate R_ and R 
             "path/to/outputfile",
             "path/to/another/outputfile"
         script:
-            "path/to/script.R"
+            "scripts/script.R"
 
 In the R script, an S4 object named ``snakemake`` analog to the Python case above is available and allows access to input and output files and other parameters. Here the syntax follows that of S4 classes with attributes that are R lists, e.g. we can access the first input file with ``snakemake@input[[1]]`` (note that the first file does not have index ``0`` here, because R starts counting from ``1``). Named input and output files can be accessed in the same way, by just providing the name instead of an index, e.g. ``snakemake@input[["myfile"]]``.
 
@@ -595,10 +596,13 @@ In the R Markdown file you can insert output from a R command, and access variab
 A link to the R Markdown document with the snakemake object can be inserted. Therefore a variable called ``rmd`` needs to be added to the ``params`` section in the header of the ``report.Rmd`` file. The generated R Markdown file with snakemake object will be saved in the file specified in this ``rmd`` variable. This file can be embedded into the HTML document using base64 encoding and a link can be inserted as shown in the example above.
 Also other input and output files can be embedded in this way to make a portable report. Note that the above method with a data URI only works for small files. An experimental technology to embed larger files is using Javascript Blob `object <https://developer.mozilla.org/en-US/docs/Web/API/Blob>`_.
 
+.. _snakefiles_notebook-integration:
+
 Jupyter notebook integration
 ----------------------------
 
 Instead of plain scripts (see above), one can integrate Jupyter_ Notebooks.
+This enables the interactive development of data analysis components (e.g. for plotting).
 Integration works as follows (note the use of `notebook:` instead of `script:`):
 
 .. _Jupyter: https://jupyter.org/
@@ -613,11 +617,26 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
             "path/to/outputfile",
             "path/to/another/outputfile"
         log:
-            notebook = "path/to/processed_notebook.ipynb"
+            # optional path to the processed notebook
+            notebook = "logs/notebooks/processed_notebook.ipynb"
         notebook:
-            "path/to/notebook.ipynb"
+            "notebooks/notebook.ipynb"
 
-In the notebook, a snakemake object is available, which can be accessed similar to the Python or R case (see above).
+.. note:
+
+    Consider Jupyter notebook integration as a way to get the best of both worlds.
+    A modular, readable workflow definition with Snakemake, and the ability to quickly explore and plot data with Jupyter.
+    The benefit will be maximal when integrating many small notebooks that each do a particular job, hence allowing to get away from large monolithic, and therefore unreadable notebooks.
+
+In the notebook, a snakemake object is available, which can be accessed in the same way as the with :ref:`script integration <snakefiles_external-scripts>`.
+In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case) etc..
+Hence, integrating a new notebook works by first writing it from scratch in the usual interactive way.
+Then, you replace all hardcoded variables with references to properties of the rule where it shall be integrated, e.g. replacing the path to an input file with ``snakemake.input[0]``.
+Once having moved the notebook to the right place in the pipeline (ideally a subfolder ``notebooks``) and referring to it from the rule, Snakemake will be able to re-execute it while inserting the desired variable values from the rule properties.
+
+Optionally it is possible to automatically store the processed notebook.
+This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
+
 
 Protected and Temporary Files
 -----------------------------
