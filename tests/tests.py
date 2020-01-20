@@ -253,6 +253,19 @@ def test14():
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
 
 
+# run tibanna test before any moto-related tests because they apparently render AWS environment variables invalid or uneffective.
+def test_tibanna():
+    workdir = dpath("test_tibanna")
+    subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
+    run(
+        workdir,
+        use_conda=True,
+        configfiles=[os.path.join(workdir, "config.json")],
+        default_remote_prefix="snakemake-tibanna-test/1",
+        tibanna_sfn="tibanna_unicorn_johannes",
+    )
+
+
 def test15():
     run(dpath("test15"))
 
@@ -1036,18 +1049,6 @@ def test_issue1083():
 
 def test_pipes2():
     run(dpath("test_pipes2"))
-
-
-def test_tibanna():
-    workdir = dpath("test_tibanna")
-    subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
-    run(
-        workdir,
-        use_conda=True,
-        configfiles=[os.path.join(workdir, "config.json")],
-        default_remote_prefix="snakemake-tibanna-test/1",
-        tibanna_sfn="tibanna_unicorn_johannes",
-    )
 
 
 def test_expand_flag():
