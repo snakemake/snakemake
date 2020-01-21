@@ -3,7 +3,10 @@ configfile: "config.yaml"
 
 rule all:
     input:
-        expand("plots/{country}.hist.pdf", country=config["countries"])
+        expand(
+            "plots/{country}.hist.pdf",
+            country=config["countries"]
+        )
 
 
 rule select_by_country:
@@ -14,7 +17,8 @@ rule select_by_country:
     conda:
         "envs/xsv.yaml"
     shell:
-        "xsv search -s Country '{wildcards.country}' {input} > {output}"
+        "xsv search -s Country '{wildcards.country}' "
+        "{input} > {output}"
 
 
 rule plot_histogram:
