@@ -1396,4 +1396,3 @@ class PeriodicityDetector:
         m = self.regex.search(value)  # search for a periodic suffix.
         if m is not None:
             return m.group("value")
-
