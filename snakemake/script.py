@@ -17,13 +17,11 @@ from abc import ABC, abstractmethod
 from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
-import nbformat
-
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import MIN_PY_VERSION, escape_backslash, SNAKEMAKE_SEARCHPATH
+from snakemake.common import MIN_PY_VERSION, SNAKEMAKE_SEARCHPATH
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
@@ -393,10 +391,10 @@ class PythonScript(ScriptBase):
         searchpath = SNAKEMAKE_SEARCHPATH
         if singularity_img is not None:
             searchpath = singularity.SNAKEMAKE_MOUNTPOINT
-        searchpath = '"{}"'.format(searchpath)
+        searchpath = repr(searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if path.startswith("file://"):
-            searchpath += ', "{}"'.format(os.path.dirname(path[7:]))
+            searchpath += ", " + repr(os.path.dirname(path[7:]))
 
         return textwrap.dedent(
             """
@@ -405,7 +403,7 @@ class PythonScript(ScriptBase):
         ######## Original script #########
         """
         ).format(
-            searchpath=escape_backslash(searchpath),
+            searchpath=searchpath,
             snakemake=snakemake,
             printshellcmds=logger.printshellcmds,
             preamble_addendum=preamble_addendum,
@@ -786,6 +784,8 @@ class JuliaScript(ScriptBase):
 
 
 def get_source(path, basedir="."):
+    import nbformat
+
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
         if path.startswith("file://"):

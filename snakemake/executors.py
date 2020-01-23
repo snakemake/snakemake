@@ -62,6 +62,7 @@ class AbstractExecutor:
         printshellcmds=False,
         printthreads=True,
         latency_wait=3,
+        keepincomplete=False,
     ):
         self.workflow = workflow
         self.dag = dag
@@ -70,6 +71,7 @@ class AbstractExecutor:
         self.printshellcmds = printshellcmds
         self.printthreads = printthreads
         self.latency_wait = latency_wait
+        self.keepincomplete = keepincomplete
 
     def get_default_remote_provider_args(self):
         if self.workflow.default_remote_provider:
@@ -150,6 +152,7 @@ class RealExecutor(AbstractExecutor):
         printshellcmds=False,
         latency_wait=3,
         assume_shared_fs=True,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -158,6 +161,7 @@ class RealExecutor(AbstractExecutor):
             quiet=quiet,
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
+            keepincomplete=keepincomplete,
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
@@ -296,6 +300,7 @@ class CPUExecutor(RealExecutor):
         use_threads=False,
         latency_wait=3,
         cores=1,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -304,6 +309,7 @@ class CPUExecutor(RealExecutor):
             quiet=quiet,
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
+            keepincomplete=keepincomplete,
         )
 
         self.exec_job = "\\\n".join(
@@ -482,8 +488,9 @@ class CPUExecutor(RealExecutor):
 
     def handle_job_error(self, job):
         super().handle_job_error(job)
-        job.cleanup()
-        self.workflow.persistence.cleanup(job)
+        if not self.keepincomplete:
+            job.cleanup()
+            self.workflow.persistence.cleanup(job)
 
 
 class ClusterExecutor(RealExecutor):
@@ -507,6 +514,7 @@ class ClusterExecutor(RealExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         disable_default_remote_provider_args=False,
+        keepincomplete=False,
     ):
         from ratelimiter import RateLimiter
 
@@ -714,7 +722,8 @@ class ClusterExecutor(RealExecutor):
         # It will be removed by the CPUExecutor in case of a shared FS,
         # but we might not see the removal due to filesystem latency.
         # By removing it again, we make sure that it is gone on the host FS.
-        self.workflow.persistence.cleanup(job)
+        if not self.keepincomplete:
+            self.workflow.persistence.cleanup(job)
 
     def print_cluster_job_error(self, job_info, jobid):
         job = job_info.job
@@ -755,6 +764,7 @@ class GenericClusterExecutor(ClusterExecutor):
         restart_times=0,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
+        keepincomplete=False,
     ):
 
         self.submitcmd = submitcmd
@@ -1001,6 +1011,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
         latency_wait=3,
         restart_times=0,
         assume_shared_fs=True,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -1109,6 +1120,7 @@ class DRMAAExecutor(ClusterExecutor):
         restart_times=0,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -1288,6 +1300,7 @@ class KubernetesExecutor(ClusterExecutor):
         cluster_config=None,
         local_input=None,
         restart_times=None,
+        keepincomplete=False,
     ):
 
         exec_job = (
@@ -1623,6 +1636,7 @@ class TibannaExecutor(ClusterExecutor):
         cores,
         tibanna_sfn,
         precommand="",
+        container_image=None,
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -1631,6 +1645,7 @@ class TibannaExecutor(ClusterExecutor):
         restart_times=None,
         exec_job=None,
         max_status_checks_per_second=1,
+        keepincomplete=False,
     ):
 
         self.workflow_sources = []
@@ -1685,6 +1700,7 @@ class TibannaExecutor(ClusterExecutor):
             max_status_checks_per_second=max_status_checks_per_second,
             disable_default_remote_provider_args=True,
         )
+        self.container_image = container_image or get_container_image()
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary
@@ -1852,7 +1868,7 @@ class TibannaExecutor(ClusterExecutor):
         tibanna_args = ec2_utils.Args(
             output_S3_bucket=self.s3_bucket,
             language="snakemake",
-            container_image="snakemake/snakemake",
+            container_image=self.container_image,
             input_files=input_source,
             output_target=output_target,
         )
