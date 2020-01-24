@@ -144,7 +144,8 @@ Microsoft Azure Storage
 
 Usage of the Azure Storage provider is similar to the S3 provider.
 For authentication, one needs to provide an account name and a key
-or SAS token, which can for example be read from environment variables.
+or SAS token (without leading question mark), which can for example
+be read from environment variables.
 
 .. code-block:: python
 
