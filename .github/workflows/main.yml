@@ -69,7 +69,10 @@ jobs:
           source activate snakemake
           
           # run tests
-          coverage run -m pytest tests/test*.py -v -x
+          for tests in tests/test*.py
+          do
+              coverage run -m pytest $test -v -x
+          done
 
           # collect coverage report
           #coverage combine
