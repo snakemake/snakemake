@@ -2691,7 +2691,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             return request.execute()
         except BrokenPipeError as ex:
             if attempts > 0:
-                sleep(timeout)
+                time.sleep(timeout)
                 return self._retry_request(request, timeout * 2, attempts - 1)
             raise ex
         except googleapiclient.errors.HttpError as ex:
