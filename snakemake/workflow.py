@@ -198,6 +198,12 @@ class Workflow:
     def get_sources(self):
         files = set()
 
+        def local_path(f):
+            url = urlparse(f)
+            if url.scheme == "file" or url.scheme == "":
+                return url.path
+            return None
+
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
                 f = os.path.join(rule.basedir, f)
@@ -205,7 +211,9 @@ class Workflow:
 
         # get registered sources
         for f in self.included:
-            files.add(os.path.relpath(f))
+            f = local_path(f)
+            if f:
+                files.add(os.path.relpath(f))
         for rule in self.rules:
             script_path = rule.script or rule.notebook
             if script_path:
@@ -218,10 +226,10 @@ class Workflow:
                     for f in files
                 )
             if rule.conda_env:
-                url = urlparse(rule.conda_env)
-                if url.scheme == "file" or url.scheme == "":
+                f = local_path(rule.conda_env)
+                if f:
                     # url points to a local env file
-                    env_path = norm_rule_relpath(url.path, rule)
+                    env_path = norm_rule_relpath(f, rule)
                     files.add(env_path)
 
         for f in self.configfiles:
