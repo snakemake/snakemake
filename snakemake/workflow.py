@@ -16,6 +16,7 @@ from operator import attrgetter
 import copy
 import subprocess
 from pathlib import Path
+from urllib.parse import urlparse
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -217,8 +218,11 @@ class Workflow:
                     for f in files
                 )
             if rule.conda_env:
-                env_path = norm_rule_relpath(rule.conda_env, rule)
-                files.add(env_path)
+                url = urlparse(rule.conda_env)
+                if url.scheme == "file" or url.scheme == "":
+                    # url points to a local env file
+                    env_path = norm_rule_relpath(url.path, rule)
+                    files.add(env_path)
 
         for f in self.configfiles:
             files.add(f)
