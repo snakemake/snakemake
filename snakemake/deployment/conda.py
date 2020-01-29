@@ -78,8 +78,8 @@ class Env:
             # By this, moving the working directory around automatically
             # invalidates all environments. This is necessary, because binaries
             # in conda environments can contain hardcoded absolute RPATHs.
-            assert os.path.isabs(self._env_dir)
-            md5hash.update(self._env_dir.encode())
+            env_dir = os.path.realpath(self._env_dir)
+            md5hash.update(env_dir.encode())
             if self._singularity_img:
                 md5hash.update(self._singularity_img.url.encode())
             md5hash.update(self.content)

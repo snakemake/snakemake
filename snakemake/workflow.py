@@ -447,6 +447,7 @@ class Workflow:
         report=None,
         export_cwl=False,
         batch=None,
+        keepincomplete=False,
     ):
 
         self.check_localrules()
@@ -801,6 +802,7 @@ class Workflow:
             greediness=greediness,
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
+            keepincomplete=keepincomplete,
         )
 
         if not dryrun:

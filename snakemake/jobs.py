@@ -18,8 +18,6 @@ from operator import attrgetter
 from urllib.request import urlopen
 from urllib.parse import urlparse
 
-from toposort import toposort
-
 from snakemake.io import (
     IOFile,
     Wildcards,
@@ -1076,6 +1074,8 @@ class GroupJob(AbstractJob):
         self.jobs = self.jobs | other.jobs
 
     def finalize(self):
+        from toposort import toposort
+
         if self.toposorted is None:
             dag = {
                 job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
@@ -1179,17 +1179,21 @@ class GroupJob(AbstractJob):
                         # All we can do is to ignore such jobs for now.
                         continue
                     for res, value in job_resources.items():
-                        sibling_resources[res] += value
+                        if res != "_nodes":
+                            sibling_resources[res] += value
 
                 for res, value in sibling_resources.items():
-                    if self.dag.workflow.run_local or pipe_group:
-                        # in case of local execution, this must be a
-                        # group of jobs that are connected with pipes
-                        # and have to run simultaneously
-                        self._resources[res] += value
-                    else:
-                        # take the maximum with previous values
-                        self._resources[res] = max(self._resources.get(res, 0), value)
+                    if res != "_nodes":
+                        if self.dag.workflow.run_local or pipe_group:
+                            # in case of local execution, this must be a
+                            # group of jobs that are connected with pipes
+                            # and have to run simultaneously
+                            self._resources[res] += value
+                        else:
+                            # take the maximum with previous values
+                            self._resources[res] = max(
+                                self._resources.get(res, 0), value
+                            )
 
         return Resources(fromdict=self._resources)
 

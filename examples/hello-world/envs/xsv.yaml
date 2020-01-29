@@ -1,0 +1,4 @@
+channels:
+  - conda-forge
+dependencies:
+  - xsv 0.13
