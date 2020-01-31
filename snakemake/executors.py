@@ -348,6 +348,9 @@ class CPUExecutor(RealExecutor):
                     self.workflow.singularity_args
                 )
 
+        if self.workflow.use_env_modules:
+            self.exec_job += " --use-envmodules"
+
         self.use_threads = use_threads
         self.cores = cores
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers + 1)
@@ -583,6 +586,9 @@ class ClusterExecutor(RealExecutor):
                 self.exec_job += ' --singularity-args "{}"'.format(
                     self.workflow.singularity_args
                 )
+
+        if self.workflow.use_env_modules:
+            self.exec_job += " --use-envmodules"
 
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
