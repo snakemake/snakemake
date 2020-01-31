@@ -60,7 +60,6 @@ jobs:
           pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/tests.py
 
       - name: Configure AWS Credentials
-        if: env.AWS_ACCESS_KEY_ID
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -68,7 +67,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Test AWS execution
-        if: env.AWS_ACCESS_KEY_ID
+        if: success()
         env: 
           CI: true
         run: |
