@@ -49,39 +49,34 @@ jobs:
           docker exec -u irods provider iput /incoming/infile
           cp -r tests/test_remote_irods/setup-data ~/.irods
 
+      - name: Run tests
+        env:
+          CI: true
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          
+          pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/tests.py
+
       - name: Configure AWS Credentials
+        if: secrets.AWS_ACCESS_KEY_ID
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Run tests
-        env:
+      - name: Test AWS execution
+        if: secrets.AWS_ACCESS_KEY_ID
+        env: 
           CI: true
         run: |
-          # enable coverage recording for subprocesses
-          echo -e "try:\n    import coverage\n    coverage.process_startup()\nexcept:\n    pass" > sitecustomize.py
-          export COVERAGE_PROCESS_START=.coveragerc
-
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
-          
-          # run tests
-          for tests in tests/test*.py
-          do
-              coverage run -m pytest $test -v -x
-          done
 
-          # collect coverage report
-          #coverage combine
-          #coverage xml
-
-          #- name: Upload coverage report
-          #uses: codecov/codecov-action@v1.0.3
-          #with:
-          #token: ${{secrets.CODECOV_TOKEN}}
+          pytest -v -x tests/test_tibanna.py
 
       - name: Build container image
         run: docker build .
