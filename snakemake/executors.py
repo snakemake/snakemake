@@ -2171,15 +2171,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self._machine_type_prefix = machine_type_prefix
 
         # Relative path for running on instance
-        snakefile = os.path.join(
-            self.workdir, os.path.basename(self.workflow.snakefile)
-        )
+        self._set_snakefile()
 
         # Prepare workflow sources for build package
         self._set_workflow_sources()
-
-        # Needs to be relative for commands run in worker (linux base)
-        self.snakefile = snakefile.replace(self.workdir + "/", "")
 
         exec_job = exec_job or (
             "snakemake {target} --snakefile %s "
@@ -2434,6 +2429,19 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         resources = {"regions": self.regions, "virtualMachine": virtual_machine}
         return resources
 
+    def _set_snakefile(self):
+        """The snakefile must be a relative path, which cannot be reliably
+           derived from the self.workflow.snakefile as we might have moved
+           execution into a temporary directory, and the initial Snakefile
+           was somewhere else on the system.
+        """
+        from snakemake import SNAKEFILE_CHOICES
+
+        for snakefile in SNAKEFILE_CHOICES:
+            if os.path.exists(os.path.join(self.workdir, snakefile)):
+                self.snakefile = snakefile
+                break
+
     def _set_workflow_sources(self, warning_size_gb=20):
         """We only add files from the working directory that are config related
            (e.g., the Snakefile or a config.yml equivalent), or checked into git. 
@@ -2478,7 +2486,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # Add all workflow_sources files
         for filename in self.workflow_sources:
-            arcname = filename.replace(self.workflow.basedir + os.path.sep, "")
+            arcname = filename.replace(self.workdir + os.path.sep, "")
             tar.add(filename, arcname=arcname)
 
         tar.close()
