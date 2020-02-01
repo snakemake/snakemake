@@ -40,7 +40,7 @@ Shell commands like above can also be invoked inside a python based rule, via th
 
     shell("somecommand {output.somename}")
 
-Further, this combination of python and shell commands, allows to iterate over the output of the shell command, e.g.:
+Further, this combination of python and shell commands allows us to iterate over the output of the shell command, e.g.:
 
 .. code-block:: python
 
