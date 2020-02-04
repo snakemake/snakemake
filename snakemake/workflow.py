@@ -205,7 +205,7 @@ class Workflow:
                     f = pathname2url(f)
                 except OSError:
                     pass  # f isn't changed if it wasn't a path
-                    
+
             url = urlparse(f)
             if url.scheme == "file" or url.scheme == "":
                 return url2pathname(url.path)
@@ -220,14 +220,14 @@ class Workflow:
         for f in self.included:
             f = local_path(f)
             if f:
-                try:
-                   f = os.relpath(f)
-                except ValueEror:
-                   if ON_WINDOWS:
-                       pass  # relpath doesn't work on win if files are on different drive
-                   else:
-                       raise
-                 files.add(f)
+                if (
+                    ON_WINDOWS
+                    and os.path.splitdrive(f)[0] != os.path.splitdrive(os.getcwd())[0]
+                ):
+                    pass  # relpath doesn't work on win if files are on different drive
+                else:
+                    f = os.path.relpath(f)
+                files.add(f)
         for rule in self.rules:
             script_path = rule.script or rule.notebook
             if script_path:
