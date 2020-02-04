@@ -18,7 +18,9 @@ import functools
 import subprocess as sp
 from itertools import product, chain
 from contextlib import contextmanager
+import string
 import collections
+
 from snakemake.exceptions import (
     MissingOutputException,
     WorkflowError,
@@ -249,7 +251,7 @@ class _IOFile(str):
                 "File path '{}' contains line break. "
                 "This is likely unintended. {}".format(self._file, hint)
             )
-        if _double_slash_regex.search(self._file) is not None:
+        if _double_slash_regex.search(self._file) is not None and not self.is_remote:
             logger.warning(
                 "File path {} contains double '{}'. "
                 "This is likely unintended. {}".format(self._file, os.path.sep, hint)
@@ -892,7 +894,8 @@ def expand(*args, **wildcards):
         second arg (optional): a function to combine wildcard values
         (itertools.product per default)
     **wildcards -- the wildcards as keyword arguments
-        with their values as lists
+        with their values as lists. If allow_missing=True is included
+        wildcards in filepattern without values will stay unformatted.
     """
     filepatterns = args[0]
     if len(args) == 1:
@@ -916,12 +919,27 @@ def expand(*args, **wildcards):
             "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
         )
 
+    # check if remove missing is provided
+    format_dict = dict
+    if "allow_missing" in wildcards and wildcards["allow_missing"] is True:
+
+        class FormatDict(dict):
+            def __missing__(self, key):
+                return "{" + key + "}"
+
+        format_dict = FormatDict
+        # check that remove missing is not a wildcard in the filepatterns
+        for filepattern in filepatterns:
+            if "allow_missing" in re.findall(r"{([^}\.[!:]+)", filepattern):
+                format_dict = dict
+                break
+
     # remove unused wildcards to avoid duplicate filepatterns
     wildcards = {
         filepattern: {
             k: v
             for k, v in wildcards.items()
-            if k in re.findall("{([^}\.[!:]+)", filepattern)
+            if k in re.findall(r"{([^}\.[!:]+)", filepattern)
         }
         for filepattern in filepatterns
     }
@@ -934,11 +952,12 @@ def expand(*args, **wildcards):
                 values = [values]
             yield [(wildcard, value) for value in values]
 
+    formatter = string.Formatter()
     try:
         return [
-            filepattern.format(**comb)
+            formatter.vformat(filepattern, (), comb)
             for filepattern in filepatterns
-            for comb in map(dict, combinator(*flatten(wildcards[filepattern])))
+            for comb in map(format_dict, combinator(*flatten(wildcards[filepattern])))
         ]
     except KeyError as e:
         raise WildcardError("No values given for wildcard {}.".format(e))
@@ -1050,7 +1069,7 @@ def update_wildcard_constraints(
 
 
 def split_git_path(path):
-    file_sub = re.sub("^git\+file:/+", "/", path)
+    file_sub = re.sub(r"^git\+file:/+", "/", path)
     (file_path, version) = file_sub.split("@")
     file_path = os.path.realpath(file_path)
     root_path = get_git_root(file_path)
@@ -1175,22 +1194,22 @@ class Namedlist(list):
             else:
                 self.extend(toclone)
             if isinstance(toclone, Namedlist):
-                self.take_names(toclone.get_names())
+                self._take_names(toclone._get_names())
         if fromdict:
             for key, item in fromdict.items():
                 self.append(item)
-                self.add_name(key)
+                self._add_name(key)
 
-    def add_name(self, name):
+    def _add_name(self, name):
         """
         Add a name to the last item.
 
         Arguments
         name -- a name
         """
-        self.set_name(name, len(self) - 1)
+        self._set_name(name, len(self) - 1)
 
-    def set_name(self, name, index, end=None):
+    def _set_name(self, name, index, end=None):
         """
         Set the name of an item.
 
@@ -1198,24 +1217,26 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
-        self._names[name] = (index, end)
-        if hasattr(self.__class__, name):
+        if name == "items" or name == "keys" or name == "get":
             raise AttributeError(
-                f"Namedlist attribute '{name}' is read only.  Cannot set to '{self[index]}'"
+                "invalid name for input, output, wildcard, "
+                "params or log: 'items', 'keys', and 'get' are reserved for internal use"
             )
+
+        self._names[name] = (index, end)
         if end is None:
             setattr(self, name, self[index])
         else:
             setattr(self, name, Namedlist(toclone=self[index:end]))
 
-    def get_names(self):
+    def _get_names(self):
         """
         Get the defined names as (name, index) pairs.
         """
         for name, index in self._names.items():
             yield name, index
 
-    def take_names(self, names):
+    def _take_names(self, names):
         """
         Take over the given names.
 
@@ -1223,13 +1244,13 @@ class Namedlist(list):
         names -- the given names as (name, index) pairs
         """
         for name, (i, j) in names:
-            self.set_name(name, i, end=j)
+            self._set_name(name, i, end=j)
 
     def items(self):
         for name in self._names:
             yield name, getattr(self, name)
 
-    def allitems(self):
+    def _allitems(self):
         next = 0
         for name, index in sorted(
             self._names.items(),
@@ -1250,25 +1271,25 @@ class Namedlist(list):
         for item in self[next:]:
             yield None, item
 
-    def insert_items(self, index, items):
+    def _insert_items(self, index, items):
         self[index : index + 1] = items
         add = len(items) - 1
         for name, (i, j) in self._names.items():
             if i > index:
                 self._names[name] = (i + add, None if j is None else j + add)
             elif i == index:
-                self.set_name(name, i, end=i + len(items))
+                self._set_name(name, i, end=i + len(items))
 
     def keys(self):
-        return self._names
+        return self._names.keys()
 
-    def plainstrings(self):
+    def _plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)
 
-    def stripped_constraints(self):
+    def _stripped_constraints(self):
         return self.__class__.__call__(toclone=self, strip_constraints=True)
 
-    def clone(self):
+    def _clone(self):
         return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):
@@ -1316,20 +1337,14 @@ class Log(Namedlist):
 
 def _load_configfile(configpath, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
+    import yaml
+
     try:
         with open(configpath) as f:
             try:
                 return json.load(f, object_pairs_hook=collections.OrderedDict)
             except ValueError:
                 f.seek(0)  # try again
-            try:
-                import yaml
-            except ImportError:
-                raise WorkflowError(
-                    "{} file is not valid JSON and PyYAML "
-                    "has not been installed. Please install "
-                    "PyYAML to use YAML config files.".format(filetype)
-                )
             try:
                 # From http://stackoverflow.com/a/21912744/84349
                 class OrderedLoader(yaml.Loader):

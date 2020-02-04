@@ -3,189 +3,13 @@ __copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-import sys
 import os
-import shutil
-from os.path import join
-from subprocess import call
-import tempfile
-import hashlib
-import urllib
-from shutil import rmtree, which
-from shlex import quote
-import pytest
-import subprocess
+import sys
 
-from snakemake import snakemake
-from snakemake.shell import shell
+sys.path.insert(0, os.path.dirname(__file__))
 
+from common import *
 from .conftest import skip_on_windows, ON_WINDOWS
-
-
-def dpath(path):
-    """get path to a data file (relative to the directory this
-	test lives in)"""
-    return os.path.realpath(join(os.path.dirname(__file__), path))
-
-
-def md5sum(filename, ignore_newlines=False):
-    if ignore_newlines:
-        with open(filename, "r", encoding="utf-8", errors="surrogateescape") as f:
-            data = f.read().encode("utf8", errors="surrogateescape")
-    else:
-        data = open(filename, "rb").read()
-    return hashlib.md5(data).hexdigest()
-
-
-# test skipping
-def is_connected():
-    try:
-        urllib.request.urlopen("http://www.google.com", timeout=1)
-        return True
-    except urllib.request.URLError:
-        return False
-
-
-def is_ci():
-    return "CI" in os.environ
-
-
-def has_gcloud_service_key():
-    return "GCLOUD_SERVICE_KEY" in os.environ
-
-
-def has_gcloud_cluster():
-    return "GCLOUD_CLUSTER" in os.environ
-
-
-gcloud = pytest.mark.skipif(
-    not is_connected() or not has_gcloud_service_key() or not has_gcloud_cluster(),
-    reason="Skipping GCLOUD tests because not on "
-    "CI, no inet connection or not logged "
-    "in to gcloud.",
-)
-
-connected = pytest.mark.skipif(not is_connected(), reason="no internet connection")
-
-ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
-not_ci = pytest.mark.skipif(is_ci(), reason="skipped in CI")
-
-
-def copy(src, dst):
-    if os.path.isdir(src):
-        shutil.copytree(src, os.path.join(dst, os.path.basename(src)))
-    else:
-        shutil.copy(src, dst)
-
-
-def run(
-    path,
-    shouldfail=False,
-    snakefile="Snakefile",
-    subpath=None,
-    no_tmpdir=False,
-    check_md5=True,
-    cores=3,
-    set_pythonpath=True,
-    cleanup=True,
-    **params
-):
-    """
-    Test the Snakefile in path.
-    There must be a Snakefile in the path and a subdirectory named
-    expected-results. If cleanup is False, we return the temporary
-    directory to the calling test for inspection, and the test should
-    clean it up.
-    """
-    if set_pythonpath:
-        # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
-        # when subprocesses are invoked in the tempdir defined below.
-        os.environ["PYTHONPATH"] = os.getcwd()
-    elif "PYTHONPATH" in os.environ:
-        del os.environ["PYTHONPATH"]
-
-    results_dir = join(path, "expected-results")
-    snakefile = join(path, snakefile)
-    assert os.path.exists(snakefile)
-    assert os.path.exists(results_dir) and os.path.isdir(
-        results_dir
-    ), "{} does not exist".format(results_dir)
-
-    # If we need to further check results, we won't cleanup tmpdir
-    tmpdir = next(tempfile._get_candidate_names())
-    tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
-    os.mkdir(tmpdir)
-
-    config = {}
-
-    # handle subworkflow
-    if subpath is not None:
-        # set up a working directory for the subworkflow and pass it in `config`
-        # for now, only one subworkflow is supported
-        assert os.path.exists(subpath) and os.path.isdir(
-            subpath
-        ), "{} does not exist".format(subpath)
-        subworkdir = os.path.join(tmpdir, "subworkdir")
-        os.mkdir(subworkdir)
-
-        # copy files
-        for f in os.listdir(subpath):
-            copy(os.path.join(subpath, f), subworkdir)
-        config["subworkdir"] = subworkdir
-
-    # copy files
-    for f in os.listdir(path):
-        print(f)
-        copy(os.path.join(path, f), tmpdir)
-
-    # run snakemake
-    success = snakemake(
-        snakefile,
-        cores=cores,
-        workdir=path if no_tmpdir else tmpdir,
-        stats="stats.txt",
-        config=config,
-        verbose=True,
-        **params
-    )
-    if shouldfail:
-        assert not success, "expected error on execution"
-    else:
-        assert success, "expected successful execution"
-        for resultfile in os.listdir(results_dir):
-            if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
-                os.path.join(results_dir, resultfile)
-            ):
-                # this means tests cannot use directories as output files
-                continue
-            targetfile = join(tmpdir, resultfile)
-            expectedfile = join(results_dir, resultfile)
-
-            if ON_WINDOWS:
-                if os.path.exists(join(results_dir, resultfile + "_WIN")):
-                    continue  # Skip test if a Windows specific file exists
-                if resultfile.endswith("_WIN"):
-                    targetfile = join(tmpdir, resultfile[:-4])
-            elif resultfile.endswith("_WIN"):
-                # Skip win specific result files on Posix platforms
-                continue
-
-            assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(
-                resultfile
-            )
-            if check_md5:
-                md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
-                md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
-                if md5target != md5expected:
-                    # import pdb; pdb.set_trace()
-                    with open(targetfile) as target:
-                        content = target.read()
-                    assert False, 'wrong result produced for file "{}":\n{}'.format(
-                        resultfile, content
-                    )
-    if not cleanup:
-        return tmpdir
-    shutil.rmtree(tmpdir)
 
 
 def test_list_untracked():
@@ -650,7 +474,7 @@ def test_format_wildcards():
 
 
 def test_with_parentheses():
-    run(dpath("test (with parentheses)"))
+    run(dpath("test (with parenthese's)"))
 
 
 def test_dup_out_patterns():
@@ -720,6 +544,10 @@ def test_threads():
     run(dpath("test_threads"), cores=20)
 
 
+def test_threads0():
+    run(dpath("test_threads0"))
+
+
 def test_dynamic_temp():
     run(dpath("test_dynamic_temp"))
 
@@ -760,6 +588,40 @@ def test_run_namedlist():
 @skip_on_windows
 def test_remote_gs():
     run(dpath("test_remote_gs"))
+
+
+@pytest.mark.skip(reason="Need to choose how to provide billable project")
+@connected
+@not_ci
+def test_gs_requester_pays(
+    requesting_project=None,
+    requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
+):
+    """ Tests pull-request 79 / issue 96 for billable user projects on GS
+
+    If requesting_project None, behaves as test_remote_gs().
+
+    Parameters
+    ----------
+    requesting_project: Optional[str]
+        User project to bill for download. None will not provide project for
+        requester-pays as is the usual default
+    requesting_url: str
+        URL of bucket to download. Default will match expected output, but is a
+        bucket that doesn't require requester pays.
+    """
+    # create temporary config file
+    with tempfile.NamedTemporaryFile(suffix=".yaml") as handle:
+        # specify project and url for download
+        if requesting_project is None:
+            handle.write(b"project: null\n")
+        else:
+            handle.write('project: "{}"\n'.format(requesting_project).encode())
+        handle.write('url: "{}"\n'.format(requesting_url).encode())
+        # make sure we can read them
+        handle.flush()
+        # run the pipeline
+        run(dpath("test_gs_requester_pays"), configfiles=[handle.name], forceall=True)
 
 
 @pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
@@ -1084,21 +946,6 @@ def test_pipes2():
     run(dpath("test_pipes2"))
 
 
-@pytest.mark.skip(
-    reason="The AWS Access Key Id you provided does not exist in our records."
-)
-def test_tibanna():
-    workdir = dpath("test_tibanna")
-    subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
-    run(
-        workdir,
-        use_conda=True,
-        configfiles=[os.path.join(workdir, "config.json")],
-        default_remote_prefix="snakemake-tibanna-test/1",
-        tibanna_sfn="tibanna_unicorn_johannes",
-    )
-
-
 def test_expand_flag():
     run(dpath("test_expand_flag"), shouldfail=True)
 
@@ -1194,3 +1041,11 @@ def test_output_file_cache_remote():
 
 def test_multiext():
     run(dpath("test_multiext"))
+
+
+def test_core_dependent_threads():
+    run(dpath("test_core_dependent_threads"))
+
+
+def test_env_modules():
+    run(dpath("test_env_modules"), use_env_modules=True)

@@ -13,8 +13,8 @@ import threading
 
 from snakemake.utils import format, ON_WINDOWS, argvquote, find_bash_on_windows
 from snakemake.logging import logger
-from snakemake import singularity
-from snakemake.conda import Conda
+from snakemake.deployment import singularity
+from snakemake.deployment.conda import Conda
 import snakemake
 
 
@@ -124,6 +124,8 @@ class shell:
             raise KeyError("Argument stepout is not allowed in shell command.")
         cmd = format(cmd, *args, stepout=2, **kwargs)
         context = inspect.currentframe().f_back.f_locals
+        # add kwargs to context (overwriting the locals of the caller)
+        context.update(kwargs)
 
         stdout = sp.PIPE if iterable or read else STDOUT
 
@@ -136,6 +138,7 @@ class shell:
         env_prefix = ""
         conda_env = context.get("conda_env", None)
         singularity_img = context.get("singularity_img", None)
+        env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
 
         if ON_WINDOWS and cls._quote_win_cmd:
@@ -145,7 +148,10 @@ class shell:
             cls._process_prefix, cmd.strip(), cls._process_suffix
         ).strip()
 
-        conda = None
+        if env_modules:
+            cmd = env_modules.shellcmd(cmd)
+            logger.info("Activating environment modules: {}".format(env_modules))
+
         if conda_env:
             cmd = Conda(singularity_img).shellcmd(conda_env, cmd)
 

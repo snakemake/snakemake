@@ -62,7 +62,7 @@ class RemoteProvider(AbstractRemoteProvider):
         for i, file in enumerate(values):
             match = re.match("^(https?)://.+", file)
             if match:
-                protocol, = match.groups()
+                (protocol,) = match.groups()
                 if protocol == "https" and insecure:
                     raise SyntaxError(
                         "insecure=True cannot be used with a https:// url"

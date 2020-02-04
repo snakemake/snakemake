@@ -1,3 +1,8 @@
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
+__license__ = "MIT"
+
 import os
 import re
 import subprocess
@@ -17,7 +22,7 @@ from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import strip_prefix
 from snakemake import utils
-from snakemake import singularity
+from snakemake.deployment import singularity
 from snakemake.io import git_content
 
 
@@ -73,8 +78,8 @@ class Env:
             # By this, moving the working directory around automatically
             # invalidates all environments. This is necessary, because binaries
             # in conda environments can contain hardcoded absolute RPATHs.
-            assert os.path.isabs(self._env_dir)
-            md5hash.update(self._env_dir.encode())
+            env_dir = os.path.realpath(self._env_dir)
+            md5hash.update(env_dir.encode())
             if self._singularity_img:
                 md5hash.update(self._singularity_img.url.encode())
             md5hash.update(self.content)
@@ -343,7 +348,7 @@ class Conda:
 
     def __init__(self, singularity_img=None):
         from snakemake.shell import shell
-        from snakemake import singularity
+        from snakemake.deployment import singularity
 
         if isinstance(singularity_img, singularity.Image):
             singularity_img = singularity_img.path
