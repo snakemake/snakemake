@@ -2194,7 +2194,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # Akin to Kubernetes, create a run namespace, default container image
         self.run_namespace = str(uuid.uuid4())
-        self.container_image = container_image or "snakemake/snakemake:v5.10.0"
+        self.container_image = container_image or get_container_image()
         self.regions = regions or ["us-east1", "us-west1", "us-central1"]
 
         # Tell the user right away the regions and container
