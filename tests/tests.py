@@ -1047,5 +1047,6 @@ def test_core_dependent_threads():
     run(dpath("test_core_dependent_threads"))
 
 
+@skip_on_windows
 def test_env_modules():
     run(dpath("test_env_modules"), use_env_modules=True)
