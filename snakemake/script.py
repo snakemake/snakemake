@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
-from snakemake.utils import format
+from snakemake.utils import format, ON_WINDOWS
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
