@@ -169,7 +169,6 @@ def run(
                 # Skip win specific result files on Posix platforms
                 continue
 
-
             assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(
                 resultfile
             )
