@@ -17,7 +17,7 @@ because it also enables Snakemake to :ref:`handle software dependencies of your
 workflow <integrated_package_management>`.
 
 First, you have to install the Miniconda Python3 distribution.
-See `here <https://conda.io/docs/install/quick.html>`_ for installation instructions.
+See `here <https://conda.io/en/latest/miniconda.html>`_ for installation instructions.
 Make sure to ...
 
 * Install the **Python 3** version of Miniconda.
