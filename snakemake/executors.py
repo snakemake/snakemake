@@ -2398,10 +2398,17 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # If we don't have any contenders, workflow error
         if not keepers:
-            raise WorkflowError(
-                "Machine prefix {prefix} is too strict, and there are no options "
-                "available.".format(prefix=self._machine_type_prefix)
-            )
+            if self._machine_type_prefix:
+                raise WorkflowError(
+                    "Machine prefix {prefix} is too strict, or the resources cannot "
+                    " be satisfied, so there are no options "
+                    "available.".format(prefix=self._machine_type_prefix)
+                )
+            else:
+                raise WorkflowError(
+                    "The resources cannot be satisfied, so there are no options "
+                    "available.".format(prefix=self._machine_type_prefix)
+                )
 
         # Now find (quasi) minimal to satisfy constraints
         machine_types = keepers

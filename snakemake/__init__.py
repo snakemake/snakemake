@@ -1884,12 +1884,20 @@ def main(argv=None):
     try:
         resources = parse_resources(args.resources)
         config = parse_config(args)
+
+        # Cloud executors should have default-resources flag
         if (args.default_resources is not None and not args.default_resources) or (
             args.tibanna and not args.default_resources
         ):
             args.default_resources = [
                 "mem_mb=max(2*input.size, 1000)",
                 "disk_mb=max(2*input.size, 1000)",
+            ]
+        elif args.google_lifesciences and not args.default_resources:
+            # Maximum persistent disks size should be less than [3072] GB.
+            args.default_resources = [
+                "mem_mb=15360",  # n1-standard-4
+                "disk_mb=min(max(2*input.size, 3072), 3072)",
             ]
         default_resources = DefaultResources(args.default_resources)
         batch = parse_batch(args)
@@ -1995,6 +2003,14 @@ def main(argv=None):
                 sys.exit(1)
 
     if args.google_lifesciences:
+        if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+            print(
+                "Error: GOOGLE_APPLICATION_CREDENTIALS file path must "
+                "be exported with --google-lifesciences",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
         if not args.default_remote_prefix:
             print(
                 "Error: --google-life-sciences must be combined with "
