@@ -61,15 +61,17 @@ jobs:
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
+        continue-on-error: true
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
       - name: Test AWS execution
-        if: success()
+        if: AWS_AVAILABLE != ""
         env: 
           CI: true
+          AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
         run: |
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
