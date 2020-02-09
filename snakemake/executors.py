@@ -2332,7 +2332,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Right now, do a best effort mapping of resources to instance types
         cores = job.resources.get("_cores", 1)
         mem_mb = job.resources.get("mem_mb", 100)
-        disk_mb = job.resources.get("disk_mb", 102400)  # 100 GB default
+        disk_mb = job.resources.get("disk_mb", 128000)
 
         # Convert mb to gb, add buffer of 50
         disk_gb = math.ceil(disk_mb / 1024) + 10
@@ -2383,7 +2383,14 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # First pass - eliminate anything that too low in cpu/memory
         keepers = dict()
+
+        # Also keep track of max cpus and memory, in case none available
+        maxCpu = 1
+        maxMem = 100
+
         for name, machine_type in machine_types.items():
+            maxCpu = max(maxCpu, machine_type["guestCpus"])
+            maxMem = max(maxMem, machine_type["memoryMb"])
             if machine_type["guestCpus"] < cores or machine_type["memoryMb"] < mem_mb:
                 continue
             keepers[name] = machine_type
@@ -2406,8 +2413,16 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 )
             else:
                 raise WorkflowError(
-                    "The resources cannot be satisfied, so there are no options "
-                    "available.".format(prefix=self._machine_type_prefix)
+                    "You requested {requestMemory} MB memory, {requestCpu} cores. "
+                    "The maximum available are {availableMemory} MB memory and "
+                    "{availableCpu} cores. These resources cannot be satisfied. "
+                    "Please consider reducing the resource requirements of the "
+                    "corresponding rule.".format(
+                        requestMemory=mem_mb,
+                        requestCpu=cores,
+                        availableCpu=maxCpu,
+                        availableMemory=maxMem,
+                    )
                 )
 
         # Now find (quasi) minimal to satisfy constraints
