@@ -143,15 +143,18 @@ Microsoft Azure Storage
 =======================
 
 Usage of the Azure Storage provider is similar to the S3 provider.
-For authentication, one needs to provide an account name and a key, which can e.g. be taken
-from environment variables.
+For authentication, one needs to provide an account name and a key
+or SAS token (without leading question mark), which can for example
+be read from environment variables.
 
 .. code-block:: python
 
     from snakemake.remote.AzureStorage import RemoteProvider as AzureRemoteProvider
-    account_key=os.environ['AZURE_KEY']
     account_name=os.environ['AZURE_ACCOUNT']
-    AS = AzureRemoteProvider(account_name=account_name, account_key=account_key)
+    account_key=os.environ.get('AZURE_KEY')
+    sas_token=os.environ.get('SAS_TOKEN')
+    assert account_key or sas_token
+    AS = AzureRemoteProvider(account_name=account_name, account_key=account_key, sas_token=sas_token)
 
     rule a:
         input:
