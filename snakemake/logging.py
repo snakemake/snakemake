@@ -449,6 +449,18 @@ def setup_logger(
         )
         logger.set_stream_handler(stream_handler)
         if wms_monitor is not None:
+
+            try:
+                r = requests.get(wms_monitor + "/api/service-info")
+            except:
+                sys.stderr.write("Problem with server: {} {}".format(wms_monitor, os.linesep))
+                sys.exit(-1)
+            else:
+                if r.json()["status"] != "running":
+                    sys.stderr.write("The status of the server {} is not in 'running' mode {}".format(wms_monitor, os.linesep))
+                    sys.exit(-1)
+
+
             logger.log_handler.append(logger.custom_server_handler)
 
             try:
