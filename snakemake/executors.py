@@ -1492,6 +1492,10 @@ class KubernetesExecutor(ClusterExecutor):
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"]
             )
+        if "nvidia_gpu" in job.resources.keys():
+            container.resources.limits["nvidia/gpu"] = "%d".format(
+                job.resources["nvidia_gpu"]
+            )
 
         # capabilities
         if job.needs_singularity and self.workflow.use_singularity:
