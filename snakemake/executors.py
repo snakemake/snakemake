@@ -1622,7 +1622,9 @@ class KubernetesExecutor(ClusterExecutor):
                         # finished
                         j.callback(j.job)
                         body = kubernetes.client.V1DeleteOptions()
-                        self.kubeapi.delete_namespaced_pod(j.jobid, self.namespace, body=body)
+                        self.kubeapi.delete_namespaced_pod(
+                            j.jobid, self.namespace, body=body
+                        )
                     else:
                         # still active
                         still_running.append(j)
