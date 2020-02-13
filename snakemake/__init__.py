@@ -144,6 +144,7 @@ def snakemake(
     google_lifesciences=False,
     google_lifesciences_envvars=None,
     google_lifesciences_regions=None,
+    google_lifesciences_location=None,
     google_lifesciences_cache=False,
     google_machine_type_prefix=None,
     precommand="",
@@ -259,6 +260,7 @@ def snakemake(
         google_lifesciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
         google_lifesciences_envvars (list):  environment variable keys to lookup and pass to pipeline.
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
+        google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
         google_machine_type_prefix (str): The prefix of a machine type to filter to, if desired.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
@@ -574,6 +576,7 @@ def snakemake(
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_envvars=google_lifesciences_envvars,
                     google_lifesciences_regions=google_lifesciences_regions,
+                    google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     google_machine_type_prefix=google_machine_type_prefix,
                     precommand=precommand,
@@ -613,6 +616,7 @@ def snakemake(
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_envvars=google_lifesciences_envvars,
                     google_lifesciences_regions=google_lifesciences_regions,
+                    google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     google_machine_type_prefix=google_machine_type_prefix,
                     precommand=precommand,
@@ -1750,6 +1754,14 @@ def get_argument_parser(profile=None):
         help="Specify one or more valid instance regions (defaults to US)",
     )
     group_google_life_science.add_argument(
+        "--google-lifesciences-location",
+        help="The Life Sciences API service used to schedule the jobs. "
+        " E.g., us-centra1 (Iowa) and europe-west-2 (London) "
+        " Watch the terminal output to see all options found to be available. "
+        " If not specified, defaults to the first found with a matching prefix "
+        " from regions specified with --google-lifesciences-regions.",
+    )
+    group_google_life_science.add_argument(
         "--google-lifesciences-keep-cache",
         action="store_true",
         help="Cache workflows in your Google Cloud Storage Bucket specified "
@@ -2157,6 +2169,7 @@ def main(argv=None):
             google_lifesciences=args.google_lifesciences,
             google_lifesciences_envvars=args.google_lifesciences_env,
             google_lifesciences_regions=args.google_lifesciences_regions,
+            google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
             google_machine_type_prefix=args.google_machine_type_prefix,
             precommand=args.precommand,

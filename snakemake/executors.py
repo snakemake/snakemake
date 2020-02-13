@@ -2154,6 +2154,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         printshellcmds=False,
         container_image=None,
         regions=None,
+        location=None,
         cache=False,
         machine_type_prefix=None,
         latency_wait=3,
@@ -2197,8 +2198,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self.container_image = container_image or get_container_image()
         self.regions = regions or ["us-east1", "us-west1", "us-central1"]
 
-        # Tell the user right away the regions and container
+        # Determine API location based on user preference, and then regions
+        self._set_location(location)
+
+        # Tell the user right away the regions, location, and container
         logger.debug("regions=%s" % self.regions)
+        logger.debug("location=%s" % self.location)
         logger.debug("container=%s" % self.container_image)
 
         # The project name is required, either from client or environment
@@ -2288,6 +2293,73 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         logger.debug("bucket=%s" % self.bucket.name)
         logger.debug("subdir=%s" % self.gs_subdir)
+
+    def _set_location(self, location=None):
+        """The location is where the Google Life Sciences API is located.
+           This can be meaningful if the requester has data residency
+           requirements or multi-zone needs. To determine this value,
+           we first use the locations API to determine locations available,
+           and then compare them against:
+
+           1. user specified location or prefix
+           2. regions having the same prefix
+           3. if cannot be satisifed, we throw an error.
+        """
+        # Derive available locations
+        # See https://cloud.google.com/life-sciences/docs/concepts/locations
+        locations = (
+            self._api.projects()
+            .locations()
+            .list(name="projects/snakemake-testing")
+            .execute()
+        )
+
+        locations = {x["locationId"]: x["name"] for x in locations.get("locations", [])}
+
+        # Alert the user about locations available
+        logger.debug("locations-available:\n%s" % "\n".join(locations))
+
+        # If no locations, there is something wrong
+        if not locations:
+            raise WorkflowError("No locations found for Google Life Sciences API.")
+
+        # First pass, attempt to match the user-specified location (or prefix)
+        if location:
+            if location in locations:
+                self.location = locations[location]
+                return
+
+            # It could be that a prefix was provided
+            for contender in locations:
+                if contender.startswith(location):
+                    self.location = locations[contender]
+                    return
+
+            # If we get here and no match, alert user.
+            raise WorkflowError(
+                "Location or prefix requested %s is not available." % location
+            )
+
+        # If we get here, we need to select location from regions
+        for region in self.regions:
+            if region in locations:
+                self.location = locations[region]
+                return
+
+        # If we get here, choose based on prefix
+        prefixes = set([r.split("-")[0] for r in self.regions])
+        regexp = "^(%s)" % "|".join(prefixes)
+        for location in locations:
+            if re.search(regexp, location):
+                self.location = locations[location]
+                return
+
+        # If we get here, total failure of finding location
+        raise WorkflowError(
+            " No locations available for regions!"
+            " Please specify a location with --google-lifesciences-location "
+            " or extend --google-lifesciences-regions to find a Life Sciences location."
+        )
 
     def shutdown(self):
         """shutdown deletes build packages if the user didn't request to clean
@@ -2646,22 +2718,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 "aren't yet supported for standard Docker runs."
             )
 
-        # Use the first provided location, no longer works to use *
-        # See https://cloud.google.com/life-sciences/docs/concepts/locations
-        locations = (
-            self._api.projects()
-            .locations()
-            .list(name="projects/snakemake-testing")
-            .execute()
-        )
-
-        # There is no suggested method for choosing, so we take the first
-        # assuming there is some logic in the order of presentation
-        try:
-            parent = locations["locations"][0]["name"]
-        except:
-            parent = "projects/%s/locations/*" % self.project
-        operation = pipelines.run(parent=parent, body=body)
+        # location looks like: "projects/<project>/locations/<location>"
+        operation = pipelines.run(parent=self.location, body=body)
 
         # 403 will result if no permission to use pipelines or project
         result = self._retry_request(operation)
