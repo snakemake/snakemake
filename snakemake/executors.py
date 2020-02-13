@@ -2638,11 +2638,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # The body of the request is a Pipeline and labels
         body = {"pipeline": pipeline, "labels": labels}
 
-        # This is how we might query locations
-        # Currently only available us-central1 so leave as *
-        # See https://cloud.google.com/life-sciences/docs/concepts/locations
-        # locations = self._api.projects().locations().list(name="projects/snakemake-testing").execute()
-
         # capabilities - this won't currently work (Singularity in Docker)
         # We either need to add CAPS or run in privileged mode (ehh)
         if job.needs_singularity and self.workflow.use_singularity:
@@ -2651,8 +2646,21 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 "aren't yet supported for standard Docker runs."
             )
 
-        # Note that locations might need to be filtered down
-        parent = "projects/%s/locations/*" % self.project
+        # Use the first provided location, no longer works to use *
+        # See https://cloud.google.com/life-sciences/docs/concepts/locations
+        locations = (
+            self._api.projects()
+            .locations()
+            .list(name="projects/snakemake-testing")
+            .execute()
+        )
+
+        # There is no suggested method for choosing, so we take the first
+        # assuming there is some logic in the order of presentation
+        try:
+            parent = locations["locations"][0]["name"]
+        except:
+            parent = "projects/%s/locations/*" % self.project
         operation = pipelines.run(parent=parent, body=body)
 
         # 403 will result if no permission to use pipelines or project
