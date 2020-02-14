@@ -8,7 +8,6 @@ import sys
 import contextlib
 import time
 import datetime
-import google
 import json
 import textwrap
 import stat
@@ -2239,6 +2238,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
            for Life Sciences, and use the google storage python client 
            for storage.
         """
+        import google
         from googleapiclient.discovery import build as discovery_build
         from oauth2client.client import (
             GoogleCredentials,
