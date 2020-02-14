@@ -63,14 +63,14 @@ jobs:
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
-        if env.AWS_AVAILABLE
+        if: env.AWS_AVAILABLE
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
       - name: Test AWS execution
-        if: success()
+        if: env.AWS_AVAILABLE && success()
         env: 
           CI: true
         run: |
