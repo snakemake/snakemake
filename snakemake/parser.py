@@ -716,6 +716,16 @@ class Checkpoint(Rule):
         yield from super().start(aux=", checkpoint=True")
 
 
+# TODO add a keyword Service(Rule), that allows to define
+# a service (i.e. a job that has to run along with all consuming
+# jobs, before being terminated. This can be used to integrate
+# the invocation of databases, or setting up shared memory
+# allocation (e.g. for loading a STAR index before mapping).
+# A service is automatically submitted together with its consuming
+# jobs. Moreover, there can be multiple instances of the same
+# service for multiple groups.
+
+
 class OnSuccess(DecoratorKeywordState):
     decorator = "onsuccess"
     args = ["log"]
