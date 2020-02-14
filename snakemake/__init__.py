@@ -1071,6 +1071,16 @@ def get_argument_parser(profile=None):
         ),
     )
 
+    # TODO add group_partitioning, allowing to define --group rulename=groupname.
+    # i.e. setting groups via the CLI for improving cluster performance given 
+    # available resources.
+    # TODO add an additional flag --group-components groupname=3, allowing to set the
+    # number of connected components a group is allowed to span. By default, this is 1
+    # (as now), but the flag allows to extend this. This can be used to run e.g. 
+    # 3 jobs of the same rule in the same group, although they are not connected.
+    # Can be helpful for putting together many small jobs or benefitting of shared memory
+    # setups.
+
     group_utils = parser.add_argument_group("UTILITIES")
 
     group_utils.add_argument(
