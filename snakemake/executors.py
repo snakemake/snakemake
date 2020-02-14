@@ -2238,7 +2238,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
            for Life Sciences, and use the google storage python client 
            for storage.
         """
-        import google
         from googleapiclient.discovery import build as discovery_build
         from oauth2client.client import (
             GoogleCredentials,
@@ -2267,6 +2266,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
            ==========
            workflow: the workflow object to derive the prefix from
         """
+        import google
+
         # Hold path to requested subdirectory and main bucket
         bucket_name = self.workflow.default_remote_prefix.split("/")[0]
         self.gs_subdir = re.sub(
