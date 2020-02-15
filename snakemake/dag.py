@@ -988,7 +988,9 @@ class DAG:
                 if job.group is None:
                     self._ready_jobs.add(job)
                 else:
-                    candidate_groups.add(self._group[job])
+                    group = self._group[job]
+                    group.finalize()
+                    candidate_groups.add(group)
 
         self._ready_jobs.update(
             group
