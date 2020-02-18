@@ -1625,6 +1625,10 @@ class KubernetesExecutor(ClusterExecutor):
                     elif res.status.phase == "Succeeded":
                         # finished
                         j.callback(j.job)
+                        body = kubernetes.client.V1DeleteOptions()
+                        self.kubeapi.delete_namespaced_pod(
+                            j.jobid, self.namespace, body=body
+                        )
                     else:
                         # still active
                         still_running.append(j)
@@ -1857,7 +1861,7 @@ class TibannaExecutor(ClusterExecutor):
             output_target[os.path.join(file_prefix, op_rel)] = "s3://" + op
 
         # mem & cpu
-        mem = job.resources["mem_mb"] / 1024 if "mem_mb" in job.resources else 1
+        mem = job.resources["mem_mb"] / 1024 if "mem_mb" in job.resources.keys() else 1
         cpu = job.threads
 
         # jobid, grouping, run_name
