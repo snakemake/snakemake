@@ -2458,12 +2458,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         keepers = dict()
 
         # Also keep track of max cpus and memory, in case none available
-        maxCpu = 1
-        maxMem = 100
+        max_cpu = 1
+        max_mem = 100
 
         for name, machine_type in machine_types.items():
-            maxCpu = max(maxCpu, machine_type["guestCpus"])
-            maxMem = max(maxMem, machine_type["memoryMb"])
+            max_cpu = max(max_cpu, machine_type["guestCpus"])
+            max_mem = max(max_mem, machine_type["memoryMb"])
             if machine_type["guestCpus"] < cores or machine_type["memoryMb"] < mem_mb:
                 continue
             keepers[name] = machine_type
@@ -2493,8 +2493,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                     "corresponding rule.".format(
                         requestMemory=mem_mb,
                         requestCpu=cores,
-                        availableCpu=maxCpu,
-                        availableMemory=maxMem,
+                        availableCpu=max_cpu,
+                        availableMemory=max_mem,
                     )
                 )
 
