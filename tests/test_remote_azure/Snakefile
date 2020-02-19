@@ -6,14 +6,17 @@ from snakemake.remote.AzureStorage import RemoteProvider as AzureRemoteProvider
 
 # setup Azure Storage for remote access
 # for testing these variable can be added to CircleCI
-account_key=os.environ['AZURE_KEY']
 account_name=os.environ['AZURE_ACCOUNT']
-AS = AzureRemoteProvider(account_name=account_name, account_key=account_key)
+account_key=os.environ.get('AZURE_KEY')
+sas_token=os.environ.get('SAS_TOKEN')
+assert sas_token or account_key, ("Either SAS_TOKEN or AZURE_KEY have to be set")
+AS = AzureRemoteProvider(account_name=account_name,
+    account_key=account_key, sas_token=sas_token)
 
 
 rule upload_to_azure_storage:
     input:
-        "data/test.txt.gz"
+        "test.txt.gz"
     output:
         AS.remote("snakemake-test/data_upload/test.txt.gz")
     run:

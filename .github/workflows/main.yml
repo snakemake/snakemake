@@ -7,8 +7,6 @@ on:
   pull_request:
     branches_ignore: []
 
-
-
 jobs:
   formatting:
     runs-on: ubuntu-latest
@@ -72,7 +70,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Test AWS execution
-        if: env.AWS_AVAILABLE
+        if: env.AWS_AVAILABLE && success()
         env: 
           CI: true
         run: |
