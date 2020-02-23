@@ -2218,6 +2218,11 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Keep track of build packages to clean up shutdown
         self._build_packages = set()
 
+        # Save default resources to add later, since we need to add custom
+        # default resources depending on the instance requested
+        self.default_resources = self.workflow.default_resources
+        self.workflow.default_resources.args = None
+
         super().__init__(
             workflow,
             dag,
@@ -2404,11 +2409,20 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """
         # Right now, do a best effort mapping of resources to instance types
         cores = job.resources.get("_cores", 1)
-        mem_mb = job.resources.get("mem_mb", 100)
+        mem_mb = job.resources.get("mem_mb", 15360)
         disk_mb = job.resources.get("disk_mb", 128000)
 
         # Convert mb to gb, add buffer of 50
         disk_gb = math.ceil(disk_mb / 1024) + 10
+
+        # Update default resources using decided memory and disk
+        self.workflow.default_resources = self.default_resources
+        self.workflow.default_resources.args = [
+            "mem_mb=%s" % mem_mb,
+            "disk_mb=%s" % disk_mb,
+        ]
+        self.workflow.default_resources.parsed["mem_mb"] = mem_mb
+        self.workflow.default_resources.parsed["disk_mb"] = disk_mb
 
         # Regular expression to determine if zone in region
         regexp = "^(%s)" % "|".join(self.regions)
@@ -2459,7 +2473,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # Also keep track of max cpus and memory, in case none available
         max_cpu = 1
-        max_mem = 100
+        max_mem = 15360
 
         for name, machine_type in machine_types.items():
             max_cpu = max(max_cpu, machine_type["guestCpus"])
@@ -2610,9 +2624,13 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """
         # Derive the entrypoint command, the same content that might be written by self.get_jobscript(job)
         use_threads = "--force-use-threads" if not job.is_group() else ""
+
         exec_job = self.format_job(
             self.exec_job, job, _quote_all=True, use_threads=use_threads
         )
+
+        # Now that we've parsed the job resource requirements, add to exec
+        exec_job += self.get_default_resources_args()
 
         # The full command to download the archive, extract, and run
         # For snakemake bases, we must activate the conda environment, but
@@ -2679,8 +2697,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             blob.upload_from_filename(targz, content_type="application/gzip")
 
         # Generate actions (one per job) and resources
-        action = self._generate_job_action(job)
         resources = self._generate_job_resources(job)
+        action = self._generate_job_action(job)
 
         pipeline = {
             # Ordered list of actions to execute
