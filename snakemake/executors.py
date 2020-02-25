@@ -2771,7 +2771,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/Event
         for event in status["metadata"]["events"]:
 
-            logger.info(event["description"])
+            logger.debug(event["description"])
 
             # Does it always result in fail for other failure reasons?
             if "failed" in event:
