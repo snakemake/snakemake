@@ -2789,7 +2789,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                     msg = "%s" % event["description"]
                     if "stderr" in action:
                         msg += ": %s" % action["stderr"]
-                        logger.error(msg)
+                        logger.debug(msg)
 
         return success
 
