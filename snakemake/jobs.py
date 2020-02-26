@@ -642,7 +642,8 @@ class Job(AbstractJob):
                 pass
 
         for f in self.log:
-            f.remove(remove_non_empty_dir=False)
+            if not is_flagged(f, "preserve"):
+                f.remove(remove_non_empty_dir=False)
 
     def download_remote_input(self):
         for f in self.files_to_download:

@@ -1,0 +1,18 @@
+
+
+rule rule2:
+    output: "test.out"
+    input: "rule1.txt"
+    log: preserve("test.log")
+    shell: "touch {output} && echo rule2 >> {log}"
+
+rule rule0:
+    output: "rule0.txt"
+    log: "test.log"
+    shell: "touch {output} && echo rule0 >> {log}"
+
+rule rule1:
+    output: "rule1.txt"
+    input: "rule0.txt"
+    log: "test.log"
+    shell: "touch {output} && echo rule1 >> {log}"

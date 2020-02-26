@@ -48,6 +48,7 @@ from snakemake.io import (
     unpack,
     local,
     pipe,
+    preserve,
     repeat,
     report,
     multiext,

@@ -816,6 +816,11 @@ def temporary(value):
     return temp(value)
 
 
+def preserve(value):
+    """ A flag for log files that should not be removed prior to execution. """
+    return flag(value, "preserve")
+
+
 def protected(value):
     """ A flag for a file that shall be write protected after creation. """
     if is_flagged(value, "temp"):

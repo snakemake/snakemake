@@ -672,7 +672,7 @@ def gcloud_cluster():
                     default_remote_provider="GS",
                     default_remote_prefix=self.bucket_name,
                     no_tmpdir=True,
-                    **kwargs
+                    **kwargs,
                 )
             except Exception as e:
                 shell(
@@ -976,3 +976,12 @@ def test_core_dependent_threads():
 
 def test_env_modules():
     run(dpath("test_env_modules"), use_env_modules=True)
+
+
+def test_preserve():
+    """ Ensure that the preserve flag added to a log file results in its not being
+        deleted. Check that the log file contains results of rule1 and rule2.  """
+    tmpdir = run(dpath("test_preserve"), cleanup=False)
+    with open(f"{tmpdir}/test.log") as logfile:
+        assert logfile.read() == "rule1\nrule2\n"
+    shutil.rmtree(tmpdir)

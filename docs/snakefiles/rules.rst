@@ -415,6 +415,16 @@ Note that it is also supported to have multiple (named) log files being specifie
         shell: "somecommand --log {log.log1} METRICS_FILE={log.log2} {input} {output}"
 
 
+If an existing log file should not be removed before the rule executes, wrap the filename in ``preserve()``.
+Use this if your cluster software opens log files for output streams *before* running the jobscript.
+This circumvents certain issues with empty log files or failing cluster jobs, due to the log file having
+been deleted while the cluster is trying to write to it.
+
+
+.. code-block:: python
+
+    log: preserve("logs/cluster-job.stdout")
+
 
 Non-file parameters for rules
 -----------------------------
