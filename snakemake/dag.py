@@ -1208,6 +1208,7 @@ class DAG:
             wildcards_dict=wildcards_dict,
             format_wildcards=format_wildcards,
             targetfile=targetfile,
+            keep_remote_local=self.keep_remote_local,
         )
         self.cache_job(job)
         return job

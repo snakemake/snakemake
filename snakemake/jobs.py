@@ -108,10 +108,17 @@ class Job(AbstractJob):
     ]
 
     def __init__(
-        self, rule, dag, wildcards_dict=None, format_wildcards=None, targetfile=None
+        self,
+        rule,
+        dag,
+        wildcards_dict=None,
+        format_wildcards=None,
+        targetfile=None,
+        keep_remote_local=False,
     ):
         self.rule = rule
         self.dag = dag
+        self.keep_remote_local = keep_remote_local
 
         # the targetfile that led to the job
         # it is important to record this, since we need it to submit the
@@ -758,7 +765,9 @@ class Job(AbstractJob):
         """ Cleanup output files. """
         to_remove = [f for f in self.expanded_output if f.exists]
 
-        to_remove.extend([f for f in self.remote_input if f.exists_local])
+        if not self.keep_remote_local:
+            to_remove.extend([f for f in self.remote_input if f.exists_local])
+
         to_remove.extend(
             [
                 f
