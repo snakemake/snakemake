@@ -80,7 +80,7 @@ class shell:
             cls._processes.clear()
 
     def __new__(
-        cls, cmd, *args, iterable=False, read=False, bench_record=None, **kwargs
+        cls, cmd, *args, iterable=False, read=False, bench_record=None, threads=1, **kwargs
     ):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
@@ -102,6 +102,14 @@ class shell:
         singularity_img = context.get("singularity_img", None)
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
+
+        # environment variable list for linear algebra libraries taken from:
+        # https://stackoverflow.com/a/53224849/2352071
+        cls._process_prefix +=  f"export OMP_NUM_THREADS={threads} ; " \
+                                f"export OPENBLAS_NUM_THREADS={threads} ; " \
+                                f"export MKL_NUM_THREADS={threads} ; " \
+                                f"export VECLIB_MAXIMUM_THREADS={threads} ; " \
+                                f"export NUMEXPR_NUM_THREADS={threads} ; "
 
         cmd = "{} {} {}".format(
             cls._process_prefix, cmd.strip(), cls._process_suffix
