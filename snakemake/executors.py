@@ -1646,6 +1646,7 @@ class TibannaExecutor(ClusterExecutor):
         cores,
         tibanna_sfn,
         precommand="",
+        spot_instance=False,
         container_image=None,
         printreason=False,
         quiet=False,
@@ -1874,6 +1875,7 @@ class TibannaExecutor(ClusterExecutor):
             "cpu": cpu,
             "ebs_size": math.ceil(job.resources["disk_mb"] / 1024),
             "log_bucket": self.s3_bucket,
+            "spot_instance": self.spot_instance
         }
         tibanna_args = ec2_utils.Args(
             output_S3_bucket=self.s3_bucket,

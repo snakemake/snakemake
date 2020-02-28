@@ -144,6 +144,7 @@ def snakemake(
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
+    spot_instance=False,
     assume_shared_fs=True,
     cluster_status=None,
     export_cwl=None,
@@ -252,6 +253,7 @@ def snakemake(
         tibanna (str):              submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
+        spot_instance (bool):       use spot instance for Tibanna if true (default false)
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         export_cwl (str):           Compile workflow to CWL and save to given file
@@ -553,6 +555,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     precommand=precommand,
+                    spot_instance=spot_instance,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
                     max_jobs_per_second=max_jobs_per_second,
@@ -587,6 +590,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     precommand=precommand,
+                    spot_instance=spot_instance,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     printd3dag=printd3dag,
@@ -1694,6 +1698,10 @@ def get_argument_parser(profile=None):
         " between S3 bucket and the run environment (container) is automatically"
         " handled by Tibanna.",
     )
+    group_tibanna.add_argument(
+        "--spot-instance",
+        help="use spot instance if true (default false) "
+    )
 
     group_conda = parser.add_argument_group("CONDA")
 
@@ -2088,6 +2096,7 @@ def main(argv=None):
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
             precommand=args.precommand,
+            spot_instance=args.spot_instance,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,
             standalone=True,
