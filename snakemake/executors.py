@@ -1712,6 +1712,7 @@ class TibannaExecutor(ClusterExecutor):
             disable_default_remote_provider_args=True,
         )
         self.container_image = container_image or get_container_image()
+        self.spot_instance = spot_instance
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary

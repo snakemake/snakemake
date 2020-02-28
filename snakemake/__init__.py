@@ -1700,7 +1700,8 @@ def get_argument_parser(profile=None):
     )
     group_tibanna.add_argument(
         "--spot-instance",
-        help="use spot instance if true (default false) "
+        action="store_true",
+        help="use spot instance if true (default false).",
     )
 
     group_conda = parser.add_argument_group("CONDA")
