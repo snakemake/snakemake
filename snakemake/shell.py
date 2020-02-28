@@ -80,7 +80,14 @@ class shell:
             cls._processes.clear()
 
     def __new__(
-        cls, cmd, *args, iterable=False, read=False, bench_record=None, threads=1, **kwargs
+        cls,
+        cmd,
+        *args,
+        iterable=False,
+        read=False,
+        bench_record=None,
+        threads=1,
+        **kwargs,
     ):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
@@ -105,11 +112,13 @@ class shell:
 
         # environment variable list for linear algebra libraries taken from:
         # https://stackoverflow.com/a/53224849/2352071
-        cls._process_prefix +=  f"export OMP_NUM_THREADS={threads} ; " \
-                                f"export OPENBLAS_NUM_THREADS={threads} ; " \
-                                f"export MKL_NUM_THREADS={threads} ; " \
-                                f"export VECLIB_MAXIMUM_THREADS={threads} ; " \
-                                f"export NUMEXPR_NUM_THREADS={threads} ; "
+        cls._process_prefix += (
+            f"export OMP_NUM_THREADS={threads} ; "
+            f"export OPENBLAS_NUM_THREADS={threads} ; "
+            f"export MKL_NUM_THREADS={threads} ; "
+            f"export VECLIB_MAXIMUM_THREADS={threads} ; "
+            f"export NUMEXPR_NUM_THREADS={threads} ; "
+        )
 
         cmd = "{} {} {}".format(
             cls._process_prefix, cmd.strip(), cls._process_suffix
@@ -142,7 +151,7 @@ class shell:
             stdout=stdout,
             universal_newlines=iterable or None,
             close_fds=close_fds,
-            **cls._process_args
+            **cls._process_args,
         )
 
         if jobid is not None:
