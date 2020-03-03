@@ -86,7 +86,6 @@ class shell:
         iterable=False,
         read=False,
         bench_record=None,
-        threads=1,
         **kwargs,
     ):
         if "stepout" in kwargs:
@@ -110,18 +109,21 @@ class shell:
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
 
-        # environment variable list for linear algebra libraries taken from:
+        threads = context.get("threads", 1)
+        # environment variable lists for linear algebra libraries taken from:
         # https://stackoverflow.com/a/53224849/2352071
-        cls._process_prefix += (
+        # https://github.com/xianyi/OpenBLAS/tree/59243d49ab8e958bb3872f16a7c0ef8c04067c0a#setting-the-number-of-threads-using-environment-variables
+        env_vars = (
             f"export OMP_NUM_THREADS={threads} ; "
+            f"export GOTO_NUM_THREADS={threads} ; "
             f"export OPENBLAS_NUM_THREADS={threads} ; "
             f"export MKL_NUM_THREADS={threads} ; "
             f"export VECLIB_MAXIMUM_THREADS={threads} ; "
             f"export NUMEXPR_NUM_THREADS={threads} ; "
         )
 
-        cmd = "{} {} {}".format(
-            cls._process_prefix, cmd.strip(), cls._process_suffix
+        cmd = "{} {} {} {}".format(
+            cls._process_prefix, env_vars, cmd.strip(), cls._process_suffix
         ).strip()
 
         if env_modules:

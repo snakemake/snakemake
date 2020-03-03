@@ -340,7 +340,6 @@ class ScriptBase(ABC):
             singularity_img=self.singularity_img,
             shadow_dir=self.shadow_dir,
             env_modules=self.env_modules,
-            threads=self.threads,
             **kwargs
         )
 
