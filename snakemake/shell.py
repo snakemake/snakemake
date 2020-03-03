@@ -80,13 +80,7 @@ class shell:
             cls._processes.clear()
 
     def __new__(
-        cls,
-        cmd,
-        *args,
-        iterable=False,
-        read=False,
-        bench_record=None,
-        **kwargs,
+        cls, cmd, *args, iterable=False, read=False, bench_record=None, **kwargs,
     ):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
