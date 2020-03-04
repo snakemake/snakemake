@@ -475,6 +475,8 @@ class JobScheduler:
         import pulp
         import math
         from pulp import lpSum
+
+        # assert self.resources["_cores"] > 0
         print(f"Possible Jobs: {list(jobs)}")
         scheduled_jobs = [pulp.LpVariable(f"job_{job}_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger) for idx, job in enumerate(jobs)]
 
@@ -495,15 +497,18 @@ class JobScheduler:
             + lpSum([temp_job_improvement[temp_file] * temp_file.size for temp_file in temp_files])
 
         #Constraints:
-        for (name, resource_limit) in  self.workflow.global_resources.items():
-            prob += lpSum([scheduled_jobs[i] * job.resources.get(name, 0) for i, job in enumerate(jobs)]) <= resource_limit, f"Limitation of resource: {name}"
+        for name in self.workflow.global_resources:
+            prob += lpSum([scheduled_jobs[i] * job.resources.get(name, 0) for i, job in enumerate(jobs)]) <= self.resources[name], f"Limitation of resource: {name}"
         
         #Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
         for temp_file in temp_files:
             prob += temp_job_improvement[temp_file] <= lpSum([scheduled_jobs[i] * self.required_by_job(temp_file, job) for i, job in enumerate(jobs)]) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
 
         prob.solve()
-        solution = [jobs[int(variable.name.split("_")[-1])] for variable in prob.variables() if (variable.name.startswith("job_") and variable.value() == 1.0)]
+        selected_job_ids = [int(variable.name.split("_")[-1]) for variable in prob.variables() if (variable.name.startswith("job_") and variable.value() == 1.0)] 
+        for name in self.workflow.global_resources:
+            self.resources[name] -= sum([jobs[i].resources.get(name, 0) for i in selected_job_ids])
+        solution = [jobs[i] for i in selected_job_ids]
         print(f"Scheduled jobs: {solution}")
         return solution
 
