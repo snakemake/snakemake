@@ -18,7 +18,7 @@ import subprocess as sp
 import itertools
 import csv
 from collections import namedtuple, defaultdict
-
+from intervaltree import IntervalTree
 import requests
 
 from docutils.parsers.rst.directives.images import Image, Figure
@@ -587,6 +587,23 @@ def auto_report(dag, path):
     for catresults in results.values():
         catresults.sort(key=lambda res: res.name)
 
+    #prepare threads
+    end, itree, jobs = build_interval_tree(records)
+    step_size = 10
+    threads = []
+    for i in range(0, end+step_size, step_size):
+        inactivate_jobs = jobs.copy()
+        for _, _, rec in itree.at(i):
+            del inactivate_jobs[rec["job"]]
+            rec["time"] = i
+            threads.append(rec.copy())
+        for rec in inactivate_jobs.values():
+            inactivate_rec = rec.copy()
+            inactivate_rec["time"] = i
+            inactivate_rec["threads"] = 0
+            threads.append(inactivate_rec)
+
+
     # prepare runtimes
     runtimes = [
         {"rule": rec.rule, "runtime": rec.endtime - rec.starttime}
@@ -694,6 +711,7 @@ def auto_report(dag, path):
                 rulegraph_height=ymax + 20,
                 runtimes=runtimes,
                 timeline=timeline,
+                threads=threads,
                 rules=[rec for recs in rules.values() for rec in recs],
                 version=__version__,
                 now=now,
@@ -701,3 +719,24 @@ def auto_report(dag, path):
             )
         )
     logger.info("Report created.")
+
+
+def build_interval_tree(records):
+    itree = IntervalTree()
+    start_time = None
+    end_time = 0
+    total_jobs = dict()
+    for rec in sorted(records.values(), key=lambda rec: rec.starttime):
+        if not start_time:
+            start_time = rec.starttime
+        if rec.endtime > end_time:
+            end_time = rec.endtime
+        job_started = round(rec.starttime-start_time, 0)
+        job_ended = round(rec.endtime-start_time, 0)
+        job_data = {"threads": rec.job.threads, "rule": rec.rule, "job": rec.job.jobid}
+        itree.addi(job_started, job_ended, job_data)
+        if not rec.job.jobid in total_jobs:
+            total_jobs[rec.job.jobid] = job_data
+    end = int(end_time - start_time)
+    print(itree)
+    return end, itree, total_jobs

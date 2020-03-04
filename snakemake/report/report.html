@@ -402,6 +402,9 @@
             <div class="col-xs-6">
               <div id="timeline" class="plot"></div>
             </div>
+            <div class="col-xs-6">
+              <div id="threads" class="plot"></div>
+            </div>
           </div>
 
           {% if configfiles %}
@@ -637,6 +640,36 @@
         ]
       };
       vegaEmbed("#rulegraph", rulegraph_spec);
+
+      var threads_spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
+        "data": {"values": {{ threads }}},
+        "mark": {"type": "area",
+                "interpolate": "step"},
+        "encoding": {
+          "x": {
+            "field": "time", "type": "temporal",
+            "axis": {
+              "title": "creation date"
+            }
+          },
+          "y": {
+            "aggregate": "sum", "field": "threads", "type": "quantitative"
+          },
+          "color": {
+            "field": "job",
+            "type": "nominal",
+            "scale": {"scheme": "category20b"},
+            "legend": false
+          },
+          "tooltip": [
+            {"field": "job", "type": "quantitative"},
+            {"field": "rule", "type": "ordinal"},
+            {"field": "threads", "type": "quantitative"},
+          ]
+        }
+      };
+      vegaEmbed("#threads", threads_spec);
 
       var runtimes_spec = {
         "$schema": "https://vega.github.io/schema/vega-lite/v2.json",
