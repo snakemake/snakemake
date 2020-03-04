@@ -22,9 +22,18 @@ jobs:
           source activate black
           black --check snakemake tests/*.py
 
+      - name: Comment PR
+        if: github.event_name == 'pull_request' && failure()
+        uses: marocchino/sticky-pull-request-comment@v1.1.0
+        with:
+          message: 'Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`.'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   testing:
     runs-on: ubuntu-latest
     needs: formatting
+    env:
+      AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
     steps:
       - uses: actions/checkout@v1
       
@@ -46,25 +55,30 @@ jobs:
         env:
           CI: true
         run: |
-          # enable coverage recording for subprocesses
-                echo -e "try:\n    import coverage\n    coverage.process_startup()\nexcept:\n    pass" > sitecustomize.py
-          export COVERAGE_PROCESS_START=.coveragerc
-
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
           
-          # run tests
-          coverage run -m pytest tests/test*.py -v -x
+          pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/tests.py
 
-          # collect coverage report
-          #coverage combine
-          #coverage xml
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        if: env.AWS_AVAILABLE
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-          #- name: Upload coverage report
-          #uses: codecov/codecov-action@v1.0.3
-          #with:
-          #token: ${{secrets.CODECOV_TOKEN}}
+      - name: Test AWS execution
+        if: env.AWS_AVAILABLE && success()
+        env: 
+          CI: true
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+
+          pytest -v -x tests/test_tibanna.py
 
       - name: Build container image
         run: docker build .

@@ -1,0 +1,45 @@
+rule all:
+    input: "test.out"
+
+rule singularity_ok:
+    input:
+        "test_a.out",
+        "test_b.out",
+        "test_c.out"
+    output:
+        touch("test.out")
+    shell:
+        """
+        test ! -f junk_a.out
+        test ! -f junk_b.out
+        test ! -f junk_c.out
+        """
+
+rule a:
+    output:
+        "test_a.out"
+    singularity:
+        "docker://bash"
+    shadow:
+        "minimal"
+    shell:
+        'echo 1 > junk_a.out; echo "test" > {output}'
+
+rule b:
+    output:
+        "test_b.out"
+    shadow:
+        "minimal"
+    shell:
+        'echo 1 > junk_b.out; echo "test" > {output}'
+
+rule c:
+    output:
+        "test_c.out"
+    shadow:
+        "minimal"
+    run:
+        with open(output[0], 'w') as fp:
+            print("test", file=fp)
+        with open('junk_c.out', 'w') as fp:
+            print("junk", file=fp)

@@ -127,9 +127,11 @@ populate it with True for all entries.
 
 .. _snakefiles-cluster_configuration:
 
----------------------
-Cluster Configuration
----------------------
+----------------------------------
+Cluster Configuration (deprecated)
+----------------------------------
+
+While still being possible, **cluster configuration has been deprecated** by the introduction of :ref:`profiles`.
 
 Snakemake supports a separate configuration file for execution on a cluster.
 A cluster config file allows you to specify cluster submission parameters outside the Snakefile.

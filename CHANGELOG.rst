@@ -1,3 +1,61 @@
+[5.10.0] - 2019-01-20
+=====================
+Added
+-----
+- Jupyter notebook integration, see docs. This enables interactive development of certain data analysis parts (e.g. for plotting).
+- Ability to overwrite thread definitions at the command line (``--threads rulename=3``), thereby improving scalability.
+- Requester pays configuration for google storage remote files.
+- Add keyword ``allow_missing`` to expand function, thereby allowing partical expansion by skipping wildcards for which no keywords are defined.
+
+Changed
+-------
+- Various bug fixes, e.g. for between workflow caching and script execution.
+
+[5.9.1] - 2019-12-20
+====================
+Changed
+-------
+- Added a missing module.
+
+[5.9.0] - 2019-12-20
+====================
+Added
+-----
+- Support for per-rule environment module definitions to enable HPC specific software deployment (see docs).
+- Allow custom log handler defitions via --log-handler-script (e.g. post errors and progress to a slack channel or send emails).
+- Allow setting threads as a function of the given cores (see docs).
+Changed
+-------
+- Various minor fixes.
+
+[5.8.2] - 2019-12-16
+====================
+Added
+-----
+- Implemented a ``multiext`` helper, allowing to define a set of output files that just differ by extension.
+Changed
+-------
+- Fixed a failure when caching jobs with conda environments.
+- Fixed various minor bugs.
+- Caching now allows to cache the output of rules using ``multiext``.
+
+[5.8.1] - 2019-11-15
+====================
+Changed
+-------
+- Fixed a bug by adding a missing module.
+
+[5.8.0] - 2019-11-15
+====================
+Added
+-----
+- Blockchain based caching between workflows (in collaboration with Sven Nahnsen from QBiC), see `the docs <https://snakemake.readthedocs.io/en/v5.8.0/executing/caching.html>`_.
+- New flag --skip-cleanup-scripts, that leads to temporary scripts (coming from script or wrapper directive) are not deleted (by Vanessa Sochat).
+Changed
+-------
+- Various bug fixes.
+
+
 [5.7.4] - 2019-10-23
 ====================
 Changed

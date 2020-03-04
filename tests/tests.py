@@ -3,172 +3,16 @@ __copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-import sys
 import os
-import shutil
-from os.path import join
-from subprocess import call
-import tempfile
-import hashlib
-import urllib
-from shutil import rmtree, which
-from shlex import quote
-import pytest
-import subprocess
+import sys
 
-from snakemake import snakemake
-from snakemake.shell import shell
+sys.path.insert(0, os.path.dirname(__file__))
+
+from common import *
 
 
-def dpath(path):
-    """get path to a data file (relative to the directory this
-	test lives in)"""
-    return os.path.realpath(join(os.path.dirname(__file__), path))
-
-
-def md5sum(filename):
-    data = open(filename, "rb").read()
-    return hashlib.md5(data).hexdigest()
-
-
-# test skipping
-def is_connected():
-    try:
-        urllib.request.urlopen("http://www.google.com", timeout=1)
-        return True
-    except urllib.request.URLError:
-        return False
-
-
-def is_ci():
-    return "CI" in os.environ
-
-
-def has_gcloud_service_key():
-    return "GCLOUD_SERVICE_KEY" in os.environ
-
-
-def has_gcloud_cluster():
-    return "GCLOUD_CLUSTER" in os.environ
-
-
-gcloud = pytest.mark.skipif(
-    not is_connected() or not has_gcloud_service_key() or not has_gcloud_cluster(),
-    reason="Skipping GCLOUD tests because not on "
-    "CI, no inet connection or not logged "
-    "in to gcloud.",
-)
-
-connected = pytest.mark.skipif(not is_connected(), reason="no internet connection")
-
-ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
-not_ci = pytest.mark.skipif(is_ci(), reason="skipped in CI")
-
-
-def copy(src, dst):
-    if os.path.isdir(src):
-        shutil.copytree(src, os.path.join(dst, os.path.basename(src)))
-    else:
-        shutil.copy(src, dst)
-
-
-def run(
-    path,
-    shouldfail=False,
-    snakefile="Snakefile",
-    subpath=None,
-    no_tmpdir=False,
-    check_md5=True,
-    cores=3,
-    set_pythonpath=True,
-    cleanup=True,
-    **params
-):
-    """
-    Test the Snakefile in path.
-    There must be a Snakefile in the path and a subdirectory named
-    expected-results. If cleanup is False, we return the temporary
-    directory to the calling test for inspection, and the test should
-    clean it up.
-    """
-    if set_pythonpath:
-        # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
-        # when subprocesses are invoked in the tempdir defined below.
-        os.environ["PYTHONPATH"] = os.getcwd()
-    else:
-        del os.environ["PYTHONPATH"]
-
-    results_dir = join(path, "expected-results")
-    snakefile = join(path, snakefile)
-    assert os.path.exists(snakefile)
-    assert os.path.exists(results_dir) and os.path.isdir(
-        results_dir
-    ), "{} does not exist".format(results_dir)
-
-    # If we need to further check results, we won't cleanup tmpdir
-    tmpdir = next(tempfile._get_candidate_names())
-    tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
-    os.mkdir(tmpdir)
-
-    config = {}
-
-    # handle subworkflow
-    if subpath is not None:
-        # set up a working directory for the subworkflow and pass it in `config`
-        # for now, only one subworkflow is supported
-        assert os.path.exists(subpath) and os.path.isdir(
-            subpath
-        ), "{} does not exist".format(subpath)
-        subworkdir = os.path.join(tmpdir, "subworkdir")
-        os.mkdir(subworkdir)
-
-        # copy files
-        for f in os.listdir(subpath):
-            copy(os.path.join(subpath, f), subworkdir)
-        config["subworkdir"] = subworkdir
-
-    # copy files
-    for f in os.listdir(path):
-        print(f)
-        copy(os.path.join(path, f), tmpdir)
-
-    # run snakemake
-    success = snakemake(
-        snakefile,
-        cores=cores,
-        workdir=path if no_tmpdir else tmpdir,
-        stats="stats.txt",
-        config=config,
-        **params
-    )
-    if shouldfail:
-        assert not success, "expected error on execution"
-    else:
-        assert success, "expected successful execution"
-        for resultfile in os.listdir(results_dir):
-            if resultfile == ".gitignore" or not os.path.isfile(
-                os.path.join(results_dir, resultfile)
-            ):
-                # this means tests cannot use directories as output files
-                continue
-            targetfile = join(tmpdir, resultfile)
-            expectedfile = join(results_dir, resultfile)
-            assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(
-                resultfile
-            )
-            if check_md5:
-                # if md5sum(targetfile) != md5sum(expectedfile):
-                #     import pdb; pdb.set_trace()
-                if md5sum(targetfile) != md5sum(expectedfile):
-                    with open(targetfile) as target:
-                        content = target.read()
-                    assert False, 'wrong result produced for file "{}":\n{}'.format(
-                        resultfile, content
-                    )
-
-    if not cleanup:
-        return tmpdir
-    shutil.rmtree(tmpdir)
+def test_list_untracked():
+    run(dpath("test_list_untracked"))
 
 
 def test_delete_all_output():
@@ -270,10 +114,6 @@ def test_directory():
 
 def test_ancient():
     run(dpath("test_ancient"), targets=["D", "old_file"])
-
-
-def test_list_untracked():
-    run(dpath("test_list_untracked"))
 
 
 def test_report():
@@ -522,7 +362,6 @@ def test_spaces_in_fnames():
         dpath("test_spaces_in_fnames"),
         # cluster="./qsub",
         targets=["test bam file realigned.bam"],
-        verbose=True,
         printshellcmds=True,
     )
 
@@ -591,7 +430,7 @@ def test_format_wildcards():
 
 
 def test_with_parentheses():
-    run(dpath("test (with parentheses)"))
+    run(dpath("test (with parenthese's)"))
 
 
 def test_dup_out_patterns():
@@ -658,6 +497,10 @@ def test_threads():
     run(dpath("test_threads"), cores=20)
 
 
+def test_threads0():
+    run(dpath("test_threads0"))
+
+
 def test_dynamic_temp():
     run(dpath("test_dynamic_temp"))
 
@@ -685,7 +528,6 @@ def test_default_remote():
         cores=1,
         default_remote_provider="S3Mocked",
         default_remote_prefix="test-remote-bucket",
-        verbose=True,
     )
 
 
@@ -697,6 +539,40 @@ def test_run_namedlist():
 @not_ci
 def test_remote_gs():
     run(dpath("test_remote_gs"))
+
+
+@pytest.mark.skip(reason="Need to choose how to provide billable project")
+@connected
+@not_ci
+def test_gs_requester_pays(
+    requesting_project=None,
+    requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
+):
+    """ Tests pull-request 79 / issue 96 for billable user projects on GS
+
+    If requesting_project None, behaves as test_remote_gs().
+
+    Parameters
+    ----------
+    requesting_project: Optional[str]
+        User project to bill for download. None will not provide project for
+        requester-pays as is the usual default
+    requesting_url: str
+        URL of bucket to download. Default will match expected output, but is a
+        bucket that doesn't require requester pays.
+    """
+    # create temporary config file
+    with tempfile.NamedTemporaryFile(suffix=".yaml") as handle:
+        # specify project and url for download
+        if requesting_project is None:
+            handle.write(b"project: null\n")
+        else:
+            handle.write('project: "{}"\n'.format(requesting_project).encode())
+        handle.write('url: "{}"\n'.format(requesting_url).encode())
+        # make sure we can read them
+        handle.flush()
+        # run the pipeline
+        run(dpath("test_gs_requester_pays"), configfiles=[handle.name], forceall=True)
 
 
 @pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
@@ -742,12 +618,7 @@ def test_singularity_invalid():
 
 @connected
 def test_singularity_conda():
-    run(
-        dpath("test_singularity_conda"),
-        use_singularity=True,
-        use_conda=True,
-        verbose=True,
-    )
+    run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True)
 
 
 def test_issue612():
@@ -983,7 +854,7 @@ def test_issue1092():
 
 
 def test_issue1093():
-    run(dpath("test_issue1093"), use_conda=True, verbose=True)
+    run(dpath("test_issue1093"), use_conda=True)
 
 
 def test_issue958():
@@ -1006,21 +877,6 @@ def test_pipes2():
     run(dpath("test_pipes2"))
 
 
-@pytest.mark.skip(
-    reason="need free AWS tier credentials and tibanna as a conda package first"
-)
-def test_tibanna():
-    workdir = dpath("test_tibanna")
-    subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
-    run(
-        workdir,
-        use_conda=True,
-        configfiles=["config.json"],
-        default_remote_prefix="snakemake-tibanna-test/1",
-        tibanna_sfn="tibanna_unicorn_johannes",
-    )
-
-
 def test_expand_flag():
     run(dpath("test_expand_flag"), shouldfail=True)
 
@@ -1030,7 +886,6 @@ def test_default_resources():
 
     run(
         dpath("test_default_resources"),
-        verbose=True,
         default_resources=DefaultResources(
             ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
         ),
@@ -1083,3 +938,41 @@ def test_batch_fail():
 def test_github_issue52():
     run(dpath("test_github_issue52"), shouldfail=True)
     run(dpath("test_github_issue52"), snakefile="other.smk", shouldfail=True)
+
+
+def test_github_issue78():
+    run(dpath("test_github_issue78"), use_singularity=True)
+
+
+def test_github_issue105():
+    run(dpath("test_github_issue105"))
+
+
+def test_output_file_cache():
+    test_path = dpath("test_output_file_cache")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
+    run(test_path, cache=["a", "b", "c"])
+    run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
+
+
+def test_output_file_cache_remote():
+    test_path = dpath("test_output_file_cache_remote")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+    run(
+        test_path,
+        cache=["a", "b", "c"],
+        default_remote_provider="S3Mocked",
+        default_remote_prefix="test-remote-bucket",
+    )
+
+
+def test_multiext():
+    run(dpath("test_multiext"))
+
+
+def test_core_dependent_threads():
+    run(dpath("test_core_dependent_threads"))
+
+
+def test_env_modules():
+    run(dpath("test_env_modules"), use_env_modules=True)

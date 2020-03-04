@@ -16,6 +16,7 @@ from operator import attrgetter
 import copy
 import subprocess
 from pathlib import Path
+from urllib.parse import urlparse
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -49,11 +50,13 @@ from snakemake.io import (
     pipe,
     repeat,
     report,
+    multiext,
     IOFile,
 )
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
+from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
@@ -61,6 +64,8 @@ from snakemake.common import Mode
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
+from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
+from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 
 
 class Workflow:
@@ -73,12 +78,14 @@ class Workflow:
         overwrite_workdir=None,
         overwrite_configfiles=None,
         overwrite_clusterconfig=dict(),
+        overwrite_threads=dict(),
         config_args=None,
         debug=False,
         verbose=False,
         use_conda=False,
         conda_prefix=None,
         use_singularity=False,
+        use_env_modules=False,
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
@@ -91,10 +98,19 @@ class Workflow:
         default_remote_prefix="",
         run_local=True,
         default_resources=None,
+        cache=None,
+        nodes=1,
+        cores=1,
+        resources=None,
     ):
         """
         Create the controller.
         """
+
+        self.global_resources = dict() if resources is None else resources
+        self.global_resources["_cores"] = cores
+        self.global_resources["_nodes"] = nodes
+
         self._rules = OrderedDict()
         self.first_rule = None
         self._workdir = None
@@ -110,13 +126,13 @@ class Workflow:
         self.included_stack = []
         self.jobscript = jobscript
         self.persistence = None
-        self.global_resources = None
         self.globals = globals()
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config
         self.overwrite_configfiles = overwrite_configfiles
         self.overwrite_clusterconfig = overwrite_clusterconfig
+        self.overwrite_threads = overwrite_threads
         self.config_args = config_args
         self.immediate_submit = None
         self._onsuccess = lambda log: None
@@ -129,6 +145,7 @@ class Workflow:
         self.use_conda = use_conda
         self.conda_prefix = conda_prefix
         self.use_singularity = use_singularity
+        self.use_env_modules = use_env_modules
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
@@ -143,6 +160,19 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
+
+        if cache is not None:
+            self.cache_rules = set(cache)
+            if self.default_remote_provider is not None:
+                self.output_file_cache = RemoteOutputFileCache(
+                    self.default_remote_provider
+                )
+            else:
+                self.output_file_cache = LocalOutputFileCache()
+        else:
+            self.output_file_cache = None
+            self.cache_rules = set()
+
         if default_resources is not None:
             self.default_resources = default_resources
         else:
@@ -162,8 +192,17 @@ class Workflow:
         global checkpoints
         checkpoints = Checkpoints()
 
+    def is_cached_rule(self, rule: Rule):
+        return rule.name in self.cache_rules
+
     def get_sources(self):
         files = set()
+
+        def local_path(f):
+            url = urlparse(f)
+            if url.scheme == "file" or url.scheme == "":
+                return url.path
+            return None
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
@@ -172,10 +211,13 @@ class Workflow:
 
         # get registered sources
         for f in self.included:
-            files.add(os.path.relpath(f))
+            f = local_path(f)
+            if f:
+                files.add(os.path.relpath(f))
         for rule in self.rules:
-            if rule.script:
-                script_path = norm_rule_relpath(rule.script, rule)
+            script_path = rule.script or rule.notebook
+            if script_path:
+                script_path = norm_rule_relpath(script_path, rule)
                 files.add(script_path)
                 script_dir = os.path.dirname(script_path)
                 files.update(
@@ -184,8 +226,11 @@ class Workflow:
                     for f in files
                 )
             if rule.conda_env:
-                env_path = norm_rule_relpath(rule.conda_env, rule)
-                files.add(env_path)
+                f = local_path(rule.conda_env)
+                if f:
+                    # url points to a local env file
+                    env_path = norm_rule_relpath(f, rule)
+                    files.add(env_path)
 
         for f in self.configfiles:
             files.add(f)
@@ -219,6 +264,14 @@ class Workflow:
     @property
     def rules(self):
         return self._rules.values()
+
+    @property
+    def cores(self):
+        return self.global_resources["_cores"]
+
+    @property
+    def nodes(self):
+        return self.global_resources["_nodes"]
 
     @property
     def concrete_files(self):
@@ -332,8 +385,6 @@ class Workflow:
         targets=None,
         dryrun=False,
         touch=False,
-        cores=1,
-        nodes=1,
         local_cores=1,
         forcetargets=False,
         forceall=False,
@@ -380,7 +431,6 @@ class Workflow:
         wait_for_files=None,
         nolock=False,
         unlock=False,
-        resources=None,
         notemp=False,
         nodeps=False,
         cleanup_metadata=None,
@@ -404,13 +454,10 @@ class Workflow:
         report=None,
         export_cwl=False,
         batch=None,
+        keepincomplete=False,
     ):
 
         self.check_localrules()
-
-        self.global_resources = dict() if resources is None else resources
-        self.global_resources["_cores"] = cores
-        self.global_resources["_nodes"] = nodes
         self.immediate_submit = immediate_submit
         self.cleanup_scripts = cleanup_scripts
 
@@ -679,7 +726,7 @@ class Workflow:
         elif list_code_changes:
             items = list(chain(*map(self.persistence.code_changed, dag.jobs)))
             for j in dag.jobs:
-                items.extend(list(j.outputs_older_than_script()))
+                items.extend(list(j.outputs_older_than_script_or_notebook()))
             if items:
                 print(*items, sep="\n")
             return True
@@ -730,7 +777,7 @@ class Workflow:
         scheduler = JobScheduler(
             self,
             dag,
-            cores,
+            self.cores,
             local_cores=local_cores,
             dryrun=dryrun,
             touch=touch,
@@ -757,6 +804,7 @@ class Workflow:
             greediness=greediness,
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
+            keepincomplete=keepincomplete,
         )
 
         if not dryrun:
@@ -765,17 +813,21 @@ class Workflow:
                 if shell_exec is not None:
                     logger.info("Using shell: {}".format(shell_exec))
                 if cluster or cluster_sync or drmaa:
-                    logger.resources_info("Provided cluster nodes: {}".format(nodes))
+                    logger.resources_info(
+                        "Provided cluster nodes: {}".format(self.nodes)
+                    )
                 else:
                     warning = (
-                        "" if cores > 1 else " (use --cores to define parallelism)"
+                        "" if self.cores > 1 else " (use --cores to define parallelism)"
                     )
-                    logger.resources_info("Provided cores: {}{}".format(cores, warning))
+                    logger.resources_info(
+                        "Provided cores: {}{}".format(self.cores, warning)
+                    )
                     logger.resources_info(
                         "Rules claiming more threads " "will be scaled down."
                     )
 
-                provided_resources = format_resources(resources)
+                provided_resources = format_resources(self.global_resources)
                 if provided_resources:
                     logger.resources_info("Provided resources: " + provided_resources)
 
@@ -966,14 +1018,20 @@ class Workflow:
             # handle default resources
             if self.default_resources is not None:
                 rule.resources = copy.deepcopy(self.default_resources.parsed)
-            if ruleinfo.threads:
-                if not isinstance(ruleinfo.threads, int) and not callable(
-                    ruleinfo.threads
+            if ruleinfo.threads is not None:
+                if (
+                    not isinstance(ruleinfo.threads, int)
+                    and not isinstance(ruleinfo.threads, float)
+                    and not callable(ruleinfo.threads)
                 ):
                     raise RuleException(
-                        "Threads value has to be an integer or a callable.", rule=rule
+                        "Threads value has to be an integer, float, or a callable.",
+                        rule=rule,
                     )
-                rule.resources["_cores"] = ruleinfo.threads
+                if name in self.overwrite_threads:
+                    rule.resources["_cores"] = self.overwrite_threads[name]
+                else:
+                    rule.resources["_cores"] = int(ruleinfo.threads)
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
                     raise RuleException(
@@ -1026,46 +1084,77 @@ class Workflow:
                     )
                 # TODO retrieve suitable singularity image
 
-            if ruleinfo.conda_env and self.use_conda:
-                if not (ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd):
+            if self.use_env_modules and ruleinfo.env_modules:
+                # If using environment modules and they are defined for the rule,
+                # ignore conda and singularity directive below.
+                # The reason is that this is likely intended in order to use
+                # a software stack specifically compiled for a particular
+                # HPC cluster.
+                invalid_rule = not (
+                    ruleinfo.script
+                    or ruleinfo.wrapper
+                    or ruleinfo.shellcmd
+                    or ruleinfo.notebook
+                )
+                if invalid_rule:
                     raise RuleException(
-                        "Conda environments are only allowed "
-                        "with shell, script, or wrapper directives "
-                        "(not with run).",
+                        "Modules directive is only allowed with "
+                        "shell, script, notebook, or wrapper directives (not with run)",
                         rule=rule,
                     )
-                if not (
-                    urllib.parse.urlparse(ruleinfo.conda_env).scheme
-                    or os.path.isabs(ruleinfo.conda_env)
-                ):
-                    ruleinfo.conda_env = os.path.join(
-                        self.current_basedir, ruleinfo.conda_env
-                    )
-                rule.conda_env = ruleinfo.conda_env
+                from snakemake.deployment.env_modules import EnvModules
 
-            if self.use_singularity:
-                invalid_rule = not (
-                    ruleinfo.script or ruleinfo.wrapper or ruleinfo.shellcmd
-                )
-                if ruleinfo.singularity_img:
-                    if invalid_rule:
+                rule.env_modules = EnvModules(*ruleinfo.env_modules)
+            else:
+                if ruleinfo.conda_env and self.use_conda:
+                    if not (
+                        ruleinfo.script
+                        or ruleinfo.wrapper
+                        or ruleinfo.shellcmd
+                        or ruleinfo.notebook
+                    ):
                         raise RuleException(
-                            "Singularity directive is only allowed "
-                            "with shell, script or wrapper directives "
+                            "Conda environments are only allowed "
+                            "with shell, script, notebook, or wrapper directives "
                             "(not with run).",
                             rule=rule,
                         )
-                    rule.singularity_img = ruleinfo.singularity_img
-                elif self.global_singularity_img:
-                    if not invalid_rule:
-                        # skip rules with run directive
-                        rule.singularity_img = self.global_singularity_img
+                    if not (
+                        urllib.parse.urlparse(ruleinfo.conda_env).scheme
+                        or os.path.isabs(ruleinfo.conda_env)
+                    ):
+                        ruleinfo.conda_env = os.path.join(
+                            self.current_basedir, ruleinfo.conda_env
+                        )
+                    rule.conda_env = ruleinfo.conda_env
+
+                if self.use_singularity:
+                    invalid_rule = not (
+                        ruleinfo.script
+                        or ruleinfo.wrapper
+                        or ruleinfo.shellcmd
+                        or ruleinfo.notebook
+                    )
+                    if ruleinfo.singularity_img:
+                        if invalid_rule:
+                            raise RuleException(
+                                "Singularity directive is only allowed "
+                                "with shell, script, notebook or wrapper directives "
+                                "(not with run).",
+                                rule=rule,
+                            )
+                        rule.singularity_img = ruleinfo.singularity_img
+                    elif self.global_singularity_img:
+                        if not invalid_rule:
+                            # skip rules with run directive
+                            rule.singularity_img = self.global_singularity_img
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
             rule.script = ruleinfo.script
+            rule.notebook = ruleinfo.notebook
             rule.wrapper = ruleinfo.wrapper
             rule.cwl = ruleinfo.cwl
             rule.restart_times = self.restart_times
@@ -1146,6 +1235,13 @@ class Workflow:
 
         return decorate
 
+    def envmodules(self, *env_modules):
+        def decorate(ruleinfo):
+            ruleinfo.env_modules = env_modules
+            return ruleinfo
+
+        return decorate
+
     def global_singularity(self, singularity_img):
         self.global_singularity_img = singularity_img
 
@@ -1212,6 +1308,13 @@ class Workflow:
 
         return decorate
 
+    def notebook(self, notebook):
+        def decorate(ruleinfo):
+            ruleinfo.notebook = notebook
+            return ruleinfo
+
+        return decorate
+
     def wrapper(self, wrapper):
         def decorate(ruleinfo):
             ruleinfo.wrapper = wrapper
@@ -1253,6 +1356,7 @@ class RuleInfo:
         self.benchmark = None
         self.conda_env = None
         self.singularity_img = None
+        self.env_modules = None
         self.wildcard_constraints = None
         self.threads = None
         self.shadow_depth = None
@@ -1263,6 +1367,7 @@ class RuleInfo:
         self.docstring = None
         self.group = None
         self.script = None
+        self.notebook = None
         self.wrapper = None
         self.cwl = None
 

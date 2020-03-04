@@ -36,3 +36,5 @@ dependencies:
   - pygments
   - imagemagick
   - pulp
+  - nbformat
+  - toposort
