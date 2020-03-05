@@ -887,7 +887,7 @@ def test_default_resources():
     run(
         dpath("test_default_resources"),
         default_resources=DefaultResources(
-            ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
+            ["mem_mb=max(2*input.size / 1024 / 1024, 1000)", "disk_mb=max(2*input.size / 1024 / 1024, 1000)"]
         ),
     )
 
