@@ -1816,8 +1816,8 @@ def main(argv=None):
             args.tibanna and not args.default_resources
         ):
             args.default_resources = [
-                "mem_mb=max(2*input.size, 1000)",
-                "disk_mb=max(2*input.size, 1000)",
+                "mem_mb=max(2*input.size / 1024, 1000)",
+                "disk_mb=max(2*input.size / 1024, 1000)",
             ]
         default_resources = DefaultResources(args.default_resources)
         batch = parse_batch(args)
