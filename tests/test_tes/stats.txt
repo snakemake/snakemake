@@ -1,0 +1,22 @@
+{
+    "total_runtime": 20.018208503723145,
+    "rules": {
+        "all": {
+            "mean-runtime": 20.018208503723145,
+            "min-runtime": 20.018208503723145,
+            "max-runtime": 20.018208503723145
+        }
+    },
+    "files": {
+        "output.txt": {
+            "start-time": "Fri Mar  6 17:44:15 2020",
+            "stop-time": "Fri Mar  6 17:44:35 2020",
+            "duration": 20.018208503723145,
+            "priority": 0,
+            "resources": {
+                "_cores": 1,
+                "_nodes": 1
+            }
+        }
+    }
+}

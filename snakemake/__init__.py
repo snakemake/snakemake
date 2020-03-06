@@ -141,6 +141,7 @@ def snakemake(
     container_image=None,
     tibanna=False,
     tibanna_sfn=None,
+    tes=False,
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
@@ -586,6 +587,7 @@ def snakemake(
                     container_image=container_image,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    tes=tes,
                     precommand=precommand,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
@@ -1634,6 +1636,7 @@ def get_argument_parser(profile=None):
     group_cloud = parser.add_argument_group("CLOUD")
     group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tibanna = parser.add_argument_group("TIBANNA")
+    group_tes = parser.add_argument_group("TASK_EXECUTION_SERVICE")
 
     group_kubernetes.add_argument(
         "--kubernetes",
@@ -1693,6 +1696,11 @@ def get_argument_parser(profile=None):
         "Do not include input/output download/upload commands - file transfer"
         " between S3 bucket and the run environment (container) is automatically"
         " handled by Tibanna.",
+    )
+    group_tes.add_argument(
+        "--tes",
+        action="store_true",
+        help="Execute workflow in a TES cluster (in the cloud).",
     )
 
     group_conda = parser.add_argument_group("CONDA")
@@ -1834,6 +1842,7 @@ def main(argv=None):
         or args.drmaa
         or args.kubernetes
         or args.tibanna
+        or args.tes
         or args.list_code_changes
         or args.list_conda_envs
         or args.list_input_changes
@@ -1951,7 +1960,10 @@ def main(argv=None):
                     file=sys.stderr,
                 )
                 sys.exit(1)
-
+    
+    if args.tes:
+        print("main(): use tes")
+    
     if args.delete_all_output and args.delete_temp_output:
         print(
             "Error: --delete-all-output and --delete-temp-output are mutually exclusive.",
@@ -2087,6 +2099,7 @@ def main(argv=None):
             container_image=args.container_image,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
+            tes=args.tes,
             precommand=args.precommand,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,

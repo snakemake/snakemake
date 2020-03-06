@@ -1949,6 +1949,149 @@ class TibannaExecutor(ClusterExecutor):
             sleep()
 
 
+TaskExecutionServiceJob = namedtuple(
+    "TaskExecutionServiceJob", "job jobid callback error_callback"
+)
+
+import requests
+import json
+
+class TaskExecutionServiceExecutor(ClusterExecutor):
+    def __init__(self, workflow, dag, cores,
+             jobname="snakejob.{name}.{jobid}.sh",
+             printreason=False,
+             quiet=False,
+             printshellcmds=False,
+             latency_wait=3,
+             cluster_config=None,
+             local_input=None,
+             restart_times=None,
+             exec_job=None,
+             assume_shared_fs=True,
+             max_status_checks_per_second=1):
+        
+        exec_job = (
+            "sleep 10; cd /tmp && "
+            "snakemake {target} --snakefile {snakefile} "
+            "--force -j{cores} --keep-target-files  --keep-remote "
+            "--latency-wait 10 "
+            "--attempt 1 {use_threads} "
+            "{overwrite_config} {rules} --nocolor "
+            "--notemp --no-hooks --nolock "
+        )
+
+        super().__init__(workflow, dag, None,
+                         jobname=jobname,
+                         printreason=printreason,
+                         quiet=quiet,
+                         printshellcmds=printshellcmds,
+                         latency_wait=latency_wait,
+                         cluster_config=cluster_config,
+                         local_input=local_input,
+                         restart_times=restart_times,
+                         exec_job=exec_job,
+                         assume_shared_fs=False,
+                         max_status_checks_per_second=10)
+
+        # add additional attributes
+
+    def shutdown(self):
+        # perform additional steps on shutdown if necessary
+        super().shutdown()
+
+    def cancel(self):
+        for job in self.active_jobs:
+            print("cancel", file=sys.stderr)
+            # cancel active jobs here
+        self.shutdown()
+
+    def run(self, job,
+            callback=None,
+            submit_callback=None,
+            error_callback=None):
+
+        super()._run(job)
+
+        jobscript = self.get_jobscript(job)
+        print("TaskExecutionServiceExecutor:run:jobscript:", jobscript, file=sys.stderr)
+        self.write_jobscript(job, jobscript)
+        # obtain job execution command
+        exec_job = self.format_job(
+            self.exec_job, job, _quote_all=True,
+            use_threads="--force-use-threads" if not job.is_group() else "")
+
+        # submit job here, and obtain job ids from the backend
+        task = self._get_task(job, jobscript)
+        print(task, file=sys.stderr)
+        response = requests.post("http://localhost:8000/v1/tasks", json=task)
+        print(response.json(), file=sys.stderr)
+        
+        self.active_jobs.append(TaskExecutionServiceJob(
+            job, response.json()["id"], callback, error_callback))
+
+    def _wait_for_jobs(self):
+        while True:
+
+            with self.lock:
+                if not self.wait:
+                    return
+                active_jobs = self.active_jobs
+                self.active_jobs = list()
+                still_running = list()
+            
+            for j in active_jobs:
+                with self.status_rate_limiter:
+                    response = requests.get("http://localhost:8000/v1/tasks/" + j.jobid)
+                    status = response.json()["state"]
+                    if status == "RUNNING":
+                        still_running.append(j)
+                    elif status == "COMPLETE":
+                        j.callback(j.job)
+            
+            with self.lock:
+                self.active_jobs.extend(still_running)
+            sleep()
+    
+    def _get_task(self, job, jobscript):
+        
+        task = {}
+        task["name"] = job.format_wildcards(self.jobname)
+        task["description"] = "here description."
+
+        # add input files to task
+        inputs = []
+        for i in job.input:
+            inputs.append({
+                "url": "file://" + os.path.join(self.workflow.overwrite_workdir, i),
+                "path": os.path.join("/tmp/", i)
+            })
+        inputs.append({
+            "url": "file://" + os.path.join(self.workflow.overwrite_workdir, "Snakefile"),
+            "path": "/tmp/Snakefile"
+        })
+        inputs.append({
+            "url": "file://" + jobscript,
+            "path": "/tmp/run_snakemake.sh"
+        })
+        task["inputs"] = inputs
+
+        # add output files to task
+        outputs = []
+        for o in job.output:
+            outputs.append({
+                "url": "file://" + os.path.join(self.workflow.overwrite_workdir, o),
+                "path": os.path.join("/tmp/", o)
+            })
+        task["outputs"] = outputs
+
+        # define executors
+        task["executors"] = [{
+                "image": "snakemake/snakemake:v5.10.0",
+                "command": ["/bin/bash", "/tmp/run_snakemake.sh"]
+            }]
+        
+        return task
+
 def run_wrapper(
     job_rule,
     input,

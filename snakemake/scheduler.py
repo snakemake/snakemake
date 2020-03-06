@@ -19,6 +19,7 @@ from snakemake.executors import (
     DRMAAExecutor,
     KubernetesExecutor,
     TibannaExecutor,
+    TaskExecutionServiceExecutor
 )
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
@@ -65,6 +66,7 @@ class JobScheduler:
         container_image=None,
         tibanna=None,
         tibanna_sfn=None,
+        tes=None,
         precommand="",
         jobname=None,
         quiet=False,
@@ -255,6 +257,28 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 keepincomplete=keepincomplete,
+            )
+        elif tes:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                cores=local_cores,
+                keepincomplete=keepincomplete,
+            )
+
+            self._executor = TaskExecutionServiceExecutor(
+                workflow,
+                dag,
+                cores=local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
             )
         else:
             self._executor = CPUExecutor(

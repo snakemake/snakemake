@@ -1,0 +1,8 @@
+rule all:
+    input: "input.txt"
+    output: "output.txt"
+    shell:
+        """
+        cat {input} > {output}
+        """
+
