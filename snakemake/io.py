@@ -13,7 +13,6 @@ import time
 import datetime
 import json
 import copy
-import platform
 import functools
 import subprocess as sp
 from itertools import product, chain

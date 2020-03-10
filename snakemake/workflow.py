@@ -220,12 +220,11 @@ class Workflow:
         for f in self.included:
             f = local_path(f)
             if f:
-                if (
+                if not (
                     ON_WINDOWS
                     and os.path.splitdrive(f)[0] != os.path.splitdrive(os.getcwd())[0]
                 ):
-                    pass  # relpath doesn't work on win if files are on different drive
-                else:
+                    # relpath doesn't work on win if files are on different drive
                     f = os.path.relpath(f)
                 files.add(f)
         for rule in self.rules:
