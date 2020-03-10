@@ -265,13 +265,13 @@ class GlobalWildcardConstraints(GlobalKeywordState):
 class GlobalSingularity(GlobalKeywordState):
     @property
     def keyword(self):
-        return "global_singularity"
+        return "global_container_img"
 
 
 class GlobalContainer(GlobalKeywordState):
     @property
     def keyword(self):
-        return "global_singularity"
+        return "global_container_img"
 
 
 # subworkflows
@@ -426,7 +426,9 @@ class Singularity(RuleKeywordState):
 
 
 class Container(RuleKeywordState):
-    pass
+    @property
+    def keyword(self):
+        return "container_img"
 
 
 class EnvModules(RuleKeywordState):
@@ -454,7 +456,7 @@ class Run(RuleKeywordState):
         yield "\n"
         yield (
             "def __rule_{rulename}(input, output, params, wildcards, threads, "
-            "resources, log, version, rule, conda_env, singularity_img, "
+            "resources, log, version, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir):".format(
                 rulename=self.rulename
@@ -559,7 +561,7 @@ class Script(AbstractCmd):
         # other args
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, singularity_img, singularity_args, env_modules, "
+            "config, rule, conda_env, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir"
         )
 
@@ -576,7 +578,7 @@ class Wrapper(Script):
     def args(self):
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, singularity_img, singularity_args, env_modules, "
+            "config, rule, conda_env, container_img, singularity_args, env_modules, "
             "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
             "cleanup_scripts, shadow_dir"
         )
