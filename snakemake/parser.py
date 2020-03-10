@@ -268,6 +268,12 @@ class GlobalSingularity(GlobalKeywordState):
         return "global_singularity"
 
 
+class GlobalContainer(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "global_singularity"
+
+
 # subworkflows
 
 
@@ -416,6 +422,10 @@ class Conda(RuleKeywordState):
 
 
 class Singularity(RuleKeywordState):
+    pass
+
+
+class Container(RuleKeywordState):
     pass
 
 
@@ -600,6 +610,7 @@ class Rule(GlobalKeywordState):
         benchmark=Benchmark,
         conda=Conda,
         singularity=Singularity,
+        container=Container,
         envmodules=EnvModules,
         wildcard_constraints=WildcardConstraints,
         shadow=Shadow,
@@ -748,6 +759,7 @@ class Python(TokenAutomaton):
         onstart=OnStart,
         wildcard_constraints=GlobalWildcardConstraints,
         singularity=GlobalSingularity,
+        container=GlobalContainer,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):

@@ -976,3 +976,8 @@ def test_core_dependent_threads():
 
 def test_env_modules():
     run(dpath("test_env_modules"), use_env_modules=True)
+
+
+@connected
+def test_container():
+    run(dpath("test_container"), use_singularity=True)
