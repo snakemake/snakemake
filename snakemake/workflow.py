@@ -1228,7 +1228,7 @@ class Workflow:
 
         return decorate
 
-    def container_img(self, container_img):
+    def container(self, container_img):
         def decorate(ruleinfo):
             ruleinfo.container_img = container_img
             return ruleinfo
@@ -1242,7 +1242,7 @@ class Workflow:
 
         return decorate
 
-    def global_container_img(self, container_img):
+    def global_container(self, container_img):
         self.global_container_img = container_img
 
     def threads(self, threads):

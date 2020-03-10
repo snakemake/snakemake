@@ -265,13 +265,13 @@ class GlobalWildcardConstraints(GlobalKeywordState):
 class GlobalSingularity(GlobalKeywordState):
     @property
     def keyword(self):
-        return "global_container_img"
+        return "global_container"
 
 
 class GlobalContainer(GlobalKeywordState):
     @property
     def keyword(self):
-        return "global_container_img"
+        return "global_container"
 
 
 # subworkflows
@@ -424,13 +424,11 @@ class Conda(RuleKeywordState):
 class Singularity(RuleKeywordState):
     @property
     def keyword(self):
-        return "container_img"
+        return "container"
 
 
 class Container(RuleKeywordState):
-    @property
-    def keyword(self):
-        return "container_img"
+    pass
 
 
 class EnvModules(RuleKeywordState):
