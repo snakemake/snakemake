@@ -370,7 +370,7 @@ class CPUExecutor(RealExecutor):
         job.prepare()
 
         conda_env = job.conda_env_path
-        singularity_img = job.singularity_img_path
+        container_img = job.container_img_path
         env_modules = job.env_modules
 
         benchmark = None
@@ -389,7 +389,7 @@ class CPUExecutor(RealExecutor):
             benchmark,
             benchmark_repeats,
             conda_env,
-            singularity_img,
+            container_img,
             self.workflow.singularity_args,
             env_modules,
             self.workflow.use_singularity,
@@ -1970,7 +1970,7 @@ def run_wrapper(
     benchmark,
     benchmark_repeats,
     conda_env,
-    singularity_img,
+    container_img,
     singularity_args,
     env_modules,
     use_singularity,
@@ -2011,7 +2011,7 @@ def run_wrapper(
     # Change workdir if shadow defined and not using singularity.
     # Otherwise, we do the change from inside the container.
     passed_shadow_dir = None
-    if use_singularity and singularity_img:
+    if use_singularity and container_img:
         passed_shadow_dir = shadow_dir
         shadow_dir = None
 
@@ -2046,7 +2046,7 @@ def run_wrapper(
                             version,
                             rule,
                             conda_env,
-                            singularity_img,
+                            container_img,
                             singularity_args,
                             use_singularity,
                             env_modules,
@@ -2073,7 +2073,7 @@ def run_wrapper(
                                 version,
                                 rule,
                                 conda_env,
-                                singularity_img,
+                                container_img,
                                 singularity_args,
                                 use_singularity,
                                 env_modules,
@@ -2098,7 +2098,7 @@ def run_wrapper(
                     version,
                     rule,
                     conda_env,
-                    singularity_img,
+                    container_img,
                     singularity_args,
                     use_singularity,
                     env_modules,

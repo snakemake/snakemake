@@ -920,9 +920,9 @@ def get_argument_parser(profile=None):
         metavar="NAME=INT",
         help=(
             "Define default values of resources for rules that do not define their own values. "
-            "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size')."
-            "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size, 1000)' "
-            "'disk_mb=max(2*input.size, 1000)', i.e., default disk and mem usage is twice the input file size but at least 1GB."
+            "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb')."
+            "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size_mb, 1000)' "
+            "'disk_mb=max(2*input.size_mb, 1000)', i.e., default disk and mem usage is twice the input file size but at least 1GB."
         ),
     )
     group_exec.add_argument(
@@ -1825,8 +1825,8 @@ def main(argv=None):
             args.tibanna and not args.default_resources
         ):
             args.default_resources = [
-                "mem_mb=max(2*input.size, 1000)",
-                "disk_mb=max(2*input.size, 1000)",
+                "mem_mb=max(2*input.size_mb, 1000)",
+                "disk_mb=max(2*input.size_mb, 1000)",
             ]
         default_resources = DefaultResources(args.default_resources)
         batch = parse_batch(args)

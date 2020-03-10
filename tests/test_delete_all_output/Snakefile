@@ -8,7 +8,7 @@ rule delete_all_output:
         """
         echo $PATH
         ls
-        python -m snakemake -s Snakefile_inner all && \
+        python -m snakemake --cores 1 -s Snakefile_inner all && \
         rm nothere && \
         python -m snakemake --cores 1 -s Snakefile_inner --delete-all-output all && \
         test -f infile && test ! -f intermediate && test ! -f somedir/final && \
