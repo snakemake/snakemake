@@ -1052,6 +1052,7 @@ def test_env_modules():
     run(dpath("test_env_modules"), use_env_modules=True)
 
 
+@skip_on_windows
 @connected
 def test_container():
     run(dpath("test_container"), use_singularity=True)
