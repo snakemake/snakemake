@@ -337,6 +337,8 @@ class CPUExecutor(RealExecutor):
             )
         )
 
+        if self.workflow.cleanup_scripts:
+            self.exec_job += " --skip-script-cleanup "
         if self.workflow.shadow_prefix:
             self.exec_job += " --shadow-prefix {} ".format(self.workflow.shadow_prefix)
         if self.workflow.use_conda:
