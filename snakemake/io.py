@@ -1313,6 +1313,10 @@ class InputFiles(Namedlist):
     def size(self):
         return sum(f.size for f in self)
 
+    @property
+    def size_mb(self):
+        return self.size / 1024 / 1024
+
 
 class OutputFiles(Namedlist):
     pass

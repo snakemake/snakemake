@@ -259,7 +259,7 @@ class ScriptBase(ABC):
         config,
         rulename,
         conda_env,
-        singularity_img,
+        container_img,
         singularity_args,
         env_modules,
         bench_record,
@@ -282,7 +282,7 @@ class ScriptBase(ABC):
         self.config = config
         self.rulename = rulename
         self.conda_env = conda_env
-        self.singularity_img = singularity_img
+        self.container_img = container_img
         self.singularity_args = singularity_args
         self.env_modules = env_modules
         self.bench_record = bench_record
@@ -337,7 +337,7 @@ class ScriptBase(ABC):
             cmd,
             bench_record=self.bench_record,
             conda_env=self.conda_env,
-            singularity_img=self.singularity_img,
+            container_img=self.container_img,
             shadow_dir=self.shadow_dir,
             env_modules=self.env_modules,
             **kwargs
@@ -360,7 +360,7 @@ class PythonScript(ScriptBase):
         config,
         rulename,
         conda_env,
-        singularity_img,
+        container_img,
         singularity_args,
         env_modules,
         bench_record,
@@ -389,7 +389,7 @@ class PythonScript(ScriptBase):
         # The module is needed for unpickling in the script.
         # We append it at the end (as a fallback).
         searchpath = SNAKEMAKE_SEARCHPATH
-        if singularity_img is not None:
+        if container_img is not None:
             searchpath = singularity.SNAKEMAKE_MOUNTPOINT
         searchpath = repr(searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
@@ -429,7 +429,7 @@ class PythonScript(ScriptBase):
             self.config,
             self.rulename,
             self.conda_env,
-            self.singularity_img,
+            self.container_img,
             self.singularity_args,
             self.env_modules,
             self.bench_record,
@@ -467,7 +467,7 @@ class PythonScript(ScriptBase):
                         "Snakemake which are Python >={0}.{1} "
                         "only.".format(*MIN_PY_VERSION)
                     )
-        if self.singularity_img is not None:
+        if self.container_img is not None:
             # use python from image
             py_exec = "python"
         if self.env_modules is not None:
@@ -497,7 +497,7 @@ class RScript(ScriptBase):
         config,
         rulename,
         conda_env,
-        singularity_img,
+        container_img,
         singularity_args,
         env_modules,
         bench_record,
@@ -591,7 +591,7 @@ class RScript(ScriptBase):
             self.config,
             self.rulename,
             self.conda_env,
-            self.singularity_img,
+            self.container_img,
             self.singularity_args,
             self.env_modules,
             self.bench_record,
@@ -848,7 +848,7 @@ def script(
     config,
     rulename,
     conda_env,
-    singularity_img,
+    container_img,
     singularity_args,
     env_modules,
     bench_record,
@@ -887,7 +887,7 @@ def script(
         config,
         rulename,
         conda_env,
-        singularity_img,
+        container_img,
         singularity_args,
         env_modules,
         bench_record,
