@@ -16,7 +16,7 @@ def test_list_untracked():
 
 
 def test_delete_all_output():
-    run(dpath("test_delete_all_output"))
+    run(dpath("test_delete_all_output"), cores=1)
 
 
 def test_github_issue_14():
