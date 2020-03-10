@@ -218,6 +218,37 @@ class RealExecutor(AbstractExecutor):
             latency_wait=self.latency_wait,
         )
 
+    def get_additional_args(self):
+        """Return a string to add to self.exec_job that includes additional
+           arguments from the command line. This is currently used in the
+           ClusterExecutor and CPUExecutor, as both were using the same
+           code. Both have base class of the RealExecutor.
+        """
+        additional = ""
+        if not self.workflow.cleanup_scripts:
+            additional += " --skip-script-cleanup "
+        if self.workflow.shadow_prefix:
+            additional += " --shadow-prefix {} ".format(self.workflow.shadow_prefix)
+        if self.workflow.use_conda:
+            additional += " --use-conda "
+            if self.workflow.conda_prefix:
+                additional += " --conda-prefix {} ".format(self.workflow.conda_prefix)
+        if self.workflow.use_singularity:
+            additional += " --use-singularity "
+            if self.workflow.singularity_prefix:
+                additional += " --singularity-prefix {} ".format(
+                    self.workflow.singularity_prefix
+                )
+            if self.workflow.singularity_args:
+                additional += ' --singularity-args "{}"'.format(
+                    self.workflow.singularity_args
+                )
+
+        if self.workflow.use_env_modules:
+            additional += " --use-envmodules"
+
+        return additional
+
     def format_job_pattern(self, pattern, job=None, **kwargs):
         overwrite_workdir = []
         if self.workflow.overwrite_workdir:
@@ -337,30 +368,7 @@ class CPUExecutor(RealExecutor):
             )
         )
 
-        if self.workflow.cleanup_scripts:
-            self.exec_job += " --skip-script-cleanup "
-        if self.workflow.shadow_prefix:
-            self.exec_job += " --shadow-prefix {} ".format(self.workflow.shadow_prefix)
-        if self.workflow.use_conda:
-            self.exec_job += " --use-conda "
-            if self.workflow.conda_prefix:
-                self.exec_job += " --conda-prefix {} ".format(
-                    self.workflow.conda_prefix
-                )
-        if self.workflow.use_singularity:
-            self.exec_job += " --use-singularity "
-            if self.workflow.singularity_prefix:
-                self.exec_job += " --singularity-prefix {} ".format(
-                    self.workflow.singularity_prefix
-                )
-            if self.workflow.singularity_args:
-                self.exec_job += ' --singularity-args "{}"'.format(
-                    self.workflow.singularity_args
-                )
-
-        if self.workflow.use_env_modules:
-            self.exec_job += " --use-envmodules"
-
+        self.exec_job += self.get_additional_args()
         self.use_threads = use_threads
         self.cores = cores
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers + 1)
@@ -583,30 +591,10 @@ class ClusterExecutor(RealExecutor):
         else:
             self.exec_job = exec_job
 
-        if self.workflow.shadow_prefix:
-            self.exec_job += " --shadow-prefix {} ".format(self.workflow.shadow_prefix)
-        if self.workflow.use_conda:
-            self.exec_job += " --use-conda "
-            if self.workflow.conda_prefix:
-                self.exec_job += " --conda-prefix {} ".format(
-                    self.workflow.conda_prefix
-                )
-        if self.workflow.use_singularity:
-            self.exec_job += " --use-singularity "
-            if self.workflow.singularity_prefix:
-                self.exec_job += " --singularity-prefix {} ".format(
-                    self.workflow.singularity_prefix
-                )
-            if self.workflow.singularity_args:
-                self.exec_job += ' --singularity-args "{}"'.format(
-                    self.workflow.singularity_args
-                )
-
-        if self.workflow.use_env_modules:
-            self.exec_job += " --use-envmodules"
-
+        self.exec_job += self.get_additional_args()
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
+
         self.exec_job += self.get_default_resources_args()
         self.jobname = jobname
         self._tmpdir = None
@@ -2180,7 +2168,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         exec_job = exec_job or (
             "snakemake {target} --snakefile %s "
-            "--force -j{cores} --keep-target-files  --keep-remote "
+            "--force -j{cores} --keep-target-files --keep-remote "
             "--latency-wait 0 "
             "--attempt 1 {use_threads} "
             "{overwrite_config} {rules} --nocolor "
