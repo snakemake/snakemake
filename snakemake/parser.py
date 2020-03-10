@@ -422,7 +422,9 @@ class Conda(RuleKeywordState):
 
 
 class Singularity(RuleKeywordState):
-    pass
+    @property
+    def keyword(self):
+        return "container_img"
 
 
 class Container(RuleKeywordState):
