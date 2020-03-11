@@ -137,7 +137,6 @@ def snakemake(
     mode=Mode.default,
     wrapper_prefix=None,
     kubernetes=None,
-    kubernetes_envvars=None,
     container_image=None,
     tibanna=False,
     tibanna_sfn=None,
@@ -251,8 +250,7 @@ def snakemake(
         mode (snakemake.common.Mode): execution mode
         wrapper_prefix (str):       prefix for wrapper script URLs (default None)
         kubernetes (str):           submit jobs to kubernetes, using the given namespace.
-        kubernetes_envvars (list):  environment variables that shall be passed to kubernetes jobs.
-        container_image (str):      Docker image to use, e.g., for kubernetes or Google Life Sciences.
+        container_image (str):      Docker image to use, e.g., for kubernetes.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
@@ -566,7 +564,6 @@ def snakemake(
                     singularity_args=singularity_args,
                     list_conda_envs=list_conda_envs,
                     kubernetes=kubernetes,
-                    kubernetes_envvars=kubernetes_envvars,
                     container_image=container_image,
                     create_envs_only=create_envs_only,
                     default_remote_provider=default_remote_provider,
@@ -609,7 +606,6 @@ def snakemake(
                     drmaa=drmaa,
                     drmaa_log_dir=drmaa_log_dir,
                     kubernetes=kubernetes,
-                    kubernetes_envvars=kubernetes_envvars,
                     container_image=container_image,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
@@ -902,9 +898,9 @@ def get_argument_parser(profile=None):
         nargs="?",
         metavar="N",
         help=(
-            "Use at most N cores in parallel. "
+            "Use at most N CPU cores/jobs in parallel. "
             "If N is omitted or 'all', the limit is set to the number of "
-            "available cores."
+            "available CPU cores."
         ),
     )
     group_exec.add_argument(
@@ -949,9 +945,9 @@ def get_argument_parser(profile=None):
         metavar="NAME=INT",
         help=(
             "Define default values of resources for rules that do not define their own values. "
-            "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size')."
-            "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size, 1000)' "
-            "'disk_mb=max(2*input.size, 1000)', i.e., default disk and mem usage is twice the input file size but at least 1GB."
+            "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb')."
+            "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size_mb, 1000)' "
+            "'disk_mb=max(2*input.size_mb, 1000)', i.e., default disk and mem usage is twice the input file size but at least 1GB."
         ),
     )
     group_exec.add_argument(
@@ -1683,13 +1679,6 @@ def get_argument_parser(profile=None):
         "integration via --use-conda.",
     )
     group_kubernetes.add_argument(
-        "--kubernetes-env",
-        nargs="+",
-        metavar="ENVVAR",
-        default=[],
-        help="Specify environment variables to pass to the kubernetes job.",
-    )
-    group_kubernetes.add_argument(
         "--container-image",
         metavar="IMAGE",
         help="Docker image to use, e.g., when submitting jobs to kubernetes "
@@ -1907,8 +1896,8 @@ def main(argv=None):
             args.tibanna and not args.default_resources
         ):
             args.default_resources = [
-                "mem_mb=max(2*input.size, 1000)",
-                "disk_mb=max(2*input.size, 1000)",
+                "mem_mb=max(2*input.size_mb, 1000)",
+                "disk_mb=max(2*input.size_mb, 1000)",
             ]
         default_resources = DefaultResources(args.default_resources)
         batch = parse_batch(args)
@@ -1917,6 +1906,29 @@ def main(argv=None):
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
         sys.exit(1)
+
+    local_exec = not (
+        args.print_compilation
+        or args.cluster
+        or args.cluster_sync
+        or args.drmaa
+        or args.kubernetes
+        or args.tibanna
+        or args.list_code_changes
+        or args.list_conda_envs
+        or args.list_input_changes
+        or args.list_params_changes
+        or args.list
+        or args.list_target_rules
+        or args.list_untracked
+        or args.list_version_changes
+        or args.export_cwl
+        or args.dag
+        or args.d3dag
+        or args.filegraph
+        or args.rulegraph
+        or args.summary
+    )
 
     if args.cores is not None:
         if args.cores == "all":
@@ -1942,8 +1954,15 @@ def main(argv=None):
                 )
                 sys.exit(1)
     elif args.cores is None:
-        # if nothing specified, use all avaiable cores
-        args.cores = available_cpu_count()
+        if local_exec and not args.dryrun:
+            print(
+                "Error: you need to specify the maximum number of CPU cores to "
+                "be used at the same time with --cores.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        else:
+            args.cores = 1
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
@@ -2162,7 +2181,6 @@ def main(argv=None):
             drmaa=args.drmaa,
             drmaa_log_dir=args.drmaa_log_dir,
             kubernetes=args.kubernetes,
-            kubernetes_envvars=args.kubernetes_env,
             container_image=args.container_image,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,

@@ -86,7 +86,7 @@ class Rule:
             self._log = Log()
             self._benchmark = None
             self._conda_env = None
-            self._singularity_img = None
+            self._container_img = None
             self.env_modules = None
             self.group = None
             self._wildcard_names = None
@@ -127,7 +127,7 @@ class Rule:
             self._log = other._log
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
-            self._singularity_img = other._singularity_img
+            self._container_img = other._container_img
             self.env_modules = other.env_modules
             self.group = other.group
             self._wildcard_names = (
@@ -301,12 +301,12 @@ class Rule:
         self._conda_env = IOFile(conda_env, rule=self)
 
     @property
-    def singularity_img(self):
-        return self._singularity_img
+    def container_img(self):
+        return self._container_img
 
-    @singularity_img.setter
-    def singularity_img(self, singularity_img):
-        self._singularity_img = singularity_img
+    @container_img.setter
+    def container_img(self, container_img):
+        self._container_img = container_img
 
     @property
     def input(self):
