@@ -553,6 +553,7 @@ class ClusterExecutor(RealExecutor):
         if exec_job is None:
             self.exec_job = "\\\n".join(
                 (
+                    "{envvars} "
                     "cd {workflow.workdir_init} && " if assume_shared_fs else "",
                     "{sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
@@ -676,8 +677,11 @@ class ClusterExecutor(RealExecutor):
         # only force threads if this is not a group job
         # otherwise we want proper process handling
         use_threads = "--force-use-threads" if not job.is_group() else ""
+
+        envvars = " ".join("{}={}".format(var, os.environ[var]) for var in self.workflow.envvars)
+
         exec_job = self.format_job(
-            self.exec_job, job, _quote_all=True, use_threads=use_threads, **kwargs
+            self.exec_job, job, _quote_all=True, use_threads=use_threads, envvars=envvars, **kwargs
         )
         content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
         logger.debug("Jobscript:\n{}".format(content))
@@ -1672,7 +1676,7 @@ class TibannaExecutor(ClusterExecutor):
             log += f
         logger.debug(log)
         self.snakefile = workflow.snakefile
-        self.envvars = {e: os.environ.get(e, "") for e in workflow.envvars}
+        self.envvars = {e: os.environ[e] for e in workflow.envvars}
         if self.envvars:
             logger.debug("envvars = %s" % str(self.envvars))
         self.tibanna_sfn = tibanna_sfn
