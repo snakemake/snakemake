@@ -235,8 +235,12 @@ class IOException(RuleException):
 
 
 class MissingOutputException(RuleException):
-    def __init__(self, message=None, include=None, lineno=None, snakefile=None, rule=None):
-        message = "Job completed successfully, but some output files are missing. {}".format(message)
+    def __init__(
+        self, message=None, include=None, lineno=None, snakefile=None, rule=None
+    ):
+        message = "Job completed successfully, but some output files are missing. {}".format(
+            message
+        )
         super().__init__(message, include, lineno, snakefile, rule)
 
 
