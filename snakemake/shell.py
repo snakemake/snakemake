@@ -84,6 +84,9 @@ class shell:
     ):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
+        fmt = lambda to_fmt, args=args, kwargs=kwargs: format(
+            to_fmt, *args, stepout=3, **kwargs
+        )
 
         context = inspect.currentframe().f_back.f_locals
         # add kwargs to context (overwriting the locals of the caller)
@@ -104,9 +107,7 @@ class shell:
         shadow_dir = context.get("shadow_dir", None)
 
         cmd = "{} {} {}".format(
-            format(cls._process_prefix, stepout=2, *args, **kwargs),
-            format(cmd, stepout=2, *args, **kwargs),
-            format(cls._process_suffix, stepout=2, *args, **kwargs),
+            fmt(cls._process_prefix), fmt(cmd), fmt(cls._process_suffix),
         )
 
         if env_modules:
