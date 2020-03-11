@@ -1,7 +1,5 @@
 import os
 
-import nbformat
-
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
@@ -9,6 +7,8 @@ from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 
 class JupyterNotebook(ScriptBase):
     def write_script(self, preamble, fd):
+        import nbformat
+
         nb = nbformat.reads(self.source, as_version=4)  # nbformat.NO_CONVERT
 
         preamble_cell = nbformat.v4.new_code_cell(preamble)
@@ -49,7 +49,7 @@ class PythonJupyterNotebook(JupyterNotebook):
             self.config,
             self.rulename,
             self.conda_env,
-            self.singularity_img,
+            self.container_img,
             self.singularity_args,
             self.env_modules,
             self.bench_record,
@@ -79,7 +79,7 @@ class RJupyterNotebook(JupyterNotebook):
             self.config,
             self.rulename,
             self.conda_env,
-            self.singularity_img,
+            self.container_img,
             self.singularity_args,
             self.env_modules,
             self.bench_record,
@@ -104,7 +104,7 @@ def notebook(
     config,
     rulename,
     conda_env,
-    singularity_img,
+    container_img,
     singularity_args,
     env_modules,
     bench_record,
@@ -139,7 +139,7 @@ def notebook(
         config,
         rulename,
         conda_env,
-        singularity_img,
+        container_img,
         singularity_args,
         env_modules,
         bench_record,

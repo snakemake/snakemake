@@ -12,7 +12,7 @@ From version 5.8.0 on, Snakemake offers a way to keep those steps inside the act
 By hashing all steps, parameters, software stacks (in terms of conda environments or containers), and raw input required up to a certain step in a `blockchain <https://en.wikipedia.org/wiki/Blockchain>`_, Snakemake is able to recognize **before** the computation whether a certain result is already available in a central cache on the same system.
 **Note that this is explicitly intended for caching results between workflows! There is no need to use this feature to avoid redundant computations within a workflow. Snakemake does this already out of the box.**
 
-Such caching has to be explitly activated per rule, which can be done via the command line interface.
+Such caching has to be explicitly activated per rule, which can be done via the command line interface.
 For example,
 
 .. code-block:: console

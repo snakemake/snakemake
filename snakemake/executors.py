@@ -62,6 +62,7 @@ class AbstractExecutor:
         printshellcmds=False,
         printthreads=True,
         latency_wait=3,
+        keepincomplete=False,
     ):
         self.workflow = workflow
         self.dag = dag
@@ -70,6 +71,7 @@ class AbstractExecutor:
         self.printshellcmds = printshellcmds
         self.printthreads = printthreads
         self.latency_wait = latency_wait
+        self.keepincomplete = keepincomplete
 
     def get_default_remote_provider_args(self):
         if self.workflow.default_remote_provider:
@@ -150,6 +152,7 @@ class RealExecutor(AbstractExecutor):
         printshellcmds=False,
         latency_wait=3,
         assume_shared_fs=True,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -158,6 +161,7 @@ class RealExecutor(AbstractExecutor):
             quiet=quiet,
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
+            keepincomplete=keepincomplete,
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
@@ -296,6 +300,7 @@ class CPUExecutor(RealExecutor):
         use_threads=False,
         latency_wait=3,
         cores=1,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -304,6 +309,7 @@ class CPUExecutor(RealExecutor):
             quiet=quiet,
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
+            keepincomplete=keepincomplete,
         )
 
         self.exec_job = "\\\n".join(
@@ -342,6 +348,9 @@ class CPUExecutor(RealExecutor):
                     self.workflow.singularity_args
                 )
 
+        if self.workflow.use_env_modules:
+            self.exec_job += " --use-envmodules"
+
         self.use_threads = use_threads
         self.cores = cores
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers + 1)
@@ -361,7 +370,7 @@ class CPUExecutor(RealExecutor):
         job.prepare()
 
         conda_env = job.conda_env_path
-        singularity_img = job.singularity_img_path
+        container_img = job.container_img_path
         env_modules = job.env_modules
 
         benchmark = None
@@ -380,7 +389,7 @@ class CPUExecutor(RealExecutor):
             benchmark,
             benchmark_repeats,
             conda_env,
-            singularity_img,
+            container_img,
             self.workflow.singularity_args,
             env_modules,
             self.workflow.use_singularity,
@@ -482,8 +491,9 @@ class CPUExecutor(RealExecutor):
 
     def handle_job_error(self, job):
         super().handle_job_error(job)
-        job.cleanup()
-        self.workflow.persistence.cleanup(job)
+        if not self.keepincomplete:
+            job.cleanup()
+            self.workflow.persistence.cleanup(job)
 
 
 class ClusterExecutor(RealExecutor):
@@ -507,6 +517,7 @@ class ClusterExecutor(RealExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         disable_default_remote_provider_args=False,
+        keepincomplete=False,
     ):
         from ratelimiter import RateLimiter
 
@@ -575,6 +586,9 @@ class ClusterExecutor(RealExecutor):
                 self.exec_job += ' --singularity-args "{}"'.format(
                     self.workflow.singularity_args
                 )
+
+        if self.workflow.use_env_modules:
+            self.exec_job += " --use-envmodules"
 
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
@@ -714,7 +728,8 @@ class ClusterExecutor(RealExecutor):
         # It will be removed by the CPUExecutor in case of a shared FS,
         # but we might not see the removal due to filesystem latency.
         # By removing it again, we make sure that it is gone on the host FS.
-        self.workflow.persistence.cleanup(job)
+        if not self.keepincomplete:
+            self.workflow.persistence.cleanup(job)
 
     def print_cluster_job_error(self, job_info, jobid):
         job = job_info.job
@@ -755,6 +770,7 @@ class GenericClusterExecutor(ClusterExecutor):
         restart_times=0,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
+        keepincomplete=False,
     ):
 
         self.submitcmd = submitcmd
@@ -1001,6 +1017,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
         latency_wait=3,
         restart_times=0,
         assume_shared_fs=True,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -1109,6 +1126,7 @@ class DRMAAExecutor(ClusterExecutor):
         restart_times=0,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -1288,6 +1306,7 @@ class KubernetesExecutor(ClusterExecutor):
         cluster_config=None,
         local_input=None,
         restart_times=None,
+        keepincomplete=False,
     ):
 
         exec_job = (
@@ -1602,6 +1621,10 @@ class KubernetesExecutor(ClusterExecutor):
                     elif res.status.phase == "Succeeded":
                         # finished
                         j.callback(j.job)
+                        body = kubernetes.client.V1DeleteOptions()
+                        self.kubeapi.delete_namespaced_pod(
+                            j.jobid, self.namespace, body=body
+                        )
                     else:
                         # still active
                         still_running.append(j)
@@ -1632,6 +1655,7 @@ class TibannaExecutor(ClusterExecutor):
         restart_times=None,
         exec_job=None,
         max_status_checks_per_second=1,
+        keepincomplete=False,
     ):
 
         self.workflow_sources = []
@@ -1833,7 +1857,7 @@ class TibannaExecutor(ClusterExecutor):
             output_target[os.path.join(file_prefix, op_rel)] = "s3://" + op
 
         # mem & cpu
-        mem = job.resources["mem_mb"] / 1024 if "mem_mb" in job.resources else 1
+        mem = job.resources["mem_mb"] / 1024 if "mem_mb" in job.resources.keys() else 1
         cpu = job.threads
 
         # jobid, grouping, run_name
@@ -1937,7 +1961,7 @@ def run_wrapper(
     benchmark,
     benchmark_repeats,
     conda_env,
-    singularity_img,
+    container_img,
     singularity_args,
     env_modules,
     use_singularity,
@@ -1978,7 +2002,7 @@ def run_wrapper(
     # Change workdir if shadow defined and not using singularity.
     # Otherwise, we do the change from inside the container.
     passed_shadow_dir = None
-    if use_singularity and singularity_img:
+    if use_singularity and container_img:
         passed_shadow_dir = shadow_dir
         shadow_dir = None
 
@@ -2013,7 +2037,7 @@ def run_wrapper(
                             version,
                             rule,
                             conda_env,
-                            singularity_img,
+                            container_img,
                             singularity_args,
                             use_singularity,
                             env_modules,
@@ -2040,7 +2064,7 @@ def run_wrapper(
                                 version,
                                 rule,
                                 conda_env,
-                                singularity_img,
+                                container_img,
                                 singularity_args,
                                 use_singularity,
                                 env_modules,
@@ -2065,7 +2089,7 @@ def run_wrapper(
                     version,
                     rule,
                     conda_env,
-                    singularity_img,
+                    container_img,
                     singularity_args,
                     use_singularity,
                     env_modules,
