@@ -61,7 +61,7 @@ class shell:
 
     @classmethod
     def prefix(cls, prefix):
-        cls._process_prefix = prefix
+        cls._process_prefix += prefix
 
     @classmethod
     def suffix(cls, suffix):
