@@ -218,10 +218,6 @@ class ChildIOException(WorkflowError):
         super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
 
-class MissingOutputException(RuleException):
-    pass
-
-
 class IOException(RuleException):
     def __init__(self, prefix, rule, files, include=None, lineno=None, snakefile=None):
         message = (
@@ -236,6 +232,12 @@ class IOException(RuleException):
             snakefile=snakefile,
             rule=rule,
         )
+
+
+class MissingOutputException(RuleException):
+    def __init__(self, message=None, include=None, lineno=None, snakefile=None, rule=None):
+        message = "Job completed successfully, but some output files are missing. {}".format(message)
+        super().__init__(message, include, lineno, snakefile, rule)
 
 
 class MissingInputException(IOException):
