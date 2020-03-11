@@ -77,6 +77,7 @@ class JobScheduler:
         greediness=1.0,
         force_use_threads=False,
         assume_shared_fs=True,
+        keepincomplete=False,
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
@@ -95,6 +96,7 @@ class JobScheduler:
         self.finished_jobs = 0
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
+        self.keepincomplete = keepincomplete
 
         self.resources = dict(self.workflow.global_resources)
 
@@ -150,6 +152,7 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
                     cores=local_cores,
+                    keepincomplete=keepincomplete,
                 )
             if cluster or cluster_sync:
                 if cluster_sync:
@@ -173,6 +176,7 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
                     assume_shared_fs=assume_shared_fs,
+                    keepincomplete=keepincomplete,
                 )
                 if workflow.immediate_submit:
                     self._submit_callback = partial(
@@ -197,6 +201,7 @@ class JobScheduler:
                     cluster_config=cluster_config,
                     assume_shared_fs=assume_shared_fs,
                     max_status_checks_per_second=max_status_checks_per_second,
+                    keepincomplete=keepincomplete,
                 )
         elif kubernetes:
             self._local_executor = CPUExecutor(
@@ -208,6 +213,7 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 cores=local_cores,
+                keepincomplete=keepincomplete,
             )
 
             self._executor = KubernetesExecutor(
@@ -221,6 +227,7 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 cluster_config=cluster_config,
+                keepincomplete=keepincomplete,
             )
         elif tibanna:
             self._local_executor = CPUExecutor(
@@ -233,6 +240,7 @@ class JobScheduler:
                 use_threads=use_threads,
                 latency_wait=latency_wait,
                 cores=local_cores,
+                keepincomplete=keepincomplete,
             )
 
             self._executor = TibannaExecutor(
@@ -246,6 +254,7 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
+                keepincomplete=keepincomplete,
             )
         else:
             self._executor = CPUExecutor(
@@ -258,8 +267,8 @@ class JobScheduler:
                 use_threads=use_threads,
                 latency_wait=latency_wait,
                 cores=cores,
+                keepincomplete=keepincomplete,
             )
-
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
             self.rate_limiter = RateLimiter(

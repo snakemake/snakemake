@@ -148,6 +148,7 @@ def snakemake(
     cluster_status=None,
     export_cwl=None,
     show_failed_logs=False,
+    keep_incomplete=False,
     messaging=None,
 ):
     """Run snakemake on a given snakefile.
@@ -254,6 +255,8 @@ def snakemake(
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         export_cwl (str):           Compile workflow to CWL and save to given file
+        log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
+        keep_incomplete (bool):      keep incomplete output files of failed jobs
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
 
             :level:
@@ -555,7 +558,6 @@ def snakemake(
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                 )
-
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
@@ -628,6 +630,7 @@ def snakemake(
                     report=report,
                     export_cwl=export_cwl,
                     batch=batch,
+                    keepincomplete=keep_incomplete,
                 )
 
     except BrokenPipeError:
@@ -866,9 +869,9 @@ def get_argument_parser(profile=None):
         nargs="?",
         metavar="N",
         help=(
-            "Use at most N cores in parallel. "
+            "Use at most N CPU cores/jobs in parallel. "
             "If N is omitted or 'all', the limit is set to the number of "
-            "available cores."
+            "available CPU cores."
         ),
     )
     group_exec.add_argument(
@@ -913,9 +916,9 @@ def get_argument_parser(profile=None):
         metavar="NAME=INT",
         help=(
             "Define default values of resources for rules that do not define their own values. "
-            "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size')."
-            "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size, 1000)' "
-            "'disk_mb=max(2*input.size, 1000)', i.e., default disk and mem usage is twice the input file size but at least 1GB."
+            "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb')."
+            "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size_mb, 1000)' "
+            "'disk_mb=max(2*input.size_mb, 1000)', i.e., default disk and mem usage is twice the input file size but at least 1GB."
         ),
     )
     group_exec.add_argument(
@@ -1256,6 +1259,11 @@ def get_argument_parser(profile=None):
         "following in your .bashrc (including the accents): "
         "`snakemake --bash-completion` or issue it in an open terminal "
         "session.",
+    )
+    group_utils.add_argument(
+        "--keep-incomplete",
+        action="store_true",
+        help="Do not remove incomplete output files by failed jobs.",
     )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
@@ -1808,8 +1816,8 @@ def main(argv=None):
             args.tibanna and not args.default_resources
         ):
             args.default_resources = [
-                "mem_mb=max(2*input.size, 1000)",
-                "disk_mb=max(2*input.size, 1000)",
+                "mem_mb=max(2*input.size_mb, 1000)",
+                "disk_mb=max(2*input.size_mb, 1000)",
             ]
         default_resources = DefaultResources(args.default_resources)
         batch = parse_batch(args)
@@ -1818,6 +1826,29 @@ def main(argv=None):
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
         sys.exit(1)
+
+    local_exec = not (
+        args.print_compilation
+        or args.cluster
+        or args.cluster_sync
+        or args.drmaa
+        or args.kubernetes
+        or args.tibanna
+        or args.list_code_changes
+        or args.list_conda_envs
+        or args.list_input_changes
+        or args.list_params_changes
+        or args.list
+        or args.list_target_rules
+        or args.list_untracked
+        or args.list_version_changes
+        or args.export_cwl
+        or args.dag
+        or args.d3dag
+        or args.filegraph
+        or args.rulegraph
+        or args.summary
+    )
 
     if args.cores is not None:
         if args.cores == "all":
@@ -1843,8 +1874,15 @@ def main(argv=None):
                 )
                 sys.exit(1)
     elif args.cores is None:
-        # if nothing specified, use all avaiable cores
-        args.cores = available_cpu_count()
+        if local_exec and not args.dryrun:
+            print(
+                "Error: you need to specify the maximum number of CPU cores to "
+                "be used at the same time with --cores.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        else:
+            args.cores = 1
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
@@ -2107,6 +2145,7 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
+            keep_incomplete=args.keep_incomplete,
             log_handler=log_handler,
         )
 

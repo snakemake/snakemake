@@ -17,7 +17,7 @@ because it also enables Snakemake to :ref:`handle software dependencies of your
 workflow <integrated_package_management>`.
 
 First, you have to install the Miniconda Python3 distribution.
-See `here <https://conda.io/docs/install/quick.html>`_ for installation instructions.
+See `here <https://conda.io/en/latest/miniconda.html>`_ for installation instructions.
 Make sure to ...
 
 * Install the **Python 3** version of Miniconda.
@@ -27,14 +27,14 @@ Then, you can install Snakemake with
 
 .. code-block:: console
 
-    $ conda install -c bioconda -c conda-forge snakemake
+    $ conda install -c conda-forge -c bioconda snakemake
 
 from the `Bioconda <https://bioconda.github.io>`_ channel.
 Alternatively, Snakemake can be installed into an isolated software environment with
 
 .. code-block:: console
 
-    $ conda create -c bioconda -c conda-forge -n snakemake snakemake
+    $ conda create -c conda-forge -c bioconda -n snakemake snakemake
 
 The software environment has to be activated before using Snakemake:
 
