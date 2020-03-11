@@ -553,8 +553,9 @@ class ClusterExecutor(RealExecutor):
         if exec_job is None:
             self.exec_job = "\\\n".join(
                 (
-                    "{envvars} "
-                    "cd {workflow.workdir_init} && " if assume_shared_fs else "",
+                    "{envvars} " "cd {workflow.workdir_init} && "
+                    if assume_shared_fs
+                    else "",
                     "{sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
                     "--force -j{cores} --keep-target-files --keep-remote ",
@@ -678,10 +679,17 @@ class ClusterExecutor(RealExecutor):
         # otherwise we want proper process handling
         use_threads = "--force-use-threads" if not job.is_group() else ""
 
-        envvars = " ".join("{}={}".format(var, os.environ[var]) for var in self.workflow.envvars)
+        envvars = " ".join(
+            "{}={}".format(var, os.environ[var]) for var in self.workflow.envvars
+        )
 
         exec_job = self.format_job(
-            self.exec_job, job, _quote_all=True, use_threads=use_threads, envvars=envvars, **kwargs
+            self.exec_job,
+            job,
+            _quote_all=True,
+            use_threads=use_threads,
+            envvars=envvars,
+            **kwargs
         )
         content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
         logger.debug("Jobscript:\n{}".format(content))
