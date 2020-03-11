@@ -16,6 +16,7 @@ from operator import attrgetter
 import copy
 import subprocess
 from pathlib import Path
+from urllib.parse import urlparse
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -148,7 +149,7 @@ class Workflow:
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
-        self.global_singularity_img = None
+        self.global_container_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
@@ -200,6 +201,12 @@ class Workflow:
     def get_sources(self):
         files = set()
 
+        def local_path(f):
+            url = urlparse(f)
+            if url.scheme == "file" or url.scheme == "":
+                return url.path
+            return None
+
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
                 f = os.path.join(rule.basedir, f)
@@ -207,7 +214,9 @@ class Workflow:
 
         # get registered sources
         for f in self.included:
-            files.add(os.path.relpath(f))
+            f = local_path(f)
+            if f:
+                files.add(os.path.relpath(f))
         for rule in self.rules:
             script_path = rule.script or rule.notebook
             if script_path:
@@ -220,8 +229,11 @@ class Workflow:
                     for f in files
                 )
             if rule.conda_env:
-                env_path = norm_rule_relpath(rule.conda_env, rule)
-                files.add(env_path)
+                f = local_path(rule.conda_env)
+                if f:
+                    # url points to a local env file
+                    env_path = norm_rule_relpath(f, rule)
+                    files.add(env_path)
 
         for f in self.configfiles:
             files.add(f)
@@ -736,7 +748,7 @@ class Workflow:
 
         if self.use_singularity:
             if assume_shared_fs:
-                dag.pull_singularity_imgs(
+                dag.pull_container_imgs(
                     dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
                 )
         if self.use_conda:
@@ -754,7 +766,7 @@ class Workflow:
                 if env:
                     print(
                         simplify_path(env.file),
-                        env.singularity_img_url or "",
+                        env.container_img_url or "",
                         simplify_path(env.path),
                         sep="\t",
                     )
@@ -827,7 +839,7 @@ class Workflow:
                     logger.info("Conda environments: ignored")
 
                 if not self.use_singularity and any(
-                    rule.singularity_img for rule in self.rules
+                    rule.container_img for rule in self.rules
                 ):
                     logger.info("Singularity containers: ignored")
 
@@ -1138,7 +1150,7 @@ class Workflow:
                         or ruleinfo.shellcmd
                         or ruleinfo.notebook
                     )
-                    if ruleinfo.singularity_img:
+                    if ruleinfo.container_img:
                         if invalid_rule:
                             raise RuleException(
                                 "Singularity directive is only allowed "
@@ -1146,11 +1158,11 @@ class Workflow:
                                 "(not with run).",
                                 rule=rule,
                             )
-                        rule.singularity_img = ruleinfo.singularity_img
-                    elif self.global_singularity_img:
+                        rule.container_img = ruleinfo.container_img
+                    elif self.global_container_img:
                         if not invalid_rule:
                             # skip rules with run directive
-                            rule.singularity_img = self.global_singularity_img
+                            rule.container_img = self.global_container_img
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
@@ -1231,9 +1243,9 @@ class Workflow:
 
         return decorate
 
-    def singularity(self, singularity_img):
+    def container(self, container_img):
         def decorate(ruleinfo):
-            ruleinfo.singularity_img = singularity_img
+            ruleinfo.container_img = container_img
             return ruleinfo
 
         return decorate
@@ -1245,8 +1257,8 @@ class Workflow:
 
         return decorate
 
-    def global_singularity(self, singularity_img):
-        self.global_singularity_img = singularity_img
+    def global_container(self, container_img):
+        self.global_container_img = container_img
 
     def threads(self, threads):
         def decorate(ruleinfo):
@@ -1358,7 +1370,7 @@ class RuleInfo:
         self.message = None
         self.benchmark = None
         self.conda_env = None
-        self.singularity_img = None
+        self.container_img = None
         self.env_modules = None
         self.wildcard_constraints = None
         self.threads = None

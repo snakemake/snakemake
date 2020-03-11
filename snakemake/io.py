@@ -20,8 +20,6 @@ from contextlib import contextmanager
 import string
 import collections
 
-import yaml
-
 from snakemake.exceptions import (
     MissingOutputException,
     WorkflowError,
@@ -1313,6 +1311,10 @@ class InputFiles(Namedlist):
     def size(self):
         return sum(f.size for f in self)
 
+    @property
+    def size_mb(self):
+        return self.size / 1024 / 1024
+
 
 class OutputFiles(Namedlist):
     pass
@@ -1336,6 +1338,8 @@ class Log(Namedlist):
 
 def _load_configfile(configpath, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
+    import yaml
+
     try:
         with open(configpath) as f:
             try:

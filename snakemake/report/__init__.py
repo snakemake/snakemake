@@ -214,7 +214,7 @@ class RuleRecord:
 
         self.name = job_rec.rule
         self._rule = job.rule
-        self.singularity_img_url = job_rec.singularity_img_url
+        self.container_img_url = job_rec.container_img_url
         self.conda_env = None
         self._conda_env_raw = None
         if job_rec.conda_env:
@@ -271,7 +271,7 @@ class RuleRecord:
         return (
             self.name == other.name
             and self.conda_env == other.conda_env
-            and self.singularity_img_url == other.singularity_img_url
+            and self.container_img_url == other.container_img_url
         )
 
 
@@ -311,7 +311,7 @@ class JobRecord:
         self.endtime = 0
         self.output = []
         self.conda_env_file = None
-        self.singularity_img_url = None
+        self.container_img_url = None
 
 
 class FileRecord:
@@ -575,7 +575,7 @@ def auto_report(dag, path):
                 rec.endtime = max(rec.endtime, meta["endtime"])
                 rec.conda_env_file = None
                 rec.conda_env = meta["conda_env"]
-                rec.singularity_img_url = meta["singularity_img_url"]
+                rec.container_img_url = meta["container_img_url"]
                 rec.output.append(f)
             except KeyError as e:
                 print(e)

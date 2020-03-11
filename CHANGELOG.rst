@@ -1,3 +1,16 @@
+[5.10.0] - 2020-01-20
+=====================
+Added
+-----
+- Jupyter notebook integration, see docs. This enables interactive development of certain data analysis parts (e.g. for plotting).
+- Ability to overwrite thread definitions at the command line (``--threads rulename=3``), thereby improving scalability.
+- Requester pays configuration for google storage remote files.
+- Add keyword ``allow_missing`` to expand function, thereby allowing partical expansion by skipping wildcards for which no keywords are defined.
+
+Changed
+-------
+- Various bug fixes, e.g. for between workflow caching and script execution.
+
 [5.9.1] - 2019-12-20
 ====================
 Changed
