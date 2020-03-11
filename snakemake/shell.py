@@ -98,7 +98,7 @@ class shell:
 
         jobid = context.get("jobid")
         if not context.get("is_shell"):
-            logger.shellcmd(format(cmd, stepout=2, *args, **kwargs))
+            logger.shellcmd(fmt(cmd))
 
         env_prefix = ""
         conda_env = context.get("conda_env", None)
