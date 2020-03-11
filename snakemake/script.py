@@ -17,11 +17,11 @@ from abc import ABC, abstractmethod
 from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
-from snakemake.utils import format, ON_WINDOWS
+from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import MIN_PY_VERSION, SNAKEMAKE_SEARCHPATH
+from snakemake.common import MIN_PY_VERSION, SNAKEMAKE_SEARCHPATH, ON_WINDOWS
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 

@@ -29,7 +29,7 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
 
-from snakemake.common import DYNAMIC_FILL
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS
 
 
 def lutime(f, times):
@@ -406,8 +406,6 @@ class _IOFile(str):
             logger.info("Finished upload.")
 
     def prepare(self):
-        from snakemake.utils import ON_WINDOWS
-
         path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
         dir = os.path.dirname(path_until_wildcard)
         if len(dir) > 0:

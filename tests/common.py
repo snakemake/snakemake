@@ -18,7 +18,7 @@ import subprocess
 
 from snakemake import snakemake
 from snakemake.shell import shell
-from snakemake.utils import ON_WINDOWS
+from snakemake.common import ON_WINDOWS
 
 
 def dpath(path):

@@ -20,7 +20,7 @@ import uuid
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import strip_prefix
+from snakemake.common import strip_prefix, ON_WINDOWS
 from snakemake import utils
 from snakemake.deployment import singularity
 from snakemake.io import git_content
@@ -366,7 +366,7 @@ class Conda:
 
         # Use type here since conda now is a function.
         # type allows to check for both functions and regular commands.
-        locate_cmd = "where conda" if utils.ON_WINDOWS else "type conda"
+        locate_cmd = "where conda" if ON_WINDOWS else "type conda"
         try:
             shell.check_output(self._get_cmd(locate_cmd), stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:

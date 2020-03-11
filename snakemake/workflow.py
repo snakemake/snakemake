@@ -55,13 +55,13 @@ from snakemake.io import (
     IOFile,
 )
 from snakemake.persistence import Persistence
-from snakemake.utils import update_config, ON_WINDOWS
+from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
-from snakemake.common import Mode
+from snakemake.common import Mode, ON_WINDOWS
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources

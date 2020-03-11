@@ -11,7 +11,8 @@ import inspect
 import shutil
 import threading
 
-from snakemake.utils import format, ON_WINDOWS, argvquote, find_bash_on_windows
+from snakemake.utils import format, argvquote, find_bash_on_windows
+from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda

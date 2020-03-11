@@ -19,6 +19,7 @@ from urllib.parse import urljoin
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
+from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
 import snakemake
 
@@ -552,6 +553,3 @@ def find_bash_on_windows():
         except FileNotFoundError:
             bashcmd = ""
     return bashcmd if os.path.exists(bashcmd) else None
-
-
-ON_WINDOWS = platform.system() == "Windows"
