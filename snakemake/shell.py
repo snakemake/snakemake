@@ -84,7 +84,6 @@ class shell:
     ):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
-        fmt = lambda to_fmt: format(to_fmt, *args, stepout=2, **kwargs).strip()
 
         context = inspect.currentframe().f_back.f_locals
         # add kwargs to context (overwriting the locals of the caller)
@@ -96,7 +95,7 @@ class shell:
 
         jobid = context.get("jobid")
         if not context.get("is_shell"):
-            logger.shellcmd(fmt(cmd))
+            logger.shellcmd(format(cmd, stepout=2, *args, **kwargs))
 
         env_prefix = ""
         conda_env = context.get("conda_env", None)
@@ -105,7 +104,9 @@ class shell:
         shadow_dir = context.get("shadow_dir", None)
 
         cmd = "{} {} {}".format(
-            fmt(cls._process_prefix), fmt(cmd), fmt(cls._process_suffix),
+            format(cls._process_prefix, stepout=2, *args, **kwargs),
+            format(cmd, stepout=2, *args, **kwargs),
+            format(cls._process_suffix, stepout=2, *args, **kwargs),
         )
 
         if env_modules:
