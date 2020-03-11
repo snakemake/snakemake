@@ -89,6 +89,7 @@ def test13():
 
 
 def test14():
+    os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
 
 
