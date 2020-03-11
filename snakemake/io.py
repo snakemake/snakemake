@@ -416,7 +416,7 @@ class _IOFile(str):
                 if e.errno != 17:
                     raise e
 
-        if is_flagged(self._file, "pipe") and not ON_WINDOWS:
+        if is_flagged(self._file, "pipe"):
             os.mkfifo(self._file)
 
     def protect(self):
@@ -808,7 +808,9 @@ def pipe(value):
         raise SyntaxError("Pipes may not be protected.")
     if is_flagged(value, "remote"):
         raise SyntaxError("Pipes may not be remote files.")
-    return flag(value, "pipe")
+    if ON_WINDOWS:
+        logger.warning("Pipes is not yet supported on Windows.")
+    return flag(value, "pipe", not ON_WINDOWS)
 
 
 def temporary(value):
