@@ -160,6 +160,9 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
+        # environment variables to pass to jobs
+        # These are defined via the "envvars:" syntax in the Snakefile itself
+        self.envvars = set()
 
         if cache is not None:
             self.cache_rules = set(cache)
@@ -408,7 +411,6 @@ class Workflow:
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
-        kubernetes_envvars=None,
         tibanna=None,
         tibanna_sfn=None,
         precommand="",
@@ -793,7 +795,6 @@ class Workflow:
             drmaa=drmaa,
             drmaa_log_dir=drmaa_log_dir,
             kubernetes=kubernetes,
-            kubernetes_envvars=kubernetes_envvars,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
             precommand=precommand,
@@ -888,6 +889,20 @@ class Workflow:
         """Basedir of currently parsed Snakefile."""
         assert self.included_stack
         return os.path.abspath(os.path.dirname(self.included_stack[-1]))
+
+    def register_envvars(self, *envvars):
+        """
+        Register environment variables that shall be passed to jobs.
+        If used multiple times, union is taken.
+        """
+        undefined = [var for var in envvars if var not in os.environ]
+        if undefined:
+            raise WorkflowError(
+                "The following environment variables are requested by the workflow but undefined. "
+                "Please make sure that they are correctly defined before running Snakemake:\n"
+                "{}".format("\n".join(undefined))
+            )
+        self.envvars.update(envvars)
 
     def include(
         self,

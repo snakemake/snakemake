@@ -89,6 +89,7 @@ def test13():
 
 
 def test14():
+    os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
 
 
@@ -942,6 +943,12 @@ def test_github_issue52():
 
 def test_github_issue78():
     run(dpath("test_github_issue78"), use_singularity=True)
+
+
+def test_envvars():
+    run(dpath("test_envvars"), shouldfail=True)
+    os.environ["TEST_ENV_VAR"] = "test"
+    run(dpath("test_envvars"))
 
 
 def test_github_issue105():
