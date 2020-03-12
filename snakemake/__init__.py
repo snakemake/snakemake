@@ -1090,7 +1090,7 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Perform linting on the given workflow. This will print snakemake "
         "specific suggestions to improve code quality (work in progress, more lints "
-        "to be added in the future)."
+        "to be added in the future).",
     )
     group_utils.add_argument(
         "--export-cwl",

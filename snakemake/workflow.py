@@ -194,6 +194,7 @@ class Workflow:
 
     def lint(self):
         from snakemake.linting import lint_rules
+
         lint_rules(self.rules)
 
     def is_cached_rule(self, rule: Rule):
