@@ -23,21 +23,22 @@ def lint_rules(rules):
 
 def lint_params_prefix(rule):
     for param, value in rule.params.items():
-        if isinstance(value, str):
-            if any(f.startswith(value) for f in chain(rule.input, rule.output)):
-                yield Lint(
-                    title="Param {} is a prefix of input or output file but hardcoded".format(
-                        param
-                    ),
-                    body="If this is meant to represent a file path prefix, it will fail when running "
-                    "workflow in environments without a shared filesystem. "
-                    "Instead, provide a function that infers the appropriate prefix from the input or "
-                    "output file, e.g.: lambda w, input: os.path.splitext(input[0])[0]",
-                    links=[
-                        "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules",
-                        "https://snakemake.readthedocs.io/en/stable/tutorial/advanced.html#tutorial-input-functions",
-                    ],
-                )
+        if isinstance(value, str) and any(
+            f.startswith(value) for f in chain(rule.input, rule.output)
+        ):
+            yield Lint(
+                title="Param {} is a prefix of input or output file but hardcoded".format(
+                    param
+                ),
+                body="If this is meant to represent a file path prefix, it will fail when running "
+                "workflow in environments without a shared filesystem. "
+                "Instead, provide a function that infers the appropriate prefix from the input or "
+                "output file, e.g.: lambda w, input: os.path.splitext(input[0])[0]",
+                links=[
+                    "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules",
+                    "https://snakemake.readthedocs.io/en/stable/tutorial/advanced.html#tutorial-input-functions",
+                ],
+            )
 
 
 def lint_log_directive(rule):
