@@ -24,7 +24,8 @@ def lint_rules(rules):
 def lint_params_prefix(rule):
     for param, value in rule.params.items():
         if isinstance(value, str) and any(
-            f.startswith(value) for f in chain(rule.input, rule.output)
+            f.startswith(value)
+            for f in chain(rule.input, rule.output)
             if isinstance(f, str)
         ):
             yield Lint(
