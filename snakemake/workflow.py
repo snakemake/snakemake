@@ -192,6 +192,10 @@ class Workflow:
         global checkpoints
         checkpoints = Checkpoints()
 
+    def lint(self):
+        from snakemake.linting import lint_rules
+        lint_rules(self.rules)
+
     def is_cached_rule(self, rule: Rule):
         return rule.name in self.cache_rules
 
