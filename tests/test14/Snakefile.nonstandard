@@ -12,6 +12,7 @@ rule all:
 rule compute1:
 	input: '{name}.in'
 	output: ['{name}.%s.inter'%c for c in chromosomes]
+        params: prefix="{name}"
 	run:
 		for out in output:
 			shell('(cat {input[0]} && echo "Part {out}") > {out}')
