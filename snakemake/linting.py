@@ -60,7 +60,7 @@ def lint_not_used_params(rule, valid_names={"input", "output", "log", "params"})
         for name in get_wildcard_names(rule.shellcmd):
             if name not in valid_names:
                 yield Lint(
-                    title="Shell command directly uses discouraged variable.",
+                    title="Shell command directly uses variables from outside of the rule.",
                     body="It is recommended to pass all files as input and output, and non-file parameters "
                     "via the params directive. Otherwise, provenance tracking is less accurate.",
                     links=[
