@@ -988,3 +988,6 @@ def test_env_modules():
 @connected
 def test_container():
     run(dpath("test_container"), use_singularity=True)
+
+def test_linting():
+    snakemake(snakefile=os.path.join(dpath("test14"), "Snakefile.nonstandard"), lint=True)
