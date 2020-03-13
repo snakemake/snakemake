@@ -63,17 +63,6 @@ class RuleLinter(Linter):
                 links=[links.package_management, links.containers],
             )
 
-    # def lint_singularity(self, rule):
-    #     if rule.singularity_img:
-    #         yield Lint(
-    #             title="The singularity directive is deprecated.",
-    #             body="It has been replaced with the more generic container directive, "
-    #             "which can as well be used with --use-singularity.",
-    #             links=[
-    #                 "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers"
-    #             ],
-    #         )
-
     def lint_dynamic(self, rule):
         for file in chain(rule.output, rule.input):
             if is_flagged(file, "dynamic"):
