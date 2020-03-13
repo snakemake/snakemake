@@ -1701,10 +1701,15 @@ def get_argument_parser(profile=None):
         " between S3 bucket and the run environment (container) is automatically"
         " handled by Tibanna.",
     )
+
     group_tes.add_argument(
         "--tes",
         action="store_true",
         help="Execute workflow in a TES cluster (in the cloud).",
+    )
+    group_tes.add_argument(
+        "--tes_url",
+        help="URL of TES server.",
     )
 
     group_conda = parser.add_argument_group("CONDA")
