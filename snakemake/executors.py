@@ -1968,7 +1968,8 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
              restart_times=None,
              exec_job=None,
              assume_shared_fs=True,
-             max_status_checks_per_second=1):
+             max_status_checks_per_second=1,
+             tes_url=None):
         
         exec_job = (
             "cd /tmp && "
@@ -1993,7 +1994,9 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                          assume_shared_fs=False,
                          max_status_checks_per_second=10)
 
-        self.tes_url = "http://localhost:8000"
+        #self.tes_url = "http://localhost:8000"
+        self.tes_url = tes_url
+
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary
@@ -2017,7 +2020,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         exec_job = self.format_job(
             self.exec_job, job, _quote_all=True,
             use_threads="--force-use-threads" if not job.is_group() else "")
-        
+
         # submit job here, and obtain job ids from the backend
         task = self._get_task(job, jobscript)
         response = requests.post("{}/v1/tasks".format(self.tes_url), json=task)

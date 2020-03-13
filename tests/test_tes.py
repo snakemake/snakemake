@@ -14,6 +14,7 @@ def test_tes():
     run(
         workdir,
         tes=True,
+        tes_url="http://localhost:8000",
         no_tmpdir=True,
         cleanup=False
     )

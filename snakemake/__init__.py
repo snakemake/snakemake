@@ -142,6 +142,7 @@ def snakemake(
     tibanna=False,
     tibanna_sfn=None,
     tes=False,
+    tes_url=None,
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
@@ -252,6 +253,8 @@ def snakemake(
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (str):              submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
+        tes (bool):                 Submit jobs to TES server for execution.
+        tes_url (str):              URL of TES server
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
@@ -588,6 +591,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     tes=tes,
+                    tes_url=tes_url,
                     precommand=precommand,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,

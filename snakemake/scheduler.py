@@ -67,6 +67,7 @@ class JobScheduler:
         tibanna=None,
         tibanna_sfn=None,
         tes=None,
+        tes_url=None,
         precommand="",
         jobname=None,
         quiet=False,
@@ -279,6 +280,7 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
+                tes_url=tes_url
             )
         else:
             self._executor = CPUExecutor(
