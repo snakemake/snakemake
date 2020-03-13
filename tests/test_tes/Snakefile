@@ -1,8 +1,29 @@
 rule all:
+    input: "output.txt"
+
+rule step1a:
     input: "input.txt"
-    output: "output.txt"
+    output: temp("out_1a.txt")
     shell:
         """
         cat {input} > {output}
         """
 
+rule step1b:
+    input: "input.txt"
+    output: temp("out_1b.txt")
+    shell:
+        """
+        cat {input} > {output}
+        """
+
+rule step2:
+    input:
+        "out_1a.txt",
+        "out_1b.txt"
+    output: "output.txt"
+    shell:
+        """
+        cat {input[0]} >> {output}
+        cat {input[1]} >> {output}
+        """
