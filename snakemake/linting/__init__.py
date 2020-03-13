@@ -1,8 +1,9 @@
 import textwrap
 import shutil
+from abc import ABC, abstractmethod
 
 
-class Linter:
+class Linter(ABC):
     def __init__(self, workflow, items):
         self.items = items
         self.workflow = workflow

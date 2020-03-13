@@ -196,13 +196,13 @@ class Workflow:
         checkpoints = Checkpoints()
 
     def lint(self, json=False):
-        import json
         from snakemake.linting.rules import RuleLinter
         from snakemake.linting.snakefiles import SnakefileLinter
 
-        json_snakfile_lints = SnakefileLinter(self, self.snakefiles).lint(json=json)
+        json_snakefile_lints = SnakefileLinter(self, self.included).lint(json=json)
         json_rule_lints = RuleLinter(self, self.rules).lint(json=json)
         if json:
+            import json
             print(
                 json.dumps(
                     {"snakefiles": json_snakefile_lints, "rules": json_rule_lints},

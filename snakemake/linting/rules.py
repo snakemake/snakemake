@@ -1,4 +1,5 @@
 from itertools import chain
+import re
 
 from snakemake.io import get_wildcard_names
 from snakemake.linting import Linter, Lint

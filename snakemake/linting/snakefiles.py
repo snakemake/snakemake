@@ -1,4 +1,3 @@
-from collections import nametuple
 import re
 
 from snakemake.linting import Linter, Lint
@@ -49,10 +48,10 @@ class SnakefileLinter(Linter):
         self,
         snakefile,
         regex1=re.compile(
-            "[a-zA-Z_][a-zA-Z_0-9]* *+ *(?P<quote>['\"]).*?/.*?(?P=quote)"
+            "[a-zA-Z_][a-zA-Z_0-9]* *\\+ *(?P<quote>['\"]).*?/.*?(?P=quote)"
         ),
         regex2=re.compile(
-            "(?P<quote>['\"]).*/.*?(?P=quote) *+ *[a-zA-Z_][a-zA-Z_0-9]*"
+            "(?P<quote>['\"]).*/.*?(?P=quote) *\\+ *[a-zA-Z_][a-zA-Z_0-9]*"
         ),
     ):
         for match in regex.finditer(snakefile):
