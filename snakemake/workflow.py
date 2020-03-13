@@ -195,10 +195,20 @@ class Workflow:
         global checkpoints
         checkpoints = Checkpoints()
 
-    def lint(self):
-        from snakemake.linting import lint_rules
+    def lint(self, json=False):
+        import json
+        from snakemake.linting.rules import RuleLinter
+        from snakemake.linting.snakefiles import SnakefileLinter
 
-        lint_rules(self.rules)
+        json_snakfile_lints = SnakefileLinter(self, self.snakefiles).lint(json=json)
+        json_rule_lints = RuleLinter(self, self.rules).lint(json=json)
+        if json:
+            print(
+                json.dumps(
+                    {"snakefiles": json_snakefile_lints, "rules": json_rule_lints},
+                    indent=2,
+                )
+            )
 
     def is_cached_rule(self, rule: Rule):
         return rule.name in self.cache_rules

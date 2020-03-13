@@ -1,6 +1,7 @@
 import textwrap
 import shutil
 
+
 class Linter:
     def __init__(self, workflow, items):
         self.items = items
@@ -8,16 +9,20 @@ class Linter:
 
     def lint(self, json=False):
         for item in self.items:
-            item_lints = [lint for lint_item in self.lints() for lint in lint_rule(rule)]
+            item_lints = [
+                lint for lint_item in self.lints() for lint in lint_rule(rule)
+            ]
 
             if json:
                 json_lints = []
             if item_lints:
                 if json:
-                    json_lints.append({
-                        "for": self.item_desc_json(item),
-                        "lints": [lint.__dict__ for lint in item_lints]
-                    })
+                    json_lints.append(
+                        {
+                            "for": self.item_desc_json(item),
+                            "lints": [lint.__dict__ for lint in item_lints],
+                        }
+                    )
                 else:
                     logger.info(
                         "Lints for {}:\n{}\n".format(
@@ -25,23 +30,21 @@ class Linter:
                             "\n".join(map("    * {}".format, item_lints)),
                         )
                     )
-            
+
             if json:
-                print(json.dumps(json_lints, indent=2))
-    
+                return json_lints
+
     @abstractmethod
     def item_desc_json(self, item):
         pass
-        
+
     @abstractmethod
     def item_desc_plain(self, item):
         pass
-    
+
     def lints(self):
         return (
-            method
-            for name, method in self.__dict__.items()
-            if name.startswith("lint_")
+            method for name, method in self.__dict__.items() if name.startswith("lint_")
         )
 
 

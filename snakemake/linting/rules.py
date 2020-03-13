@@ -5,10 +5,9 @@ from snakemake.linting import Linter, Lint
 
 
 class RuleLinter(Linter):
-
     def item_desc_plain(self, rule):
         return "rule {} (line {}, {})".format(rule.name, rule.lineno, rule.snakefile)
-    
+
     def item_desc_json(self, rule):
         return {"rule": rule.name, "line": rule.lineno, "snakefile": rule.snakefile}
 
@@ -33,7 +32,6 @@ class RuleLinter(Linter):
                     ],
                 )
 
-
     def lint_log_directive(self, rule):
         if not rule.log and not rule.norun:
             yield Lint(
@@ -47,8 +45,9 @@ class RuleLinter(Linter):
                 ],
             )
 
-
-    def lint_not_used_params(self, rule, valid_names={"input", "output", "log", "params"}):
+    def lint_not_used_params(
+        self, rule, valid_names={"input", "output", "log", "params"}
+    ):
         if rule.shellcmd:
             for name in get_wildcard_names(rule.shellcmd):
                 if name not in valid_names:
@@ -60,7 +59,7 @@ class RuleLinter(Linter):
                             "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules"
                         ],
                     )
-    
+
     def lint_version(self, rule):
         if rule.version:
             yield Lint(
@@ -69,8 +68,8 @@ class RuleLinter(Linter):
                 "by using the conda or container directive.",
                 links=[
                     "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#integrated-package-management",
-                    "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers"
-                ]
+                    "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers",
+                ],
             )
 
     def lint_singularity(self, rule):
@@ -81,9 +80,9 @@ class RuleLinter(Linter):
                 "which can as well be used with --use-singularity.",
                 links=[
                     "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers"
-                ]
+                ],
             )
-    
+
     def lint_dynamic(self, rule):
         for file in chain(rule.output, rule.input):
             if is_flagged(file, "dynamic"):
@@ -92,9 +91,9 @@ class RuleLinter(Linter):
                     body="Use checkpoints instead, which are more powerful and less error-prone.",
                     links=[
                         "https://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#data-dependent-conditional-execution"
-                    ]
+                    ],
                 )
-    
+
     def lint_long_run(self, rule):
         func_code = rule.run_func.__code__
 
@@ -105,10 +104,10 @@ class RuleLinter(Linter):
                 "Only use the run direcive for a handful of lines.",
                 links=[
                     "https://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#external-scripts",
-                    "https://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#jupyter-notebook-integration"
-                ]
+                    "https://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#jupyter-notebook-integration",
+                ],
             )
-    
+
     def lint_iofile_by_index(self, rule, regex=re.compile("(input|output)\[[0-9]+\]")):
         if rule.shellcmd:
             if regex.search(rule.shellcmd):
@@ -118,14 +117,14 @@ class RuleLinter(Linter):
                     "is impossible), use names ('{input.somename}') instead of index based access.",
                     links=[
                         "https://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#rules"
-                    ]
+                    ],
                 )
-    
+
     def lint_missing_software_definition(self, rule):
         if not rule.norun and not (rule.conda_env or rule.container_img):
             if rule.env_modules:
                 yield Lint(
-                    title="Additionally specify a conda environment or container for each rule, environment modules are not enough."
+                    title="Additionally specify a conda environment or container for each rule, environment modules are not enough.",
                     body="While environment modules allow to document and deploy the required software on a certain "
                     "platform, they lock your workflow in there, disabling easy reproducibility on other machines "
                     "that don't have exactly the same environment modules. Hence env modules (which might be beneficial "
@@ -133,8 +132,8 @@ class RuleLinter(Linter):
                     "environments.",
                     links=[
                         "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#integrated-package-management",
-                        "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers"
-                    ]
+                        "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers",
+                    ],
                 )
             else:
                 yield Lint(
@@ -143,6 +142,6 @@ class RuleLinter(Linter):
                     "the workflow can be executed on any machine without prerequisites.",
                     links=[
                         "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#integrated-package-management",
-                        "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers"
-                    ]
+                        "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers",
+                    ],
                 )

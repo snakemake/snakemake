@@ -37,7 +37,14 @@ setup(
     zip_safe=False,
     license="MIT",
     url="https://snakemake.readthedocs.io",
-    packages=["snakemake", "snakemake.remote", "snakemake.report", "snakemake.caching", "snakemake.deployment", "snakemake.linting"],
+    packages=[
+        "snakemake",
+        "snakemake.remote",
+        "snakemake.report",
+        "snakemake.caching",
+        "snakemake.deployment",
+        "snakemake.linting",
+    ],
     entry_points={
         "console_scripts": [
             "snakemake = snakemake:main",
@@ -60,7 +67,10 @@ setup(
         "nbformat",
         "toposort",
     ],
-    extras_require={"reports": ["jinja2", "networkx", "pygments", "pygraphviz"], "messaging": ["slacker"]},
+    extras_require={
+        "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
+        "messaging": ["slacker"],
+    },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
