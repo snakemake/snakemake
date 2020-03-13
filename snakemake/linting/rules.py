@@ -95,14 +95,13 @@ class RuleLinter(Linter):
             )
 
     def lint_iofile_by_index(self, rule, regex=re.compile("(input|output)\[[0-9]+\]")):
-        if rule.shellcmd:
-            if regex.search(rule.shellcmd):
-                yield Lint(
-                    title="Do not access input and output files individually by index in shell commands.",
-                    body="When individual access to input or output files is needed (i.e., just writing '{input}' "
-                    "is impossible), use names ('{input.somename}') instead of index based access.",
-                    links=[links.rules],
-                )
+        if rule.shellcmd and regex.search(rule.shellcmd):
+            yield Lint(
+                title="Do not access input and output files individually by index in shell commands.",
+                body="When individual access to input or output files is needed (i.e., just writing '{input}' "
+                "is impossible), use names ('{input.somename}') instead of index based access.",
+                links=[links.rules],
+            )
 
     def lint_missing_software_definition(self, rule):
         if not rule.norun and not (rule.conda_env or rule.container_img):
