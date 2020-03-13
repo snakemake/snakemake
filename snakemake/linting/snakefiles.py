@@ -1,7 +1,7 @@
 import re
 from itertools import chain
 
-from snakemake.linting import Linter, Lint
+from snakemake.linting import Linter, Lint, links
 
 
 class SnakefileLinter(Linter):
@@ -22,9 +22,7 @@ class SnakefileLinter(Linter):
                 "renders your workflow irreproducible on other machines. "
                 "Use path relative to the working directory instead, or make the path "
                 "configurable via a config file.",
-                links=[
-                    "https://snakemake.readthedocs.io/en/latest/snakefiles/configuration.html#configuration"
-                ],
+                links=[links.config],
             )
 
     def lint_mixed_func_and_rules(
@@ -40,9 +38,7 @@ class SnakefileLinter(Linter):
                 "defined as lambda expressions. Other functions should be collected "
                 "in a common module, e.g. 'rules/common.smk'. This makes the workflow "
                 "steps more readable.",
-                links=[
-                    "https://snakemake.readthedocs.io/en/latest/snakefiles/modularization.html#includes"
-                ],
+                links=[links.includes],
             )
 
     def lint_path_add(
@@ -68,7 +64,7 @@ class SnakefileLinter(Linter):
         regex=re.compile("os.environ\[(?P<quote>['\"])(?P<name>.+)?(?P=quote)\]"),
     ):
         for match in regex.finditer(snakefile):
-            line = get_line(match)
+            line = get_line(match, snakefile)
             name = match.group("name")
             if name not in self.workflow.envvars:
                 yield Lint(
@@ -78,9 +74,7 @@ class SnakefileLinter(Linter):
                     body="Asserting existence of environment variables with the envvars directive ensures proper error "
                     "messages if the user fails to invoke a workflow with all required environment variables defined. "
                     "Further, it allows snakemake to pass them on in case of distributed execution.",
-                    links=[
-                        "https://snakemake.readthedocs.io/en/latest/snakefiles/configuration.html#environment-variables"
-                    ],
+                    links=[links.envvars],
                 )
 
 

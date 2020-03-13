@@ -2,7 +2,7 @@ from itertools import chain
 import re
 
 from snakemake.io import get_wildcard_names, is_flagged
-from snakemake.linting import Linter, Lint
+from snakemake.linting import Linter, Lint, links
 
 
 class RuleLinter(Linter):
@@ -27,10 +27,7 @@ class RuleLinter(Linter):
                     "workflow in environments without a shared filesystem. "
                     "Instead, provide a function that infers the appropriate prefix from the input or "
                     "output file, e.g.: lambda w, input: os.path.splitext(input[0])[0]",
-                    links=[
-                        "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules",
-                        "https://snakemake.readthedocs.io/en/stable/tutorial/advanced.html#tutorial-input-functions",
-                    ],
+                    links=[links.params, links.input_functions],
                 )
 
     def lint_log_directive(self, rule):
@@ -41,9 +38,7 @@ class RuleLinter(Linter):
                 "to the terminal. In distributed environments, this means "
                 "that errors are harder to discover. In local environments, "
                 "output of concurrent jobs will be mixed and become unreadable.",
-                links=[
-                    "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#log-files"
-                ],
+                links=[links.log],
             )
 
     def lint_not_used_params(
@@ -56,9 +51,7 @@ class RuleLinter(Linter):
                         title="Shell command directly uses variables from outside of the rule.",
                         body="It is recommended to pass all files as input and output, and non-file parameters "
                         "via the params directive. Otherwise, provenance tracking is less accurate.",
-                        links=[
-                            "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules"
-                        ],
+                        links=[links.params],
                     )
 
     def lint_version(self, rule):
@@ -67,10 +60,7 @@ class RuleLinter(Linter):
                 title="The version directive is deprecated.",
                 body="It was meant for documenting tool version, but this has been replaced "
                 "by using the conda or container directive.",
-                links=[
-                    "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#integrated-package-management",
-                    "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers",
-                ],
+                links=[links.package_management, links.containers],
             )
 
     # def lint_singularity(self, rule):
@@ -90,9 +80,7 @@ class RuleLinter(Linter):
                 yield Lint(
                     title="The dynamic flag is deprecated.",
                     body="Use checkpoints instead, which are more powerful and less error-prone.",
-                    links=[
-                        "https://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#data-dependent-conditional-execution"
-                    ],
+                    links=[links.checkpoints],
                 )
 
     def lint_long_run(self, rule):
@@ -103,10 +91,7 @@ class RuleLinter(Linter):
                 title="Migrate long run directives into scripts or notebooks.",
                 body="Long run directives hamper workflow readability. Use the script or notebook direcive instead. "
                 "Only use the run direcive for a handful of lines.",
-                links=[
-                    "https://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#external-scripts",
-                    "https://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#jupyter-notebook-integration",
-                ],
+                links=[links.external_scripts, links.notebooks],
             )
 
     def lint_iofile_by_index(self, rule, regex=re.compile("(input|output)\[[0-9]+\]")):
@@ -116,9 +101,7 @@ class RuleLinter(Linter):
                     title="Do not access input and output files individually by index in shell commands.",
                     body="When individual access to input or output files is needed (i.e., just writing '{input}' "
                     "is impossible), use names ('{input.somename}') instead of index based access.",
-                    links=[
-                        "https://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#rules"
-                    ],
+                    links=[links.rules],
                 )
 
     def lint_missing_software_definition(self, rule):
@@ -131,18 +114,12 @@ class RuleLinter(Linter):
                     "that don't have exactly the same environment modules. Hence env modules (which might be beneficial "
                     "in certain cluster environments), should allways be complemented with equivalent conda "
                     "environments.",
-                    links=[
-                        "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#integrated-package-management",
-                        "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers",
-                    ],
+                    links=[links.package_management, links.containers],
                 )
             else:
                 yield Lint(
                     title="Specify a conda environment or container for each rule.",
                     body="This way, the used software for each specific step is documented, and "
                     "the workflow can be executed on any machine without prerequisites.",
-                    links=[
-                        "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#integrated-package-management",
-                        "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers",
-                    ],
+                    links=[links.package_management, links.containers],
                 )
