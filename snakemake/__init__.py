@@ -42,7 +42,7 @@ def snakemake(
     batch=None,
     cache=None,
     report=None,
-    lint=False,
+    lint=None,
     listrules=False,
     list_target_rules=False,
     cores=1,
@@ -159,7 +159,7 @@ def snakemake(
         snakefile (str):            the path to the snakefile
         batch (Batch):              whether to compute only a partial DAG, defined by the given Batch object (default None)
         report (str):               create an HTML report for a previous run at the given path
-        lint (bool):                print lints instead of executing
+        lint (str):                 print lints instead of executing (None, "plain" or "json", default None)
         listrules (bool):           list rules (default False)
         list_target_rules (bool):   list target rules (default False)
         cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
@@ -483,7 +483,7 @@ def snakemake(
 
         if not print_compilation:
             if lint:
-                workflow.lint()
+                workflow.lint(json=lint == "json")
             elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
@@ -1083,10 +1083,12 @@ def get_argument_parser(profile=None):
     )
     group_utils.add_argument(
         "--lint",
-        action="store_true",
+        nargs="?",
+        const="text",
+        choices=["text", "json"],
         help="Perform linting on the given workflow. This will print snakemake "
         "specific suggestions to improve code quality (work in progress, more lints "
-        "to be added in the future).",
+        "to be added in the future). If no argument is provided, plain text output is used.",
     )
     group_utils.add_argument(
         "--export-cwl",
