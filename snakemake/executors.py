@@ -1969,7 +1969,8 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
              exec_job=None,
              assume_shared_fs=True,
              max_status_checks_per_second=1,
-             tes_url=None):
+             tes_url=None,
+             container_image=None):
         
         exec_job = (
             "cd /tmp && "
@@ -1996,6 +1997,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         #self.tes_url = "http://localhost:8000"
         self.tes_url = tes_url
+        self.container_image = container_image or get_container_image()
 
 
     def shutdown(self):
@@ -2085,7 +2087,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         # define executors
         task["executors"] = [{
-                "image": "snakemake/snakemake:v5.10.0",
+                "image": self.container_image,
                 "command": ["/bin/bash", "/tmp/run_snakemake.sh"]
             }]
         

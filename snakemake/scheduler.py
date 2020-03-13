@@ -280,7 +280,8 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
-                tes_url=tes_url
+                tes_url=tes_url,
+                container_image=container_image
             )
         else:
             self._executor = CPUExecutor(

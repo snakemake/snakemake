@@ -556,6 +556,8 @@ def snakemake(
                     default_remote_prefix=default_remote_prefix,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    tes=tes,
+                    tes_url=tes_url,
                     precommand=precommand,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
@@ -1970,8 +1972,9 @@ def main(argv=None):
                 )
                 sys.exit(1)
     
-    if args.tes:
-        print("main(): use tes")
+    if args.tes and not args.tes_url:
+        print("Error: --tes must be combined with --tes_url")
+        sys.exit(1)
     
     if args.delete_all_output and args.delete_temp_output:
         print(
