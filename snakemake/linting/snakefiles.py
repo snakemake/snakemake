@@ -76,18 +76,16 @@ class SnakefileLinter(Linter):
                     "Further, it allows snakemake to pass them on in case of distributed execution.",
                     links=[links.envvars],
                 )
-    
-    def lint_singularity(
-        self,
-        snakefile,
-        regex=re.compile("singularity:")
-    ):
+
+    def lint_singularity(self, snakefile, regex=re.compile("singularity:")):
         for match in regex.finditer(snakefile):
             line = get_line(match, snakefile)
             yield Lint(
-                title="Deprecated  singularity directive used for container definition in line {}.".format(line)
-                body="Use the container directive instead (it is agnostic of the underlying container runtime)."
-                links=[links.containers]
+                title="Deprecated singularity directive used for container definition in line {}.".format(
+                    line
+                ),
+                body="Use the container directive instead (it is agnostic of the underlying container runtime).",
+                links=[links.containers],
             )
 
 
