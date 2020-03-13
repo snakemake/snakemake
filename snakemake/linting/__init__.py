@@ -48,7 +48,9 @@ class Linter(ABC):
 
     def lints(self):
         return (
-            method for name, method in inspect.getmembers(self) if name.startswith("lint_")
+            method
+            for name, method in inspect.getmembers(self)
+            if name.startswith("lint_")
         )
 
 

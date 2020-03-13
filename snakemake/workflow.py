@@ -203,6 +203,7 @@ class Workflow:
         json_rule_lints = RuleLinter(self, self.rules).lint(json=json)
         if json:
             import json
+
             print(
                 json.dumps(
                     {"snakefiles": json_snakefile_lints, "rules": json_rule_lints},
@@ -1156,7 +1157,6 @@ class Workflow:
                         self.current_basedir, ruleinfo.conda_env
                     )
                 rule.conda_env = ruleinfo.conda_env
-
 
             invalid_rule = not (
                 ruleinfo.script
