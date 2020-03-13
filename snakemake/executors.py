@@ -369,9 +369,9 @@ class CPUExecutor(RealExecutor):
     def job_args_and_prepare(self, job):
         job.prepare()
 
-        conda_env = job.conda_env_path
-        container_img = job.container_img_path
-        env_modules = job.env_modules
+        conda_env = job.conda_env_path if self.workflow.use_conda else None
+        container_img = job.container_img_path if self.workflow.use_singularity else None
+        env_modules = job.env_modules if self.workflow.use_env_modules else None
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1

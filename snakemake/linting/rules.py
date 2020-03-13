@@ -1,7 +1,7 @@
 from itertools import chain
 import re
 
-from snakemake.io import get_wildcard_names
+from snakemake.io import get_wildcard_names, is_flagged
 from snakemake.linting import Linter, Lint
 
 
@@ -73,16 +73,16 @@ class RuleLinter(Linter):
                 ],
             )
 
-    def lint_singularity(self, rule):
-        if rule.singularity_img:
-            yield Lint(
-                title="The singularity directive is deprecated.",
-                body="It has been replaced with the more generic container directive, "
-                "which can as well be used with --use-singularity.",
-                links=[
-                    "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers"
-                ],
-            )
+    # def lint_singularity(self, rule):
+    #     if rule.singularity_img:
+    #         yield Lint(
+    #             title="The singularity directive is deprecated.",
+    #             body="It has been replaced with the more generic container directive, "
+    #             "which can as well be used with --use-singularity.",
+    #             links=[
+    #                 "https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers"
+    #             ],
+    #         )
 
     def lint_dynamic(self, rule):
         for file in chain(rule.output, rule.input):
@@ -96,7 +96,7 @@ class RuleLinter(Linter):
                 )
 
     def lint_long_run(self, rule):
-        func_code = rule.run_func.__code__
+        func_code = rule.run_func.__code__.co_code
 
         if len(func_code) > 80 * 5:
             yield Lint(

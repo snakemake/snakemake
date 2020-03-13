@@ -1,6 +1,9 @@
 import textwrap
 import shutil
+import inspect
 from abc import ABC, abstractmethod
+
+from snakemake.logging import logger
 
 
 class Linter(ABC):
@@ -11,7 +14,7 @@ class Linter(ABC):
     def lint(self, json=False):
         for item in self.items:
             item_lints = [
-                lint for lint_item in self.lints() for lint in lint_rule(rule)
+                lint for lint_item in self.lints() for lint in lint_item(item)
             ]
 
             if json:
@@ -45,7 +48,7 @@ class Linter(ABC):
 
     def lints(self):
         return (
-            method for name, method in self.__dict__.items() if name.startswith("lint_")
+            method for name, method in inspect.getmembers(self) if name.startswith("lint_")
         )
 
 

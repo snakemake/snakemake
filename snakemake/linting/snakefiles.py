@@ -1,4 +1,5 @@
 import re
+from itertools import chain
 
 from snakemake.linting import Linter, Lint
 
@@ -54,7 +55,7 @@ class SnakefileLinter(Linter):
             "(?P<quote>['\"]).*/.*?(?P=quote) *\\+ *[a-zA-Z_][a-zA-Z_0-9]*"
         ),
     ):
-        for match in regex.finditer(snakefile):
+        for match in chain(regex1.finditer(snakefile), regex2.finditer(snakefile)):
             line = get_line(match, snakefile)
             yield Lint(
                 title="Path composition with '+' in line {}".format(line),
