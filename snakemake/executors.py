@@ -1971,7 +1971,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
              max_status_checks_per_second=1):
         
         exec_job = (
-            "sleep 10; cd /tmp && "
+            "cd /tmp && "
             "snakemake {target} --snakefile {snakefile} "
             "--force -j{cores} --keep-target-files  --keep-remote "
             "--latency-wait 10 "
@@ -1993,7 +1993,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                          assume_shared_fs=False,
                          max_status_checks_per_second=10)
 
-        # add additional attributes
+        self.tes_url = "http://localhost:8000"
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary
@@ -2001,8 +2001,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
     def cancel(self):
         for job in self.active_jobs:
-            print("cancel", file=sys.stderr)
-            # cancel active jobs here
+            requests.post("{}/v1/tasks/{}:cancel".format(self.tes_url, job.jobid))
         self.shutdown()
 
     def run(self, job,
@@ -2013,19 +2012,16 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         super()._run(job)
 
         jobscript = self.get_jobscript(job)
-        print("TaskExecutionServiceExecutor:run:jobscript:", jobscript, file=sys.stderr)
         self.write_jobscript(job, jobscript)
         # obtain job execution command
         exec_job = self.format_job(
             self.exec_job, job, _quote_all=True,
             use_threads="--force-use-threads" if not job.is_group() else "")
-
+        
         # submit job here, and obtain job ids from the backend
         task = self._get_task(job, jobscript)
-        print(task, file=sys.stderr)
-        response = requests.post("http://localhost:8000/v1/tasks", json=task)
-        print(response.json(), file=sys.stderr)
-        
+        response = requests.post("{}/v1/tasks".format(self.tes_url), json=task)
+
         self.active_jobs.append(TaskExecutionServiceJob(
             job, response.json()["id"], callback, error_callback))
 
@@ -2041,7 +2037,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             
             for j in active_jobs:
                 with self.status_rate_limiter:
-                    response = requests.get("http://localhost:8000/v1/tasks/" + j.jobid)
+                    response = requests.get("{}/v1/tasks/{}".format(self.tes_url, j.jobid))
                     status = response.json()["state"]
                     if status == "RUNNING":
                         still_running.append(j)
@@ -2056,21 +2052,21 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         
         task = {}
         task["name"] = job.format_wildcards(self.jobname)
-        task["description"] = "here description."
+        task["description"] = "Here is description."
 
         # add input files to task
         inputs = []
         for i in job.input:
             inputs.append({
-                "url": "file://" + os.path.join(self.workflow.overwrite_workdir, i),
+                "url": "file://" + os.path.abspath(i),
                 "path": os.path.join("/tmp/", i)
             })
-        inputs.append({
+        inputs.append({ # TODO add original snakefile name
             "url": "file://" + os.path.join(self.workflow.overwrite_workdir, "Snakefile"),
             "path": "/tmp/Snakefile"
         })
         inputs.append({
-            "url": "file://" + jobscript,
+            "url": "file://" + os.path.abspath(jobscript),
             "path": "/tmp/run_snakemake.sh"
         })
         task["inputs"] = inputs
@@ -2079,7 +2075,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         outputs = []
         for o in job.output:
             outputs.append({
-                "url": "file://" + os.path.join(self.workflow.overwrite_workdir, o),
+                "url": "file://" + os.path.abspath(o),
                 "path": os.path.join("/tmp/", o)
             })
         task["outputs"] = outputs
