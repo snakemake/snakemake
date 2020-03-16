@@ -1945,6 +1945,7 @@ def main(argv=None):
         or args.cluster
         or args.cluster_sync
         or args.drmaa
+        or args.google_lifesciences
         or args.kubernetes
         or args.tibanna
         or args.list_code_changes
