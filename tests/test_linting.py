@@ -17,6 +17,8 @@ def test_lint(lint, case):
     out = (
         sp.check_output(
             [
+                "python",
+                "-m",
                 "snakemake",
                 "--lint",
                 "--directory",
