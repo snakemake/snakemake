@@ -107,7 +107,7 @@ Conda deployment also works well for offline or air-gapped environments. Running
 Running jobs in containers
 --------------------------
 
-As an alternative to using Conda (see above), it is possible to define, for each rule, a docker or singularity container to use, e.g.,
+As an alternative to using Conda (see above), it is possible to define, for each rule, a (docker) container to use, e.g.,
 
 .. code-block:: python
 
@@ -116,7 +116,7 @@ As an alternative to using Conda (see above), it is possible to define, for each
             "table.txt"
         output:
             "plots/myplot.pdf"
-        singularity:
+        containers:
             "docker://joseespinosa/docker-r-ggplot2"
         script:
             "scripts/plot-stuff.R"
@@ -127,8 +127,9 @@ When executing Snakemake with
 
     snakemake --use-singularity
 
-it will execute the job within a singularity container that is spawned from the given image.
+it will execute the job within a container that is spawned from the given image.
 Allowed image urls entail everything supported by singularity (e.g., ``shub://`` and ``docker://``).
+However, ``docker://`` is preferred, as other container runtimes will be supported in the future (e.g. podman).
 
 .. sidebar:: Note
 
@@ -151,7 +152,7 @@ For example, you can write
 
 .. code-block:: python
 
-    singularity: "docker://continuumio/miniconda3:4.4.10"
+    container: "docker://continuumio/miniconda3:4.4.10"
 
     rule NAME:
         input:

@@ -410,6 +410,7 @@ class Job(AbstractJob):
             self.is_shell
             or self.is_norun
             or self.is_script
+            or self.is_notebook
             or self.is_wrapper
             or self.is_cwl
         )
