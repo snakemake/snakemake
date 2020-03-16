@@ -42,6 +42,7 @@ def snakemake(
     batch=None,
     cache=None,
     report=None,
+    lint=None,
     listrules=False,
     list_target_rules=False,
     cores=1,
@@ -159,6 +160,7 @@ def snakemake(
         snakefile (str):            the path to the snakefile
         batch (Batch):              whether to compute only a partial DAG, defined by the given Batch object (default None)
         report (str):               create an HTML report for a previous run at the given path
+        lint (str):                 print lints instead of executing (None, "plain" or "json", default None)
         listrules (bool):           list rules (default False)
         list_target_rules (bool):   list target rules (default False)
         cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
@@ -492,7 +494,9 @@ def snakemake(
         workflow.check()
 
         if not print_compilation:
-            if listrules:
+            if lint:
+                workflow.lint(json=lint == "json")
+            elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
                 workflow.list_rules(only_targets=True)
@@ -1090,6 +1094,15 @@ def get_argument_parser(profile=None):
         metavar="HTMLFILE",
         help="Create an HTML report with results and statistics. "
         "If no filename is given, report.html is the default.",
+    )
+    group_utils.add_argument(
+        "--lint",
+        nargs="?",
+        const="text",
+        choices=["text", "json"],
+        help="Perform linting on the given workflow. This will print snakemake "
+        "specific suggestions to improve code quality (work in progress, more lints "
+        "to be added in the future). If no argument is provided, plain text output is used.",
     )
     group_utils.add_argument(
         "--export-cwl",
@@ -1857,6 +1870,7 @@ def main(argv=None):
         or args.filegraph
         or args.rulegraph
         or args.summary
+        or args.lint
     )
 
     if args.cores is not None:
@@ -2054,6 +2068,7 @@ def main(argv=None):
             batch=batch,
             cache=args.cache,
             report=args.report,
+            lint=args.lint,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
             cores=args.cores,
