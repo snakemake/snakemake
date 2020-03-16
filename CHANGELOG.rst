@@ -5,6 +5,7 @@ Changed
 - Fixes for environment modules and tibanna-based AWS execution.
 - Fixes for --default-resources defaults.
 - --cores is now a mandatory argument!
+- Automatic checksum validation for google storage.
 
 Added
 -----
