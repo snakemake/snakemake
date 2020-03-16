@@ -1901,7 +1901,7 @@ class TibannaExecutor(ClusterExecutor):
             "log_bucket": self.s3_bucket,
         }
         logger.debug("additional tibanna config: " + str(self.tibanna_config))
-        if self.tibanna_config
+        if self.tibanna_config:
             tibanna_config.update(self.tibanna_config)
         tibanna_args = ec2_utils.Args(
             output_S3_bucket=self.s3_bucket,
