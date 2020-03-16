@@ -19,4 +19,5 @@ def test_tibanna():
         configfiles=[os.path.join(workdir, "config.json")],
         default_remote_prefix="snakemake-tibanna-test/1",
         tibanna_sfn="tibanna_unicorn_johannes",
+        tibanna_config="spot_instance=true",
     )

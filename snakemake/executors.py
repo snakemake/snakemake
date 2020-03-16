@@ -517,6 +517,7 @@ class ClusterExecutor(RealExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         disable_default_remote_provider_args=False,
+        disable_get_default_resources_args=False,
         keepincomplete=False,
     ):
         from ratelimiter import RateLimiter
@@ -594,7 +595,8 @@ class ClusterExecutor(RealExecutor):
 
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
-        self.exec_job += self.get_default_resources_args()
+        if not disable_get_default_resources_args:
+            self.exec_job += self.get_default_resources_args()
         self.jobname = jobname
         self._tmpdir = None
         self.cores = cores if cores else ""
@@ -1657,6 +1659,7 @@ class TibannaExecutor(ClusterExecutor):
         cores,
         tibanna_sfn,
         precommand="",
+        tibanna_config=False,
         container_image=None,
         printreason=False,
         quiet=False,
@@ -1723,8 +1726,10 @@ class TibannaExecutor(ClusterExecutor):
             assume_shared_fs=False,
             max_status_checks_per_second=max_status_checks_per_second,
             disable_default_remote_provider_args=True,
+            disable_get_default_resources_args=True,
         )
         self.container_image = container_image or get_container_image()
+        self.tibanna_config = tibanna_config
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary
@@ -1863,9 +1868,15 @@ class TibannaExecutor(ClusterExecutor):
         output_target = dict()
         output_all = [eo for eo in job.expanded_output]
         if job.log:
-            output_all.append(str(job.log))
+            if isinstance(job.log, list):
+                output_all.extend([str(_) for _ in job.log])
+            else:
+                output_all.append(str(job.log))
         if hasattr(job, "benchmark") and job.benchmark:
-            output_all.append(str(job.benchmark))
+            if isinstance(job.benchmark, list):
+                output_all.extend([str(_) for _ in job.benchmark])
+            else:
+                output_all.append(str(job.benchmark))
         for op in output_all:
             op_rel = self.adjust_filepath(op)
             output_target[os.path.join(file_prefix, op_rel)] = "s3://" + op
@@ -1889,6 +1900,9 @@ class TibannaExecutor(ClusterExecutor):
             "ebs_size": math.ceil(job.resources["disk_mb"] / 1024),
             "log_bucket": self.s3_bucket,
         }
+        logger.debug("additional tibanna config: " + str(self.tibanna_config))
+        if self.tibanna_config:
+            tibanna_config.update(self.tibanna_config)
         tibanna_args = ec2_utils.Args(
             output_S3_bucket=self.s3_bucket,
             language="snakemake",
@@ -1917,7 +1931,11 @@ class TibannaExecutor(ClusterExecutor):
         tibanna_input = self.make_tibanna_input(job)
         jobid = tibanna_input["jobid"]
         exec_info = API().run_workflow(
-            tibanna_input, sfn=self.tibanna_sfn, verbose=not self.quiet, jobid=jobid
+            tibanna_input,
+            sfn=self.tibanna_sfn,
+            verbose=not self.quiet,
+            jobid=jobid,
+            sleep=0,
         )
         exec_arn = exec_info.get("_tibanna", {}).get("exec_arn", "")
         jobname = tibanna_input["config"]["run_name"]
