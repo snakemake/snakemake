@@ -1,10 +1,8 @@
 rule a:
     input:
-        "path/test.txt"
+        "test.in"
     output:
-        "test.txt"
-    params:
-        prefix="path"
+        "test.out"
     log:
         "logs/a.log"
     conda:

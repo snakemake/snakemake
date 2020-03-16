@@ -1,7 +1,7 @@
 import re
 from itertools import chain
 
-from snakemake.linting import Linter, Lint, links
+from snakemake.linting import Linter, Lint, links, NAME_PATTERN
 
 
 class SnakefileLinter(Linter):
@@ -48,7 +48,7 @@ class SnakefileLinter(Linter):
             "[a-zA-Z_][a-zA-Z_0-9]* *\\+ *(?P<quote>['\"]).*?/.*?(?P=quote)"
         ),
         regex2=re.compile(
-            "(?P<quote>['\"]).*/.*?(?P=quote) *\\+ *[a-zA-Z_][a-zA-Z_0-9]*"
+            "(?P<quote>['\"]).*/.*?(?P=quote) *\\+ *{}".format(NAME_PATTERN)
         ),
     ):
         for match in chain(regex1.finditer(snakefile), regex2.finditer(snakefile)):

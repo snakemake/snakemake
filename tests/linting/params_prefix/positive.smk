@@ -10,4 +10,4 @@ rule a:
     conda:
         "envs/software.yaml"
     shell:
-        "touch {output}"
+        "cp {input} {output}"

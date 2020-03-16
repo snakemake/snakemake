@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 
 from snakemake.logging import logger
 
+NAME_PATTERN = "[a-zA-Z_][a-zA-Z_0-9]*"
+
 
 class Linter(ABC):
     def __init__(self, workflow, items):

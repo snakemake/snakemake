@@ -1,12 +1,8 @@
 rule a:
     input:
-        "path/test.txt"
+        "test.in"
     output:
-        "test.txt"
-    params:
-        prefix="path"
-    log:
-        "logs/a.log"
+        "test.out"
     conda:
         "envs/software.yaml"
     shell:

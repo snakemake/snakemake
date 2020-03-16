@@ -2,7 +2,7 @@ from itertools import chain
 import re
 
 from snakemake.io import get_wildcard_names, is_flagged
-from snakemake.linting import Linter, Lint, links
+from snakemake.linting import Linter, Lint, links, NAME_PATTERN
 
 
 class RuleLinter(Linter):
@@ -42,10 +42,11 @@ class RuleLinter(Linter):
             )
 
     def lint_not_used_params(
-        self, rule, valid_names={"input", "output", "log", "params"}
+        self, rule, valid_names={"input", "output", "log", "params"}, regex=re.compile("{{(?P<name>{}).*?}}".format(NAME_PATTERN))
     ):
         if rule.shellcmd:
-            for name in get_wildcard_names(rule.shellcmd):
+            for match in regex.finditer(rule.shellcmd):
+                name = match.group("name")
                 if name not in valid_names:
                     yield Lint(
                         title="Shell command directly uses variables from outside of the rule.",
