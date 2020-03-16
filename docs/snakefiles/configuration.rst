@@ -67,6 +67,39 @@ reads in a table ``samples.tsv`` in TSV format and makes every record accessible
 For details, see the `Pandas documentation <http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_table.html?highlight=read_table#pandas-read-table>`_.
 A fully working real-world example containing both types of configuration can be found `here <https://github.com/snakemake-workflows/rna-seq-star-deseq2>`_.
 
+---------------------
+Environment variables
+---------------------
+
+Sometimes, it is not desirable to put configuration information into text files.
+For example, this holds for secrets like access tokens or passwords.
+Here, `environment variables <https://en.wikipedia.org/wiki/Environment_variable>`_ are the method of choice.
+Snakemake allows to assert the existence of environment variables by adding a statement like:
+
+.. code-block:: python
+
+    envvars:
+        "SOME_VARIABLE",
+        "SOME_OTHER_VARIABLE"
+
+When executing, Snakemake will fail with a reasonable error message if the variables ``SOME_VARIABLE`` and ``SOME_OTHER_VARIABLE`` are undefined.
+Otherwise, it will take care of passing them to cluster and cloud environments. However, note that this does **not** mean that Snakemake makes them available e.g. in the jobs shell command.
+Instead, for data provenance and reproducibility reasons, you are required to pass them explicitly to your job via the params directive, e.g. like this:
+
+.. code-block:: python
+
+    envvars:
+        "SOME_VARIABLE"
+
+    rule do_something:
+        output:
+             "test.txt"
+        params:
+            x=os.environ["SOME_VARIABLE"]
+        shell:
+            "echo {params.x} > {output}"
+
+
 ----------
 Validation
 ----------

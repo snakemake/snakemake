@@ -137,7 +137,6 @@ def snakemake(
     mode=Mode.default,
     wrapper_prefix=None,
     kubernetes=None,
-    kubernetes_envvars=None,
     container_image=None,
     tibanna=False,
     tibanna_sfn=None,
@@ -246,7 +245,6 @@ def snakemake(
         mode (snakemake.common.Mode): execution mode
         wrapper_prefix (str):       prefix for wrapper script URLs (default None)
         kubernetes (str):           submit jobs to kubernetes, using the given namespace.
-        kubernetes_envvars (list):  environment variables that shall be passed to kubernetes jobs.
         container_image (str):      Docker image to use, e.g., for kubernetes.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
@@ -547,7 +545,6 @@ def snakemake(
                     singularity_args=singularity_args,
                     list_conda_envs=list_conda_envs,
                     kubernetes=kubernetes,
-                    kubernetes_envvars=kubernetes_envvars,
                     container_image=container_image,
                     create_envs_only=create_envs_only,
                     default_remote_provider=default_remote_provider,
@@ -585,7 +582,6 @@ def snakemake(
                     drmaa=drmaa,
                     drmaa_log_dir=drmaa_log_dir,
                     kubernetes=kubernetes,
-                    kubernetes_envvars=kubernetes_envvars,
                     container_image=container_image,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
@@ -1653,13 +1649,6 @@ def get_argument_parser(profile=None):
         "integration via --use-conda.",
     )
     group_kubernetes.add_argument(
-        "--kubernetes-env",
-        nargs="+",
-        metavar="ENVVAR",
-        default=[],
-        help="Specify environment variables to pass to the kubernetes job.",
-    )
-    group_kubernetes.add_argument(
         "--container-image",
         metavar="IMAGE",
         help="Docker image to use, e.g., when submitting jobs to kubernetes. "
@@ -2092,7 +2081,6 @@ def main(argv=None):
             drmaa=args.drmaa,
             drmaa_log_dir=args.drmaa_log_dir,
             kubernetes=args.kubernetes,
-            kubernetes_envvars=args.kubernetes_env,
             container_image=args.container_image,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
