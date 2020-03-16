@@ -14,9 +14,6 @@ LINT_DIR = Path(__file__).parent.joinpath("linting")
 def test_lint(lint, case):
     lint = LINT_DIR.joinpath(lint)
 
-    envfile = lint.joinpath(".env.py")
-    if envfile.exists():
-        exec(open(envfile).read(), globals())
     out = (
         sp.check_output(
             [

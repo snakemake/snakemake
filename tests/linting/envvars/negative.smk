@@ -1,3 +1,5 @@
+os.environ["THRESHOLD"] = "1.0"
+
 rule a:
     input:
         "test.in"
