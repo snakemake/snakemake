@@ -14,6 +14,11 @@ LINT_DIR = Path(__file__).parent.joinpath("linting")
 def test_lint(lint, case):
     lint = LINT_DIR.joinpath(lint)
 
+    envfile = lint.joinpath(".env.py")
+    print(envfile)
+    if envfile.exists():
+        exec(open(envfile).read())
+        print(envfile)
     out = sp.check_output(["snakemake", "--lint", "--directory", lint, "--snakefile", lint.joinpath(case).with_suffix(".smk")], stderr=sp.STDOUT).decode().strip()
 
     if case == "positive":

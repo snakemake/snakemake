@@ -3,6 +3,8 @@ from itertools import chain
 
 from snakemake.linting import Linter, Lint, links, NAME_PATTERN
 
+ABS_PATH_PATTERN = "(?P<quote>['\"])(?P<path>(?:/[^/]+?)+?)(?P=quote)"
+PATH_PATTERN = "(?P<quote>['\"])(?P<path>/?(?:[^/]+?/)+?(?:[^/]+?)?)(?P=quote)"
 
 class SnakefileLinter(Linter):
     def item_desc_plain(self, snakefile):
@@ -15,7 +17,7 @@ class SnakefileLinter(Linter):
         return open(snakefile).read()
 
     def lint_absolute_paths(
-        self, snakefile, regex=re.compile("(?P<quote>['\"])(?P<path>(?:/[^/]+?)+?)(?P=quote)")
+        self, snakefile, regex=re.compile(ABS_PATH_PATTERN)
     ):
         for match in regex.finditer(snakefile):
             line = get_line(match, snakefile)
@@ -49,17 +51,19 @@ class SnakefileLinter(Linter):
         self,
         snakefile,
         regex1=re.compile(
-            "[a-zA-Z_][a-zA-Z_0-9]* *\\+ *(?P<quote>['\"]).*?/.*?(?P=quote)"
+            "{name} *\\+ *{path}".format(name=NAME_PATTERN, path=PATH_PATTERN)
         ),
         regex2=re.compile(
-            "(?P<quote>['\"]).*/.*?(?P=quote) *\\+ *{}".format(NAME_PATTERN)
+            "{path} *\\+ *{name}".format(path=PATH_PATTERN, name=NAME_PATTERN)
         ),
     ):
         for match in chain(regex1.finditer(snakefile), regex2.finditer(snakefile)):
             line = get_line(match, snakefile)
             yield Lint(
                 title="Path composition with '+' in line {}".format(line),
-                body='This becomes quickly unreadable. Instead, use pathlib or string formatting with f"...".',
+                body='This becomes quickly unreadable. Usually, it is better to endure some '
+                'redundancy against having a more readable workflow. Hence, just repeat common '
+                'prefixes. If path composition is unavoidable, use pathlib or string formatting with f"...". '
             )
 
     def lint_envvars(
