@@ -143,7 +143,7 @@ def snakemake(
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
-    spot_instance=False,
+    tibanna_config=False,
     assume_shared_fs=True,
     cluster_status=None,
     export_cwl=None,
@@ -251,7 +251,7 @@ def snakemake(
         tibanna (str):              submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
-        spot_instance (bool):       use spot instance for Tibanna if true (default false)
+        tibanna_config (list):      Additional tibanan config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         export_cwl (str):           Compile workflow to CWL and save to given file
@@ -314,6 +314,16 @@ def snakemake(
             default_remote_prefix
         ), "default_remote_prefix needed if tibanna is specified"
         assert tibanna_sfn, "tibanna_sfn needed if tibanna is specified"
+        if tibanna_config:
+            tibanna_config_dict = dict()
+            for cf in tibanna_config:
+                k, v = cf.split('=')
+                if v == 'true':
+                    v = True
+                elif v  == 'false':
+                    v = False
+                tibanna_config_dict.update({k: v})
+            tibanna_config = tibanna_config_dict
 
     if updated_files is None:
         updated_files = list()
@@ -552,7 +562,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     precommand=precommand,
-                    spot_instance=spot_instance,
+                    tibanna_config=tibanna_config,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
                     max_jobs_per_second=max_jobs_per_second,
@@ -586,7 +596,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     precommand=precommand,
-                    spot_instance=spot_instance,
+                    tibanna_config=tibanna_config,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     printd3dag=printd3dag,
@@ -1688,9 +1698,10 @@ def get_argument_parser(profile=None):
         " handled by Tibanna.",
     )
     group_tibanna.add_argument(
-        "--spot-instance",
-        action="store_true",
-        help="use spot instance if true (default false).",
+        "--tibanna-config",
+        nargs='+',
+        help="Additional tibanan config e.g. --tibanna-config spot_instance=true subnet="
+        "<subnet_id> security group=<security_group_id>",
     )
 
     group_conda = parser.add_argument_group("CONDA")
@@ -2085,7 +2096,7 @@ def main(argv=None):
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
             precommand=args.precommand,
-            spot_instance=args.spot_instance,
+            tibanna_config=args.tibanna_config,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,
             standalone=True,

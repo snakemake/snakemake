@@ -517,6 +517,7 @@ class ClusterExecutor(RealExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         disable_default_remote_provider_args=False,
+        disable_get_default_resources_args=False,
         keepincomplete=False,
     ):
         from ratelimiter import RateLimiter
@@ -594,7 +595,8 @@ class ClusterExecutor(RealExecutor):
 
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
-        self.exec_job += self.get_default_resources_args()
+        if not disable_get_default_resources_args:
+            self.exec_job += self.get_default_resources_args()
         self.jobname = jobname
         self._tmpdir = None
         self.cores = cores if cores else ""
@@ -1657,7 +1659,7 @@ class TibannaExecutor(ClusterExecutor):
         cores,
         tibanna_sfn,
         precommand="",
-        spot_instance=False,
+        tibanna_config=False,
         container_image=None,
         printreason=False,
         quiet=False,
@@ -1724,9 +1726,10 @@ class TibannaExecutor(ClusterExecutor):
             assume_shared_fs=False,
             max_status_checks_per_second=max_status_checks_per_second,
             disable_default_remote_provider_args=True,
+            disable_get_default_resources_args=True
         )
         self.container_image = container_image or get_container_image()
-        self.spot_instance = spot_instance
+        self.tibanna_config = tibanna_config
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary
@@ -1896,8 +1899,9 @@ class TibannaExecutor(ClusterExecutor):
             "cpu": cpu,
             "ebs_size": math.ceil(job.resources["disk_mb"] / 1024),
             "log_bucket": self.s3_bucket,
-            "spot_instance": self.spot_instance
         }
+        logger.debug("additional tibanna config: " + str(self.tibanna_config))
+        tibanna_config.update(self.tibanna_config)
         tibanna_args = ec2_utils.Args(
             output_S3_bucket=self.s3_bucket,
             language="snakemake",
@@ -1926,7 +1930,8 @@ class TibannaExecutor(ClusterExecutor):
         tibanna_input = self.make_tibanna_input(job)
         jobid = tibanna_input["jobid"]
         exec_info = API().run_workflow(
-            tibanna_input, sfn=self.tibanna_sfn, verbose=not self.quiet, jobid=jobid
+            tibanna_input, sfn=self.tibanna_sfn, verbose=not self.quiet, jobid=jobid,
+            sleep=0
         )
         exec_arn = exec_info.get("_tibanna", {}).get("exec_arn", "")
         jobname = tibanna_input["config"]["run_name"]
