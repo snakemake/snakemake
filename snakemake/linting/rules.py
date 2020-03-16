@@ -14,10 +14,14 @@ class RuleLinter(Linter):
 
     def lint_params_prefix(self, rule):
         for param, value in rule.params.items():
-            if isinstance(value, str) and value and any(
-                f.startswith(value)
-                for f in chain(rule.input, rule.output)
-                if isinstance(f, str)
+            if (
+                isinstance(value, str)
+                and value
+                and any(
+                    f.startswith(value)
+                    for f in chain(rule.input, rule.output)
+                    if isinstance(f, str)
+                )
             ):
                 yield Lint(
                     title="Param {} is a prefix of input or output file but hardcoded".format(
@@ -42,7 +46,10 @@ class RuleLinter(Linter):
             )
 
     def lint_not_used_params(
-        self, rule, valid_names={"input", "output", "log", "params"}, regex=re.compile("{{(?P<name>{}).*?}}".format(NAME_PATTERN))
+        self,
+        rule,
+        valid_names={"input", "output", "log", "params"},
+        regex=re.compile("{{(?P<name>{}).*?}}".format(NAME_PATTERN)),
     ):
         if rule.shellcmd:
             for match in regex.finditer(rule.shellcmd):
@@ -94,7 +101,11 @@ class RuleLinter(Linter):
             )
 
     def lint_missing_software_definition(self, rule):
-        if not rule.norun and not rule.is_run and not (rule.conda_env or rule.container_img):
+        if (
+            not rule.norun
+            and not rule.is_run
+            and not (rule.conda_env or rule.container_img)
+        ):
             if rule.env_modules:
                 yield Lint(
                     title="Additionally specify a conda environment or container for each rule, environment modules are not enough",

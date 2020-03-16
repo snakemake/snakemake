@@ -6,24 +6,23 @@ from snakemake.linting import Linter, Lint, links, NAME_PATTERN
 ABS_PATH_PATTERN = "(?P<quote>['\"])(?P<path>(?:/[^/]+?)+?)(?P=quote)"
 PATH_PATTERN = "(?P<quote>['\"])(?P<path>/?(?:[^/]+?/)+?(?:[^/]+?)?)(?P=quote)"
 
+
 class SnakefileLinter(Linter):
     def item_desc_plain(self, snakefile):
         return "snakefile {}".format(snakefile)
 
     def item_desc_json(self, snakefile):
         return {"snakefile": snakefile}
-    
+
     def read_item(self, snakefile):
         return open(snakefile).read()
 
-    def lint_absolute_paths(
-        self, snakefile, regex=re.compile(ABS_PATH_PATTERN)
-    ):
+    def lint_absolute_paths(self, snakefile, regex=re.compile(ABS_PATH_PATTERN)):
         for match in regex.finditer(snakefile):
             line = get_line(match, snakefile)
             print(line)
             yield Lint(
-                title="Absolute path \"{}\" in line {}".format(match.group("path"), line),
+                title='Absolute path "{}" in line {}'.format(match.group("path"), line),
                 body="Do not define absolute paths inside of the workflow, since this "
                 "renders your workflow irreproducible on other machines. "
                 "Use path relative to the working directory instead, or make the path "
@@ -61,9 +60,9 @@ class SnakefileLinter(Linter):
             line = get_line(match, snakefile)
             yield Lint(
                 title="Path composition with '+' in line {}".format(line),
-                body='This becomes quickly unreadable. Usually, it is better to endure some '
-                'redundancy against having a more readable workflow. Hence, just repeat common '
-                'prefixes. If path composition is unavoidable, use pathlib or string formatting with f"...". '
+                body="This becomes quickly unreadable. Usually, it is better to endure some "
+                "redundancy against having a more readable workflow. Hence, just repeat common "
+                'prefixes. If path composition is unavoidable, use pathlib or string formatting with f"...". ',
             )
 
     def lint_envvars(
