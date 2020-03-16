@@ -317,10 +317,10 @@ def snakemake(
         if tibanna_config:
             tibanna_config_dict = dict()
             for cf in tibanna_config:
-                k, v = cf.split('=')
-                if v == 'true':
+                k, v = cf.split("=")
+                if v == "true":
                     v = True
-                elif v  == 'false':
+                elif v == "false":
                     v = False
                 tibanna_config_dict.update({k: v})
             tibanna_config = tibanna_config_dict
@@ -1699,7 +1699,7 @@ def get_argument_parser(profile=None):
     )
     group_tibanna.add_argument(
         "--tibanna-config",
-        nargs='+',
+        nargs="+",
         help="Additional tibanan config e.g. --tibanna-config spot_instance=true subnet="
         "<subnet_id> security group=<security_group_id>",
     )

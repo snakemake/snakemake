@@ -1726,7 +1726,7 @@ class TibannaExecutor(ClusterExecutor):
             assume_shared_fs=False,
             max_status_checks_per_second=max_status_checks_per_second,
             disable_default_remote_provider_args=True,
-            disable_get_default_resources_args=True
+            disable_get_default_resources_args=True,
         )
         self.container_image = container_image or get_container_image()
         self.tibanna_config = tibanna_config
@@ -1930,8 +1930,11 @@ class TibannaExecutor(ClusterExecutor):
         tibanna_input = self.make_tibanna_input(job)
         jobid = tibanna_input["jobid"]
         exec_info = API().run_workflow(
-            tibanna_input, sfn=self.tibanna_sfn, verbose=not self.quiet, jobid=jobid,
-            sleep=0
+            tibanna_input,
+            sfn=self.tibanna_sfn,
+            verbose=not self.quiet,
+            jobid=jobid,
+            sleep=0,
         )
         exec_arn = exec_info.get("_tibanna", {}).get("exec_arn", "")
         jobname = tibanna_input["config"]["run_name"]
