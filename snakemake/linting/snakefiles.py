@@ -10,14 +10,18 @@ class SnakefileLinter(Linter):
 
     def item_desc_json(self, snakefile):
         return {"snakefile": snakefile}
+    
+    def read_item(self, snakefile):
+        return open(snakefile).read()
 
     def lint_absolute_paths(
-        self, snakefile, regex=re.compile("(?P<quote>['\"])/.*?(?P=quote)")
+        self, snakefile, regex=re.compile("(?P<quote>['\"])(?P<path>(?:/[^/]+?)+?)(?P=quote)")
     ):
         for match in regex.finditer(snakefile):
             line = get_line(match, snakefile)
+            print(line)
             yield Lint(
-                title="Absolute path in line {}.".format(line),
+                title="Absolute path \"{}\" in line {}".format(match.group("path"), line),
                 body="Do not define absolute paths inside of the workflow, since this "
                 "renders your workflow irreproducible on other machines. "
                 "Use path relative to the working directory instead, or make the path "

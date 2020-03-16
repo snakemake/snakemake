@@ -12,11 +12,14 @@ class Linter(ABC):
     def __init__(self, workflow, items):
         self.items = items
         self.workflow = workflow
+    
+    def read_item(self, item):
+        return item
 
     def lint(self, json=False):
         for item in self.items:
             item_lints = [
-                lint for lint_item in self.lints() for lint in lint_item(item)
+                lint for lint_item in self.lints() for lint in lint_item(self.read_item(item))
             ]
 
             if json:

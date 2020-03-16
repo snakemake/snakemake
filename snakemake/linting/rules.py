@@ -49,7 +49,7 @@ class RuleLinter(Linter):
                 name = match.group("name")
                 if name not in valid_names:
                     yield Lint(
-                        title="Shell command directly uses variables from outside of the rule.",
+                        title="Shell command directly uses variables from outside of the rule",
                         body="It is recommended to pass all files as input and output, and non-file parameters "
                         "via the params directive. Otherwise, provenance tracking is less accurate.",
                         links=[links.params],
@@ -58,7 +58,7 @@ class RuleLinter(Linter):
     def lint_version(self, rule):
         if rule.version:
             yield Lint(
-                title="The version directive is deprecated.",
+                title="The version directive is deprecated",
                 body="It was meant for documenting tool version, but this has been replaced "
                 "by using the conda or container directive.",
                 links=[links.package_management, links.containers],
@@ -68,7 +68,7 @@ class RuleLinter(Linter):
         for file in chain(rule.output, rule.input):
             if is_flagged(file, "dynamic"):
                 yield Lint(
-                    title="The dynamic flag is deprecated.",
+                    title="The dynamic flag is deprecated",
                     body="Use checkpoints instead, which are more powerful and less error-prone.",
                     links=[links.checkpoints],
                 )
@@ -76,9 +76,9 @@ class RuleLinter(Linter):
     def lint_long_run(self, rule):
         func_code = rule.run_func.__code__.co_code
 
-        if len(func_code) > 80 * 5:
+        if rule.is_run and len(func_code) > 70:
             yield Lint(
-                title="Migrate long run directives into scripts or notebooks.",
+                title="Migrate long run directives into scripts or notebooks",
                 body="Long run directives hamper workflow readability. Use the script or notebook direcive instead. "
                 "Only use the run direcive for a handful of lines.",
                 links=[links.external_scripts, links.notebooks],
@@ -87,17 +87,17 @@ class RuleLinter(Linter):
     def lint_iofile_by_index(self, rule, regex=re.compile("(input|output)\[[0-9]+\]")):
         if rule.shellcmd and regex.search(rule.shellcmd):
             yield Lint(
-                title="Do not access input and output files individually by index in shell commands.",
+                title="Do not access input and output files individually by index in shell commands",
                 body="When individual access to input or output files is needed (i.e., just writing '{input}' "
                 "is impossible), use names ('{input.somename}') instead of index based access.",
                 links=[links.rules],
             )
 
     def lint_missing_software_definition(self, rule):
-        if not rule.norun and not (rule.conda_env or rule.container_img):
+        if not rule.norun and not rule.is_run and not (rule.conda_env or rule.container_img):
             if rule.env_modules:
                 yield Lint(
-                    title="Additionally specify a conda environment or container for each rule, environment modules are not enough.",
+                    title="Additionally specify a conda environment or container for each rule, environment modules are not enough",
                     body="While environment modules allow to document and deploy the required software on a certain "
                     "platform, they lock your workflow in there, disabling easy reproducibility on other machines "
                     "that don't have exactly the same environment modules. Hence env modules (which might be beneficial "
