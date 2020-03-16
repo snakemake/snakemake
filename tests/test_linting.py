@@ -15,10 +15,8 @@ def test_lint(lint, case):
     lint = LINT_DIR.joinpath(lint)
 
     envfile = lint.joinpath(".env.py")
-    print(envfile)
     if envfile.exists():
-        exec(open(envfile).read())
-        print(envfile)
+        exec(open(envfile).read(), globals())
     out = (
         sp.check_output(
             [
