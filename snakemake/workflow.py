@@ -195,6 +195,22 @@ class Workflow:
         global checkpoints
         checkpoints = Checkpoints()
 
+    def lint(self, json=False):
+        from snakemake.linting.rules import RuleLinter
+        from snakemake.linting.snakefiles import SnakefileLinter
+
+        json_snakefile_lints = SnakefileLinter(self, self.included).lint(json=json)
+        json_rule_lints = RuleLinter(self, self.rules).lint(json=json)
+        if json:
+            import json
+
+            print(
+                json.dumps(
+                    {"snakefiles": json_snakefile_lints, "rules": json_rule_lints},
+                    indent=2,
+                )
+            )
+
     def is_cached_rule(self, rule: Rule):
         return rule.name in self.cache_rules
 
@@ -414,6 +430,7 @@ class Workflow:
         tibanna=None,
         tibanna_sfn=None,
         precommand="",
+        tibanna_config=False,
         container_image=None,
         stats=None,
         force_incomplete=False,
@@ -635,7 +652,9 @@ class Workflow:
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
-                        configfiles=[subworkflow.configfile],
+                        configfiles=[subworkflow.configfile]
+                        if subworkflow.configfile
+                        else None,
                         updated_files=updated,
                     ):
                         return False
@@ -798,6 +817,7 @@ class Workflow:
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
             precommand=precommand,
+            tibanna_config=tibanna_config,
             container_image=container_image,
             printreason=printreason,
             printshellcmds=printshellcmds,
@@ -1093,13 +1113,12 @@ class Workflow:
             if not self.run_local and ruleinfo.group is not None:
                 rule.group = ruleinfo.group
             if ruleinfo.wrapper:
-                if self.use_conda:
-                    rule.conda_env = snakemake.wrapper.get_conda_env(
-                        ruleinfo.wrapper, prefix=self.wrapper_prefix
-                    )
+                rule.conda_env = snakemake.wrapper.get_conda_env(
+                    ruleinfo.wrapper, prefix=self.wrapper_prefix
+                )
                 # TODO retrieve suitable singularity image
 
-            if self.use_env_modules and ruleinfo.env_modules:
+            if ruleinfo.env_modules:
                 # If using environment modules and they are defined for the rule,
                 # ignore conda and singularity directive below.
                 # The reason is that this is likely intended in order to use
@@ -1113,56 +1132,55 @@ class Workflow:
                 )
                 if invalid_rule:
                     raise RuleException(
-                        "Modules directive is only allowed with "
+                        "envmodules directive is only allowed with "
                         "shell, script, notebook, or wrapper directives (not with run)",
                         rule=rule,
                     )
                 from snakemake.deployment.env_modules import EnvModules
 
                 rule.env_modules = EnvModules(*ruleinfo.env_modules)
-            else:
-                if ruleinfo.conda_env and self.use_conda:
-                    if not (
-                        ruleinfo.script
-                        or ruleinfo.wrapper
-                        or ruleinfo.shellcmd
-                        or ruleinfo.notebook
-                    ):
-                        raise RuleException(
-                            "Conda environments are only allowed "
-                            "with shell, script, notebook, or wrapper directives "
-                            "(not with run).",
-                            rule=rule,
-                        )
-                    if not (
-                        urllib.parse.urlparse(ruleinfo.conda_env).scheme
-                        or os.path.isabs(ruleinfo.conda_env)
-                    ):
-                        ruleinfo.conda_env = os.path.join(
-                            self.current_basedir, ruleinfo.conda_env
-                        )
-                    rule.conda_env = ruleinfo.conda_env
 
-                if self.use_singularity:
-                    invalid_rule = not (
-                        ruleinfo.script
-                        or ruleinfo.wrapper
-                        or ruleinfo.shellcmd
-                        or ruleinfo.notebook
+            if ruleinfo.conda_env:
+                if not (
+                    ruleinfo.script
+                    or ruleinfo.wrapper
+                    or ruleinfo.shellcmd
+                    or ruleinfo.notebook
+                ):
+                    raise RuleException(
+                        "Conda environments are only allowed "
+                        "with shell, script, notebook, or wrapper directives "
+                        "(not with run).",
+                        rule=rule,
                     )
-                    if ruleinfo.container_img:
-                        if invalid_rule:
-                            raise RuleException(
-                                "Singularity directive is only allowed "
-                                "with shell, script, notebook or wrapper directives "
-                                "(not with run).",
-                                rule=rule,
-                            )
-                        rule.container_img = ruleinfo.container_img
-                    elif self.global_container_img:
-                        if not invalid_rule:
-                            # skip rules with run directive
-                            rule.container_img = self.global_container_img
+                if not (
+                    urllib.parse.urlparse(ruleinfo.conda_env).scheme
+                    or os.path.isabs(ruleinfo.conda_env)
+                ):
+                    ruleinfo.conda_env = os.path.join(
+                        self.current_basedir, ruleinfo.conda_env
+                    )
+                rule.conda_env = ruleinfo.conda_env
+
+            invalid_rule = not (
+                ruleinfo.script
+                or ruleinfo.wrapper
+                or ruleinfo.shellcmd
+                or ruleinfo.notebook
+            )
+            if ruleinfo.container_img:
+                if invalid_rule:
+                    raise RuleException(
+                        "Singularity directive is only allowed "
+                        "with shell, script, notebook or wrapper directives "
+                        "(not with run).",
+                        rule=rule,
+                    )
+                rule.container_img = ruleinfo.container_img
+            elif self.global_container_img:
+                if not invalid_rule:
+                    # skip rules with run directive
+                    rule.container_img = self.global_container_img
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring

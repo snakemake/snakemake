@@ -42,6 +42,7 @@ def snakemake(
     batch=None,
     cache=None,
     report=None,
+    lint=None,
     listrules=False,
     list_target_rules=False,
     cores=1,
@@ -143,6 +144,7 @@ def snakemake(
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
+    tibanna_config=False,
     assume_shared_fs=True,
     cluster_status=None,
     export_cwl=None,
@@ -158,6 +160,7 @@ def snakemake(
         snakefile (str):            the path to the snakefile
         batch (Batch):              whether to compute only a partial DAG, defined by the given Batch object (default None)
         report (str):               create an HTML report for a previous run at the given path
+        lint (str):                 print lints instead of executing (None, "plain" or "json", default None)
         listrules (bool):           list rules (default False)
         list_target_rules (bool):   list target rules (default False)
         cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
@@ -250,6 +253,7 @@ def snakemake(
         tibanna (str):              submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
+        tibanna_config (list):      Additional tibanan config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         export_cwl (str):           Compile workflow to CWL and save to given file
@@ -312,6 +316,16 @@ def snakemake(
             default_remote_prefix
         ), "default_remote_prefix needed if tibanna is specified"
         assert tibanna_sfn, "tibanna_sfn needed if tibanna is specified"
+        if tibanna_config:
+            tibanna_config_dict = dict()
+            for cf in tibanna_config:
+                k, v = cf.split("=")
+                if v == "true":
+                    v = True
+                elif v == "false":
+                    v = False
+                tibanna_config_dict.update({k: v})
+            tibanna_config = tibanna_config_dict
 
     if updated_files is None:
         updated_files = list()
@@ -480,7 +494,9 @@ def snakemake(
         workflow.check()
 
         if not print_compilation:
-            if listrules:
+            if lint:
+                workflow.lint(json=lint == "json")
+            elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
                 workflow.list_rules(only_targets=True)
@@ -550,6 +566,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     precommand=precommand,
+                    tibanna_config=tibanna_config,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
                     max_jobs_per_second=max_jobs_per_second,
@@ -583,6 +600,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     precommand=precommand,
+                    tibanna_config=tibanna_config,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     printd3dag=printd3dag,
@@ -1076,6 +1094,15 @@ def get_argument_parser(profile=None):
         metavar="HTMLFILE",
         help="Create an HTML report with results and statistics. "
         "If no filename is given, report.html is the default.",
+    )
+    group_utils.add_argument(
+        "--lint",
+        nargs="?",
+        const="text",
+        choices=["text", "json"],
+        help="Perform linting on the given workflow. This will print snakemake "
+        "specific suggestions to improve code quality (work in progress, more lints "
+        "to be added in the future). If no argument is provided, plain text output is used.",
     )
     group_utils.add_argument(
         "--export-cwl",
@@ -1683,6 +1710,12 @@ def get_argument_parser(profile=None):
         " between S3 bucket and the run environment (container) is automatically"
         " handled by Tibanna.",
     )
+    group_tibanna.add_argument(
+        "--tibanna-config",
+        nargs="+",
+        help="Additional tibanan config e.g. --tibanna-config spot_instance=true subnet="
+        "<subnet_id> security group=<security_group_id>",
+    )
 
     group_conda = parser.add_argument_group("CONDA")
 
@@ -1837,6 +1870,7 @@ def main(argv=None):
         or args.filegraph
         or args.rulegraph
         or args.summary
+        or args.lint
     )
 
     if args.cores is not None:
@@ -2034,6 +2068,7 @@ def main(argv=None):
             batch=batch,
             cache=args.cache,
             report=args.report,
+            lint=args.lint,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
             cores=args.cores,
@@ -2076,6 +2111,7 @@ def main(argv=None):
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
             precommand=args.precommand,
+            tibanna_config=args.tibanna_config,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,
             standalone=True,
