@@ -14,7 +14,7 @@ class RuleLinter(Linter):
 
     def lint_params_prefix(self, rule):
         for param, value in rule.params.items():
-            if isinstance(value, str) and any(
+            if isinstance(value, str) and value and any(
                 f.startswith(value)
                 for f in chain(rule.input, rule.output)
                 if isinstance(f, str)
