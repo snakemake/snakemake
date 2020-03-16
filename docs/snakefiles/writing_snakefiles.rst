@@ -55,6 +55,9 @@ From Snakemake 3.2 on, if your workflow depends on a minimum Snakemake version, 
 given that your minimum required version of Snakemake is 3.2. The statement will raise a WorkflowError (and therefore abort the workflow execution) if the version is not met.
 
 
+.. _snakefiles-best_practices:
+
+--------------
 Best practices
 --------------
 
