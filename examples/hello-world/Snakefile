@@ -26,7 +26,7 @@ rule plot_histogram:
         "by-country/{country}.csv"
     output:
         "plots/{country}.hist.svg"
-    singularity:
+    container:
         "docker://faizanbashir/python-datascience:3.6"
     script:
         "scripts/plot-hist.py"

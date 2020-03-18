@@ -1,3 +1,9 @@
+[5.11.1] - 2020-03-16
+=====================
+Changed
+-------
+- Fixed a KeyError bug when executing a workflow that defines containers without --use-singularity.
+
 [5.11.0] - 2020-03-16
 =====================
 Changed
