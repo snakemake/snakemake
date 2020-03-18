@@ -246,7 +246,7 @@ class DAG:
         self.conda_envs = dict()
         for (env_file, simg_url) in env_set:
             simg = None
-            if simg_url:
+            if simg_url and self.workflow.use_singularity:
                 assert (
                     simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
