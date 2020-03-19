@@ -75,11 +75,11 @@ class ProvenanceHashMap:
 
         # Hash used containers or conda environments.
         if workflow.use_conda and job.conda_env:
-            if workflow.use_singularity and job.conda_env.singularity_img_url:
-                h.update(job.conda_env.singularity_img_url.encode())
+            if workflow.use_singularity and job.conda_env.container_img_url:
+                h.update(job.conda_env.container_img_url.encode())
             h.update(job.conda_env.content)
-        elif workflow.use_singularity and job.singularity_img_url:
-            h.update(job.singularity_img_url.encode())
+        elif workflow.use_singularity and job.container_img_url:
+            h.update(job.container_img_url.encode())
 
         # Generate hashes of dependencies, and add them in a blockchain fashion (as input to the current hash).
         for dep_hash in sorted(

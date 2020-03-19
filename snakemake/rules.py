@@ -86,7 +86,7 @@ class Rule:
             self._log = Log()
             self._benchmark = None
             self._conda_env = None
-            self._singularity_img = None
+            self._container_img = None
             self.env_modules = None
             self.group = None
             self._wildcard_names = None
@@ -127,7 +127,7 @@ class Rule:
             self._log = other._log
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
-            self._singularity_img = other._singularity_img
+            self._container_img = other._container_img
             self.env_modules = other.env_modules
             self.group = other.group
             self._wildcard_names = (
@@ -238,6 +238,37 @@ class Rule:
             return branch, non_dynamic_wildcards
         return branch
 
+    @property
+    def is_shell(self):
+        return self.shellcmd is not None
+
+    @property
+    def is_script(self):
+        return self.script is not None
+
+    @property
+    def is_notebook(self):
+        return self.notebook is not None
+
+    @property
+    def is_wrapper(self):
+        return self.wrapper is not None
+
+    @property
+    def is_cwl(self):
+        return self.cwl is not None
+
+    @property
+    def is_run(self):
+        return not (
+            self.is_shell
+            or self.norun
+            or self.is_script
+            or self.is_notebook
+            or self.is_wrapper
+            or self.is_cwl
+        )
+
     def check_caching(self):
         if self.name in self.workflow.cache_rules:
             if len(self.output) == 0:
@@ -301,12 +332,12 @@ class Rule:
         self._conda_env = IOFile(conda_env, rule=self)
 
     @property
-    def singularity_img(self):
-        return self._singularity_img
+    def container_img(self):
+        return self._container_img
 
-    @singularity_img.setter
-    def singularity_img(self, singularity_img):
-        self._singularity_img = singularity_img
+    @container_img.setter
+    def container_img(self, container_img):
+        self._container_img = container_img
 
     @property
     def input(self):
