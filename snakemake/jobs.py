@@ -312,7 +312,7 @@ class Job(AbstractJob):
 
     @property
     def container_img(self):
-        if self.container_img_url:
+        if self.dag.workflow.use_singularity and self.container_img_url:
             return self.dag.container_imgs[self.container_img_url]
         return None
 
@@ -410,6 +410,7 @@ class Job(AbstractJob):
             self.is_shell
             or self.is_norun
             or self.is_script
+            or self.is_notebook
             or self.is_wrapper
             or self.is_cwl
         )

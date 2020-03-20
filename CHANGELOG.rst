@@ -1,3 +1,32 @@
+[5.11.2] - 2020-03-19
+=====================
+Changed
+-------
+- Fixed a spurious error message complaining about missing singularity image if --use-singularity is not activated.
+
+[5.11.1] - 2020-03-16
+=====================
+Changed
+-------
+- Fixed a KeyError bug when executing a workflow that defines containers without --use-singularity.
+
+[5.11.0] - 2020-03-16
+=====================
+Changed
+-------
+- Fixes for environment modules and tibanna-based AWS execution.
+- Fixes for --default-resources defaults.
+- --cores is now a mandatory argument!
+- Automatic checksum validation for google storage.
+
+Added
+-----
+- Azure storage authentication via SAS
+- A generic cintainer directive that will in the future allow for other backends than just singularity.
+- envvars directive for asserting environment variable existence. See docs.
+- support for AWS spot instances via --tibanna-config spot=true.
+- Automatic code quality linting via --lint.
+
 [5.10.0] - 2020-01-20
 =====================
 Added
