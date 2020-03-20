@@ -1508,7 +1508,7 @@ class KubernetesExecutor(ClusterExecutor):
                 job.resources["mem_mb"]
             )
         if "nvidia_gpu" in job.resources.keys():
-            container.resources.limits["nvidia/gpu"] = "%d".format(
+            container.resources.limits["nvidia.com/gpu"] = "%d".format(
                 job.resources["nvidia_gpu"]
             )
 
