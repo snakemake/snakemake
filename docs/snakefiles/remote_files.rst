@@ -797,6 +797,8 @@ To access your Zenodo files you need to set up Zenodo account and create a perso
 Personal access token must be supplied as ``access_token`` argument.
 You need to supply deposition id as ``deposition`` to upload or download files from your deposition.
 If no deposition id is supplied, Snakemake creates a new deposition for upload.
+Zenodo UI and REST API responses were designed with having in mind uploads of a total of 20-30 files.
+Avoid creating uploads with too many files, and instead group and zip them to make it easier their distribution to end-users.
 
 .. code-block:: python
     from snakemake.remote.zenodo import RemoteProvider
