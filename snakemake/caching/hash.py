@@ -65,8 +65,15 @@ class ProvenanceHashMap:
                 h.update(json.dumps(value, sort_keys=True).encode())
             except TypeError as e:
                 raise WorkflowError(
-                    "Cannot calculate provenance hash for rule {} "
-                    "because params are not JSON serializable.",
+                    "Rule {} cannot be cached, because params "
+                    "are not JSON serializable. "
+                    "Consider converting them into a suitable format "
+                    "if you are sure that caching is necessary. "
+                    "Otherwise, deactivate caching for this rule "
+                    "by removing it from the --cache command line argument "
+                    "or removing the cache: true directive from the rule itself.".format(
+                        job.rule.name
+                    ),
                     e,
                 )
 
