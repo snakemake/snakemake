@@ -134,11 +134,15 @@ class DryrunExecutor(AbstractExecutor):
         if self.workflow.is_cached_rule(job.rule):
             if self.workflow.output_file_cache.exists(job):
                 logger.info(
-                    "Output file {} will be obtained from global between-workflow cache.".format(job.output[0])
+                    "Output file {} will be obtained from global between-workflow cache.".format(
+                        job.output[0]
+                    )
                 )
             else:
                 logger.info(
-                    "Output file {} will be written to global between-workflow cache.".format(job.output[0])
+                    "Output file {} will be written to global between-workflow cache.".format(
+                        job.output[0]
+                    )
                 )
 
 

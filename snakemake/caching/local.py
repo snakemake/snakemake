@@ -40,6 +40,11 @@ class OutputFileCache(AbstractOutputFileCache):
         Store generated job output in the cache.
         """
 
+        if not os.access(self.path, os.W_OK):
+            raise WorkflowError(
+                "Cannot access cache location {}. Please ensure that "
+                "it is present and writeable.".format(self.path)
+            )
         with TemporaryDirectory(dir=self.path) as tmpdirname:
             tmpdir = Path(tmpdirname)
 
