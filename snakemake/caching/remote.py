@@ -3,8 +3,11 @@ __copyright__ = "Copyright 2019, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import os
+
 from snakemake.caching.hash import ProvenanceHashMap
 from snakemake.caching import AbstractOutputFileCache
+from snakemake.exceptions import WorkflowError
 from snakemake.jobs import Job
 from snakemake.io import get_flag_value, IOFile
 
