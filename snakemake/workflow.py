@@ -164,7 +164,9 @@ class Workflow:
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
 
+        self.enable_cache = False
         if cache is not None:
+            self.enable_cache = True
             self.cache_rules = set(cache)
             if self.default_remote_provider is not None:
                 self.output_file_cache = RemoteOutputFileCache(
@@ -1193,6 +1195,21 @@ class Workflow:
             rule.restart_times = self.restart_times
             rule.basedir = self.current_basedir
 
+            if ruleinfo.cache is True:
+                if not self.enable_cache:
+                    logger.warning(
+                        "Workflow defines that rule {} is eligible for caching between workflows "
+                        "(use the --cache argument to enable this).".format(rule.name)
+                    )
+                else:
+                    self.cache_rules.add(rule.name)
+            elif not (ruleinfo.cache is False):
+                raise WorkflowError(
+                    "Invalid argument for 'cache:' directive. Only true allowed. "
+                    "To deactivate caching, remove directive.",
+                    rule=rule,
+                )
+
             ruleinfo.func.__name__ = "__{}".format(rule.name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
             setattr(rules, rule.name, RuleProxy(rule))
@@ -1236,6 +1253,13 @@ class Workflow:
                 wildcard_constraints,
                 kwwildcard_constraints,
             )
+            return ruleinfo
+
+        return decorate
+
+    def cache_rule(self, cache):
+        def decorate(ruleinfo):
+            ruleinfo.cache = cache
             return ruleinfo
 
         return decorate
@@ -1403,6 +1427,7 @@ class RuleInfo:
         self.notebook = None
         self.wrapper = None
         self.cwl = None
+        self.cache = False
 
 
 class Subworkflow:

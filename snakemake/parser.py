@@ -445,6 +445,12 @@ class Group(RuleKeywordState):
     pass
 
 
+class Cache(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "cache_rule"
+
+
 class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
@@ -629,6 +635,7 @@ class Rule(GlobalKeywordState):
         notebook=Notebook,
         wrapper=Wrapper,
         cwl=CWL,
+        cache=Cache,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
