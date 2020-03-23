@@ -202,6 +202,10 @@ class _IOFile(str):
             remote_object._iofile = self
 
     @property
+    def display_log(self):
+        return is_flagged(self._file, "display_log")
+
+    @property
     def should_keep_local(self):
         return self.remote_object.keep_local
 
@@ -859,6 +863,10 @@ def repeat(value, n_repeat):
 
 def checkpoint_target(value):
     return flag(value, "checkpoint_target")
+
+
+def display(value):
+    return flag(value, "display_log")
 
 
 ReportObject = collections.namedtuple("ReportObject", ["caption", "category"])
