@@ -1,3 +1,9 @@
+[5.11.2] - 2020-03-19
+=====================
+Changed
+-------
+- Fixed a spurious error message complaining about missing singularity image if --use-singularity is not activated.
+
 [5.11.1] - 2020-03-16
 =====================
 Changed

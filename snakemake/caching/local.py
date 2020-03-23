@@ -40,10 +40,20 @@ class OutputFileCache(AbstractOutputFileCache):
         Store generated job output in the cache.
         """
 
+        if not os.access(self.path, os.W_OK):
+            raise WorkflowError(
+                "Cannot access cache location {}. Please ensure that "
+                "it is present and writeable.".format(self.path)
+            )
         with TemporaryDirectory(dir=self.path) as tmpdirname:
             tmpdir = Path(tmpdirname)
 
             for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
+                if not os.path.exists(outputfile):
+                    raise WorkflowError(
+                        "Cannot move output file {} to cache. It does not exist "
+                        "(maybe it was not created by the job?)."
+                    )
                 self.check_writeable(cachefile)
                 logger.info("Moving output file {} to cache.".format(outputfile))
 
