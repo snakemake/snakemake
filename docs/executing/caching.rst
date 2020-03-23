@@ -18,12 +18,31 @@ For example,
 .. code-block:: console
 
     $ export SNAKEMAKE_OUTPUT_CACHE=/mnt/snakemake-cache/
-    $ snakemake --cache download_reference create_index
+    $ snakemake --cache download_data create_index
 
-would instruct Snakemake to cache and reuse the results of the rules ``download_reference``and ``create_index``.
+would instruct Snakemake to cache and reuse the results of the rules ``download_data``and ``create_index``.
 The environment variable definition that happens in the first line (defining the location of the cache) should of course be done only once and system wide in reality.
 When Snakemake is executed without a shared filesystem (e.g., in the cloud, see :ref:`cloud`), the environment variable has to point to a location compatible with the given remote provider (e.g. an S3 or Google Storage bucket).
 In any case, the provided location should be shared between all workflows of your group, institute or computing environment, in order to benefit from the reuse of previously obtained intermediate results.
+
+Alternatively, rules can define to be eligible for caching via the ``cache`` directive:
+
+.. code-block:: python
+
+    rule download_data:
+        output:
+            "results/data/worldcitiespop.csv"
+        cache: True
+        shell:
+            "curl -L https://burntsushi.net/stuff/worldcitiespop.csv > {output}"
+
+For workflows defining cache rules like this, it is enough to invoke Snakemake with
+
+.. code-block:: console
+
+    $ snakemake --cache
+
+without explicit rulenames listed.
 
 Note that only rules with just a single output file (or directory) or with :ref:`multiext output files <snakefiles-multiext>` are eligible for caching.
 The reason is that for other rules it would be impossible to unambiguously assign the output files to cache entrys while being agnostic of the actual file names.
