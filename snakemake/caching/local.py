@@ -49,6 +49,11 @@ class OutputFileCache(AbstractOutputFileCache):
             tmpdir = Path(tmpdirname)
 
             for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
+                if not os.path.exists(outputfile):
+                    raise WorkflowError(
+                        "Cannot move output file {} to cache. It does not exist "
+                        "(maybe it was not created by the job?)."
+                    )
                 self.check_writeable(cachefile)
                 logger.info("Moving output file {} to cache.".format(outputfile))
 
