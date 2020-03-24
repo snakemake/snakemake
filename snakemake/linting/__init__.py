@@ -34,16 +34,21 @@ class Linter(ABC):
                             "lints": [lint.__dict__ for lint in item_lints],
                         }
                     )
+                    return json_lints, True
                 else:
-                    logger.info(
+                    logger.warning(
                         "Lints for {}:\n{}\n".format(
                             self.item_desc_plain(item),
                             "\n".join(map("    * {}".format, item_lints)),
                         )
                     )
+                    return None, True
+            else:
+                if json:
+                    return [], False
+                else:
+                    return None, False
 
-            if json:
-                return json_lints
 
     @abstractmethod
     def item_desc_json(self, item):

@@ -3,7 +3,7 @@ from itertools import chain
 
 from snakemake.linting import Linter, Lint, links, NAME_PATTERN
 
-ABS_PATH_PATTERN = "(?P<quote>['\"])(?P<path>(?:/[^/]+?)+?)(?P=quote)"
+ABS_PATH_PATTERN = "(?P<quote>['\"])(?P<path>(?:/[^/\\n]+?)+?)(?P=quote)"
 PATH_PATTERN = "(?P<quote>['\"])(?P<path>/?(?:[^/]+?/)+?(?:[^/]+?)?)(?P=quote)"
 
 
@@ -20,7 +20,6 @@ class SnakefileLinter(Linter):
     def lint_absolute_paths(self, snakefile, regex=re.compile(ABS_PATH_PATTERN)):
         for match in regex.finditer(snakefile):
             line = get_line(match, snakefile)
-            print(line)
             yield Lint(
                 title='Absolute path "{}" in line {}'.format(match.group("path"), line),
                 body="Do not define absolute paths inside of the workflow, since this "

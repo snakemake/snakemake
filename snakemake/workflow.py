@@ -201,8 +201,8 @@ class Workflow:
         from snakemake.linting.rules import RuleLinter
         from snakemake.linting.snakefiles import SnakefileLinter
 
-        json_snakefile_lints = SnakefileLinter(self, self.included).lint(json=json)
-        json_rule_lints = RuleLinter(self, self.rules).lint(json=json)
+        json_snakefile_lints, linted = SnakefileLinter(self, self.included).lint(json=json)
+        json_rule_lints, linted = RuleLinter(self, self.rules).lint(json=json)
         if json:
             import json
 
@@ -212,6 +212,10 @@ class Workflow:
                     indent=2,
                 )
             )
+        else:
+            if not linted:
+                logger.info("Congratulations, your workflow is in a good condition!")
+        return linted
 
     def is_cached_rule(self, rule: Rule):
         return rule.name in self.cache_rules
