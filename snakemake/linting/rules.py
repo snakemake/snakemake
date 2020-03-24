@@ -56,7 +56,9 @@ class RuleLinter(Linter):
                 name = match.group("name")
                 if name not in valid_names:
                     yield Lint(
-                        title="Shell command directly uses variable {} from outside of the rule".format(name),
+                        title="Shell command directly uses variable {} from outside of the rule".format(
+                            name
+                        ),
                         body="It is recommended to pass all files as input and output, and non-file parameters "
                         "via the params directive. Otherwise, provenance tracking is less accurate.",
                         links=[links.params],

@@ -49,7 +49,6 @@ class Linter(ABC):
                 else:
                     return None, False
 
-
     @abstractmethod
     def item_desc_json(self, item):
         pass
