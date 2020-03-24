@@ -1,3 +1,14 @@
+[5.12.0] - 2020-03-24
+=====================
+Changed
+-------
+- Fixed the ability to supply functions for the thread directive.
+- Improved error messages for caching.
+
+Added
+-----
+- A new "cache: true" directive that allows to annotate between workflow caching eligibility for rules in the workflow.
+
 [5.11.2] - 2020-03-19
 =====================
 Changed
