@@ -1140,7 +1140,6 @@ def git_content(git_file):
             "expected format:".format(git_file) + ", expected format is "
             "git+file://PATH_TO_REPO/PATH_TO_FILE_INSIDE_REPO@VERSION"
         )
-    return None
 
 
 def strip_wildcard_constraints(pattern):

@@ -15,6 +15,7 @@ from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
+from snakemake.exceptions import WorkflowError
 import snakemake
 
 
