@@ -33,7 +33,7 @@ def test_lint(lint, case):
     )
 
     if case == "positive":
-        assert out == ""
+        assert out == "Congratulations, your workflow is in a good condition!"
     else:
         print(out)
         assert out
