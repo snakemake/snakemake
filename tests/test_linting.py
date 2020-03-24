@@ -35,6 +35,7 @@ def test_lint(lint, case):
         if case == "positive":
             assert out == "Congratulations, your workflow is in a good condition!"
         else:
+            print(out)
             assert (
                 False
             ), "Negative lint example but linting command exited with status 0."

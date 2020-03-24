@@ -201,10 +201,13 @@ class Workflow:
         from snakemake.linting.rules import RuleLinter
         from snakemake.linting.snakefiles import SnakefileLinter
 
-        json_snakefile_lints, linted = SnakefileLinter(self, self.included).lint(
-            json=json
-        )
-        json_rule_lints, linted = RuleLinter(self, self.rules).lint(json=json)
+        json_snakefile_lints, snakefile_linted = SnakefileLinter(
+            self, self.included
+        ).lint(json=json)
+        json_rule_lints, rules_linted = RuleLinter(self, self.rules).lint(json=json)
+
+        linted = snakefile_linted or rules_linted
+
         if json:
             import json
 
