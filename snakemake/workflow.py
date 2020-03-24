@@ -1068,7 +1068,9 @@ class Workflow:
                 if name in self.overwrite_threads:
                     rule.resources["_cores"] = self.overwrite_threads[name]
                 else:
-                    rule.resources["_cores"] = int(ruleinfo.threads)
+                    if isinstance(ruleinfo.threads, float):
+                        ruleinfo.threads = int(ruleinfo.threads)
+                    rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
                     raise RuleException(
