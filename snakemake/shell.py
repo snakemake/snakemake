@@ -16,6 +16,7 @@ from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
+from snakemake.io import Log
 import snakemake
 
 
@@ -80,6 +81,18 @@ class shell:
         with cls._lock:
             cls._processes.clear()
 
+    @classmethod
+    def __get_output_streams(cls, log: Log, capture_stdout):
+        log = log if isinstance(log, Log) else Log()
+
+        streams = log.streams()
+
+        if "std" in streams:
+            return {"stdout": streams["std"], "stderr": sp.STDOUT}
+
+        streams.setdefault("stdout", sp.PIPE if capture_stdout else STDOUT)
+        return streams
+
     def __new__(
         cls, cmd, *args, iterable=False, read=False, bench_record=None, **kwargs
     ):
@@ -90,15 +103,12 @@ class shell:
         # add kwargs to context (overwriting the locals of the caller)
         context.update(kwargs)
 
-        stdout = sp.PIPE if iterable or read else STDOUT
-
         close_fds = sys.platform != "win32"
 
         jobid = context.get("jobid")
         if not context.get("is_shell"):
             logger.shellcmd(cmd)
 
-        env_prefix = ""
         conda_env = context.get("conda_env", None)
         container_img = context.get("container_img", None)
         env_modules = context.get("env_modules", None)
@@ -132,10 +142,10 @@ class shell:
             cmd,
             bufsize=-1,
             shell=True,
-            stdout=stdout,
             universal_newlines=iterable or None,
             close_fds=close_fds,
-            **cls._process_args
+            **cls.__get_output_streams(context.get("log"), iterable or read),
+            **cls._process_args,
         )
 
         if jobid is not None:
