@@ -128,7 +128,7 @@ class shell:
         if conda_env:
             logger.info("Activating conda environment: {}".format(conda_env))
 
-        threads = context.get("threads", 1)
+        threads = str(context.get("threads", 1))
         # environment variable lists for linear algebra libraries taken from:
         # https://stackoverflow.com/a/53224849/2352071
         # https://github.com/xianyi/OpenBLAS/tree/59243d49ab8e958bb3872f16a7c0ef8c04067c0a#setting-the-number-of-threads-using-environment-variables
