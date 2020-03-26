@@ -48,9 +48,9 @@ class Persistence:
         else:
             self.conda_env_path = os.path.abspath(os.path.expanduser(conda_prefix))
         if singularity_prefix is None:
-            self.singularity_img_path = os.path.join(self.path, "singularity")
+            self.container_img_path = os.path.join(self.path, "singularity")
         else:
-            self.singularity_img_path = os.path.abspath(
+            self.container_img_path = os.path.abspath(
                 os.path.expanduser(singularity_prefix)
             )
         if shadow_prefix is None:
@@ -63,7 +63,7 @@ class Persistence:
             self.shadow_path,
             self.conda_env_archive_path,
             self.conda_env_path,
-            self.singularity_img_path,
+            self.container_img_path,
         ):
             os.makedirs(d, exist_ok=True)
 
@@ -189,7 +189,7 @@ class Persistence:
                     "endtime": endtime,
                     "job_hash": hash(job),
                     "conda_env": conda_env,
-                    "singularity_img_url": job.singularity_img_url,
+                    "container_img_url": job.container_img_url,
                 },
                 f,
             )

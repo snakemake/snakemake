@@ -830,10 +830,6 @@ def dynamic(value):
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
     rule has been run """
-    logger.warning(
-        "Dynamic output is deprecated in favor of checkpoints (see docs). "
-        "It will be removed in Snakemake 6.0."
-    )
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
@@ -1144,7 +1140,6 @@ def git_content(git_file):
             "expected format:".format(git_file) + ", expected format is "
             "git+file://PATH_TO_REPO/PATH_TO_FILE_INSIDE_REPO@VERSION"
         )
-    return None
 
 
 def strip_wildcard_constraints(pattern):
@@ -1310,6 +1305,10 @@ class InputFiles(Namedlist):
     @property
     def size(self):
         return sum(f.size for f in self)
+
+    @property
+    def size_mb(self):
+        return self.size / 1024 / 1024
 
 
 class OutputFiles(Namedlist):

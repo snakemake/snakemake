@@ -27,6 +27,7 @@ import base64
 import uuid
 import re
 import math
+import urllib3
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -134,11 +135,15 @@ class DryrunExecutor(AbstractExecutor):
         if self.workflow.is_cached_rule(job.rule):
             if self.workflow.output_file_cache.exists(job):
                 logger.info(
-                    "Output file {} will be obtained from cache.".format(job.output[0])
+                    "Output file {} will be obtained from global between-workflow cache.".format(
+                        job.output[0]
+                    )
                 )
             else:
                 logger.info(
-                    "Output file {} will be written to cache.".format(job.output[0])
+                    "Output file {} will be written to global between-workflow cache.".format(
+                        job.output[0]
+                    )
                 )
 
 
@@ -369,9 +374,11 @@ class CPUExecutor(RealExecutor):
     def job_args_and_prepare(self, job):
         job.prepare()
 
-        conda_env = job.conda_env_path
-        singularity_img = job.singularity_img_path
-        env_modules = job.env_modules
+        conda_env = job.conda_env_path if self.workflow.use_conda else None
+        container_img = (
+            job.container_img_path if self.workflow.use_singularity else None
+        )
+        env_modules = job.env_modules if self.workflow.use_env_modules else None
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1
@@ -389,7 +396,7 @@ class CPUExecutor(RealExecutor):
             benchmark,
             benchmark_repeats,
             conda_env,
-            singularity_img,
+            container_img,
             self.workflow.singularity_args,
             env_modules,
             self.workflow.use_singularity,
@@ -517,6 +524,7 @@ class ClusterExecutor(RealExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         disable_default_remote_provider_args=False,
+        disable_get_default_resources_args=False,
         keepincomplete=False,
     ):
         from ratelimiter import RateLimiter
@@ -553,7 +561,9 @@ class ClusterExecutor(RealExecutor):
         if exec_job is None:
             self.exec_job = "\\\n".join(
                 (
-                    "cd {workflow.workdir_init} && " if assume_shared_fs else "",
+                    "{envvars} " "cd {workflow.workdir_init} && "
+                    if assume_shared_fs
+                    else "",
                     "{sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
                     "--force -j{cores} --keep-target-files --keep-remote ",
@@ -592,7 +602,8 @@ class ClusterExecutor(RealExecutor):
 
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
-        self.exec_job += self.get_default_resources_args()
+        if not disable_get_default_resources_args:
+            self.exec_job += self.get_default_resources_args()
         self.jobname = jobname
         self._tmpdir = None
         self.cores = cores if cores else ""
@@ -676,8 +687,18 @@ class ClusterExecutor(RealExecutor):
         # only force threads if this is not a group job
         # otherwise we want proper process handling
         use_threads = "--force-use-threads" if not job.is_group() else ""
+
+        envvars = " ".join(
+            "{}={}".format(var, os.environ[var]) for var in self.workflow.envvars
+        )
+
         exec_job = self.format_job(
-            self.exec_job, job, _quote_all=True, use_threads=use_threads, **kwargs
+            self.exec_job,
+            job,
+            _quote_all=True,
+            use_threads=use_threads,
+            envvars=envvars,
+            **kwargs
         )
         content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
         logger.debug("Jobscript:\n{}".format(content))
@@ -1296,7 +1317,6 @@ class KubernetesExecutor(ClusterExecutor):
         workflow,
         dag,
         namespace,
-        envvars,
         container_image=None,
         jobname="{rulename}.{jobid}",
         printreason=False,
@@ -1353,7 +1373,7 @@ class KubernetesExecutor(ClusterExecutor):
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
-        self.envvars = envvars or []
+        self.envvars = workflow.envvars
         self.secret_files = {}
         self.run_namespace = str(uuid.uuid4())
         self.secret_envvars = {}
@@ -1563,7 +1583,7 @@ class KubernetesExecutor(ClusterExecutor):
                     return func()
                 except:
                     # Still can't reach the server after 5 minutes
-                    raise WorkflowErroe(
+                    raise WorkflowError(
                         e,
                         "Error 111 connection timeout, please check"
                         " that the k8 cluster master is reachable!",
@@ -1646,6 +1666,7 @@ class TibannaExecutor(ClusterExecutor):
         cores,
         tibanna_sfn,
         precommand="",
+        tibanna_config=False,
         container_image=None,
         printreason=False,
         quiet=False,
@@ -1653,7 +1674,6 @@ class TibannaExecutor(ClusterExecutor):
         latency_wait=3,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         max_status_checks_per_second=1,
         keepincomplete=False,
     ):
@@ -1673,6 +1693,9 @@ class TibannaExecutor(ClusterExecutor):
             log += f
         logger.debug(log)
         self.snakefile = workflow.snakefile
+        self.envvars = {e: os.environ[e] for e in workflow.envvars}
+        if self.envvars:
+            logger.debug("envvars = %s" % str(self.envvars))
         self.tibanna_sfn = tibanna_sfn
         if precommand:
             self.precommand = precommand
@@ -1709,8 +1732,10 @@ class TibannaExecutor(ClusterExecutor):
             assume_shared_fs=False,
             max_status_checks_per_second=max_status_checks_per_second,
             disable_default_remote_provider_args=True,
+            disable_get_default_resources_args=True,
         )
         self.container_image = container_image or get_container_image()
+        self.tibanna_config = tibanna_config
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary
@@ -1849,9 +1874,15 @@ class TibannaExecutor(ClusterExecutor):
         output_target = dict()
         output_all = [eo for eo in job.expanded_output]
         if job.log:
-            output_all.append(str(job.log))
+            if isinstance(job.log, list):
+                output_all.extend([str(_) for _ in job.log])
+            else:
+                output_all.append(str(job.log))
         if hasattr(job, "benchmark") and job.benchmark:
-            output_all.append(str(job.benchmark))
+            if isinstance(job.benchmark, list):
+                output_all.extend([str(_) for _ in job.benchmark])
+            else:
+                output_all.append(str(job.benchmark))
         for op in output_all:
             op_rel = self.adjust_filepath(op)
             output_target[os.path.join(file_prefix, op_rel)] = "s3://" + op
@@ -1875,12 +1906,16 @@ class TibannaExecutor(ClusterExecutor):
             "ebs_size": math.ceil(job.resources["disk_mb"] / 1024),
             "log_bucket": self.s3_bucket,
         }
+        logger.debug("additional tibanna config: " + str(self.tibanna_config))
+        if self.tibanna_config:
+            tibanna_config.update(self.tibanna_config)
         tibanna_args = ec2_utils.Args(
             output_S3_bucket=self.s3_bucket,
             language="snakemake",
             container_image=self.container_image,
             input_files=input_source,
             output_target=output_target,
+            input_env=self.envvars,
         )
         self.add_workflow_files(job, tibanna_args)
         self.add_command(job, tibanna_args, tibanna_config)
@@ -1902,7 +1937,11 @@ class TibannaExecutor(ClusterExecutor):
         tibanna_input = self.make_tibanna_input(job)
         jobid = tibanna_input["jobid"]
         exec_info = API().run_workflow(
-            tibanna_input, sfn=self.tibanna_sfn, verbose=not self.quiet, jobid=jobid
+            tibanna_input,
+            sfn=self.tibanna_sfn,
+            verbose=not self.quiet,
+            jobid=jobid,
+            sleep=0,
         )
         exec_arn = exec_info.get("_tibanna", {}).get("exec_arn", "")
         jobname = tibanna_input["config"]["run_name"]
@@ -1961,7 +2000,7 @@ def run_wrapper(
     benchmark,
     benchmark_repeats,
     conda_env,
-    singularity_img,
+    container_img,
     singularity_args,
     env_modules,
     use_singularity,
@@ -2002,7 +2041,7 @@ def run_wrapper(
     # Change workdir if shadow defined and not using singularity.
     # Otherwise, we do the change from inside the container.
     passed_shadow_dir = None
-    if use_singularity and singularity_img:
+    if use_singularity and container_img:
         passed_shadow_dir = shadow_dir
         shadow_dir = None
 
@@ -2037,7 +2076,7 @@ def run_wrapper(
                             version,
                             rule,
                             conda_env,
-                            singularity_img,
+                            container_img,
                             singularity_args,
                             use_singularity,
                             env_modules,
@@ -2064,7 +2103,7 @@ def run_wrapper(
                                 version,
                                 rule,
                                 conda_env,
-                                singularity_img,
+                                container_img,
                                 singularity_args,
                                 use_singularity,
                                 env_modules,
@@ -2089,7 +2128,7 @@ def run_wrapper(
                     version,
                     rule,
                     conda_env,
-                    singularity_img,
+                    container_img,
                     singularity_args,
                     use_singularity,
                     env_modules,

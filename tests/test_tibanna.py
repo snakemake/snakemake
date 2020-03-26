@@ -9,10 +9,15 @@ from common import *
 def test_tibanna():
     workdir = dpath("test_tibanna")
     subprocess.check_call(["python", "cleanup.py"], cwd=workdir)
+
+    os.environ["TEST_ENVVAR1"] = "test"
+    os.environ["TEST_ENVVAR2"] = "test"
+
     run(
         workdir,
         use_conda=True,
         configfiles=[os.path.join(workdir, "config.json")],
         default_remote_prefix="snakemake-tibanna-test/1",
         tibanna_sfn="tibanna_unicorn_johannes",
+        tibanna_config="spot_instance=true",
     )

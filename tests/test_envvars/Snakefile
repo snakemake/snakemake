@@ -1,0 +1,8 @@
+envvars:
+    "TEST_ENV_VAR"
+
+rule a:
+    output:
+        "test.out"
+    shell:
+        "echo $TEST_ENV_VAR > {output}"
