@@ -8,7 +8,6 @@ import inspect
 import uuid
 import os
 
-
 from ._version import get_versions
 
 __version__ = get_versions()["version"]
@@ -96,6 +95,8 @@ def strip_prefix(text, prefix):
 
 
 def log_location(msg):
+    from snakemake.logging import logger
+
     callerframerecord = inspect.stack()[1]
     frame = callerframerecord[0]
     info = inspect.getframeinfo(frame)

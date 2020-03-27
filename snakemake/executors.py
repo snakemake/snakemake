@@ -27,6 +27,7 @@ import base64
 import uuid
 import re
 import math
+import urllib3
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -134,11 +135,15 @@ class DryrunExecutor(AbstractExecutor):
         if self.workflow.is_cached_rule(job.rule):
             if self.workflow.output_file_cache.exists(job):
                 logger.info(
-                    "Output file {} will be obtained from cache.".format(job.output[0])
+                    "Output file {} will be obtained from global between-workflow cache.".format(
+                        job.output[0]
+                    )
                 )
             else:
                 logger.info(
-                    "Output file {} will be written to cache.".format(job.output[0])
+                    "Output file {} will be written to global between-workflow cache.".format(
+                        job.output[0]
+                    )
                 )
 
 
@@ -1578,7 +1583,7 @@ class KubernetesExecutor(ClusterExecutor):
                     return func()
                 except:
                     # Still can't reach the server after 5 minutes
-                    raise WorkflowErroe(
+                    raise WorkflowError(
                         e,
                         "Error 111 connection timeout, please check"
                         " that the k8 cluster master is reachable!",
@@ -1669,7 +1674,6 @@ class TibannaExecutor(ClusterExecutor):
         latency_wait=3,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         max_status_checks_per_second=1,
         keepincomplete=False,
     ):

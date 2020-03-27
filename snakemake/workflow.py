@@ -165,7 +165,9 @@ class Workflow:
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
 
+        self.enable_cache = False
         if cache is not None:
+            self.enable_cache = True
             self.cache_rules = set(cache)
             if self.default_remote_provider is not None:
                 self.output_file_cache = RemoteOutputFileCache(
@@ -200,8 +202,13 @@ class Workflow:
         from snakemake.linting.rules import RuleLinter
         from snakemake.linting.snakefiles import SnakefileLinter
 
-        json_snakefile_lints = SnakefileLinter(self, self.included).lint(json=json)
-        json_rule_lints = RuleLinter(self, self.rules).lint(json=json)
+        json_snakefile_lints, snakefile_linted = SnakefileLinter(
+            self, self.included
+        ).lint(json=json)
+        json_rule_lints, rules_linted = RuleLinter(self, self.rules).lint(json=json)
+
+        linted = snakefile_linted or rules_linted
+
         if json:
             import json
 
@@ -211,6 +218,10 @@ class Workflow:
                     indent=2,
                 )
             )
+        else:
+            if not linted:
+                logger.info("Congratulations, your workflow is in a good condition!")
+        return linted
 
     def is_cached_rule(self, rule: Rule):
         return rule.name in self.cache_rules
@@ -1067,7 +1078,9 @@ class Workflow:
                 if name in self.overwrite_threads:
                     rule.resources["_cores"] = self.overwrite_threads[name]
                 else:
-                    rule.resources["_cores"] = int(ruleinfo.threads)
+                    if isinstance(ruleinfo.threads, float):
+                        ruleinfo.threads = int(ruleinfo.threads)
+                    rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
                     raise RuleException(
@@ -1194,6 +1207,21 @@ class Workflow:
             rule.restart_times = self.restart_times
             rule.basedir = self.current_basedir
 
+            if ruleinfo.cache is True:
+                if not self.enable_cache:
+                    logger.warning(
+                        "Workflow defines that rule {} is eligible for caching between workflows "
+                        "(use the --cache argument to enable this).".format(rule.name)
+                    )
+                else:
+                    self.cache_rules.add(rule.name)
+            elif not (ruleinfo.cache is False):
+                raise WorkflowError(
+                    "Invalid argument for 'cache:' directive. Only true allowed. "
+                    "To deactivate caching, remove directive.",
+                    rule=rule,
+                )
+
             ruleinfo.func.__name__ = "__{}".format(rule.name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
             setattr(rules, rule.name, RuleProxy(rule))
@@ -1237,6 +1265,13 @@ class Workflow:
                 wildcard_constraints,
                 kwwildcard_constraints,
             )
+            return ruleinfo
+
+        return decorate
+
+    def cache_rule(self, cache):
+        def decorate(ruleinfo):
+            ruleinfo.cache = cache
             return ruleinfo
 
         return decorate
@@ -1404,6 +1439,7 @@ class RuleInfo:
         self.notebook = None
         self.wrapper = None
         self.cwl = None
+        self.cache = False
 
 
 class Subworkflow:

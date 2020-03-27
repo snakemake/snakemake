@@ -495,7 +495,7 @@ def snakemake(
 
         if not print_compilation:
             if lint:
-                workflow.lint(json=lint == "json")
+                success = not workflow.lint(json=lint == "json")
             elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
@@ -851,7 +851,7 @@ def get_argument_parser(profile=None):
 
     group_exec.add_argument(
         "--cache",
-        nargs="+",
+        nargs="*",
         metavar="RULE",
         help="Store output files of given rules in a central cache given by the environment "
         "variable $SNAKEMAKE_OUTPUT_CACHE. Likewise, retrieve output files of the given rules "
@@ -1871,6 +1871,7 @@ def main(argv=None):
         or args.rulegraph
         or args.summary
         or args.lint
+        or args.report
     )
 
     if args.cores is not None:
