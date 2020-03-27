@@ -1871,6 +1871,7 @@ def main(argv=None):
         or args.rulegraph
         or args.summary
         or args.lint
+        or args.report
     )
 
     if args.cores is not None:

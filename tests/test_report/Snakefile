@@ -4,7 +4,7 @@ report: "report/workflow.rst"
 
 rule all:
     input:
-        ["fig1.svg", "fig2.png", "test.csv"]
+        ["fig1.svg", "fig2.png", "test.csv", "testdir"]
 
 
 rule c:
@@ -41,3 +41,15 @@ rule d:
         report("test.csv", caption="report/table.rst")
     shell:
         "curl http://samplecsvs.s3.amazonaws.com/Sacramentorealestatetransactions.csv > {output}"
+
+rule e:
+    output:
+        report(directory("testdir"), caption="report/testdir.rst", pattern="{name}.txt")
+    shell:
+        """
+        mkdir {output}
+        for x in 1 2 3
+        do 
+            echo $x > testdir/$x.txt
+        done
+        """

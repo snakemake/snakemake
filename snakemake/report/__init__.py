@@ -28,7 +28,7 @@ from docutils.core import publish_file, publish_parts
 from snakemake import script, wrapper
 from snakemake.utils import format
 from snakemake.logging import logger
-from snakemake.io import is_flagged, get_flag_value
+from snakemake.io import is_flagged, get_flag_value, glob_wildcards, Wildcards, apply_wildcards
 from snakemake.exceptions import WorkflowError
 from snakemake.script import Snakemake
 from snakemake import __version__
@@ -315,7 +315,7 @@ class JobRecord:
 
 
 class FileRecord:
-    def __init__(self, path, job, caption, env, category):
+    def __init__(self, path, job, caption, env, category, wildcards_overwrite=None):
         self.path = path
         self.target = os.path.basename(path)
         self.size = os.path.getsize(self.path)
@@ -324,7 +324,7 @@ class FileRecord:
         self.mime, _ = mime_from_file(self.path)
         self.id = uuid.uuid4()
         self.job = job
-        self.wildcards = logging.format_wildcards(job.wildcards)
+        self.wildcards = logging.format_wildcards(job.wildcards if wildcards_overwrite is None else wildcards_overwrite)
         self.params = logging.format_dict(job.params)
         self.png_uri = None
         self.category = category
@@ -547,13 +547,28 @@ def auto_report(dag, path):
                     raise WorkflowError(
                         "File {} marked for report but does " "not exist.".format(f)
                     )
-                if os.path.isfile(f):
-                    report_obj = get_flag_value(f, "report")
-                    category = Category(report_obj.category)
+                report_obj = get_flag_value(f, "report")
+                category = Category(report_obj.category)
+
+                def register_file(f, wildcards_overwrite=None):
                     results[category].append(
-                        FileRecord(f, job, report_obj.caption, env, category)
+                        FileRecord(f, job, report_obj.caption, env, category, wildcards_overwrite=wildcards_overwrite)
                     )
                     recorded_files.add(f)
+
+                if os.path.isfile(f):
+                    register_file(f)
+                if os.path.isdir(f):
+                    pattern = os.path.join(f, report_obj.pattern)
+                    wildcards = glob_wildcards(pattern)._asdict()
+                    names = wildcards.keys()
+                    for w in zip(*wildcards.values()):
+                        w = dict(zip(names, w))
+                        w.update(job.wildcards_dict)
+                        w = Wildcards(fromdict=w)
+                        f = apply_wildcards(pattern, w)
+                        register_file(f, wildcards_overwrite=w)
+
 
         for f in job.expanded_output:
             meta = persistence.metadata(f)
