@@ -861,7 +861,9 @@ def checkpoint_target(value):
     return flag(value, "checkpoint_target")
 
 
-ReportObject = collections.namedtuple("ReportObject", ["caption", "category", "pattern"])
+ReportObject = collections.namedtuple(
+    "ReportObject", ["caption", "category", "pattern"]
+)
 
 
 def report(value, caption=None, category=None, pattern=None):
