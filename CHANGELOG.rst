@@ -1,3 +1,13 @@
+[5.13.0] - 2020-03-27
+=====================
+Added
+-----
+- Allow to flag directories for inclusion in the report.
+Changed
+-------
+- Fixed hash computation for --cache in case of positional params arguments.
+- Automatically restrict thread usage of linear algebra libraries to whatever is specified in the rule/job.
+
 [5.12.3] - 2020-03-24
 =====================
 Changed
