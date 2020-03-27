@@ -574,15 +574,24 @@ def auto_report(dag, path):
                 if os.path.isfile(f):
                     register_file(f)
                 if os.path.isdir(f):
-                    pattern = os.path.join(f, report_obj.pattern)
-                    wildcards = glob_wildcards(pattern)._asdict()
-                    names = wildcards.keys()
-                    for w in zip(*wildcards.values()):
-                        w = dict(zip(names, w))
-                        w.update(job.wildcards_dict)
-                        w = Wildcards(fromdict=w)
-                        f = apply_wildcards(pattern, w)
-                        register_file(f, wildcards_overwrite=w)
+                    if not isinstance(report_obj.patterns, list):
+                        raise WorkflowError("Invalid patterns given for report. Must be list.", rule=job.rule)
+                    if not report_obj.patterns:
+                        raise WorkflowError(
+                            "Directory marked for report but no file patterns given via patterns=[...]. "
+                            "See report documentation.",
+                            rule=job.rule
+                        )
+                    for pattern in report_obj.patterns:
+                        pattern = os.path.join(f, pattern)
+                        wildcards = glob_wildcards(pattern)._asdict()
+                        names = wildcards.keys()
+                        for w in zip(*wildcards.values()):
+                            w = dict(zip(names, w))
+                            w.update(job.wildcards_dict)
+                            w = Wildcards(fromdict=w)
+                            f = apply_wildcards(pattern, w)
+                            register_file(f, wildcards_overwrite=w)
 
         for f in job.expanded_output:
             meta = persistence.metadata(f)

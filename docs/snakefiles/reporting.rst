@@ -19,7 +19,7 @@ Consider the following example:
 
   rule all:
       input:
-          ["fig1.svg", "fig2.png"]
+          ["fig1.svg", "fig2.png", "testdir"]
 
 
   rule c:
@@ -50,12 +50,25 @@ Consider the following example:
       shell:
           "sleep `shuf -i 1-3 -n 1`; cp data/fig2.png {output}"
 
+  rule d:
+      output:
+          report(directory("testdir"), caption="report/somedata.rst", category="Step 3", pattern="{name}.txt")
+      shell:
+          "mkdir {output}; for i in 1 2 3; do echo $i > {output}/$i.txt; done"
+
 As can be seen, we define a global description which is contained in the file ``report/workflow.rst``.
 In addition, we mark ``fig1.svg`` and ``fig2.png`` for inclusion into the report, while in both cases specifying a caption text via again referring to a restructured text file.
 Note the paths to the ``.rst``-files are interpreted relative to the current Snakefile.
+
 Inside the ``.rst``-files you can use `Jinja2 <http://jinja.pocoo.org>`_ templating to access context information.
 In case of the global description, you can access the config dictionary via ``{{ snakemake.config }}``, (e.g., use ``{{ snakemake.config["mykey"] }}`` to access the key ``mykey``).
-In case of output files, you can access the same values as available with the :ref:`script directive <snakefiles-external_scripts>`.
+In case of output files, you can access the same values as available with the :ref:`script directive <snakefiles-external_scripts>` (e.g., ``snakemake.wildcards``).
+
+The last rule ``d`` creates a directory with several files, here mimicing the case that it is impossible to specify exactly which files will be created while writing the workflow (e.g. it might depend on the data).
+Nevertheless, it is still possible to include those files one by one into the report by defining inclusion patterns (here ``patterns=["{name}.txt"]``) along with the report flag.
+When creating the report, Snakemake will scan the directory for files matching the given patterns and include all of them in the report.
+Wildcards in those patterns are made available in the jinja-templated caption document along with the rules wildcards in the ``snakemake.wildcards`` object.
+
 Moreover, in every ``.rst`` document, you can link to
 
 * the **Rules** section (with ``Rules_``),

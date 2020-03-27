@@ -44,7 +44,7 @@ rule d:
 
 rule e:
     output:
-        report(directory("testdir"), caption="report/testdir.rst", pattern="{name}.txt")
+        report(directory("testdir"), caption="report/testdir.rst", patterns=["{name}.txt"])
     shell:
         """
         mkdir {output}
