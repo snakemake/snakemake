@@ -575,12 +575,15 @@ def auto_report(dag, path):
                     register_file(f)
                 if os.path.isdir(f):
                     if not isinstance(report_obj.patterns, list):
-                        raise WorkflowError("Invalid patterns given for report. Must be list.", rule=job.rule)
+                        raise WorkflowError(
+                            "Invalid patterns given for report. Must be list.",
+                            rule=job.rule,
+                        )
                     if not report_obj.patterns:
                         raise WorkflowError(
                             "Directory marked for report but no file patterns given via patterns=[...]. "
                             "See report documentation.",
-                            rule=job.rule
+                            rule=job.rule,
                         )
                     for pattern in report_obj.patterns:
                         pattern = os.path.join(f, pattern)
