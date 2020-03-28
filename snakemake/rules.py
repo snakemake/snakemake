@@ -238,6 +238,37 @@ class Rule:
             return branch, non_dynamic_wildcards
         return branch
 
+    @property
+    def is_shell(self):
+        return self.shellcmd is not None
+
+    @property
+    def is_script(self):
+        return self.script is not None
+
+    @property
+    def is_notebook(self):
+        return self.notebook is not None
+
+    @property
+    def is_wrapper(self):
+        return self.wrapper is not None
+
+    @property
+    def is_cwl(self):
+        return self.cwl is not None
+
+    @property
+    def is_run(self):
+        return not (
+            self.is_shell
+            or self.norun
+            or self.is_script
+            or self.is_notebook
+            or self.is_wrapper
+            or self.is_cwl
+        )
+
     def check_caching(self):
         if self.name in self.workflow.cache_rules:
             if len(self.output) == 0:
@@ -517,6 +548,7 @@ class Rule:
                     r = ReportObject(
                         os.path.join(self.workflow.current_basedir, report_obj.caption),
                         report_obj.category,
+                        report_obj.patterns,
                     )
                     item.flags["report"] = r
             if is_flagged(item, "subworkflow"):

@@ -128,7 +128,7 @@ class RemoteObject(DomainObject):
                 epoch_time = email.utils.mktime_tz(parsed_date)
                 return epoch_time
         else:
-            raise EasyWebDAVFileException(
+            raise WorkflowError(
                 "The file does not seem to exist remotely: %s" % self.webdav_file
             )
 
@@ -153,7 +153,7 @@ class RemoteObject(DomainObject):
                 )
                 os_sync()  # ensure flush to disk
         else:
-            raise EasyWebDAVFileException(
+            raise WorkflowError(
                 "The file does not seem to exist remotely: %s" % self.webdav_file
             )
 

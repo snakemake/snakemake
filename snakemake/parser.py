@@ -226,6 +226,12 @@ class SubworkflowKeywordState(KeywordState):
 # Global keyword states
 
 
+class Envvars(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "register_envvars"
+
+
 class Include(GlobalKeywordState):
     pass
 
@@ -439,6 +445,12 @@ class Group(RuleKeywordState):
     pass
 
 
+class Cache(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "cache_rule"
+
+
 class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
@@ -623,6 +635,7 @@ class Rule(GlobalKeywordState):
         notebook=Notebook,
         wrapper=Wrapper,
         cwl=CWL,
+        cache=Cache,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -747,6 +760,7 @@ class OnStart(DecoratorKeywordState):
 class Python(TokenAutomaton):
 
     subautomata = dict(
+        envvars=Envvars,
         include=Include,
         workdir=Workdir,
         configfile=Configfile,

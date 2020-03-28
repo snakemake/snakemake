@@ -16,6 +16,7 @@ from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
+from snakemake.exceptions import WorkflowError
 import snakemake
 
 
@@ -47,7 +48,7 @@ class shell:
                 cls._process_prefix + " " + argvquote(cmd),
                 shell=False,
                 executable=cls.get_executable(),
-                **kwargs
+                **kwargs,
             )
         else:
             return sp.check_output(
@@ -172,6 +173,18 @@ class shell:
         # shell can't be True on Windows with an explicit executable
         use_shell = not (ON_WINDOWS and cls.get_executable())
 
+        threads = str(context.get("threads", 1))
+        # environment variable lists for linear algebra libraries taken from:
+        # https://stackoverflow.com/a/53224849/2352071
+        # https://github.com/xianyi/OpenBLAS/tree/59243d49ab8e958bb3872f16a7c0ef8c04067c0a#setting-the-number-of-threads-using-environment-variables
+        envvars = dict(os.environ)
+        envvars["OMP_NUM_THREADS"] = threads
+        envvars["GOTO_NUM_THREADS"] = threads
+        envvars["OPENBLAS_NUM_THREADS"] = threads
+        envvars["MKL_NUM_THREADS"] = threads
+        envvars["VECLIB_MAXIMUM_THREADS"] = threads
+        envvars["NUMEXPR_NUM_THREADS"] = threads
+
         proc = sp.Popen(
             cmd,
             bufsize=-1,
@@ -179,7 +192,8 @@ class shell:
             stdout=stdout,
             universal_newlines=iterable or None,
             close_fds=close_fds,
-            **cls._process_args
+            **cls._process_args,
+            env=envvars,
         )
 
         if jobid is not None:

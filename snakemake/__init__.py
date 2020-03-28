@@ -42,6 +42,7 @@ def snakemake(
     batch=None,
     cache=None,
     report=None,
+    lint=None,
     listrules=False,
     list_target_rules=False,
     cores=1,
@@ -137,13 +138,13 @@ def snakemake(
     mode=Mode.default,
     wrapper_prefix=None,
     kubernetes=None,
-    kubernetes_envvars=None,
     container_image=None,
     tibanna=False,
     tibanna_sfn=None,
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
+    tibanna_config=False,
     assume_shared_fs=True,
     cluster_status=None,
     export_cwl=None,
@@ -159,6 +160,7 @@ def snakemake(
         snakefile (str):            the path to the snakefile
         batch (Batch):              whether to compute only a partial DAG, defined by the given Batch object (default None)
         report (str):               create an HTML report for a previous run at the given path
+        lint (str):                 print lints instead of executing (None, "plain" or "json", default None)
         listrules (bool):           list rules (default False)
         list_target_rules (bool):   list target rules (default False)
         cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
@@ -245,13 +247,13 @@ def snakemake(
         mode (snakemake.common.Mode): execution mode
         wrapper_prefix (str):       prefix for wrapper script URLs (default None)
         kubernetes (str):           submit jobs to kubernetes, using the given namespace.
-        kubernetes_envvars (list):  environment variables that shall be passed to kubernetes jobs.
         container_image (str):      Docker image to use, e.g., for kubernetes.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (str):              submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
+        tibanna_config (list):      Additional tibanan config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         export_cwl (str):           Compile workflow to CWL and save to given file
@@ -314,6 +316,16 @@ def snakemake(
             default_remote_prefix
         ), "default_remote_prefix needed if tibanna is specified"
         assert tibanna_sfn, "tibanna_sfn needed if tibanna is specified"
+        if tibanna_config:
+            tibanna_config_dict = dict()
+            for cf in tibanna_config:
+                k, v = cf.split("=")
+                if v == "true":
+                    v = True
+                elif v == "false":
+                    v = False
+                tibanna_config_dict.update({k: v})
+            tibanna_config = tibanna_config_dict
 
     if updated_files is None:
         updated_files = list()
@@ -486,7 +498,9 @@ def snakemake(
         workflow.check()
 
         if not print_compilation:
-            if listrules:
+            if lint:
+                success = not workflow.lint(json=lint == "json")
+            elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
                 workflow.list_rules(only_targets=True)
@@ -549,7 +563,6 @@ def snakemake(
                     singularity_args=singularity_args,
                     list_conda_envs=list_conda_envs,
                     kubernetes=kubernetes,
-                    kubernetes_envvars=kubernetes_envvars,
                     container_image=container_image,
                     create_envs_only=create_envs_only,
                     default_remote_provider=default_remote_provider,
@@ -557,6 +570,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     precommand=precommand,
+                    tibanna_config=tibanna_config,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
                     max_jobs_per_second=max_jobs_per_second,
@@ -586,11 +600,11 @@ def snakemake(
                     drmaa=drmaa,
                     drmaa_log_dir=drmaa_log_dir,
                     kubernetes=kubernetes,
-                    kubernetes_envvars=kubernetes_envvars,
                     container_image=container_image,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     precommand=precommand,
+                    tibanna_config=tibanna_config,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     printd3dag=printd3dag,
@@ -841,7 +855,7 @@ def get_argument_parser(profile=None):
 
     group_exec.add_argument(
         "--cache",
-        nargs="+",
+        nargs="*",
         metavar="RULE",
         help="Store output files of given rules in a central cache given by the environment "
         "variable $SNAKEMAKE_OUTPUT_CACHE. Likewise, retrieve output files of the given rules "
@@ -1084,6 +1098,15 @@ def get_argument_parser(profile=None):
         metavar="HTMLFILE",
         help="Create an HTML report with results and statistics. "
         "If no filename is given, report.html is the default.",
+    )
+    group_utils.add_argument(
+        "--lint",
+        nargs="?",
+        const="text",
+        choices=["text", "json"],
+        help="Perform linting on the given workflow. This will print snakemake "
+        "specific suggestions to improve code quality (work in progress, more lints "
+        "to be added in the future). If no argument is provided, plain text output is used.",
     )
     group_utils.add_argument(
         "--export-cwl",
@@ -1653,13 +1676,6 @@ def get_argument_parser(profile=None):
         "integration via --use-conda.",
     )
     group_kubernetes.add_argument(
-        "--kubernetes-env",
-        nargs="+",
-        metavar="ENVVAR",
-        default=[],
-        help="Specify environment variables to pass to the kubernetes job.",
-    )
-    group_kubernetes.add_argument(
         "--container-image",
         metavar="IMAGE",
         help="Docker image to use, e.g., when submitting jobs to kubernetes. "
@@ -1697,6 +1713,12 @@ def get_argument_parser(profile=None):
         "Do not include input/output download/upload commands - file transfer"
         " between S3 bucket and the run environment (container) is automatically"
         " handled by Tibanna.",
+    )
+    group_tibanna.add_argument(
+        "--tibanna-config",
+        nargs="+",
+        help="Additional tibanan config e.g. --tibanna-config spot_instance=true subnet="
+        "<subnet_id> security group=<security_group_id>",
     )
 
     group_conda = parser.add_argument_group("CONDA")
@@ -1852,6 +1874,8 @@ def main(argv=None):
         or args.filegraph
         or args.rulegraph
         or args.summary
+        or args.lint
+        or args.report
     )
 
     if args.cores is not None:
@@ -2049,6 +2073,7 @@ def main(argv=None):
             batch=batch,
             cache=args.cache,
             report=args.report,
+            lint=args.lint,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
             cores=args.cores,
@@ -2087,11 +2112,11 @@ def main(argv=None):
             drmaa=args.drmaa,
             drmaa_log_dir=args.drmaa_log_dir,
             kubernetes=args.kubernetes,
-            kubernetes_envvars=args.kubernetes_env,
             container_image=args.container_image,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
             precommand=args.precommand,
+            tibanna_config=args.tibanna_config,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,
             standalone=True,
