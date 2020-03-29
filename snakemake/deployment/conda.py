@@ -16,6 +16,7 @@ from distutils.version import StrictVersion
 import json
 from glob import glob
 import tarfile
+import zipfile
 import uuid
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
@@ -166,6 +167,9 @@ class Env:
                             r.raise_for_status()
                             copy.write(r.content)
                         try:
+                            if pkg_path.endswith(".conda"):
+                                assert zipfile.ZipFile(pkg_path).testzip() is None
+                            else:
                             tarfile.open(pkg_path)
                         except:
                             raise WorkflowError(
