@@ -687,7 +687,9 @@ def test_bash():
 def test_inoutput_is_path():
     run(dpath("test_inoutput_is_path"))
 
-
+# Fails on Windows with PermissionError when test system tries to 
+# clean the conda environment
+@xfail_permissionerror_on_win
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
