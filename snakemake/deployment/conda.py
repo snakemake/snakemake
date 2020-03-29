@@ -30,7 +30,7 @@ from snakemake.io import git_content
 def content(env_file):
     if env_file.startswith("git+file:"):
         return git_content(env_file).encode("utf-8")
-    elif urlparse(env_file).scheme:
+    elif urlparse(env_file).netloc:
         try:
             return urlopen(env_file).read()
         except URLError as e:
@@ -144,15 +144,15 @@ class Env:
             try:
                 out = shell.check_output(
                     "conda list --explicit --prefix '{}'".format(self.path),
-                    stderr=subprocess.STDOUT,
+                    stderr=subprocess.STDOUT, text=True
                 )
-                logger.debug(out.decode())
+                logger.debug(out)
             except subprocess.CalledProcessError as e:
                 raise WorkflowError(
-                    "Error exporting conda packages:\n" + e.output.decode()
+                    "Error exporting conda packages:\n" + e.output
                 )
             with open(os.path.join(env_archive, "packages.txt"), "w") as pkg_list:
-                for l in out.decode().split("\n"):
+                for l in out.split("\n"):
                     if l and not l.startswith("#") and not l.startswith("@"):
                         pkg_url = l
                         logger.info(pkg_url)
@@ -170,10 +170,10 @@ class Env:
                             if pkg_path.endswith(".conda"):
                                 assert zipfile.ZipFile(pkg_path).testzip() is None
                             else:
-                            tarfile.open(pkg_path)
+                                tarfile.open(pkg_path)
                         except:
                             raise WorkflowError(
-                                "Package is invalid tar archive: {}".format(pkg_url)
+                                "Package is invalid tar/zip archive: {}".format(pkg_url)
                             )
         except (
             requests.exceptions.ChunkedEncodingError,
@@ -273,7 +273,7 @@ class Env:
                             cmd,
                             envvars=self.get_singularity_envvars(),
                         )
-                    out = shell.check_output(cmd, stderr=subprocess.STDOUT)
+                    out = shell.check_output(cmd, stderr=subprocess.STDOUT, text=True)
 
                 else:
                     # Copy env file to env_path (because they can be on
@@ -299,12 +299,12 @@ class Env:
                             cmd,
                             envvars=self.get_singularity_envvars(),
                         )
-                    out = shell.check_output(cmd, stderr=subprocess.STDOUT)
+                    out = shell.check_output(cmd, stderr=subprocess.STDOUT, text=True)
                 # Touch "done" flag file
                 with open(os.path.join(env_path, "env_setup_done"), "a") as f:
                     pass
 
-                logger.debug(out.decode())
+                logger.debug(out)
                 logger.info(
                     "Environment for {} created (location: {})".format(
                         os.path.relpath(env_file), os.path.relpath(env_path)
@@ -315,7 +315,7 @@ class Env:
                 shutil.rmtree(env_path, ignore_errors=True)
                 raise CreateCondaEnvironmentException(
                     "Could not create conda environment from {}:\n".format(env_file)
-                    + e.output.decode()
+                    + e.output
                 )
 
         if tmp_file:
@@ -402,8 +402,8 @@ class Conda:
                 )
         try:
             version = shell.check_output(
-                self._get_cmd("conda --version"), stderr=subprocess.STDOUT
-            ).decode()
+                self._get_cmd("conda --version"), stderr=subprocess.STDOUT, text=True
+            )
             version = version.split()[1]
             if StrictVersion(version) < StrictVersion("4.2"):
                 raise CreateCondaEnvironmentException(
