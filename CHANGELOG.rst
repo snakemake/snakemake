@@ -1,3 +1,42 @@
+[5.13.0] - 2020-03-27
+=====================
+Added
+-----
+- Allow to flag directories for inclusion in the report.
+Changed
+-------
+- Fixed hash computation for --cache in case of positional params arguments.
+- Automatically restrict thread usage of linear algebra libraries to whatever is specified in the rule/job.
+
+[5.12.3] - 2020-03-24
+=====================
+Changed
+-------
+- Various minor bug fixes.
+
+[5.12.2] - 2020-03-24
+=====================
+Changed
+-------
+- Further improved linter output.
+
+[5.12.1] - 2020-03-24
+=====================
+Changed
+-------
+- Linter fixes
+
+[5.12.0] - 2020-03-24
+=====================
+Changed
+-------
+- Fixed the ability to supply functions for the thread directive.
+- Improved error messages for caching.
+
+Added
+-----
+- A new "cache: true" directive that allows to annotate between workflow caching eligibility for rules in the workflow.
+
 [5.11.2] - 2020-03-19
 =====================
 Changed

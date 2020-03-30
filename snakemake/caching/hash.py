@@ -10,6 +10,7 @@ import json
 from snakemake.jobs import Job
 from snakemake import script
 from snakemake import wrapper
+from snakemake.exceptions import WorkflowError
 
 # ATTENTION: increase version number whenever the hashing algorithm below changes!
 __version__ = "0.1"
@@ -59,7 +60,8 @@ class ProvenanceHashMap:
 
         # Hash params.
         for key, value in sorted(job.params._allitems()):
-            h.update(key.encode())
+            if key is not None:
+                h.update(key.encode())
             # If this raises a TypeError, we cannot calculate a reliable hash.
             try:
                 h.update(json.dumps(value, sort_keys=True).encode())

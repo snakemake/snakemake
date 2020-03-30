@@ -27,6 +27,7 @@ import base64
 import uuid
 import re
 import math
+import urllib3
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -1586,7 +1587,7 @@ class KubernetesExecutor(ClusterExecutor):
                     return func()
                 except:
                     # Still can't reach the server after 5 minutes
-                    raise WorkflowErroe(
+                    raise WorkflowError(
                         e,
                         "Error 111 connection timeout, please check"
                         " that the k8 cluster master is reachable!",
@@ -1677,7 +1678,6 @@ class TibannaExecutor(ClusterExecutor):
         latency_wait=3,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         max_status_checks_per_second=1,
         keepincomplete=False,
     ):

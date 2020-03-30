@@ -548,6 +548,7 @@ class Rule:
                     r = ReportObject(
                         os.path.join(self.workflow.current_basedir, report_obj.caption),
                         report_obj.category,
+                        report_obj.patterns,
                     )
                     item.flags["report"] = r
             if is_flagged(item, "subworkflow"):

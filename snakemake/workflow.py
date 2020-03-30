@@ -201,8 +201,13 @@ class Workflow:
         from snakemake.linting.rules import RuleLinter
         from snakemake.linting.snakefiles import SnakefileLinter
 
-        json_snakefile_lints = SnakefileLinter(self, self.included).lint(json=json)
-        json_rule_lints = RuleLinter(self, self.rules).lint(json=json)
+        json_snakefile_lints, snakefile_linted = SnakefileLinter(
+            self, self.included
+        ).lint(json=json)
+        json_rule_lints, rules_linted = RuleLinter(self, self.rules).lint(json=json)
+
+        linted = snakefile_linted or rules_linted
+
         if json:
             import json
 
@@ -212,6 +217,10 @@ class Workflow:
                     indent=2,
                 )
             )
+        else:
+            if not linted:
+                logger.info("Congratulations, your workflow is in a good condition!")
+        return linted
 
     def is_cached_rule(self, rule: Rule):
         return rule.name in self.cache_rules
@@ -1068,7 +1077,9 @@ class Workflow:
                 if name in self.overwrite_threads:
                     rule.resources["_cores"] = self.overwrite_threads[name]
                 else:
-                    rule.resources["_cores"] = int(ruleinfo.threads)
+                    if isinstance(ruleinfo.threads, float):
+                        ruleinfo.threads = int(ruleinfo.threads)
+                    rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
                     raise RuleException(

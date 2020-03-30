@@ -495,7 +495,7 @@ def snakemake(
 
         if not print_compilation:
             if lint:
-                workflow.lint(json=lint == "json")
+                success = not workflow.lint(json=lint == "json")
             elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
@@ -1871,6 +1871,7 @@ def main(argv=None):
         or args.rulegraph
         or args.summary
         or args.lint
+        or args.report
     )
 
     if args.cores is not None:
