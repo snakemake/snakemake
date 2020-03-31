@@ -198,7 +198,9 @@ class Category:
     def __init__(self, name, wildcards, job):
         if name is None:
             name = "Other"
+            self.is_other = True
         else:
+            self.is_other = False
             try:
                 name = apply_wildcards(name, wildcards)
             except AttributeError as e:
@@ -232,7 +234,6 @@ class RuleRecord:
             self._conda_env_raw = base64.b64decode(job_rec.conda_env).decode()
             self.conda_env = yaml.load(self._conda_env_raw, Loader=yaml.Loader)
         self.n_jobs = 1
-        self.output = list(job_rec.output)
         self.id = uuid.uuid4()
 
     def code(self):
@@ -276,7 +277,14 @@ class RuleRecord:
 
     def add(self, job_rec):
         self.n_jobs += 1
-        self.output.extend(job_rec.output)
+    
+    @property
+    def output(self):
+        return self._rule.output
+    
+    @property
+    def input(self):
+        return self._rule.input
 
     def __eq__(self, other):
         return (
@@ -550,7 +558,7 @@ def auto_report(dag, path):
     env.filters["get_resource_as_string"] = get_resource_as_string
 
     persistence = dag.workflow.persistence
-    results = defaultdict(list)
+    results = defaultdict(lambda: defaultdict(list))
     records = defaultdict(JobRecord)
     recorded_files = set()
     for job in dag.jobs:
@@ -563,15 +571,19 @@ def auto_report(dag, path):
                 report_obj = get_flag_value(f, "report")
 
                 def register_file(f, wildcards_overwrite=None):
+                    wildcards = wildcards_overwrite or job.wildcards
                     category = Category(
                         report_obj.category,
-                        wildcards=job.wildcards
-                        if wildcards_overwrite is None
-                        else wildcards_overwrite,
+                        wildcards=wildcards,
+                        job=job,
+                    )
+                    subcategory = Category(
+                        report_obj.subcategory,
+                        wildcards=wildcards,
                         job=job,
                     )
 
-                    results[category].append(
+                    results[category][subcategory].append(
                         FileRecord(
                             f,
                             job,
@@ -637,8 +649,9 @@ def auto_report(dag, path):
                     "old Snakemake version.".format(f)
                 )
 
-    for catresults in results.values():
-        catresults.sort(key=lambda res: res.name)
+    for subcats in results.values():
+        for catresults in subcats.values():
+            catresults.sort(key=lambda res: res.name)
 
     # prepare runtimes
     runtimes = [
@@ -682,7 +695,8 @@ def auto_report(dag, path):
     files = [
         seen.add(res.target) or res
         for cat in results.values()
-        for res in cat
+        for subcat in cat.values()
+        for res in subcat
         if res.target not in seen
     ]
 
@@ -701,9 +715,10 @@ def auto_report(dag, path):
     .. _
     """
     )
-    for cat, catresults in results.items():
-        for res in catresults:
-            res.render(env, rst_links, results, files)
+    for cat, subcats in results.items():
+        for subcat, catresults in subcats.items():
+            for res in catresults:
+                res.render(env, rst_links, results, files)
 
     # global description
     text = ""
@@ -723,7 +738,7 @@ def auto_report(dag, path):
 
     # record time
     now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
-    results_size = sum(res.size for cat in results.values() for res in cat)
+    results_size = sum(res.size for cat in results.values() for subcat in cat.values() for res in subcat)
 
     try:
         from pygments.formatters import HtmlFormatter

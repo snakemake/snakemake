@@ -256,6 +256,10 @@
       .ruletable th {
         width: 1px;
       }
+
+      .rule-properties ul {
+        padding-left: 1.2em;
+      }
     </style>
   </head>
 
@@ -308,7 +312,7 @@
               </span>
             </h5>
             <ul class="nav flex-column mb-2">
-            {% for cat, res in results|dictsort %}
+            {% for cat, _ in results|dictsort %}
               <li class="nav-item">
                 <a class="nav-link panel-link" data-panel="{{ cat.content_id }}" href="javascript:void(0)">
                   <span data-feather="folder"></span>
@@ -336,9 +340,13 @@
 
           </div>
 
-          {% for cat, catresults in results|dictsort %}
+          {% for cat, subcats in results|dictsort %}
           <div class="panel" id="{{ cat.content_id }}">
             <h2>{{ cat.name }}</h2>
+            {% for subcat, catresults in subcats|dictsort %}
+            {% if subcats|length > 1 or not subcat.is_other %}
+            <h4>{{ subcat.name }}</h4>
+            {% endif %}
             <table class="table results-table">
               <caption>Workflow results</caption>
               <thead>
@@ -384,6 +392,7 @@
                 {% endfor %}
               </tbody>
             </table>
+            {% endfor %}
           </div>  
           {% endfor %}
 
@@ -446,6 +455,37 @@
                     <tr>
                       <th scope="row">Jobs</th><td>{{ rule.n_jobs }}</td>
                     </tr>
+
+                    {% if rule.input %}
+                    <tr>
+                      <th scope="row" colspan=2>Input files</th>
+                    </tr>
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        <ul>
+                          {% for f in rule.input %}
+                            <li>{{ f }}</li>
+                          {% endfor %}
+                        </ul>
+                      </td>
+                    </tr>
+                    {% endif %}
+
+                    {% if rule.output %}
+                    <tr>
+                      <th scope="row" colspan=2>Output files</th>
+                    </tr>
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        <ul>
+                          {% for f in rule.output %}
+                            <li>{{ f }}</li>
+                          {% endfor %}
+                        </ul>
+                      </td>
+                    </tr>
+                    {% endif %}
+
                     {% if rule.container_img_url %}
                     <tr>
                       <th scope="row">Container image</th>
@@ -454,20 +494,22 @@
                       </td>
                     </tr>
                     {% endif %}
+
                     {% if rule.conda_env %}
                     <tr>
                       <th scope="row" colspan=2>Conda software stack</th>
                     </tr>
                     <tr>
                       <td class="rule-property" colspan=2>
-                        <ul class="list-group list-group-flush">
+                        <ul>
                           {% for dep in rule.conda_env["dependencies"] %}
-                            <li class="list-group-item">{{ dep }}</li>
+                            <li>{{ dep }}</li>
                           {% endfor %}
                         </ul>
                       </td>
                     </tr>
                     {% endif %}
+
                     {% if rule.code is not none %}
                     <tr>
                       <th scope="row" colspan=2>Code</th>
@@ -475,20 +517,6 @@
                     <tr>
                       <td class="rule-property" colspan=2>
                         {{ rule.code()|safe }}
-                      </td>
-                    </tr>
-                    {% endif %}
-                    {% if rule.output %}
-                    <tr>
-                      <th scope="row" colspan=2>Output files</th>
-                    </tr>
-                    <tr>
-                      <td class="rule-property" colspan=2>
-                        <ul class="list-group list-group-flush">
-                          {% for f in rule.output %}
-                            <li class="list-group-item"></li>
-                          {% endfor %}
-                        </ul>
                       </td>
                     </tr>
                     {% endif %}
