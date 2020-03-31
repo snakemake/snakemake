@@ -195,11 +195,16 @@ def report(
 
 
 class Category:
-    def __init__(self, name):
+    def __init__(self, name, wildcards, job):
         if name is None:
             name = "Other"
+        else:
+            try:
+                name = apply_wildcards(name, wildcards)
+            except AttributeError as e:
+                raise WorkflowError("Failed to resolve wildcards.", e, rule=job.rule)
         self.name = name
-        self.id = "results-{name}".format(name=name.replace(" ", "_"))
+        self.id = "results-{name}".format(name=name.replace(" ", "_").replace(":", "_"))
         self.content_id = self.id + "-content"
 
     def __eq__(self, other):
@@ -556,9 +561,10 @@ def auto_report(dag, path):
                         "File {} marked for report but does " "not exist.".format(f)
                     )
                 report_obj = get_flag_value(f, "report")
-                category = Category(report_obj.category)
 
                 def register_file(f, wildcards_overwrite=None):
+                    category = Category(report_obj.category, wildcards=job.wildcards if wildcards_overwrite is None else wildcards_overwrite, job=job)
+
                     results[category].append(
                         FileRecord(
                             f,
