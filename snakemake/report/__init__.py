@@ -563,7 +563,13 @@ def auto_report(dag, path):
                 report_obj = get_flag_value(f, "report")
 
                 def register_file(f, wildcards_overwrite=None):
-                    category = Category(report_obj.category, wildcards=job.wildcards if wildcards_overwrite is None else wildcards_overwrite, job=job)
+                    category = Category(
+                        report_obj.category,
+                        wildcards=job.wildcards
+                        if wildcards_overwrite is None
+                        else wildcards_overwrite,
+                        job=job,
+                    )
 
                     results[category].append(
                         FileRecord(
