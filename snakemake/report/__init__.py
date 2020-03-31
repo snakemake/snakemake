@@ -703,16 +703,14 @@ def auto_report(dag, path):
     rst_links = textwrap.dedent(
         """
 
-    .. _Results: #results
-    .. _Rules: #rules
-    .. _Statistics: #stats
+    .. _Workflow: javascript:show_panel('workflow')
+    .. _Statistics: javascript:show_panel('statistics')
     {% for cat, catresults in categories|dictsort %}
-    .. _{{ cat.name }}: #{{ cat.id }}
+    .. _{{ cat.name }}: javascript:show_panel("{{ cat.id }}")
+    {% endfor %}
     {% for res in files %}
-    .. _{{ res.target }}: #{{ res.id }}
+    .. _{{ res.target }}: javascript:show_panel("{{ res.category.id }}")
     {% endfor %}
-    {% endfor %}
-    .. _
     """
     )
     for cat, subcats in results.items():

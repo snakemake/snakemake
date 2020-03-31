@@ -11,7 +11,7 @@
     <!-- Bootstrap CSS -->
     <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
     <style>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css"|get_resource_as_string }}</style>
-    <style>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.18/r-2.2.2/sl-1.3.0/datatables.min.css"|get_resource_as_string }}</style>
+    <style>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.20/r-2.2.2/sl-1.3.0/datatables.min.css"|get_resource_as_string }}</style>
     <style>{{ pygments_css|safe }}</style>
 
     <!-- Custom styles for this template -->
@@ -314,7 +314,7 @@
             <ul class="nav flex-column mb-2">
             {% for cat, _ in results|dictsort %}
               <li class="nav-item">
-                <a class="nav-link panel-link" data-panel="{{ cat.content_id }}" href="javascript:void(0)">
+                <a class="nav-link panel-link" data-panel="{{ cat.id }}" href="javascript:void(0)">
                   <span data-feather="folder"></span>
                   {{ cat.name }}
                 </a>
@@ -341,7 +341,7 @@
           </div>
 
           {% for cat, subcats in results|dictsort %}
-          <div class="panel" id="{{ cat.content_id }}">
+          <div class="panel" id="{{ cat.id }}">
             <h2>{{ cat.name }}</h2>
             {% for subcat, catresults in subcats|dictsort %}
             {% if subcats|length > 1 or not subcat.is_other %}
@@ -392,6 +392,7 @@
                 {% endfor %}
               </tbody>
             </table>
+            <div style="clear:both"></div>
             {% endfor %}
           </div>  
           {% endfor %}
@@ -541,7 +542,7 @@
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://raw.githubusercontent.com/eligrey/FileSaver.js/2.0.0/src/FileSaver.js"|get_resource_as_string }}</script>
-    <script>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.18/r-2.2.2/sl-1.3.0/datatables.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.20/r-2.2.2/sl-1.3.0/datatables.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery-scrollTo/2.1.2/jquery.scrollTo.min.js"|get_resource_as_string }}</script>
 
     <!-- Icons -->
@@ -553,6 +554,11 @@
     <script>
       function show_rule_properties(rule) {
         $(`.rule-properties[data-rule=${rule}]`).modal("show");
+      }
+
+      function show_panel(id) {
+        $(".panel").hide();
+        $(`#${id}`).show();
       }
 
       var rulegraph_spec = {
@@ -715,34 +721,36 @@
       $(".vega-actions").addClass("btn-group");
 
       // add thumbnails
-      {% for cat, catresults in results|dictsort %}
-        {% for res in catresults %}
-          $("#{{ res.id }}").click(function(e) {
-            saveAs('{{ res.data_uri }}', '{{ res.name }}');
-          });
+      {% for cat, subcats in results|dictsort %}
+        {% for subcat, catresults in subcats|dictsort %}
+          {% for res in catresults %}
+            $("#{{ res.id }}").click(function(e) {
+              saveAs('{{ res.data_uri }}', '{{ res.name }}');
+            });
 
-          {% if res.png_uri is not none %}
-          var data_uri = "{{ res.png_uri }}";
-          var anchor = $(
-            '<a>',
-            {
-              href: data_uri,
-              "data-toggle": "lightbox",
-              "data-gallery": "results",
-              "data-title": "{{ res.name }}",
-              "data-footer": "This is a preview. Download original file via the table."
-            }
-          );
-          anchor.append($(
-            '<img>',
-            {
-              id:'{{ res.id }}-thumbnail',
-              src: data_uri,
-              width: 200
-            }
-          ));
-          $("#{{ res.id }}-preview").append(anchor);
-          {% endif %}
+            {% if res.png_uri is not none %}
+            var data_uri = "{{ res.png_uri }}";
+            var anchor = $(
+              '<a>',
+              {
+                href: data_uri,
+                "data-toggle": "lightbox",
+                "data-gallery": "results",
+                "data-title": "{{ res.name }}",
+                "data-footer": "This is a preview. Download original file via the table."
+              }
+            );
+            anchor.append($(
+              '<img>',
+              {
+                id:'{{ res.id }}-thumbnail',
+                src: data_uri,
+                width: 200
+              }
+            ));
+            $("#{{ res.id }}-preview").append(anchor);
+            {% endif %}
+          {% endfor %}
         {% endfor %}
       {% endfor %}
 
@@ -757,8 +765,7 @@
         $("a.nav-link.active").removeClass("active");
         $(this).addClass("active");
         var panelid = $(this).attr("data-panel");
-        $(".panel").hide();
-        $(`#${panelid}`).show();
+        show_panel(panelid);
       })
 
       // show rule properties upon clicking rule link within results
