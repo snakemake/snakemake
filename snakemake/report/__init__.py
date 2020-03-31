@@ -277,11 +277,11 @@ class RuleRecord:
 
     def add(self, job_rec):
         self.n_jobs += 1
-    
+
     @property
     def output(self):
         return self._rule.output
-    
+
     @property
     def input(self):
         return self._rule.input
@@ -573,14 +573,10 @@ def auto_report(dag, path):
                 def register_file(f, wildcards_overwrite=None):
                     wildcards = wildcards_overwrite or job.wildcards
                     category = Category(
-                        report_obj.category,
-                        wildcards=wildcards,
-                        job=job,
+                        report_obj.category, wildcards=wildcards, job=job
                     )
                     subcategory = Category(
-                        report_obj.subcategory,
-                        wildcards=wildcards,
-                        job=job,
+                        report_obj.subcategory, wildcards=wildcards, job=job
                     )
 
                     results[category][subcategory].append(
@@ -736,7 +732,12 @@ def auto_report(dag, path):
 
     # record time
     now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
-    results_size = sum(res.size for cat in results.values() for subcat in cat.values() for res in subcat)
+    results_size = sum(
+        res.size
+        for cat in results.values()
+        for subcat in cat.values()
+        for res in subcat
+    )
 
     try:
         from pygments.formatters import HtmlFormatter
