@@ -2,8 +2,9 @@ from snakemake import shell
 
 chromosomes = [1,2,3,4,5]
 
+envvars:
+    "TESTVAR"
 
-localrules: all
 
 
 rule all:
@@ -12,6 +13,7 @@ rule all:
 rule compute1:
 	input: '{name}.in'
 	output: ['{name}.%s.inter'%c for c in chromosomes]
+        params: prefix="{name}"
 	run:
 		for out in output:
 			shell('(cat {input[0]} && echo "Part {out}") > {out}')

@@ -226,6 +226,12 @@ class SubworkflowKeywordState(KeywordState):
 # Global keyword states
 
 
+class Envvars(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "register_envvars"
+
+
 class Include(GlobalKeywordState):
     pass
 
@@ -265,7 +271,13 @@ class GlobalWildcardConstraints(GlobalKeywordState):
 class GlobalSingularity(GlobalKeywordState):
     @property
     def keyword(self):
-        return "global_singularity"
+        return "global_container"
+
+
+class GlobalContainer(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "global_container"
 
 
 # subworkflows
@@ -416,6 +428,12 @@ class Conda(RuleKeywordState):
 
 
 class Singularity(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "container"
+
+
+class Container(RuleKeywordState):
     pass
 
 
@@ -425,6 +443,12 @@ class EnvModules(RuleKeywordState):
 
 class Group(RuleKeywordState):
     pass
+
+
+class Cache(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "cache_rule"
 
 
 class WildcardConstraints(RuleKeywordState):
@@ -444,7 +468,7 @@ class Run(RuleKeywordState):
         yield "\n"
         yield (
             "def __rule_{rulename}(input, output, params, wildcards, threads, "
-            "resources, log, version, rule, conda_env, singularity_img, "
+            "resources, log, version, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir):".format(
                 rulename=self.rulename
@@ -549,7 +573,7 @@ class Script(AbstractCmd):
         # other args
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, singularity_img, singularity_args, env_modules, "
+            "config, rule, conda_env, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir"
         )
 
@@ -566,7 +590,7 @@ class Wrapper(Script):
     def args(self):
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, singularity_img, singularity_args, env_modules, "
+            "config, rule, conda_env, container_img, singularity_args, env_modules, "
             "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
             "cleanup_scripts, shadow_dir"
         )
@@ -600,6 +624,7 @@ class Rule(GlobalKeywordState):
         benchmark=Benchmark,
         conda=Conda,
         singularity=Singularity,
+        container=Container,
         envmodules=EnvModules,
         wildcard_constraints=WildcardConstraints,
         shadow=Shadow,
@@ -610,6 +635,7 @@ class Rule(GlobalKeywordState):
         notebook=Notebook,
         wrapper=Wrapper,
         cwl=CWL,
+        cache=Cache,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -734,6 +760,7 @@ class OnStart(DecoratorKeywordState):
 class Python(TokenAutomaton):
 
     subautomata = dict(
+        envvars=Envvars,
         include=Include,
         workdir=Workdir,
         configfile=Configfile,
@@ -748,6 +775,7 @@ class Python(TokenAutomaton):
         onstart=OnStart,
         wildcard_constraints=GlobalWildcardConstraints,
         singularity=GlobalSingularity,
+        container=GlobalContainer,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):

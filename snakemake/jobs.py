@@ -287,7 +287,7 @@ class Job(AbstractJob):
         if self.conda_env_file:
             if self._conda_env is None:
                 self._conda_env = self.dag.conda_envs.get(
-                    (self.conda_env_file, self.singularity_img_url)
+                    (self.conda_env_file, self.container_img_url)
                 )
             return self._conda_env
         return None
@@ -304,16 +304,16 @@ class Job(AbstractJob):
 
     @property
     def needs_singularity(self):
-        return self.singularity_img is not None
+        return self.container_img is not None
 
     @property
-    def singularity_img_url(self):
-        return self.rule.singularity_img
+    def container_img_url(self):
+        return self.rule.container_img
 
     @property
-    def singularity_img(self):
-        if self.singularity_img_url:
-            return self.dag.singularity_imgs[self.singularity_img_url]
+    def container_img(self):
+        if self.dag.workflow.use_singularity and self.container_img_url:
+            return self.dag.container_imgs[self.container_img_url]
         return None
 
     @property
@@ -321,8 +321,8 @@ class Job(AbstractJob):
         return self.rule.env_modules
 
     @property
-    def singularity_img_path(self):
-        return self.singularity_img.path if self.singularity_img else None
+    def container_img_path(self):
+        return self.container_img.path if self.container_img else None
 
     @property
     def is_shadow(self):
@@ -410,6 +410,7 @@ class Job(AbstractJob):
             self.is_shell
             or self.is_norun
             or self.is_script
+            or self.is_notebook
             or self.is_wrapper
             or self.is_cwl
         )

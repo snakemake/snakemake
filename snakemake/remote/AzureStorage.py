@@ -273,7 +273,7 @@ class AzureStorageHelper(object):
                 with open(destination_path, "wb") as fp:
                     os.utime(
                         fp.name,
-                        (k.last_modified.timestamp(), k.last_modified.timestamp()),
+                        (b.last_modified.timestamp(), b.last_modified.timestamp()),
                     )
             return destination_path
         except:
