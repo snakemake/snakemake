@@ -52,7 +52,7 @@ Consider the following example:
 
   rule d:
       output:
-          report(directory("testdir"), caption="report/somedata.rst", category="Step 3", pattern="{name}.txt")
+          report(directory("testdir"), patterns=["{name}.txt"], caption="report/somedata.rst", category="Step 3")
       shell:
           "mkdir {output}; for i in 1 2 3; do echo $i > {output}/$i.txt; done"
 
