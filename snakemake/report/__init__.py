@@ -343,9 +343,10 @@ class FileRecord:
         self.mime, _ = mime_from_file(self.path)
         self.id = uuid.uuid4()
         self.job = job
-        self.wildcards = logging.format_wildcards(
+        self._wildcards = (
             job.wildcards if wildcards_overwrite is None else wildcards_overwrite
         )
+        self.wildcards = logging.format_wildcards(self._wildcards)
         self.params = logging.format_dict(job.params)
         self.png_uri = None
         self.category = category
@@ -432,7 +433,7 @@ class FileRecord:
                 job.input,
                 job.output,
                 job.params,
-                job.wildcards,
+                self._wildcards,
                 job.threads,
                 job.resources,
                 job.log,
