@@ -830,10 +830,6 @@ def dynamic(value):
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
     rule has been run """
-    logger.warning(
-        "Dynamic output is deprecated in favor of checkpoints (see docs). "
-        "It will be removed in Snakemake 6.0."
-    )
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
@@ -865,12 +861,25 @@ def checkpoint_target(value):
     return flag(value, "checkpoint_target")
 
 
-ReportObject = collections.namedtuple("ReportObject", ["caption", "category"])
+ReportObject = collections.namedtuple(
+    "ReportObject", ["caption", "category", "patterns"]
+)
 
 
-def report(value, caption=None, category=None):
-    """Flag output file as to be included into reports."""
-    return flag(value, "report", ReportObject(caption, category))
+def report(value, caption=None, category=None, patterns=[]):
+    """Flag output file or directory as to be included into reports.
+
+    In case of directory, files to include can be specified via a glob pattern (default: *).
+
+    Arguments
+    value -- File or directory.
+    caption -- Path to a .rst file with a textual description of the result.
+    category -- Name of the category in which the result should be displayed in the report.
+    pattern -- Wildcard pattern for selecting files if a directory is given (this is used as
+               input for snakemake.io.glob_wildcards). Pattern shall not include the path to the
+               directory itself.
+    """
+    return flag(value, "report", ReportObject(caption, category, patterns))
 
 
 def local(value):
@@ -1144,7 +1153,6 @@ def git_content(git_file):
             "expected format:".format(git_file) + ", expected format is "
             "git+file://PATH_TO_REPO/PATH_TO_FILE_INSIDE_REPO@VERSION"
         )
-    return None
 
 
 def strip_wildcard_constraints(pattern):
@@ -1310,6 +1318,10 @@ class InputFiles(Namedlist):
     @property
     def size(self):
         return sum(f.size for f in self)
+
+    @property
+    def size_mb(self):
+        return self.size / 1024 / 1024
 
 
 class OutputFiles(Namedlist):

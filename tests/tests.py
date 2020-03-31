@@ -89,6 +89,7 @@ def test13():
 
 
 def test14():
+    os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
 
 
@@ -944,6 +945,12 @@ def test_github_issue78():
     run(dpath("test_github_issue78"), use_singularity=True)
 
 
+def test_envvars():
+    run(dpath("test_envvars"), shouldfail=True)
+    os.environ["TEST_ENV_VAR"] = "test"
+    run(dpath("test_envvars"))
+
+
 def test_github_issue105():
     run(dpath("test_github_issue105"))
 
@@ -951,7 +958,7 @@ def test_github_issue105():
 def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
-    run(test_path, cache=["a", "b", "c"])
+    run(test_path, cache=["a", "b"])
     run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
 
 
@@ -976,3 +983,14 @@ def test_core_dependent_threads():
 
 def test_env_modules():
     run(dpath("test_env_modules"), use_env_modules=True)
+
+
+@connected
+def test_container():
+    run(dpath("test_container"), use_singularity=True)
+
+
+def test_linting():
+    snakemake(
+        snakefile=os.path.join(dpath("test14"), "Snakefile.nonstandard"), lint=True
+    )

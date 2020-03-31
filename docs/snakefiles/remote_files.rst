@@ -178,6 +178,21 @@ Assuming you have SSH keys already set up for the server you are using in the ``
         input:
             SFTP.remote("example.com/path/to/file.bam")
 
+If you need to create the output directories in the remote server, you can specify ``mkdir_remote=True``  in the ``RemoteProvider`` constructor.
+
+.. code-block:: python
+
+   from snakemake.remote.SFTP import RemoteProvider
+   SFTP = RemoteProvider(mkdir_remote=True)
+
+   rule all:
+       input:
+           "/home/foo/bar.txt"
+       output:
+           SFTP.remote('example.com/home/foo/create/dir/bar.txt')
+       shell:
+           "cp {input} {output}"
+
 The remote file addresses used must be specified with the host (domain or IP address) and the absolute path to the file on the remote server. A port may be specified if the SSH daemon on the server is listening on a port other than 22, in either the ``RemoteProvider`` or in each instance of ``remote()``:
 
 .. code-block:: python
