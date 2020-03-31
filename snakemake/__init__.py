@@ -1101,7 +1101,7 @@ def get_argument_parser(profile=None):
         "--report-stylesheet",
         metavar="CSSFILE",
         help="Custom stylesheet to use for report. In particular, this can be used for "
-        "branding the report with e.g. a custom logo, see docs."
+        "branding the report with e.g. a custom logo, see docs.",
     )
     group_utils.add_argument(
         "--lint",
