@@ -42,6 +42,7 @@ def snakemake(
     batch=None,
     cache=None,
     report=None,
+    report_stylesheet=None,
     lint=None,
     listrules=False,
     list_target_rules=False,
@@ -642,6 +643,7 @@ def snakemake(
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
                     report=report,
+                    report_stylesheet=report_stylesheet,
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
@@ -1094,6 +1096,12 @@ def get_argument_parser(profile=None):
         metavar="HTMLFILE",
         help="Create an HTML report with results and statistics. "
         "If no filename is given, report.html is the default.",
+    )
+    group_utils.add_argument(
+        "--report-stylesheet",
+        metavar="CSSFILE",
+        help="Custom stylesheet to use for report. In particular, this can be used for "
+        "branding the report with e.g. a custom logo, see docs."
     )
     group_utils.add_argument(
         "--lint",
@@ -2069,6 +2077,7 @@ def main(argv=None):
             batch=batch,
             cache=args.cache,
             report=args.report,
+            report_stylesheet=args.report_stylesheet,
             lint=args.lint,
             listrules=args.list,
             list_target_rules=args.list_target_rules,

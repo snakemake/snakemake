@@ -538,7 +538,7 @@ def get_resource_as_string(url):
     )
 
 
-def auto_report(dag, path):
+def auto_report(dag, path, stylesheet=None):
     try:
         from jinja2 import Template, Environment, PackageLoader
     except ImportError as e:
@@ -548,6 +548,14 @@ def auto_report(dag, path):
 
     if not path.endswith(".html"):
         raise WorkflowError("Report file does not end with .html")
+
+    custom_stylesheet = None
+    if stylesheet is not None:
+        try:
+            with open(stylesheet) as s:
+                custom_stylesheet = s.read()
+        except (Exception, BaseException) as e:
+            raise WorkflowError("Unable to read custom report stylesheet.", e)
 
     logger.info("Creating report...")
 
@@ -766,6 +774,7 @@ def auto_report(dag, path):
                 version=__version__,
                 now=now,
                 pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
+                custom_stylesheet=custom_stylesheet,
             )
         )
     logger.info("Report created.")
