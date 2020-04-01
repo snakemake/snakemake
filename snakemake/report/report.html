@@ -497,8 +497,10 @@
 
                     {% if rule.container_img_url %}
                     <tr>
-                      <th scope="row">Container image</th>
-                      <td class="rule-property">
+                      <th scope="row" colspan=2>Container image</th>
+		    </tr>
+		    <tr>
+                      <td class="rule-property" colspan=2>
                         {{ rule.container_img_url }}
                       </td>
                     </tr>
