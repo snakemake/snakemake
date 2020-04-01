@@ -18,6 +18,7 @@ import subprocess as sp
 import itertools
 import csv
 from collections import namedtuple, defaultdict
+import urllib.parse
 
 import requests
 
@@ -206,8 +207,7 @@ class Category:
             except AttributeError as e:
                 raise WorkflowError("Failed to resolve wildcards.", e, rule=job.rule)
         self.name = name
-        self.id = "results-{name}".format(name=name.replace(" ", "_").replace(":", "_"))
-        self.content_id = self.id + "-content"
+        self.id = "results-{name}".format(name=urllib.parse.quote(name))
 
     def __eq__(self, other):
         return self.name.__eq__(other.name)
