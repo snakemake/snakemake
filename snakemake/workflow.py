@@ -482,6 +482,7 @@ class Workflow:
         assume_shared_fs=True,
         cluster_status=None,
         report=None,
+        report_stylesheet=None,
         export_cwl=False,
         batch=None,
         keepincomplete=False,
@@ -721,7 +722,7 @@ class Workflow:
         elif report:
             from snakemake.report import auto_report
 
-            auto_report(dag, report)
+            auto_report(dag, report, stylesheet=report_stylesheet)
             return True
         elif printd3dag:
             dag.d3dag()
