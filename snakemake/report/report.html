@@ -370,7 +370,7 @@
                 {% for res in catresults %}
                 <tr>
                   <th scope="row">
-                    <a id="{{ res.id }}" href="javascript:void(0)" download="{{ res.name }}">{{ res.name }}</a>
+                    <a data-id="{{ res.id }}" class="download-result" href="javascript:void(0)" download="{{ res.name }}">{{ res.name }}</a>
                   </th>
                   <td style="white-space:nowrap;">{{ res.size|filesizeformat }}</td>
                   <td>{{ res.caption }}</td>
@@ -730,46 +730,66 @@
       $(".vega-actions a").addClass("btn btn-outline-secondary");
       $(".vega-actions").addClass("btn-group");
 
-      // add thumbnails
-      {% for cat, subcats in results|dictsort %}
-        {% for subcat, catresults in subcats|dictsort %}
-          {% for res in catresults %}
-            $("#{{ res.id }}").click(function(e) {
-              saveAs('{{ res.data_uri }}', '{{ res.name }}');
-            });
+      // // add thumbnails
+      // {% for cat, subcats in results|dictsort %}
+      //   {% for subcat, catresults in subcats|dictsort %}
+      //     {% for res in catresults %}
 
-            {% if res.png_uri is not none %}
-            var data_uri = "{{ res.png_uri }}";
-            var anchor = $(
-              '<a>',
-              {
-                href: data_uri,
-                "data-toggle": "lightbox",
-                "data-gallery": "results",
-                "data-title": "{{ res.name }}",
-                "data-footer": "This is a preview. Download original file via the table."
-              }
-            );
-            anchor.append($(
-              '<img>',
-              {
-                id:'{{ res.id }}-thumbnail',
-                src: data_uri,
-                width: 200
-              }
-            ));
-            $("#{{ res.id }}-preview").append(anchor);
-            {% endif %}
-          {% endfor %}
-        {% endfor %}
-      {% endfor %}
+      //       {% if res.png_uri is not none %}
+      //       var data_uri = "{{ res.png_uri }}";
+      //       var anchor = $(
+      //         '<a>',
+      //         {
+      //           href: data_uri,
+      //           "data-toggle": "lightbox",
+      //           "data-gallery": "results",
+      //           "data-title": "{{ res.name }}",
+      //           "data-footer": "This is a preview. Download original file via the table."
+      //         }
+      //       );
+      //       anchor.append($(
+      //         '<img>',
+      //         {
+      //           id:'{{ res.id }}-thumbnail',
+      //           src: data_uri,
+      //           width: 200
+      //         }
+      //       ));
+      //       $("#{{ res.id }}-preview").append(anchor);
+      //       {% endif %}
+      //     {% endfor %}
+      //   {% endfor %}
+      // {% endfor %}
 
-      $(document).on('click', '[data-toggle="lightbox"]', function(event) {
-        event.preventDefault();
-        $(this).ekkoLightbox();
+      // DataStorage
+      var data_storage = {
+        index: {{ data_storage.get_index_json() }},
+        address: {{ data_storage.get_address_json() }},
+        storage: "{{ data_storage.uris }}",
+        get: function(id, type="data") {
+          var i = this.index[id] + ((type == "thumbnail") ? 1 : 0);
+          return this.storage.slice(this.address[i], this.address[i + 1]);
+        }
+      };
+
+      $('.results-table').DataTable({
+        columnDefs: [
+          {
+            searchable: false,
+            render: function(data, type, row) {
+              var id = data;
+              var thumbnail_uri = data_storage.get(id, type="thumbnail");
+              console.log(thumbnail_uri);
+              if(thumbnail_uri) {
+                return `<img src="${thumbnail_uri}" width=200>`;
+              } else {
+                return "";
+              }
+            },
+            targets: 4
+          }
+        ]
       });
-
-      $('.results-table').DataTable();
       
       $("a.panel-link").click(function() {
         $("a.nav-link.active").removeClass("active");
@@ -782,6 +802,13 @@
       $("a.rule").click(function() {
         var rule = $(this).html();
         show_rule_properties(rule);
+      });
+
+      // Download results on request
+      $("a.download-result").click(function() {
+        var id = $(this).data("id");
+        var data_uri = data_storage.get(id);
+        saveAs(data_uri, $(this).attr("download"));
       });
 
       $(document).ready(function() {

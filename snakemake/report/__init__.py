@@ -18,7 +18,9 @@ import subprocess as sp
 import itertools
 import csv
 from collections import namedtuple, defaultdict
+from itertools import accumulate, chain
 import urllib.parse
+import hashlib
 
 import requests
 
@@ -207,7 +209,9 @@ class Category:
             except AttributeError as e:
                 raise WorkflowError("Failed to resolve wildcards.", e, rule=job.rule)
         self.name = name
-        self.id = "results-{name}".format(name=urllib.parse.quote(name))
+        h = hashlib.sha256()
+        h.update(name.encode())
+        self.id = h.hexdigest()
 
     def __eq__(self, other):
         return self.name.__eq__(other.name)
@@ -341,7 +345,11 @@ class FileRecord:
         logger.info("Adding {} ({:.2g} MB).".format(self.name, self.size / 1e6))
         self.raw_caption = caption
         self.mime, _ = mime_from_file(self.path)
-        self.id = uuid.uuid4()
+
+        h = hashlib.sha256()
+        h.update(path.encode())
+
+        self.id = h.hexdigest()
         self.job = job
         self._wildcards = (
             job.wildcards if wildcards_overwrite is None else wildcards_overwrite
@@ -775,6 +783,22 @@ def auto_report(dag, path, stylesheet=None):
                 now=now,
                 pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
                 custom_stylesheet=custom_stylesheet,
+                data_storage=DataUriStorage(results),
             )
         )
     logger.info("Report created.")
+
+
+class DataUriStorage:
+    def __init__(self, results):
+        items = [res for cat in results.values() for subcat in cat.values() for res in subcat]
+        uris = [getattr(res, uri_type) or "" for res in items for uri_type in ["data_uri", "png_uri"]]
+        self.address = [0] + list(accumulate(map(len, uris)))
+        self.index = dict(zip((res.id for res in items), range(0, len(self.address), 2)))
+        self.uris = "".join(uris)
+
+    def get_index_json(self):
+        return json.dumps(self.index)
+    
+    def get_address_json(self):
+        return json.dumps(self.address)
