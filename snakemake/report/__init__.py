@@ -21,6 +21,7 @@ from collections import namedtuple, defaultdict
 from itertools import accumulate, chain
 import urllib.parse
 import hashlib
+from zipfile import ZipFile
 
 import requests
 
@@ -41,7 +42,7 @@ from snakemake.io import (
 from snakemake.exceptions import WorkflowError
 from snakemake.script import Snakemake
 from snakemake import __version__
-from snakemake.common import num_if_possible
+from snakemake.common import num_if_possible, lazy_property
 from snakemake import logging
 
 
@@ -338,7 +339,17 @@ class JobRecord:
 
 
 class FileRecord:
-    def __init__(self, path, job, caption, env, category, wildcards_overwrite=None):
+    def __init__(
+        self,
+        path,
+        job,
+        caption,
+        env,
+        category,
+        wildcards_overwrite=None,
+        mode_embedded=True,
+    ):
+        self.mode_embedded = mode_embedded
         self.path = path
         self.target = os.path.basename(path)
         self.size = os.path.getsize(self.path)
@@ -356,38 +367,9 @@ class FileRecord:
         )
         self.wildcards = logging.format_wildcards(self._wildcards)
         self.params = logging.format_dict(job.params)
-        self.png_uri = None
         self.category = category
-        if self.is_img:
-            convert = shutil.which("convert")
-            if convert is not None:
-                try:
-                    # 2048 aims at a reasonable balance between what displays
-                    # can show in a png-preview image and what renders quick
-                    # into a small enough png
-                    max_width = "2048"
-                    max_height = "2048"
-                    # '>' means only larger images scaled down to within max-dimensions
-                    max_spec = max_width + "x" + max_height + ">"
-                    png = sp.check_output(
-                        ["convert", "-resize", max_spec, self.path, "png:-"],
-                        stderr=sp.PIPE,
-                    )
-                    uri = data_uri(
-                        png, os.path.basename(self.path) + ".png", mime="image/png"
-                    )
-                    self.png_uri = uri
-                except sp.CalledProcessError as e:
-                    logger.warning(
-                        "Failed to convert image to png with "
-                        "imagemagick convert: {}".format(e.stderr)
-                    )
-            else:
-                logger.warning(
-                    "Command convert not in $PATH. Install "
-                    "imagemagick in order to have embedded "
-                    "images and pdfs in the report."
-                )
+
+        self.table_content = None
         if self.is_table:
             if self.size > 1e6:
                 logger.warning(
@@ -420,12 +402,65 @@ class FileRecord:
                         html = template.render(
                             columns=columns, table=table, name=self.name
                         ).encode()
+
+                        self.table_content = html
                         self.mime = "text/html"
                         self.path = os.path.basename(self.path) + ".html"
-                        self.data_uri = data_uri(html, self.path, mime=self.mime)
-                        return
-        # fallback
-        self.data_uri = data_uri_from_file(path)
+
+    @lazy_property
+    def png_content(self):
+        assert self.is_img
+
+        convert = shutil.which("convert")
+        if convert is not None:
+            try:
+                # 2048 aims at a reasonable balance between what displays
+                # can show in a png-preview image and what renders quick
+                # into a small enough png
+                max_width = "2048"
+                max_height = "2048"
+                # '>' means only larger images scaled down to within max-dimensions
+                max_spec = max_width + "x" + max_height + ">"
+                png = sp.check_output(
+                    ["convert", "-resize", max_spec, self.path, "png:-"], stderr=sp.PIPE
+                )
+                return png
+            except sp.CalledProcessError as e:
+                logger.warning(
+                    "Failed to convert image to png with "
+                    "imagemagick convert: {}".format(e.stderr)
+                )
+        else:
+            logger.warning(
+                "Command convert not in $PATH. Install "
+                "imagemagick in order to have embedded "
+                "images and pdfs in the report."
+            )
+
+    @lazy_property
+    def png_uri(self):
+        if self.is_img:
+            if self.mode_embedded:
+                uri = data_uri(
+                    self.png_content,
+                    os.path.basename(self.path) + ".png",
+                    mime="image/png",
+                )
+                return uri
+            else:
+                return os.path.join("data/thumbnails", self.id)
+        else:
+            return None
+
+    @lazy_property
+    def data_uri(self):
+        if self.mode_embedded:
+            if self.is_table and self.table_content is not None:
+                return data_uri(self.table_content, self.path, self.mime)
+            else:
+                return data_uri_from_file(self.path)
+        else:
+            return os.path.join("data/raw", self.id, self.name)
 
     def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
@@ -571,8 +606,11 @@ def auto_report(dag, path, stylesheet=None):
             "Python package jinja2 must be installed to create reports."
         )
 
-    if not path.endswith(".html"):
-        raise WorkflowError("Report file does not end with .html")
+    mode_embedded = True
+    if path.endswith(".zip"):
+        mode_embedded = False
+    elif not path.endswith(".html"):
+        raise WorkflowError("Report file does not end with .html or .zip")
 
     custom_stylesheet = None
     if stylesheet is not None:
@@ -621,6 +659,7 @@ def auto_report(dag, path, stylesheet=None):
                             env,
                             category,
                             wildcards_overwrite=wildcards_overwrite,
+                            mode_embedded=mode_embedded,
                         )
                     )
                     recorded_files.add(f)
@@ -780,50 +819,54 @@ def auto_report(dag, path, stylesheet=None):
             "Python package pygments must be installed to create reports."
         )
 
-    # render HTML
     template = env.get_template("report.html")
-    with open(path, "w", encoding="utf-8") as out:
-        out.write(
-            template.render(
-                results=results,
-                results_size=results_size,
-                configfiles=configfiles,
-                text=text,
-                rulegraph_nodes=rulegraph["nodes"],
-                rulegraph_links=rulegraph["links"],
-                rulegraph_width=xmax + 20,
-                rulegraph_height=ymax + 20,
-                runtimes=runtimes,
-                timeline=timeline,
-                rules=[rec for recs in rules.values() for rec in recs],
-                version=__version__,
-                now=now,
-                pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
-                custom_stylesheet=custom_stylesheet,
-                data_storage=DataUriStorage(results),
-            )
-        )
-    logger.info("Report created.")
 
+    rendered = template.render(
+        results=results,
+        results_size=results_size,
+        configfiles=configfiles,
+        text=text,
+        rulegraph_nodes=rulegraph["nodes"],
+        rulegraph_links=rulegraph["links"],
+        rulegraph_width=xmax + 20,
+        rulegraph_height=ymax + 20,
+        runtimes=runtimes,
+        timeline=timeline,
+        rules=[rec for recs in rules.values() for rec in recs],
+        version=__version__,
+        now=now,
+        pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
+        custom_stylesheet=custom_stylesheet,
+        mode_embedded=mode_embedded,
+    )
 
-class DataUriStorage:
-    def __init__(self, results):
-        items = [
-            res for cat in results.values() for subcat in cat.values() for res in subcat
-        ]
-        uris = [
-            getattr(res, uri_type) or ""
-            for res in items
-            for uri_type in ["data_uri", "png_uri"]
-        ]
-        self.address = [0] + list(accumulate(map(len, uris)))
-        self.index = dict(
-            zip((res.id for res in items), range(0, len(self.address), 2))
-        )
-        self.uris = "".join(uris)
+    if not mode_embedded:
+        with ZipFile(path, mode="w") as zipout:
+            # store results in data folder
+            for subcats in results.values():
+                for catresults in subcats.values():
+                    for result in catresults:
+                        # write raw data
+                        if result.table_content is not None:
+                            zipout.writestr(
+                                os.path.join("report", result.data_uri),
+                                result.table_content,
+                            )
+                        else:
+                            zipout.write(
+                                result.path, os.path.join("report", result.data_uri)
+                            )
+                        # write thumbnail
+                        if result.is_img and result.png_content:
+                            zipout.writestr(
+                                os.path.join("report", result.png_uri),
+                                result.png_content,
+                            )
 
-    def get_index_json(self):
-        return json.dumps(self.index)
+            # write report html
+            zipout.writestr("report/report.html", rendered)
+    else:
+        with open(path, "w", encoding="utf-8") as htmlout:
+            htmlout.write(rendered)
 
-    def get_address_json(self):
-        return json.dumps(self.address)
+    logger.info("Report created: {}.".format(path))

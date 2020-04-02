@@ -284,7 +284,9 @@
     <div id="loading-screen">
       <p id="animation">Loading Snakemake Report...</p>
       <p id="jswarning">Please enable Javascript in your browser to see this report.</p>
+      {% if mode_embedded %}
       <p id="info">Loading {{ results_size|filesizeformat }}. For large reports, this can take a while.</p>
+      {% endif %}
     </div>
 
     <nav class="navbar fixed-top navbar-dark bg-dark flex-md-nowrap p-0 shadow">
@@ -535,9 +537,10 @@
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-embed/5.1.3/vega-embed.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"|get_resource_as_string }}</script>
-    <script>{{ "https://raw.githubusercontent.com/eligrey/FileSaver.js/2.0.0/src/FileSaver.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.20/r-2.2.2/sl-1.3.0/datatables.min.js"|get_resource_as_string }}</script>
-    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery-scrollTo/2.1.2/jquery.scrollTo.min.js"|get_resource_as_string }}</script>
+    {% if mode_embedded %}
+    <script>{{ "https://raw.githubusercontent.com/eligrey/FileSaver.js/2.0.0/src/FileSaver.js"|get_resource_as_string }}</script>
+    {% endif %}
 
     <!-- Icons -->
     <script>
@@ -590,7 +593,14 @@
         modal.find(".modal-title").text(res.name);
         modal.find(".modal-body img").attr("src", res.thumbnail_uri);
         modal.find(".modal-footer a.btn-download")
-          .attr("href", `javascript:download_result("${res.path}")`)
+          .attr(
+            "href", 
+            {% if mode_embedded %}
+            `javascript:download_result("${res.path}")`
+            {% else %}
+            res.data_uri
+            {% endif %}
+          )
           .attr("download", res.name);
         modal.modal('handleUpdate');
         modal.modal("show");
@@ -617,7 +627,11 @@
                 render: function(data, type, row) {
                   var link = $("<a>", {
                     download: row.name,
+                    {% if mode_embedded %}
                     href: `javascript:download_result("${row.path}")`
+                    {% else %}
+                    href: row.data_uri
+                    {% endif %}
                   }).text(row.name)
                   return link.wrap("<span>").parent().html();
                 }
