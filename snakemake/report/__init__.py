@@ -502,19 +502,21 @@ class FileRecord:
         return os.path.basename(self.path)
 
     def to_json(self):
-        return json.dumps({
-            "name": self.name,
-            "path": self.path,
-            "size": self.size,
-            "caption": self.caption,
-            "job_properties": {
-                "rule": self.job.rule.name,
-                "wildcards": self.wildcards,
-                "params": self.params
-            },
-            "data_uri": self.data_uri,
-            "thumbnail_uri": self.png_uri,
-        })
+        return json.dumps(
+            {
+                "name": self.name,
+                "path": self.path,
+                "size": self.size,
+                "caption": self.caption,
+                "job_properties": {
+                    "rule": self.job.rule.name,
+                    "wildcards": self.wildcards,
+                    "params": self.params,
+                },
+                "data_uri": self.data_uri,
+                "thumbnail_uri": self.png_uri,
+            }
+        )
 
 
 def rulegraph_d3_spec(dag):
@@ -806,14 +808,22 @@ def auto_report(dag, path, stylesheet=None):
 
 class DataUriStorage:
     def __init__(self, results):
-        items = [res for cat in results.values() for subcat in cat.values() for res in subcat]
-        uris = [getattr(res, uri_type) or "" for res in items for uri_type in ["data_uri", "png_uri"]]
+        items = [
+            res for cat in results.values() for subcat in cat.values() for res in subcat
+        ]
+        uris = [
+            getattr(res, uri_type) or ""
+            for res in items
+            for uri_type in ["data_uri", "png_uri"]
+        ]
         self.address = [0] + list(accumulate(map(len, uris)))
-        self.index = dict(zip((res.id for res in items), range(0, len(self.address), 2)))
+        self.index = dict(
+            zip((res.id for res in items), range(0, len(self.address), 2))
+        )
         self.uris = "".join(uris)
 
     def get_index_json(self):
         return json.dumps(self.index)
-    
+
     def get_address_json(self):
         return json.dumps(self.address)
