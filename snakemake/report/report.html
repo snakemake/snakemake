@@ -364,52 +364,6 @@
             <h4>{{ subcat.name }}</h4>
             {% endif %}
             <table class="results-table table" data-category="{{ cat.id }}" data-subcategory="{{ subcat.id }}"></table>
-            <!-- <table class="table results-table">
-              <caption>Workflow results</caption>
-              <thead>
-                <tr>
-                  <th scope="col">File</th>
-                  <th scope="col">Size</th>
-                  <th scope="col">Description</th>
-                  <th scope="col">Job properties</th>
-                  <th scope="col"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for res in catresults %}
-                <tr>
-                  <th scope="row">
-                    <a data-id="{{ res.id }}" class="download-result" href="javascript:void(0)" download="{{ res.name }}">{{ res.name }}</a>
-                  </th>
-                  <td style="white-space:nowrap;">{{ res.size|filesizeformat }}</td>
-                  <td>{{ res.caption }}</td>
-                  <td>
-                    <table class="table table-sm table-borderless">
-                      <caption>Job properties</caption>
-                      <tbody>
-                        <tr>
-                          <th scope="row">Rule</th><td><a class="rule" href="javascript:void(0)">{{ res.job.rule }}</a></td>
-                        </tr>
-                        {% if res.wildcards %}
-                        <tr>
-                          <th scope="row">Wildcards</th><td>{{ res.wildcards }}</td>
-                        </tr>
-                        {% endif %}
-                        {% if res.params %}
-                        <tr>
-                          <th scope="row">Params</th><td>{{ res.params }}</td>
-                        </tr>
-                        {% endif %}
-                      </tbody>
-                    </table>
-                  </td>
-                  <td class="preview" id="{{ res.id }}-preview">
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-            <div style="clear:both"></div> -->
             {% endfor %}
           </div>  
           {% endfor %}
@@ -884,67 +838,6 @@
 
       $(".vega-actions a").addClass("btn btn-outline-secondary");
       $(".vega-actions").addClass("btn-group");
-
-      // // add thumbnails
-      // {% for cat, subcats in results|dictsort %}
-      //   {% for subcat, catresults in subcats|dictsort %}
-      //     {% for res in catresults %}
-
-      //       {% if res.png_uri is not none %}
-      //       var data_uri = "{{ res.png_uri }}";
-      //       var anchor = $(
-      //         '<a>',
-      //         {
-      //           href: data_uri,
-      //           "data-toggle": "lightbox",
-      //           "data-gallery": "results",
-      //           "data-title": "{{ res.name }}",
-      //           "data-footer": "This is a preview. Download original file via the table."
-      //         }
-      //       );
-      //       anchor.append($(
-      //         '<img>',
-      //         {
-      //           id:'{{ res.id }}-thumbnail',
-      //           src: data_uri,
-      //           width: 200
-      //         }
-      //       ));
-      //       $("#{{ res.id }}-preview").append(anchor);
-      //       {% endif %}
-      //     {% endfor %}
-      //   {% endfor %}
-      // {% endfor %}
-
-      // DataStorage
-      // var data_storage = {
-      //   index: {{ data_storage.get_index_json() }},
-      //   address: {{ data_storage.get_address_json() }},
-      //   storage: "{{ data_storage.uris }}",
-      //   get: function(id, type="data") {
-      //     var i = this.index[id] + ((type == "thumbnail") ? 1 : 0);
-      //     return this.storage.slice(this.address[i], this.address[i + 1]);
-      //   }
-      // };
-
-      // $('.results-table').DataTable({
-      //   columnDefs: [
-      //     {
-      //       searchable: false,
-      //       render: function(data, type, row) {
-      //         var id = data;
-      //         var thumbnail_uri = data_storage.get(id, type="thumbnail");
-      //         console.log(thumbnail_uri);
-      //         if(thumbnail_uri) {
-      //           return `<img src="${thumbnail_uri}" width=200>`;
-      //         } else {
-      //           return "";
-      //         }
-      //       },
-      //       targets: 4
-      //     }
-      //   ]
-      // });
       
       $("a.panel-link").click(function() {
         $("a.nav-link.active").removeClass("active");
