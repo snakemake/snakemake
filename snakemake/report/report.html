@@ -268,6 +268,7 @@
 
       #thumbnail-modal .modal-body {
         overflow: auto;
+        text-align: center;
       }
     </style>
 
@@ -594,88 +595,92 @@
         modal.modal("show");
       }
 
+      function show_category(panel) {
+        panel.find(".results-table").each(function() {
+          var table = $(this);
+          
+          // stop if this is already a datatable
+          if ($.fn.DataTable.isDataTable(table)) {
+            return;
+          }
+
+          var cat = table.data("category");
+          var subcat = table.data("subcategory");
+
+          $(this).DataTable({
+            data: categories[cat][subcat].map(res => results[res]),
+            bAutoWidth: false,
+            columns: [
+              {
+                title: "File",
+                render: function(data, type, row) {
+                  var link = $("<a>", {
+                    download: row.name,
+                    href: `javascript:download_result("${row.path}")`
+                  }).text(row.name)
+                  return link.wrap("<span>").parent().html();
+                }
+              },
+              {
+                title: "Description",
+                render: function(data, type, row) {
+                  return row.caption;
+                }
+              },
+              {
+                title: "Job properties",
+                render: function(data, type, row) {
+                  if (type === 'display'){
+                    var desc = $("<dl>", { class: "row" });
+                    desc.append($("<dt>", { class: "col-sm-3" }).text("Rule"))
+                      .append(
+                        $(
+                          "<dd>", { class:"col-sm-9" })
+                            .append($("<a>", {href: `javascript:show_rule_properties("${row.job_properties.rule}")`})
+                            .text(row.job_properties.rule)
+                        )
+                      )
+                      .append($("<dt>", { class: "col-sm-3" }).text("Wildcards"))
+                      .append($("<dd>", { class: "col-sm-9" }).text(row.job_properties.wildcards || "-"))
+                      .append($("<dt>", { class: "col-sm-3" }).text("Parameters"))
+                      .append($("<dd>", { class: "col-sm-9" }).text(row.job_properties.params || "-"));
+                    return desc.wrap("<span>").parent().html();
+                  } else {
+                    return row.job_properties.rule;
+                  }
+                }
+              },
+              {
+                title: "Thumbnail",
+                sortable: false,
+                render: function(data, type, row) {
+                  if (type === 'display'){
+                    if (row.thumbnail_uri) {
+                      var link = $("<a>", {
+                        href: `javascript:show_thumbnail("${row.path}")`
+                      }).append($("<img>", {
+                        src: row.thumbnail_uri,
+                        width: 200
+                      }));
+                      return link.wrap("<span>").parent().html();
+                    } else {
+                      return "";
+                    }
+                  } else {
+                    return "";
+                  }
+                }
+              },
+            ]
+          })
+        });
+      }
+
       function show_panel(id) {
         $(".panel").hide();
         var panel = $(`#${id}`);
         if (panel.hasClass("category")) {
-          panel.find(".results-table").each(function() {
-            var table = $(this);
-            
-            // stop if this is already a datatable
-            if ($.fn.DataTable.isDataTable(table)) {
-              return;
-            }
-
-            var cat = table.data("category");
-            var subcat = table.data("subcategory");
-
-            $(this).DataTable({
-              data: categories[cat][subcat].map(res => results[res]),
-              bAutoWidth: false,
-              columns: [
-                {
-                  title: "File",
-                  render: function(data, type, row) {
-                    var link = $("<a>", {
-                      download: row.name,
-                      href: `javascript:download_result("${row.path}")`
-                    }).text(row.name)
-                    return link.wrap("<span>").parent().html();
-                  }
-                },
-                {
-                  title: "Description",
-                  render: function(data, type, row) {
-                    return row.caption;
-                  }
-                },
-                {
-                  title: "Job properties",
-                  render: function(data, type, row) {
-                    if (type === 'display'){
-                      var desc = $("<dl>", { class: "row" });
-                      desc.append($("<dt>", { class: "col-sm-3" }).text("Rule"))
-                        .append(
-                          $(
-                            "<dd>", { class:"col-sm-9" })
-                              .append($("<a>", {href: `javascript:show_rule_properties("${row.job_properties.rule}")`})
-                              .text(row.job_properties.rule)
-                          )
-                        )
-                        .append($("<dt>", { class: "col-sm-3" }).text("Wildcards"))
-                        .append($("<dd>", { class: "col-sm-9" }).text(row.job_properties.wildcards || "-"))
-                        .append($("<dt>", { class: "col-sm-3" }).text("Parameters"))
-                        .append($("<dd>", { class: "col-sm-9" }).text(row.job_properties.params || "-"));
-                      return desc.wrap("<span>").parent().html();
-                    } else {
-                      return row.job_properties.rule;
-                    }
-                  }
-                },
-                {
-                  title: "Thumbnail",
-                  sortable: false,
-                  render: function(data, type, row) {
-                    if (type === 'display'){
-                      if (row.thumbnail_uri) {
-                        var link = $("<a>", {
-                          href: `javascript:show_thumbnail("${row.path}")`
-                        }).append($("<img>", {
-                          src: row.thumbnail_uri,
-                          width: 200
-                        }));
-                        return link.wrap("<span>").parent().html();
-                      } else {
-                        return "";
-                      }
-                    } else {
-                      return "";
-                    }
-                  }
-                },
-              ]
-            })
-          });
+          show_category(panel);
         }
         panel.show();
       }
