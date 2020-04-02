@@ -512,9 +512,7 @@ class FileRecord:
                     "rule": self.job.rule.name,
                     "wildcards": self.wildcards,
                     "params": self.params,
-                },
-                "data_uri": self.data_uri,
-                "thumbnail_uri": self.png_uri,
+                }
             }
         )
 
@@ -818,12 +816,14 @@ class DataUriStorage:
         ]
         self.address = [0] + list(accumulate(map(len, uris)))
         self.index = dict(
-            zip((res.id for res in items), range(0, len(self.address), 2))
+            zip((res.path for res in items), range(0, len(self.address), 2))
         )
         self.uris = "".join(uris)
 
-    def get_index_json(self):
-        return json.dumps(self.index)
-
-    def get_address_json(self):
-        return json.dumps(self.address)
+    def to_json(self):
+        return json.dumps({
+            "index": self.index,
+            "address": self.address,
+            "uris": self.uris,
+            "get": None,
+        })

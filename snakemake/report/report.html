@@ -546,6 +546,19 @@
     </script>
 
     <script id="results">
+      var storage = {{ data_storage.to_json()|safe }};
+
+      storage.get = function(path, type="data") {
+        var i = this.index[path] + ((type == "thumbnail") ? 1 : 0);
+        return this.uris.slice(this.address[i], this.address[i + 1]);
+      };
+      storage.data_uri = function(path) {
+        return this.get(path);
+      };
+      storage.thumbnail_uri = function(path) {
+        return this.get(path, type="thumbnail");
+      }
+
       var results = {
       {% for cat, subcats in results|dictsort %}
         {% for subcat, catresults in subcats|dictsort %}
@@ -580,7 +593,7 @@
 
       function download_result(path) {
         var res = results[path];
-        saveAs(res.data_uri, res.name);
+        saveAs(storage.data_uri(res.path), res.name);
       }
 
       function show_thumbnail(path) {
@@ -588,7 +601,7 @@
         var modal = $("#thumbnail-modal");
 
         modal.find(".modal-title").text(res.name);
-        modal.find(".modal-body img").attr("src", res.thumbnail_uri);
+        modal.find(".modal-body img").attr("src", storage.thumbnail_uri(res.path));
         modal.find(".modal-footer a.btn-download")
           .attr("href", `javascript:download_result("${res.path}")`)
           .attr("download", res.name);
@@ -656,11 +669,12 @@
                 sortable: false,
                 render: function(data, type, row) {
                   if (type === 'display'){
-                    if (row.thumbnail_uri) {
+                    var thumbnail_uri = storage.thumbnail_uri(row.path);
+                    if (thumbnail_uri) {
                       var link = $("<a>", {
                         href: `javascript:show_thumbnail("${row.path}")`
                       }).append($("<img>", {
-                        src: row.thumbnail_uri,
+                        src: thumbnail_uri,
                         width: 200
                       }));
                       return link.wrap("<span>").parent().html();
