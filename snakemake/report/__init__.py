@@ -501,6 +501,21 @@ class FileRecord:
     def name(self):
         return os.path.basename(self.path)
 
+    def to_json(self):
+        return json.dumps({
+            "name": self.name,
+            "path": self.path,
+            "size": self.size,
+            "caption": self.caption,
+            "job_properties": {
+                "rule": self.job.rule.name,
+                "wildcards": self.wildcards,
+                "params": self.params
+            },
+            "data_uri": self.data_uri,
+            "thumbnail_uri": self.png_uri,
+        })
+
 
 def rulegraph_d3_spec(dag):
     try:

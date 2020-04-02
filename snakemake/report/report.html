@@ -241,6 +241,10 @@
         display: none;
       }
 
+      table.results-table {
+        width: 100%;
+      }
+
       .rule-property {
         overflow-y: auto;
         max-height: 10em;
@@ -260,6 +264,10 @@
 
       .rule-properties ul {
         padding-left: 1.2em;
+      }
+
+      #thumbnail-modal .modal-body {
+        overflow: auto;
       }
     </style>
 
@@ -349,13 +357,14 @@
           </div>
 
           {% for cat, subcats in results|dictsort %}
-          <div class="panel" id="{{ cat.id }}">
+          <div class="panel category" id="{{ cat.id }}">
             <h2>{{ cat.name }}</h2>
             {% for subcat, catresults in subcats|dictsort %}
             {% if subcats|length > 1 or not subcat.is_other %}
             <h4>{{ subcat.name }}</h4>
             {% endif %}
-            <table class="table results-table">
+            <table class="results-table table" data-category="{{ cat.id }}" data-subcategory="{{ subcat.id }}"></table>
+            <!-- <table class="table results-table">
               <caption>Workflow results</caption>
               <thead>
                 <tr>
@@ -400,7 +409,7 @@
                 {% endfor %}
               </tbody>
             </table>
-            <div style="clear:both"></div>
+            <div style="clear:both"></div> -->
             {% endfor %}
           </div>  
           {% endfor %}
@@ -446,6 +455,25 @@
           </div>
           {% endif %}
         </main>
+
+        <div id="thumbnail-modal" class="modal" tabindex="-1" role="dialog">
+          <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title"></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div class="modal-body">
+                <img src="">
+              </div>
+              <div class="modal-footer">
+                <a class="btn btn-primary btn-download" role="button" href="#">Download original</a>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {% for rule in rules %}
         <div data-rule="{{ rule.name }}" class="modal rule-properties" tabindex="-1" role="dialog">
@@ -498,8 +526,8 @@
                     {% if rule.container_img_url %}
                     <tr>
                       <th scope="row" colspan=2>Container image</th>
-		    </tr>
-		    <tr>
+                    </tr>
+                    <tr>
                       <td class="rule-property" colspan=2>
                         {{ rule.container_img_url }}
                       </td>
@@ -561,14 +589,141 @@
       feather.replace()
     </script>
 
+    <script id="results">
+      var results = {
+      {% for cat, subcats in results|dictsort %}
+        {% for subcat, catresults in subcats|dictsort %}
+          {% for res in catresults %}
+            "{{ res.path|safe }}": {{ res.to_json()|safe }}{{ "," if not loop.last }}
+          {% endfor %}
+          {{ "," if not loop.last }}
+        {% endfor %}
+        {{ "," if not loop.last }}
+      {% endfor %}
+      };
+    </script>
+
     <script>
+      var categories = {
+      {% for cat, subcats in results|dictsort %}
+        "{{ cat.id }}": {
+        {% for subcat, catresults in subcats|dictsort %}
+          "{{ subcat.id }}": [
+          {% for res in catresults %}
+            "{{ res.path|safe }}"{{ "," if not loop.last }}
+          {% endfor %}
+          ]{{ "," if not loop.last }}
+        {% endfor %}
+        }{{ "," if not loop.last }}
+      {% endfor %}
+      };
+
       function show_rule_properties(rule) {
         $(`.rule-properties[data-rule=${rule}]`).modal("show");
       }
 
+      function download_result(path) {
+        var res = results[path];
+        saveAs(res.data_uri, res.name);
+      }
+
+      function show_thumbnail(path) {
+        var res = results[path];
+        var modal = $("#thumbnail-modal");
+
+        modal.find(".modal-title").text(res.name);
+        modal.find(".modal-body img").attr("src", res.thumbnail_uri);
+        modal.find(".modal-footer a.btn-download")
+          .attr("href", `javascript:download_result("${res.path}")`)
+          .attr("download", res.name);
+        modal.modal('handleUpdate');
+        modal.modal("show");
+      }
+
       function show_panel(id) {
         $(".panel").hide();
-        $(`#${id}`).show();
+        var panel = $(`#${id}`);
+        if (panel.hasClass("category")) {
+          panel.find(".results-table").each(function() {
+            var table = $(this);
+            
+            // stop if this is already a datatable
+            if ($.fn.DataTable.isDataTable(table)) {
+              return;
+            }
+
+            var cat = table.data("category");
+            var subcat = table.data("subcategory");
+
+            $(this).DataTable({
+              data: categories[cat][subcat].map(res => results[res]),
+              bAutoWidth: false,
+              columns: [
+                {
+                  title: "File",
+                  render: function(data, type, row) {
+                    var link = $("<a>", {
+                      download: row.name,
+                      href: `javascript:download_result("${row.path}")`
+                    }).text(row.name)
+                    return link.wrap("<span>").parent().html();
+                  }
+                },
+                {
+                  title: "Description",
+                  render: function(data, type, row) {
+                    return row.caption;
+                  }
+                },
+                {
+                  title: "Job properties",
+                  render: function(data, type, row) {
+                    if (type === 'display'){
+                      var desc = $("<dl>", { class: "row" });
+                      desc.append($("<dt>", { class: "col-sm-3" }).text("Rule"))
+                        .append(
+                          $(
+                            "<dd>", { class:"col-sm-9" })
+                              .append($("<a>", {href: `javascript:show_rule_properties("${row.job_properties.rule}")`})
+                              .text(row.job_properties.rule)
+                          )
+                        )
+                        .append($("<dt>", { class: "col-sm-3" }).text("Wildcards"))
+                        .append($("<dd>", { class: "col-sm-9" }).text(row.job_properties.wildcards || "-"))
+                        .append($("<dt>", { class: "col-sm-3" }).text("Parameters"))
+                        .append($("<dd>", { class: "col-sm-9" }).text(row.job_properties.params || "-"));
+                      return desc.wrap("<span>").parent().html();
+                    } else {
+                      return row.job_properties.rule;
+                    }
+                  }
+                },
+                {
+                  title: "Thumbnail",
+                  sortable: false,
+                  render: function(data, type, row) {
+                    if (type === 'display'){
+                      if (row.thumbnail_uri) {
+                        var link = $("<a>", {
+                          href: `javascript:show_thumbnail("${row.path}")`
+                        }).append($("<img>", {
+                          src: row.thumbnail_uri,
+                          width: 200
+                        }));
+                        return link.wrap("<span>").parent().html();
+                      } else {
+                        return "";
+                      }
+                    } else {
+                      return "";
+                    }
+                  }
+                },
+              ]
+            })
+          });
+        }
+        panel.show();
       }
 
       var rulegraph_spec = {
@@ -762,34 +917,34 @@
       // {% endfor %}
 
       // DataStorage
-      var data_storage = {
-        index: {{ data_storage.get_index_json() }},
-        address: {{ data_storage.get_address_json() }},
-        storage: "{{ data_storage.uris }}",
-        get: function(id, type="data") {
-          var i = this.index[id] + ((type == "thumbnail") ? 1 : 0);
-          return this.storage.slice(this.address[i], this.address[i + 1]);
-        }
-      };
+      // var data_storage = {
+      //   index: {{ data_storage.get_index_json() }},
+      //   address: {{ data_storage.get_address_json() }},
+      //   storage: "{{ data_storage.uris }}",
+      //   get: function(id, type="data") {
+      //     var i = this.index[id] + ((type == "thumbnail") ? 1 : 0);
+      //     return this.storage.slice(this.address[i], this.address[i + 1]);
+      //   }
+      // };
 
-      $('.results-table').DataTable({
-        columnDefs: [
-          {
-            searchable: false,
-            render: function(data, type, row) {
-              var id = data;
-              var thumbnail_uri = data_storage.get(id, type="thumbnail");
-              console.log(thumbnail_uri);
-              if(thumbnail_uri) {
-                return `<img src="${thumbnail_uri}" width=200>`;
-              } else {
-                return "";
-              }
-            },
-            targets: 4
-          }
-        ]
-      });
+      // $('.results-table').DataTable({
+      //   columnDefs: [
+      //     {
+      //       searchable: false,
+      //       render: function(data, type, row) {
+      //         var id = data;
+      //         var thumbnail_uri = data_storage.get(id, type="thumbnail");
+      //         console.log(thumbnail_uri);
+      //         if(thumbnail_uri) {
+      //           return `<img src="${thumbnail_uri}" width=200>`;
+      //         } else {
+      //           return "";
+      //         }
+      //       },
+      //       targets: 4
+      //     }
+      //   ]
+      // });
       
       $("a.panel-link").click(function() {
         $("a.nav-link.active").removeClass("active");
@@ -797,19 +952,6 @@
         var panelid = $(this).attr("data-panel");
         show_panel(panelid);
       })
-
-      // show rule properties upon clicking rule link within results
-      $("a.rule").click(function() {
-        var rule = $(this).html();
-        show_rule_properties(rule);
-      });
-
-      // Download results on request
-      $("a.download-result").click(function() {
-        var id = $(this).data("id");
-        var data_uri = data_storage.get(id);
-        saveAs(data_uri, $(this).attr("download"));
-      });
 
       $(document).ready(function() {
         // Hide loading screen when document is ready.
