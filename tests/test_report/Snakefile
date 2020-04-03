@@ -4,7 +4,7 @@ report: "report/workflow.rst"
 
 rule all:
     input:
-        ["fig1.svg", "fig2.png", "test.csv", "testdir"]
+        ["fig1.svg", "testmodel.fig2.png", "test.csv", "testdir"]
 
 
 rule c:
@@ -31,7 +31,7 @@ rule b:
     input:
         expand("test.{i}.out", i=range(10))
     output:
-        report("fig2.png", caption="report/fig2.rst", category="Step 2")
+        report("{model}.fig2.png", caption="report/fig2.rst", category="Step 2", subcategory="{model}")
     shell:
         "sleep `shuf -i 1-3 -n 1`; cp data/fig2.png {output}"
 
