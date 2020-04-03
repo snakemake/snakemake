@@ -27,7 +27,6 @@ import base64
 import uuid
 import re
 import math
-import urllib3
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -1546,6 +1545,7 @@ class KubernetesExecutor(ClusterExecutor):
 
     def _kubernetes_retry(self, func):
         import kubernetes
+        import urllib3
 
         with self.lock:
             try:
