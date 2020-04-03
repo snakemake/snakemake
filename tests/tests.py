@@ -126,6 +126,10 @@ def test_report():
     )
 
 
+def test_report_zip():
+    run(dpath("test_report_zip"), report="report.zip", check_md5=False)
+
+
 def test_dynamic():
     run(dpath("test_dynamic"))
 
