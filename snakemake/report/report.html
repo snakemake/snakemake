@@ -553,7 +553,19 @@
       {% for cat, subcats in results|dictsort %}
         {% for subcat, catresults in subcats|dictsort %}
           {% for res in catresults %}
-            "{{ res.path|safe }}": {{ res.to_json()|safe }}{{ "," if not loop.last }}
+            "{{ res.path|safe }}": {
+              name: "{{ res.name }}",
+              path: "{{ res.path }}",
+              size: "{{ res.size|filesizeformat }}",
+              caption: {{ res.caption }},
+              job_properties: {
+                rule: "{{ res.job.rule.name }}",
+                wildcards: "{{ res.wildcards }}",
+                params: "{{ res.params }}"
+              },
+              data_uri: function() { return "{{ res.data_uri }}"; },
+              thumbnail_uri: function() { return "{{ res.png_uri }}"; }
+            }{{ "," if not loop.last }}
           {% endfor %}
           {{ "," if not loop.last }}
         {% endfor %}
@@ -583,7 +595,7 @@
 
       function download_result(path) {
         var res = results[path];
-        saveAs(res.data_uri, res.name);
+        saveAs(res.data_uri(), res.name);
       }
 
       function show_thumbnail(path) {
@@ -591,7 +603,7 @@
         var modal = $("#thumbnail-modal");
 
         modal.find(".modal-title").text(res.name);
-        modal.find(".modal-body img").attr("src", res.thumbnail_uri);
+        modal.find(".modal-body img").attr("src", res.thumbnail_uri());
         modal.find(".modal-footer a.btn-download")
           .attr(
             "href", 
@@ -670,11 +682,12 @@
                 sortable: false,
                 render: function(data, type, row) {
                   if (type === 'display'){
-                    if (row.thumbnail_uri) {
+                    var thumbnail_uri = row.thumbnail_uri()
+                    if (thumbnail_uri) {
                       var link = $("<a>", {
                         href: `javascript:show_thumbnail("${row.path}")`
                       }).append($("<img>", {
-                        src: row.thumbnail_uri,
+                        src: thumbnail_uri,
                         width: 200
                       }));
                       return link.wrap("<span>").parent().html();

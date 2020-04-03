@@ -455,7 +455,7 @@ class FileRecord:
     @lazy_property
     def data_uri(self):
         if self.mode_embedded:
-            if self.is_table and self.table_content is not None:
+            if self.table_content is not None:
                 return data_uri(self.table_content, self.path, self.mime)
             else:
                 return data_uri_from_file(self.path)
@@ -490,7 +490,9 @@ class FileRecord:
                 caption = env.from_string(caption).render(
                     snakemake=snakemake, categories=categories, files=files
                 )
-                self.caption = publish_parts(caption, writer_name="html")["body"]
+                self.caption = json.dumps(
+                    publish_parts(caption, writer_name="html")["body"]
+                )
             except Exception as e:
                 raise WorkflowError(
                     "Error loading caption file of output " "marked for report.", e
@@ -870,3 +872,7 @@ def auto_report(dag, path, stylesheet=None):
             htmlout.write(rendered)
 
     logger.info("Report created: {}.".format(path))
+
+
+def escapejs(val):
+    return json.dumps(str(val))
