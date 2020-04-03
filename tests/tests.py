@@ -118,7 +118,7 @@ def test_ancient():
 
 
 def test_report():
-    run(dpath("test_report"), report="report.html", check_md5=False)
+    run(dpath("test_report"), report="report.html", report_stylesheet="custom-stylesheet.css", check_md5=False)
 
 
 def test_dynamic():
