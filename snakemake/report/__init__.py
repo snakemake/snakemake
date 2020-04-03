@@ -441,12 +441,13 @@ class FileRecord:
     def png_uri(self):
         if self.is_img:
             if self.mode_embedded:
-                uri = data_uri(
-                    self.png_content,
-                    os.path.basename(self.path) + ".png",
-                    mime="image/png",
-                )
-                return uri
+                png = self.png_content
+                if png:
+                    uri = data_uri(
+                        png, os.path.basename(self.path) + ".png", mime="image/png"
+                    )
+                    return uri
+                return None
             else:
                 return os.path.join("data/thumbnails", self.id)
         else:
