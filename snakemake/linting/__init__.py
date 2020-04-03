@@ -34,7 +34,7 @@ class Linter(ABC):
                         "for": self.item_desc_json(item),
                         "lints": [lint.__dict__ for lint in item_lints],
                     }
-                )                
+                )
             else:
                 logger.warning(
                     "Lints for {}:\n{}\n".format(
