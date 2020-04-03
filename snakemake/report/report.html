@@ -166,7 +166,7 @@
         padding-top: 50vh;
       }
 
-      #loading-screen p#animation {
+      p.animation {
         animation: fadeinout 2.5s infinite;
         text-align: center;
         font-size: 200%;
@@ -180,6 +180,16 @@
       #loading-screen p#jswarning {
 	text-align: center;
         color: red;
+      }
+
+      #panel-loading-screen {
+        width: 100%;
+        height: 100%;
+        padding-top: 50vh;
+      }
+
+      #panel-loading-sceen p.animation {
+        margin: auto;
       }
 
       .vega-actions .btn {
@@ -282,7 +292,7 @@
 
   <body>
     <div id="loading-screen">
-      <p id="animation">Loading Snakemake Report...</p>
+      <p class="animation">Loading Snakemake Report...</p>
       <p id="jswarning">Please enable Javascript in your browser to see this report.</p>
       {% if mode_embedded %}
       <p id="info">Loading {{ results_size|filesizeformat }}. For large reports, this can take a while.</p>
@@ -415,6 +425,10 @@
             </table>
           </div>
           {% endif %}
+
+          <div class="panel" id="panel-loading-screen">
+            <p class="animation">Loading...</p>
+          </div>
         </main>
 
         <div id="thumbnail-modal" class="modal" tabindex="-1" role="dialog">
@@ -567,7 +581,11 @@
                 params: "{{ res.params }}"
               },
               data_uri: function() { return "{{ res.data_uri }}"; },
+              {% if res.png_uri is not none %}
               thumbnail_uri: function() { return "{{ res.png_uri }}"; }
+              {% else %}
+              thumbnail_uri: function() { return null; }
+              {% endif %}
             }{{ "," if not loop.last }}
           {% endfor %}
           {{ "," if not loop.last }}
@@ -709,10 +727,13 @@
 
       function show_panel(id) {
         $(".panel").hide();
+        var loading_screen = $("#panel-loading-screen");
+        loading_screen.show();
         var panel = $(`#${id}`);
         if (panel.hasClass("category")) {
           show_category(panel);
         }
+        loading_screen.hide();
         panel.show();
       }
 
