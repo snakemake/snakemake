@@ -882,6 +882,7 @@ def get_argument_parser(profile=None):
         "-j",
         action="store",
         const=available_cpu_count(),
+        default=1,
         nargs="?",
         metavar="N",
         help=(
