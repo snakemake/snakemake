@@ -1830,6 +1830,8 @@ def main(argv=None):
             args.cluster_sync = adjust_path(args.cluster_sync)
         if args.cluster_status:
             args.cluster_status = adjust_path(args.cluster_status)
+        if args.report_stylesheet:
+            args.report_stylesheet = adjust_path(args.report_stylesheet)
 
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
