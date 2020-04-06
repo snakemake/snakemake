@@ -867,8 +867,7 @@ def auto_report(dag, path, stylesheet=None):
                         # write thumbnail
                         if result.is_img and result.png_content:
                             zipout.writestr(
-                                str(folder.joinpath(result.png_uri)),
-                                result.png_content,
+                                str(folder.joinpath(result.png_uri)), result.png_content
                             )
 
             # write report html
