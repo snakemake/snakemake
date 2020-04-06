@@ -22,6 +22,7 @@ from itertools import accumulate, chain
 import urllib.parse
 import hashlib
 from zipfile import ZipFile
+from pathlib import Path
 
 import requests
 
@@ -823,6 +824,8 @@ def auto_report(dag, path, stylesheet=None):
 
     template = env.get_template("report.html")
 
+    logger.info("Downloading resources and rendering HTML.")
+
     rendered = template.render(
         results=results,
         results_size=results_size,
@@ -842,8 +845,11 @@ def auto_report(dag, path, stylesheet=None):
         mode_embedded=mode_embedded,
     )
 
+    # TODO look into supporting .WARC format, also see (https://webrecorder.io)
+
     if not mode_embedded:
         with ZipFile(path, mode="w") as zipout:
+            folder = Path(Path(path).stem)
             # store results in data folder
             for subcats in results.values():
                 for catresults in subcats.values():
@@ -851,22 +857,22 @@ def auto_report(dag, path, stylesheet=None):
                         # write raw data
                         if result.table_content is not None:
                             zipout.writestr(
-                                os.path.join("report", result.data_uri),
+                                str(folder.joinpath(result.data_uri)),
                                 result.table_content,
                             )
                         else:
                             zipout.write(
-                                result.path, os.path.join("report", result.data_uri)
+                                result.path, str(folder.joinpath(result.data_uri))
                             )
                         # write thumbnail
                         if result.is_img and result.png_content:
                             zipout.writestr(
-                                os.path.join("report", result.png_uri),
+                                str(folder.joinpath(result.png_uri)),
                                 result.png_content,
                             )
 
             # write report html
-            zipout.writestr("report/report.html", rendered)
+            zipout.writestr(str(folder.joinpath("report.html")), rendered)
     else:
         with open(path, "w", encoding="utf-8") as htmlout:
             htmlout.write(rendered)
