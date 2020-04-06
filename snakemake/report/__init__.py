@@ -407,8 +407,8 @@ class FileRecord:
                         self.mime = "text/html"
                         self.path = os.path.basename(self.path) + ".html"
 
-        self.data_uri = self._data_uri
-        self.png_uri = self._png_uri
+        self.data_uri = self._data_uri()
+        self.png_uri = self._png_uri()
 
     @lazy_property
     def png_content(self):
