@@ -407,6 +407,9 @@ class FileRecord:
                         self.mime = "text/html"
                         self.path = os.path.basename(self.path) + ".html"
 
+        self.data_uri = self._data_uri
+        self.png_uri = self._png_uri
+
     @lazy_property
     def png_content(self):
         assert self.is_img
@@ -437,24 +440,20 @@ class FileRecord:
                 "images and pdfs in the report."
             )
 
-    @lazy_property
-    def png_uri(self):
+    def _png_uri(self):
         if self.is_img:
+            png = self.png_content
             if self.mode_embedded:
-                png = self.png_content
-                if png:
+                if png is not None:
                     uri = data_uri(
                         png, os.path.basename(self.path) + ".png", mime="image/png"
                     )
                     return uri
-                return None
             else:
-                return os.path.join("data/thumbnails", self.id)
-        else:
-            return None
+                if png is not None:
+                    return os.path.join("data/thumbnails", self.id)
 
-    @lazy_property
-    def data_uri(self):
+    def _data_uri(self):
         if self.mode_embedded:
             if self.table_content is not None:
                 return data_uri(self.table_content, self.path, self.mime)
