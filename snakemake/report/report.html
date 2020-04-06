@@ -738,7 +738,7 @@
       }
 
       var rulegraph_spec = {
-        "$schema": "https://vega.github.io/schema/vega/v3.json",
+        "$schema": "https://vega.github.io/schema/vega/v5.json",
         "width": {{ rulegraph_width }},
         "height": {{ rulegraph_height }},
         "padding": 0,
@@ -786,7 +786,8 @@
               "enter": {
                 "fill": {"scale": "color", "field": "rule"},
                 "x": {"field": "fx", "scale": "x"},
-                "y": {"field": "fy", "scale": "y"}
+                "y": {"field": "fy", "scale": "y"},
+                "tooltip": { "value": "Click to show rule details." }
               },
               "update": {
                 "size": {"value": 100}
@@ -861,7 +862,7 @@
       
 
       var runtimes_spec = {
-        "$schema": "https://vega.github.io/schema/vega-lite/v2.json",
+        "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
         "description": "Shows the relationship between horsepower and the numbver of cylinders using tick marks.",
         "data": {"values": {{ runtimes }}},
         "mark": "point",
@@ -877,7 +878,7 @@
       vegaEmbed("#runtimes", runtimes_spec);
 
       var timeline_spec = {
-        "$schema": "https://vega.github.io/schema/vega-lite/v2.json",
+        "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
         "description": "Timeline of jobs.",
         "data": {
           "values": {{ timeline }}
