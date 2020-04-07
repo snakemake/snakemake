@@ -691,7 +691,7 @@
                       .append($("<dt>", { class: "col-sm-3" }).text("Wildcards"))
                       .append($("<dd>", { class: "col-sm-9" }).text(row.job_properties.wildcards || "-"))
                       .append($("<dt>", { class: "col-sm-3" }).text("Parameters"))
-                      .append($("<dd>", { class: "col-sm-9" }).text(row.job_properties.params || "-"));
+                      .append($("<dd>", { class: "col-sm-9" }).append($("<pre>").text(row.job_properties.params || "-")));
                     return desc.wrap("<span>").parent().html();
                   } else {
                     return row.job_properties.rule;
