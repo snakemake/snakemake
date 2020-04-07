@@ -8,42 +8,35 @@ import os
 import sys
 import contextlib
 import time
-import datetime
 import json
-import textwrap
 import stat
 import shutil
 import shlex
 import threading
 import concurrent.futures
 import subprocess
-import signal
 from functools import partial
-from itertools import chain
 from collections import namedtuple
 from tempfile import mkdtemp
 from snakemake.io import _IOFile
-import random
 import base64
 import uuid
 import re
 import math
 
-from snakemake.jobs import Job
 from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.stats import Stats
-from snakemake.utils import format, Unformattable, makedirs
+from snakemake.utils import format, makedirs
+from snakemake.provenance_tracking.provenance import provenance_manager
 from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import (
-    ProtectedOutputException,
     WorkflowError,
-    ImproperShadowException,
     SpawnedJobError,
 )
-from snakemake.common import Mode, __version__, get_container_image, get_uuid
+from snakemake.common import Mode, get_container_image, get_uuid
 
 
 def sleep():
@@ -102,6 +95,10 @@ class AbstractExecutor:
     def _run(self, job):
         job.check_protected_output()
         self.printjob(job)
+        if provenance_manager.is_active():
+            prov_mgr = provenance_manager
+            job_URI = prov_mgr.gen_URI("http://snakemake-provenance#", "activity-"+job.__str__())
+            job.uri = job_URI
 
     def rule_prefix(self, job):
         return "local " if job.is_local else ""
@@ -113,6 +110,19 @@ class AbstractExecutor:
         job.log_error(msg, **kwargs)
 
     def handle_job_success(self, job):
+        if provenance_manager.is_active():
+            prov_mgr = provenance_manager
+            #print(job.params['biotools_id'])
+            tool_name = ''
+            if 'biotools_id' in job.params.keys():
+                tool_name = job.params['biotools_id']
+            else:
+                tool_name = job.__str__()
+            prov_mgr.add_activity(tool_name=tool_name, job_uri=job.uri, input_id_list=job.input, cmd=job.shellcmd)
+            outputs = job.output
+            for o in outputs:
+                prov_mgr.add_output(output_id=o, input_id_list=job.input, tool_name=tool_name, job_uri=job.uri)
+
         pass
 
     def handle_job_error(self, job):
