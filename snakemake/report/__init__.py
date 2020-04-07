@@ -367,7 +367,9 @@ class FileRecord:
             job.wildcards if wildcards_overwrite is None else wildcards_overwrite
         )
         self.wildcards = logging.format_wildcards(self._wildcards)
-        self.params = logging.format_dict(job.params).replace("\n", r"\n").replace('"', r'\"')
+        self.params = (
+            logging.format_dict(job.params).replace("\n", r"\n").replace('"', r"\"")
+        )
         self.category = category
 
         self.table_content = None
@@ -860,4 +862,3 @@ def auto_report(dag, path, stylesheet=None):
             htmlout.write(rendered)
 
     logger.info("Report created: {}.".format(path))
-
