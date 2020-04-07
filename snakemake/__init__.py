@@ -1093,9 +1093,12 @@ def get_argument_parser(profile=None):
         "--report",
         nargs="?",
         const="report.html",
-        metavar="HTMLFILE",
+        metavar="FILE",
         help="Create an HTML report with results and statistics. "
-        "If no filename is given, report.html is the default.",
+        "This can be either a .html file or a .zip file. "
+        "In the former case, all results are embedded into the .html (this only works for small data). "
+        "In the latter case, results are stored along with a file report.html in the zip archive. "
+        "If no filename is given, an embedded report.html is the default.",
     )
     group_utils.add_argument(
         "--report-stylesheet",
@@ -1827,6 +1830,8 @@ def main(argv=None):
             args.cluster_sync = adjust_path(args.cluster_sync)
         if args.cluster_status:
             args.cluster_status = adjust_path(args.cluster_status)
+        if args.report_stylesheet:
+            args.report_stylesheet = adjust_path(args.report_stylesheet)
 
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
