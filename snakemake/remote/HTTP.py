@@ -51,7 +51,7 @@ class RemoteProvider(AbstractRemoteProvider):
     def remote(self, value, *args, insecure=None, **kwargs):
         if isinstance(value, str):
             values = [value]
-        elif isinstance(value, collections.Iterable):
+        elif isinstance(value, collections.abc.Iterable):
             values = value
         else:
             raise TypeError(
@@ -61,7 +61,7 @@ class RemoteProvider(AbstractRemoteProvider):
         for i, file in enumerate(values):
             match = re.match("^(https?)://.+", file)
             if match:
-                protocol, = match.groups()
+                (protocol,) = match.groups()
                 if protocol == "https" and insecure:
                     raise SyntaxError(
                         "insecure=True cannot be used with a https:// url"

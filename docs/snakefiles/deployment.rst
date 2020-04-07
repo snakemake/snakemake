@@ -12,12 +12,22 @@ following structure:
     ├── .gitignore
     ├── README.md
     ├── LICENSE.md
-    ├── config.yaml
-    ├── scripts
-    │   ├── script1.py
-    │   └── script2.R
-    ├── envs
-    │   └── myenv.yaml
+    ├── workflow
+    │   ├── scripts
+    |   │   ├── script1.py
+    |   │   └── script2.R
+    │   ├── rules
+    |   │   ├── module1.smk
+    |   │   └── module2.smk
+    │   ├── report
+    |   │   ├── plot1.smk
+    |   │   └── plot2.smk
+    │   └── envs
+    |   │   ├── tool1.smk
+    |   │   └── tool2.smk
+    ├── config
+    │   ├── config.yaml
+    │   └── some-sheet.tsv
     └── Snakefile
 
 Then, a workflow can be deployed to a new system via the following steps
@@ -29,7 +39,7 @@ Then, a workflow can be deployed to a new system via the following steps
     cd path/to/workdir
 
     # edit config and workflow as needed
-    vim config.yaml
+    vim config/config.yaml
 
     # execute workflow, deploy software dependencies via conda
     snakemake -n --use-conda
@@ -89,6 +99,7 @@ The path to the environment definition is interpreted as **relative to the Snake
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
 Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
 
+Conda deployment also works well for offline or air-gapped environments. Running ``snakemake -n --use-conda --create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
 
 .. _singularity:
 
@@ -96,7 +107,7 @@ Note that you need to clean up environments manually for now. However, in many c
 Running jobs in containers
 --------------------------
 
-As an alternative to using Conda (see above), it is possible to define, for each rule, a docker or singularity container to use, e.g.,
+As an alternative to using Conda (see above), it is possible to define, for each rule, a (docker) container to use, e.g.,
 
 .. code-block:: python
 
@@ -105,7 +116,7 @@ As an alternative to using Conda (see above), it is possible to define, for each
             "table.txt"
         output:
             "plots/myplot.pdf"
-        singularity:
+        containers:
             "docker://joseespinosa/docker-r-ggplot2"
         script:
             "scripts/plot-stuff.R"
@@ -116,8 +127,9 @@ When executing Snakemake with
 
     snakemake --use-singularity
 
-it will execute the job within a singularity container that is spawned from the given image.
+it will execute the job within a container that is spawned from the given image.
 Allowed image urls entail everything supported by singularity (e.g., ``shub://`` and ``docker://``).
+However, ``docker://`` is preferred, as other container runtimes will be supported in the future (e.g. podman).
 
 .. sidebar:: Note
 
@@ -140,7 +152,7 @@ For example, you can write
 
 .. code-block:: python
 
-    singularity: "docker://continuumio/miniconda3:4.4.10"
+    container: "docker://continuumio/miniconda3:4.4.10"
 
     rule NAME:
         input:
@@ -173,6 +185,34 @@ The user can, upon execution, freely choose the desired level of reproducibility
 * no package management (use whatever is on the system)
 * Conda based package management (use versions defined by the workflow developer)
 * Conda based package management in containerized OS (use versions and OS defined by the workflow developer)
+
+-------------------------
+Using environment modules
+-------------------------
+
+In high performace cluster systems (HPC), it can be preferable to use environment modules for deployment of optimized versions of certain standard tools.
+Snakemake allows to define environment modules per rule:
+
+.. code-block:: python
+
+    rule bwa:
+        input:
+            "genome.fa"
+            "reads.fq"
+        output:
+            "mapped.bam"
+        conda:
+            "envs/bwa.yaml"
+        envmodules:
+            "bio/bwa/0.7.9",
+            "bio/samtools/1.9"
+        shell:
+            "bwa mem {input} | samtools view -Sbh - > {output}"
+
+Here, when Snakemake is executed with `snakemake --use-envmodules`, it will load the defined modules in the given order, instead of using the also defined conda environment.
+Note that although not mandatory, one should always provide either a conda environment or a container (see above), along with environment module definitions.
+The reason is that environment modules are often highly platform specific, and cannot be assumed to be available somewhere else, thereby limiting reproducibility.
+By definition an equivalent conda environment or container as a fallback, people outside of the HPC system where the workflow has been designed can still execute it, e.g. by running `snakemake --use-conda` instead of `snakemake --use-envmodules`.
 
 --------------------------------------
 Sustainable and reproducible archiving

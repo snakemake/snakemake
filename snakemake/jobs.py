@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -26,7 +26,6 @@ from snakemake.io import (
     is_flagged,
     get_flag_value,
     contains_wildcard,
-    lstat,
 )
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
@@ -36,7 +35,8 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid
-from snakemake import conda, wrapper
+from snakemake.deployment import conda
+from snakemake import wrapper
 
 
 def format_files(job, io, dynamicio):
@@ -130,6 +130,7 @@ class Job(AbstractJob):
         self.input, input_mapping, self.dependencies = self.rule.expand_input(
             self.wildcards_dict
         )
+
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
         # other properties are lazy to be able to use additional parameters and check already existing files
         self._params = None
@@ -199,12 +200,13 @@ class Job(AbstractJob):
         self.rule.expand_benchmark(self.wildcards_dict)
         self.rule.expand_log(self.wildcards_dict)
 
-    def outputs_older_than_script(self):
+    def outputs_older_than_script_or_notebook(self):
         """return output that's older than script, i.e. script has changed"""
-        if not self.is_script:
+        path = self.rule.script or self.rule.notebook
+        if not path:
             return
-        assert os.path.exists(self.rule.script)  # to make sure lstat works
-        script_mtime = lstat(self.rule.script).st_mtime
+        assert os.path.exists(path)  # to make sure lstat works
+        script_mtime = os.lstat(path).st_mtime
         for f in self.expanded_output:
             if f.exists:
                 if not f.is_newer(script_mtime):
@@ -285,7 +287,7 @@ class Job(AbstractJob):
         if self.conda_env_file:
             if self._conda_env is None:
                 self._conda_env = self.dag.conda_envs.get(
-                    (self.conda_env_file, self.singularity_img_url)
+                    (self.conda_env_file, self.container_img_url)
                 )
             return self._conda_env
         return None
@@ -302,21 +304,25 @@ class Job(AbstractJob):
 
     @property
     def needs_singularity(self):
-        return self.singularity_img is not None
+        return self.container_img is not None
 
     @property
-    def singularity_img_url(self):
-        return self.rule.singularity_img
+    def container_img_url(self):
+        return self.rule.container_img
 
     @property
-    def singularity_img(self):
-        if self.singularity_img_url:
-            return self.dag.singularity_imgs[self.singularity_img_url]
+    def container_img(self):
+        if self.dag.workflow.use_singularity and self.container_img_url:
+            return self.dag.container_imgs[self.container_img_url]
         return None
 
     @property
-    def singularity_img_path(self):
-        return self.singularity_img.path if self.singularity_img else None
+    def env_modules(self):
+        return self.rule.env_modules
+
+    @property
+    def container_img_path(self):
+        return self.container_img.path if self.container_img else None
 
     @property
     def is_shadow(self):
@@ -387,6 +393,10 @@ class Job(AbstractJob):
         return self.rule.script is not None
 
     @property
+    def is_notebook(self):
+        return self.rule.notebook is not None
+
+    @property
     def is_wrapper(self):
         return self.rule.wrapper is not None
 
@@ -400,9 +410,14 @@ class Job(AbstractJob):
             self.is_shell
             or self.is_norun
             or self.is_script
+            or self.is_notebook
             or self.is_wrapper
             or self.is_cwl
         )
+
+    @property
+    def is_pipe(self):
+        return any([is_flagged(o, "pipe") for o in self.output])
 
     @property
     def expanded_output(self):
@@ -515,6 +530,10 @@ class Job(AbstractJob):
                 if f in self.dynamic_output:
                     if not self.expand_dynamic(f_):
                         files.add("{} (dynamic)".format(f_))
+                elif is_flagged(f, "pipe"):
+                    # pipe output is always declared as missing
+                    # (even if it might be present on disk for some reason)
+                    files.add(f)
                 elif not f.exists:
                     files.add(f)
 
@@ -1040,11 +1059,13 @@ class GroupJob(AbstractJob):
         "_inputsize",
         "_all_products",
         "_attempt",
+        "toposorted",
     ]
 
     def __init__(self, id, jobs):
         self.groupid = id
         self.jobs = frozenset(jobs)
+        self.toposorted = None
         self._resources = None
         self._input = None
         self._output = None
@@ -1062,15 +1083,15 @@ class GroupJob(AbstractJob):
         self.jobs = self.jobs | other.jobs
 
     def finalize(self):
-        # TODO determine resources based on toposort
-        dag = {
-            job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
-            for job in self.jobs
-        }
         from toposort import toposort
 
-        t = toposort(dag)
-        print(t)
+        if self.toposorted is None:
+            dag = {
+                job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
+                for job in self.jobs
+            }
+
+            self.toposorted = list(toposort(dag))
 
     @property
     def all_products(self):
@@ -1079,7 +1100,10 @@ class GroupJob(AbstractJob):
         return self._all_products
 
     def __iter__(self):
-        return iter(self.jobs)
+        if self.toposorted is None:
+            yield from self.jobs
+        else:
+            yield from chain.from_iterable(self.toposorted)
 
     def __repr__(self):
         return "JobGroup({},{})".format(self.groupid, repr(self.jobs))
@@ -1149,28 +1173,35 @@ class GroupJob(AbstractJob):
     def resources(self):
         if self._resources is None:
             self._resources = defaultdict(int)
-            pipe_group = any(
-                [any([is_flagged(o, "pipe") for o in job.output]) for job in self.jobs]
-            )
-            for job in self.jobs:
-                try:
-                    job_resources = job.resources
-                except FileNotFoundError:
-                    # Skip job if resource evaluation leads to a file not found error.
-                    # This will be caused by an inner job, which needs files created by the same group.
-                    # All we can do is to ignore such jobs for now.
-                    continue
-                for res, value in job_resources.items():
-                    if self.dag.workflow.run_local or pipe_group:
-                        # in case of local execution, this must be a
-                        # group of jobs that are connected with pipes
-                        # and have to run simultaneously
-                        self._resources[res] += value
-                    else:
-                        # take the maximum over all jobs
-                        self._resources[res] = max(
-                            self._resources.get(res, value), value
-                        )
+            pipe_group = any([job.is_pipe for job in self.jobs])
+            # iterate over siblings that can be executed in parallel
+            for siblings in self.toposorted:
+                sibling_resources = defaultdict(int)
+                for job in siblings:
+                    try:
+                        job_resources = job.resources
+                    except FileNotFoundError:
+                        # Skip job if resource evaluation leads to a file not found error.
+                        # This will be caused by an inner job, which needs files created by the same group.
+                        # All we can do is to ignore such jobs for now.
+                        continue
+                    for res, value in job_resources.items():
+                        if res != "_nodes":
+                            sibling_resources[res] += value
+
+                for res, value in sibling_resources.items():
+                    if res != "_nodes":
+                        if self.dag.workflow.run_local or pipe_group:
+                            # in case of local execution, this must be a
+                            # group of jobs that are connected with pipes
+                            # and have to run simultaneously
+                            self._resources[res] += value
+                        else:
+                            # take the maximum with previous values
+                            self._resources[res] = max(
+                                self._resources.get(res, 0), value
+                            )
+
         return Resources(fromdict=self._resources)
 
     @property
@@ -1371,6 +1402,7 @@ class Reason:
         "noio",
         "nooutput",
         "derived",
+        "pipe",
     ]
 
     def __init__(self):
@@ -1382,6 +1414,7 @@ class Reason:
         self.noio = False
         self.nooutput = False
         self.derived = True
+        self.pipe = False
 
     @lazy_property
     def updated_input(self):
@@ -1446,4 +1479,5 @@ class Reason:
             or self.updated_input_run
             or self.noio
             or self.nooutput
+            or self.pipe
         )

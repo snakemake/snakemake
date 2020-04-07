@@ -64,7 +64,7 @@ class RemoteProvider(AbstractRemoteProvider):
     ):
         if isinstance(value, str):
             values = [value]
-        elif isinstance(value, collections.Iterable):
+        elif isinstance(value, collections.abc.Iterable):
             values = value
         else:
             raise TypeError(
@@ -74,7 +74,7 @@ class RemoteProvider(AbstractRemoteProvider):
         for i, file in enumerate(values):
             match = re.match("^(ftps?)://.+", file)
             if match:
-                protocol, = match.groups()
+                (protocol,) = match.groups()
                 if protocol == "ftps" and encrypt_data_channel:
                     raise SyntaxError(
                         "encrypt_data_channel=False cannot be used with a ftps:// url"

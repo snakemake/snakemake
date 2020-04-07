@@ -143,15 +143,18 @@ Microsoft Azure Storage
 =======================
 
 Usage of the Azure Storage provider is similar to the S3 provider.
-For authentication, one needs to provide an account name and a key, which can e.g. be taken
-from environment variables.
+For authentication, one needs to provide an account name and a key
+or SAS token (without leading question mark), which can for example
+be read from environment variables.
 
 .. code-block:: python
 
     from snakemake.remote.AzureStorage import RemoteProvider as AzureRemoteProvider
-    account_key=os.environ['AZURE_KEY']
     account_name=os.environ['AZURE_ACCOUNT']
-    AS = AzureRemoteProvider(account_name=account_name, account_key=account_key)
+    account_key=os.environ.get('AZURE_KEY')
+    sas_token=os.environ.get('SAS_TOKEN')
+    assert account_key or sas_token
+    AS = AzureRemoteProvider(account_name=account_name, account_key=account_key, sas_token=sas_token)
 
     rule a:
         input:
@@ -174,6 +177,21 @@ Assuming you have SSH keys already set up for the server you are using in the ``
     rule all:
         input:
             SFTP.remote("example.com/path/to/file.bam")
+
+If you need to create the output directories in the remote server, you can specify ``mkdir_remote=True``  in the ``RemoteProvider`` constructor.
+
+.. code-block:: python
+
+   from snakemake.remote.SFTP import RemoteProvider
+   SFTP = RemoteProvider(mkdir_remote=True)
+
+   rule all:
+       input:
+           "/home/foo/bar.txt"
+       output:
+           SFTP.remote('example.com/home/foo/create/dir/bar.txt')
+       shell:
+           "cp {input} {output}"
 
 The remote file addresses used must be specified with the host (domain or IP address) and the absolute path to the file on the remote server. A port may be specified if the SSH daemon on the server is listening on a port other than 22, in either the ``RemoteProvider`` or in each instance of ``remote()``:
 

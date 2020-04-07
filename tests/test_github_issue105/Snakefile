@@ -1,0 +1,22 @@
+rule all:
+    input:
+        "b.txt"
+
+checkpoint a:
+    output:
+        "a.txt"
+    shell:
+        "touch {output}"
+
+def aggregate(wildcards):
+    # files = {'inp1': "Snakefile"}
+    files = {'inp1': checkpoints.a.get(**wildcards).output[0]}
+    return files
+
+rule b:
+    input:
+        unpack(aggregate)
+    output:
+        "b.txt"
+    shell:
+        "touch {output}"

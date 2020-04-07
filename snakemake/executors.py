@@ -1,6 +1,5 @@
 __author__ = "Johannes Köster"
-__contributors__ = ["David Alexander", "Soohyun Lee"]
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -35,13 +34,14 @@ from snakemake.exceptions import format_error, RuleException, log_verbose_traceb
 from snakemake.exceptions import (
     WorkflowError,
     SpawnedJobError,
+    CacheMissException,
 )
 from snakemake.common import Mode, get_container_image, get_uuid
 
 
 def sleep():
     # do not sleep on CI. In that case we just want to quickly test everything.
-    if os.environ.get("CIRCLECI") != "true":
+    if os.environ.get("CI") != "true":
         time.sleep(10)
 
 
@@ -55,6 +55,7 @@ class AbstractExecutor:
         printshellcmds=False,
         printthreads=True,
         latency_wait=3,
+        keepincomplete=False,
     ):
         self.workflow = workflow
         self.dag = dag
@@ -63,6 +64,7 @@ class AbstractExecutor:
         self.printshellcmds = printshellcmds
         self.printthreads = printthreads
         self.latency_wait = latency_wait
+        self.keepincomplete = keepincomplete
 
     def get_default_remote_provider_args(self):
         if self.workflow.default_remote_provider:
@@ -130,7 +132,28 @@ class AbstractExecutor:
 
 
 class DryrunExecutor(AbstractExecutor):
-    pass
+    def printjob(self, job):
+        super().printjob(job)
+        if job.is_group():
+            for j in job.jobs:
+                self.printcache(j)
+        else:
+            self.printcache(job)
+
+    def printcache(self, job):
+        if self.workflow.is_cached_rule(job.rule):
+            if self.workflow.output_file_cache.exists(job):
+                logger.info(
+                    "Output file {} will be obtained from global between-workflow cache.".format(
+                        job.output[0]
+                    )
+                )
+            else:
+                logger.info(
+                    "Output file {} will be written to global between-workflow cache.".format(
+                        job.output[0]
+                    )
+                )
 
 
 class RealExecutor(AbstractExecutor):
@@ -143,6 +166,7 @@ class RealExecutor(AbstractExecutor):
         printshellcmds=False,
         latency_wait=3,
         assume_shared_fs=True,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -151,6 +175,7 @@ class RealExecutor(AbstractExecutor):
             quiet=quiet,
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
+            keepincomplete=keepincomplete,
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
@@ -289,6 +314,7 @@ class CPUExecutor(RealExecutor):
         use_threads=False,
         latency_wait=3,
         cores=1,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -297,6 +323,7 @@ class CPUExecutor(RealExecutor):
             quiet=quiet,
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
+            keepincomplete=keepincomplete,
         )
 
         self.exec_job = "\\\n".join(
@@ -335,6 +362,9 @@ class CPUExecutor(RealExecutor):
                     self.workflow.singularity_args
                 )
 
+        if self.workflow.use_env_modules:
+            self.exec_job += " --use-envmodules"
+
         self.use_threads = use_threads
         self.cores = cores
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers + 1)
@@ -353,8 +383,11 @@ class CPUExecutor(RealExecutor):
     def job_args_and_prepare(self, job):
         job.prepare()
 
-        conda_env = job.conda_env_path
-        singularity_img = job.singularity_img_path
+        conda_env = job.conda_env_path if self.workflow.use_conda else None
+        container_img = (
+            job.container_img_path if self.workflow.use_singularity else None
+        )
+        env_modules = job.env_modules if self.workflow.use_env_modules else None
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1
@@ -362,31 +395,35 @@ class CPUExecutor(RealExecutor):
             benchmark = str(job.benchmark)
         return (
             job.rule,
-            job.input.plainstrings(),
-            job.output.plainstrings(),
+            job.input._plainstrings(),
+            job.output._plainstrings(),
             job.params,
             job.wildcards,
             job.threads,
             job.resources,
-            job.log.plainstrings(),
+            job.log._plainstrings(),
             benchmark,
             benchmark_repeats,
             conda_env,
-            singularity_img,
+            container_img,
             self.workflow.singularity_args,
+            env_modules,
             self.workflow.use_singularity,
             self.workflow.linemaps,
             self.workflow.debug,
+            self.workflow.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
         )
 
     def run_single_job(self, job):
         if self.use_threads or (not job.is_shadow and not job.is_run):
-            future = self.pool.submit(run_wrapper, *self.job_args_and_prepare(job))
+            future = self.pool.submit(
+                self.cached_or_run, job, run_wrapper, *self.job_args_and_prepare(job)
+            )
         else:
             # run directive jobs are spawned into subprocesses
-            future = self.pool.submit(self.spawn_job, job)
+            future = self.pool.submit(self.cached_or_run, job, self.spawn_job, job)
         return future
 
     def run_group_job(self, job):
@@ -426,6 +463,21 @@ class CPUExecutor(RealExecutor):
         except subprocess.CalledProcessError as e:
             raise SpawnedJobError()
 
+    def cached_or_run(self, job, run_func, *args):
+        """
+        Either retrieve result from cache, or run job with given function.
+        """
+        to_cache = self.workflow.is_cached_rule(job.rule)
+        try:
+            if to_cache:
+                self.workflow.output_file_cache.fetch(job)
+                return
+        except CacheMissException:
+            pass
+        run_func(*args)
+        if to_cache:
+            self.workflow.output_file_cache.store(job)
+
     def shutdown(self):
         self.pool.shutdown()
 
@@ -446,7 +498,7 @@ class CPUExecutor(RealExecutor):
             error_callback(job)
         except (Exception, BaseException) as ex:
             self.print_job_error(job)
-            if not (job.is_group() or job.shellcmd):
+            if not (job.is_group() or job.shellcmd) or self.workflow.verbose:
                 print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
@@ -455,8 +507,9 @@ class CPUExecutor(RealExecutor):
 
     def handle_job_error(self, job):
         super().handle_job_error(job)
-        job.cleanup()
-        self.workflow.persistence.cleanup(job)
+        if not self.keepincomplete:
+            job.cleanup()
+            self.workflow.persistence.cleanup(job)
 
 
 class ClusterExecutor(RealExecutor):
@@ -480,6 +533,8 @@ class ClusterExecutor(RealExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         disable_default_remote_provider_args=False,
+        disable_get_default_resources_args=False,
+        keepincomplete=False,
     ):
         from ratelimiter import RateLimiter
 
@@ -515,7 +570,9 @@ class ClusterExecutor(RealExecutor):
         if exec_job is None:
             self.exec_job = "\\\n".join(
                 (
-                    "cd {workflow.workdir_init} && " if assume_shared_fs else "",
+                    "{envvars} " "cd {workflow.workdir_init} && "
+                    if assume_shared_fs
+                    else "",
                     "{sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
                     "--force -j{cores} --keep-target-files --keep-remote ",
@@ -549,9 +606,13 @@ class ClusterExecutor(RealExecutor):
                     self.workflow.singularity_args
                 )
 
+        if self.workflow.use_env_modules:
+            self.exec_job += " --use-envmodules"
+
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
-        self.exec_job += self.get_default_resources_args()
+        if not disable_get_default_resources_args:
+            self.exec_job += self.get_default_resources_args()
         self.jobname = jobname
         self._tmpdir = None
         self.cores = cores if cores else ""
@@ -635,8 +696,18 @@ class ClusterExecutor(RealExecutor):
         # only force threads if this is not a group job
         # otherwise we want proper process handling
         use_threads = "--force-use-threads" if not job.is_group() else ""
+
+        envvars = " ".join(
+            "{}={}".format(var, os.environ[var]) for var in self.workflow.envvars
+        )
+
         exec_job = self.format_job(
-            self.exec_job, job, _quote_all=True, use_threads=use_threads, **kwargs
+            self.exec_job,
+            job,
+            _quote_all=True,
+            use_threads=use_threads,
+            envvars=envvars,
+            **kwargs
         )
         content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
         logger.debug("Jobscript:\n{}".format(content))
@@ -687,7 +758,8 @@ class ClusterExecutor(RealExecutor):
         # It will be removed by the CPUExecutor in case of a shared FS,
         # but we might not see the removal due to filesystem latency.
         # By removing it again, we make sure that it is gone on the host FS.
-        self.workflow.persistence.cleanup(job)
+        if not self.keepincomplete:
+            self.workflow.persistence.cleanup(job)
 
     def print_cluster_job_error(self, job_info, jobid):
         job = job_info.job
@@ -728,6 +800,7 @@ class GenericClusterExecutor(ClusterExecutor):
         restart_times=0,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
+        keepincomplete=False,
     ):
 
         self.submitcmd = submitcmd
@@ -974,6 +1047,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
         latency_wait=3,
         restart_times=0,
         assume_shared_fs=True,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -1082,6 +1156,7 @@ class DRMAAExecutor(ClusterExecutor):
         restart_times=0,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
+        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -1251,7 +1326,6 @@ class KubernetesExecutor(ClusterExecutor):
         workflow,
         dag,
         namespace,
-        envvars,
         container_image=None,
         jobname="{rulename}.{jobid}",
         printreason=False,
@@ -1261,6 +1335,7 @@ class KubernetesExecutor(ClusterExecutor):
         cluster_config=None,
         local_input=None,
         restart_times=None,
+        keepincomplete=False,
     ):
 
         exec_job = (
@@ -1307,7 +1382,7 @@ class KubernetesExecutor(ClusterExecutor):
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
-        self.envvars = envvars or []
+        self.envvars = workflow.envvars
         self.secret_files = {}
         self.run_namespace = str(uuid.uuid4())
         self.secret_envvars = {}
@@ -1480,6 +1555,7 @@ class KubernetesExecutor(ClusterExecutor):
 
     def _kubernetes_retry(self, func):
         import kubernetes
+        import urllib3
 
         with self.lock:
             try:
@@ -1517,7 +1593,7 @@ class KubernetesExecutor(ClusterExecutor):
                     return func()
                 except:
                     # Still can't reach the server after 5 minutes
-                    raise WorkflowErroe(
+                    raise WorkflowError(
                         e,
                         "Error 111 connection timeout, please check"
                         " that the k8 cluster master is reachable!",
@@ -1575,6 +1651,10 @@ class KubernetesExecutor(ClusterExecutor):
                     elif res.status.phase == "Succeeded":
                         # finished
                         j.callback(j.job)
+                        body = kubernetes.client.V1DeleteOptions()
+                        self.kubeapi.delete_namespaced_pod(
+                            j.jobid, self.namespace, body=body
+                        )
                     else:
                         # still active
                         still_running.append(j)
@@ -1596,22 +1676,36 @@ class TibannaExecutor(ClusterExecutor):
         cores,
         tibanna_sfn,
         precommand="",
+        tibanna_config=False,
+        container_image=None,
         printreason=False,
         quiet=False,
         printshellcmds=False,
         latency_wait=3,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         max_status_checks_per_second=1,
+        keepincomplete=False,
     ):
 
-        self.workflow_sources = workflow.get_sources()
+        self.workflow_sources = []
+        for wfs in workflow.get_sources():
+            if os.path.isdir(wfs):
+                for (dirpath, dirnames, filenames) in os.walk(wfs):
+                    self.workflow_sources.extend(
+                        [os.path.join(dirpath, f) for f in filenames]
+                    )
+            else:
+                self.workflow_sources.append(os.path.abspath(wfs))
+
         log = "sources="
         for f in self.workflow_sources:
             log += f
         logger.debug(log)
         self.snakefile = workflow.snakefile
+        self.envvars = {e: os.environ[e] for e in workflow.envvars}
+        if self.envvars:
+            logger.debug("envvars = %s" % str(self.envvars))
         self.tibanna_sfn = tibanna_sfn
         if precommand:
             self.precommand = precommand
@@ -1648,7 +1742,10 @@ class TibannaExecutor(ClusterExecutor):
             assume_shared_fs=False,
             max_status_checks_per_second=max_status_checks_per_second,
             disable_default_remote_provider_args=True,
+            disable_get_default_resources_args=True,
         )
+        self.container_image = container_image or get_container_image()
+        self.tibanna_config = tibanna_config
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary
@@ -1729,9 +1826,10 @@ class TibannaExecutor(ClusterExecutor):
             if src_fname != snakefile_fname:  # redundant
                 snakemake_child_fnames.append(src_fname)
         # change path for config files
-        self.workflow.overwrite_configfile, _ = self.split_filename(
-            self.workflow.overwrite_configfile, snakemake_dir
-        )
+        self.workflow.overwrite_configfiles = [
+            self.split_filename(cf, snakemake_dir)[0]
+            for cf in self.workflow.overwrite_configfiles
+        ]
         tibanna_args.snakemake_directory_local = snakemake_dir
         tibanna_args.snakemake_main_filename = snakefile_fname
         tibanna_args.snakemake_child_filenames = list(set(snakemake_child_fnames))
@@ -1777,8 +1875,8 @@ class TibannaExecutor(ClusterExecutor):
                     + ("true" if o.remote_object.provider.is_default else "false")
                 )
         file_prefix = (
-            "file:///data1/snakemake"
-        )  # working dir inside snakemake container on VM
+            "file:///data1/snakemake"  # working dir inside snakemake container on VM
+        )
         input_source = dict()
         for ip in job.input:
             ip_rel = self.adjust_filepath(ip)
@@ -1786,15 +1884,21 @@ class TibannaExecutor(ClusterExecutor):
         output_target = dict()
         output_all = [eo for eo in job.expanded_output]
         if job.log:
-            output_all.append(str(job.log))
+            if isinstance(job.log, list):
+                output_all.extend([str(_) for _ in job.log])
+            else:
+                output_all.append(str(job.log))
         if hasattr(job, "benchmark") and job.benchmark:
-            output_all.append(str(job.benchmark))
+            if isinstance(job.benchmark, list):
+                output_all.extend([str(_) for _ in job.benchmark])
+            else:
+                output_all.append(str(job.benchmark))
         for op in output_all:
             op_rel = self.adjust_filepath(op)
             output_target[os.path.join(file_prefix, op_rel)] = "s3://" + op
 
         # mem & cpu
-        mem = job.resources["mem_mb"] / 1024 if "mem_mb" in job.resources else 1
+        mem = job.resources["mem_mb"] / 1024 if "mem_mb" in job.resources.keys() else 1
         cpu = job.threads
 
         # jobid, grouping, run_name
@@ -1812,12 +1916,16 @@ class TibannaExecutor(ClusterExecutor):
             "ebs_size": math.ceil(job.resources["disk_mb"] / 1024),
             "log_bucket": self.s3_bucket,
         }
+        logger.debug("additional tibanna config: " + str(self.tibanna_config))
+        if self.tibanna_config:
+            tibanna_config.update(self.tibanna_config)
         tibanna_args = ec2_utils.Args(
             output_S3_bucket=self.s3_bucket,
             language="snakemake",
-            container_image="snakemake/snakemake",
+            container_image=self.container_image,
             input_files=input_source,
             output_target=output_target,
+            input_env=self.envvars,
         )
         self.add_workflow_files(job, tibanna_args)
         self.add_command(job, tibanna_args, tibanna_config)
@@ -1839,7 +1947,11 @@ class TibannaExecutor(ClusterExecutor):
         tibanna_input = self.make_tibanna_input(job)
         jobid = tibanna_input["jobid"]
         exec_info = API().run_workflow(
-            tibanna_input, sfn=self.tibanna_sfn, verbose=not self.quiet, jobid=jobid
+            tibanna_input,
+            sfn=self.tibanna_sfn,
+            verbose=not self.quiet,
+            jobid=jobid,
+            sleep=0,
         )
         exec_arn = exec_info.get("_tibanna", {}).get("exec_arn", "")
         jobname = tibanna_input["config"]["run_name"]
@@ -1898,11 +2010,13 @@ def run_wrapper(
     benchmark,
     benchmark_repeats,
     conda_env,
-    singularity_img,
+    container_img,
     singularity_args,
+    env_modules,
     use_singularity,
     linemaps,
     debug,
+    cleanup_scripts,
     shadow_dir,
     jobid,
 ):
@@ -1937,7 +2051,7 @@ def run_wrapper(
     # Change workdir if shadow defined and not using singularity.
     # Otherwise, we do the change from inside the container.
     passed_shadow_dir = None
-    if use_singularity:
+    if use_singularity and container_img:
         passed_shadow_dir = shadow_dir
         shadow_dir = None
 
@@ -1972,13 +2086,15 @@ def run_wrapper(
                             version,
                             rule,
                             conda_env,
-                            singularity_img,
+                            container_img,
                             singularity_args,
                             use_singularity,
+                            env_modules,
                             bench_record,
                             jobid,
                             is_shell,
                             bench_iteration,
+                            cleanup_scripts,
                             passed_shadow_dir,
                         )
                     else:
@@ -1997,13 +2113,15 @@ def run_wrapper(
                                 version,
                                 rule,
                                 conda_env,
-                                singularity_img,
+                                container_img,
                                 singularity_args,
                                 use_singularity,
+                                env_modules,
                                 bench_record,
                                 jobid,
                                 is_shell,
                                 bench_iteration,
+                                cleanup_scripts,
                                 passed_shadow_dir,
                             )
                     # Store benchmark record for this iteration
@@ -2020,13 +2138,15 @@ def run_wrapper(
                     version,
                     rule,
                     conda_env,
-                    singularity_img,
+                    container_img,
                     singularity_args,
                     use_singularity,
+                    env_modules,
                     None,
                     jobid,
                     is_shell,
                     None,
+                    cleanup_scripts,
                     passed_shadow_dir,
                 )
     except (KeyboardInterrupt, SystemExit) as e:

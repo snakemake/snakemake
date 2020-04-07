@@ -32,10 +32,14 @@ class RemoteProvider(
     supports_default = True  # class variable
 
     def __init__(
-        self, *args, stay_on_remote=False, **kwargs
-    ):  # this method is evaluated when instantiating this class
+        self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
+    ):
         super(RemoteProvider, self).__init__(
-            *args, stay_on_remote=stay_on_remote, **kwargs
+            *args,
+            keep_local=keep_local,
+            stay_on_remote=stay_on_remote,
+            is_default=is_default,
+            **kwargs
         )  # in addition to methods provided by AbstractRemoteProvider, we add these in
 
         self._s3c = S3Helper(*args, **kwargs)  # _private variable by convention
@@ -44,7 +48,7 @@ class RemoteProvider(
         return self._s3c
 
     @property  # decorator, so that this function can be access as an attribute, instead of a method
-    def default_(self):
+    def default_protocol(self):
         """The protocol that is prepended to the path when no protocol is specified."""
         return "s3://"
 

@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2016, Johannes Köster"
+__copyright__ = "Copyright 2016-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -99,12 +99,14 @@ def wrapper(
     config,
     rulename,
     conda_env,
-    singularity_img,
+    container_img,
     singularity_args,
+    env_modules,
     bench_record,
     prefix,
     jobid,
     bench_iteration,
+    cleanup_scripts,
     shadow_dir,
 ):
     """
@@ -125,10 +127,12 @@ def wrapper(
         config,
         rulename,
         conda_env,
-        singularity_img,
+        container_img,
         singularity_args,
+        env_modules,
         bench_record,
         jobid,
         bench_iteration,
+        cleanup_scripts,
         shadow_dir,
     )

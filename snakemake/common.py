@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2016, Johannes Köster"
+__copyright__ = "Copyright 2016-2019, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
@@ -7,7 +7,6 @@ from functools import update_wrapper
 import inspect
 import uuid
 import os
-
 
 from ._version import get_versions
 
@@ -96,13 +95,11 @@ def strip_prefix(text, prefix):
 
 
 def log_location(msg):
+    from snakemake.logging import logger
+
     callerframerecord = inspect.stack()[1]
     frame = callerframerecord[0]
     info = inspect.getframeinfo(frame)
     logger.debug(
         "{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info)
     )
-
-
-def escape_backslash(path):
-    return path.replace("\\", "\\\\")

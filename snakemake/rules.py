@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -86,7 +86,8 @@ class Rule:
             self._log = Log()
             self._benchmark = None
             self._conda_env = None
-            self._singularity_img = None
+            self._container_img = None
+            self.env_modules = None
             self.group = None
             self._wildcard_names = None
             self.lineno = lineno
@@ -94,6 +95,7 @@ class Rule:
             self.run_func = None
             self.shellcmd = None
             self.script = None
+            self.notebook = None
             self.wrapper = None
             self.cwl = None
             self.norun = False
@@ -125,7 +127,8 @@ class Rule:
             self._log = other._log
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
-            self._singularity_img = other._singularity_img
+            self._container_img = other._container_img
+            self.env_modules = other.env_modules
             self.group = other.group
             self._wildcard_names = (
                 set(other._wildcard_names)
@@ -137,6 +140,7 @@ class Rule:
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
             self.script = other.script
+            self.notebook = other.notebook
             self.wrapper = other.wrapper
             self.cwl = other.cwl
             self.norun = other.norun
@@ -192,7 +196,7 @@ class Rule:
         replacements = [(i, io[i], e) for i, e in reversed(list(expansion.items()))]
         for i, old, exp in replacements:
             dynamic_io_.remove(old)
-            io_.insert_items(i, exp)
+            io_._insert_items(i, exp)
 
         if not input:
             for i, old, exp in replacements:
@@ -233,6 +237,58 @@ class Rule:
             branch._conda_env = branch.expand_conda_env(non_dynamic_wildcards)
             return branch, non_dynamic_wildcards
         return branch
+
+    @property
+    def is_shell(self):
+        return self.shellcmd is not None
+
+    @property
+    def is_script(self):
+        return self.script is not None
+
+    @property
+    def is_notebook(self):
+        return self.notebook is not None
+
+    @property
+    def is_wrapper(self):
+        return self.wrapper is not None
+
+    @property
+    def is_cwl(self):
+        return self.cwl is not None
+
+    @property
+    def is_run(self):
+        return not (
+            self.is_shell
+            or self.norun
+            or self.is_script
+            or self.is_notebook
+            or self.is_wrapper
+            or self.is_cwl
+        )
+
+    def check_caching(self):
+        if self.name in self.workflow.cache_rules:
+            if len(self.output) == 0:
+                raise RuleException(
+                    "Rules without output files cannot be cached.", rule=self
+                )
+            if len(self.output) > 1:
+                prefixes = set(out.multiext_prefix for out in self.output)
+                if None in prefixes or len(prefixes) > 1:
+                    raise RuleException(
+                        "Rules with multiple output files must define them as a single multiext() "
+                        '(e.g. multiext("path/to/index", ".bwt", ".ann")). '
+                        "The rationale is that multiple output files can only be unambiously resolved "
+                        "if they can be distinguished by a fixed set of extensions (i.e. mime types).",
+                        rule=self,
+                    )
+            if self.dynamic_output:
+                raise RuleException(
+                    "Rules with dynamic output files may not be cached.", rule=self
+                )
 
     def has_wildcards(self):
         """
@@ -276,12 +332,12 @@ class Rule:
         self._conda_env = IOFile(conda_env, rule=self)
 
     @property
-    def singularity_img(self):
-        return self._singularity_img
+    def container_img(self):
+        return self._container_img
 
-    @singularity_img.setter
-    def singularity_img(self, singularity_img):
-        self._singularity_img = singularity_img
+    @container_img.setter
+    def container_img(self, container_img):
+        self._container_img = container_img
 
     @property
     def input(self):
@@ -352,6 +408,7 @@ class Rule:
             self.register_wildcards(item.get_wildcard_names())
         # Check output file name list for duplicates
         self.check_output_duplicates()
+        self.check_caching()
 
     def check_output_duplicates(self):
         """Check ``Namedlist`` for duplicate entries and raise a ``WorkflowError``
@@ -359,7 +416,7 @@ class Rule:
         """
         seen = dict()
         idx = None
-        for name, value in self.output.allitems():
+        for name, value in self.output._allitems():
             if name is None:
                 if idx is None:
                     idx = 0
@@ -386,16 +443,14 @@ class Rule:
                 and not is_annotated_callable(value)
                 and self.workflow.default_remote_provider is not None
             ):
-                value = "{}/{}".format(self.workflow.default_remote_prefix, value)
-                value = os.path.normpath(value)
-                return self.workflow.default_remote_provider.remote(value)
+                return self.workflow.apply_default_remote(value)
             else:
                 return value
 
         assert not callable(item)
         if isinstance(item, dict):
             return {k: apply(v) for k, v in item.items()}
-        elif isinstance(item, collections.Iterable) and not isinstance(item, str):
+        elif isinstance(item, collections.abc.Iterable) and not isinstance(item, str):
             return [apply(e) for e in item]
         else:
             return apply(item)
@@ -493,6 +548,8 @@ class Rule:
                     r = ReportObject(
                         os.path.join(self.workflow.current_basedir, report_obj.caption),
                         report_obj.category,
+                        report_obj.subcategory,
+                        report_obj.patterns,
                     )
                     item.flags["report"] = r
             if is_flagged(item, "subworkflow"):
@@ -513,13 +570,13 @@ class Rule:
                     self.subworkflow_input[_item] = sub
             inoutput.append(_item)
             if name:
-                inoutput.add_name(name)
+                inoutput._add_name(name)
         elif callable(item):
             if output:
                 raise SyntaxError("Only input files can be specified as functions")
             inoutput.append(item)
             if name:
-                inoutput.add_name(name)
+                inoutput._add_name(name)
         else:
             try:
                 start = len(inoutput)
@@ -527,7 +584,7 @@ class Rule:
                     self._set_inoutput_item(i, output=output)
                 if name:
                     # if the list was named, make it accessible
-                    inoutput.set_name(name, start, end=len(inoutput))
+                    inoutput._set_name(name, start, end=len(inoutput))
             except TypeError:
                 raise SyntaxError(
                     "Input and output files have to be specified as strings or lists of strings."
@@ -546,7 +603,7 @@ class Rule:
     def _set_params_item(self, item, name=None):
         self.params.append(item)
         if name:
-            self.params.add_name(name)
+            self.params._add_name(name)
 
     @property
     def wildcard_constraints(self):
@@ -579,14 +636,14 @@ class Rule:
 
             self.log.append(IOFile(item, rule=self) if isinstance(item, str) else item)
             if name:
-                self.log.add_name(name)
+                self.log._add_name(name)
         else:
             try:
                 start = len(self.log)
                 for i in item:
                     self._set_log_item(i)
                 if name:
-                    self.log.set_name(name, start, end=len(self.log))
+                    self.log._set_name(name, start, end=len(self.log))
             except TypeError:
                 raise SyntaxError("Log files have to be specified as strings.")
 
@@ -610,6 +667,7 @@ class Rule:
         raw_exceptions=False,
         **aux_params
     ):
+        incomplete = False
         if isinstance(func, _IOFile):
             func = func._file.callable
         elif isinstance(func, AnnotatedString):
@@ -620,12 +678,13 @@ class Rule:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)
         except IncompleteCheckpointException as e:
             value = incomplete_checkpoint_func(e)
+            incomplete = True
         except (Exception, BaseException) as e:
             if raw_exceptions:
                 raise e
             else:
                 raise InputFunctionException(e, rule=self, wildcards=wildcards)
-        return value
+        return value, incomplete
 
     def _apply_wildcards(
         self,
@@ -644,7 +703,7 @@ class Rule:
     ):
         if aux_params is None:
             aux_params = dict()
-        for name, item in olditems.allitems():
+        for name, item in olditems._allitems():
             start = len(newitems)
             is_unpack = is_flagged(item, "unpack")
             _is_callable = is_callable(item)
@@ -652,16 +711,17 @@ class Rule:
             if _is_callable:
                 if omit_callable:
                     continue
-                item = self.apply_input_function(
+                item, incomplete = self.apply_input_function(
                     item,
                     wildcards,
                     incomplete_checkpoint_func=incomplete_checkpoint_func,
+                    is_unpack=is_unpack,
                     **aux_params
                 )
                 if apply_default_remote:
                     item = self.apply_default_remote(item)
 
-            if is_unpack:
+            if is_unpack and not incomplete:
                 if not allow_unpack:
                     raise WorkflowError(
                         "unpack() is not allowed with params. "
@@ -702,7 +762,7 @@ class Rule:
                         mapping[concrete] = item_
 
                 if name:
-                    newitems.set_name(
+                    newitems._set_name(
                         name, start, end=len(newitems) if is_iterable else None
                     )
                     start = len(newitems)
@@ -790,9 +850,9 @@ class Rule:
                 no_flattening=True,
                 apply_default_remote=False,
                 aux_params={
-                    "input": input.plainstrings(),
+                    "input": input._plainstrings(),
                     "resources": resources,
-                    "output": output.plainstrings(),
+                    "output": output._plainstrings(),
                     "threads": resources._cores,
                 },
                 incomplete_checkpoint_func=lambda e: "<incomplete checkpoint>",
@@ -812,7 +872,7 @@ class Rule:
 
     def expand_output(self, wildcards):
         output = OutputFiles(o.apply_wildcards(wildcards) for o in self.output)
-        output.take_names(self.output.get_names())
+        output._take_names(self.output._get_names())
         mapping = {f: f_ for f, f_ in zip(output, self.output)}
 
         for f in output:
@@ -878,7 +938,7 @@ class Rule:
                     aux["threads"] = threads
                 try:
                     try:
-                        res = self.apply_input_function(
+                        res, _ = self.apply_input_function(
                             res,
                             wildcards,
                             input=input,
@@ -900,7 +960,9 @@ class Rule:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
                 if not isinstance(res, int):
-                    raise WorkflowError("Resources function did not return int.")
+                    raise WorkflowError(
+                        "Resources function did not return int.", rule=self
+                    )
             res = min(self.workflow.global_resources.get(name, res), res)
             return res
 
@@ -916,7 +978,8 @@ class Rule:
     def expand_group(self, wildcards):
         """Expand the group given wildcards."""
         if callable(self.group):
-            return self.apply_input_function(self.group, wildcards)
+            item, _ = self.apply_input_function(self.group, wildcards)
+            return item
         elif isinstance(self.group, str):
             return apply_wildcards(self.group, wildcards, dynamic_fill=DYNAMIC_FILL)
         else:
@@ -1065,11 +1128,11 @@ class RuleProxy:
 
     @lazy_property
     def input(self):
-        return self.rule.input.stripped_constraints()
+        return self.rule.input._stripped_constraints()
 
     @lazy_property
     def params(self):
-        return self.rule.params.clone()
+        return self.rule.params._clone()
 
     @property
     def benchmark(self):

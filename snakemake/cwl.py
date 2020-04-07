@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2018, Johannes Köster"
+__copyright__ = "Copyright 2018-2019, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -165,7 +165,7 @@ def job_to_cwl(job, dag, outputs, inputs):
         },
         "in": {
             "cores": {"default": job.threads},
-            "target_files": {"default": job.output.plainstrings()},
+            "target_files": {"default": job.output._plainstrings()},
             "rules": {"default": [job.rule.name]},
         },
         "out": ["output_files"],

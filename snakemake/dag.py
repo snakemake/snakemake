@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -14,6 +14,7 @@ from itertools import chain, filterfalse, groupby
 from functools import partial
 from pathlib import Path
 import uuid
+import math
 
 from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
 from snakemake.jobs import Job, Reason, GroupJob
@@ -26,9 +27,47 @@ from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOExce
 from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
-from snakemake import conda, singularity
+from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
+
+
+class Batch:
+    """Definition of a batch for calculating only a partial DAG."""
+
+    def __init__(self, rulename: str, idx: int, batches: int):
+        assert idx <= batches
+        assert idx > 0
+        self.rulename = rulename
+        self.idx = idx
+        self.batches = batches
+
+    def get_batch(self, items: list):
+        """Return the defined batch of the given items.
+           Items are usually input files."""
+        # make sure that we always consider items in the same order
+        if len(items) < self.batches:
+            raise WorkflowError(
+                "Batching rule {} has less input files than batches. "
+                "Please choose a smaller number of batches.".format(self.rulename)
+            )
+        items = sorted(items)
+        batch_len = math.floor(len(items) / self.batches)
+        # self.batch is one-based, hence we have to subtract 1
+        idx = self.idx - 1
+        i = idx * batch_len
+        if self.is_final:
+            # extend the last batch to cover rest of list
+            return items[i:]
+        else:
+            return items[i : i + batch_len]
+
+    @property
+    def is_final(self):
+        return self.idx == self.batches
+
+    def __str__(self):
+        return "{}/{} (rule {})".format(self.idx, self.batches, self.rulename)
 
 
 class DAG:
@@ -55,8 +94,8 @@ class DAG:
         ignore_incomplete=False,
         notemp=False,
         keep_remote_local=False,
+        batch=None,
     ):
-
         self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
@@ -81,7 +120,7 @@ class DAG:
         self._jobid = dict()
         self.job_cache = dict()
         self.conda_envs = dict()
-        self.singularity_imgs = dict()
+        self.container_imgs = dict()
         self._progress = 0
         self._group = dict()
 
@@ -98,7 +137,7 @@ class DAG:
             self.forcerules.update(forcerules)
         if forcefiles:
             self.forcefiles.update(forcefiles)
-        if untilrules:  # keep only the rule names
+        if untilrules:
             self.untilrules.update(set(rule.name for rule in untilrules))
         if untilfiles:
             self.untilfiles.update(untilfiles)
@@ -108,6 +147,13 @@ class DAG:
             self.omitfiles.update(omitfiles)
 
         self.omitforce = set()
+
+        self.batch = batch
+        if batch is not None and not batch.is_final:
+            # Since not all input files of a batching rule are considered, we cannot run
+            # beyond that rule.
+            # For the final batch, we do not need to omit anything.
+            self.omitrules.add(batch.rulename)
 
         self.force_incomplete = force_incomplete
         self.ignore_incomplete = ignore_incomplete
@@ -133,48 +179,31 @@ class DAG:
         self.delete_omitfrom_jobs()
         self.update_jobids()
 
-        # Check if there are files/dirs that are children of other outputs.
-        allfiles = {}
-
-        for job in self.jobs:
-            # This is to account also for targets of symlinks
-            allfiles.update(
-                {
-                    f(x): "input"
-                    for x in job.input
-                    for f in (os.path.abspath, os.path.realpath)
-                }
-            )
-            allfiles.update(
-                {
-                    f(x): "output"
-                    for x in job.output
-                    for f in (os.path.abspath, os.path.realpath)
-                }
-            )
-
-        sortedfiles = sorted(allfiles.keys())
-        for i in range(len(sortedfiles) - 1):
-            if allfiles[sortedfiles[i]] == "output":
-                try:
-                    common_path = os.path.commonpath(
-                        [sortedfiles[i], sortedfiles[i + 1]]
-                    )
-                except ValueError:  # commonpath raises error if windows drives are different.
-                    logger.warning(
-                        "Ambiguous filepath due to different drives between {} and {}".format(
-                            sortedfiles[i], sortedfiles[i + 1]
-                        )
-                    )
-                    continue
-                if os.path.commonpath([sortedfiles[i]]) == common_path:
-                    raise ChildIOException(
-                        parent=sortedfiles[i], child=sortedfiles[i + 1]
-                    )
+        self.check_directory_outputs()
 
         # check if remaining jobs are valid
         for i, job in enumerate(self.jobs):
             job.is_valid()
+
+    def check_directory_outputs(self):
+        """Check that no output file is contained in a directory output of the same or another rule."""
+        outputs = sorted(
+            {
+                path(f)
+                for job in self.jobs
+                for f in job.output
+                for path in (os.path.abspath, os.path.realpath)
+            }
+        )
+        for i in range(len(outputs) - 1):
+            a, b = outputs[i : i + 2]
+            try:
+                common = os.path.commonpath([a, b])
+            except ValueError:
+                # commonpath raises error if windows drives are different.
+                continue
+            if common == os.path.commonpath([a]):
+                raise ChildIOException(parent=outputs[i], child=outputs[i + 1])
 
     @property
     def checkpoint_jobs(self):
@@ -209,7 +238,7 @@ class DAG:
         # First deduplicate based on job.conda_env_file
         jobs = self.jobs if forceall else self.needrun_jobs
         env_set = {
-            (job.conda_env_file, job.singularity_img_url)
+            (job.conda_env_file, job.container_img_url)
             for job in jobs
             if job.conda_env_file
         }
@@ -217,12 +246,12 @@ class DAG:
         self.conda_envs = dict()
         for (env_file, simg_url) in env_set:
             simg = None
-            if simg_url:
+            if simg_url and self.workflow.use_singularity:
                 assert (
-                    simg_url in self.singularity_imgs
+                    simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
-                simg = self.singularity_imgs[simg_url]
-            env = conda.Env(env_file, self, singularity_img=simg)
+                simg = self.container_imgs[simg_url]
+            env = conda.Env(env_file, self, container_img=simg)
             self.conda_envs[(env_file, simg_url)] = env
 
         if not init_only:
@@ -230,16 +259,16 @@ class DAG:
                 if not dryrun or not quiet:
                     env.create(dryrun)
 
-    def pull_singularity_imgs(self, dryrun=False, forceall=False, quiet=False):
+    def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):
         # First deduplicate based on job.conda_env_file
         jobs = self.jobs if forceall else self.needrun_jobs
-        img_set = {job.singularity_img_url for job in jobs if job.singularity_img_url}
+        img_set = {job.container_img_url for job in jobs if job.container_img_url}
 
         for img_url in img_set:
             img = singularity.Image(img_url, self)
             if not dryrun or not quiet:
                 img.pull(dryrun)
-            self.singularity_imgs[img_url] = img
+            self.container_imgs[img_url] = img
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -539,7 +568,9 @@ class DAG:
                 yield from filterfalse(partial(needed, job_), tempfiles & files)
 
             # temp output
-            if not job.dynamic_output:
+            if not job.dynamic_output and (
+                job not in self.targetjobs or job.rule.name == self.workflow.first_rule
+            ):
                 tempfiles = (
                     f
                     for f in job.expanded_output
@@ -713,14 +744,22 @@ class DAG:
             visited = set()
         visited.add(job)
         dependencies = self.dependencies[job]
-        potential_dependencies = self.collect_potential_dependencies(job).items()
+        potential_dependencies = self.collect_potential_dependencies(job)
 
         skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 
-        missing_input = job.missing_input
+        missing_input = set()
         producer = dict()
         exceptions = dict()
-        for file, jobs in potential_dependencies:
+        for file, jobs in potential_dependencies.items():
+            if not jobs:
+                # no producing job found
+                if not file.exists:
+                    # file not found, hence missing input
+                    missing_input.add(file)
+                # file found, no problem
+                continue
+
             try:
                 selected_job = self.update(
                     jobs,
@@ -735,7 +774,7 @@ class DAG:
                 CyclicGraphException,
                 PeriodicWildcardError,
             ) as ex:
-                if file in missing_input:
+                if not file.exists:
                     self.delete_job(job, recursive=False)  # delete job from tree
                     raise ex
 
@@ -743,7 +782,19 @@ class DAG:
             dependencies[job_].add(file)
             self.depending[job_][job].add(file)
 
-        missing_input -= producer.keys()
+        if self.is_batch_rule(job.rule) and self.batch.is_final:
+            # For the final batch, ensure that all input files from
+            # previous batches are present on disk.
+            if any(
+                f for f in job.input if f not in potential_dependencies and not f.exists
+            ):
+                raise WorkflowError(
+                    "Unable to execute batch {} because not all previous batches "
+                    "have been completed before or files have been deleted.".format(
+                        self.batch
+                    )
+                )
+
         if missing_input:
             self.delete_job(job, recursive=False)  # delete job from tree
             raise MissingInputException(job.rule, missing_input)
@@ -766,6 +817,7 @@ class DAG:
             updated_subworkflow_input = self.updated_subworkflow_files.intersection(
                 job.input
             )
+
             if (
                 job not in self.omitforce
                 and job.rule in self.forcerules
@@ -858,11 +910,8 @@ class DAG:
         return (job for job in self.jobs if self.in_omitfrom(job))
 
     def downstream_of_omitfrom(self):
-        """Returns the downstream of --omit-from rules or files."""
-        return filter(
-            lambda job: not self.in_omitfrom(job),
-            self.bfs(self.depending, *self.omitfrom_jobs()),
-        )
+        """Returns the downstream of --omit-from rules or files and themselves."""
+        return self.bfs(self.depending, *self.omitfrom_jobs())
 
     def delete_omitfrom_jobs(self):
         """Removes jobs downstream of jobs specified by --omit-from."""
@@ -940,7 +989,9 @@ class DAG:
                 if job.group is None:
                     self._ready_jobs.add(job)
                 else:
-                    candidate_groups.add(self._group[job])
+                    group = self._group[job]
+                    group.finalize()
+                    candidate_groups.add(group)
 
         self._ready_jobs.update(
             group
@@ -1140,7 +1191,7 @@ class DAG:
             # We might have new jobs, so we need to ensure that all conda envs
             # and singularity images are set up.
             if self.workflow.use_singularity:
-                self.pull_singularity_imgs()
+                self.pull_container_imgs()
             if self.workflow.use_conda:
                 self.create_conda_envs()
 
@@ -1278,14 +1329,32 @@ class DAG:
         self.rules.add(newrule)
         self.update_output_index()
 
+    def is_batch_rule(self, rule):
+        """Return True if the underlying rule is to be used for batching the DAG."""
+        return self.batch is not None and rule.name == self.batch.rulename
+
     def collect_potential_dependencies(self, job):
         """Collect all potential dependencies of a job. These might contain
-        ambiguities."""
+        ambiguities. The keys of the returned dict represent the files to be considered."""
         dependencies = defaultdict(list)
         # use a set to circumvent multiple jobs for the same file
         # if user specified it twice
         file2jobs = self.file2jobs
-        for file in job.unique_input:
+
+        input_files = list(job.unique_input)
+
+        if self.is_batch_rule(job.rule):
+            # only consider the defined partition of the input files
+            input_batch = self.batch.get_batch(input_files)
+            if len(input_batch) != len(input_files):
+                logger.info(
+                    "Considering only batch {} for DAG computation.\n"
+                    "All jobs beyond the batching rule are omitted until the final batch.\n"
+                    "Don't forget to run the other batches too.".format(self.batch)
+                )
+                input_files = input_batch
+
+        for file in input_files:
             # omit the file if it comes from a subworkflow
             if file in job.subworkflow_input:
                 continue
@@ -1296,7 +1365,9 @@ class DAG:
                     jobs = file2jobs(file)
                 dependencies[file].extend(jobs)
             except MissingRuleException as ex:
-                pass
+                # no dependency found
+                dependencies[file] = []
+
         return dependencies
 
     def bfs(self, direction, *jobs, stop=lambda job: False):
@@ -1530,7 +1601,9 @@ class DAG:
             import colorsys
 
             hex_r, hex_g, hex_b = (round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v))
-            return f"#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}"
+            return "#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}".format(
+                hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
+            )
 
         huefactor = 2 / (3 * len(self.rules))
         rulecolor = {
@@ -1572,12 +1645,16 @@ class DAG:
                 else ""
             )
             html_node = [
-                f'{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="3" cellborder="0">',
-                f"<tr><td>",
-                f'<b><font point-size="18">{node.name}</font></b>',
-                f"</td></tr>",
-                f"<hr/>",
-                f'<tr><td align="left"> {input_header} </td></tr>',
+                '{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="3" cellborder="0">'.format(
+                    node_id=node_id, color=color
+                ),
+                "<tr><td>",
+                '<b><font point-size="18">{node.name}</font></b>'.format(node=node),
+                "</td></tr>",
+                "<hr/>",
+                '<tr><td align="left"> {input_header} </td></tr>'.format(
+                    input_header=input_header
+                ),
             ]
 
             for filename in sorted(input_files):
@@ -1588,21 +1665,27 @@ class DAG:
                 html_node.extend(
                     [
                         "<tr>",
-                        f'<td align="left"><font face="monospace">{in_file}</font></td>'
+                        '<td align="left"><font face="monospace">{in_file}</font></td>'.format(
+                            in_file=in_file
+                        ),
                         "</tr>",
                     ]
                 )
 
             html_node.append("<hr/>")
-            html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>')
+            html_node.append(
+                '<tr><td align="right"> {output_header} </td> </tr>'.format(
+                    output_header=output_header
+                )
+            )
 
             for filename in sorted(output_files):
                 out_file = html.escape(filename)
                 html_node.extend(
                     [
                         "<tr>",
-                        f'<td align="left"><font face="monospace">{out_file}</font></td>'
-                        "</tr>",
+                        '<td align="left"><font face="monospace">{out_file}</font></td>'
+                        "</tr>".format(out_file=out_file),
                     ]
                 )
 

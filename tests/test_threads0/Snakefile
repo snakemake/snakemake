@@ -1,0 +1,6 @@
+rule a:
+    output:
+        "test.out"
+    threads: 0
+    shell:
+        "echo {threads} > {output}"
