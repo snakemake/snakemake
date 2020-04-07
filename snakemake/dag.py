@@ -251,7 +251,12 @@ class DAG:
                     simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
                 simg = self.container_imgs[simg_url]
-            env = conda.Env(env_file, self, container_img=simg, cleanup=self.workflow.conda_cleanup_pkgs)
+            env = conda.Env(
+                env_file,
+                self,
+                container_img=simg,
+                cleanup=self.workflow.conda_cleanup_pkgs,
+            )
             self.conda_envs[(env_file, simg_url)] = env
 
         if not init_only:

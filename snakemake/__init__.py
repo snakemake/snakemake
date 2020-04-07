@@ -1764,7 +1764,7 @@ def get_argument_parser(profile=None):
     group_conda.add_argument(
         "--conda-cleanup-pkgs",
         action="store_true",
-        help="Cleanup conda packages after creating environments."
+        help="Cleanup conda packages after creating environments.",
     )
     group_conda.add_argument(
         "--conda-create-envs-only",
