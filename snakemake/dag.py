@@ -340,6 +340,10 @@ class DAG:
         return filter(lambda job: job.is_local, self.needrun_jobs)
 
     @property
+    def zero_thread_job_count(self):
+        return sum(1 for job in self.needrun_jobs if job.threads == 0)
+
+    @property
     def finished_jobs(self):
         """ Iterate over all jobs that have been finished."""
         for job in filter(self.finished, self.bfs(self.dependencies, *self.targetjobs)):
