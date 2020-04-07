@@ -817,6 +817,7 @@ class DAG:
             updated_subworkflow_input = self.updated_subworkflow_files.intersection(
                 job.input
             )
+
             if (
                 job not in self.omitforce
                 and job.rule in self.forcerules
