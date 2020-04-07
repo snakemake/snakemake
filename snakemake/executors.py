@@ -360,14 +360,21 @@ class CPUExecutor(RealExecutor):
 
         # Zero thread jobs do not need a thread, but they occupy additional workers.
         # Hence we need to reserve additional workers for them.
-        self.pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=workers + dag.zero_thread_job_count + 1
-        )
+        self.workers = workers + 5
+        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.workers)
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
 
         if job.is_group():
+            # if we still don't have enough workers for this group, create a new pool here
+            missing_workers = max(len(job) - self.workers, 0)
+            if missing_workers:
+                self.workers += missing_workers
+                self.pool = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=self.workers
+                )
+
             # the future waits for the entire group job
             future = self.pool.submit(self.run_group_job, job)
         else:
