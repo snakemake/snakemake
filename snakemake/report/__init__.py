@@ -841,29 +841,6 @@ def auto_report(dag, path, stylesheet=None):
         )
 
     template = env.get_template("report.html")
-<<<<<<< HEAD
-    with open(path, "w", encoding="utf-8") as out:
-        out.write(
-            template.render(
-                results=results,
-                results_size=results_size,
-                configfiles=configfiles,
-                text=text,
-                rulegraph_nodes=rulegraph["nodes"],
-                rulegraph_links=rulegraph["links"],
-                rulegraph_width=xmax + 20,
-                rulegraph_height=ymax + 20,
-                runtimes=runtimes,
-                timeline=timeline,
-                threads=threads,
-                rules=[rec for recs in rules.values() for rec in recs],
-                version=__version__,
-                now=now,
-                pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
-                custom_stylesheet=custom_stylesheet,
-            )
-        )
-    logger.info("Report created.")
 
 
 def build_interval_tree(records):
@@ -877,7 +854,7 @@ def build_interval_tree(records):
         if rec.endtime > end_time:
             end_time = rec.endtime
         job_started = round(rec.starttime-start_time, 0)
-        job_ended = round(rec.endtime-start_time, 0)
+        job_ended = round(rec.endtime-start_time, 0) + 1 #add pseudocount
         job_data = {"threads": rec.job.threads, "rule": rec.rule, "job": rec.job.jobid}
         itree.addi(job_started, job_ended, job_data)
         if not rec.job.jobid in total_jobs:
@@ -885,7 +862,6 @@ def build_interval_tree(records):
     end = int(end_time - start_time)
     print(itree)
     return end, itree, total_jobs
-=======
 
     logger.info("Downloading resources and rendering HTML.")
 
@@ -944,4 +920,3 @@ def build_interval_tree(records):
 
 def escapejs(val):
     return json.dumps(str(val))
->>>>>>> master
