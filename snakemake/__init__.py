@@ -5,18 +5,14 @@ __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import os
-import subprocess
 import glob
-from argparse import ArgumentError
 import logging as _logging
 import re
 import sys
-import inspect
 import threading
 import webbrowser
 from functools import partial
 import importlib
-import shutil
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception, WorkflowError
@@ -26,6 +22,7 @@ from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import Mode, __version__
 from snakemake.resources import parse_resources, DefaultResources
+from snakemake.provenance_tracking.provenance import provenance_manager
 
 
 SNAKEFILE_CHOICES = [
@@ -987,6 +984,10 @@ def get_argument_parser(profile=None):
         metavar="FILE",
         help="Compile workflow to CWL and store it in given FILE.",
     )
+    group_utils.add_argument("--provenance",
+                             action="store_true",
+                             help="Track workflow provenance based on the PROV W3C standard "
+                                  "and store provenance.trig and provenance.json files.")
     group_utils.add_argument(
         "--list",
         "-l",
@@ -1697,6 +1698,9 @@ def main(argv=None):
 
         yappi.start()
 
+    if args.provenance:
+        provenance_manager.terminate_wf_exec()
+
     if args.immediate_submit and not args.notemp:
         print(
             "Error: --immediate-submit has to be combined with --notemp, "
@@ -1719,6 +1723,11 @@ def main(argv=None):
             file=sys.stderr,
         )
         sys.exit(1)
+
+    if args.provenance:
+        provenance_manager.set_activate(True)
+    else:
+        provenance_manager.set_activate(False)
 
     if args.kubernetes and (
         not args.default_remote_provider or not args.default_remote_prefix
