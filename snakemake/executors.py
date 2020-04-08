@@ -142,11 +142,15 @@ class DryrunExecutor(AbstractExecutor):
         if self.workflow.is_cached_rule(job.rule):
             if self.workflow.output_file_cache.exists(job):
                 logger.info(
-                    "Output file {} will be obtained from cache.".format(job.output[0])
+                    "Output file {} will be obtained from global between-workflow cache.".format(
+                        job.output[0]
+                    )
                 )
             else:
                 logger.info(
-                    "Output file {} will be written to cache.".format(job.output[0])
+                    "Output file {} will be written to global between-workflow cache.".format(
+                        job.output[0]
+                    )
                 )
 
 
@@ -371,12 +375,24 @@ class CPUExecutor(RealExecutor):
         self.exec_job += self.get_additional_args()
         self.use_threads = use_threads
         self.cores = cores
-        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers + 1)
+
+        # Zero thread jobs do not need a thread, but they occupy additional workers.
+        # Hence we need to reserve additional workers for them.
+        self.workers = workers + 5
+        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.workers)
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
 
         if job.is_group():
+            # if we still don't have enough workers for this group, create a new pool here
+            missing_workers = max(len(job) - self.workers, 0)
+            if missing_workers:
+                self.workers += missing_workers
+                self.pool = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=self.workers
+                )
+
             # the future waits for the entire group job
             future = self.pool.submit(self.run_group_job, job)
         else:
@@ -822,9 +838,7 @@ class GenericClusterExecutor(ClusterExecutor):
         elif assume_shared_fs:
             # TODO wrap with watch and touch {jobrunning}
             # check modification date of {jobrunning} in the wait_for_job method
-            self.exec_job += (
-                ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
-            )
+            self.exec_job += " && touch {jobfinished} || (touch {jobfailed}; exit 1)"
         else:
             raise WorkflowError(
                 "If no shared filesystem is used, you have to "
@@ -1544,6 +1558,7 @@ class KubernetesExecutor(ClusterExecutor):
 
     def _kubernetes_retry(self, func):
         import kubernetes
+        import urllib3
 
         with self.lock:
             try:
@@ -1581,7 +1596,7 @@ class KubernetesExecutor(ClusterExecutor):
                     return func()
                 except:
                     # Still can't reach the server after 5 minutes
-                    raise WorkflowErroe(
+                    raise WorkflowError(
                         e,
                         "Error 111 connection timeout, please check"
                         " that the k8 cluster master is reachable!",
@@ -1672,7 +1687,6 @@ class TibannaExecutor(ClusterExecutor):
         latency_wait=3,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         max_status_checks_per_second=1,
         keepincomplete=False,
     ):

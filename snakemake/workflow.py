@@ -102,6 +102,7 @@ class Workflow:
         nodes=1,
         cores=1,
         resources=None,
+        conda_cleanup_pkgs=False,
     ):
         """
         Create the controller.
@@ -160,11 +161,14 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
+        self.conda_cleanup_pkgs = conda_cleanup_pkgs
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
 
+        self.enable_cache = False
         if cache is not None:
+            self.enable_cache = True
             self.cache_rules = set(cache)
             if self.default_remote_provider is not None:
                 self.output_file_cache = RemoteOutputFileCache(
@@ -199,8 +203,13 @@ class Workflow:
         from snakemake.linting.rules import RuleLinter
         from snakemake.linting.snakefiles import SnakefileLinter
 
-        json_snakefile_lints = SnakefileLinter(self, self.included).lint(json=json)
-        json_rule_lints = RuleLinter(self, self.rules).lint(json=json)
+        json_snakefile_lints, snakefile_linted = SnakefileLinter(
+            self, self.included
+        ).lint(json=json)
+        json_rule_lints, rules_linted = RuleLinter(self, self.rules).lint(json=json)
+
+        linted = snakefile_linted or rules_linted
+
         if json:
             import json
 
@@ -210,6 +219,10 @@ class Workflow:
                     indent=2,
                 )
             )
+        else:
+            if not linted:
+                logger.info("Congratulations, your workflow is in a good condition!")
+        return linted
 
     def is_cached_rule(self, rule: Rule):
         return rule.name in self.cache_rules
@@ -459,7 +472,7 @@ class Workflow:
         notemp=False,
         nodeps=False,
         cleanup_metadata=None,
-        cleanup_conda=False,
+        conda_cleanup_envs=False,
         cleanup_shadow=False,
         cleanup_scripts=True,
         subsnakemake=None,
@@ -473,10 +486,11 @@ class Workflow:
         greediness=1.0,
         no_hooks=False,
         force_use_threads=False,
-        create_envs_only=False,
+        conda_create_envs_only=False,
         assume_shared_fs=True,
         cluster_status=None,
         report=None,
+        report_stylesheet=None,
         export_cwl=False,
         batch=None,
         keepincomplete=False,
@@ -552,7 +566,7 @@ class Workflow:
             targetrules=targetrules,
             # when cleaning up conda, we should enforce all possible jobs
             # since their envs shall not be deleted
-            forceall=forceall or cleanup_conda,
+            forceall=forceall or conda_cleanup_envs,
             forcefiles=forcefiles,
             forcerules=forcerules,
             priorityfiles=priorityfiles,
@@ -716,7 +730,7 @@ class Workflow:
         elif report:
             from snakemake.report import auto_report
 
-            auto_report(dag, report)
+            auto_report(dag, report, stylesheet=report_stylesheet)
             return True
         elif printd3dag:
             dag.d3dag()
@@ -779,10 +793,10 @@ class Workflow:
         if self.use_conda:
             if assume_shared_fs:
                 dag.create_conda_envs(
-                    dryrun=dryrun or list_conda_envs or cleanup_conda,
+                    dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
                     quiet=list_conda_envs,
                 )
-            if create_envs_only:
+            if conda_create_envs_only:
                 return True
 
         if list_conda_envs:
@@ -797,8 +811,8 @@ class Workflow:
                     )
             return True
 
-        if cleanup_conda:
-            self.persistence.cleanup_conda()
+        if conda_cleanup_envs:
+            self.persistence.conda_cleanup_envs()
             return True
 
         scheduler = JobScheduler(
@@ -1078,7 +1092,9 @@ class Workflow:
                 if name in self.overwrite_threads:
                     rule.resources["_cores"] = self.overwrite_threads[name]
                 else:
-                    rule.resources["_cores"] = int(ruleinfo.threads)
+                    if isinstance(ruleinfo.threads, float):
+                        ruleinfo.threads = int(ruleinfo.threads)
+                    rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
                     raise RuleException(
@@ -1205,6 +1221,21 @@ class Workflow:
             rule.restart_times = self.restart_times
             rule.basedir = self.current_basedir
 
+            if ruleinfo.cache is True:
+                if not self.enable_cache:
+                    logger.warning(
+                        "Workflow defines that rule {} is eligible for caching between workflows "
+                        "(use the --cache argument to enable this).".format(rule.name)
+                    )
+                else:
+                    self.cache_rules.add(rule.name)
+            elif not (ruleinfo.cache is False):
+                raise WorkflowError(
+                    "Invalid argument for 'cache:' directive. Only true allowed. "
+                    "To deactivate caching, remove directive.",
+                    rule=rule,
+                )
+
             ruleinfo.func.__name__ = "__{}".format(rule.name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
             setattr(rules, rule.name, RuleProxy(rule))
@@ -1248,6 +1279,13 @@ class Workflow:
                 wildcard_constraints,
                 kwwildcard_constraints,
             )
+            return ruleinfo
+
+        return decorate
+
+    def cache_rule(self, cache):
+        def decorate(ruleinfo):
+            ruleinfo.cache = cache
             return ruleinfo
 
         return decorate
@@ -1415,6 +1453,7 @@ class RuleInfo:
         self.notebook = None
         self.wrapper = None
         self.cwl = None
+        self.cache = False
 
 
 class Subworkflow:

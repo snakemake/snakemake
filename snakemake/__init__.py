@@ -42,6 +42,7 @@ def snakemake(
     batch=None,
     cache=None,
     report=None,
+    report_stylesheet=None,
     lint=None,
     listrules=False,
     list_target_rules=False,
@@ -88,7 +89,7 @@ def snakemake(
     lock=True,
     unlock=False,
     cleanup_metadata=None,
-    cleanup_conda=False,
+    conda_cleanup_envs=False,
     cleanup_shadow=False,
     cleanup_scripts=True,
     force_incomplete=False,
@@ -131,10 +132,11 @@ def snakemake(
     use_env_modules=False,
     singularity_args="",
     conda_prefix=None,
+    conda_cleanup_pkgs=False,
     list_conda_envs=False,
     singularity_prefix=None,
     shadow_prefix=None,
-    create_envs_only=False,
+    conda_create_envs_only=False,
     mode=Mode.default,
     wrapper_prefix=None,
     kubernetes=None,
@@ -206,7 +208,7 @@ def snakemake(
         lock (bool):                lock the working directory when executing the workflow (default True)
         unlock (bool):              just unlock the working directory (default False)
         cleanup_metadata (list):    just cleanup metadata of given list of output files (default None)
-        cleanup_conda (bool):       just cleanup unused conda environments (default False)
+        conda_cleanup_envs (bool):  just cleanup unused conda environments (default False)
         cleanup_shadow (bool):      just cleanup old shadow directories (default False)
         cleanup_scripts (bool):     delete wrapper scripts used for execution (default True)
         force_incomplete (bool):    force the re-creation of incomplete files (default False)
@@ -246,9 +248,10 @@ def snakemake(
         use_env_modules (bool):     load environment modules if defined in rules
         singularity_args (str):     additional arguments to pass to singularity
         conda_prefix (str):         the directory in which conda environments will be created (default None)
+        conda_cleanup_pkgs (bool):       whether to clean up conda tarballs after env creation (default False)
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
         shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
-        create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
+        conda_create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
         list_conda_envs (bool):     list conda environments and their location on disk.
         mode (snakemake.common.Mode): execution mode
         wrapper_prefix (str):       prefix for wrapper script URLs (default None)
@@ -486,10 +489,11 @@ def snakemake(
             config_args=config_args,
             debug=debug,
             verbose=verbose,
-            use_conda=use_conda or list_conda_envs or cleanup_conda,
+            use_conda=use_conda or list_conda_envs or conda_cleanup_envs,
             use_singularity=use_singularity,
             use_env_modules=use_env_modules,
             conda_prefix=conda_prefix,
+            conda_cleanup_pkgs=conda_cleanup_pkgs,
             singularity_prefix=singularity_prefix,
             shadow_prefix=shadow_prefix,
             singularity_args=singularity_args,
@@ -516,7 +520,7 @@ def snakemake(
 
         if not print_compilation:
             if lint:
-                workflow.lint(json=lint == "json")
+                success = not workflow.lint(json=lint == "json")
             elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
@@ -552,7 +556,7 @@ def snakemake(
                     lock=lock,
                     unlock=unlock,
                     cleanup_metadata=cleanup_metadata,
-                    cleanup_conda=cleanup_conda,
+                    conda_cleanup_envs=conda_cleanup_envs,
                     cleanup_shadow=cleanup_shadow,
                     cleanup_scripts=cleanup_scripts,
                     force_incomplete=force_incomplete,
@@ -575,13 +579,14 @@ def snakemake(
                     use_singularity=use_singularity,
                     use_env_modules=use_env_modules,
                     conda_prefix=conda_prefix,
+                    conda_cleanup_pkgs=conda_cleanup_pkgs,
                     singularity_prefix=singularity_prefix,
                     shadow_prefix=shadow_prefix,
                     singularity_args=singularity_args,
                     list_conda_envs=list_conda_envs,
                     kubernetes=kubernetes,
                     container_image=container_image,
-                    create_envs_only=create_envs_only,
+                    conda_create_envs_only=conda_create_envs_only,
                     default_remote_provider=default_remote_provider,
                     default_remote_prefix=default_remote_prefix,
                     tibanna=tibanna,
@@ -662,7 +667,7 @@ def snakemake(
                     nodeps=nodeps,
                     keep_target_files=keep_target_files,
                     cleanup_metadata=cleanup_metadata,
-                    cleanup_conda=cleanup_conda,
+                    conda_cleanup_envs=conda_cleanup_envs,
                     cleanup_shadow=cleanup_shadow,
                     cleanup_scripts=cleanup_scripts,
                     subsnakemake=subsnakemake,
@@ -671,10 +676,11 @@ def snakemake(
                     greediness=greediness,
                     no_hooks=no_hooks,
                     force_use_threads=use_threads,
-                    create_envs_only=create_envs_only,
+                    conda_create_envs_only=conda_create_envs_only,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
                     report=report,
+                    report_stylesheet=report_stylesheet,
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
@@ -884,7 +890,7 @@ def get_argument_parser(profile=None):
 
     group_exec.add_argument(
         "--cache",
-        nargs="+",
+        nargs="*",
         metavar="RULE",
         help="Store output files of given rules in a central cache given by the environment "
         "variable $SNAKEMAKE_OUTPUT_CACHE. Likewise, retrieve output files of the given rules "
@@ -1124,9 +1130,18 @@ def get_argument_parser(profile=None):
         "--report",
         nargs="?",
         const="report.html",
-        metavar="HTMLFILE",
+        metavar="FILE",
         help="Create an HTML report with results and statistics. "
-        "If no filename is given, report.html is the default.",
+        "This can be either a .html file or a .zip file. "
+        "In the former case, all results are embedded into the .html (this only works for small data). "
+        "In the latter case, results are stored along with a file report.html in the zip archive. "
+        "If no filename is given, an embedded report.html is the default.",
+    )
+    group_utils.add_argument(
+        "--report-stylesheet",
+        metavar="CSSFILE",
+        help="Custom stylesheet to use for report. In particular, this can be used for "
+        "branding the report with e.g. a custom logo, see docs.",
     )
     group_utils.add_argument(
         "--lint",
@@ -1815,11 +1830,6 @@ def get_argument_parser(profile=None):
         help="List all conda environments and their location on " "disk.",
     )
     group_conda.add_argument(
-        "--cleanup-conda",
-        action="store_true",
-        help="Cleanup unused conda environments.",
-    )
-    group_conda.add_argument(
         "--conda-prefix",
         metavar="DIR",
         help="Specify a directory in which the 'conda' and 'conda-archive' "
@@ -1831,7 +1841,17 @@ def get_argument_parser(profile=None):
         "invocation directory, or as an absolute path.",
     )
     group_conda.add_argument(
-        "--create-envs-only",
+        "--conda-cleanup-envs",
+        action="store_true",
+        help="Cleanup unused conda environments.",
+    )
+    group_conda.add_argument(
+        "--conda-cleanup-pkgs",
+        action="store_true",
+        help="Cleanup conda packages after creating environments.",
+    )
+    group_conda.add_argument(
+        "--conda-create-envs-only",
         action="store_true",
         help="If specified, only creates the job-specific "
         "conda environments then exits. The `--use-conda` "
@@ -1903,6 +1923,8 @@ def main(argv=None):
             args.cluster_sync = adjust_path(args.cluster_sync)
         if args.cluster_status:
             args.cluster_status = adjust_path(args.cluster_status)
+        if args.report_stylesheet:
+            args.report_stylesheet = adjust_path(args.report_stylesheet)
 
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
@@ -1963,6 +1985,7 @@ def main(argv=None):
         or args.rulegraph
         or args.summary
         or args.lint
+        or args.report
     )
 
     if args.cores is not None:
@@ -2016,7 +2039,7 @@ def main(argv=None):
         )
         sys.exit(1)
 
-    if (args.conda_prefix or args.create_envs_only) and not args.use_conda:
+    if (args.conda_prefix or args.conda_create_envs_only) and not args.use_conda:
         print(
             "Error: --use-conda must be set if --conda-prefix or "
             "--create-envs-only is set.",
@@ -2178,6 +2201,7 @@ def main(argv=None):
             batch=batch,
             cache=args.cache,
             report=args.report,
+            report_stylesheet=args.report_stylesheet,
             lint=args.lint,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
@@ -2235,7 +2259,7 @@ def main(argv=None):
             lock=not args.nolock,
             unlock=args.unlock,
             cleanup_metadata=args.cleanup_metadata,
-            cleanup_conda=args.cleanup_conda,
+            conda_cleanup_envs=args.conda_cleanup_envs,
             cleanup_shadow=args.cleanup_shadow,
             cleanup_scripts=not args.skip_script_cleanup,
             force_incomplete=args.rerun_incomplete,
@@ -2270,13 +2294,14 @@ def main(argv=None):
             force_use_threads=args.force_use_threads,
             use_conda=args.use_conda,
             conda_prefix=args.conda_prefix,
+            conda_cleanup_pkgs=args.conda_cleanup_pkgs,
             list_conda_envs=args.list_conda_envs,
             use_singularity=args.use_singularity,
             use_env_modules=args.use_envmodules,
             singularity_prefix=args.singularity_prefix,
             shadow_prefix=args.shadow_prefix,
             singularity_args=args.singularity_args,
-            create_envs_only=args.create_envs_only,
+            conda_create_envs_only=args.conda_create_envs_only,
             mode=args.mode,
             wrapper_prefix=args.wrapper_prefix,
             default_remote_provider=args.default_remote_provider,

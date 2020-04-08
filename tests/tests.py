@@ -118,7 +118,16 @@ def test_ancient():
 
 
 def test_report():
-    run(dpath("test_report"), report="report.html", check_md5=False)
+    run(
+        dpath("test_report"),
+        report="report.html",
+        report_stylesheet="custom-stylesheet.css",
+        check_md5=False,
+    )
+
+
+def test_report_zip():
+    run(dpath("test_report_zip"), report="report.zip", check_md5=False)
 
 
 def test_dynamic():
@@ -970,7 +979,7 @@ def test_github_issue105():
 def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
-    run(test_path, cache=["a", "b", "c"])
+    run(test_path, cache=["a", "b"])
     run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
 
 
