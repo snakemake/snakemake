@@ -835,9 +835,7 @@ class GenericClusterExecutor(ClusterExecutor):
         elif assume_shared_fs:
             # TODO wrap with watch and touch {jobrunning}
             # check modification date of {jobrunning} in the wait_for_job method
-            self.exec_job += (
-                ' && touch {jobfinished} || (touch {jobfailed}; exit 1)'
-            )
+            self.exec_job += " && touch {jobfinished} || (touch {jobfailed}; exit 1)"
         else:
             raise WorkflowError(
                 "If no shared filesystem is used, you have to "
