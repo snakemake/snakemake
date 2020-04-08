@@ -221,6 +221,41 @@ like to get a reference for requirements, it's helpful to look at the
 `Dockerfile <https://github.com/snakemake/snakemake/blob/master/Dockerfile>`_
 for Snakemake.
 
+Requesting GPU
+::::::::::::::
+
+The Google Life Sciences API currently has support for 
+`nvidia <https://cloud.google.com/compute/docs/gpus#restrictions>`_
+GPUs, meaning that you can ask for `nvidia_gpu` explicitly by adding `nvidia_gpu`
+to your Snakefile resources for a step:
+
+
+.. code-block:: yaml
+
+rule a:
+    output:
+        "test.txt"
+    resources:
+        nvidia_gpu=1
+    shell:
+        "somecommand ..."
+
+
+
+or you can set a general gpu count requirement, and an nvidia GPU will be used.
+
+
+.. code-block:: yaml
+
+rule a:
+    output:
+        "test.txt"
+    resources:
+        gpu=1
+    shell:
+        "somecommand ..."
+
+
 
 Executing a Snakemake workflow via Tibanna on Amazon Web Services
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

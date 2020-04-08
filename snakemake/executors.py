@@ -2432,27 +2432,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         self.shutdown()
 
-    def _generate_job_resources(self, job):
-        """given a particular job, generate the resources that it needs,
-           including default regions and the virtual machine configuration
+    def get_available_machine_types(self):
+        """Using the regions available at self.regions, use the GCP API
+           to retrieve a lookup dictionary of all available machine types.
         """
-        # Right now, do a best effort mapping of resources to instance types
-        cores = job.resources.get("_cores", 1)
-        mem_mb = job.resources.get("mem_mb", 15360)
-        disk_mb = job.resources.get("disk_mb", 128000)
-
-        # Convert mb to gb, add buffer of 50
-        disk_gb = math.ceil(disk_mb / 1024) + 10
-
-        # Update default resources using decided memory and disk
-        self.workflow.default_resources = self.default_resources
-        self.workflow.default_resources.args = [
-            "mem_mb=%s" % mem_mb,
-            "disk_mb=%s" % disk_mb,
-        ]
-        self.workflow.default_resources.parsed["mem_mb"] = mem_mb
-        self.workflow.default_resources.parsed["disk_mb"] = disk_mb
-
         # Regular expression to determine if zone in region
         regexp = "^(%s)" % "|".join(self.regions)
 
@@ -2487,6 +2470,56 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         for machine_type in to_remove:
             del machine_types[machine_type]
+        return machine_types
+
+    def _add_gpu(self, gpu_count):
+        """Add a number of NVIDIA gpus to the current executor. This works
+           by way of adding nvidia_gpu to the job default resources, and also
+           changing the default machine type prefix to be n1, which is
+           the currently only supported instance type for using GPUs for LHS.
+        """
+        if not gpu_count or gpu_count == 0:
+            return
+
+        logger.debug(
+            "found resource request for {} GPUs. This will limit to n1 "
+            "instance types.".format(gpu_count)
+        )
+        self.workflow.default_resources.parsed["nvidia_gpu"] = gpu_count
+        self.workflow.default_resources.args.append("nvidia_gpu=%s" % gpu_count)
+        self._machine_type_prefix = self._machine_type_prefix or ""
+        if not self._machine_type_prefix.startswith("n1"):
+            self._machine_type_prefix = "n1"
+
+    def _generate_job_resources(self, job):
+        """given a particular job, generate the resources that it needs,
+           including default regions and the virtual machine configuration
+        """
+        # Right now, do a best effort mapping of resources to instance types
+        cores = job.resources.get("_cores", 1)
+        mem_mb = job.resources.get("mem_mb", 15360)
+        disk_mb = job.resources.get("disk_mb", 128000)
+
+        # Convert mb to gb, add buffer of 50
+        disk_gb = math.ceil(disk_mb / 1024) + 10
+
+        # Look for if the user wants an nvidia gpu
+        gpu_count = job.resources.get("nvidia_gpu") or job.resources.get("gpu")
+
+        # Update default resources using decided memory and disk
+        self.workflow.default_resources = self.default_resources
+        self.workflow.default_resources.args = [
+            "mem_mb=%s" % mem_mb,
+            "disk_mb=%s" % disk_mb,
+        ]
+        self.workflow.default_resources.parsed["mem_mb"] = mem_mb
+        self.workflow.default_resources.parsed["disk_mb"] = disk_mb
+
+        # If gpu wanted, limit to N1 general family, and update arguments
+        if gpu_count:
+            self._add_gpu(gpu_count)
+
+        machine_types = self.get_available_machine_types()
 
         # Alert the user of machine_types available before filtering
         # https://cloud.google.com/compute/docs/machine-types
@@ -2544,7 +2577,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Now find (quasi) minimal to satisfy constraints
         machine_types = keepers
 
-        # Select the first as the smallest
+        # Select the first as the "smallest"
         smallest = list(machine_types.keys())[0]
         min_cores = machine_types[smallest]["guestCpus"]
         min_mem = machine_types[smallest]["memoryMb"]
@@ -2568,8 +2601,52 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "bootDiskSizeGb": disk_gb,
         }
 
+        # If the user wants gpus, add accelerators here
+        if gpu_count:
+            accelerator = self._get_accelerator(gpu_count, zone=selected["zone"])
+            virtual_machine["accelerators"] = [
+                {"type": accelerator["name"], "count": gpu_count}
+            ]
+
         resources = {"regions": self.regions, "virtualMachine": virtual_machine}
         return resources
+
+    def _get_accelerator(self, gpu_count, zone):
+        """Get an appropriate accelerator for a GPU given a zone selection.
+           Currently Google offers NVIDIA Tesla T4 (likely the best),
+           NVIDIA P100, and the same T4 for a graphical workstation. Since
+           this isn't a graphical workstation use case, we choose the 
+           accelerator that has >= to the maximumCardsPerInstace
+        """
+        if not gpu_count or gpu_count == 0:
+            return
+
+        accelerators = self._retry_request(
+            self._compute_cli.acceleratorTypes().list(project=self.project, zone=zone)
+        )
+
+        # Filter down to those with greater than or equal to needed gpus
+        keepers = {}
+        for accelerator in accelerators.get("items", []):
+
+            # We don't need a virtual workstation
+            if accelerator["name"].endswith("vws"):
+                continue
+
+            if accelerator["maximumCardsPerInstance"] >= gpu_count:
+                keepers[accelerator["name"]] = accelerator
+
+        # Find smallest (in future the user might have preference for the type)
+        smallest = list(keepers.keys())[0]
+        max_gpu = keepers[smallest]["maximumCardsPerInstance"]
+
+        # This should usually return P-100, which would be preference (cheapest)
+        for name, accelerator in keepers.items():
+            if accelerator["maximumCardsPerInstance"] < max_gpu:
+                smallest = name
+                max_gpu = accelerator["maximumCardsPerInstance"]
+
+        return keepers[smallest]
 
     def _set_snakefile(self):
         """The snakefile must be a relative path, which cannot be reliably
