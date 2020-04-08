@@ -153,6 +153,7 @@ def snakemake(
     show_failed_logs=False,
     keep_incomplete=False,
     messaging=None,
+    az_configfile=None,
 ):
     """Run snakemake on a given snakefile.
 
@@ -261,8 +262,9 @@ def snakemake(
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
-        keep_incomplete (bool):      keep incomplete output files of failed jobs
+        keep_incomplete (bool):     keep incomplete output files of failed jobs
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
+        az_configfile (str):        Azure config file
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -437,6 +439,11 @@ def snakemake(
 
     logger.setup_logfile()
 
+    if az_configfile:
+        az_config = load_configfile(az_configfile)
+    else:
+        az_config = None
+
     try:
         # handle default remote provider
         _default_remote_provider = None
@@ -449,7 +456,7 @@ def snakemake(
                 raise WorkflowError("Unknown default remote provider.")
             if rmt.RemoteProvider.supports_default:
                 _default_remote_provider = rmt.RemoteProvider(
-                    keep_local=True, is_default=True
+                    keep_local=True, is_default=True, **az_config if az_config else None,
                 )
             else:
                 raise WorkflowError(
@@ -490,6 +497,7 @@ def snakemake(
             cores=cores,
             nodes=nodes,
             resources=resources,
+            az_configfile=az_configfile,
         )
         success = True
         workflow.include(
@@ -576,6 +584,7 @@ def snakemake(
                     cluster_status=cluster_status,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
+                    az_config=az_config,
                 )
                 success = workflow.execute(
                     targets=targets,
@@ -1470,7 +1479,7 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "--default-remote-provider",
-        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp", "iRODS"],
+        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp", "iRODS", "AzureStorage"],
         help="Specify default remote provider to be used for "
         "all input and output files that don't yet specify "
         "one.",
@@ -1808,6 +1817,13 @@ def get_argument_parser(profile=None):
         "modules, loaded in the given order. This can be combined with "
         "--use-conda and --use-singularity, which will then be only used as a "
         "fallback for rules which don't define environment modules.",
+    )
+
+    group_env_modules = parser.add_argument_group("AZURE")
+
+    group_env_modules.add_argument(
+        "--az-configfile",
+        help="Azure config file",
     )
 
     return parser
@@ -2196,6 +2212,7 @@ def main(argv=None):
             show_failed_logs=args.show_failed_logs,
             keep_incomplete=args.keep_incomplete,
             log_handler=log_handler,
+            az_configfile=args.az_configfile,
         )
 
     if args.runtime_profile:

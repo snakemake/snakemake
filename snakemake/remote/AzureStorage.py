@@ -37,6 +37,8 @@ class RemoteProvider(AbstractRemoteProvider):
     def __init__(
         self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
     ):
+        self._as = AzureStorageHelper(**kwargs)
+
         super(RemoteProvider, self).__init__(
             *args,
             keep_local=keep_local,
@@ -45,7 +47,6 @@ class RemoteProvider(AbstractRemoteProvider):
             **kwargs
         )
 
-        self._as = AzureStorageHelper(*args, **kwargs)
 
     def remote_interface(self):
         return self._as
@@ -163,7 +164,6 @@ class AzureStorageHelper(object):
     def __init__(self, *args, **kwargs):
         if "stay_on_remote" in kwargs:
             del kwargs["stay_on_remote"]
-
         self.azure = AzureStorageAccount(**kwargs).create_block_blob_service()
 
     def container_exists(self, container_name):

@@ -78,6 +78,7 @@ class JobScheduler:
         force_use_threads=False,
         assume_shared_fs=True,
         keepincomplete=False,
+        az_configfile=None,
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
@@ -97,7 +98,6 @@ class JobScheduler:
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
-
         self.resources = dict(self.workflow.global_resources)
 
         use_threads = (
@@ -153,6 +153,7 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     cores=local_cores,
                     keepincomplete=keepincomplete,
+                    az_configfile=az_configfile
                 )
             if cluster or cluster_sync:
                 if cluster_sync:
@@ -214,6 +215,7 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
+                az_configfile=az_configfile
             )
 
             self._executor = KubernetesExecutor(
@@ -240,6 +242,7 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
+                az_configfile=az_configfile
             )
 
             self._executor = TibannaExecutor(
@@ -268,6 +271,7 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 cores=cores,
                 keepincomplete=keepincomplete,
+                az_configfile=az_configfile
             )
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
