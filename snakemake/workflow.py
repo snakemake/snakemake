@@ -161,7 +161,7 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
-        self.conda_cleanup_pkgs = False
+        self.conda_cleanup_pkgs = conda_cleanup_pkgs
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
