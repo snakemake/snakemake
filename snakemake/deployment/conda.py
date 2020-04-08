@@ -300,6 +300,7 @@ class Env:
 
                     # cleanup if requested
                     if self._cleanup:
+                        logger.info("Cleaning up conda packages.")
                         shell.check_output("conda clean -y --tarballs")
                 # Touch "done" flag file
                 with open(os.path.join(env_path, "env_setup_done"), "a") as f:
