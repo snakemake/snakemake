@@ -836,7 +836,7 @@ class GenericClusterExecutor(ClusterExecutor):
             # TODO wrap with watch and touch {jobrunning}
             # check modification date of {jobrunning} in the wait_for_job method
             self.exec_job += (
-                ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
+                ' && touch {jobfinished} || (touch {jobfailed}; exit 1)'
             )
         else:
             raise WorkflowError(
