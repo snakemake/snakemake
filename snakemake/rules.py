@@ -956,7 +956,7 @@ class Rule:
                             res = TBDInt(0)
                         else:
                             raise e
-                except e:
+                except FileNotFoundError as e:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
                 if not isinstance(res, int):
