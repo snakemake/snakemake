@@ -102,6 +102,7 @@ class Workflow:
         nodes=1,
         cores=1,
         resources=None,
+        conda_cleanup_pkgs=False,
     ):
         """
         Create the controller.
@@ -160,6 +161,7 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
+        self.conda_cleanup_pkgs = conda_cleanup_pkgs
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
@@ -464,7 +466,7 @@ class Workflow:
         notemp=False,
         nodeps=False,
         cleanup_metadata=None,
-        cleanup_conda=False,
+        conda_cleanup_envs=False,
         cleanup_shadow=False,
         cleanup_scripts=True,
         subsnakemake=None,
@@ -478,7 +480,7 @@ class Workflow:
         greediness=1.0,
         no_hooks=False,
         force_use_threads=False,
-        create_envs_only=False,
+        conda_create_envs_only=False,
         assume_shared_fs=True,
         cluster_status=None,
         report=None,
@@ -558,7 +560,7 @@ class Workflow:
             targetrules=targetrules,
             # when cleaning up conda, we should enforce all possible jobs
             # since their envs shall not be deleted
-            forceall=forceall or cleanup_conda,
+            forceall=forceall or conda_cleanup_envs,
             forcefiles=forcefiles,
             forcerules=forcerules,
             priorityfiles=priorityfiles,
@@ -785,10 +787,10 @@ class Workflow:
         if self.use_conda:
             if assume_shared_fs:
                 dag.create_conda_envs(
-                    dryrun=dryrun or list_conda_envs or cleanup_conda,
+                    dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
                     quiet=list_conda_envs,
                 )
-            if create_envs_only:
+            if conda_create_envs_only:
                 return True
 
         if list_conda_envs:
@@ -803,8 +805,8 @@ class Workflow:
                     )
             return True
 
-        if cleanup_conda:
-            self.persistence.cleanup_conda()
+        if conda_cleanup_envs:
+            self.persistence.conda_cleanup_envs()
             return True
 
         scheduler = JobScheduler(
