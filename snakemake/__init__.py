@@ -1932,9 +1932,6 @@ def main(argv=None):
 
         yappi.start()
 
-    if args.provenance:
-        provenance_manager.terminate_wf_exec()
-
     if args.immediate_submit and not args.notemp:
         print(
             "Error: --immediate-submit has to be combined with --notemp, "
@@ -2203,6 +2200,9 @@ def main(argv=None):
             profile = yappi.get_func_stats()
             profile.sort("totaltime")
             profile.print_all(out=out)
+
+    if args.provenance:
+        provenance_manager.terminate_wf_exec()
 
     sys.exit(0 if success else 1)
 
