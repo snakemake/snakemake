@@ -301,3 +301,5 @@ To visualize the whole DAG regardless of the eventual presence of files, the ``f
     $ snakemake --forceall --dag | dot -Tpdf > dag.pdf
 
 Of course the visual appearance can be modified by providing further command line arguments to ``dot``.
+
+**Note:** The DAG is printed in DOT format straight to the standard output, along with other ``print`` statements you may have in your Snakefile. Make sure to comment these other ``print`` statements so that ``dot`` can build a visual representation of your DAG.
