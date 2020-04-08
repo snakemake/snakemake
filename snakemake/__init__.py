@@ -1142,7 +1142,9 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Do not execute anything and print the directed "
         "acyclic graph of jobs in the dot language. Recommended "
-        "use on Unix systems: snakemake --dag | dot | display",
+        "use on Unix systems: snakemake --dag | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--rulegraph",
@@ -1153,7 +1155,9 @@ def get_argument_parser(profile=None):
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
-        "Recommended use on Unix systems: snakemake --rulegraph | dot | display",
+        "Recommended use on Unix systems: snakemake --rulegraph | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--filegraph",
@@ -1164,7 +1168,9 @@ def get_argument_parser(profile=None):
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
-        "Recommended use on Unix systems: snakemake --filegraph | dot | display",
+        "Recommended use on Unix systems: snakemake --filegraph | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--d3dag",
