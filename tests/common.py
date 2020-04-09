@@ -137,7 +137,7 @@ def run(
 
     # run snakemake
     success = snakemake(
-        snakefile,
+        snakefile=original_snakefile if no_tmpdir else snakefile,
         cores=cores,
         workdir=path if no_tmpdir else tmpdir,
         stats="stats.txt",
