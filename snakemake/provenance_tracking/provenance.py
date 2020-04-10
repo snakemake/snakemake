@@ -76,7 +76,6 @@ class PROVMgr(object):
 
 
     def terminate_wf_exec(self):
-        logger.info("BYE BYE")
         self.wfexec.set_time(startTime=self.wfexec.get_startTime(), endTime=datetime.datetime.now())
         self.document.serialize(destination="provenance.trig", format='rdf')
         self.document.serialize(destination="provenance.json", format='json')
