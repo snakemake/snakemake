@@ -244,6 +244,7 @@ def test_remote():
 
 
 def test_cluster_sync():
+    os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster_sync="./qsub")
 
 
