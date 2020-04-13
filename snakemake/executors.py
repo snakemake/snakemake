@@ -2219,8 +2219,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
-        # Google Cloud Executor requires
-
         exec_job = exec_job or (
             "snakemake {target} --snakefile %s "
             "--force -j{cores} --keep-target-files --keep-remote "
