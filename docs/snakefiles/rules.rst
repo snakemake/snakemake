@@ -14,7 +14,7 @@ Most importantly, a rule can consist of a name (the name is optional and can be 
         output: "path/to/outputfile", "path/to/another/outputfile"
         shell: "somecommand {input} {output}"
 
-Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <http://docs.python.org/py3k/library/string.html#formatspec>`_. Here input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
+Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_. Here input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 Instead of a shell command, a rule can run some python code to generate the output:
 
@@ -117,7 +117,7 @@ Finally, you can also define global wildcard constraints that apply for all rule
     rule b:
         ...
 
-See the `Python documentation on regular expressions <http://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
+See the `Python documentation on regular expressions <https://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
 
 
 Aggregation
@@ -486,7 +486,7 @@ Inside the script, you have access to an object ``snakemake`` that provides acce
 Apart from Python scripts, this mechanism also allows you to integrate R_ and R Markdown_ scripts with Snakemake, e.g.
 
 .. _R: https://www.r-project.org
-.. _Markdown: http://rmarkdown.rstudio.com
+.. _Markdown: https://rmarkdown.rstudio.com
 
 .. code-block:: python
 
