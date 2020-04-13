@@ -18,8 +18,8 @@ Setup
 .. _Atom: https://atom.io
 .. _Graphviz: http://www.graphviz.org
 .. _PyYAML: http://pyyaml.org
-.. _Docutils: http://docutils.sourceforge.net
-.. _Jinja2: http://jinja.pocoo.org
+.. _Docutils: https://docutils.sourceforge.io
+.. _Jinja2: https://jinja.palletsprojects.com
 .. _NetworkX: https://networkx.github.io
 .. _Matplotlib: https://matplotlib.org
 .. _Pysam: https://pysam.readthedocs.io

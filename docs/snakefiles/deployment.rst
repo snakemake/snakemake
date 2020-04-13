@@ -78,7 +78,7 @@ Further, you can manually define environments via the ``conda`` directive, e.g.:
         script:
             "scripts/plot-stuff.R"
 
-with the following `environment definition <http://conda.pydata.org/docs/using/envs.html#create-environment-file-by-hand>`_:
+with the following `environment definition <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#create-env-file-manually>`_:
 
 
 .. code-block:: yaml

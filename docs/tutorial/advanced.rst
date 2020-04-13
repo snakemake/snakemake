@@ -17,16 +17,16 @@ Advanced: Decorating the example workflow
 .. _Atom: https://atom.io
 .. _Anaconda: https://anaconda.org
 .. _Graphviz: http://www.graphviz.org
-.. _RestructuredText: http://docutils.sourceforge.net/rst.html
+.. _RestructuredText: https://docutils.sourceforge.io/docs/user/rst/quickstart.html
 .. _data URI: https://developer.mozilla.org/en-US/docs/Web/HTTP/data_URIs
 .. _JSON: http://json.org
 .. _YAML: http://yaml.org
 .. _DRMAA: http://www.drmaa.org
-.. _rpy2: http://rpy.sourceforge.net
+.. _rpy2: https://rpy2.github.io
 .. _R: https://www.r-project.org
 .. _Rscript: https://stat.ethz.ch/R-manual/R-devel/library/utils/html/Rscript.html
 .. _PyYAML: http://pyyaml.org
-.. _Docutils: http://docutils.sourceforge.net
+.. _Docutils: https://docutils.sourceforge.io
 .. _Bioconda: https://bioconda.github.io
 .. _Vagrant: https://www.vagrantup.com
 .. _Vagrant Documentation: https://docs.vagrantup.com

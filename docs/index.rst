@@ -175,7 +175,7 @@ Please consider to add your own.
 * Park et al. 2015. `Ebola Virus Epidemiology, Transmission, and Evolution during Seven Months in Sierra Leone <http://doi.org/10.1016/j.cell.2015.06.007>`_. Cell.
 * Břinda et al. 2015. `RNF: a general framework to evaluate NGS read mappers <http://bioinformatics.oxfordjournals.org/content/early/2015/09/30/bioinformatics.btv524>`_. Bioinformatics.
 * Břinda et al. 2015. `Spaced seeds improve k-mer-based metagenomic classification <http://bioinformatics.oxfordjournals.org/content/early/2015/08/10/bioinformatics.btv419>`_. Bioinformatics.
-* Spjuth et al. 2015. `Experiences with workflows for automating data-intensive bioinformatics <http://www.biologydirect.com/content/10/1/43>`_. Biology Direct.
+* Spjuth et al. 2015. `Experiences with workflows for automating data-intensive bioinformatics <https://biologydirect.biomedcentral.com/articles/10.1186/s13062-015-0071-8>`_. Biology Direct.
 * Schramm et al. 2015. `Mutational dynamics between primary and relapse neuroblastomas <http://www.nature.com/ng/journal/v47/n8/full/ng.3349.html>`_. Nature Genetics.
 * Berulava et al. 2015. `N6-Adenosine Methylation in MiRNAs <http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0118438>`_. PLOS ONE.
 * The Genome of the Netherlands Consortium 2014. `Whole-genome sequence variation, population structure and demographic history of the Dutch population <http://www.nature.com/ng/journal/v46/n8/full/ng.3021.html>`_. Nature Genetics.

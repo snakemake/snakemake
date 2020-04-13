@@ -322,7 +322,7 @@ If the URI used includes characters not permitted in a local file path, you may 
             HTTP.remote("example.com/query.php", additional_request_string="?range=2;3")
 
 If the file requires authentication, you can specify a username and password for HTTP Basic Auth with the Remote Provider, or with each instance of `remote()`.
-For different types of authentication, you can pass in a Python ```requests.auth`` object (see `here <http://docs.python-requests.org/en/latest/api/#authentication>`_) the `auth` ``kwarg``.
+For different types of authentication, you can pass in a Python ```requests.auth`` object (see `here <https://requests.readthedocs.io/en/master/api/#authentication>`_) the `auth` ``kwarg``.
 
 .. code-block:: python
 
@@ -470,7 +470,7 @@ Note that Dropbox paths are case-insensitive.
 XRootD
 =======
 
-Snakemake can be used with `XRootD <http://xrootd.org/>`_ backed storage provided the python bindings are installed.
+Snakemake can be used with `XRootD <https://xrootd.slac.stanford.edu/>`_ backed storage provided the python bindings are installed.
 This is typically most useful when combined with the ``stay_on_remote`` flag to minimise local storage requirements.
 This flag can be overridden on a file by file basis as described in the S3 remote. Additionally ``glob_wildcards()`` is supported:
 
