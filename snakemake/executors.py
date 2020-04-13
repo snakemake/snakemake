@@ -2219,6 +2219,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
+        # Google Cloud Executor requires
+
         exec_job = exec_job or (
             "snakemake {target} --snakefile %s "
             "--force -j{cores} --keep-target-files --keep-remote "
@@ -2712,6 +2714,19 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
            we need to upload it. This file is cleaned up at the end of the run.
            We do this, and then obtain from the instance and extract.
         """
+        # Workflow sources for cloud executor must all be under same workdir root
+        for filename in self.workflow_sources:
+            if self.workdir not in filename:
+                raise WorkflowError(
+                    "All source files must be present in the working directory, "
+                    "{workdir} to be uploaded to a build package that respects "
+                    "relative paths, but {filename} was found outside of this "
+                    "directory. Please set your working directory accordingly, "
+                    "and the path of your Snakefile to be relative to it.".format(
+                        workdir=self.workdir, filename=filename
+                    )
+                )
+
         # We will generate a tar.gz package, renamed by hash
         tmpname = next(tempfile._get_candidate_names())
         targz = os.path.join(tempfile.gettempdir(), "snakemake-%s.tar.gz" % tmpname)
