@@ -2626,7 +2626,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # If the user wants gpus, add accelerators here
         if gpu_count:
             accelerator = self._get_accelerator(
-                gpu_count, zone=selected["zone"], model=gpu_model
+                gpu_count, zone=selected["zone"], gpu_model=gpu_model
             )
             virtual_machine["accelerators"] = [
                 {"type": accelerator["name"], "count": gpu_count}
