@@ -256,6 +256,48 @@ rule a:
         "somecommand ..."
 
 
+If you want to specify a specific `gpu model <https://cloud.google.com/compute/docs/gpus#introduction>_` 
+(by name) you can add `gpu_model` to your resources:
+
+
+.. code-block:: yaml
+
+rule a:
+    output:
+        "test.txt"
+    resources:
+        gpu_model=nvidia-tesla-p100
+    shell:
+        "somecommand ..."
+
+You should use the lowercase identifiers like `nvidia-tesla-p100` and `nvidia-tesla-p4`
+for this variable. If you don't specify a `gpu` or `nvidia_gpu` (with a count) but you do
+specify a `gpu_model`, the count will default to 1.
+
+
+Machine Types
+:::::::::::::
+
+To specify an exact `machine type <https://cloud.google.com/compute/docs/machine-types>_` 
+or a prefix to filter down to and then select based on other resource needs, 
+you can use `--machine-type-prefix` on the command line. If you want to specify 
+the machine type as a resource, you can do that too:
+
+
+.. code-block:: yaml
+
+rule a:
+    output:
+        "test.txt"
+    resources:
+        machine=n1-standard-8
+    shell:
+        "somecommand ..."
+
+
+The command line argument currently takes preference, and will override
+the resource definition.
+
 
 Executing a Snakemake workflow via Tibanna on Amazon Web Services
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

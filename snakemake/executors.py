@@ -2519,6 +2519,11 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # Look for if the user wants an nvidia gpu
         gpu_count = job.resources.get("nvidia_gpu") or job.resources.get("gpu")
+        gpu_model = job.resources.get("gpu_model")
+
+        # If a gpu model is specified without a count, we assume 1
+        if gpu_model and not gpu_count:
+            gpu_count = 1
 
         # Update default resources using decided memory and disk
         self.workflow.default_resources = self.default_resources
@@ -2558,21 +2563,24 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 continue
             keepers[name] = machine_type
 
+        # First priority goes to command line, then job resources
+        machine_type_prefix = self._machine_type_prefix or job.resources.get("machine")
+
         # If a prefix is set, filter down to it
-        if self._machine_type_prefix:
+        if machine_type_prefix:
             machine_types = keepers
             keepers = dict()
             for name, machine_type in machine_types.items():
-                if name.startswith(self._machine_type_prefix):
+                if name.startswith(machine_type_prefix):
                     keepers[name] = machine_type
 
         # If we don't have any contenders, workflow error
         if not keepers:
-            if self._machine_type_prefix:
+            if machine_type_prefix:
                 raise WorkflowError(
                     "Machine prefix {prefix} is too strict, or the resources cannot "
                     " be satisfied, so there are no options "
-                    "available.".format(prefix=self._machine_type_prefix)
+                    "available.".format(prefix=machine_type_prefix)
                 )
             else:
                 raise WorkflowError(
@@ -2617,7 +2625,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # If the user wants gpus, add accelerators here
         if gpu_count:
-            accelerator = self._get_accelerator(gpu_count, zone=selected["zone"])
+            accelerator = self._get_accelerator(
+                gpu_count, zone=selected["zone"], model=gpu_model
+            )
             virtual_machine["accelerators"] = [
                 {"type": accelerator["name"], "count": gpu_count}
             ]
@@ -2625,7 +2635,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         resources = {"regions": self.regions, "virtualMachine": virtual_machine}
         return resources
 
-    def _get_accelerator(self, gpu_count, zone):
+    def _get_accelerator(self, gpu_count, zone, gpu_model=None):
         """Get an appropriate accelerator for a GPU given a zone selection.
            Currently Google offers NVIDIA Tesla T4 (likely the best),
            NVIDIA P100, and the same T4 for a graphical workstation. Since
@@ -2647,8 +2657,25 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             if accelerator["name"].endswith("vws"):
                 continue
 
+            if gpu_model and accelerator["name"] != gpu_model:
+                continue
+
             if accelerator["maximumCardsPerInstance"] >= gpu_count:
                 keepers[accelerator["name"]] = accelerator
+
+        # If no matches available, exit early
+        if not keepers:
+            if gpu_model:
+                raise WorkflowError(
+                    "An accelerator in zone {zone} with model {model} cannot "
+                    " be satisfied, so there are no options "
+                    "available.".format(zone=zone, model=gpu_model)
+                )
+            else:
+                raise WorkflowError(
+                    "An accelerator in zone {zone} cannot be satisifed, so "
+                    "there are no options available.".format(zone=zone)
+                )
 
         # Find smallest (in future the user might have preference for the type)
         smallest = list(keepers.keys())[0]
