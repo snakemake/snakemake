@@ -1579,7 +1579,20 @@ class KubernetesExecutor(ClusterExecutor):
 
                     self.kubeapi = kubernetes.client.CoreV1Api()
                     self.batchapi = kubernetes.client.BatchV1Api()
-                    self.register_secret()
+
+                    try:
+                        self.register_secret()
+                    except kubernetes.client.rest.ApiException as e:
+                        if e.status == 409 and e.reason == "Conflict":
+                            logger.warning("Caught 409/Conflict ApiException during secret registration")
+                            logger.warning(e)
+                        else:
+                            raise WorkflowError(
+                                e,
+                                "This is likely a bug in "
+                                "https://github.com/kubernetes-client/python.",
+                            )
+
                     try:
                         return func()
                     except kubernetes.client.rest.ApiException as e:
