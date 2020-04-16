@@ -4,29 +4,29 @@
 Setup
 -----
 
-.. _Snakemake: http://snakemake.readthedocs.io
-.. _Snakemake homepage: http://snakemake.readthedocs.io
+.. _Snakemake: https://snakemake.readthedocs.io
+.. _Snakemake homepage: https://snakemake.readthedocs.io
 .. _GNU Make: https://www.gnu.org/software/make
-.. _Python: http://www.python.org
+.. _Python: https://www.python.org
 .. _BWA: http://bio-bwa.sourceforge.net
-.. _SAMtools: http://www.htslib.org
-.. _BCFtools: http://www.htslib.org
-.. _Pandas: http://pandas.pydata.org
-.. _Miniconda: http://conda.pydata.org/miniconda.html
-.. _Conda: http://conda.pydata.org
-.. _Bash: http://www.tldp.org/LDP/Bash-Beginners-Guide/html
+.. _SAMtools: https://www.htslib.org
+.. _BCFtools: https://www.htslib.org
+.. _Pandas: https://pandas.pydata.org
+.. _Miniconda: https://conda.pydata.org/miniconda.html
+.. _Conda: https://conda.pydata.org
+.. _Bash: https://www.tldp.org/LDP/Bash-Beginners-Guide/html
 .. _Atom: https://atom.io
-.. _Graphviz: http://www.graphviz.org
-.. _PyYAML: http://pyyaml.org
-.. _Docutils: http://docutils.sourceforge.net
-.. _Jinja2: http://jinja.pocoo.org
+.. _Graphviz: https://www.graphviz.org
+.. _PyYAML: https://pyyaml.org
+.. _Docutils: https://docutils.sourceforge.io
+.. _Jinja2: https://jinja.palletsprojects.com
 .. _NetworkX: https://networkx.github.io
 .. _Matplotlib: https://matplotlib.org
 .. _Pysam: https://pysam.readthedocs.io
 .. _Bioconda: https://bioconda.github.io
 .. _Vagrant: https://www.vagrantup.com
 .. _Vagrant Documentation: https://docs.vagrantup.com
-.. _Blogpost: http://blog.osteel.me/posts/2015/01/25/how-to-use-vagrant-on-windows.html
+.. _Blogpost: https://blog.osteel.me/posts/2015/01/25/how-to-use-vagrant-on-windows.html
 
 Requirements
 ::::::::::::
