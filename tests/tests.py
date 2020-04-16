@@ -1003,3 +1003,12 @@ def test_linting():
     snakemake(
         snakefile=os.path.join(dpath("test14"), "Snakefile.nonstandard"), lint=True
     )
+
+
+def test_string_resources():
+    from snakemake.resources import DefaultResources
+    run(
+        dpath("test_string_resources"),
+        default_resources=DefaultResources(["gpu_model='nvidia-tesla-1000'"]),
+        cluster="./qsub.py",
+    )
