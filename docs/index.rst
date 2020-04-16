@@ -95,6 +95,7 @@ Getting started
 To get a first impression, see our `introductory slides <https://slides.com/johanneskoester/snakemake-short>`_ or watch the `live demo video <https://youtu.be/hPrXcUUp70Y>`_.
 News about Snakemake are published via `Twitter <https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester>`_.
 To learn Snakemake, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
+For more advanced usage of different executors, see the :ref:`executor_tutorial`.
 
 .. _main-support:
 
@@ -200,7 +201,7 @@ Please consider to add your own.
    getting_started/installation
    tutorial/tutorial
    tutorial/short
-
+   executor_tutorial/tutorial
 
 .. toctree::
   :caption: Executing workflows
