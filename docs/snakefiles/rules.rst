@@ -1349,4 +1349,8 @@ Upon completion of the checkpoint, the input function is re-evaluated, and the c
 Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
 These values are then used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
 
+While input file functions using checkpoints can technically return a dictionary for use with ``unpack()``, you will not be able to refer to a specific input file in the ``shell`` directive (*e.g.* ``{input.somefile}``).
+Also, because the ``get`` method throws ``snakemake.exceptions.IncompleteCheckpointException``, rules depending directly on checkpoints via input file functions will never be run in situations where they are ambiguous (provided that ambiguous rules are :ref:`allowed <snakefiles-ambiguous-rules>`).
+This behaviour is due to the fact that Snakemake will defer to alternate rules if an exception is raised during the execution of an input file function.
+
 This mechanism can be used to replace the use of the :ref:`dynamic-flag <snakefiles-dynamic_files>` which will be deprecated in Snakemake 6.0.
