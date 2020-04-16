@@ -307,7 +307,7 @@ the scheduler will ensure that the given resources are not exceeded by running j
 If no limits are given, the resources are ignored in local execution.
 In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
-Resources must be ``int`` values.
+Resources must be ``int`` or ``str`` values.
 
 Note that you are free to choose any names for the given resources.
 There are two **standard resources** for memory and disk usage though: ``mem_mb`` and ``disk_mb``.
