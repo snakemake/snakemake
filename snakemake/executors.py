@@ -2910,9 +2910,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         logger.info(
             "Get status with:\n"
             "gcloud config set project {project}\n"
-            "gcloud beta lifesciences operations describe {jobid}\n"
+            "gcloud beta lifesciences operations describe {location}/operations/{jobid}\n"
             "gcloud beta lifesciences operations list".format(
-                project=self.project, jobid=jobid
+                project=self.project, jobid=jobid, location=self.location
             )
         )
 
