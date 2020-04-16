@@ -266,7 +266,7 @@ rule a:
     output:
         "test.txt"
     resources:
-        gpu_model=nvidia-tesla-p100
+        gpu_model="nvidia-tesla-p100"
     shell:
         "somecommand ..."
 
@@ -290,7 +290,7 @@ rule a:
     output:
         "test.txt"
     resources:
-        machine=n1-standard-8
+        machine="n1-standard-8"
     shell:
         "somecommand ..."
 
