@@ -959,11 +959,12 @@ class Rule:
                 except e:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
-                if not isinstance(res, int):
+                if not isinstance(res, int) and not isinstance(res, str):
                     raise WorkflowError(
-                        "Resources function did not return int.", rule=self
+                        "Resources function did not return int or str.", rule=self
                     )
-            res = min(self.workflow.global_resources.get(name, res), res)
+            if isinstance(res, int):
+                res = min(self.workflow.global_resources.get(name, res), res)
             return res
 
         threads = apply("_cores", self.resources["_cores"])
