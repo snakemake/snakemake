@@ -1007,6 +1007,7 @@ def test_linting():
 
 def test_string_resources():
     from snakemake.resources import DefaultResources
+
     run(
         dpath("test_string_resources"),
         default_resources=DefaultResources(["gpu_model='nvidia-tesla-1000'"]),
