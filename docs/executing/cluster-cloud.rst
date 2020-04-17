@@ -290,7 +290,7 @@ rule a:
     output:
         "test.txt"
     resources:
-        machine="n1-standard-8"
+        machine_type="n1-standard-8"
     shell:
         "somecommand ..."
 

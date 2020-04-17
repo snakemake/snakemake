@@ -2564,7 +2564,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             keepers[name] = machine_type
 
         # First priority goes to command line, then job resources
-        machine_type_prefix = self._machine_type_prefix or job.resources.get("machine")
+        machine_type_prefix = self._machine_type_prefix or job.resources.get(
+            "machine_type"
+        )
 
         # If a prefix is set, filter down to it
         if machine_type_prefix:
