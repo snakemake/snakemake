@@ -679,7 +679,8 @@ class Rule(GlobalKeywordState):
             for t in self.start():
                 yield t, token
         else:
-            self.error("Expected name or colon after rule keyword.", token)
+            self.error("Expected name or colon after "
+                       "rule or checkpoint  keyword.", token)
 
     def block_content(self, token):
         if is_name(token):
