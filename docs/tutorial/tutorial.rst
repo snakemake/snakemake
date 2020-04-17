@@ -4,10 +4,10 @@
 Snakemake Tutorial
 ==================
 
-.. _Snakemake: http://snakemake.readthedocs.io
+.. _Snakemake: https://snakemake.readthedocs.io
 .. _GNU Make: https://www.gnu.org/software/make
-.. _Python: http://www.python.org
-.. _slides: http://slides.com/johanneskoester/snakemake-tutorial
+.. _Python: https://www.python.org
+.. _slides: https://slides.com/johanneskoester/snakemake-tutorial
 .. _Conda: https://conda.io
 .. _Singularity: https://www.sylabs.io
 

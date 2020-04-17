@@ -1,0 +1,15 @@
+rule b:
+    input:
+        "test.txt"
+    output:
+        "test2.txt"
+    shell:
+        "echo {resources.gpu_model} > {output}"
+
+rule a:
+    output:
+        "test.txt"
+    resources:
+        gpu_model="nvidia-tesla-p100"
+    shell:
+        "echo {resources.gpu_model} > {output}"

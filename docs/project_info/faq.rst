@@ -188,7 +188,7 @@ and have in the Snakefile some Python code that reads this environment variable,
 I get a NameError with my shell command. Are braces unsupported?
 ----------------------------------------------------------------
 
-You can use the entire Python `format minilanguage <http://docs.python.org/3/library/string.html#formatspec>`_ in shell commands. Braces in shell commands that are not intended to insert variable values thus have to be escaped by doubling them:
+You can use the entire Python `format minilanguage <https://docs.python.org/3/library/string.html#formatspec>`_ in shell commands. Braces in shell commands that are not intended to insert variable values thus have to be escaped by doubling them:
 
 This:
 
@@ -315,7 +315,7 @@ On unix, you can make use of the commonly pre-installed `mail` command:
     snakemake 2> snakemake.log
     mail -s "snakemake finished" youremail@provider.com < snakemake.log
 
-In case your administrator does not provide you with a proper configuration of the sendmail framework, you can configure `mail` to work e.g. via Gmail (see `here <http://www.cyberciti.biz/tips/linux-use-gmail-as-a-smarthost.html>`_).
+In case your administrator does not provide you with a proper configuration of the sendmail framework, you can configure `mail` to work e.g. via Gmail (see `here <https://www.cyberciti.biz/tips/linux-use-gmail-as-a-smarthost.html>`_).
 
 I want to pass variables between rules. Is that possible?
 ---------------------------------------------------------

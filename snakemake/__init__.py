@@ -914,10 +914,10 @@ def get_argument_parser(profile=None):
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to threads (see above). A resource is defined as "
-            "a name and an integer value. E.g. --resources gpu=1. Rules can "
+            "a name and an integer value. E.g. --resources mem_mb=1000. Rules can "
             "use resources by defining the resource keyword, e.g. "
-            "resources: gpu=1. If now two rules require 1 of the resource "
-            "'gpu' they won't be run in parallel by the scheduler."
+            "resources: mem_mb=600. If now two rules require 600 of the resource "
+            "'mem_mb' they won't be run in parallel by the scheduler."
         ),
     )
     group_exec.add_argument(
@@ -1142,7 +1142,9 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Do not execute anything and print the directed "
         "acyclic graph of jobs in the dot language. Recommended "
-        "use on Unix systems: snakemake --dag | dot | display",
+        "use on Unix systems: snakemake --dag | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--rulegraph",
@@ -1153,7 +1155,9 @@ def get_argument_parser(profile=None):
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
-        "Recommended use on Unix systems: snakemake --rulegraph | dot | display",
+        "Recommended use on Unix systems: snakemake --rulegraph | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--filegraph",
@@ -1164,7 +1168,9 @@ def get_argument_parser(profile=None):
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
-        "Recommended use on Unix systems: snakemake --filegraph | dot | display",
+        "Recommended use on Unix systems: snakemake --filegraph | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--d3dag",
