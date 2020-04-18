@@ -1561,6 +1561,38 @@ class KubernetesExecutor(ClusterExecutor):
             KubernetesJob(job, jobid, callback, error_callback, pod, None)
         )
 
+    def _reauthenticate(self, func=None):
+        logger.info("trying to reauthenticate")
+        kubernetes.config.load_kube_config()
+        subprocess.run(["kubectl", "get", "nodes"])
+
+        self.kubeapi = kubernetes.client.CoreV1Api()
+        self.batchapi = kubernetes.client.BatchV1Api()
+
+        try:
+            self.register_secret()
+        except kubernetes.client.rest.ApiException as e:
+            if e.status == 409 and e.reason == "Conflict":
+                logger.warning("Caught 409/Conflict ApiException during secret registration")
+                logger.warning(e)
+            else:
+                raise WorkflowError(
+                    e,
+                    "This is likely a bug in "
+                    "https://github.com/kubernetes-client/python.",
+                )
+
+        if func:
+            try:
+                return func()
+            except kubernetes.client.rest.ApiException as e:
+                # Both attempts failed, raise error.
+                raise WorkflowError(
+                    e,
+                    "This is likely a bug in "
+                    "https://github.com/kubernetes-client/python.",
+                )
+
     def _kubernetes_retry(self, func):
         import kubernetes
         import urllib3
@@ -1573,35 +1605,9 @@ class KubernetesExecutor(ClusterExecutor):
                     # Unauthorized.
                     # Reload config in order to ensure token is
                     # refreshed. Then try again.
-                    logger.info("trying to reauthenticate")
-                    kubernetes.config.load_kube_config()
-                    subprocess.run(["kubectl", "get", "nodes"])
-
-                    self.kubeapi = kubernetes.client.CoreV1Api()
-                    self.batchapi = kubernetes.client.BatchV1Api()
-
-                    try:
-                        self.register_secret()
-                    except kubernetes.client.rest.ApiException as e:
-                        if e.status == 409 and e.reason == "Conflict":
-                            logger.warning("Caught 409/Conflict ApiException during secret registration")
-                            logger.warning(e)
-                        else:
-                            raise WorkflowError(
-                                e,
-                                "This is likely a bug in "
-                                "https://github.com/kubernetes-client/python.",
-                            )
-
-                    try:
-                        return func()
-                    except kubernetes.client.rest.ApiException as e:
-                        # Both attempts failed, raise error.
-                        raise WorkflowError(
-                            e,
-                            "This is likely a bug in "
-                            "https://github.com/kubernetes-client/python.",
-                        )
+                    self._reauthenticate(func)
+                else:
+                    raise
             # Handling timeout that may occur in case of GKE master upgrade
             except urllib3.exceptions.MaxRetryError as e:
                 logger.info(
@@ -1672,10 +1678,23 @@ class KubernetesExecutor(ClusterExecutor):
                     elif res.status.phase == "Succeeded":
                         # finished
                         j.callback(j.job)
-                        body = kubernetes.client.V1DeleteOptions()
-                        self.kubeapi.delete_namespaced_pod(
-                            j.jobid, self.namespace, body=body
-                        )
+                        
+                        def func():
+                            body = kubernetes.client.V1DeleteOptions()
+                            self.kubeapi.delete_namespaced_pod(
+                                j.jobid, self.namespace, body=body
+                            )
+
+                        try:
+                            func()
+                        except kubernetes.client.rest.ApiException as e:
+                            if e.status == 401:
+                                # Unauthorized.
+                                # Reload config in order to ensure token is
+                                # refreshed. Then try again.
+                                self._reauthenticate(func)
+                            else:
+                                raise
                     else:
                         # still active
                         still_running.append(j)
