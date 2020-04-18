@@ -1572,6 +1572,8 @@ class KubernetesExecutor(ClusterExecutor):
         )
 
     def _reauthenticate(self, func=None):
+        import kubernetes
+        
         logger.info("trying to reauthenticate")
         kubernetes.config.load_kube_config()
         subprocess.run(["kubectl", "get", "nodes"])
