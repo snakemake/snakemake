@@ -1483,6 +1483,16 @@ class KubernetesExecutor(ClusterExecutor):
         # fail on first error
         body.spec.restart_policy = "Never"
 
+        # Add pod affinity: prefer nodes with label: app=snakemake
+        from kubernetes.client.models import V1NodeAffinity, V1PreferredSchedulingTerm, \
+            V1NodeSelectorTerm, V1NodeSelectorRequirement
+        
+        requirements = [V1NodeSelectorRequirement(key="app", operator="In", values=["snakemake"])]
+        selector_term = V1NodeSelectorTerm(match_expressions=requirements)
+        preferred_term = V1PreferredSchedulingTerm(preference=selector_term, weight=100)
+        affinity = V1NodeAffinity(preferred_during_scheduling_ignored_during_execution=[preferred_term])
+        body.spec.affinity = affinity
+
         # source files as a secret volume
         # we copy these files to the workdir before executing Snakemake
         too_large = [
