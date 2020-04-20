@@ -63,7 +63,7 @@ class AbstractExecutor:
         printthreads=True,
         latency_wait=3,
         keepincomplete=False,
-        az_configfile=None
+        az_store_credentials=None
     ):
         self.workflow = workflow
         self.dag = dag
@@ -73,7 +73,7 @@ class AbstractExecutor:
         self.printthreads = printthreads
         self.latency_wait = latency_wait
         self.keepincomplete = keepincomplete
-        self.az_configfile = az_configfile
+        self.az_store_credentials = az_store_credentials
 
     def get_default_remote_provider_args(self):
         if self.workflow.default_remote_provider:
@@ -87,8 +87,8 @@ class AbstractExecutor:
 
 
     def get_azconfig_args(self):
-        if self.az_configfile is not None:
-            args = " --az-configfile {} ".format(self.az_configfile)
+        if self.az_store_credentials is not None:
+            args = " --az-store-credentials {} ".format(self.az_store_credentials)
             return args
         return ""
 
@@ -167,7 +167,7 @@ class RealExecutor(AbstractExecutor):
         latency_wait=3,
         assume_shared_fs=True,
         keepincomplete=False,
-        az_configfile=None
+        az_store_credentials=None
     ):
         super().__init__(
             workflow,
@@ -177,7 +177,7 @@ class RealExecutor(AbstractExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             keepincomplete=keepincomplete,
-            az_configfile=az_configfile
+            az_store_credentials=az_store_credentials
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
@@ -317,7 +317,7 @@ class CPUExecutor(RealExecutor):
         latency_wait=3,
         cores=1,
         keepincomplete=False,
-        az_configfile=None
+        az_store_credentials=None
     ):
         super().__init__(
             workflow,
@@ -327,7 +327,7 @@ class CPUExecutor(RealExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             keepincomplete=keepincomplete,
-            az_configfile=az_configfile
+            az_store_credentials=az_store_credentials
         )
 
         self.exec_job = "\\\n".join(
