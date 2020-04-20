@@ -6,7 +6,7 @@ __license__ = "MIT"
 import os
 import subprocess
 import glob
-from argparse import ArgumentError
+from argparse import ArgumentError, ArgumentDefaultsHelpFormatter
 import logging as _logging
 import re
 import sys
@@ -814,6 +814,7 @@ def get_argument_parser(profile=None):
     parser = configargparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
         "environment for GNU Make-like workflows.",
+        formatter_class=ArgumentDefaultsHelpFormatter,
         default_config_files=config_files,
         config_file_parser_class=YAMLConfigFileParser,
     )
@@ -1772,15 +1773,14 @@ def get_argument_parser(profile=None):
 
     group_conda.add_argument(
         "--conda-cleanup-pkgs",
-        metavar="MODE",
         type=CondaCleanupMode,
         const=CondaCleanupMode.tarballs,
         choices=list(CondaCleanupMode),
         nargs="?",
         help="Cleanup conda packages after creating environments. "
-        "If MODE=tarballs, will clean up all downloaded package tarballs. "
-        "If MODE=cache, will additionally clean up unused package caches. "
-        "If MODE is omitted, will default to only cleaning up the tarballs.",
+        "In case of 'tarballs' mode, will clean up all downloaded package tarballs. "
+        "In case of 'cache' mode, will additionally clean up unused package caches. "
+        "If mode is omitted, will default to only cleaning up the tarballs.",
     )
     group_conda.add_argument(
         "--conda-create-envs-only",
