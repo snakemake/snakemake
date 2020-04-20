@@ -28,8 +28,8 @@ from snakemake.io import git_content
 
 
 class CondaCleanupMode(Enum):
-    tarballs = 1
-    cache = 2
+    tarballs = "tarballs"
+    cache = "cache"
 
     def __str__(self):
         return self.value
