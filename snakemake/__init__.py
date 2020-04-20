@@ -1778,7 +1778,7 @@ def get_argument_parser(profile=None):
         choices=list(CondaCleanupMode),
         nargs="?",
         help="Cleanup conda packages after creating environments "
-        "(by default, will remove tarballs only, otherwise also the package cache).",
+        "(by default, will clean up tarballs only, otherwise also the package cache).",
     )
     group_conda.add_argument(
         "--conda-create-envs-only",
