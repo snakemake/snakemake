@@ -102,7 +102,7 @@ class Workflow:
         nodes=1,
         cores=1,
         resources=None,
-        conda_cleanup_pkgs=False,
+        conda_cleanup_pkgs=None,
     ):
         """
         Create the controller.

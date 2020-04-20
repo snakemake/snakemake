@@ -132,7 +132,7 @@ def snakemake(
     use_env_modules=False,
     singularity_args="",
     conda_prefix=None,
-    conda_cleanup_pkgs=False,
+    conda_cleanup_pkgs=None,
     list_conda_envs=False,
     singularity_prefix=None,
     shadow_prefix=None,
@@ -242,7 +242,8 @@ def snakemake(
         use_env_modules (bool):     load environment modules if defined in rules
         singularity_args (str):     additional arguments to pass to singularity
         conda_prefix (str):         the directory in which conda environments will be created (default None)
-        conda_cleanup_pkgs (bool):       whether to clean up conda tarballs after env creation (default False)
+        conda_cleanup_pkgs (snakemake.deployment.conda.CondaCleanupMode):
+                                    whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
         shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
         conda_create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
@@ -1767,10 +1768,17 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Cleanup unused conda environments.",
     )
+    from snakemake.deployment.conda import CondaCleanupMode
+
     group_conda.add_argument(
         "--conda-cleanup-pkgs",
-        action="store_true",
-        help="Cleanup conda packages after creating environments.",
+        metavar="MODE",
+        type=CondaCleanupMode,
+        const=CondaCleanupMode.tarballs,
+        choices=list(CondaCleanupMode),
+        nargs="?",
+        help="Cleanup conda packages after creating environments "
+        "(by default, will remove tarballs only, otherwise also the package cache).",
     )
     group_conda.add_argument(
         "--conda-create-envs-only",
