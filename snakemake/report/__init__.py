@@ -827,27 +827,6 @@ def auto_report(dag, path, stylesheet=None):
 
     template = env.get_template("report.html")
 
-
-def build_interval_tree(records):
-    itree = IntervalTree()
-    start_time = None
-    end_time = 0
-    total_jobs = dict()
-    for rec in sorted(records.values(), key=lambda rec: rec.starttime):
-        if not start_time:
-            start_time = rec.starttime
-        if rec.endtime > end_time:
-            end_time = rec.endtime
-        job_started = round(rec.starttime-start_time, 0)
-        job_ended = round(rec.endtime-start_time, 0) + 1 #add pseudocount
-        job_data = {"threads": rec.job.threads, "rule": rec.rule, "job": rec.job.jobid}
-        itree.addi(job_started, job_ended, job_data)
-        if not rec.job.jobid in total_jobs:
-            total_jobs[rec.job.jobid] = job_data
-    end = int(end_time - start_time)
-    print(itree)
-    return end, itree, total_jobs
-
     logger.info("Downloading resources and rendering HTML.")
 
     rendered = template.render(
@@ -901,3 +880,23 @@ def build_interval_tree(records):
             htmlout.write(rendered)
 
     logger.info("Report created: {}.".format(path))
+
+
+def build_interval_tree(records):
+    itree = IntervalTree()
+    start_time = None
+    end_time = 0
+    total_jobs = dict()
+    for rec in sorted(records.values(), key=lambda rec: rec.starttime):
+        if not start_time:
+            start_time = rec.starttime
+        if rec.endtime > end_time:
+            end_time = rec.endtime
+        job_started = round(rec.starttime-start_time, 0)
+        job_ended = round(rec.endtime-start_time, 0) + 1 #add pseudocount
+        job_data = {"threads": rec.job.threads, "rule": rec.rule, "job": rec.job.jobid}
+        itree.addi(job_started, job_ended, job_data)
+        if not rec.job.jobid in total_jobs:
+            total_jobs[rec.job.jobid] = job_data
+    end = int(end_time - start_time)
+    return end, itree, total_jobs
