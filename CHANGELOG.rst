@@ -1,3 +1,11 @@
+[5.15.0] - 2020-04-21
+=====================
+Changed
+-------
+- The resource directive can now take strings, e.g. for defining a GPU model (see docs). This will e.g. be used for upcoming updates to cloud executors.
+- More extensive conda cleanup with --conda-cleanup-packages, meant for CI usage.
+- Further polish for reports.
+
 [5.14.0] - 2020-04-08
 =====================
 Changed
