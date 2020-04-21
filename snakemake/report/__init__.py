@@ -711,11 +711,11 @@ def auto_report(dag, path, stylesheet=None):
         for catresults in subcats.values():
             catresults.sort(key=lambda res: res.name)
 
-    #prepare threads
+    # prepare threads
     end, itree, jobs = build_interval_tree(records)
     step_size = 10
     threads = []
-    for i in range(0, end+step_size, step_size):
+    for i in range(0, end + step_size, step_size):
         inactivate_jobs = jobs.copy()
         for _, _, rec in itree.at(i):
             del inactivate_jobs[rec["job"]]
@@ -726,7 +726,6 @@ def auto_report(dag, path, stylesheet=None):
             inactivate_rec["time"] = i
             inactivate_rec["threads"] = 0
             threads.append(inactivate_rec)
-
 
     # prepare runtimes
     runtimes = [
@@ -839,6 +838,7 @@ def auto_report(dag, path, stylesheet=None):
         rulegraph_width=xmax + 20,
         rulegraph_height=ymax + 20,
         runtimes=runtimes,
+        threads=threads,
         timeline=timeline,
         rules=[rec for recs in rules.values() for rec in recs],
         version=__version__,
@@ -892,8 +892,8 @@ def build_interval_tree(records):
             start_time = rec.starttime
         if rec.endtime > end_time:
             end_time = rec.endtime
-        job_started = round(rec.starttime-start_time, 0)
-        job_ended = round(rec.endtime-start_time, 0) + 1 #add pseudocount
+        job_started = round(rec.starttime - start_time, 0)
+        job_ended = round(rec.endtime - start_time, 0) + 1  # add pseudocount
         job_data = {"threads": rec.job.threads, "rule": rec.rule, "job": rec.job.jobid}
         itree.addi(job_started, job_ended, job_data)
         if not rec.job.jobid in total_jobs:
