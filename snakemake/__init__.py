@@ -6,7 +6,7 @@ __license__ = "MIT"
 import os
 import subprocess
 import glob
-from argparse import ArgumentError
+from argparse import ArgumentError, ArgumentDefaultsHelpFormatter
 import logging as _logging
 import re
 import sys
@@ -132,7 +132,7 @@ def snakemake(
     use_env_modules=False,
     singularity_args="",
     conda_prefix=None,
-    conda_cleanup_pkgs=False,
+    conda_cleanup_pkgs=None,
     list_conda_envs=False,
     singularity_prefix=None,
     shadow_prefix=None,
@@ -242,7 +242,8 @@ def snakemake(
         use_env_modules (bool):     load environment modules if defined in rules
         singularity_args (str):     additional arguments to pass to singularity
         conda_prefix (str):         the directory in which conda environments will be created (default None)
-        conda_cleanup_pkgs (bool):       whether to clean up conda tarballs after env creation (default False)
+        conda_cleanup_pkgs (snakemake.deployment.conda.CondaCleanupMode):
+                                    whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
         shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
         conda_create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
@@ -813,6 +814,7 @@ def get_argument_parser(profile=None):
     parser = configargparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
         "environment for GNU Make-like workflows.",
+        formatter_class=ArgumentDefaultsHelpFormatter,
         default_config_files=config_files,
         config_file_parser_class=YAMLConfigFileParser,
     )
@@ -914,10 +916,10 @@ def get_argument_parser(profile=None):
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to threads (see above). A resource is defined as "
-            "a name and an integer value. E.g. --resources gpu=1. Rules can "
+            "a name and an integer value. E.g. --resources mem_mb=1000. Rules can "
             "use resources by defining the resource keyword, e.g. "
-            "resources: gpu=1. If now two rules require 1 of the resource "
-            "'gpu' they won't be run in parallel by the scheduler."
+            "resources: mem_mb=600. If now two rules require 600 of the resource "
+            "'mem_mb' they won't be run in parallel by the scheduler."
         ),
     )
     group_exec.add_argument(
@@ -1142,7 +1144,9 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Do not execute anything and print the directed "
         "acyclic graph of jobs in the dot language. Recommended "
-        "use on Unix systems: snakemake --dag | dot | display",
+        "use on Unix systems: snakemake --dag | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--rulegraph",
@@ -1153,7 +1157,9 @@ def get_argument_parser(profile=None):
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
-        "Recommended use on Unix systems: snakemake --rulegraph | dot | display",
+        "Recommended use on Unix systems: snakemake --rulegraph | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--filegraph",
@@ -1164,7 +1170,9 @@ def get_argument_parser(profile=None):
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
-        "Recommended use on Unix systems: snakemake --filegraph | dot | display",
+        "Recommended use on Unix systems: snakemake --filegraph | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--d3dag",
@@ -1761,10 +1769,18 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Cleanup unused conda environments.",
     )
+    from snakemake.deployment.conda import CondaCleanupMode
+
     group_conda.add_argument(
         "--conda-cleanup-pkgs",
-        action="store_true",
-        help="Cleanup conda packages after creating environments.",
+        type=CondaCleanupMode,
+        const=CondaCleanupMode.tarballs,
+        choices=list(CondaCleanupMode),
+        nargs="?",
+        help="Cleanup conda packages after creating environments. "
+        "In case of 'tarballs' mode, will clean up all downloaded package tarballs. "
+        "In case of 'cache' mode, will additionally clean up unused package caches. "
+        "If mode is omitted, will default to only cleaning up the tarballs.",
     )
     group_conda.add_argument(
         "--conda-create-envs-only",

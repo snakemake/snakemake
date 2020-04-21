@@ -102,7 +102,7 @@ class Workflow:
         nodes=1,
         cores=1,
         resources=None,
-        conda_cleanup_pkgs=False,
+        conda_cleanup_pkgs=None,
     ):
         """
         Create the controller.
@@ -1104,10 +1104,16 @@ class Workflow:
                 if args:
                     raise RuleException("Resources have to be named.")
                 if not all(
-                    map(lambda r: isinstance(r, int) or callable(r), resources.values())
+                    map(
+                        lambda r: isinstance(r, int)
+                        or isinstance(r, str)
+                        or callable(r),
+                        resources.values(),
+                    )
                 ):
                     raise RuleException(
-                        "Resources values have to be integers or callables", rule=rule
+                        "Resources values have to be integers, strings, or callables (functions)",
+                        rule=rule,
                     )
                 rule.resources.update(resources)
             if ruleinfo.priority:
