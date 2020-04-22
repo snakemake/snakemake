@@ -1,3 +1,8 @@
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
+__license__ = "MIT"
+
 import subprocess
 import shutil
 import os
@@ -6,7 +11,7 @@ import hashlib
 from distutils.version import LooseVersion
 
 import snakemake
-from snakemake.conda import Conda
+from snakemake.deployment.conda import Conda
 from snakemake.common import lazy_property, SNAKEMAKE_SEARCHPATH
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
@@ -43,7 +48,7 @@ class Image:
             raise WorkflowError("Minimum singularity version is 2.4.1.")
 
         self.url = url
-        self._img_dir = dag.workflow.persistence.singularity_img_path
+        self._img_dir = dag.workflow.persistence.container_img_path
 
     @property
     def is_local(self):

@@ -1,3 +1,8 @@
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
+__license__ = "MIT"
+
 import os
 import re
 import subprocess
@@ -12,13 +17,22 @@ import json
 from glob import glob
 import tarfile
 import uuid
+from enum import Enum
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import strip_prefix
 from snakemake import utils
-from snakemake import singularity
+from snakemake.deployment import singularity
 from snakemake.io import git_content
+
+
+class CondaCleanupMode(Enum):
+    tarballs = "tarballs"
+    cache = "cache"
+
+    def __str__(self):
+        return self.value
 
 
 def content(env_file):
@@ -42,7 +56,7 @@ class Env:
 
     """Conda environment from a given specification file."""
 
-    def __init__(self, env_file, dag, singularity_img=None):
+    def __init__(self, env_file, dag, container_img=None, cleanup=None):
         self.file = env_file
 
         self._env_dir = dag.workflow.persistence.conda_env_path
@@ -53,11 +67,12 @@ class Env:
         self._content = None
         self._path = None
         self._archive_file = None
-        self._singularity_img = singularity_img
+        self._container_img = container_img
+        self._cleanup = cleanup
 
     @property
-    def singularity_img_url(self):
-        return self._singularity_img.url if self._singularity_img else None
+    def container_img_url(self):
+        return self._container_img.url if self._container_img else None
 
     @property
     def content(self):
@@ -73,10 +88,10 @@ class Env:
             # By this, moving the working directory around automatically
             # invalidates all environments. This is necessary, because binaries
             # in conda environments can contain hardcoded absolute RPATHs.
-            assert os.path.isabs(self._env_dir)
-            md5hash.update(self._env_dir.encode())
-            if self._singularity_img:
-                md5hash.update(self._singularity_img.url.encode())
+            env_dir = os.path.realpath(self._env_dir)
+            md5hash.update(env_dir.encode())
+            if self._container_img:
+                md5hash.update(self._container_img.url.encode())
             md5hash.update(self.content)
             self._hash = md5hash.hexdigest()
         return self._hash
@@ -224,7 +239,7 @@ class Env:
                     )
                 )
                 return env_path
-            conda = Conda(self._singularity_img)
+            conda = Conda(self._container_img)
             logger.info(
                 "Creating conda environment {}...".format(
                     utils.simplify_path(self.file)
@@ -258,9 +273,9 @@ class Env:
                         ["conda", "create", "--copy", "--prefix '{}'".format(env_path)]
                         + packages
                     )
-                    if self._singularity_img:
+                    if self._container_img:
                         cmd = singularity.shellcmd(
-                            self._singularity_img.path,
+                            self._container_img.path,
                             cmd,
                             envvars=self.get_singularity_envvars(),
                         )
@@ -284,13 +299,23 @@ class Env:
                             "--prefix '{}'".format(env_path),
                         ]
                     )
-                    if self._singularity_img:
+                    if self._container_img:
                         cmd = singularity.shellcmd(
-                            self._singularity_img.path,
+                            self._container_img.path,
                             cmd,
                             envvars=self.get_singularity_envvars(),
                         )
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
+
+                    # cleanup if requested
+                    if self._cleanup is CondaCleanupMode.tarballs:
+                        logger.info("Cleaning up conda package tarballs.")
+                        shell.check_output("conda clean -y --tarballs")
+                    elif self._cleanup is CondaCleanupMode.cache:
+                        logger.info(
+                            "Cleaning up conda package tarballs and package cache."
+                        )
+                        shell.check_output("conda clean -y --tarballs --packages")
                 # Touch "done" flag file
                 with open(os.path.join(env_path, "env_setup_done"), "a") as f:
                     pass
@@ -332,28 +357,28 @@ class Env:
 class Conda:
     instances = dict()
 
-    def __new__(cls, singularity_img=None):
-        if singularity_img not in cls.instances:
+    def __new__(cls, container_img=None):
+        if container_img not in cls.instances:
             inst = super().__new__(cls)
-            inst.__init__(singularity_img=singularity_img)
-            cls.instances[singularity_img] = inst
+            inst.__init__(container_img=container_img)
+            cls.instances[container_img] = inst
             return inst
         else:
-            return cls.instances[singularity_img]
+            return cls.instances[container_img]
 
-    def __init__(self, singularity_img=None):
+    def __init__(self, container_img=None):
         from snakemake.shell import shell
-        from snakemake import singularity
+        from snakemake.deployment import singularity
 
-        if isinstance(singularity_img, singularity.Image):
-            singularity_img = singularity_img.path
-        self.singularity_img = singularity_img
+        if isinstance(container_img, singularity.Image):
+            container_img = container_img.path
+        self.container_img = container_img
         self._check()
         self.info = json.loads(shell.check_output(self._get_cmd("conda info --json")))
 
     def _get_cmd(self, cmd):
-        if self.singularity_img:
-            return singularity.shellcmd(self.singularity_img, cmd)
+        if self.container_img:
+            return singularity.shellcmd(self.container_img, cmd)
         return cmd
 
     def _check(self):
@@ -364,7 +389,7 @@ class Conda:
             # type allows to check for both functions and regular commands.
             shell.check_output(self._get_cmd("type conda"), stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            if self.singularity_img:
+            if self.container_img:
                 raise CreateCondaEnvironmentException(
                     "The 'conda' command is not "
                     "available inside "

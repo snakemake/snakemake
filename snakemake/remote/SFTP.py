@@ -26,7 +26,13 @@ class RemoteProvider(AbstractRemoteProvider):
     allows_directories = True
 
     def __init__(
-        self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
+        self,
+        *args,
+        keep_local=False,
+        stay_on_remote=False,
+        is_default=False,
+        mkdir_remote=True,
+        **kwargs
     ):
         super(RemoteProvider, self).__init__(
             *args,
@@ -35,6 +41,8 @@ class RemoteProvider(AbstractRemoteProvider):
             is_default=is_default,
             **kwargs
         )
+
+        self.mkdir_remote = mkdir_remote
 
     @property
     def default_protocol(self):
@@ -137,7 +145,28 @@ class RemoteObject(DomainObject):
                     "The file does not seem to exist remotely: %s" % self.local_file()
                 )
 
+    def mkdir_remote_path(self):
+        remote_dir = os.path.dirname(self.remote_path)
+        list_remote_dir = []
+        while True:
+            remote_dir, base = os.path.split(remote_dir)
+            if not base and remote_dir:
+                list_remote_dir.insert(0, remote_dir)
+                break
+            list_remote_dir.insert(0, base)
+
+        with self.sftpc() as sftpc:
+            for part in list_remote_dir:
+                try:
+                    sftpc.chdir(part)
+                except IOError:
+                    sftpc.mkdir(part)
+                    sftpc.chdir(part)
+
     def upload(self):
+        if self.provider.mkdir_remote:
+            self.mkdir_remote_path()
+
         with self.sftpc() as sftpc:
             sftpc.put(
                 localpath=self.local_path,

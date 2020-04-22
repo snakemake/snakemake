@@ -27,7 +27,7 @@ from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOExce
 from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL
-from snakemake import conda, singularity
+from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
 
@@ -120,7 +120,7 @@ class DAG:
         self._jobid = dict()
         self.job_cache = dict()
         self.conda_envs = dict()
-        self.singularity_imgs = dict()
+        self.container_imgs = dict()
         self._progress = 0
         self._group = dict()
 
@@ -238,7 +238,7 @@ class DAG:
         # First deduplicate based on job.conda_env_file
         jobs = self.jobs if forceall else self.needrun_jobs
         env_set = {
-            (job.conda_env_file, job.singularity_img_url)
+            (job.conda_env_file, job.container_img_url)
             for job in jobs
             if job.conda_env_file
         }
@@ -246,12 +246,17 @@ class DAG:
         self.conda_envs = dict()
         for (env_file, simg_url) in env_set:
             simg = None
-            if simg_url:
+            if simg_url and self.workflow.use_singularity:
                 assert (
-                    simg_url in self.singularity_imgs
+                    simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
-                simg = self.singularity_imgs[simg_url]
-            env = conda.Env(env_file, self, singularity_img=simg)
+                simg = self.container_imgs[simg_url]
+            env = conda.Env(
+                env_file,
+                self,
+                container_img=simg,
+                cleanup=self.workflow.conda_cleanup_pkgs,
+            )
             self.conda_envs[(env_file, simg_url)] = env
 
         if not init_only:
@@ -259,16 +264,16 @@ class DAG:
                 if not dryrun or not quiet:
                     env.create(dryrun)
 
-    def pull_singularity_imgs(self, dryrun=False, forceall=False, quiet=False):
+    def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):
         # First deduplicate based on job.conda_env_file
         jobs = self.jobs if forceall else self.needrun_jobs
-        img_set = {job.singularity_img_url for job in jobs if job.singularity_img_url}
+        img_set = {job.container_img_url for job in jobs if job.container_img_url}
 
         for img_url in img_set:
             img = singularity.Image(img_url, self)
             if not dryrun or not quiet:
                 img.pull(dryrun)
-            self.singularity_imgs[img_url] = img
+            self.container_imgs[img_url] = img
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -817,6 +822,7 @@ class DAG:
             updated_subworkflow_input = self.updated_subworkflow_files.intersection(
                 job.input
             )
+
             if (
                 job not in self.omitforce
                 and job.rule in self.forcerules
@@ -988,7 +994,9 @@ class DAG:
                 if job.group is None:
                     self._ready_jobs.add(job)
                 else:
-                    candidate_groups.add(self._group[job])
+                    group = self._group[job]
+                    group.finalize()
+                    candidate_groups.add(group)
 
         self._ready_jobs.update(
             group
@@ -1188,7 +1196,7 @@ class DAG:
             # We might have new jobs, so we need to ensure that all conda envs
             # and singularity images are set up.
             if self.workflow.use_singularity:
-                self.pull_singularity_imgs()
+                self.pull_container_imgs()
             if self.workflow.use_conda:
                 self.create_conda_envs()
 

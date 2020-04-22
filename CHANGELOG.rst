@@ -1,3 +1,132 @@
+[5.15.0] - 2020-04-21
+=====================
+Changed
+-------
+- The resource directive can now take strings, e.g. for defining a GPU model (see docs). This will e.g. be used for upcoming updates to cloud executors.
+- More extensive conda cleanup with --conda-cleanup-packages, meant for CI usage.
+- Further polish for reports.
+
+[5.14.0] - 2020-04-08
+=====================
+Changed
+-------
+- Redesigned HTML reports, with improved interface and performance.
+- For big data, HTML reports can now be stored as ZIP, where files are not anymore embedded but rather are stored in an auxilliary folder, such that they don't have to be in memory during report rendering.
+- Added subcategories to report (see docs).
+- Fixed a bug linter, leading to only one rule or snakefile to be linted.
+- Breaking change in CLI: added flags --conda-cleanup-envs and --conda-cleanup-pkgs, removed flag --cleanup-conda.
+- Fixed scheduling of pipe jobs, they are now always scheduled, fixing a hangup.
+- Corrected quoting of shell command for cluster submission.
+
+[5.13.0] - 2020-03-27
+=====================
+Added
+-----
+- Allow to flag directories for inclusion in the report.
+Changed
+-------
+- Fixed hash computation for --cache in case of positional params arguments.
+- Automatically restrict thread usage of linear algebra libraries to whatever is specified in the rule/job.
+
+[5.12.3] - 2020-03-24
+=====================
+Changed
+-------
+- Various minor bug fixes.
+
+[5.12.2] - 2020-03-24
+=====================
+Changed
+-------
+- Further improved linter output.
+
+[5.12.1] - 2020-03-24
+=====================
+Changed
+-------
+- Linter fixes
+
+[5.12.0] - 2020-03-24
+=====================
+Changed
+-------
+- Fixed the ability to supply functions for the thread directive.
+- Improved error messages for caching.
+
+Added
+-----
+- A new "cache: true" directive that allows to annotate between workflow caching eligibility for rules in the workflow.
+
+[5.11.2] - 2020-03-19
+=====================
+Changed
+-------
+- Fixed a spurious error message complaining about missing singularity image if --use-singularity is not activated.
+
+[5.11.1] - 2020-03-16
+=====================
+Changed
+-------
+- Fixed a KeyError bug when executing a workflow that defines containers without --use-singularity.
+
+[5.11.0] - 2020-03-16
+=====================
+Changed
+-------
+- Fixes for environment modules and tibanna-based AWS execution.
+- Fixes for --default-resources defaults.
+- --cores is now a mandatory argument!
+- Automatic checksum validation for google storage.
+
+Added
+-----
+- Azure storage authentication via SAS
+- A generic cintainer directive that will in the future allow for other backends than just singularity.
+- envvars directive for asserting environment variable existence. See docs.
+- support for AWS spot instances via --tibanna-config spot=true.
+- Automatic code quality linting via --lint.
+
+[5.10.0] - 2020-01-20
+=====================
+Added
+-----
+- Jupyter notebook integration, see docs. This enables interactive development of certain data analysis parts (e.g. for plotting).
+- Ability to overwrite thread definitions at the command line (``--threads rulename=3``), thereby improving scalability.
+- Requester pays configuration for google storage remote files.
+- Add keyword ``allow_missing`` to expand function, thereby allowing partical expansion by skipping wildcards for which no keywords are defined.
+
+Changed
+-------
+- Various bug fixes, e.g. for between workflow caching and script execution.
+
+[5.9.1] - 2019-12-20
+====================
+Changed
+-------
+- Added a missing module.
+
+[5.9.0] - 2019-12-20
+====================
+Added
+-----
+- Support for per-rule environment module definitions to enable HPC specific software deployment (see docs).
+- Allow custom log handler defitions via --log-handler-script (e.g. post errors and progress to a slack channel or send emails).
+- Allow setting threads as a function of the given cores (see docs).
+Changed
+-------
+- Various minor fixes.
+
+[5.8.2] - 2019-12-16
+====================
+Added
+-----
+- Implemented a ``multiext`` helper, allowing to define a set of output files that just differ by extension.
+Changed
+-------
+- Fixed a failure when caching jobs with conda environments.
+- Fixed various minor bugs.
+- Caching now allows to cache the output of rules using ``multiext``.
+
 [5.8.1] - 2019-11-15
 ====================
 Changed

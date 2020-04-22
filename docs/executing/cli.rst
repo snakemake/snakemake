@@ -47,6 +47,16 @@ By specifying the number of available cores, i.e.
 one can tell Snakemake to use up to 4 cores and solve a binary knapsack problem to optimize the scheduling of jobs.
 If the number is omitted (i.e., only ``--cores`` is given), the number of used cores is determined as the number of available CPU cores in the machine.
 
+Snakemake workflows usually define the number of used threads of certain rules. Sometimes, it makes sense to overwrite the defaults given in the workflow definition.
+This can be done by using the ``--set-threads`` argument, e.g.,
+
+.. code-block:: console
+
+    $ snakemake --cores 4 --set-threads myrule=2
+
+would overwrite whatever number of threads has been defined for the rule ``myrule`` and use ``2`` instead.
+This can be particularly handy when used in combination with :ref:`cluster execution <cluster>`.
+
 Dealing with very large workflows
 ---------------------------------
 

@@ -64,14 +64,47 @@ With the `Pandas library <https://pandas.pydata.org/>`_ such data can be read an
     samples = pd.read_table("samples.tsv").set_index("samples", drop=False)
 
 reads in a table ``samples.tsv`` in TSV format and makes every record accessible by the sample name.
-For details, see the `Pandas documentation <http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_table.html?highlight=read_table#pandas-read-table>`_.
+For details, see the `Pandas documentation <https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_table.html?highlight=read_table#pandas-read-table>`_.
 A fully working real-world example containing both types of configuration can be found `here <https://github.com/snakemake-workflows/rna-seq-star-deseq2>`_.
+
+---------------------
+Environment variables
+---------------------
+
+Sometimes, it is not desirable to put configuration information into text files.
+For example, this holds for secrets like access tokens or passwords.
+Here, `environment variables <https://en.wikipedia.org/wiki/Environment_variable>`_ are the method of choice.
+Snakemake allows to assert the existence of environment variables by adding a statement like:
+
+.. code-block:: python
+
+    envvars:
+        "SOME_VARIABLE",
+        "SOME_OTHER_VARIABLE"
+
+When executing, Snakemake will fail with a reasonable error message if the variables ``SOME_VARIABLE`` and ``SOME_OTHER_VARIABLE`` are undefined.
+Otherwise, it will take care of passing them to cluster and cloud environments. However, note that this does **not** mean that Snakemake makes them available e.g. in the jobs shell command.
+Instead, for data provenance and reproducibility reasons, you are required to pass them explicitly to your job via the params directive, e.g. like this:
+
+.. code-block:: python
+
+    envvars:
+        "SOME_VARIABLE"
+
+    rule do_something:
+        output:
+             "test.txt"
+        params:
+            x=os.environ["SOME_VARIABLE"]
+        shell:
+            "echo {params.x} > {output}"
+
 
 ----------
 Validation
 ----------
 
-With Snakemake 5.1, it is possible to validate both types of configuration via `JSON schemas <http://json-schema.org>`_.
+With Snakemake 5.1, it is possible to validate both types of configuration via `JSON schemas <https://json-schema.org>`_.
 The function ``snakemake.utils.validate`` takes a loaded configuration (a config dictionary or a Pandas data frame) and validates it with a given JSON schema.
 Thereby, the schema can be provided in JSON or YAML format. Also, by using the defaults property it is possible to populate entries with default values. See `jsonschema FAQ on setting default values <https://python-jsonschema.readthedocs.io/en/latest/faq/>`_ for details.
 In case of the data frame, the schema should model the record that is expected in each row of the data frame.
@@ -104,7 +137,7 @@ the schema for validating the samples data frame looks like this:
 
 .. code-block:: yaml
 
-  $schema: "http://json-schema.org/draft-06/schema#"
+  $schema: "https://json-schema.org/draft-06/schema#"
   description: an entry in the sample sheet
   properties:
     sample:
@@ -127,9 +160,11 @@ populate it with True for all entries.
 
 .. _snakefiles-cluster_configuration:
 
----------------------
-Cluster Configuration
----------------------
+----------------------------------
+Cluster Configuration (deprecated)
+----------------------------------
+
+While still being possible, **cluster configuration has been deprecated** by the introduction of :ref:`profiles`.
 
 Snakemake supports a separate configuration file for execution on a cluster.
 A cluster config file allows you to specify cluster submission parameters outside the Snakefile.

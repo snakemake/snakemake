@@ -22,7 +22,7 @@ My shell command fails with with errors about an "unbound variable", what's wron
 
 This happens often when calling virtual environments from within Snakemake. Snakemake is using `bash strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_, to ensure e.g. proper error behavior of shell scripts.
 Unfortunately, virtualenv and some other tools violate bash strict mode.
-he quick fix for virtualenv is to temporarily deactivate the check for unbound variables
+The quick fix for virtualenv is to temporarily deactivate the check for unbound variables
 
 .. code-block:: bash
 
@@ -100,6 +100,25 @@ In order to infer the IDs from present files, Snakemake provides the ``glob_wild
 
 The function matches the given pattern against the files present in the filesystem and thereby infers the values for all wildcards in the pattern. A named tuple that contains a list of values for each wildcard is returned. Here, this named tuple has only one item, that is the list of values for the wildcard ``{id}``.
 
+I don't want expand to use the product of every wildcard, what can I do?
+------------------------------------------------------------------------
+
+By default the expand function uses ``itertools.product`` to create every combination of the supplied wildcards.
+Expand takes an optional, second positional argument which can customize how wildcards are combined.
+To create the list ``["a_1.txt", "b_2.txt", "c_3.txt"]``, invoke expand as:
+``expand("{sample}_{id}.txt", zip, sample=["a", "b", "c"], id=["1", "2", "3"])``
+
+I don't want expand to use every wildcard, what can I do?
+---------------------------------------------------------
+
+Sometimes partially expanding wildcards is useful to define inputs which still depend on some wildcards.
+Expand takes an optional keyword argument, allow_missing=True, that will format only wildcards which are supplied, leaving others as is.
+To create the list ``["{sample}_1.txt", "{sample}_2.txt"]``, invoke expand as:
+``expand("{sample}_{id}.txt", id=["1", "2"], allow_missing=True)``
+If the filename contains the wildcard ``allow_missing``, it will be formatted normally:
+``expand("{allow_missing}.txt", allow_missing=True)`` returns ``["True.txt"]``.
+
+
 Snakemake complains about a cyclic dependency or a PeriodicWildcardError. What can I do?
 ----------------------------------------------------------------------------------------
 
@@ -169,7 +188,7 @@ and have in the Snakefile some Python code that reads this environment variable,
 I get a NameError with my shell command. Are braces unsupported?
 ----------------------------------------------------------------
 
-You can use the entire Python `format minilanguage <http://docs.python.org/3/library/string.html#formatspec>`_ in shell commands. Braces in shell commands that are not intended to insert variable values thus have to be escaped by doubling them:
+You can use the entire Python `format minilanguage <https://docs.python.org/3/library/string.html#formatspec>`_ in shell commands. Braces in shell commands that are not intended to insert variable values thus have to be escaped by doubling them:
 
 This:
 
@@ -296,7 +315,7 @@ On unix, you can make use of the commonly pre-installed `mail` command:
     snakemake 2> snakemake.log
     mail -s "snakemake finished" youremail@provider.com < snakemake.log
 
-In case your administrator does not provide you with a proper configuration of the sendmail framework, you can configure `mail` to work e.g. via Gmail (see `here <http://www.cyberciti.biz/tips/linux-use-gmail-as-a-smarthost.html>`_).
+In case your administrator does not provide you with a proper configuration of the sendmail framework, you can configure `mail` to work e.g. via Gmail (see `here <https://www.cyberciti.biz/tips/linux-use-gmail-as-a-smarthost.html>`_).
 
 I want to pass variables between rules. Is that possible?
 ---------------------------------------------------------

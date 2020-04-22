@@ -3,8 +3,10 @@ __copyright__ = "Copyright 2017-2019, Johannes Köster"
 __email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
+import base64
 import os
 import re
+import struct
 
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError
@@ -13,11 +15,40 @@ from snakemake.common import lazy_property
 try:
     import google.cloud
     from google.cloud import storage
+    from crc32c import crc32
 except ImportError as e:
     raise WorkflowError(
-        "The Python 3 package 'google-cloud-sdk' "
-        "needs to be installed to use GS remote() file functionality. %s" % e.msg
+        "The Python 3 packages 'google-cloud-sdk' and `crc32c` "
+        "need to be installed to use GS remote() file functionality. %s" % e.msg
     )
+
+
+class Crc32cCalculator:
+    """The Google Python client doesn't provide a way to stream a file being
+       written, so we can wrap the file object in an additional class to
+       do custom handling. This is so we don't need to download the file
+       and then stream read it again to calculate the hash.
+   """
+
+    def __init__(self, fileobj):
+        self._fileobj = fileobj
+        self.digest = 0
+
+    def write(self, chunk):
+        self._fileobj.write(chunk)
+        self._update(chunk)
+
+    def _update(self, chunk):
+        """Given a chunk from the read in file, update the hexdigest
+        """
+        self.digest = crc32(chunk, self.digest)
+
+    def hexdigest(self):
+        """Return the hexdigest of the hasher.
+           The Base64 encoded CRC32c is in big-endian byte order.
+           See https://cloud.google.com/storage/docs/hashes-etags
+        """
+        return base64.b64encode(struct.pack(">I", self.digest)).decode("utf-8")
 
 
 class RemoteProvider(AbstractRemoteProvider):
@@ -52,7 +83,9 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-    def __init__(self, *args, keep_local=False, provider=None, **kwargs):
+    def __init__(
+        self, *args, keep_local=False, provider=None, user_project=None, **kwargs
+    ):
         super(RemoteObject, self).__init__(
             *args, keep_local=keep_local, provider=provider, **kwargs
         )
@@ -61,6 +94,9 @@ class RemoteObject(AbstractRemoteObject):
             self.client = provider.remote_interface()
         else:
             self.client = storage.Client(*args, **kwargs)
+
+        # keep user_project available for when bucket is initialized
+        self._user_project = user_project
 
         self._key = None
         self._bucket_name = None
@@ -89,13 +125,40 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self):
-        if self.exists():
-            os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
-            self.blob.download_to_filename(self.local_file())
+    def download(self, retry_count=3):
+        if not self.exists():
+            return None
+
+        # Create the directory for the intended file
+        os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
+        checksums_match = False
+
+        # Use boolean to not stress filesystem on each loop
+        while not checksums_match:
+
+            # ideally we could calculate hash while streaming to file with provided function
+            # https://github.com/googleapis/python-storage/issues/29
+            with open(self.local_file(), "wb") as blob_file:
+                parser = Crc32cCalculator(blob_file)
+                self.blob.download_to_file(parser)
             os.sync()
-            return self.local_file()
-        return None
+
+            # Compute local hash and verify correct
+            if parser.hexdigest() != self.blob.crc32c:
+                os.remove(self.local_file())
+                retry_count -= 1
+            else:
+                checksums_match = True
+
+            # After three tries, likely not going to work
+            if retry_count == 0:
+                raise WorkflowError(
+                    "Failed to download {} from remote: checksums did not match {} times.".format(
+                        self.remote_file(), retry_count
+                    )
+                )
+
+        return self.local_file()
 
     def upload(self):
         try:
@@ -127,7 +190,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @lazy_property
     def bucket(self):
-        return self.client.bucket(self.bucket_name)
+        return self.client.bucket(self.bucket_name, user_project=self._user_project)
 
     @lazy_property
     def blob(self):

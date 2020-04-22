@@ -1,7 +1,7 @@
 " Vim syntax file
-" Language:	Snakemake (extended from python.vim)
-" Maintainer:	Jay Hesselberth (jay.hesselberth@gmail.com)
-" Last Change:	2019 Jul 26
+" Language: Snakemake (extended from python.vim)
+" Maintainer: Jay Hesselberth (jay.hesselberth@gmail.com)
+" Last Change: 2019 Nov 22
 "
 " Usage
 "
@@ -19,12 +19,11 @@
 
 " load settings from system python.vim (7.4)
 source $VIMRUNTIME/syntax/python.vim
+source $VIMRUNTIME/indent/python.vim
 
 "
-" Snakemake rules, as of version 3.3
+" Snakemake rules, as of version 5.8
 "
-" XXX N.B. several of the new defs are missing from this table i.e.
-" subworkflow, touch etc
 "
 " rule        = "rule" (identifier | "") ":" ruleparams
 " include     = "include:" stringliteral
@@ -43,24 +42,25 @@ source $VIMRUNTIME/syntax/python.vim
 " singularity = "singularity" ":" stringliteral
 " conda       = "conda" ":" stringliteral
 " shadow      = "shadow" ":" stringliteral
-" group      = "group" ":" stringliteral
+" group       = "group" ":" stringliteral
 
 
-syn keyword pythonStatement	include workdir onsuccess onerror
-syn keyword pythonStatement	ruleorder localrules configfile group
-syn keyword pythonStatement	touch protected temp wrapper conda shadow
-syn keyword pythonStatement	input output params message threads resources singularity wildcard_constraints
-syn keyword pythonStatement	version run shell benchmark snakefile log script
-syn keyword pythonStatement	rule subworkflow nextgroup=pythonFunction skipwhite
+syn keyword pythonStatement include workdir onsuccess onerror onstart
+syn keyword pythonStatement ruleorder localrules configfile group 
+syn keyword pythonStatement wrapper conda shadow
+syn keyword pythonStatement input output params wildcards priority message threads resources singularity wildcard_constraints
+syn keyword pythonStatement version run shell benchmark snakefile log script
+syn keyword pythonStatement rule subworkflow checkpoint nextgroup=pythonFunction skipwhite
+syn keyword pythonBuiltinObj config checkpoints rules
+syn keyword pythonBuiltinFunc directory ancient pipe unpack expand temp touch protected
 
 " similar to special def and class treatment from python.vim, except
 " parenthetical part of def and class
-syn match   pythonFunction
-      \ "\%(\%(rule\s\|subworkflow\s\)\s*\)\@<=\h\w*" contained
+syn match pythonFunction
+      \ "\%(\%(rule\s\|subworkflow\s\|checkpoint\s\)\s*\)\@<=\h\w*" contained
 
-syn sync match pythonSync grouphere NONE "^\s*\%(rule\|subworkflow\)\s\+\h\w*\s*"
+syn sync match pythonSync grouphere NONE "^\s*\%(rule\|subworkflow\|checkpoint\)\s\+\h\w*\s*"
 
 let b:current_syntax = "snakemake"
 
 " vim:set sw=2 sts=2 ts=8 noet:
-

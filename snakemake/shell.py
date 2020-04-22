@@ -13,8 +13,9 @@ import threading
 
 from snakemake.utils import format
 from snakemake.logging import logger
-from snakemake import singularity
-from snakemake.conda import Conda
+from snakemake.deployment import singularity
+from snakemake.deployment.conda import Conda
+from snakemake.exceptions import WorkflowError
 import snakemake
 
 
@@ -86,6 +87,8 @@ class shell:
             raise KeyError("Argument stepout is not allowed in shell command.")
         cmd = format(cmd, *args, stepout=2, **kwargs)
         context = inspect.currentframe().f_back.f_locals
+        # add kwargs to context (overwriting the locals of the caller)
+        context.update(kwargs)
 
         stdout = sp.PIPE if iterable or read else STDOUT
 
@@ -97,29 +100,45 @@ class shell:
 
         env_prefix = ""
         conda_env = context.get("conda_env", None)
-        singularity_img = context.get("singularity_img", None)
+        container_img = context.get("container_img", None)
+        env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
 
         cmd = "{} {} {}".format(
             cls._process_prefix, cmd.strip(), cls._process_suffix
         ).strip()
 
-        conda = None
-        if conda_env:
-            cmd = Conda(singularity_img).shellcmd(conda_env, cmd)
+        if env_modules:
+            cmd = env_modules.shellcmd(cmd)
+            logger.info("Activating environment modules: {}".format(env_modules))
 
-        if singularity_img:
+        if conda_env:
+            cmd = Conda(container_img).shellcmd(conda_env, cmd)
+
+        if container_img:
             args = context.get("singularity_args", "")
             cmd = singularity.shellcmd(
-                singularity_img,
+                container_img,
                 cmd,
                 args,
                 shell_executable=cls._process_args["executable"],
                 container_workdir=shadow_dir,
             )
-            logger.info("Activating singularity image {}".format(singularity_img))
+            logger.info("Activating singularity image {}".format(container_img))
         if conda_env:
             logger.info("Activating conda environment: {}".format(conda_env))
+
+        threads = str(context.get("threads", 1))
+        # environment variable lists for linear algebra libraries taken from:
+        # https://stackoverflow.com/a/53224849/2352071
+        # https://github.com/xianyi/OpenBLAS/tree/59243d49ab8e958bb3872f16a7c0ef8c04067c0a#setting-the-number-of-threads-using-environment-variables
+        envvars = dict(os.environ)
+        envvars["OMP_NUM_THREADS"] = threads
+        envvars["GOTO_NUM_THREADS"] = threads
+        envvars["OPENBLAS_NUM_THREADS"] = threads
+        envvars["MKL_NUM_THREADS"] = threads
+        envvars["VECLIB_MAXIMUM_THREADS"] = threads
+        envvars["NUMEXPR_NUM_THREADS"] = threads
 
         proc = sp.Popen(
             cmd,
@@ -128,7 +147,8 @@ class shell:
             stdout=stdout,
             universal_newlines=iterable or None,
             close_fds=close_fds,
-            **cls._process_args
+            **cls._process_args,
+            env=envvars,
         )
 
         if jobid is not None:

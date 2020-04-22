@@ -30,7 +30,7 @@ e.g., via
    mkdir snakemake-demo
    cd snakemake-demo
    wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.4.5.tar.gz
-   tar --wildcards -xf v5.2.3.tar.bz2 --strip 1 "*/data"
+   tar --wildcards -xf v5.4.5.tar.gz --strip 1 "*/data"
 
 Step 1
 ------
@@ -184,12 +184,12 @@ variants. First, we define a variable
 at the top of the ``Snakefile``. This serves as a definition of the
 samples over which we would want to aggregate. In real life, you would
 want to use an external sample sheet or a `config
-file <http://snakemake.readthedocs.io/en/stable/tutorial/advanced.html#step-2-config-files>`__
+file <https://snakemake.readthedocs.io/en/stable/tutorial/advanced.html#step-2-config-files>`__
 for things like this.
 
 For aggregation over many files, Snakemake provides the helper function
 ``expand`` (see `the
-docs <http://snakemake.readthedocs.io/en/stable/tutorial/basics.html#step-5-calling-genomic-variants>`__).
+docs <https://snakemake.readthedocs.io/en/stable/tutorial/basics.html#step-5-calling-genomic-variants>`__).
 Create a rule ``call`` with input files
 
 -  ``fa="data/genome.fa"``

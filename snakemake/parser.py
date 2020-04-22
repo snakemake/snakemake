@@ -11,7 +11,6 @@ import urllib.request
 from io import TextIOWrapper
 
 from snakemake.exceptions import WorkflowError
-from snakemake.common import escape_backslash
 
 dd = textwrap.dedent
 
@@ -227,6 +226,12 @@ class SubworkflowKeywordState(KeywordState):
 # Global keyword states
 
 
+class Envvars(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "register_envvars"
+
+
 class Include(GlobalKeywordState):
     pass
 
@@ -248,7 +253,7 @@ class Ruleorder(GlobalKeywordState):
         if is_greater(token):
             yield ",", token
         elif is_name(token):
-            yield '"{}"'.format(token.string), token
+            yield repr(token.string), token
         else:
             self.error(
                 "Expected a descending order of rule names, "
@@ -266,7 +271,13 @@ class GlobalWildcardConstraints(GlobalKeywordState):
 class GlobalSingularity(GlobalKeywordState):
     @property
     def keyword(self):
-        return "global_singularity"
+        return "global_container"
+
+
+class GlobalContainer(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "global_container"
 
 
 # subworkflows
@@ -310,7 +321,7 @@ class Subworkflow(GlobalKeywordState):
 
     def name(self, token):
         if is_name(token):
-            yield "workflow.subworkflow('{name}'".format(name=token.string), token
+            yield "workflow.subworkflow({name!r}".format(name=token.string), token
             self.has_name = True
         elif is_colon(token) and self.has_name:
             self.primary_token = token
@@ -356,7 +367,7 @@ class Localrules(GlobalKeywordState):
         if is_comma(token):
             yield ",", token
         elif is_name(token):
-            yield '"{}"'.format(token.string), token
+            yield repr(token.string), token
         else:
             self.error(
                 "Expected a comma separated list of rules that shall "
@@ -417,11 +428,27 @@ class Conda(RuleKeywordState):
 
 
 class Singularity(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "container"
+
+
+class Container(RuleKeywordState):
+    pass
+
+
+class EnvModules(RuleKeywordState):
     pass
 
 
 class Group(RuleKeywordState):
     pass
+
+
+class Cache(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "cache_rule"
 
 
 class WildcardConstraints(RuleKeywordState):
@@ -441,8 +468,8 @@ class Run(RuleKeywordState):
         yield "\n"
         yield (
             "def __rule_{rulename}(input, output, params, wildcards, threads, "
-            "resources, log, version, rule, conda_env, singularity_img, "
-            "singularity_args, use_singularity, bench_record, jobid, "
+            "resources, log, version, rule, conda_env, container_img, "
+            "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir):".format(
                 rulename=self.rulename
                 if self.rulename is not None
@@ -523,7 +550,7 @@ class AbstractCmd(Run):
     def overwrite_block_content(self, token):
         if self.token is None:
             self.token = token
-            cmd = '"{}"'.format(self.overwrite_cmd)
+            cmd = repr(self.overwrite_cmd)
             self.cmd.append(cmd)
             yield cmd, token
 
@@ -542,15 +569,18 @@ class Script(AbstractCmd):
 
     def args(self):
         # basedir
-        yield ', "{}"'.format(
-            escape_backslash(os.path.abspath(os.path.dirname(self.snakefile.path)))
-        )
+        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
         # other args
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, singularity_img, singularity_args, "
+            "config, rule, conda_env, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir"
         )
+
+
+class Notebook(Script):
+    start_func = "@workflow.notebook"
+    end_func = "notebook"
 
 
 class Wrapper(Script):
@@ -560,7 +590,7 @@ class Wrapper(Script):
     def args(self):
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, singularity_img, singularity_args, "
+            "config, rule, conda_env, container_img, singularity_args, env_modules, "
             "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
             "cleanup_scripts, shadow_dir"
         )
@@ -572,9 +602,7 @@ class CWL(Script):
 
     def args(self):
         # basedir
-        yield ', "{}"'.format(
-            escape_backslash(os.path.abspath(os.path.dirname(self.snakefile.path)))
-        )
+        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
         # other args
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
@@ -596,14 +624,18 @@ class Rule(GlobalKeywordState):
         benchmark=Benchmark,
         conda=Conda,
         singularity=Singularity,
+        container=Container,
+        envmodules=EnvModules,
         wildcard_constraints=WildcardConstraints,
         shadow=Shadow,
         group=Group,
         run=Run,
         shell=Shell,
         script=Script,
+        notebook=Notebook,
         wrapper=Wrapper,
         cwl=CWL,
+        cache=Cache,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -616,13 +648,11 @@ class Rule(GlobalKeywordState):
 
     def start(self, aux=""):
         yield (
-            "@workflow.rule(name={rulename}, lineno={lineno}, "
-            "snakefile='{snakefile}'{aux})".format(
-                rulename=(
-                    "'{}'".format(self.rulename) if self.rulename is not None else None
-                ),
+            "@workflow.rule(name={rulename!r}, lineno={lineno}, "
+            "snakefile={snakefile!r}{aux})".format(
+                rulename=self.rulename,
                 lineno=self.lineno,
-                snakefile=self.snakefile.path.replace("\\", "\\\\"),
+                snakefile=self.snakefile.path,
                 aux=aux,
             )
         )
@@ -682,7 +712,7 @@ class Rule(GlobalKeywordState):
                     yield t
             except KeyError:
                 self.error(
-                    "Unexpected keyword {} in " "rule definition".format(token.string),
+                    "Unexpected keyword {} in rule definition".format(token.string),
                     token,
                 )
             except StopAutomaton as e:
@@ -730,6 +760,7 @@ class OnStart(DecoratorKeywordState):
 class Python(TokenAutomaton):
 
     subautomata = dict(
+        envvars=Envvars,
         include=Include,
         workdir=Workdir,
         configfile=Configfile,
@@ -744,6 +775,7 @@ class Python(TokenAutomaton):
         onstart=OnStart,
         wildcard_constraints=GlobalWildcardConstraints,
         singularity=GlobalSingularity,
+        container=GlobalContainer,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):

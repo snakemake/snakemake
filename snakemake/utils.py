@@ -31,10 +31,10 @@ def validate(data, schema, set_default=True):
         schema (str): Path to JSON schema used for validation. The schema can also be
             in YAML format. If validating a pandas data frame, the schema has to
             describe a row record (i.e., a dict with column names as keys pointing
-            to row values). See http://json-schema.org. The path is interpreted
+            to row values). See https://json-schema.org. The path is interpreted
             relative to the Snakefile when this function is called.
         set_default (bool): set default values defined in schema. See
-            http://python-jsonschema.readthedocs.io/en/latest/faq/ for more
+            https://python-jsonschema.readthedocs.io/en/latest/faq/ for more
             information
     """
     try:
@@ -61,7 +61,7 @@ def validate(data, schema, set_default=True):
         handlers={"file": lambda uri: _load_configfile(re.sub("^file://", "", uri))},
     )
 
-    # Taken from http://python-jsonschema.readthedocs.io/en/latest/faq/
+    # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
         validate_properties = validator_class.VALIDATORS["properties"]
 
@@ -170,6 +170,7 @@ def listfiles(pattern, restriction=None, omit_value=None):
     else:
         dirname = os.path.dirname(pattern)
     pattern = re.compile(regex(pattern))
+
     for dirpath, dirnames, filenames in os.walk(dirname):
         for f in chain(filenames, dirnames):
             if dirpath != ".":
@@ -247,7 +248,7 @@ def report(
         metadata (str):     E.g. an optional author name or email address.
 
     """
-    if stylesheeet is None:
+    if stylesheet is None:
         os.path.join(os.path.dirname(__file__), "report.css")
     try:
         import snakemake.report
@@ -449,7 +450,7 @@ def update_config(config, overwrite_config):
     """Recursively update dictionary config with overwrite_config.
 
     See
-    http://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
+    https://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
     for details.
 
     Args:
@@ -476,7 +477,7 @@ def available_cpu_count():
     when the cpuset(7) mechanism is in use, as is the case on some cluster
     systems.
 
-    Adapted from http://stackoverflow.com/a/1006301/715090
+    Adapted from https://stackoverflow.com/a/1006301/715090
     """
     try:
         with open("/proc/self/status") as f:
