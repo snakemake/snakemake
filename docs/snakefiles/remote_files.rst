@@ -144,7 +144,7 @@ Microsoft Azure Storage
 
 Usage of the Azure Storage provider is similar to the S3 provider.
 For authentication, one needs to provide an account name and a key
-or SAS token (without leading question mark), which can for example
+or SAS token (without leading `?`), which can for example
 be read from environment variables.
 
 .. code-block:: python
@@ -159,6 +159,14 @@ be read from environment variables.
     rule a:
         input:
             AS.remote("path/to/file.txt")
+
+A more convenient alternative is the use of a credentials file (`--az-store-credentials`),
+ which can be either in JSON or YAML format. The file should contain two key-value pairs:
+
+1. The name of your Azure storage account (`storage_account`)
+2. Either a storage account key (`account_key`) or a shared access signature (`sas_token`; without the leading `?`). 
+
+
 
 
 File transfer over SSH (SFTP)

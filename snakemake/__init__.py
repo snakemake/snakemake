@@ -1823,7 +1823,7 @@ def get_argument_parser(profile=None):
 
     group_env_modules.add_argument(
         "--az-store-credentials",
-        help="Azure config file",
+        help="Azure storage credentials file",
     )
 
     return parser
