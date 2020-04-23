@@ -335,7 +335,7 @@ def snakemake(
         updated_files = list()
 
     if cluster or cluster_sync or drmaa or tibanna:
-        cores = sys.maxsize
+        cores = os.cpu_count()
     else:
         nodes = sys.maxsize
 
