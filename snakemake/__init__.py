@@ -334,10 +334,10 @@ def snakemake(
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa or tibanna:
-        cores = sys.maxsize
+    if cluster or cluster_sync or drmaa or tibanna or kubernetes:
+        cores = None
     else:
-        nodes = sys.maxsize
+        nodes = None
 
     if isinstance(cluster_config, str):
         # Loading configuration from one file is still supported for

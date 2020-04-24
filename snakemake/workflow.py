@@ -851,16 +851,21 @@ class Workflow:
                     logger.resources_info(
                         "Provided cluster nodes: {}".format(self.nodes)
                     )
+                elif kubernetes or tibanna:
+                    logger.resources_info("Provided cloud nodes: {}".format(self.nodes))
                 else:
-                    warning = (
-                        "" if self.cores > 1 else " (use --cores to define parallelism)"
-                    )
-                    logger.resources_info(
-                        "Provided cores: {}{}".format(self.cores, warning)
-                    )
-                    logger.resources_info(
-                        "Rules claiming more threads " "will be scaled down."
-                    )
+                    if self.cores is not None:
+                        warning = (
+                            ""
+                            if self.cores > 1
+                            else " (use --cores to define parallelism)"
+                        )
+                        logger.resources_info(
+                            "Provided cores: {}{}".format(self.cores, warning)
+                        )
+                        logger.resources_info(
+                            "Rules claiming more threads " "will be scaled down."
+                        )
 
                 provided_resources = format_resources(self.global_resources)
                 if provided_resources:
