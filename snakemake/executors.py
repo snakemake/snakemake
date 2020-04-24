@@ -1487,7 +1487,9 @@ class KubernetesExecutor(ClusterExecutor):
         )
 
         body = kubernetes.client.V1Pod()
-        body.metadata = kubernetes.client.V1ObjectMeta(labels={"app": "snakemake", "rule": job.rule.name})
+        body.metadata = kubernetes.client.V1ObjectMeta(labels={
+            "app": "snakemake", "rule": job.rule.name, "job_id": str(job.jobid), "attempt": str(job.attempt)
+            })
         body.metadata.name = jobid
 
         # container
@@ -1609,7 +1611,7 @@ class KubernetesExecutor(ClusterExecutor):
             self.register_secret()
         except kubernetes.client.rest.ApiException as e:
             if e.status == 409 and e.reason == "Conflict":
-                logger.warning("Caught 409/Conflict ApiException during secret registration")
+                logger.warning("409 conflict ApiException during secret registration")
                 logger.warning(e)
             else:
                 raise WorkflowError(
@@ -1715,20 +1717,31 @@ class KubernetesExecutor(ClusterExecutor):
                         # finished
                         j.callback(j.job)
                         
-                        def func():
+                        def func(ignore_not_found=False):
                             body = kubernetes.client.V1DeleteOptions()
-                            self.kubeapi.delete_namespaced_pod(
-                                j.jobid, self.namespace, body=body
-                            )
+                            try:
+                                self.kubeapi.delete_namespaced_pod(
+                                    j.jobid, self.namespace, body=body
+                                )
+                            except kubernetes.client.rest.ApiException as e:
+                                if e.status == 404 and ignore_not_found:
+                                    # Can't find the pod. Maybe it's already been
+                                    # detroyed. Proceed with a warning message.
+                                    logger.warning(
+                                        f"[WARNING] 404 not found when trying to delete the pod: {j.jobid}\n"
+                                        "[WARNING] Ignore this error\n"
+                                        )
+                                else:
+                                    raise
 
                         try:
                             func()
                         except kubernetes.client.rest.ApiException as e:
-                            if e.status == 401:
+                            if e.status == 401 or e.status == 404:
                                 # Unauthorized.
                                 # Reload config in order to ensure token is
                                 # refreshed. Then try again.
-                                self._reauthenticate(func)
+                                self._reauthenticate(lambda : func(ignore_not_found=True))
                             else:
                                 raise
                     else:
