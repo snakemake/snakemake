@@ -1173,6 +1173,7 @@ class GroupJob(AbstractJob):
     def resources(self):
         if self._resources is None:
             self._resources = defaultdict(int)
+            self._resources["_nodes"] = 1
             pipe_group = any([job.is_pipe for job in self.jobs])
             # iterate over siblings that can be executed in parallel
             for siblings in self.toposorted:
