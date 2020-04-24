@@ -22,6 +22,7 @@ dependencies:
   - google-cloud-storage
   - azure-storage
   - azure-storage-common
+  - azure-batch
   - ratelimiter
   - configargparse
   - appdirs

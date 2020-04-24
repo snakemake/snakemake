@@ -2183,3 +2183,97 @@ def run_wrapper(
             write_benchmark_records(bench_records, benchmark)
         except (Exception, BaseException) as ex:
             raise WorkflowError(ex)
+
+
+
+AzBatchJob = namedtuple(
+    "AzBatchJob", "job jobname jobid callback error_callback"
+)
+
+
+class AzBatchExecutor(ClusterExecutor):
+    def __init__(self, workflow, dag, cores,
+             jobname="snakejob.{name}.{jobid}.sh",
+             printreason=False,
+             quiet=False,
+             printshellcmds=False,
+             latency_wait=3,
+             cluster_config=None,
+             local_input=None,
+             restart_times=None,
+             exec_job=None,
+             max_status_checks_per_second=1):
+
+        # FIXME container_image
+        # FIXME keep_incomplete
+        
+        # overwrite the command to execute a single snakemake job if necessary
+        # exec_job = "..."
+
+        super().__init__(workflow, dag, None,
+                         jobname=jobname,
+                         printreason=printreason,
+                         quiet=quiet,
+                         printshellcmds=printshellcmds,
+                         latency_wait=latency_wait,
+                         cluster_config=cluster_config,
+                         local_input=local_input,
+                         restart_times=restart_times,
+                         exec_job=exec_job,
+                         assume_shared_fs=False,
+                         max_status_checks_per_second=10)
+
+        # add additional attributes
+
+    def shutdown(self):
+        # perform additional steps on shutdown if necessary
+        super().shutdown()
+
+    def cancel(self):
+        for job in self.active_jobs:
+            # cancel active jobs here
+            pass
+        self.shutdown()
+
+    def run(self, job,
+            callback=None,
+            submit_callback=None,
+            error_callback=None):
+
+        super()._run(job)
+        # obtain job execution command
+        exec_job = self.format_job(
+            self.exec_job, job, _quote_all=True,
+            use_threads="--force-use-threads" if not job.is_group() else "")
+
+        # submit job here, and obtain job ids from the backend
+
+        # register job as active, using your own namedtuple.
+        # The namedtuple must at least contain the attributes
+        # job, jobid, callback, error_callback.
+        # FIXME self.active_jobs.append(AzBatchJob(
+        #    job, jobid, callback, error_callback))
+
+    def _wait_for_jobs(self):
+        # busy wait on job completion
+        # This is only needed if your backend does not allow to use callbacks
+        # for obtaining job status.
+        while True:
+            # always use self.lock to avoid race conditions
+            with self.lock:
+                if not self.wait:
+                    return
+                active_jobs = self.active_jobs
+                self.active_jobs = list()
+                still_running = list()
+            for j in active_jobs:
+                # use self.status_rate_limiter to avoid too many API calls.
+                with self.status_rate_limiter:
+                    pass
+                    # Retrieve status of job j from your backend via j.jobid
+                    # Handle completion and errors, calling either j.callback(j.job)
+                    # or j.error_callback(j.job)
+                    # In case of error, add job j to still_running.
+            with self.lock:
+                self.active_jobs.extend(still_running)
+            sleep()

@@ -19,6 +19,7 @@ from snakemake.executors import (
     DRMAAExecutor,
     KubernetesExecutor,
     TibannaExecutor,
+    AzBatchExecutor,
 )
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
@@ -79,6 +80,7 @@ class JobScheduler:
         assume_shared_fs=True,
         keepincomplete=False,
         az_store_credentials=None,
+        az_batch_config=None,
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
@@ -99,6 +101,10 @@ class JobScheduler:
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
         self.resources = dict(self.workflow.global_resources)
+
+        az_batch = False
+        if az_batch_config:
+            az_batch = True
 
         use_threads = (
             force_use_threads
@@ -229,6 +235,7 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 cluster_config=cluster_config,
                 keepincomplete=keepincomplete,
+                # FIXME don't we need az_store_credentials here?
             )
         elif tibanna:
             self._local_executor = CPUExecutor(
@@ -259,6 +266,31 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 keepincomplete=keepincomplete,
             )
+        elif az_batch:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                cores=local_cores,
+                keepincomplete=keepincomplete,
+                az_store_credentials=az_store_credentials
+            )
+
+            self._executor = AzBatchExecutor(
+                workflow,
+                dag,
+                cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                cluster_config=cluster_config,
+            )            
+        
         else:
             self._executor = CPUExecutor(
                 workflow,

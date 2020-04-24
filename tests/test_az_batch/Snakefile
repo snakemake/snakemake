@@ -1,0 +1,7 @@
+rule count:
+    input:
+        "data_upload/test.txt.gz"
+    output:
+        "test_word_count.txt"
+    shell:
+        "gzip -dc {input} | wc -w > {output}"

@@ -154,6 +154,7 @@ def snakemake(
     keep_incomplete=False,
     messaging=None,
     az_store_credentialsfile=None,
+    az_batch_configfile=None,
 ):
     """Run snakemake on a given snakefile.
 
@@ -265,6 +266,7 @@ def snakemake(
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
         az_store_credentialsfile (str): Azure storage credentials file
+        az_batch_configfile (str):      Azure Batch configuration file
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -313,6 +315,10 @@ def snakemake(
         immediate_submit and notemp
     ), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
 
+    az_batch = False
+    if az_batch_configfile:
+        az_batch = True
+
     if tibanna:
         assume_shared_fs = False
         default_remote_provider = "S3"
@@ -332,10 +338,15 @@ def snakemake(
                 tibanna_config_dict.update({k: v})
             tibanna_config = tibanna_config_dict
 
+    if az_batch:
+        assume_shared_fs = False
+        default_remote_provider = "AzureStorage"
+        default_remote_prefix = default_remote_prefix.rstrip("/")
+
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa or tibanna:
+    if cluster or cluster_sync or drmaa or tibanna or az_batch:
         cores = sys.maxsize
     else:
         nodes = sys.maxsize
@@ -355,7 +366,8 @@ def snakemake(
     else:
         cluster_config_content = dict()
 
-    run_local = not (cluster or cluster_sync or drmaa or kubernetes or tibanna)
+    run_local = not (
+        cluster or cluster_sync or drmaa or kubernetes or tibanna or az_batch)
     if run_local and not dryrun:
         # clean up all previously recorded jobids.
         shell.cleanup()
@@ -442,7 +454,12 @@ def snakemake(
     if az_store_credentialsfile:
         az_store_credentials = load_configfile(az_store_credentialsfile)
     else:
-        az_store_credentials = None
+        az_store_credentials = dict()
+
+    if az_batch_configfile:
+        az_batch_config = load_configfile(az_batch_configfile)
+    else:
+        az_batch_config = None
 
     try:
         # handle default remote provider
@@ -456,8 +473,7 @@ def snakemake(
                 raise WorkflowError("Unknown default remote provider.")
             if rmt.RemoteProvider.supports_default:
                 _default_remote_provider = rmt.RemoteProvider(
-                    keep_local=True, is_default=True, **az_store_credentials if az_store_credentials else None,
-                )
+                    keep_local=True, is_default=True, **az_store_credentials)
             else:
                 raise WorkflowError(
                     "Remote provider {} does not (yet) support to "
@@ -498,6 +514,7 @@ def snakemake(
             nodes=nodes,
             resources=resources,
             az_store_credentials=az_store_credentials,
+            az_batch_config=az_batch_config,
         )
         success = True
         workflow.include(
@@ -585,6 +602,7 @@ def snakemake(
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     az_store_credentials=az_store_credentials,
+                    az_batch_configfile=az_batch_configfile,
                 )
                 success = workflow.execute(
                     targets=targets,
@@ -1826,6 +1844,11 @@ def get_argument_parser(profile=None):
         help="Azure storage credentials file",
     )
 
+    group_env_modules.add_argument(
+        "--az-batch-configfile",
+        help="Azure Batch config file",
+    )
+
     return parser
 
 
@@ -2213,6 +2236,7 @@ def main(argv=None):
             keep_incomplete=args.keep_incomplete,
             log_handler=log_handler,
             az_store_credentialsfile=args.az_store_credentials,
+            az_batch_configfile=args.az_batch_configfile,
         )
 
     if args.runtime_profile:

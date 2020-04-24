@@ -104,6 +104,7 @@ class Workflow:
         resources=None,
         conda_cleanup_pkgs=False,
         az_store_credentials=None,
+        az_batch_config=None,
     ):
         """
         Create the controller.
@@ -164,6 +165,8 @@ class Workflow:
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
         self.az_store_credentials = az_store_credentials
+        self.az_batch_config = az_batch_config
+        
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
@@ -490,6 +493,7 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        # FIXME az_batch_config here
     ):
 
         self.check_localrules()
@@ -842,7 +846,8 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
-            az_store_credentials=self.az_store_credentials
+            az_store_credentials=self.az_store_credentials,
+            az_batch_config=self.az_batch_config,
         )
 
         if not dryrun:
