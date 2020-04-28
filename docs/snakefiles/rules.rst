@@ -14,7 +14,7 @@ Most importantly, a rule can consist of a name (the name is optional and can be 
         output: "path/to/outputfile", "path/to/another/outputfile"
         shell: "somecommand {input} {output}"
 
-Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <http://docs.python.org/py3k/library/string.html#formatspec>`_. Here input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
+Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_. Here input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 Instead of a shell command, a rule can run some python code to generate the output:
 
@@ -117,7 +117,7 @@ Finally, you can also define global wildcard constraints that apply for all rule
     rule b:
         ...
 
-See the `Python documentation on regular expressions <http://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
+See the `Python documentation on regular expressions <https://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
 
 
 Aggregation
@@ -307,7 +307,7 @@ the scheduler will ensure that the given resources are not exceeded by running j
 If no limits are given, the resources are ignored in local execution.
 In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
-Resources must be ``int`` values.
+Resources must be ``int`` or ``str`` values.
 
 Note that you are free to choose any names for the given resources.
 There are two **standard resources** for memory and disk usage though: ``mem_mb`` and ``disk_mb``.
@@ -486,7 +486,7 @@ Inside the script, you have access to an object ``snakemake`` that provides acce
 Apart from Python scripts, this mechanism also allows you to integrate R_ and R Markdown_ scripts with Snakemake, e.g.
 
 .. _R: https://www.r-project.org
-.. _Markdown: http://rmarkdown.rstudio.com
+.. _Markdown: https://rmarkdown.rstudio.com
 
 .. code-block:: python
 

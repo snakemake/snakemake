@@ -27,7 +27,6 @@ import base64
 import uuid
 import re
 import math
-import urllib3
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -86,8 +85,14 @@ class AbstractExecutor:
 
     def get_default_resources_args(self):
         if self.workflow.default_resources.args is not None:
+
+            def fmt(res):
+                if isinstance(res, str):
+                    res = res.replace('"', r"\"")
+                return '"{}"'.format(res)
+
             args = " --default-resources {} ".format(
-                " ".join(map('"{}"'.format, self.workflow.default_resources.args))
+                " ".join(map(fmt, self.workflow.default_resources.args))
             )
             return args
         return ""
@@ -358,12 +363,24 @@ class CPUExecutor(RealExecutor):
 
         self.use_threads = use_threads
         self.cores = cores
-        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers + 1)
+
+        # Zero thread jobs do not need a thread, but they occupy additional workers.
+        # Hence we need to reserve additional workers for them.
+        self.workers = workers + 5
+        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.workers)
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
 
         if job.is_group():
+            # if we still don't have enough workers for this group, create a new pool here
+            missing_workers = max(len(job) - self.workers, 0)
+            if missing_workers:
+                self.workers += missing_workers
+                self.pool = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=self.workers
+                )
+
             # the future waits for the entire group job
             future = self.pool.submit(self.run_group_job, job)
         else:
@@ -824,9 +841,7 @@ class GenericClusterExecutor(ClusterExecutor):
         elif assume_shared_fs:
             # TODO wrap with watch and touch {jobrunning}
             # check modification date of {jobrunning} in the wait_for_job method
-            self.exec_job += (
-                ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
-            )
+            self.exec_job += " && touch {jobfinished} || (touch {jobfailed}; exit 1)"
         else:
             raise WorkflowError(
                 "If no shared filesystem is used, you have to "
@@ -1550,6 +1565,7 @@ class KubernetesExecutor(ClusterExecutor):
 
     def _kubernetes_retry(self, func):
         import kubernetes
+        import urllib3
 
         with self.lock:
             try:

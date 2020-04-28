@@ -118,7 +118,16 @@ def test_ancient():
 
 
 def test_report():
-    run(dpath("test_report"), report="report.html", report_stylesheet="custom-stylesheet.css", check_md5=False)
+    run(
+        dpath("test_report"),
+        report="report.html",
+        report_stylesheet="custom-stylesheet.css",
+        check_md5=False,
+    )
+
+
+def test_report_zip():
+    run(dpath("test_report_zip"), report="report.zip", check_md5=False)
 
 
 def test_dynamic():
@@ -235,6 +244,7 @@ def test_remote():
 
 
 def test_cluster_sync():
+    os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster_sync="./qsub")
 
 
@@ -993,4 +1003,14 @@ def test_container():
 def test_linting():
     snakemake(
         snakefile=os.path.join(dpath("test14"), "Snakefile.nonstandard"), lint=True
+    )
+
+
+def test_string_resources():
+    from snakemake.resources import DefaultResources
+
+    run(
+        dpath("test_string_resources"),
+        default_resources=DefaultResources(["gpu_model='nvidia-tesla-1000'"]),
+        cluster="./qsub.py",
     )
