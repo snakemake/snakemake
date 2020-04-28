@@ -422,6 +422,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
+            self.workflow.edit_notebook,
         )
 
     def run_single_job(self, job):
@@ -2025,6 +2026,7 @@ def run_wrapper(
     cleanup_scripts,
     shadow_dir,
     jobid,
+    edit_notebook,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2102,6 +2104,7 @@ def run_wrapper(
                             bench_iteration,
                             cleanup_scripts,
                             passed_shadow_dir,
+                            edit_notebook,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2129,6 +2132,7 @@ def run_wrapper(
                                 bench_iteration,
                                 cleanup_scripts,
                                 passed_shadow_dir,
+                                edit_notebook,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2154,6 +2158,7 @@ def run_wrapper(
                     None,
                     cleanup_scripts,
                     passed_shadow_dir,
+                    edit_notebook,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
