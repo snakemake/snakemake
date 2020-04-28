@@ -442,7 +442,7 @@ def snakemake(
     if az_store_credentialsfile:
         az_store_credentials = load_configfile(az_store_credentialsfile)
     else:
-        az_store_credentials = None
+        az_store_credentials = dict()
 
     try:
         # handle default remote provider
@@ -456,8 +456,7 @@ def snakemake(
                 raise WorkflowError("Unknown default remote provider.")
             if rmt.RemoteProvider.supports_default:
                 _default_remote_provider = rmt.RemoteProvider(
-                    keep_local=True, is_default=True, **az_store_credentials if az_store_credentials else None,
-                )
+                    keep_local=True, is_default=True, **az_store_credentials)
             else:
                 raise WorkflowError(
                     "Remote provider {} does not (yet) support to "
