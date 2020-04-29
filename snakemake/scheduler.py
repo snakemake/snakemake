@@ -100,7 +100,7 @@ class JobScheduler:
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
-            for name, res in self.global_resources
+            for name, res in workflow.global_resources.items()
         }
         self.resources = dict(self.global_resources)
 
