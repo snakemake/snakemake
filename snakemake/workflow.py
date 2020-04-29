@@ -103,6 +103,7 @@ class Workflow:
         cores=1,
         resources=None,
         conda_cleanup_pkgs=None,
+        edit_notebook=False,
     ):
         """
         Create the controller.
@@ -162,6 +163,7 @@ class Workflow:
         self.run_local = run_local
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
+        self.edit_notebook = edit_notebook
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()

@@ -153,6 +153,7 @@ def snakemake(
     show_failed_logs=False,
     keep_incomplete=False,
     messaging=None,
+    edit_notebook=None,
 ):
     """Run snakemake on a given snakefile.
 
@@ -262,7 +263,8 @@ def snakemake(
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
-        keep_incomplete (bool):      keep incomplete output files of failed jobs
+        keep_incomplete (bool):     keep incomplete output files of failed jobs
+        edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
 
             :level:
@@ -355,9 +357,15 @@ def snakemake(
         cluster_config_content = dict()
 
     run_local = not (cluster or cluster_sync or drmaa or kubernetes or tibanna)
-    if run_local and not dryrun:
-        # clean up all previously recorded jobids.
-        shell.cleanup()
+    if run_local:
+        if not dryrun:
+            # clean up all previously recorded jobids.
+            shell.cleanup()
+    else:
+        if edit_notebook:
+            raise WorkflowError(
+                "Notebook edit mode is only allowed with local execution."
+            )
 
     # force thread use for any kind of cluster
     use_threads = (
@@ -491,6 +499,7 @@ def snakemake(
             cores=cores,
             nodes=nodes,
             resources=resources,
+            edit_notebook=edit_notebook,
         )
         success = True
         workflow.include(
@@ -1093,9 +1102,9 @@ def get_argument_parser(profile=None):
         ),
     )
 
-    group_utils = parser.add_argument_group("UTILITIES")
+    group_report = parser.add_argument_group("REPORTS")
 
-    group_utils.add_argument(
+    group_report.add_argument(
         "--report",
         nargs="?",
         const="report.html",
@@ -1106,12 +1115,33 @@ def get_argument_parser(profile=None):
         "In the latter case, results are stored along with a file report.html in the zip archive. "
         "If no filename is given, an embedded report.html is the default.",
     )
-    group_utils.add_argument(
+    group_report.add_argument(
         "--report-stylesheet",
         metavar="CSSFILE",
         help="Custom stylesheet to use for report. In particular, this can be used for "
         "branding the report with e.g. a custom logo, see docs.",
     )
+
+    group_notebooks = parser.add_argument_group("NOTEBOOKS")
+
+    group_notebooks.add_argument(
+        "--edit-notebook",
+        metavar="TARGET",
+        help="Interactively edit the notebook associated with the rule used to generate the given target file. "
+        "This will start a local jupyter notebook server. "
+        "Any changes to the notebook should be saved, and the server has to be stopped by "
+        "closing the notebook and hitting the 'Quit' button on the jupyter dashboard. "
+        "Afterwards, the updated notebook will be automatically stored in the path defined in the rule. "
+        "If the notebook is not yet present, this will create an empty draft. ",
+    )
+    group_notebooks.add_argument(
+        "--notebook-listen",
+        metavar="IP:PORT",
+        default="localhost:8888",
+        help="The IP address and PORT the notebook server used for editing the notebook (--edit-notebook) will listen on.",
+    )
+
+    group_utils = parser.add_argument_group("UTILITIES")
     group_utils.add_argument(
         "--lint",
         nargs="?",
@@ -1121,6 +1151,7 @@ def get_argument_parser(profile=None):
         "specific suggestions to improve code quality (work in progress, more lints "
         "to be added in the future). If no argument is provided, plain text output is used.",
     )
+
     group_utils.add_argument(
         "--export-cwl",
         action="store",
@@ -2102,6 +2133,13 @@ def main(argv=None):
             slack_logger = logging.SlackLogger()
             log_handler.append(slack_logger.log_handler)
 
+        if args.edit_notebook:
+            from snakemake import notebook
+
+            args.target = [args.edit_notebook]
+            args.force = True
+            args.edit_notebook = notebook.Listen(args.notebook_listen)
+
         success = snakemake(
             args.snakefile,
             batch=batch,
@@ -2211,6 +2249,7 @@ def main(argv=None):
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
             keep_incomplete=args.keep_incomplete,
+            edit_notebook=args.edit_notebook,
             log_handler=log_handler,
         )
 
