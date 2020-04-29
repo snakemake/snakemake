@@ -85,8 +85,14 @@ class AbstractExecutor:
 
     def get_default_resources_args(self):
         if self.workflow.default_resources.args is not None:
+
+            def fmt(res):
+                if isinstance(res, str):
+                    res = res.replace('"', r"\"")
+                return '"{}"'.format(res)
+
             args = " --default-resources {} ".format(
-                " ".join(map('"{}"'.format, self.workflow.default_resources.args))
+                " ".join(map(fmt, self.workflow.default_resources.args))
             )
             return args
         return ""
@@ -134,11 +140,15 @@ class DryrunExecutor(AbstractExecutor):
         if self.workflow.is_cached_rule(job.rule):
             if self.workflow.output_file_cache.exists(job):
                 logger.info(
-                    "Output file {} will be obtained from cache.".format(job.output[0])
+                    "Output file {} will be obtained from global between-workflow cache.".format(
+                        job.output[0]
+                    )
                 )
             else:
                 logger.info(
-                    "Output file {} will be written to cache.".format(job.output[0])
+                    "Output file {} will be written to global between-workflow cache.".format(
+                        job.output[0]
+                    )
                 )
 
 
@@ -193,15 +203,16 @@ class RealExecutor(AbstractExecutor):
         handle_touch=True,
         ignore_missing_output=False,
     ):
-        job.postprocess(
-            upload_remote=upload_remote,
-            handle_log=handle_log,
-            handle_touch=handle_touch,
-            ignore_missing_output=ignore_missing_output,
-            latency_wait=self.latency_wait,
-            assume_shared_fs=self.assume_shared_fs,
-        )
-        self.stats.report_job_end(job)
+        if not self.dag.is_edit_notebook_job(job):
+            job.postprocess(
+                upload_remote=upload_remote,
+                handle_log=handle_log,
+                handle_touch=handle_touch,
+                ignore_missing_output=ignore_missing_output,
+                latency_wait=self.latency_wait,
+                assume_shared_fs=self.assume_shared_fs,
+            )
+            self.stats.report_job_end(job)
 
     def handle_job_error(self, job, upload_remote=True):
         job.postprocess(
@@ -353,12 +364,24 @@ class CPUExecutor(RealExecutor):
 
         self.use_threads = use_threads
         self.cores = cores
-        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers + 1)
+
+        # Zero thread jobs do not need a thread, but they occupy additional workers.
+        # Hence we need to reserve additional workers for them.
+        self.workers = workers + 5
+        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.workers)
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
 
         if job.is_group():
+            # if we still don't have enough workers for this group, create a new pool here
+            missing_workers = max(len(job) - self.workers, 0)
+            if missing_workers:
+                self.workers += missing_workers
+                self.pool = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=self.workers
+                )
+
             # the future waits for the entire group job
             future = self.pool.submit(self.run_group_job, job)
         else:
@@ -400,6 +423,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
+            self.workflow.edit_notebook,
         )
 
     def run_single_job(self, job):
@@ -819,9 +843,7 @@ class GenericClusterExecutor(ClusterExecutor):
         elif assume_shared_fs:
             # TODO wrap with watch and touch {jobrunning}
             # check modification date of {jobrunning} in the wait_for_job method
-            self.exec_job += (
-                ' && touch "{jobfinished}" || (touch "{jobfailed}"; exit 1)'
-            )
+            self.exec_job += " && touch {jobfinished} || (touch {jobfailed}; exit 1)"
         else:
             raise WorkflowError(
                 "If no shared filesystem is used, you have to "
@@ -1541,6 +1563,7 @@ class KubernetesExecutor(ClusterExecutor):
 
     def _kubernetes_retry(self, func):
         import kubernetes
+        import urllib3
 
         with self.lock:
             try:
@@ -1578,7 +1601,7 @@ class KubernetesExecutor(ClusterExecutor):
                     return func()
                 except:
                     # Still can't reach the server after 5 minutes
-                    raise WorkflowErroe(
+                    raise WorkflowError(
                         e,
                         "Error 111 connection timeout, please check"
                         " that the k8 cluster master is reachable!",
@@ -1669,7 +1692,6 @@ class TibannaExecutor(ClusterExecutor):
         latency_wait=3,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         max_status_checks_per_second=1,
         keepincomplete=False,
     ):
@@ -2005,6 +2027,7 @@ def run_wrapper(
     cleanup_scripts,
     shadow_dir,
     jobid,
+    edit_notebook,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2082,6 +2105,7 @@ def run_wrapper(
                             bench_iteration,
                             cleanup_scripts,
                             passed_shadow_dir,
+                            edit_notebook,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2109,6 +2133,7 @@ def run_wrapper(
                                 bench_iteration,
                                 cleanup_scripts,
                                 passed_shadow_dir,
+                                edit_notebook,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2134,6 +2159,7 @@ def run_wrapper(
                     None,
                     cleanup_scripts,
                     passed_shadow_dir,
+                    edit_notebook,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the

@@ -445,6 +445,12 @@ class Group(RuleKeywordState):
     pass
 
 
+class Cache(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "cache_rule"
+
+
 class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
@@ -464,7 +470,7 @@ class Run(RuleKeywordState):
             "def __rule_{rulename}(input, output, params, wildcards, threads, "
             "resources, log, version, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
-            "is_shell, bench_iteration, cleanup_scripts, shadow_dir):".format(
+            "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook):".format(
                 rulename=self.rulename
                 if self.rulename is not None
                 else self.snakefile.rulecount
@@ -576,6 +582,17 @@ class Notebook(Script):
     start_func = "@workflow.notebook"
     end_func = "notebook"
 
+    def args(self):
+        # basedir
+        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
+        # other args
+        yield (
+            ", input, output, params, wildcards, threads, resources, log, "
+            "config, rule, conda_env, container_img, singularity_args, env_modules, "
+            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
+            "edit_notebook"
+        )
+
 
 class Wrapper(Script):
     start_func = "@workflow.wrapper"
@@ -629,6 +646,7 @@ class Rule(GlobalKeywordState):
         notebook=Notebook,
         wrapper=Wrapper,
         cwl=CWL,
+        cache=Cache,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -672,7 +690,9 @@ class Rule(GlobalKeywordState):
             for t in self.start():
                 yield t, token
         else:
-            self.error("Expected name or colon after rule keyword.", token)
+            self.error(
+                "Expected name or colon after " "rule or checkpoint keyword.", token
+            )
 
     def block_content(self, token):
         if is_name(token):

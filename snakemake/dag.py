@@ -251,7 +251,12 @@ class DAG:
                     simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
                 simg = self.container_imgs[simg_url]
-            env = conda.Env(env_file, self, container_img=simg)
+            env = conda.Env(
+                env_file,
+                self,
+                container_img=simg,
+                cleanup=self.workflow.conda_cleanup_pkgs,
+            )
             self.conda_envs[(env_file, simg_url)] = env
 
         if not init_only:
@@ -313,6 +318,9 @@ class DAG:
         ):
             self.update_dynamic(job)
         self.postprocess()
+
+    def is_edit_notebook_job(self, job):
+        return self.workflow.edit_notebook and job.targetfile in self.targetfiles
 
     @property
     def dynamic_output_jobs(self):
@@ -817,6 +825,7 @@ class DAG:
             updated_subworkflow_input = self.updated_subworkflow_files.intersection(
                 job.input
             )
+
             if (
                 job not in self.omitforce
                 and job.rule in self.forcerules

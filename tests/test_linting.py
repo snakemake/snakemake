@@ -14,26 +14,38 @@ LINT_DIR = Path(__file__).parent.joinpath("linting")
 def test_lint(lint, case):
     lint = LINT_DIR.joinpath(lint)
 
-    out = (
-        sp.check_output(
-            [
-                "python",
-                "-m",
-                "snakemake",
-                "--lint",
-                "--directory",
-                lint,
-                "--snakefile",
-                lint.joinpath(case).with_suffix(".smk"),
-            ],
-            stderr=sp.STDOUT,
+    try:
+        out = (
+            sp.check_output(
+                [
+                    "python",
+                    "-m",
+                    "snakemake",
+                    "--lint",
+                    "--directory",
+                    lint,
+                    "--snakefile",
+                    lint.joinpath(case).with_suffix(".smk"),
+                ],
+                stderr=sp.STDOUT,
+            )
+            .decode()
+            .strip()
         )
-        .decode()
-        .strip()
-    )
+        if case == "positive":
+            assert out == "Congratulations, your workflow is in a good condition!"
+        else:
+            print(out)
+            assert (
+                False
+            ), "Negative lint example but linting command exited with status 0."
 
-    if case == "positive":
-        assert out == ""
+    except sp.CalledProcessError as e:
+        if case == "negative":
+            assert e.output.decode().strip()
+        else:
+            raise e
+
     else:
         print(out)
         assert out

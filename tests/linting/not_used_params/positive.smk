@@ -2,12 +2,12 @@ configfile: "config.yaml"
 
 rule a:
     output:
-        "test.out"
+        "{sample}.out"
     params:
         threshold=config["threshold"]
     log:
-        "logs/a.log"
+        "logs/{sample}.log"
     conda:
         "envs/software.yaml"
     shell:
-        "echo {params.threshold} > {output}"
+        "echo {input} {wildcards.sample} {params.threshold} > {output} 2> {log}"
