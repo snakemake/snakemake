@@ -648,7 +648,7 @@ On a cluster or the cloud, you can generate all dependencies of the notebook rul
 
 .. code-block:: console
 
-    snakemake --cluster .. --jobs 100 --until test.txt
+    snakemake --cluster ... --jobs 100 --until test.txt
 
 Then, the notebook rule can easily be executed locally.
 An demo of the entire interactive editing process can be found by clicking below:
