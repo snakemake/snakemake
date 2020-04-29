@@ -781,13 +781,6 @@ class Workflow:
             dag.list_untracked()
             return True
 
-        if self.edit_notebook and len(dag) != 1:
-            raise WorkflowError(
-                "Notebook edit mode may only be active if a single job is selected. "
-                "Please select a single job by specifying a target file at the command line. "
-                "If the necessary target file already exists, add -f to force re-execution."
-            )
-
         if self.use_singularity:
             if assume_shared_fs:
                 dag.pull_container_imgs(

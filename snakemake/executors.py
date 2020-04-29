@@ -203,15 +203,16 @@ class RealExecutor(AbstractExecutor):
         handle_touch=True,
         ignore_missing_output=False,
     ):
-        job.postprocess(
-            upload_remote=upload_remote,
-            handle_log=handle_log,
-            handle_touch=handle_touch,
-            ignore_missing_output=ignore_missing_output,
-            latency_wait=self.latency_wait,
-            assume_shared_fs=self.assume_shared_fs,
-        )
-        self.stats.report_job_end(job)
+        if not self.dag.is_edit_notebook_job(job):
+            job.postprocess(
+                upload_remote=upload_remote,
+                handle_log=handle_log,
+                handle_touch=handle_touch,
+                ignore_missing_output=ignore_missing_output,
+                latency_wait=self.latency_wait,
+                assume_shared_fs=self.assume_shared_fs,
+            )
+            self.stats.report_job_end(job)
 
     def handle_job_error(self, job, upload_remote=True):
         job.postprocess(

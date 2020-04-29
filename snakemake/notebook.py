@@ -1,39 +1,57 @@
 import os, sys
 from urllib.error import URLError
+from urllib.parse import urlparse
 import tempfile
 import re
+import shutil
 
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
+from snakemake.logging import logger
 
 KERNEL_STARTED_RE = re.compile("Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile("Kernel shutdown: (?P<kernel_id>\S+)")
+
+
+class Listen:
+    def __init__(self, arg):
+        self.ip, self.port = arg.split(":")
 
 
 class JupyterNotebook(ScriptBase):
 
     editable = True
 
-    def draft(self):
+    def draft(self, listen):
+        import nbformat
+
         preamble = self.get_preamble()
         nb = nbformat.v4.new_notebook()
         self.insert_preamble_cell(preamble, nb)
 
+        nb["cells"].append(nbformat.v4.new_code_cell("# start coding here"))
+
         with open(self.local_path, "wb") as out:
             out.write(nbformat.writes(nb).encode())
 
-        self.evaluate(edit=True)
+        self.source = open(self.local_path).read()
+
+        self.evaluate(edit=listen)
 
     def write_script(self, preamble, fd):
         import nbformat
 
         nb = nbformat.reads(self.source, as_version=4)  # nbformat.NO_CONVERT
+
+        self.remove_preamble_cell(nb)
         self.insert_preamble_cell(preamble, nb)
 
         fd.write(nbformat.writes(nb).encode())
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit=None):
+        import nbformat
+
         fname_out = self.log.get("notebook", None)
         if fname_out is None or edit:
             output_parameter = ""
@@ -41,8 +59,14 @@ class JupyterNotebook(ScriptBase):
             fname_out = os.path.join(os.getcwd(), fname_out)
             output_parameter = "--output {fname_out:q}"
 
-        if edit:
-            cmd = "jupyter notebook --NotebookApp.quit_button=True {{fname:q}}"
+        if edit is not None:
+            logger.info("Opening notebook for editing.")
+            cmd = (
+                "jupyter notebook --log-level ERROR --ip {edit.ip} --port {edit.port} "
+                "--no-browser --NotebookApp.quit_button=True {{fname:q}}".format(
+                    edit=edit
+                )
+            )
         else:
             cmd = (
                 "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
@@ -54,19 +78,34 @@ class JupyterNotebook(ScriptBase):
         self._execute_cmd(cmd, fname_out=fname_out, fname=fname)
 
         if edit:
-            if open(fname).read() == open(self.local_path).read():
-                logger.warning(
-                    "Notebook was not changed upon editing. Did you forget to save?"
-                )
-            # copy saved content back into path
-            shutil.copyfile(fname, self.local_path)
+            logger.info("Saving modified notebook.")
+            nb = nbformat.read(fname, as_version=4)
+            self.remove_preamble_cell(nb)
+
+            nbformat.write(nb, self.local_path)
 
     def insert_preamble_cell(self, preamble, notebook):
         import nbformat
 
         preamble_cell = nbformat.v4.new_code_cell(preamble)
-        preamble_cell.metadata.tags = ["snakemake-job-properties"]
+        preamble_cell["metadata"]["tags"] = ["snakemake-job-properties"]
         notebook["cells"].insert(0, preamble_cell)
+
+    def remove_preamble_cell(self, notebook):
+        preambles = [
+            i
+            for i, cell in enumerate(notebook["cells"])
+            if "snakemake-job-properties" in cell["metadata"].get("tags", [])
+        ]
+        if len(preambles) > 1:
+            raise WorkflowError(
+                "More than one snakemake preamble cell found in notebook. "
+                "Please clean up the notebook first, by removing all or all but one of them."
+            )
+        elif len(preambles) == 1:
+            preamble = preambles[0]
+            # remove old preamble
+            del notebook["cells"][preamble]
 
 
 class PythonJupyterNotebook(JupyterNotebook):
@@ -129,29 +168,6 @@ class RJupyterNotebook(JupyterNotebook):
         )
 
 
-def import_notebook_from_stdin(path):
-    import nbformat
-
-    nb = nbformat.read(sys.stdin, as_version=4)
-    preambles = [
-        i
-        for i, cell in enumerate(nb["cells"])
-        if "snakemake-job-properties" in cell.metadata.tags
-    ]
-    if len(preambles) > 1:
-        raise WorkflowError(
-            "More than one snakemake preamble cell found in notebook. "
-            "Please clean up the notebook first, by removing all or all but one of them."
-        )
-    elif len(preambles) == 1:
-        preamble = preambles[0]
-        # remove old preamble
-        del nb["cells"][preamble]
-
-    with open(path, "wb") as out:
-        out.write(nbformat.writes(nb).encode())
-
-
 def get_exec_class(language):
     ExecClass = {
         "jupyter_python": PythonJupyterNotebook,
@@ -183,22 +199,23 @@ def notebook(
     bench_iteration,
     cleanup_scripts,
     shadow_dir,
-    edit=False,
+    edit=None,
 ):
     """
     Load a script from the given basedir + path and execute it.
     """
     draft = False
-    if edit:
-        if urlparse(path).scheme != "":
+    if edit is not None:
+        if urlparse(path).scheme == "":
             if not os.path.exists(path):
                 # draft the notebook, it does not exist yet
                 language = None
                 draft = True
+                path = "file://{}".format(os.path.abspath(path))
                 if path.endswith(".py.ipynb"):
-                    language = "python"
+                    language = "jupyter_python"
                 elif path.endswith(".r.ipynb"):
-                    language = "r"
+                    language = "jupyter_r"
                 else:
                     raise WorkflowError(
                         "Notebook to edit has to end on .py.ipynb or .r.ipynb in order "
@@ -242,6 +259,6 @@ def notebook(
     )
 
     if draft:
-        executor.draft()
+        executor.draft(listen=edit)
     else:
         executor.evaluate(edit=edit)

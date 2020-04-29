@@ -324,6 +324,7 @@ class ScriptBase(ABC):
                     # nothing to clean up (TODO: ??)
                     pass
 
+    @property
     def local_path(self):
         return self.path[7:]
 
@@ -405,9 +406,9 @@ class PythonScript(ScriptBase):
 
         return textwrap.dedent(
             """
-        ######## Snakemake header ########
+        ######## snakemake preamble start (automatically inserted, do not edit) ########
         import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
-        ######## Original script #########
+        ######## snakemake preamble end #########
         """
         ).format(
             searchpath=searchpath,
@@ -512,7 +513,7 @@ class RScript(ScriptBase):
     ):
         return textwrap.dedent(
             """
-        ######## Snakemake header ########
+        ######## snakemake preamble start (automatically inserted, do not edit) ########
         library(methods)
         Snakemake <- setClass(
             "Snakemake",
@@ -552,7 +553,7 @@ class RScript(ScriptBase):
         )
         {preamble_addendum}
 
-        ######## Original script #########
+        ######## snakemake preamble end #########
         """
         ).format(
             REncoder.encode_namedlist(input_),
@@ -626,7 +627,7 @@ class RMarkdown(ScriptBase):
     def get_preamble(self):
         return textwrap.dedent(
             """
-        ######## Snakemake header ########
+        ######## snakemake preamble start (automatically inserted, do not edit) ########
         library(methods)
         Snakemake <- setClass(
             "Snakemake",
@@ -665,7 +666,7 @@ class RMarkdown(ScriptBase):
             }}
         )
 
-        ######## Original script #########
+        ######## snakemake preamble end #########
         """
         ).format(
             REncoder.encode_namedlist(self.input),
@@ -725,7 +726,7 @@ class JuliaScript(ScriptBase):
     def get_preamble(self):
         return textwrap.dedent(
             """
-                ######## Snakemake header ########
+                ######## snakemake preamble start (automatically inserted, do not edit) ########
                 struct Snakemake
                     input::Dict
                     output::Dict
@@ -754,7 +755,7 @@ class JuliaScript(ScriptBase):
                     {}, #scriptdir::String
                     #, #source::Any
                 )
-                ######## Original script #########
+                ######## snakemake preamble end #########
                 """.format(
                 JuliaEncoder.encode_namedlist(self.input),
                 JuliaEncoder.encode_namedlist(self.output),
