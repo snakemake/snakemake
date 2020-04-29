@@ -16,41 +16,25 @@ To go through this tutorial, you need the following software installed:
 * Python_ ≥3.5
 * Snakemake_ ≥5.16
 
-You can follow the instructions on the :ref:`setup <tutorial-setup>` page,
-and return here when you are in a new virtual environment with snakemake installed.
-
-Install Dependencies
-::::::::::::::::::::
-
-You can now install dependencies for the Google Life Sciences Executor. This
-is represented fully with:
+You should install conda as outlined in the :ref:`tutorial <tutorial-setup>`,
+and then install full snakemake with:
 
 .. code:: console
 
-    pip install snakemake[google-cloud]
-
-
-which should include all of the following:
-
-.. code:: console
-
-    pip install --upgrade google-api-python-client
-    pip install --upgrade google-cloud-storage
-    pip install oauth2client
-    pip install crc32c
+    conda create -c bioconda -c conda-forge -n snakemake snakemake
 
 
 Credentials
 :::::::::::
 
-Snakemake requires `GOOGLE_APPLICATION_CREDENTIALS`, and since you might want to
-run this is (non Google places) too, you should `download your service account <https://console.cloud.google.com/iam-admin/iam>`_
-key and export it to the environment.
+Using the Google Life Sciences executor with Snakemake requires the environment 
+variable `GOOGLE_APPLICATION_CREDENTIALS` exported, which should point to
+the full path of the file on your local machine. To generate this file, you
+can refer to the page under iam-admin to `download your service account <https://console.cloud.google.com/iam-admin/iam>`_ key and export it to the environment.
 
 .. code:: console
 
     export GOOGLE_APPLICATION_CREDENTIALS="/home/[username]/credentials.json"
-
 
 
 Step 1: Upload Your Data
@@ -68,14 +52,27 @@ outputs there. You should first clone the repository with the Snakemake tutorial
 
 And then either manually create a bucket and upload data files there, or
 use the `provided script and instructions <https://github.com/snakemake/snakemake-tutorial-data#google-cloud-storage>`_
-to do it programatically from the command line. As an example:
+to do it programatically from the command line. The script generally works like:
 
+.. code:: console
+
+    python upload_google_storage.py <bucket>/<subpath>   <folder>
+
+And you aren't required to provide a subfolder path if you want to upload
+to the root of a bucket. As an example, for this tutorial we upload the contents of
+"data" to the root of the bucket `snakemake-testing-data`
 
 .. code:: console
 
     export GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"
-    python upload_google_storage.py my-snakemake-bucket/data  
+    python upload_google_storage.py snakemake-testing-data data/
 
+If you wanted to upload to a "subfolder" path in a bucket, you would do that as follows:
+
+.. code:: console
+
+    export GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"
+    python upload_google_storage.py snakemake-testing-data/subfolder
 
 Your bucket (and the folder prefix) will be referred to as the
 `--default-remote-prefix` when you run snakemake. You can visually
@@ -135,8 +132,8 @@ this strategy to minimize the number of files for you.
 
 The Snakefile then has the following content. It's important to note
 that we have not customized this file from the basic tutorial to hard code 
-any storage or executor. We will be telling snakemake to change the executor 
-via command line arguments.
+any storage. We will be telling snakemake to use the remote bucket as 
+storage instead of the local filesystem.
 
 .. code:: python
 
@@ -158,17 +155,6 @@ via command line arguments.
         idx=lambda w, input: os.path.splitext(input.idx[0])[0]
     shell:
         "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
-
-    rule bwa_map:
-        input:
-            "genome.fa",
-            "samples/{sample}.fastq"
-        conda:
-            "environment.yml"
-        output:
-            "mapped_reads/{sample}.bam"
-        shell:
-            "bwa mem {input} | samtools view -Sb - > {output}"
 
     rule samtools_sort:
         input:
@@ -240,7 +226,7 @@ Now let's run Snakemake with the Google Life Sciences Executor.
 
 .. code:: console
 
-    snakemake --google-lifesciences --default-remote-prefix snakemake-testing-data --use-conda --google-lifesciences-region us-west1 --container-image snakemake/snakemake:v5.10.0
+    snakemake --google-lifesciences --default-remote-prefix snakemake-testing-data --use-conda --google-lifesciences-region us-west1
 
 
 The flags above refer to:
@@ -283,7 +269,7 @@ but with additional lines for inspecting google compute instances with gcloud:
     gcloud beta lifesciences operations list
 
 
-Take not of those last three lines to describe and list operations - this is how you
+Take note of those last three lines to describe and list operations - this is how you
 get complete error and output logs for the run, which we will demonstrate using later.
 
 
@@ -491,13 +477,13 @@ We can see the result of our run, quals.svg, below:
 .. image:: workflow/quals.svg
 
 
-And if we look at storage, we see that the result file (under plots) and intermediate
+And if we look at the remote storage, we see that the result file (under plots) and intermediate
 results (under sorted_reads and calls) are saved there too!
 
 .. image:: workflow/results-google-storage.png
 
-The source folder contains a cache folder with archives that contain your working directories,
-one for each step. You can safely delete this folder, or keep it if you want to reproduce
+The source folder contains a cache folder with archives that contain your working directories
+that are extracted on the worker instances. You can safely delete this folder, or keep it if you want to reproduce
 the run in the future.
 
 
@@ -541,13 +527,13 @@ to this:
         "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
 
 
-And then you'll need to remove the plots, mapped_reads, and calls folders
-so the step will run again. Then, run the job again:
+And then for the same command to run everything again, you would need to remove the 
+plots, mapped_reads, and calls folders. Instead, we can make this request more easily
+by adding the argument `--forceall`:
 
 .. code:: console
 
-    snakemake --google-lifesciences --default-remote-prefix snakemake-testing-data --use-conda --google-lifesciences-region us-west1 --container-image snakemake/snakemake:v5.10.0
-
+    snakemake --google-lifesciences --default-remote-prefix snakemake-testing-data --use-conda --google-lifesciences-region us-west1 --forceall
 
 Everything will start out okay as it did before, and it will pause on the first 
 step when it's deploying the first container image. The last part of the 
@@ -570,13 +556,11 @@ log will look somethig like this:
     gcloud beta lifesciences operations list
 
 
-If all went okay, you'd probably ignore this. But since we removed an important
-dependency to install libraries with conda, we are definitely going to hit
-an error! That looks like this:
+Since we removed an important dependency to install libraries with conda, 
+we are definitely going to hit an error! That looks like this:
 
 .. code:: console
 
-    FAILED_PRECONDITION: Execution failed: generic::failed_precondition: while running "snakejob-bwa_map-8": unexpected exit status 1 was not ignored
     [Fri Apr 17 22:03:08 2020]
     Error in rule bwa_map:
         jobid: 8
@@ -870,7 +854,40 @@ that the executables weren't found:
 
 But we shouldn't be surprised, we on purpose removed the environment file to install
 them! This is where you would read the error, and respond by updating your Snakefile with
-a fix. If you need more information, you could add print statements to the file. It's generally
+a fix. 
+
+
+Step 6: Adding a Log File
+:::::::::::::::::::::::::
+
+How might we do better at debugging in the future? The answer is to 
+add a log file for each step, which is where any stderr will be written 
+in the case of failure. For the same step above, we would update the rule
+to look like this:
+
+
+.. code:: python
+
+    rule bwa_map:
+        input:
+        fastq="samples/{sample}.fastq",
+        idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
+    output:
+        "mapped_reads/{sample}.bam"
+    params:
+        idx=lambda w, input: os.path.splitext(input.idx[0])[0]
+    shell:
+        "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
+    log:
+        "logs/bwa_map/{sample}.log" 
+
+
+In the above, we would write a log file to storage in a "subfolder" of the
+snakemake prefix located at "logs/bwa_map." The log file will be named according
+to the sample. You could also imagine a flatted structure with a path like
+`logs/bwa_map-{sample}.log`. It's up to you how you want to organize your output.
+This means that when you see the error appear in your terminal, you can quickly
+look at this log file instead of resorting to using the gcloud tool. It's generally
 good to remember when debugging that:
 
  - You should not make assumptions about anything's existence. Use print statements to verify.
