@@ -169,13 +169,13 @@ class RJupyterNotebook(JupyterNotebook):
 
 
 def get_exec_class(language):
-    ExecClass = {
+    exec_class = {
         "jupyter_python": PythonJupyterNotebook,
         "jupyter_r": RJupyterNotebook,
     }.get(language, None)
-    if ExecClass is None:
+    if exec_class is None:
         raise ValueError("Unsupported notebook: Expecting Jupyter Notebook (.ipynb).")
-    return ExecClass
+    return exec_class
 
 
 def notebook(
@@ -232,9 +232,9 @@ def notebook(
     else:
         source = None
 
-    ExecClass = get_exec_class(language)
+    exec_class = get_exec_class(language)
 
-    executor = ExecClass(
+    executor = exec_class(
         path,
         source,
         basedir,

@@ -873,18 +873,18 @@ def script(
     """
     path, source, language = get_source(path, basedir)
 
-    ExecClass = {
+    exec_class = {
         "python": PythonScript,
         "r": RScript,
         "rmarkdown": RMarkdown,
         "julia": JuliaScript,
     }.get(language, None)
-    if ExecClass is None:
+    if exec_class is None:
         raise ValueError(
             "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd) or Julia (.jl) script."
         )
 
-    executor = ExecClass(
+    executor = exec_class(
         path,
         source,
         basedir,
