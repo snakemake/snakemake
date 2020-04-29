@@ -1017,4 +1017,4 @@ def test_string_resources():
 
 
 def test_jupyter_notebook():
-    run(dpath("test_jupyter_notebook"))
+    run(dpath("test_jupyter_notebook"), use_conda=True)
