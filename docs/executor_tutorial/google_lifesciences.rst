@@ -14,7 +14,7 @@ Setup
 To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.5
-* Snakemake_ 5.2.3
+* Snakemake_ ≥5.16
 
 You can follow the instructions on the :ref:`setup <tutorial-setup>` page,
 and return here when you are in a new virtual environment with snakemake installed.
