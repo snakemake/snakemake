@@ -654,7 +654,9 @@ Then, the notebook rule can easily be executed locally.
 An interactive demo of the entire interactive editing process can be found by clicking below:
 
 .. image:: images/snakemake-notebook-demo.gif
-    :scale: 10%
+    :scale: 20%
+    :alt: Notebook integration demo
+    :align: center
 
 
 Protected and Temporary Files
