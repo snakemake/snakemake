@@ -2124,7 +2124,7 @@ def main(argv=None):
             log_handler.append(slack_logger.log_handler)
 
         if args.edit_notebook:
-            args.targets = [args.edit_notebook]
+            args.target = [args.edit_notebook]
             args.force = True
 
         success = snakemake(
@@ -2146,7 +2146,7 @@ def main(argv=None):
             configfiles=args.configfile,
             config_args=args.config,
             workdir=args.directory,
-            targets=args.targets,
+            targets=args.target,
             dryrun=args.dryrun,
             printshellcmds=args.printshellcmds,
             printreason=args.reason,
