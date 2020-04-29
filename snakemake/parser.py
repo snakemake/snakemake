@@ -470,7 +470,7 @@ class Run(RuleKeywordState):
             "def __rule_{rulename}(input, output, params, wildcards, threads, "
             "resources, log, version, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
-            "is_shell, bench_iteration, cleanup_scripts, shadow_dir):".format(
+            "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook):".format(
                 rulename=self.rulename
                 if self.rulename is not None
                 else self.snakefile.rulecount
@@ -582,6 +582,16 @@ class Notebook(Script):
     start_func = "@workflow.notebook"
     end_func = "notebook"
 
+    def args(self):
+        # basedir
+        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
+        # other args
+        yield (
+            ", input, output, params, wildcards, threads, resources, log, "
+            "config, rule, conda_env, container_img, singularity_args, env_modules, "
+            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
+            "edit_notebook"
+        )
 
 class Wrapper(Script):
     start_func = "@workflow.wrapper"

@@ -44,7 +44,7 @@ class JupyterNotebook(ScriptBase):
         if edit:
             cmd = "jupyter notebook --NotebookApp.quit_button=True {{fname:q}}"
         else:
-            cmd = "jupyter-nbconvert --execute {output_parameter} --to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
+            cmd = "jupyter-nbconvert --log-level ERROR --execute {output_parameter} --to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
                 output_parameter=output_parameter
             )
 
@@ -59,6 +59,8 @@ class JupyterNotebook(ScriptBase):
             shutil.copyfile(fname, self.local_path)
 
     def insert_preamble_cell(self, preamble, notebook):
+        import nbformat
+
         preamble_cell = nbformat.v4.new_code_cell(preamble)
         preamble_cell.metadata.tags = ["snakemake-job-properties"]
         notebook["cells"].insert(0, preamble_cell)

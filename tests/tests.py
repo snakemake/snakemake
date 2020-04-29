@@ -1014,3 +1014,7 @@ def test_string_resources():
         default_resources=DefaultResources(["gpu_model='nvidia-tesla-1000'"]),
         cluster="./qsub.py",
     )
+
+
+def test_jupyter_notebook():
+    run(dpath("test_jupyter_notebook"))
