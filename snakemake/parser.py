@@ -593,6 +593,7 @@ class Notebook(Script):
             "edit_notebook"
         )
 
+
 class Wrapper(Script):
     start_func = "@workflow.wrapper"
     end_func = "wrapper"

@@ -44,8 +44,11 @@ class JupyterNotebook(ScriptBase):
         if edit:
             cmd = "jupyter notebook --NotebookApp.quit_button=True {{fname:q}}"
         else:
-            cmd = "jupyter-nbconvert --log-level ERROR --execute {output_parameter} --to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
-                output_parameter=output_parameter
+            cmd = (
+                "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
+                "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
+                    output_parameter=output_parameter
+                )
             )
 
         self._execute_cmd(cmd, fname_out=fname_out, fname=fname)
