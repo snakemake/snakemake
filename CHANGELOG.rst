@@ -1,3 +1,13 @@
+[5.16.0] - 2020-04-29
+=====================
+Added
+-----
+- Interactive jupyter notebook editing. Notebooks defined by rules can be interactively drafted and updated using snakemake --edit-notebook (see docs).
+Changed
+-------
+- Fixed group resource usage to occupy one cluster/cloud node.
+- Minor bug fixes.
+
 [5.15.0] - 2020-04-21
 =====================
 Changed
