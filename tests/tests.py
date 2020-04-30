@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import os
 import sys
+import uuid
 
 sys.path.insert(0, os.path.dirname(__file__))
 
