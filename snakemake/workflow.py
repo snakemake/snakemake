@@ -104,7 +104,7 @@ class Workflow:
         resources=None,
         conda_cleanup_pkgs=None,
         edit_notebook=False,
-        envvars=None
+        envvars=None,
     ):
         """
         Create the controller.

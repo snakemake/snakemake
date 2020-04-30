@@ -982,7 +982,7 @@ def get_argument_parser(profile=None):
         "--envvars",
         nargs="+",
         metavar="VARNAME",
-        help="Environment variables to pass to cloud jobs."
+        help="Environment variables to pass to cloud jobs.",
     )
     group_exec.add_argument(
         "--directory",
