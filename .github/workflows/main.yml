@@ -34,6 +34,7 @@ jobs:
     needs: formatting
     env:
       AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
     steps:
       - uses: actions/checkout@v1
       
@@ -79,6 +80,17 @@ jobs:
           source activate snakemake
 
           pytest -v -x tests/test_tibanna.py
+
+      - name: Setup gcloud
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        if: env.GCP_AVAILABLE
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_email: ${{ secrets.GCP_SA_EMAIL }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+      
+      - run: gcloud info
 
       - name: Build container image
         run: docker build .
