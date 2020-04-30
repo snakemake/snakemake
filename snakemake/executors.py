@@ -45,7 +45,6 @@ from snakemake.exceptions import (
     CacheMissException,
 )
 from snakemake.common import (
-    bytesto,
     Mode,
     __version__,
     get_container_image,
@@ -2201,7 +2200,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         workflow,
         dag,
         cores,
-        envvars,
         jobname="snakejob.{name}.{jobid}.sh",
         printreason=False,
         quiet=False,
@@ -2210,7 +2208,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         regions=None,
         location=None,
         cache=False,
-        machine_type_prefix=None,
         latency_wait=3,
         local_input=None,
         restart_times=None,
@@ -2223,7 +2220,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self.quiet = quiet
         self.workdir = os.path.dirname(self.workflow.persistence.path)
         self._save_storage_cache = cache
-        self._machine_type_prefix = machine_type_prefix
 
         # Relative path for running on instance
         self._set_snakefile()
@@ -2241,7 +2237,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         )
 
         # IMPORTANT: using Compute Engine API and not k8s == no support secrets
-        self.envvars = envvars or []
+        self.envvars = list(self.workflow.envvars) or []
 
         # Quit early if we can't authenticate
         self._get_services()
@@ -2264,11 +2260,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self.project = (
             os.environ.get("GOOGLE_CLOUD_PROJECT") or self._bucket_service.project
         )
-        if not self.project:
-            raise WorkflowError(
-                "You must provide a --google-project or export "
-                "GOOGLE_CLOUD_PROJECT to use the Life Sciences API. "
-            )
 
         # Keep track of build packages to clean up shutdown
         self._build_packages = set()
@@ -2546,6 +2537,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self.workflow.default_resources.parsed["mem_mb"] = mem_mb
         self.workflow.default_resources.parsed["disk_mb"] = disk_mb
 
+        # Job resource specification can be overridden by gpu preferences
+        self.machine_type_prefix = job.resources.get("machine_type")
+
         # If gpu wanted, limit to N1 general family, and update arguments
         if gpu_count:
             self._add_gpu(gpu_count)
@@ -2575,26 +2569,21 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 continue
             keepers[name] = machine_type
 
-        # First priority goes to command line, then job resources
-        machine_type_prefix = self._machine_type_prefix or job.resources.get(
-            "machine_type"
-        )
-
         # If a prefix is set, filter down to it
-        if machine_type_prefix:
+        if self.machine_type_prefix:
             machine_types = keepers
             keepers = dict()
             for name, machine_type in machine_types.items():
-                if name.startswith(machine_type_prefix):
+                if name.startswith(self.machine_type_prefix):
                     keepers[name] = machine_type
 
         # If we don't have any contenders, workflow error
         if not keepers:
-            if machine_type_prefix:
+            if self.machine_type_prefix:
                 raise WorkflowError(
                     "Machine prefix {prefix} is too strict, or the resources cannot "
                     " be satisfied, so there are no options "
-                    "available.".format(prefix=machine_type_prefix)
+                    "available.".format(prefix=self.machine_type_prefix)
                 )
             else:
                 raise WorkflowError(
@@ -2716,37 +2705,25 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 self.snakefile = snakefile
                 break
 
-    def _set_workflow_sources(self, warning_size_gb=20):
+    def _set_workflow_sources(self):
         """We only add files from the working directory that are config related
            (e.g., the Snakefile or a config.yml equivalent), or checked into git. 
-           Additionally, given that we encourage these packages to be small,
-           we set a warning at 20GB.
         """
-
-        def check_size(f):
-            """A helper function to check the filesize, and return the file
-               to the calling function
-            """
-            gb = bytesto(os.stat(f).st_size, "g")
-            if gb > warning_size_gb:
-                logger.warning(
-                    "File {} (size {} GB) is greater than the {} GB suggested size "
-                    "Consider uploading larger files to storage first.".format(
-                        f, gb, warning_size_gb
-                    )
-                )
-            return f
-
         self.workflow_sources = []
 
         for wfs in self.workflow.get_sources():
             if os.path.isdir(wfs):
                 for (dirpath, dirnames, filenames) in os.walk(wfs):
                     self.workflow_sources.extend(
-                        [check_size(os.path.join(dirpath, f)) for f in filenames]
+                        [
+                            self.workflow.check_source_sizes(os.path.join(dirpath, f))
+                            for f in filenames
+                        ]
                     )
             else:
-                self.workflow_sources.append(check_size(os.path.abspath(wfs)))
+                self.workflow_sources.append(
+                    self.workflow.check_source_sizes(os.path.abspath(wfs))
+                )
 
     def _generate_build_source_package(self):
         """in order for the instance to access the working directory in storage,
@@ -2951,7 +2928,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             if "failed" in event:
                 success = False
                 action = event.get("failed")
-                logger.error("{}: {}".format(action["code"], action["cause"]))
+                logger.debug("{}: {}".format(action["code"], action["cause"]))
 
             elif "unexpectedExitStatus" in event:
                 action = event.get("unexpectedExitStatus")

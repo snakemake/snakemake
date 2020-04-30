@@ -144,11 +144,9 @@ def snakemake(
     tibanna=False,
     tibanna_sfn=None,
     google_lifesciences=False,
-    google_lifesciences_envvars=None,
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
     google_lifesciences_cache=False,
-    google_machine_type_prefix=None,
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
@@ -265,11 +263,9 @@ def snakemake(
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
         google_lifesciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
-        google_lifesciences_envvars (list):  environment variable keys to lookup and pass to pipeline.
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
-        google_machine_type_prefix (str): The prefix of a machine type to filter to, if desired.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         tibanna_config (list):      Additional tibanan config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
@@ -375,7 +371,9 @@ def snakemake(
     else:
         cluster_config_content = dict()
 
-    run_local = not (cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences)
+    run_local = not (
+        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences
+    )
     if run_local:
         if not dryrun:
             # clean up all previously recorded jobids.
@@ -602,11 +600,9 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     google_lifesciences=google_lifesciences,
-                    google_lifesciences_envvars=google_lifesciences_envvars,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
-                    google_machine_type_prefix=google_machine_type_prefix,
                     precommand=precommand,
                     tibanna_config=tibanna_config,
                     assume_shared_fs=assume_shared_fs,
@@ -642,11 +638,9 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     google_lifesciences=google_lifesciences,
-                    google_lifesciences_envvars=google_lifesciences_envvars,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
-                    google_machine_type_prefix=google_machine_type_prefix,
                     precommand=precommand,
                     tibanna_config=tibanna_config,
                     max_jobs_per_second=max_jobs_per_second,
@@ -1823,13 +1817,6 @@ def get_argument_parser(profile=None):
         "--configfile are supported and will be carried over.",
     )
     group_google_life_science.add_argument(
-        "--google-lifesciences-env",
-        nargs="+",
-        metavar="ENVVAR",
-        default=[],
-        help="Specify environment variables to pass to the pipeline.",
-    )
-    group_google_life_science.add_argument(
         "--google-lifesciences-regions",
         nargs="+",
         default=["us-east1", "us-west1", "us-central1"],
@@ -1838,7 +1825,7 @@ def get_argument_parser(profile=None):
     group_google_life_science.add_argument(
         "--google-lifesciences-location",
         help="The Life Sciences API service used to schedule the jobs. "
-        " E.g., us-centra1 (Iowa) and europe-west-2 (London) "
+        " E.g., us-centra1 (Iowa) and europe-west2 (London) "
         " Watch the terminal output to see all options found to be available. "
         " If not specified, defaults to the first found with a matching prefix "
         " from regions specified with --google-lifesciences-regions.",
@@ -1851,14 +1838,6 @@ def get_argument_parser(profile=None):
         "directory is compressed to a .tar.gz, named by the hash of the "
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
-    )
-    group_google_life_science.add_argument(
-        "--google-machine-type-prefix",
-        help="By default, the machine type is chosen based on memory and cores "
-        "that are needed. If you have preference for a family of machines (for "
-        "example n1-standard, n1-highmem, n1-highcpu, n2, c2, etc., provide "
-        "the prefix with this argument to better filter down the options. See "
-        "https://cloud.google.com/compute/docs/machine-types for a full list.",
     )
 
     group_conda = parser.add_argument_group("CONDA")
@@ -1994,14 +1973,11 @@ def main(argv=None):
         resources = parse_resources(args.resources)
         config = parse_config(args)
 
-        # Google Life Sciences has different defaults than others
-        if args.google_lifesciences and not args.default_resources:
-            # Maximum persistent disks size should be less than [3072] GB.
-            args.default_resources = ["mem_mb=15360", "disk_mb=128000"]  # n1-standard-4
-
         # Cloud executors should have default-resources flag
-        elif (args.default_resources is not None and not args.default_resources) or (
-            args.tibanna and not args.default_resources
+        if (
+            (args.default_resources is not None and not args.default_resources)
+            or (args.tibanna and not args.default_resources)
+            or (args.google_lifesciences and not args.default_resources)
         ):
             args.default_resources = [
                 "mem_mb=max(2*input.size_mb, 1000)",
@@ -2146,8 +2122,8 @@ def main(argv=None):
     if args.google_lifesciences:
         if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
             print(
-                "Error: GOOGLE_APPLICATION_CREDENTIALS file path must "
-                "be exported with --google-lifesciences",
+                "Error: GOOGLE_APPLICATION_CREDENTIALS environment variable must "
+                "be available for --google-lifesciences",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -2305,11 +2281,9 @@ def main(argv=None):
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
             google_lifesciences=args.google_lifesciences,
-            google_lifesciences_envvars=args.google_lifesciences_env,
             google_lifesciences_regions=args.google_lifesciences_regions,
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
-            google_machine_type_prefix=args.google_machine_type_prefix,
             precommand=args.precommand,
             tibanna_config=args.tibanna_config,
             jobname=args.jobname,

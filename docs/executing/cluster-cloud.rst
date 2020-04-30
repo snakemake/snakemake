@@ -155,43 +155,6 @@ to storage using it:
 The `-m` parameter enables multipart uploads for large files, so you
 can remove it if you are uploading one or more smaller files.
 And note that you'll need to modify the file and bucket names.
-If you want a programmatic method in Python, here is an example script 
-that shows you how you might want to upload files in advance using the 
-Google API Python Client. 
-
-.. code-block:: python
-
-    from google.cloud import storage
-    import glob
-    import os
-
-    client = storage.Client()
-    here = os.path.dirname(os.path.abspath(__file__))
-
-    bucket_name = "snakemake-testing"
-
-    try:
-        bucket = client.get_bucket(bucket_name)
-    except:
-        bucket = client.create_bucket(bucket_name)
-
-    # key, full path, value: upload path in storage
-    filenames = dict()
-
-    for x in os.walk(os.path.join(here, 'scripts')):
-        for name in glob.glob(os.path.join(x[0], '*')):
-            if not os.path.isdir(name):
-                filenames[name] = name.replace(here + os.path.sep, '')
-
-    # Upload files in script and base gooogle life sciences folder
-    for filename, remotename in filenames.items():
-        blob = bucket.blob(remotename)
-
-        if not blob.exists():
-            print("Uploading %s to %s" %(remotename, bucket_name))
-            blob.upload_from_filename(filename, content_type="text/plain")
-
-
 Note that you can also easily use the Google Cloud Console interface, if
 a graphical interface is preferable to you.
 
@@ -200,7 +163,7 @@ Environment Variables
 
 **Important:** Google Cloud Life Sciences uses Google Compute, and does
 **not** encrypt environment variables. If you specify environment
-variables with `--envars` they will **not** be secrets.
+variables with the envvars directive or --envvars they will **not** be secrets.
 
 
 Container Bases
@@ -213,7 +176,7 @@ the `--container-image` (or `container_image` from within Python),
 however if you do so, your container must meet the following requirements:
 
  - have an entrypoint that can execute a `/bin/bash` command
- - have snakemake installed, either via `source conda snakemake` or already on the path
+ - have snakemake installed, either via `source activate snakemake` or already on the path
  - also include snakemake Python dependencies for google.cloud
 
 If you use any Snakemake container as a base, you should be good to go. If you'd
@@ -280,9 +243,15 @@ Machine Types
 
 To specify an exact `machine type <https://cloud.google.com/compute/docs/machine-types>_` 
 or a prefix to filter down to and then select based on other resource needs, 
-you can use `--machine-type-prefix` on the command line. If you want to specify 
-the machine type as a resource, you can do that too:
+you can set a default resource on the command line, either for a prefix or 
+a full machine type:
 
+.. code-block:: console
+
+    --default-resources machine_type="n1-standard"
+
+
+If you want to specify the machine type as a resource, you can do that too:
 
 .. code-block:: yaml
 
@@ -295,8 +264,9 @@ rule a:
         "somecommand ..."
 
 
-The command line argument currently takes preference, and will override
-the resource definition.
+If you request a gpu, this requires the "n1" prefix and your preference from
+the file or command line will be overridden. Note that the default resources
+for Google Life Sciences (memory and disk) are the same as for Tibanna.
 
 
 Executing a Snakemake workflow via Tibanna on Amazon Web Services
