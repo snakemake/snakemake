@@ -104,6 +104,7 @@ class Workflow:
         resources=None,
         conda_cleanup_pkgs=None,
         edit_notebook=False,
+        envvars=None
     ):
         """
         Create the controller.
@@ -200,6 +201,8 @@ class Workflow:
         rules = Rules()
         global checkpoints
         checkpoints = Checkpoints()
+
+        self.register_envvars(*envvars)
 
     def lint(self, json=False):
         from snakemake.linting.rules import RuleLinter
@@ -936,7 +939,7 @@ class Workflow:
         Register environment variables that shall be passed to jobs.
         If used multiple times, union is taken.
         """
-        undefined = [var for var in envvars if var not in os.environ]
+        undefined = set(var for var in envvars if var not in os.environ)
         if undefined:
             raise WorkflowError(
                 "The following environment variables are requested by the workflow but undefined. "
