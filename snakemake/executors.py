@@ -2334,7 +2334,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             self.bucket = self._bucket_service.create_bucket(bucket_name)
 
         # Case 2: The bucket name is already taken
-        except (Exception, BaseException) as ex:
+        except Exception as ex:
             logger.error(
                 "Cannot get or create {} (exit code {}):\n{}".format(
                     bucket_name, ex.returncode, ex.output.decode()
@@ -2967,7 +2967,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         except googleapiclient.errors.HttpError as ex:
             log_verbose_traceback(ex)
             raise ex
-        except (Exception, BaseException) as ex:
+        except Exception as ex:
             log_verbose_traceback(ex)
             raise ex
 

@@ -82,7 +82,7 @@ def bytesto(bytes, to, bsize=1024):
     """
     levels = {"k": 1, "m": 2, "g": 3, "t": 4, "p": 5, "e": 6}
     answer = float(bytes)
-    for i in range(levels[to]):
+    for _ in range(levels[to]):
         answer = answer / bsize
     return answer
 
