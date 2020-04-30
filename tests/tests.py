@@ -656,7 +656,7 @@ def test_log_input():
 def gcloud_cluster():
     class Cluster:
         def __init__(self):
-            self.cluster = "snakemake-testing"
+            self.cluster = uuid.uuid4()
             self.bucket_name = "snakemake-testing-{}".format(self.cluster)
 
             shell(

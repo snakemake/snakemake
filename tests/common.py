@@ -45,7 +45,7 @@ def is_ci():
 
 
 def has_gcloud_service_key():
-    return "GCP_SA_KEY" in os.environ
+    return "GCP_AVAILABLE" in os.environ
 
 
 gcloud = pytest.mark.skipif(
