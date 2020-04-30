@@ -15,6 +15,7 @@ from snakemake.common import lazy_property
 try:
     import google.cloud
     from google.cloud import storage
+    from google.api_core import retry
     from crc32c import crc32
 except ImportError as e:
     raise WorkflowError(
@@ -105,6 +106,7 @@ class RemoteObject(AbstractRemoteObject):
 
     # === Implementations of abstract class members ===
 
+    @retry.Retry()
     def exists(self):
         return self.blob.exists()
 
@@ -125,6 +127,7 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
+    @retry.Retry()
     def download(self, retry_count=3):
         if not self.exists():
             return None
@@ -160,6 +163,7 @@ class RemoteObject(AbstractRemoteObject):
 
         return self.local_file()
 
+    @retry.Retry()
     def upload(self):
         try:
             if not self.bucket.exists():
@@ -185,6 +189,7 @@ class RemoteObject(AbstractRemoteObject):
 
     # ========= Helpers ===============
 
+    @retry.Retry()
     def update_blob(self):
         self._blob = self.bucket.get_blob(self.key)
 
