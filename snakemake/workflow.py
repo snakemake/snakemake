@@ -202,7 +202,8 @@ class Workflow:
         global checkpoints
         checkpoints = Checkpoints()
 
-        self.register_envvars(*envvars)
+        if envvars is not None:
+            self.register_envvars(*envvars)
 
     def lint(self, json=False):
         from snakemake.linting.rules import RuleLinter
