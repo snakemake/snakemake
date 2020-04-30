@@ -244,6 +244,8 @@ class JuliaEncoder:
 
 
 class ScriptBase(ABC):
+    editable = False
+
     def __init__(
         self,
         path,
@@ -291,7 +293,9 @@ class ScriptBase(ABC):
         self.cleanup_scripts = cleanup_scripts
         self.shadow_dir = shadow_dir
 
-    def evaluate(self):
+    def evaluate(self, edit=False):
+        assert not edit or self.editable
+
         fd = None
         try:
             # generate preamble
@@ -307,7 +311,7 @@ class ScriptBase(ABC):
                 self.write_script(preamble, fd)
 
             # execute script
-            self.execute_script(fd.name)
+            self.execute_script(fd.name, edit=edit)
         except URLError as e:
             raise WorkflowError(e)
         finally:
@@ -320,6 +324,10 @@ class ScriptBase(ABC):
                     # nothing to clean up (TODO: ??)
                     pass
 
+    @property
+    def local_path(self):
+        return self.path[7:]
+
     @abstractmethod
     def get_preamble(self):
         ...
@@ -329,7 +337,7 @@ class ScriptBase(ABC):
         ...
 
     @abstractmethod
-    def execute_script(self, fname):
+    def execute_script(self, fname, edit=False):
         ...
 
     def _execute_cmd(self, cmd, **kwargs):
@@ -398,9 +406,9 @@ class PythonScript(ScriptBase):
 
         return textwrap.dedent(
             """
-        ######## Snakemake header ########
+        ######## snakemake preamble start (automatically inserted, do not edit) ########
         import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
-        ######## Original script #########
+        ######## snakemake preamble end #########
         """
         ).format(
             searchpath=searchpath,
@@ -444,7 +452,7 @@ class PythonScript(ScriptBase):
         fd.write(preamble.encode())
         fd.write(self.source)
 
-    def execute_script(self, fname):
+    def execute_script(self, fname, edit=False):
         py_exec = sys.executable
         if self.conda_env is not None:
             py = os.path.join(self.conda_env, "bin", "python")
@@ -505,7 +513,7 @@ class RScript(ScriptBase):
     ):
         return textwrap.dedent(
             """
-        ######## Snakemake header ########
+        ######## snakemake preamble start (automatically inserted, do not edit) ########
         library(methods)
         Snakemake <- setClass(
             "Snakemake",
@@ -545,7 +553,7 @@ class RScript(ScriptBase):
         )
         {preamble_addendum}
 
-        ######## Original script #########
+        ######## snakemake preamble end #########
         """
         ).format(
             REncoder.encode_namedlist(input_),
@@ -601,7 +609,7 @@ class RScript(ScriptBase):
         fd.write(preamble.encode())
         fd.write(self.source)
 
-    def execute_script(self, fname):
+    def execute_script(self, fname, edit=False):
         if self.conda_env is not None and "R_LIBS" in os.environ:
             logger.warning(
                 "R script job uses conda environment but "
@@ -619,7 +627,7 @@ class RMarkdown(ScriptBase):
     def get_preamble(self):
         return textwrap.dedent(
             """
-        ######## Snakemake header ########
+        ######## snakemake preamble start (automatically inserted, do not edit) ########
         library(methods)
         Snakemake <- setClass(
             "Snakemake",
@@ -658,7 +666,7 @@ class RMarkdown(ScriptBase):
             }}
         )
 
-        ######## Original script #########
+        ######## snakemake preamble end #########
         """
         ).format(
             REncoder.encode_namedlist(self.input),
@@ -700,7 +708,7 @@ class RMarkdown(ScriptBase):
         fd.write(preamble.encode())
         fd.write(str.encode(code[pos:]))
 
-    def execute_script(self, fname):
+    def execute_script(self, fname, edit=False):
         if len(self.output) != 1:
             raise WorkflowError(
                 "RMarkdown scripts (.Rmd) may only have a single output file."
@@ -718,7 +726,7 @@ class JuliaScript(ScriptBase):
     def get_preamble(self):
         return textwrap.dedent(
             """
-                ######## Snakemake header ########
+                ######## snakemake preamble start (automatically inserted, do not edit) ########
                 struct Snakemake
                     input::Dict
                     output::Dict
@@ -747,7 +755,7 @@ class JuliaScript(ScriptBase):
                     {}, #scriptdir::String
                     #, #source::Any
                 )
-                ######## Original script #########
+                ######## snakemake preamble end #########
                 """.format(
                 JuliaEncoder.encode_namedlist(self.input),
                 JuliaEncoder.encode_namedlist(self.output),
@@ -779,13 +787,11 @@ class JuliaScript(ScriptBase):
         fd.write(preamble.encode())
         fd.write(self.source)
 
-    def execute_script(self, fname):
+    def execute_script(self, fname, edit=False):
         self._execute_cmd("julia {fname:q}", fname=fname)
 
 
 def get_source(path, basedir="."):
-    import nbformat
-
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
         if path.startswith("file://"):
@@ -795,6 +801,7 @@ def get_source(path, basedir="."):
         if not os.path.isabs(path):
             path = os.path.abspath(os.path.join(basedir, path))
         path = "file://" + path
+    # TODO this should probably be removed again. It does not work for report and hash!
     path = format(path, stepout=1)
     if path.startswith("file://"):
         sourceurl = "file:" + pathname2url(path[7:])
@@ -808,6 +815,14 @@ def get_source(path, basedir="."):
     if source is None:
         with urlopen(sourceurl) as source:
             source = source.read()
+
+    language = get_language(path, source)
+
+    return path, source, language
+
+
+def get_language(path, source):
+    import nbformat
 
     language = None
     if path.endswith(".py"):
@@ -828,7 +843,7 @@ def get_source(path, basedir="."):
 
         language += "_" + kernel_language.lower()
 
-    return path, source, language
+    return language
 
 
 def script(
@@ -858,18 +873,18 @@ def script(
     """
     path, source, language = get_source(path, basedir)
 
-    ExecClass = {
+    exec_class = {
         "python": PythonScript,
         "r": RScript,
         "rmarkdown": RMarkdown,
         "julia": JuliaScript,
     }.get(language, None)
-    if ExecClass is None:
+    if exec_class is None:
         raise ValueError(
             "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd) or Julia (.jl) script."
         )
 
-    executor = ExecClass(
+    executor = exec_class(
         path,
         source,
         basedir,

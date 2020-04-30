@@ -432,7 +432,7 @@ and forward it to the cluster scheduler:
 
     $ snakemake --cluster "qsub --runtime {params.runtime}"
 
-If your cluster system supports `DRMAA <http://www.drmaa.org/>`_, Snakemake can make use of that to increase the control over jobs.
+If your cluster system supports `DRMAA <https://www.drmaa.org/>`_, Snakemake can make use of that to increase the control over jobs.
 E.g. jobs can be cancelled upon pressing ``Ctrl+C``, which is not possible with the generic ``--cluster`` support.
 With DRMAA, no ``qsub`` command needs to be provided, but system specific arguments can still be given as a string, e.g.
 
@@ -497,3 +497,5 @@ To visualize the whole DAG regardless of the eventual presence of files, the ``f
     $ snakemake --forceall --dag | dot -Tpdf > dag.pdf
 
 Of course the visual appearance can be modified by providing further command line arguments to ``dot``.
+
+**Note:** The DAG is printed in DOT format straight to the standard output, along with other ``print`` statements you may have in your Snakefile. Make sure to comment these other ``print`` statements so that ``dot`` can build a visual representation of your DAG.
