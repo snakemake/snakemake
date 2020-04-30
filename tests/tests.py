@@ -656,22 +656,22 @@ def test_log_input():
 def gcloud_cluster():
     class Cluster:
         def __init__(self):
-            self.cluster = os.environ["GCLOUD_CLUSTER"]
+            self.cluster = "snakemake-testing"
             self.bucket_name = "snakemake-testing-{}".format(self.cluster)
 
             shell(
                 """
-            $GCLOUD container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
-            $GCLOUD container clusters get-credentials {self.cluster} --zone us-central1-a
-            $GSUTIL mb gs://{self.bucket_name}
+            gcloud container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
+            gcloud container clusters get-credentials {self.cluster} --zone us-central1-a
+            gsutil mb gs://{self.bucket_name}
             """
             )
 
         def delete(self):
             shell(
                 """
-            $GCLOUD container clusters delete {self.cluster} --zone us-central1-a --quiet || true
-            $GSUTIL rm -r gs://{self.bucket_name} || true
+            gcloud container clusters delete {self.cluster} --zone us-central1-a --quiet || true
+            gcloud rm -r gs://{self.bucket_name} || true
             """
             )
 
@@ -692,7 +692,7 @@ def gcloud_cluster():
                 raise e
 
         def reset(self):
-            shell("$GSUTIL rm -r gs://{self.bucket_name}/* || true")
+            shell("gsutil rm -r gs://{self.bucket_name}/* || true")
 
     cluster = Cluster()
     yield cluster
@@ -700,10 +700,6 @@ def gcloud_cluster():
 
 
 @gcloud
-@pytest.mark.skip(
-    reason="reenable once we have figured out how to fail if available core hours per month are exceeded"
-)
-@pytest.mark.xfail
 def test_gcloud_plain(gcloud_cluster):
     gcloud_cluster.reset()
     gcloud_cluster.run()

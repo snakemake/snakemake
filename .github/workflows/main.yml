@@ -52,7 +52,7 @@ jobs:
           docker exec -u irods provider iput /incoming/infile
           cp -r tests/test_remote_irods/setup-data ~/.irods
 
-      - name: Setup gcloud
+      - name: Setup Gcloud
         uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
         if: env.GCP_AVAILABLE
         with:
@@ -60,6 +60,14 @@ jobs:
           service_account_email: ${{ secrets.GCP_SA_EMAIL }}
           service_account_key: ${{ secrets.GCP_SA_KEY }}
           export_default_credentials: true
+
+      - name: Setup AWS
+        uses: aws-actions/configure-aws-credentials@v1
+        if: env.AWS_AVAILABLE
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
       - name: Run tests
         env:
@@ -70,14 +78,6 @@ jobs:
           source activate snakemake
           
           pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        if: env.AWS_AVAILABLE
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
 
       - name: Test AWS execution
         if: env.AWS_AVAILABLE && success()
@@ -90,8 +90,7 @@ jobs:
 
           pytest -v -x tests/test_tibanna.py
 
-            
-      - run: gcloud info
+
 
       - name: Build container image
         run: docker build .
