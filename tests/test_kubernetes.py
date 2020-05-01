@@ -16,18 +16,18 @@ def kubernetes_cluster():
 
             shell(
                 """
-            gcloud container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type n1-standard-2
-            gcloud container clusters get-credentials {self.cluster} --zone us-central1-a
-            gsutil mb gs://{self.bucket_name}
-            """
+                gcloud container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type n1-standard-2
+                gcloud container clusters get-credentials {self.cluster} --zone us-central1-a
+                gsutil mb gs://{self.bucket_name}
+                """
             )
 
         def delete(self):
             shell(
                 """
-            gcloud container clusters delete {self.cluster} --zone us-central1-a --quiet || true
-            gcloud rm -r gs://{self.bucket_name} || true
-            """
+                gcloud container clusters delete {self.cluster} --zone us-central1-a --quiet || true
+                gcloud rm -r gs://{self.bucket_name} || true
+                """
             )
 
         def run(self, test="test_kubernetes", **kwargs):
