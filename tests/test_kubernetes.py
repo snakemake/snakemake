@@ -16,7 +16,7 @@ def kubernetes_cluster():
 
             shell(
                 """
-            gcloud container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type n1-standard-1
+            gcloud container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type g1-small
             gcloud container clusters get-credentials {self.cluster} --zone us-central1-a
             gsutil mb gs://{self.bucket_name}
             """
