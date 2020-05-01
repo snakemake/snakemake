@@ -12,7 +12,7 @@ def kubernetes_cluster():
     class Cluster:
         def __init__(self):
             self.cluster = "t-{}".format(uuid.uuid4())
-            self.bucket_name = "snakemake-testing-{}".format(self.cluster)
+            self.bucket_name = self.cluster
 
             shell(
                 """
