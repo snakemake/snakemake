@@ -23,11 +23,17 @@ Make sure to ...
 * Install the **Python 3** version of Miniconda.
 * Answer yes to the question whether conda shall be put into your PATH.
 
+The default conda solver is a bit slow and sometimes has issues with `selecting the latest package releases <https://github.com/conda/conda/issues/9905>`_. Therefore, we recommend to install `Mamba <https://github.com/QuantStack/mamba>?`_ as a drop-in replacement via
+
+.. code-block:: console
+
+    $ conda install -c conda-forge mamba
+
 Then, you can install Snakemake with
 
 .. code-block:: console
 
-    $ conda create -c conda-forge -c bioconda -n snakemake snakemake=|version|
+    $ mamba create -c conda-forge -c bioconda -n snakemake snakemake
 
 from the `Bioconda <https://bioconda.github.io>`_ channel.
 This will install snakemake into an isolated software environment, that has to be activated with
@@ -42,14 +48,14 @@ A minimal version of Snakemake which only depends on the bare necessities can be
 
 .. code-block:: console
 
-    $ conda create -c bioconda -c conda-forge -n snakemake snakemake-minimal=|version|
+    $ mamba create -c bioconda -c conda-forge -n snakemake snakemake-minimal
 
 Note that Snakemake is available via Bioconda for historical, reproducibility, and continuity reasons.
 However, it is easy to combine Snakemake installation with other channels, e.g., by prefixing the package name with ``::bioconda``, i.e.,
 
-.. parsed-literal::
+.. code-block:: console
 
-    $ conda create -n some-env -c conda-forge bioconda::snakemake=|version| bioconda::snakemake-minimal=|version| ...
+    $ mamba create -n some-env -c conda-forge bioconda::snakemake bioconda::snakemake-minimal ...
 
 Installation via pip
 ====================
