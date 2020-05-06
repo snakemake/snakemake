@@ -78,7 +78,6 @@ class JobScheduler:
         force_use_threads=False,
         assume_shared_fs=True,
         keepincomplete=False,
-        az_store_credentials=None,
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
@@ -98,7 +97,12 @@ class JobScheduler:
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
-        self.resources = dict(self.workflow.global_resources)
+
+        self.global_resources = {
+            name: (sys.maxsize if res is None else res)
+            for name, res in workflow.global_resources.items()
+        }
+        self.resources = dict(self.global_resources)
 
         use_threads = (
             force_use_threads
@@ -153,7 +157,6 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     cores=local_cores,
                     keepincomplete=keepincomplete,
-                    az_store_credentials=az_store_credentials
                 )
             if cluster or cluster_sync:
                 if cluster_sync:
@@ -215,7 +218,6 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
-                az_store_credentials=az_store_credentials
             )
 
             self._executor = KubernetesExecutor(
@@ -242,7 +244,6 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
-                az_store_credentials=az_store_credentials
             )
 
             self._executor = TibannaExecutor(
@@ -271,7 +272,6 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 cores=cores,
                 keepincomplete=keepincomplete,
-                az_store_credentials=az_store_credentials
             )
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
@@ -511,7 +511,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 return [c_j * y_j for c_j, y_j in zip(c, y)]
 
             b = [
-                self.resources[name] for name in self.workflow.global_resources
+                self.resources[name] for name in self.global_resources
             ]  # resource capacities
 
             while True:
@@ -552,12 +552,12 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
             solution = [job for job, sel in zip(jobs, x) if sel]
             # update resources
-            for name, b_i in zip(self.workflow.global_resources, b):
+            for name, b_i in zip(self.global_resources, b):
                 self.resources[name] = b_i
             return solution
 
     def calc_resource(self, name, value):
-        gres = self.workflow.global_resources[name]
+        gres = self.global_resources[name]
         if value > gres:
             if name == "_cores":
                 name = "threads"
@@ -573,15 +573,13 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
     def rule_weight(self, rule):
         res = rule.resources
         return [
-            self.calc_resource(name, res.get(name, 0))
-            for name in self.workflow.global_resources
+            self.calc_resource(name, res.get(name, 0)) for name in self.global_resources
         ]
 
     def job_weight(self, job):
         res = job.resources
         return [
-            self.calc_resource(name, res.get(name, 0))
-            for name in self.workflow.global_resources
+            self.calc_resource(name, res.get(name, 0)) for name in self.global_resources
         ]
 
     def job_reward(self, job):

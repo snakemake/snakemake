@@ -6,7 +6,7 @@ __license__ = "MIT"
 import os
 import subprocess
 import glob
-from argparse import ArgumentError
+from argparse import ArgumentError, ArgumentDefaultsHelpFormatter
 import logging as _logging
 import re
 import sys
@@ -132,7 +132,7 @@ def snakemake(
     use_env_modules=False,
     singularity_args="",
     conda_prefix=None,
-    conda_cleanup_pkgs=False,
+    conda_cleanup_pkgs=None,
     list_conda_envs=False,
     singularity_prefix=None,
     shadow_prefix=None,
@@ -153,7 +153,8 @@ def snakemake(
     show_failed_logs=False,
     keep_incomplete=False,
     messaging=None,
-    az_store_credentialsfile=None,
+    edit_notebook=None,
+    envvars=None,
 ):
     """Run snakemake on a given snakefile.
 
@@ -243,7 +244,8 @@ def snakemake(
         use_env_modules (bool):     load environment modules if defined in rules
         singularity_args (str):     additional arguments to pass to singularity
         conda_prefix (str):         the directory in which conda environments will be created (default None)
-        conda_cleanup_pkgs (bool):       whether to clean up conda tarballs after env creation (default False)
+        conda_cleanup_pkgs (snakemake.deployment.conda.CondaCleanupMode):
+                                    whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
         shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
         conda_create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
@@ -263,8 +265,8 @@ def snakemake(
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
+        edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
-        az_store_credentialsfile (str): Azure storage credentials file
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -335,10 +337,10 @@ def snakemake(
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa or tibanna:
-        cores = sys.maxsize
+    if cluster or cluster_sync or drmaa or tibanna or kubernetes:
+        cores = None
     else:
-        nodes = sys.maxsize
+        nodes = None
 
     if isinstance(cluster_config, str):
         # Loading configuration from one file is still supported for
@@ -356,9 +358,15 @@ def snakemake(
         cluster_config_content = dict()
 
     run_local = not (cluster or cluster_sync or drmaa or kubernetes or tibanna)
-    if run_local and not dryrun:
-        # clean up all previously recorded jobids.
-        shell.cleanup()
+    if run_local:
+        if not dryrun:
+            # clean up all previously recorded jobids.
+            shell.cleanup()
+    else:
+        if edit_notebook:
+            raise WorkflowError(
+                "Notebook edit mode is only allowed with local execution."
+            )
 
     # force thread use for any kind of cluster
     use_threads = (
@@ -439,24 +447,21 @@ def snakemake(
 
     logger.setup_logfile()
 
-    if az_store_credentialsfile:
-        az_store_credentials = load_configfile(az_store_credentialsfile)
-    else:
-        az_store_credentials = dict()
-
     try:
         # handle default remote provider
         _default_remote_provider = None
         if default_remote_provider is not None:
             try:
-                rmt = importlib.import_module(
-                    "snakemake.remote." + default_remote_provider
-                )
+                modpath = "snakemake.remote." + default_remote_provider
+                if default_remote_provider == "AzureStorage":
+                    # backward compat
+                    mod = "snakemake.remote." + "AzBlob"
+                rmt = importlib.import_module(modpath)
             except ImportError as e:
                 raise WorkflowError("Unknown default remote provider.")
             if rmt.RemoteProvider.supports_default:
                 _default_remote_provider = rmt.RemoteProvider(
-                    keep_local=True, is_default=True, **az_store_credentials)
+                    keep_local=True, is_default=True)
             else:
                 raise WorkflowError(
                     "Remote provider {} does not (yet) support to "
@@ -496,7 +501,8 @@ def snakemake(
             cores=cores,
             nodes=nodes,
             resources=resources,
-            az_store_credentials=az_store_credentials,
+            edit_notebook=edit_notebook,
+            envvars=envvars,
         )
         success = True
         workflow.include(
@@ -583,7 +589,6 @@ def snakemake(
                     cluster_status=cluster_status,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
-                    az_store_credentials=az_store_credentials,
                 )
                 success = workflow.execute(
                     targets=targets,
@@ -821,6 +826,7 @@ def get_argument_parser(profile=None):
     parser = configargparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
         "environment for GNU Make-like workflows.",
+        formatter_class=ArgumentDefaultsHelpFormatter,
         default_config_files=config_files,
         config_file_parser_class=YAMLConfigFileParser,
     )
@@ -922,10 +928,10 @@ def get_argument_parser(profile=None):
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to threads (see above). A resource is defined as "
-            "a name and an integer value. E.g. --resources gpu=1. Rules can "
+            "a name and an integer value. E.g. --resources mem_mb=1000. Rules can "
             "use resources by defining the resource keyword, e.g. "
-            "resources: gpu=1. If now two rules require 1 of the resource "
-            "'gpu' they won't be run in parallel by the scheduler."
+            "resources: mem_mb=600. If now two rules require 600 of the resource "
+            "'mem_mb' they won't be run in parallel by the scheduler."
         ),
     )
     group_exec.add_argument(
@@ -972,6 +978,12 @@ def get_argument_parser(profile=None):
             "dictionary inside the workflow. Multiple files overwrite each other in "
             "the given order."
         ),
+    )
+    group_exec.add_argument(
+        "--envvars",
+        nargs="+",
+        metavar="VARNAME",
+        help="Environment variables to pass to cloud jobs.",
     )
     group_exec.add_argument(
         "--directory",
@@ -1099,9 +1111,9 @@ def get_argument_parser(profile=None):
         ),
     )
 
-    group_utils = parser.add_argument_group("UTILITIES")
+    group_report = parser.add_argument_group("REPORTS")
 
-    group_utils.add_argument(
+    group_report.add_argument(
         "--report",
         nargs="?",
         const="report.html",
@@ -1112,12 +1124,33 @@ def get_argument_parser(profile=None):
         "In the latter case, results are stored along with a file report.html in the zip archive. "
         "If no filename is given, an embedded report.html is the default.",
     )
-    group_utils.add_argument(
+    group_report.add_argument(
         "--report-stylesheet",
         metavar="CSSFILE",
         help="Custom stylesheet to use for report. In particular, this can be used for "
         "branding the report with e.g. a custom logo, see docs.",
     )
+
+    group_notebooks = parser.add_argument_group("NOTEBOOKS")
+
+    group_notebooks.add_argument(
+        "--edit-notebook",
+        metavar="TARGET",
+        help="Interactively edit the notebook associated with the rule used to generate the given target file. "
+        "This will start a local jupyter notebook server. "
+        "Any changes to the notebook should be saved, and the server has to be stopped by "
+        "closing the notebook and hitting the 'Quit' button on the jupyter dashboard. "
+        "Afterwards, the updated notebook will be automatically stored in the path defined in the rule. "
+        "If the notebook is not yet present, this will create an empty draft. ",
+    )
+    group_notebooks.add_argument(
+        "--notebook-listen",
+        metavar="IP:PORT",
+        default="localhost:8888",
+        help="The IP address and PORT the notebook server used for editing the notebook (--edit-notebook) will listen on.",
+    )
+
+    group_utils = parser.add_argument_group("UTILITIES")
     group_utils.add_argument(
         "--lint",
         nargs="?",
@@ -1127,6 +1160,7 @@ def get_argument_parser(profile=None):
         "specific suggestions to improve code quality (work in progress, more lints "
         "to be added in the future). If no argument is provided, plain text output is used.",
     )
+
     group_utils.add_argument(
         "--export-cwl",
         action="store",
@@ -1150,7 +1184,9 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Do not execute anything and print the directed "
         "acyclic graph of jobs in the dot language. Recommended "
-        "use on Unix systems: snakemake --dag | dot | display",
+        "use on Unix systems: snakemake --dag | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--rulegraph",
@@ -1161,7 +1197,9 @@ def get_argument_parser(profile=None):
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
-        "Recommended use on Unix systems: snakemake --rulegraph | dot | display",
+        "Recommended use on Unix systems: snakemake --rulegraph | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--filegraph",
@@ -1172,7 +1210,9 @@ def get_argument_parser(profile=None):
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
-        "Recommended use on Unix systems: snakemake --filegraph | dot | display",
+        "Recommended use on Unix systems: snakemake --filegraph | dot | display"
+        "Note print statements in your Snakefile may interfere "
+        "with visualization.",
     )
     group_utils.add_argument(
         "--d3dag",
@@ -1478,7 +1518,8 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "--default-remote-provider",
-        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp", "iRODS", "AzureStorage"],
+        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp", "iRODS", "AzBlob",
+            "AzureStorage (deprecated; use AzBlob)"],
         help="Specify default remote provider to be used for "
         "all input and output files that don't yet specify "
         "one.",
@@ -1769,10 +1810,18 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Cleanup unused conda environments.",
     )
+    from snakemake.deployment.conda import CondaCleanupMode
+
     group_conda.add_argument(
         "--conda-cleanup-pkgs",
-        action="store_true",
-        help="Cleanup conda packages after creating environments.",
+        type=CondaCleanupMode,
+        const=CondaCleanupMode.tarballs,
+        choices=list(CondaCleanupMode),
+        nargs="?",
+        help="Cleanup conda packages after creating environments. "
+        "In case of 'tarballs' mode, will clean up all downloaded package tarballs. "
+        "In case of 'cache' mode, will additionally clean up unused package caches. "
+        "If mode is omitted, will default to only cleaning up the tarballs.",
     )
     group_conda.add_argument(
         "--conda-create-envs-only",
@@ -1816,13 +1865,6 @@ def get_argument_parser(profile=None):
         "modules, loaded in the given order. This can be combined with "
         "--use-conda and --use-singularity, which will then be only used as a "
         "fallback for rules which don't define environment modules.",
-    )
-
-    group_env_modules = parser.add_argument_group("AZURE")
-
-    group_env_modules.add_argument(
-        "--az-store-credentials",
-        help="Azure storage credentials file",
     )
 
     return parser
@@ -2101,6 +2143,13 @@ def main(argv=None):
             slack_logger = logging.SlackLogger()
             log_handler.append(slack_logger.log_handler)
 
+        if args.edit_notebook:
+            from snakemake import notebook
+
+            args.target = [args.edit_notebook]
+            args.force = True
+            args.edit_notebook = notebook.Listen(args.notebook_listen)
+
         success = snakemake(
             args.snakefile,
             batch=batch,
@@ -2210,8 +2259,9 @@ def main(argv=None):
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
             keep_incomplete=args.keep_incomplete,
+            edit_notebook=args.edit_notebook,
+            envvars=args.envvars,
             log_handler=log_handler,
-            az_store_credentialsfile=args.az_store_credentials,
         )
 
     if args.runtime_profile:

@@ -63,7 +63,6 @@ class AbstractExecutor:
         printthreads=True,
         latency_wait=3,
         keepincomplete=False,
-        az_store_credentials=None
     ):
         self.workflow = workflow
         self.dag = dag
@@ -73,7 +72,6 @@ class AbstractExecutor:
         self.printthreads = printthreads
         self.latency_wait = latency_wait
         self.keepincomplete = keepincomplete
-        self.az_store_credentials = az_store_credentials
 
     def get_default_remote_provider_args(self):
         if self.workflow.default_remote_provider:
@@ -85,18 +83,16 @@ class AbstractExecutor:
             )
         return ""
 
-
-    def get_azconfig_args(self):
-        if self.az_store_credentials is not None:
-            args = " --az-store-credentials {} ".format(self.az_store_credentials)
-            return args
-        return ""
-
-
     def get_default_resources_args(self):
         if self.workflow.default_resources.args is not None:
+
+            def fmt(res):
+                if isinstance(res, str):
+                    res = res.replace('"', r"\"")
+                return '"{}"'.format(res)
+
             args = " --default-resources {} ".format(
-                " ".join(map('"{}"'.format, self.workflow.default_resources.args))
+                " ".join(map(fmt, self.workflow.default_resources.args))
             )
             return args
         return ""
@@ -167,7 +163,6 @@ class RealExecutor(AbstractExecutor):
         latency_wait=3,
         assume_shared_fs=True,
         keepincomplete=False,
-        az_store_credentials=None
     ):
         super().__init__(
             workflow,
@@ -177,7 +172,6 @@ class RealExecutor(AbstractExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             keepincomplete=keepincomplete,
-            az_store_credentials=az_store_credentials
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
@@ -209,15 +203,16 @@ class RealExecutor(AbstractExecutor):
         handle_touch=True,
         ignore_missing_output=False,
     ):
-        job.postprocess(
-            upload_remote=upload_remote,
-            handle_log=handle_log,
-            handle_touch=handle_touch,
-            ignore_missing_output=ignore_missing_output,
-            latency_wait=self.latency_wait,
-            assume_shared_fs=self.assume_shared_fs,
-        )
-        self.stats.report_job_end(job)
+        if not self.dag.is_edit_notebook_job(job):
+            job.postprocess(
+                upload_remote=upload_remote,
+                handle_log=handle_log,
+                handle_touch=handle_touch,
+                ignore_missing_output=ignore_missing_output,
+                latency_wait=self.latency_wait,
+                assume_shared_fs=self.assume_shared_fs,
+            )
+            self.stats.report_job_end(job)
 
     def handle_job_error(self, job, upload_remote=True):
         job.postprocess(
@@ -317,7 +312,6 @@ class CPUExecutor(RealExecutor):
         latency_wait=3,
         cores=1,
         keepincomplete=False,
-        az_store_credentials=None
     ):
         super().__init__(
             workflow,
@@ -327,7 +321,6 @@ class CPUExecutor(RealExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             keepincomplete=keepincomplete,
-            az_store_credentials=az_store_credentials
         )
 
         self.exec_job = "\\\n".join(
@@ -340,7 +333,6 @@ class CPUExecutor(RealExecutor):
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
-                self.get_azconfig_args(),
                 "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} ",
                 "--notemp --quiet --no-hooks --nolock --mode {} ".format(
                     Mode.subprocess
@@ -431,6 +423,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
+            self.workflow.edit_notebook,
         )
 
     def run_single_job(self, job):
@@ -1420,6 +1413,20 @@ class KubernetesExecutor(ClusterExecutor):
                     "to the working directory are allowed.".format(f)
                 )
                 continue
+
+            # The kubernetes API can't create secret files larger than 1MB.
+            source_file_size = os.path.getsize(f)
+            max_file_size = 1000000
+            if source_file_size > max_file_size:
+                logger.warning(
+                    "Skipping the source file {f}. Its size {source_file_size} exceeds "
+                    "the maximum file size (1MB) that can be passed "
+                    "from host to kubernetes.".format(
+                        f=f, source_file_size=source_file_size
+                    )
+                )
+                continue
+
             with open(f, "br") as content:
                 key = "f{}".format(i)
                 self.secret_files[key] = f
@@ -2034,6 +2041,7 @@ def run_wrapper(
     cleanup_scripts,
     shadow_dir,
     jobid,
+    edit_notebook,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2111,6 +2119,7 @@ def run_wrapper(
                             bench_iteration,
                             cleanup_scripts,
                             passed_shadow_dir,
+                            edit_notebook,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2138,6 +2147,7 @@ def run_wrapper(
                                 bench_iteration,
                                 cleanup_scripts,
                                 passed_shadow_dir,
+                                edit_notebook,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2163,6 +2173,7 @@ def run_wrapper(
                     None,
                     cleanup_scripts,
                     passed_shadow_dir,
+                    edit_notebook,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the

@@ -37,8 +37,6 @@ class RemoteProvider(AbstractRemoteProvider):
     def __init__(
         self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
     ):
-        self._as = AzureStorageHelper(**kwargs)
-
         super(RemoteProvider, self).__init__(
             *args,
             keep_local=keep_local,
@@ -47,6 +45,7 @@ class RemoteProvider(AbstractRemoteProvider):
             **kwargs
         )
 
+        self._as = AzureStorageHelper(*args, **kwargs)
 
     def remote_interface(self):
         return self._as
@@ -76,6 +75,7 @@ class RemoteObject(AbstractRemoteObject):
     # === Implementations of abstract class members ===
     def exists(self):
         if self._matched_as_path:
+            #import pdb; pdb.set_trace()
             return self._as.exists_in_container(self.container_name, self.blob_name)
         else:
             raise AzureFileException(
@@ -122,6 +122,7 @@ class RemoteObject(AbstractRemoteObject):
     # # === Related methods ===
     @property
     def _matched_as_path(self):
+        #import pdb; pdb.set_trace()
         return re.search(
             "(?P<container_name>[^/]*)/(?P<blob_name>.*)", self.local_file()
         )
@@ -164,6 +165,23 @@ class AzureStorageHelper(object):
     def __init__(self, *args, **kwargs):
         if "stay_on_remote" in kwargs:
             del kwargs["stay_on_remote"]
+
+        for evar in ["AZ_ACCOUNT_NAME", "AZ_ACCOUNT_KEY", "AZ_SAS_TOKEN"]:
+            # kwarg key is the same as env var without `AZ_` prefix.
+            # names are derived from arguments to CloudStorageAccount class
+            csa_arg = evar[3:].lower()
+            if csa_arg not in kwargs:
+                kwargs[csa_arg] = os.environ.get(evar)
+        assert "account_name" in kwargs, (
+            "Missing AZ_ACCOUNT_NAME env var")
+        assert "account_key" in kwargs or "sas_token" in kwargs, (
+            "Missing AZ_ACCOUNT_KEY or AZ_SAS_TOKEN env var")
+        # remove leading '?' from SAS if needed
+        if kwargs.get("sas_token", "").startswith("?"):
+            kwargs["sas_token"] = kwargs["sas_token"][1:]
+
+        # by right only account_key or sas_token should be set, but we let
+        # create_block_blob_service() deal with the ambiguity
         self.azure = AzureStorageAccount(**kwargs).create_block_blob_service()
 
     def container_exists(self, container_name):
@@ -306,7 +324,8 @@ class AzureStorageHelper(object):
             Returns:
                 True | False
         """
-        assert container_name, "container_name must be specified"
+
+        assert container_name, "container_name must be specified (did you try to write to \"root\" or forgot to set --default-remote-prefix?)"
         assert blob_name, "blob_name must be specified"
         try:
             return self.azure.exists(container_name, blob_name)

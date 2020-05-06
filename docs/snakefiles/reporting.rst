@@ -8,7 +8,7 @@ From Snakemake 5.1 on, it is possible to automatically generate detailed self-co
 **A realistic example report from a real workflow can be found** `here <https://koesterlab.github.io/resources/report.html>`_.
 
 For including results into the report, the Snakefile has to be annotated with additional information.
-Each output file that shall be part of the report has to be marked with the ``report`` flag, which optionally points to a caption in `restructured text format <http://docutils.sourceforge.net/rst.html>`_ and allows to define a ``category`` for grouping purposes.
+Each output file that shall be part of the report has to be marked with the ``report`` flag, which optionally points to a caption in `restructured text format <https://docutils.sourceforge.io/docs/user/rst/quickstart.html>`_ and allows to define a ``category`` for grouping purposes.
 Moreover, a global workflow description can be defined via the ``report`` directive.
 Consider the following example:
 
@@ -60,7 +60,7 @@ As can be seen, we define a global description which is contained in the file ``
 In addition, we mark ``fig1.svg`` and ``fig2.png`` for inclusion into the report, while in both cases specifying a caption text via again referring to a restructured text file.
 Note the paths to the ``.rst``-files are interpreted relative to the current Snakefile.
 
-Inside the ``.rst``-files you can use `Jinja2 <http://jinja.pocoo.org>`_ templating to access context information.
+Inside the ``.rst``-files you can use `Jinja2 <https://jinja.palletsprojects.com>`_ templating to access context information.
 In case of the global description, you can access the config dictionary via ``{{ snakemake.config }}``, (e.g., use ``{{ snakemake.config["mykey"] }}`` to access the key ``mykey``).
 In case of output files, you can access the same values as available with the :ref:`script directive <snakefiles-external_scripts>` (e.g., ``snakemake.wildcards``).
 
@@ -79,7 +79,7 @@ Moreover, in every ``.rst`` document, you can link to
 * any **category** panel (with ``Mycategory_``, while ``Mycategory`` is the name given for the category argument of the report flag). E.g., with above example, you could write ``see `Step 2`_`` in order to link to the section with the results that have been assigned to the category ``Step 2``.
 * any **file** marked with the report flag (with ``myfile.txt_``, while ``myfile.txt`` is the basename of the file, without any leading directories). E.g., with above example, you could write ``see fig2.png_`` in order to link to the result in the report document.
 
-For details about the hyperlink mechanism of restructured text see `here <http://docutils.sourceforge.net/docs/user/rst/quickref.html#hyperlink-targets>`_.
+For details about the hyperlink mechanism of restructured text see `here <https://docutils.sourceforge.io/docs/user/rst/quickref.html#hyperlink-targets>`_.
 
 To create the report simply run
 

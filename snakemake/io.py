@@ -1355,7 +1355,7 @@ def _load_configfile(configpath, filetype="Config"):
             except ValueError:
                 f.seek(0)  # try again
             try:
-                # From http://stackoverflow.com/a/21912744/84349
+                # From https://stackoverflow.com/a/21912744/84349
                 class OrderedLoader(yaml.Loader):
                     pass
 

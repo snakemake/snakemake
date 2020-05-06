@@ -1,3 +1,33 @@
+[5.17.0] - 2020-05-07
+=====================
+Added
+-----
+- --envvars flag for passing secrets to cloud executors
+Changed
+-------
+- Wider thumbnail dialogs in report.
+- Updated installation instructions.
+- Various small kubernetes bug fixes.
+- Bug fix for iRods remote files.
+
+[5.16.0] - 2020-04-29
+=====================
+Added
+-----
+- Interactive jupyter notebook editing. Notebooks defined by rules can be interactively drafted and updated using snakemake --edit-notebook (see docs).
+Changed
+-------
+- Fixed group resource usage to occupy one cluster/cloud node.
+- Minor bug fixes.
+
+[5.15.0] - 2020-04-21
+=====================
+Changed
+-------
+- The resource directive can now take strings, e.g. for defining a GPU model (see docs). This will e.g. be used for upcoming updates to cloud executors.
+- More extensive conda cleanup with --conda-cleanup-packages, meant for CI usage.
+- Further polish for reports.
+
 [5.14.0] - 2020-04-08
 =====================
 Changed
