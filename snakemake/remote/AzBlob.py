@@ -75,7 +75,6 @@ class RemoteObject(AbstractRemoteObject):
     # === Implementations of abstract class members ===
     def exists(self):
         if self._matched_as_path:
-            #import pdb; pdb.set_trace()
             return self._as.exists_in_container(self.container_name, self.blob_name)
         else:
             raise AzureFileException(
@@ -122,7 +121,6 @@ class RemoteObject(AbstractRemoteObject):
     # # === Related methods ===
     @property
     def _matched_as_path(self):
-        #import pdb; pdb.set_trace()
         return re.search(
             "(?P<container_name>[^/]*)/(?P<blob_name>.*)", self.local_file()
         )
