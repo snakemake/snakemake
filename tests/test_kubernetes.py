@@ -26,7 +26,7 @@ def kubernetes_cluster():
             shell(
                 """
                 gcloud container clusters delete {self.cluster} --zone us-central1-a --quiet || true
-                gcloud rm -r gs://{self.bucket_name} || true
+                gsutil rm -r gs://{self.bucket_name} || true
                 """
             )
 
@@ -47,6 +47,7 @@ def kubernetes_cluster():
                 raise e
 
         def reset(self):
+            print("Resetting bucket...", file=sys.stderr)
             shell("gsutil rm -r gs://{self.bucket_name}/* || true")
 
     cluster = Cluster()

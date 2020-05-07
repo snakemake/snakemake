@@ -37,3 +37,4 @@ dependencies:
   - imagemagick
   - nbformat
   - toposort
+  - crc32c
