@@ -36,7 +36,9 @@ class OutputFileCache(AbstractOutputFileCache):
             | stat.S_IWOTH
         )
         # directories need to have exec permission as well (for opening)
-        self.dir_permissions = self.file_permissions | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        self.dir_permissions = (
+            self.file_permissions | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        )
 
     def check_writeable(self, cachefile):
         if not (os.access(cachefile.parent, os.W_OK) or os.access(cachefile, os.W_OK)):
@@ -74,7 +76,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 # does not lead to concurrent writes to the same file.
                 # We can use the plain copy method of shutil, because we do not care about the metadata.
                 shutil.move(outputfile, tmp, copy_function=shutil.copy)
-                
+
                 # make readable/writeable for all
                 if tmp.is_dir():
                     # recursively apply permissions for all contained files
@@ -107,7 +109,7 @@ class OutputFileCache(AbstractOutputFileCache):
             self.check_readable(cachefile)
             if cachefile.is_dir():
                 # For directories, create a new one and symlink each entry.
-                # Then, the .snakemake_timestamp of the new dir is touched 
+                # Then, the .snakemake_timestamp of the new dir is touched
                 # by the executor.
                 outputfile.mkdir(parents=True, exist_ok=True)
                 for f in cachefile.iterdir():
