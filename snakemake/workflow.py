@@ -102,6 +102,9 @@ class Workflow:
         nodes=1,
         cores=1,
         resources=None,
+        conda_cleanup_pkgs=None,
+        edit_notebook=False,
+        envvars=None,
     ):
         """
         Create the controller.
@@ -160,6 +163,8 @@ class Workflow:
         self.configfiles = []
         self.run_local = run_local
         self.report_text = None
+        self.conda_cleanup_pkgs = conda_cleanup_pkgs
+        self.edit_notebook = edit_notebook
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
@@ -196,6 +201,9 @@ class Workflow:
         rules = Rules()
         global checkpoints
         checkpoints = Checkpoints()
+
+        if envvars is not None:
+            self.register_envvars(*envvars)
 
     def lint(self, json=False):
         from snakemake.linting.rules import RuleLinter
@@ -269,7 +277,7 @@ class Workflow:
         # TODO allow a manifest file as alternative
         try:
             out = subprocess.check_output(
-                ["git", "ls-files", "."], stderr=subprocess.PIPE
+                ["git", "ls-files", "--recurse-submodules", "."], stderr=subprocess.PIPE
             )
             for f in out.decode().split("\n"):
                 if f:
@@ -464,7 +472,7 @@ class Workflow:
         notemp=False,
         nodeps=False,
         cleanup_metadata=None,
-        cleanup_conda=False,
+        conda_cleanup_envs=False,
         cleanup_shadow=False,
         cleanup_scripts=True,
         subsnakemake=None,
@@ -478,10 +486,11 @@ class Workflow:
         greediness=1.0,
         no_hooks=False,
         force_use_threads=False,
-        create_envs_only=False,
+        conda_create_envs_only=False,
         assume_shared_fs=True,
         cluster_status=None,
         report=None,
+        report_stylesheet=None,
         export_cwl=False,
         batch=None,
         keepincomplete=False,
@@ -557,7 +566,7 @@ class Workflow:
             targetrules=targetrules,
             # when cleaning up conda, we should enforce all possible jobs
             # since their envs shall not be deleted
-            forceall=forceall or cleanup_conda,
+            forceall=forceall or conda_cleanup_envs,
             forcefiles=forcefiles,
             forcerules=forcerules,
             priorityfiles=priorityfiles,
@@ -721,7 +730,7 @@ class Workflow:
         elif report:
             from snakemake.report import auto_report
 
-            auto_report(dag, report)
+            auto_report(dag, report, stylesheet=report_stylesheet)
             return True
         elif printd3dag:
             dag.d3dag()
@@ -784,10 +793,10 @@ class Workflow:
         if self.use_conda:
             if assume_shared_fs:
                 dag.create_conda_envs(
-                    dryrun=dryrun or list_conda_envs or cleanup_conda,
+                    dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
                     quiet=list_conda_envs,
                 )
-            if create_envs_only:
+            if conda_create_envs_only:
                 return True
 
         if list_conda_envs:
@@ -802,8 +811,8 @@ class Workflow:
                     )
             return True
 
-        if cleanup_conda:
-            self.persistence.cleanup_conda()
+        if conda_cleanup_envs:
+            self.persistence.conda_cleanup_envs()
             return True
 
         scheduler = JobScheduler(
@@ -848,16 +857,21 @@ class Workflow:
                     logger.resources_info(
                         "Provided cluster nodes: {}".format(self.nodes)
                     )
+                elif kubernetes or tibanna:
+                    logger.resources_info("Provided cloud nodes: {}".format(self.nodes))
                 else:
-                    warning = (
-                        "" if self.cores > 1 else " (use --cores to define parallelism)"
-                    )
-                    logger.resources_info(
-                        "Provided cores: {}{}".format(self.cores, warning)
-                    )
-                    logger.resources_info(
-                        "Rules claiming more threads " "will be scaled down."
-                    )
+                    if self.cores is not None:
+                        warning = (
+                            ""
+                            if self.cores > 1
+                            else " (use --cores to define parallelism)"
+                        )
+                        logger.resources_info(
+                            "Provided cores: {}{}".format(self.cores, warning)
+                        )
+                        logger.resources_info(
+                            "Rules claiming more threads " "will be scaled down."
+                        )
 
                 provided_resources = format_resources(self.global_resources)
                 if provided_resources:
@@ -926,7 +940,7 @@ class Workflow:
         Register environment variables that shall be passed to jobs.
         If used multiple times, union is taken.
         """
-        undefined = [var for var in envvars if var not in os.environ]
+        undefined = set(var for var in envvars if var not in os.environ)
         if undefined:
             raise WorkflowError(
                 "The following environment variables are requested by the workflow but undefined. "
@@ -1101,10 +1115,16 @@ class Workflow:
                 if args:
                     raise RuleException("Resources have to be named.")
                 if not all(
-                    map(lambda r: isinstance(r, int) or callable(r), resources.values())
+                    map(
+                        lambda r: isinstance(r, int)
+                        or isinstance(r, str)
+                        or callable(r),
+                        resources.values(),
+                    )
                 ):
                     raise RuleException(
-                        "Resources values have to be integers or callables", rule=rule
+                        "Resources values have to be integers, strings, or callables (functions)",
+                        rule=rule,
                     )
                 rule.resources.update(resources)
             if ruleinfo.priority:

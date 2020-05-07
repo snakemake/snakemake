@@ -30,6 +30,7 @@ The Snakefile syntax obeys the following grammar, given in extended Backus-Naur 
     params     = "params" ":" parameter_list
     log        = "log" ":" parameter_list
     benchmark  = "benchmark" ":" statement
+    cache      = "cache" ":" bool
     message    = "message" ":" stringliteral
     threads    = "threads" ":" integer
     resources  = "resources" ":" parameter_list

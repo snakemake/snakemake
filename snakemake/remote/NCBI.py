@@ -443,7 +443,7 @@ class NCBIHelper(object):
     def parse_accession_str(self, id_str):
         """
             This tries to match an NCBI accession as defined here:
-                http://www.ncbi.nlm.nih.gov/Sequin/acc.html
+                https://www.ncbi.nlm.nih.gov/Sequin/acc.html
         """
         m = re.search(
             r"(?P<accession>(?:[a-zA-Z]{1,6}|NW_|NC_|NM_|NR_)\d{1,10})(?:\.(?P<version>\d+))?(?:\.(?P<file_ext>\S+))?.*",
@@ -467,7 +467,7 @@ class NCBIHelper(object):
 
     @staticmethod
     def _seq_chunks(seq, n):
-        # http://stackoverflow.com/a/312464/190597 (Ned Batchelder)
+        # https://stackoverflow.com/a/312464/190597 (Ned Batchelder)
         """ Yield successive n-sized chunks from seq."""
         for i in range(0, len(seq), n):
             yield seq[i : i + n]

@@ -11,7 +11,7 @@
     <!-- Bootstrap CSS -->
     <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
     <style>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css"|get_resource_as_string }}</style>
-    <style>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.18/r-2.2.2/sl-1.3.0/datatables.min.css"|get_resource_as_string }}</style>
+    <style>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.20/r-2.2.2/sl-1.3.0/datatables.min.css"|get_resource_as_string }}</style>
     <style>{{ pygments_css|safe }}</style>
 
     <!-- Custom styles for this template -->
@@ -85,7 +85,7 @@
       */
 
       [role="main"] {
-      padding-top: 48px; /* Space for fixed navbar */
+      padding-top: 65px; /* Space for fixed navbar */
       }
 
       *[id]:before {
@@ -104,6 +104,7 @@
       padding-top: .75rem;
       padding-bottom: .75rem;
       font-size: 1rem;
+      font-weight: bold;
       background-color: rgba(0, 0, 0, .25);
       box-shadow: inset -1px 0 0 rgba(0, 0, 0, .25);
       }
@@ -165,7 +166,7 @@
         padding-top: 50vh;
       }
 
-      #loading-screen p#animation {
+      p.animation {
         animation: fadeinout 2.5s infinite;
         text-align: center;
         font-size: 200%;
@@ -177,8 +178,18 @@
       }
 
       #loading-screen p#jswarning {
-	text-align: center;
+      	text-align: center;
         color: red;
+      }
+
+      #panel-loading-screen {
+        width: 100%;
+        height: 100%;
+        padding-top: 50vh;
+      }
+
+      #panel-loading-sceen p.animation {
+        margin: auto;
       }
 
       .vega-actions .btn {
@@ -239,18 +250,67 @@
       table caption {
         display: none;
       }
+
+      table.results-table {
+        width: 100%;
+	margin-bottom: 4em;
+      }
+
+      .rule-property {
+        overflow-y: auto;
+        max-height: 10em;
+      }
+
+      .panel {
+        display: none;
+      }
+
+      .panel#workflow {
+        display: block;
+      }
+
+      .ruletable th {
+        width: 1px;
+      }
+
+      .rule-properties ul {
+        padding-left: 1.2em;
+      }
+
+      #thumbnail-modal .modal-body {
+        overflow: auto;
+        text-align: center;
+      }
+
+      .category pre {
+        max-width: 20vw;
+        max-height: 10vh;
+      }
+	    
+      .modal-lg {
+    	max-width: 95%;
+      }
     </style>
+
+    {% if custom_stylesheet is not none %}
+    <style>
+      {{ custom_stylesheet }}
+    </style>
+    {% endif %}
   </head>
 
   <body>
     <div id="loading-screen">
-      <p id="animation">Loading Snakemake Report...</p>
+      <p class="animation">Loading Snakemake Report...</p>
       <p id="jswarning">Please enable Javascript in your browser to see this report.</p>
+      {% if mode_embedded %}
       <p id="info">Loading {{ results_size|filesizeformat }}. For large reports, this can take a while.</p>
+      {% endif %}
     </div>
 
     <nav class="navbar fixed-top navbar-dark bg-dark flex-md-nowrap p-0 shadow">
-      <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="#">Snakemake Report</a>
+      <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="https://snakemake.readthedocs.io">Snakemake Report</a>
+      <div class="nav navbar-nav navbar-center" id="brand"></div>
       <ul class="nav navbar-nav navbar-right" style="padding-right: 10px;">
         <li class="text-white">{{ now }}</li>
         <li><a class="text-white" href="https://snakemake.readthedocs.io">Snakemake {{ version }}</a></li>
@@ -264,42 +324,37 @@
           <div class="sidebar-sticky">
             <ul class="nav flex-column">
               <li class="nav-item">
-                <a class="nav-link active" href="#">
+                <a class="nav-link active panel-link" data-panel="workflow" href="javascript:void(0)">
                   <span data-feather="git-pull-request"></span>
                   Workflow <span class="sr-only">(current)</span>
                 </a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" href="#stats">
+                <a class="nav-link panel-link" data-panel="statistics" href="javascript:void(0)">
                   <span data-feather="bar-chart-2"></span>
                   Statistics
                 </a>
               </li>
               {% if configfiles %}
               <li class="nav-item">
-                <a class="nav-link" href="#configuration">
+                <a class="nav-link panel-link" data-panel="configuration" href="javascript:void(0)">
                   <span data-feather="settings"></span>
                   Configuration
                 </a>
               </li>
               {% endif %}
-              <li class="nav-item">
-                <a class="nav-link" href="#rules">
-                  <span data-feather="list"></span>
-                  Rules
-                </a>
-              </li>
             </ul>
 
             <h5 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-              <a class="d-flex align-items-center text-muted text-bold" href="#results">
-                <span>Results</span>
-              </a>
+              <span class="d-flex align-items-center text-muted text-bold">
+                Results
+              </span>
             </h5>
             <ul class="nav flex-column mb-2">
-            {% for cat, res in results|dictsort %}
+            {% for cat, _ in results|dictsort %}
               <li class="nav-item">
-                <a class="nav-link" href="#{{ cat.id }}">
+                <a class="nav-link panel-link" data-panel="{{ cat.id }}" href="javascript:void(0)">
+                  <span data-feather="folder"></span>
                   {{ cat.name }}
                 </a>
               </li>
@@ -309,188 +364,194 @@
         </nav>
 
         <main role="main" class="col-md-9 ml-sm-auto col-lg-10 px-4">
-          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+          <div class="panel" id="workflow">
             <h2>Workflow</h2>
-          </div>
 
-          {{ text }}
+            {{ text }}
 
-          <p>Detailed software versions can be found under <a href="#rules">Rules</a>.</p>
-
-          <div class="row justify-content-center">
-            <div class="col-xs-6">
-              <div id="rulegraph"></div>
-            </div>
-          </div>
-
-          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-            <h2 id="results">Results</h2>
-          </div>
-
-          <div class="accordion" id="categories">
-          {% for cat, catresults in results|dictsort %}
-            <div class="card">
-              <div class="card-header" id="{{ cat.id }}">
-                <h5 class="mb-0">
-                  <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#{{ cat.content_id }}" aria-expanded="false" aria-controls="{{ cat.content_id }}">
-                    {{ cat.name }}
-                  </button>
-                </h5>
-              </div>
-
-              <div id="{{ cat.content_id }}" class="collapse" aria-labelledby="{{ cat.id }}" data-parent="#categories">
-                <div class="card-body">
-                  <table class="table results-table">
-                    <caption>Workflow resultes</caption>
-                    <thead>
-                      <tr>
-                        <th scope="col">File</th>
-                        <th scope="col">Size</th>
-                        <th scope="col">Description</th>
-                        <th scope="col">Job properties</th>
-                        <th scope="col"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for res in catresults %}
-                      <tr>
-                        <th scope="row">
-                          <a id="{{ res.id }}" href="javascript:void(0)" download="{{ res.name }}">{{ res.name }}</a>
-                        </th>
-                        <td style="white-space:nowrap;">{{ res.size|filesizeformat }}</td>
-                        <td>{{ res.caption }}</td>
-                        <td>
-                          <table class="table table-sm table-borderless">
-                            <caption>Job properties</caption>
-                            <tbody>
-                              <tr>
-                                <th scope="row">Rule</th><td><a class="rule" href="javascript:void(0)">{{ res.job.rule }}</a></td>
-                              </tr>
-                              {% if res.wildcards %}
-                              <tr>
-                                <th scope="row">Wildcards</th><td>{{ res.wildcards }}</td>
-                              </tr>
-                              {% endif %}
-                              {% if res.params %}
-                              <tr>
-                                <th scope="row">Params</th><td>{{ res.params }}</td>
-                              </tr>
-                              {% endif %}
-                            </tbody>
-                          </table>
-                        </td>
-                        <td class="preview" id="{{ res.id }}-preview">
-                        </td>
-                      </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
+            <div class="row justify-content-center">
+              <div class="col-xs-6">
+                <div id="rulegraph"></div>
               </div>
             </div>
+
+            <p>Click the nodes to obtain details about each step.</p>
+
+          </div>
+
+          {% for cat, subcats in results|dictsort %}
+          <div class="panel category" id="{{ cat.id }}">
+            <h2>{{ cat.name }}</h2>
+            {% for subcat, catresults in subcats|dictsort %}
+            {% if subcats|length > 1 or not subcat.is_other %}
+            <h4>{{ subcat.name }}</h4>
+            {% endif %}
+            <table class="results-table table" data-category="{{ cat.id }}" data-subcategory="{{ subcat.id }}"></table>
+            {% if not loop.last %}
+            <div style="clear: both; margin-bottom: 4em;"></div> <!-- ensure distance to next table -->
+            {% endif %}
+            {% endfor %}
+          </div>  
           {% endfor %}
-          </div>
 
-          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-            <h2 id="stats">Statistics</h2>
-          </div>
-          If the workflow has been executed in cluster/cloud, runtimes include the waiting time in the queue.
-          <div class="row justify-content-center">
-            <div class="col-xs-6">
-              <div id="runtimes" class="plot"></div>
-            </div>
-            <div class="col-xs-6">
-              <div id="timeline" class="plot"></div>
+          <div class="panel" id="statistics">
+            <h2>Statistics</h2>
+            If the workflow has been executed in cluster/cloud, runtimes include the waiting time in the queue.
+            <div class="row justify-content-center">
+              <div class="col-xs-6">
+                <div id="runtimes" class="plot"></div>
+              </div>
+              <div class="col-xs-6">
+                <div id="timeline" class="plot"></div>
+              </div>
             </div>
           </div>
 
           {% if configfiles %}
-          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-          <h2 id="configuration">Configuration</h2>
-          </div>
-          <table class="table">
-            <caption>Configuration files</caption>
-            <thead>
-              <tr>
-                <th scope="col">File</th>
-                <th scope="col">Code</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for configfile in configfiles %}
+          <div class="panel" id="configuration">
+            <h2>Configuration</h2>
+            <table class="table">
+              <caption>Configuration files</caption>
+              <thead>
                 <tr>
-                  <td>{{ configfile.name }}</td>
-                  <td>
-                    <a data-toggle="collapse" role="button" href="#configfile-{{ configfile.id }}" aria-expanded="false" aria-controls="collapse-env"><span data-feather="plus-circle"></span></a>
-                    <div class="collapse" id="configfile-{{ configfile.id }}">
-                      {{ configfile.code()|safe }}
-                    </div>
-                  </td>
+                  <th scope="col">File</th>
+                  <th scope="col">Code</th>
                 </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {% for configfile in configfiles %}
+                  <tr>
+                    <td>{{ configfile.name }}</td>
+                    <td>
+                      <a data-toggle="collapse" role="button" href="#configfile-{{ configfile.id }}" aria-expanded="false" aria-controls="collapse-env"><span data-feather="plus-circle"></span></a>
+                      <div class="collapse" id="configfile-{{ configfile.id }}">
+                        {{ configfile.code()|safe }}
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
           {% endif %}
 
-          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-          <h2 id="rules">Rules</h2>
+          <div class="panel" id="panel-loading-screen">
+            <p class="animation">Loading...</p>
           </div>
-          <table class="table" id="rules-table">
-            <caption>Workflow rules</caption>
-            <thead>
-              <tr>
-                <th scope="col">Rule</th>
-                <th scope="col">Jobs</th>
-                <th scope="col">Output</th>
-                <th scope="col">Singularity</th>
-                <th scope="col">Conda environment</th>
-                <th scope="col">Code</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for rule in rules %}
-              <tr>
-                <td>{{ rule.name }}</td>
-                <td>{{ rule.n_jobs }}</td>
-                <td>
-                  <a data-toggle="collapse" role="button" href="#output-{{ rule.id }}" aria-expanded="false" aria-controls="collapse-output"><span data-feather="plus-circle"></span></a>
-                  <div class="collapse" id="output-{{ rule.id }}">
-                    <ul class="list-group list-group-flush">
-                    {% for f in rule.output %}
-                      <li class="list-group-item">{{ f }}</li>
-                    {% endfor %}
-                    </ul>
-                  </div>
-                </td>
-                <td>{{ rule.singularity_img_url if rule.singularity_img_url is not none }}</td>
-                <td>
-                  {% if rule.conda_env %}
-                    <a data-toggle="collapse" role="button" href="#conda-env-{{ rule.id }}" aria-expanded="false" aria-controls="collapse-env"><span data-feather="plus-circle"></span></a>
-                    <div class="collapse" id="conda-env-{{ rule.id }}">
-                      <ul class="list-group list-group-flush">
-                      {% for dep in rule.conda_env["dependencies"] %}
-                        <li class="list-group-item">{{ dep }}</li>
-                      {% endfor %}
-                      </ul>
-                    </div>
-                  {% endif %}
-                </td>
-                <td>
-                  {% if rule.code is not none %}
-                    <a data-toggle="collapse" role="button" href="#code-{{ rule.id }}" aria-expanded="false" aria-controls="collapse-env"><span data-feather="plus-circle"></span></a>
-                    <div class="collapse" id="code-{{ rule.id }}">
-                      {{ rule.code()|safe }}
-                    </div>
-                  {% endif %}
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
         </main>
+
+        <div id="thumbnail-modal" class="modal" tabindex="-1" role="dialog">
+          <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title"></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div class="modal-body">
+                <img src="" alt="Thumbnail">
+              </div>
+              <div class="modal-footer">
+                <a class="btn btn-primary btn-download" role="button" href="#">Download original</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% for rule in rules %}
+        <div data-rule="{{ rule.name }}" class="modal rule-properties" tabindex="-1" role="dialog">
+          <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Rule {{ rule.name }}</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div class="modal-body">
+                <table class="table w-auto table-sm table-borderless ruletable">
+                  <caption>Rule properties</caption>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Jobs</th><td>{{ rule.n_jobs }}</td>
+                    </tr>
+
+                    {% if rule.input %}
+                    <tr>
+                      <th scope="row" colspan=2>Input files</th>
+                    </tr>
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        <ul>
+                          {% for f in rule.input %}
+                            <li>{{ f }}</li>
+                          {% endfor %}
+                        </ul>
+                      </td>
+                    </tr>
+                    {% endif %}
+
+                    {% if rule.output %}
+                    <tr>
+                      <th scope="row" colspan=2>Output files</th>
+                    </tr>
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        <ul>
+                          {% for f in rule.output %}
+                            <li>{{ f }}</li>
+                          {% endfor %}
+                        </ul>
+                      </td>
+                    </tr>
+                    {% endif %}
+
+                    {% if rule.container_img_url %}
+                    <tr>
+                      <th scope="row" colspan=2>Container image</th>
+                    </tr>
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        {{ rule.container_img_url }}
+                      </td>
+                    </tr>
+                    {% endif %}
+
+                    {% if rule.conda_env %}
+                    <tr>
+                      <th scope="row" colspan=2>Conda software stack</th>
+                    </tr>
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        <ul>
+                          {% for dep in rule.conda_env["dependencies"] %}
+                            <li>{{ dep }}</li>
+                          {% endfor %}
+                        </ul>
+                      </td>
+                    </tr>
+                    {% endif %}
+
+                    {% if rule.code is not none %}
+                    <tr>
+                      <th scope="row" colspan=2>Code</th>
+                    </tr>
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        {{ rule.code()|safe }}
+                      </td>
+                    </tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
       </div>
     </div>
-
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"|get_resource_as_string }}</script>
@@ -502,9 +563,10 @@
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-embed/5.1.3/vega-embed.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"|get_resource_as_string }}</script>
     <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.20/r-2.2.2/sl-1.3.0/datatables.min.js"|get_resource_as_string }}</script>
+    {% if mode_embedded %}
     <script>{{ "https://raw.githubusercontent.com/eligrey/FileSaver.js/2.0.0/src/FileSaver.js"|get_resource_as_string }}</script>
-    <script>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.18/r-2.2.2/sl-1.3.0/datatables.min.js"|get_resource_as_string }}</script>
-    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery-scrollTo/2.1.2/jquery.scrollTo.min.js"|get_resource_as_string }}</script>
+    {% endif %}
 
     <!-- Icons -->
     <script>
@@ -512,9 +574,180 @@
       feather.replace()
     </script>
 
+    <script id="results">
+      var results = {
+      {% for cat, subcats in results|dictsort %}
+        {% for subcat, catresults in subcats|dictsort %}
+          {% for res in catresults %}
+            "{{ res.path|safe }}": {
+              name: "{{ res.name }}",
+              path: "{{ res.path }}",
+              size: "{{ res.size|filesizeformat }}",
+              caption: {{ res.caption }},
+              job_properties: {
+                rule: "{{ res.job.rule.name }}",
+                wildcards: "{{ res.wildcards }}",
+                params: "{{ res.params }}"
+              },
+              data_uri: function() { return "{{ res.data_uri }}"; },
+              {% if res.png_uri is not none %}
+              thumbnail_uri: function() { return "{{ res.png_uri }}"; }
+              {% else %}
+              thumbnail_uri: function() { return null; }
+              {% endif %}
+            }{{ "," if not loop.last }}
+          {% endfor %}
+          {{ "," if not loop.last }}
+        {% endfor %}
+        {{ "," if not loop.last }}
+      {% endfor %}
+      };
+    </script>
+
     <script>
+      var categories = {
+      {% for cat, subcats in results|dictsort %}
+        "{{ cat.id }}": {
+        {% for subcat, catresults in subcats|dictsort %}
+          "{{ subcat.id }}": [
+          {% for res in catresults %}
+            "{{ res.path|safe }}"{{ "," if not loop.last }}
+          {% endfor %}
+          ]{{ "," if not loop.last }}
+        {% endfor %}
+        }{{ "," if not loop.last }}
+      {% endfor %}
+      };
+
+      function show_rule_properties(rule) {
+        $(`.rule-properties[data-rule=${rule}]`).modal("show");
+      }
+
+      function download_result(path) {
+        var res = results[path];
+        saveAs(res.data_uri(), res.name);
+      }
+
+      function show_thumbnail(path) {
+        var res = results[path];
+        var modal = $("#thumbnail-modal");
+
+        modal.find(".modal-title").text(res.name);
+        modal.find(".modal-body img").attr("src", res.thumbnail_uri());
+        modal.find(".modal-footer a.btn-download")
+          .attr(
+            "href", 
+            {% if mode_embedded %}
+            `javascript:download_result("${res.path}")`
+            {% else %}
+            res.data_uri
+            {% endif %}
+          )
+          .attr("download", res.name);
+        modal.modal('handleUpdate');
+        modal.modal("show");
+      }
+
+      function show_category(panel) {
+        panel.find(".results-table").each(function() {
+          var table = $(this);
+          
+          // stop if this is already a datatable
+          if ($.fn.DataTable.isDataTable(table)) {
+            return;
+          }
+
+          var cat = table.data("category");
+          var subcat = table.data("subcategory");
+
+          $(this).DataTable({
+            data: categories[cat][subcat].map(res => results[res]),
+            bAutoWidth: false,
+            columns: [
+              {
+                title: "File",
+                render: function(data, type, row) {
+                  var link = $("<a>", {
+                    download: row.name,
+                    {% if mode_embedded %}
+                    href: `javascript:download_result("${row.path}")`
+                    {% else %}
+                    href: row.data_uri
+                    {% endif %}
+                  }).text(row.name)
+                  return link.wrap("<span>").parent().html();
+                }
+              },
+              {
+                title: "Description",
+                render: function(data, type, row) {
+                  return row.caption;
+                }
+              },
+              {
+                title: "Job properties",
+                render: function(data, type, row) {
+                  if (type === 'display'){
+                    var desc = $("<dl>", { class: "row" });
+                    desc.append($("<dt>", { class: "col-sm-3" }).text("Rule"))
+                      .append(
+                        $(
+                          "<dd>", { class:"col-sm-9" })
+                            .append($("<a>", {href: `javascript:show_rule_properties("${row.job_properties.rule}")`})
+                            .text(row.job_properties.rule)
+                        )
+                      )
+                      .append($("<dt>", { class: "col-sm-3" }).text("Wildcards"))
+                      .append($("<dd>", { class: "col-sm-9" }).text(row.job_properties.wildcards || "-"))
+                      .append($("<dt>", { class: "col-sm-3" }).text("Parameters"))
+                      .append($("<dd>", { class: "col-sm-9" }).append($("<pre>").text(row.job_properties.params || "-")));
+                    return desc.wrap("<span>").parent().html();
+                  } else {
+                    return row.job_properties.rule;
+                  }
+                }
+              },
+              {
+                title: "Thumbnail",
+                sortable: false,
+                render: function(data, type, row) {
+                  if (type === 'display'){
+                    var thumbnail_uri = row.thumbnail_uri()
+                    if (thumbnail_uri) {
+                      var link = $("<a>", {
+                        href: `javascript:show_thumbnail("${row.path}")`
+                      }).append($("<img>", {
+                        src: thumbnail_uri,
+                        width: 200
+                      }));
+                      return link.wrap("<span>").parent().html();
+                    } else {
+                      return "";
+                    }
+                  } else {
+                    return "";
+                  }
+                }
+              },
+            ]
+          })
+        });
+      }
+
+      function show_panel(id) {
+        $(".panel").hide();
+        var loading_screen = $("#panel-loading-screen");
+        loading_screen.show();
+        var panel = $(`#${id}`);
+        if (panel.hasClass("category")) {
+          show_category(panel);
+        }
+        loading_screen.hide();
+        panel.show();
+      }
+
       var rulegraph_spec = {
-        "$schema": "https://vega.github.io/schema/vega/v3.json",
+        "$schema": "https://vega.github.io/schema/vega/v5.json",
         "width": {{ rulegraph_width }},
         "height": {{ rulegraph_height }},
         "padding": 0,
@@ -522,25 +755,7 @@
 
         "signals": [
           { "name": "cx", "update": "width / 2" },
-          { "name": "cy", "update": "height / 2" },
-          {
-            "description": "State variable for active node fix status.",
-            "name": "fix", "value": 0,
-            "on": [
-              {
-                "events": "symbol:mouseout[!event.buttons], window:mouseup",
-                "update": "0"
-              },
-              {
-                "events": "symbol:mouseover",
-                "update": "fix || 1"
-              },
-              {
-                "events": "[symbol:mousedown, window:mouseup] > window:mousemove!",
-                "update": "2", "force": true
-              }
-            ]
-          }
+          { "name": "cy", "update": "height / 2" }
         ],
 
         "data": [
@@ -580,7 +795,14 @@
               "enter": {
                 "fill": {"scale": "color", "field": "rule"},
                 "x": {"field": "fx", "scale": "x"},
-                "y": {"field": "fy", "scale": "y"}
+                "y": {"field": "fy", "scale": "y"},
+                "tooltip": { "value": "Click to show rule details." }
+              },
+              "update": {
+                "size": {"value": 100}
+              },
+              "hover": {
+                "size": {"value": 200}
               }
             },
 
@@ -636,11 +858,21 @@
           }
         ]
       };
-      vegaEmbed("#rulegraph", rulegraph_spec);
+      vegaEmbed("#rulegraph", rulegraph_spec).then(function(ret) {
+        ret.view.addEventListener("click", function(event, item) {
+          if(item && "rule" in item.datum) {
+            var rule = item.datum.rule;
+            show_rule_properties(rule);
+          }
+        });
+      });
+
+
+      
 
       var runtimes_spec = {
-        "$schema": "https://vega.github.io/schema/vega-lite/v2.json",
-        "description": "Shows the relationship between horsepower and the numbver of cylinders using tick marks.",
+        "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+        "description": "Runtimes of jobs.",
         "data": {"values": {{ runtimes }}},
         "mark": "point",
         "encoding": {
@@ -655,7 +887,7 @@
       vegaEmbed("#runtimes", runtimes_spec);
 
       var timeline_spec = {
-        "$schema": "https://vega.github.io/schema/vega-lite/v2.json",
+        "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
         "description": "Timeline of jobs.",
         "data": {
           "values": {{ timeline }}
@@ -678,81 +910,13 @@
 
       $(".vega-actions a").addClass("btn btn-outline-secondary");
       $(".vega-actions").addClass("btn-group");
-
-      // add thumbnails
-      {% for cat, catresults in results|dictsort %}
-        {% for res in catresults %}
-          $("#{{ res.id }}").click(function(e) {
-            saveAs('{{ res.data_uri }}', '{{ res.name }}');
-          });
-
-          {% if res.png_uri is not none %}
-          var data_uri = "{{ res.png_uri }}";
-          var anchor = $(
-            '<a>',
-            {
-              href: data_uri,
-              "data-toggle": "lightbox",
-              "data-gallery": "results",
-              "data-title": "{{ res.name }}",
-              "data-footer": "This is a preview. Download original file via the table."
-            }
-          );
-          anchor.append($(
-            '<img>',
-            {
-              id:'{{ res.id }}-thumbnail',
-              src: data_uri,
-              width: 200
-            }
-          ));
-          $("#{{ res.id }}-preview").append(anchor);
-          {% endif %}
-        {% endfor %}
-      {% endfor %}
-
-      $(document).on('click', '[data-toggle="lightbox"]', function(event) {
-                event.preventDefault();
-                $(this).ekkoLightbox();
-            });
-
-      $('.results-table').DataTable();
-      var rule_table = $('#rules-table').DataTable({
-        paging: false,
-        fixedHeader: true
-      });
-
-      {% for cat, catresults in results|dictsort %}
-        {% for res in catresults %}
-      $('a[href="#{{ res.id }}"]').click(function() {
-        var collapse = $('#{{ res.category.id }} button');
-        if(collapse.hasClass("collapsed")) {
-          collapse.click();
-        } else {
-          collapse.focus();
-        }
-      });
-        {% endfor %}
-      {% endfor %}
-
-      // jump to row upon clicking rule
-      $("a.rule").click(function() {
-        var rule = $(this).html();
-        var row = rule_table.row(function ( idx, data, node ) {
-          return data[0] == rule;
-        });
-        if(row.length > 0) {
-          rule_table.rows().deselect();
-          var node = row.select().draw().node();
-          $("body").scrollTo(node);
-        }
-      });
-
-      $.extend($.scrollTo.defaults, {
-        axis: 'y',
-        duration: 800,
-        offset: -90
-      });
+      
+      $("a.panel-link").click(function() {
+        $("a.nav-link.active").removeClass("active");
+        $(this).addClass("active");
+        var panelid = $(this).attr("data-panel");
+        show_panel(panelid);
+      })
 
       $(document).ready(function() {
         // Hide loading screen when document is ready.

@@ -137,7 +137,7 @@ class Persistence:
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
 
-    def cleanup_conda(self):
+    def conda_cleanup_envs(self):
         # cleanup envs
         in_use = set(env.hash[:8] for env in self.dag.conda_envs.values())
         for d in os.listdir(self.conda_env_path):
