@@ -1191,10 +1191,12 @@ class Namedlist(list):
 
         # white-list of attribute names that can be overridden in _set_name
         # default to throwing exception if called to prevent use as functions
-        self._allowed_overrides = ["index", "sort"] 
+        self._allowed_overrides = ["index", "sort"]
         for name in self._allowed_overrides:
-            setattr(self, name, 
-                lambda *args, _name=name, **kwargs : self._used_attribute((_name))
+            setattr(
+                self,
+                name,
+                lambda *args, _name=name, **kwargs: self._used_attribute((_name)),
             )
 
         if toclone:
@@ -1221,8 +1223,10 @@ class Namedlist(list):
         which may be overridden by workflows, to signal to a user that 
         these functions should not be used.        
         """
-        raise AttributeError(f"{name}() cannot be used; attribute name reserved"
-                             f" for use in some existing workflows")
+        raise AttributeError(
+            f"{name}() cannot be used; attribute name reserved"
+            f" for use in some existing workflows"
+        )
 
     def _add_name(self, name):
         """
