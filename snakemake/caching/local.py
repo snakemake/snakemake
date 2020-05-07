@@ -64,15 +64,19 @@ class OutputFileCache(AbstractOutputFileCache):
                 # We can use the plain copy method of shutil, because we do not care about the metadata.
                 shutil.move(outputfile, tmp, copy_function=shutil.copy)
                 # make readable/writeable for all
-                os.chmod(
-                    tmp,
+                permissions = (
                     stat.S_IRUSR
                     | stat.S_IWUSR
                     | stat.S_IRGRP
                     | stat.S_IWGRP
                     | stat.S_IROTH
-                    | stat.S_IWOTH,
+                    | stat.S_IWOTH
                 )
+                if outputfile.is_dir():
+                    # directories need to have exec permission as well (for opening)
+                    permissions |= stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+
+                os.chmod(tmp, permissions)
 
                 # Move to the actual path (now we are on the same FS, hence move is atomic).
                 # Here we use the default copy function, also copying metadata (which is important here).
@@ -83,7 +87,7 @@ class OutputFileCache(AbstractOutputFileCache):
 
     def fetch(self, job: Job):
         """
-        Retrieve cached output file and copy to the place where the job expects it's output.
+        Retrieve cached output file and symlink to the place where the job expects it's output.
         """
         for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
 
@@ -91,8 +95,15 @@ class OutputFileCache(AbstractOutputFileCache):
                 self.raise_cache_miss_exception(job)
 
             self.check_readable(cachefile)
-
-            self.symlink(cachefile, outputfile)
+            if cachefile.is_dir():
+                # For directories, create a new one and symlink each entry.
+                # Then, the .snakemake_timestamp of the new dir is touched 
+                # by the executor.
+                outputfile.mkdir(parents=True, exist_ok=True)
+                for f in cachefile.iterdir():
+                    self.symlink(f, outputfile / f.name)
+            else:
+                self.symlink(cachefile, outputfile)
 
     def exists(self, job: Job):
         """
@@ -111,7 +122,7 @@ class OutputFileCache(AbstractOutputFileCache):
         base_path = self.path / provenance_hash
 
         return (
-            (outputfile, base_path.with_suffix(ext))
+            (Path(outputfile), base_path.with_suffix(ext))
             for outputfile, ext in self.get_outputfiles(job)
         )
 
