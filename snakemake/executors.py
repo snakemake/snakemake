@@ -1419,8 +1419,10 @@ class KubernetesExecutor(ClusterExecutor):
             max_file_size = 1000000
             if source_file_size > max_file_size:
                 logger.warning(
-                    f"Skipping the source file {f}"
-                    f"Its size {source_file_size} exceeds the maximum file size (1MB) that can be passed from host to kubernetes.")
+                    "Skipping the source file {f}. Its size {source_file_size} exceeds "
+                    "the maximum file size (1MB) that can be passed "
+                    "from host to kubernetes.".format(f=f, source_file_size=source_file_size)
+                )
                 continue
 
             with open(f, "br") as content:
