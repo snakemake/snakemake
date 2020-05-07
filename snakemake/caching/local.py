@@ -77,18 +77,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 # We can use the plain copy method of shutil, because we do not care about the metadata.
                 shutil.move(outputfile, tmp, copy_function=shutil.copy)
 
-                # make readable/writeable for all
-                if tmp.is_dir():
-                    # recursively apply permissions for all contained files
-                    for root, dirs, files in os.walk(tmp):
-                        root = Path(root)
-                        for d in dirs:
-                            os.chmod(root / d, self.dir_permissions)
-                        for f in files:
-                            os.chmod(root / f, self.file_permissions)
-                    os.chmod(tmp, self.dir_permissions)
-                else:
-                    os.chmod(tmp, self.file_permissions)
+                self.set_permissions(tmp)
 
                 # Move to the actual path (now we are on the same FS, hence move is atomic).
                 # Here we use the default copy function, also copying metadata (which is important here).
@@ -151,3 +140,17 @@ class OutputFileCache(AbstractOutputFileCache):
                 )
             )
             shutil.copyfile(path, outputfile)
+
+    def set_permissions(self, entry):
+        # make readable/writeable for all
+        if entry.is_dir():
+            # recursively apply permissions for all contained files
+            for root, dirs, files in os.walk(entry):
+                root = Path(root)
+                for d in dirs:
+                    os.chmod(root / d, self.dir_permissions)
+                for f in files:
+                    os.chmod(root / f, self.file_permissions)
+            os.chmod(entry, self.dir_permissions)
+        else:
+            os.chmod(entry, self.file_permissions)
