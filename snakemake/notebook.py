@@ -62,10 +62,8 @@ class JupyterNotebook(ScriptBase):
         if edit is not None:
             logger.info("Opening notebook for editing.")
             cmd = (
-                "jupyter notebook --log-level ERROR --ip {edit.ip} --port {edit.port} "
-                "--no-browser --NotebookApp.quit_button=True {{fname:q}}".format(
-                    edit=edit
-                )
+                "jupyter notebook --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
+                "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
             )
         else:
             cmd = (

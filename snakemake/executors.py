@@ -1413,6 +1413,20 @@ class KubernetesExecutor(ClusterExecutor):
                     "to the working directory are allowed.".format(f)
                 )
                 continue
+
+            # The kubernetes API can't create secret files larger than 1MB.
+            source_file_size = os.path.getsize(f)
+            max_file_size = 1000000
+            if source_file_size > max_file_size:
+                logger.warning(
+                    "Skipping the source file {f}. Its size {source_file_size} exceeds "
+                    "the maximum file size (1MB) that can be passed "
+                    "from host to kubernetes.".format(
+                        f=f, source_file_size=source_file_size
+                    )
+                )
+                continue
+
             with open(f, "br") as content:
                 key = "f{}".format(i)
                 self.secret_files[key] = f

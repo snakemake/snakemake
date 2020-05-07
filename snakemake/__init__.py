@@ -154,6 +154,7 @@ def snakemake(
     keep_incomplete=False,
     messaging=None,
     edit_notebook=None,
+    envvars=None,
 ):
     """Run snakemake on a given snakefile.
 
@@ -500,6 +501,7 @@ def snakemake(
             nodes=nodes,
             resources=resources,
             edit_notebook=edit_notebook,
+            envvars=envvars,
         )
         success = True
         workflow.include(
@@ -975,6 +977,12 @@ def get_argument_parser(profile=None):
             "dictionary inside the workflow. Multiple files overwrite each other in "
             "the given order."
         ),
+    )
+    group_exec.add_argument(
+        "--envvars",
+        nargs="+",
+        metavar="VARNAME",
+        help="Environment variables to pass to cloud jobs.",
     )
     group_exec.add_argument(
         "--directory",
@@ -2250,6 +2258,7 @@ def main(argv=None):
             show_failed_logs=args.show_failed_logs,
             keep_incomplete=args.keep_incomplete,
             edit_notebook=args.edit_notebook,
+            envvars=args.envvars,
             log_handler=log_handler,
         )
 

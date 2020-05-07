@@ -23,82 +23,42 @@ Make sure to ...
 * Install the **Python 3** version of Miniconda.
 * Answer yes to the question whether conda shall be put into your PATH.
 
+The default conda solver is a bit slow and sometimes has issues with `selecting the latest package releases <https://github.com/conda/conda/issues/9905>`_. Therefore, we recommend to install `Mamba <https://github.com/QuantStack/mamba>?`_ as a drop-in replacement via
+
+.. code-block:: console
+
+    $ conda install -c conda-forge mamba
+
 Then, you can install Snakemake with
 
 .. code-block:: console
 
-    $ conda install -c conda-forge -c bioconda snakemake
+    $ mamba create -c conda-forge -c bioconda -n snakemake snakemake
 
 from the `Bioconda <https://bioconda.github.io>`_ channel.
-Alternatively, Snakemake can be installed into an isolated software environment with
-
-.. code-block:: console
-
-    $ conda create -c conda-forge -c bioconda -n snakemake snakemake
-
-The software environment has to be activated before using Snakemake:
+This will install snakemake into an isolated software environment, that has to be activated with
 
 .. code-block:: console
 
     $ conda activate snakemake
     $ snakemake --help
 
+Installing into isolated environments is best practice in order to avoid side effects with other packages.
 A minimal version of Snakemake which only depends on the bare necessities can be installed with
 
 .. code-block:: console
 
-    $ conda install -c bioconda -c conda-forge snakemake-minimal
+    $ mamba create -c bioconda -c conda-forge -n snakemake snakemake-minimal
 
 Note that Snakemake is available via Bioconda for historical, reproducibility, and continuity reasons.
 However, it is easy to combine Snakemake installation with other channels, e.g., by prefixing the package name with ``::bioconda``, i.e.,
 
 .. code-block:: console
 
-    $ conda install -c conda-forge bioconda::snakemake bioconda::snakemake-minimal
+    $ mamba create -n some-env -c conda-forge bioconda::snakemake bioconda::snakemake-minimal ...
 
-Global Installation
-===================
+Installation via pip
+====================
 
-With a working Python ``>=3.5`` setup, installation of Snakemake can be performed by issuing
-
-.. code-block:: console
-
-    $ easy_install3 snakemake
-
-or
-
-.. code-block:: console
-
-    $ pip3 install snakemake
-
-in your terminal.
-
-
-Installing in Virtualenv
-========================
-
-To create an installation in a virtual environment, use the following commands:
-
-.. code-block:: console
-
-    $ virtualenv -p python3 .venv
-    $ source .venv/bin/activate
-    $ pip install snakemake
-
-
-Installing from Source
-======================
-
-We recommend installing Snakemake into a virtualenv or a conda environment instead of globally.
-Use the following commands to create a virtualenv and install Snakemake.
-Note that this will install the development version and as you are installing from the source code, we trust that you know what you are doing and how to checkout individual versions/tags.
-
-.. code-block:: console
-
-    $ git clone https://github.com/snakemake/snakemake.git
-    $ cd snakemake
-    $ virtualenv -p python3 .venv
-    $ source .venv/bin/activate
-    $ python setup.py install
-
-You can also use ``python setup.py develop`` to create a "development installation" in which no files are copied but a link is created and changes in the source code are immediately visible in your ``snakemake`` commands.
+Instead of conda, snakemake can be installed with pip.
+However, note that snakemake has non-python dependencies, such that the pip based installation has a limited functionality if those dependencies are not manually installed in addition.

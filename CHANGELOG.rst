@@ -1,3 +1,15 @@
+[5.17.0] - 2020-05-07
+=====================
+Added
+-----
+- --envvars flag for passing secrets to cloud executors
+Changed
+-------
+- Wider thumbnail dialogs in report.
+- Updated installation instructions.
+- Various small kubernetes bug fixes.
+- Bug fix for iRods remote files.
+
 [5.16.0] - 2020-04-29
 =====================
 Added

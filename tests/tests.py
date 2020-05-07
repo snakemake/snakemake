@@ -874,7 +874,8 @@ def test_github_issue78():
 def test_envvars():
     run(dpath("test_envvars"), shouldfail=True)
     os.environ["TEST_ENV_VAR"] = "test"
-    run(dpath("test_envvars"))
+    os.environ["TEST_ENV_VAR2"] = "test"
+    run(dpath("test_envvars"), envvars=["TEST_ENV_VAR2"])
 
 
 def test_github_issue105():
