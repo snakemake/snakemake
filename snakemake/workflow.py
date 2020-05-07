@@ -511,12 +511,12 @@ class Workflow:
         else:
 
             def files(items):
-               relpath = (
-                   lambda f: f
-                   if os.path.isabs(f) or f.startswith("root://")
-                   else os.path.relpath(f)
-               )
-               return map(relpath, filterfalse(self.is_rule, items))
+                relpath = (
+                    lambda f: f
+                    if os.path.isabs(f) or f.startswith("root://")
+                    else os.path.relpath(f)
+                )
+                return map(relpath, filterfalse(self.is_rule, items))
 
         if not targets:
             targets = [self.first_rule] if self.first_rule is not None else list()
@@ -1492,8 +1492,8 @@ class Subworkflow:
         if not_iterable(paths):
             path = paths
             path = (
-                path 
-                if os.path.isabs(path) or path.startswith('root://') 
+                path
+                if os.path.isabs(path) or path.startswith("root://")
                 else os.path.join(self.workdir, path)
             )
             return flag(path, "subworkflow", self)
