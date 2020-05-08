@@ -97,7 +97,23 @@ class AbstractExecutor:
             return args
         return ""
 
+    def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
+        """Run a list of jobs that is ready at a given point in time.
+
+        By default, this method just runs each job individually.
+        This method can be overwritten to submit many jobs in a more efficient way than one-by-one.
+        Note that in any case, for each job, the callback functions have to be called individually!
+        """
+        for job in jobs:
+            self.run(
+                job,
+                callback=callback,
+                submit_callback=submit_callback,
+                error_callback=error_callback,
+            )
+
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
+        """Run a specific job or group job."""
         self._run(job)
         callback(job)
 
