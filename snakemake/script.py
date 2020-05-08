@@ -489,7 +489,7 @@ class PythonScript(ScriptBase):
                             "Snakemake which are Python >={0}.{1} "
                             "only.".format(*MIN_PY_VERSION)
                         )
-        
+
         # use the same Python as the running process or the one from the environment
         self._execute_cmd("{py_exec} {fname:q}", py_exec=py_exec, fname=fname)
 
