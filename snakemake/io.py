@@ -1193,11 +1193,7 @@ class Namedlist(list):
         # default to throwing exception if called to prevent use as functions
         self._allowed_overrides = ["index", "sort"]
         for name in self._allowed_overrides:
-            setattr(
-                self,
-                name,
-                functools.partial(self._used_attribute, _name=name)
-            )
+            setattr(self, name, functools.partial(self._used_attribute, _name=name))
 
         if toclone:
             if custom_map is not None:
