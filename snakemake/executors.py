@@ -2757,7 +2757,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # Rename based on hash, in case user wants to save cache
         sha256 = get_file_hash(targz)
-        hash_tar = os.path.join(self.workdir, "snakeworkdir-%s.tar.gz" % sha256)
+        hash_tar = os.path.join(self.workflow.persistence.aux_path, "workdir-{}.tar.gz".format(sha256))
 
         # Only copy if we don't have it yet, clean up if we do
         if not os.path.exists(hash_tar):
