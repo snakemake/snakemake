@@ -1,5 +1,5 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2015-2020, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -802,18 +802,6 @@ def test_issue1083():
 
 def test_pipes2():
     run(dpath("test_pipes2"))
-
-
-@pytest.mark.skip(reason="also need to figure out how to provide Google Cloud Project")
-def test_google_lifesciences():
-    workdir = dpath("test_google_lifesciences")
-    run(
-        workdir,
-        use_conda=True,
-        default_remote_prefix="snakemake-testing/1",
-        google_lifesciences=True,
-        google_lifesciences_cache=True,
-    )
 
 
 def test_expand_flag():

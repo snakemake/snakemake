@@ -35,6 +35,7 @@ jobs:
     env:
       AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
       GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
+      GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
     steps:
       - uses: actions/checkout@v1
       
@@ -68,7 +69,15 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
+
+      - name: Test Google Life Sciences Executor
+        if: env.GOOGLE_APPLICATION_CREDENTIALS
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest -s -v -x tests/test_google_lifesciences.py
+
       - name: Test Kubernetes execution
         if: env.GCP_AVAILABLE
         env:
