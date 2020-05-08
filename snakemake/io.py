@@ -1196,7 +1196,7 @@ class Namedlist(list):
             setattr(
                 self,
                 name,
-                lambda *args, _name=name, **kwargs: self._used_attribute((_name)),
+                functools.partial(self._used_attribute, _name=name)
             )
 
         if toclone:
@@ -1215,7 +1215,8 @@ class Namedlist(list):
                 self.append(item)
                 self._add_name(key)
 
-    def _used_attribute(self, name):
+    @staticmethod
+    def _used_attribute(*args, _name, **kwargs):
         """
         Generic function that throws an `AttributeError`.
 
@@ -1224,7 +1225,7 @@ class Namedlist(list):
         these functions should not be used.        
         """
         raise AttributeError(
-            f"{name}() cannot be used; attribute name reserved"
+            f"{_name}() cannot be used; attribute name reserved"
             f" for use in some existing workflows"
         )
 
