@@ -58,6 +58,7 @@ class Persistence:
         else:
             self.shadow_path = os.path.join(shadow_prefix, "shadow")
         
+        # place to store any auxilliary information needed during a run (e.g. source tarballs)
         self.aux_path = os.path.join(self.path, "aux")
 
         for d in (
