@@ -57,6 +57,8 @@ class Persistence:
             self.shadow_path = os.path.join(self.path, "shadow")
         else:
             self.shadow_path = os.path.join(shadow_prefix, "shadow")
+        
+        self.aux_path = os.path.join(self.path, "aux")
 
         for d in (
             self._metadata_path,
@@ -64,6 +66,7 @@ class Persistence:
             self.conda_env_archive_path,
             self.conda_env_path,
             self.container_img_path,
+            self.aux_path,
         ):
             os.makedirs(d, exist_ok=True)
 
