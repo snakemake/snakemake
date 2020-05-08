@@ -385,8 +385,10 @@ class JobScheduler:
             self._executor.cancel()
             return False
 
-    def run(self, jobs, executor=self._executor):
-        self.get_executor(job).run_jobs(
+    def run(self, jobs, executor=None):
+        if executor is None:
+            executor = self._executor
+        executor.run_jobs(
             jobs,
             callback=self._finish_callback,
             submit_callback=self._submit_callback,
