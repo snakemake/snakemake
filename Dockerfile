@@ -13,7 +13,7 @@ RUN /bin/bash -c "install_packages wget bzip2 ca-certificates gnupg2 squashfs-to
     bash Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda && \
     rm Miniconda3-latest-Linux-x86_64.sh && \
     conda install -y -c conda-forge mamba && \
-    mamba create -y -c conda-forge -n snakemake bioconda::snakemake bioconda::snakemake-minimal --only-deps && \
+    mamba create -y -c conda-forge -c bioconda -n snakemake snakemake snakemake-minimal --only-deps && \
     conda clean --all -y && \
     source activate snakemake && \
     which python && \
