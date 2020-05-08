@@ -329,7 +329,7 @@ def test_conda():
 
 
 def test_upstream_conda():
-    run(dpath("test_conda"), conda_frontend="conda")
+    run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
 
 
 def test_conda_custom_prefix():
