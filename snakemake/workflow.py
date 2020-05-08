@@ -83,6 +83,7 @@ class Workflow:
         debug=False,
         verbose=False,
         use_conda=False,
+        conda_frontend=None,
         conda_prefix=None,
         use_singularity=False,
         use_env_modules=False,
@@ -146,6 +147,7 @@ class Workflow:
         self.verbose = verbose
         self._rulecount = 0
         self.use_conda = use_conda
+        self.conda_frontend = conda_frontend
         self.conda_prefix = conda_prefix
         self.use_singularity = use_singularity
         self.use_env_modules = use_env_modules
@@ -511,7 +513,11 @@ class Workflow:
         else:
 
             def files(items):
-                relpath = lambda f: f if os.path.isabs(f) else os.path.relpath(f)
+                relpath = (
+                    lambda f: f
+                    if os.path.isabs(f) or f.startswith("root://")
+                    else os.path.relpath(f)
+                )
                 return map(relpath, filterfalse(self.is_rule, items))
 
         if not targets:
@@ -1487,7 +1493,11 @@ class Subworkflow:
     def target(self, paths):
         if not_iterable(paths):
             path = paths
-            path = path if os.path.isabs(path) else os.path.join(self.workdir, path)
+            path = (
+                path
+                if os.path.isabs(path) or path.startswith("root://")
+                else os.path.join(self.workdir, path)
+            )
             return flag(path, "subworkflow", self)
         return [self.target(path) for path in paths]
 

@@ -45,15 +45,11 @@ def is_ci():
 
 
 def has_gcloud_service_key():
-    return "GCLOUD_SERVICE_KEY" in os.environ
-
-
-def has_gcloud_cluster():
-    return "GCLOUD_CLUSTER" in os.environ
+    return "GCP_AVAILABLE" in os.environ
 
 
 gcloud = pytest.mark.skipif(
-    not is_connected() or not has_gcloud_service_key() or not has_gcloud_cluster(),
+    not is_connected() or not has_gcloud_service_key(),
     reason="Skipping GCLOUD tests because not on "
     "CI, no inet connection or not logged "
     "in to gcloud.",
@@ -82,6 +78,7 @@ def run(
     cores=3,
     set_pythonpath=True,
     cleanup=True,
+    conda_frontend="mamba",
     **params
 ):
     """
@@ -140,6 +137,7 @@ def run(
         stats="stats.txt",
         config=config,
         verbose=True,
+        conda_frontend=conda_frontend,
         **params
     )
     if shouldfail:

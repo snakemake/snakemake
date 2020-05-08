@@ -131,6 +131,7 @@ def snakemake(
     use_singularity=False,
     use_env_modules=False,
     singularity_args="",
+    conda_frontend="conda",
     conda_prefix=None,
     conda_cleanup_pkgs=None,
     list_conda_envs=False,
@@ -482,6 +483,7 @@ def snakemake(
             use_conda=use_conda or list_conda_envs or conda_cleanup_envs,
             use_singularity=use_singularity,
             use_env_modules=use_env_modules,
+            conda_frontend=conda_frontend,
             conda_prefix=conda_prefix,
             conda_cleanup_pkgs=conda_cleanup_pkgs,
             singularity_prefix=singularity_prefix,
@@ -1808,6 +1810,7 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Cleanup unused conda environments.",
     )
+
     from snakemake.deployment.conda import CondaCleanupMode
 
     group_conda.add_argument(
@@ -1827,6 +1830,13 @@ def get_argument_parser(profile=None):
         help="If specified, only creates the job-specific "
         "conda environments then exits. The `--use-conda` "
         "flag must also be set.",
+    )
+    group_conda.add_argument(
+        "--conda-frontend",
+        default="conda",
+        choices=["conda", "mamba"],
+        help="Choose the conda frontend for installing environments. "
+        "Caution: mamba is much faster, but still in beta test.",
     )
 
     group_singularity = parser.add_argument_group("SINGULARITY")
@@ -2239,6 +2249,7 @@ def main(argv=None):
             attempt=args.attempt,
             force_use_threads=args.force_use_threads,
             use_conda=args.use_conda,
+            conda_frontend=args.conda_frontend,
             conda_prefix=args.conda_prefix,
             conda_cleanup_pkgs=args.conda_cleanup_pkgs,
             list_conda_envs=args.list_conda_envs,
