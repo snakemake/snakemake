@@ -277,7 +277,7 @@ class Workflow:
         # TODO allow a manifest file as alternative
         try:
             out = subprocess.check_output(
-                ["git", "ls-files", "."], stderr=subprocess.PIPE
+                ["git", "ls-files", "--recurse-submodules", "."], stderr=subprocess.PIPE
             )
             for f in out.decode().split("\n"):
                 if f:

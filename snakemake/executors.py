@@ -1415,6 +1415,20 @@ class KubernetesExecutor(ClusterExecutor):
                     "to the working directory are allowed.".format(f)
                 )
                 continue
+
+            # The kubernetes API can't create secret files larger than 1MB.
+            source_file_size = os.path.getsize(f)
+            max_file_size = 1000000
+            if source_file_size > max_file_size:
+                logger.warning(
+                    "Skipping the source file {f}. Its size {source_file_size} exceeds "
+                    "the maximum file size (1MB) that can be passed "
+                    "from host to kubernetes.".format(
+                        f=f, source_file_size=source_file_size
+                    )
+                )
+                continue
+
             with open(f, "br") as content:
                 key = "f{}".format(i)
                 self.secret_files[key] = f
@@ -2261,8 +2275,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             os.environ.get("GOOGLE_CLOUD_PROJECT") or self._bucket_service.project
         )
 
-        # Keep track of build packages to clean up shutdown
+        # Keep track of build packages to clean up shutdown, and generate
         self._build_packages = set()
+        targz = self._generate_build_source_package()
+        self._upload_build_source_package(targz)
 
         # Save default resources to add later, since we need to add custom
         # default resources depending on the instance requested
@@ -2656,11 +2672,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         keepers = {}
         for accelerator in accelerators.get("items", []):
 
-            # We don't need a virtual workstation
-            if accelerator["name"].endswith("vws"):
-                continue
-
-            if gpu_model and accelerator["name"] != gpu_model:
+            # Eliminate virtual workstations (vws) and models that don't match user preference
+            if (gpu_model and accelerator["name"] != gpu_model) or accelerator[
+                "name"
+            ].endswith("vws"):
                 continue
 
             if accelerator["maximumCardsPerInstance"] >= gpu_count:
@@ -2757,7 +2772,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # Rename based on hash, in case user wants to save cache
         sha256 = get_file_hash(targz)
-        hash_tar = os.path.join(self.workflow.persistence.aux_path, "workdir-{}.tar.gz".format(sha256))
+        hash_tar = os.path.join(
+            self.workflow.persistence.aux_path, "workdir-{}.tar.gz".format(sha256)
+        )
 
         # Only copy if we don't have it yet, clean up if we do
         if not os.path.exists(hash_tar):
@@ -2769,6 +2786,17 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self._build_packages.add(hash_tar)
 
         return hash_tar
+
+    def _upload_build_source_package(self, targz):
+        """given a .tar.gz created for a workflow, upload it to source/cache
+           of Google storage, only if the blob doesn't already exist.
+        """
+        # Upload to temporary storage, only if doesn't exist
+        self.pipeline_package = "source/cache/%s" % os.path.basename(targz)
+        blob = self.bucket.blob(self.pipeline_package)
+        logger.debug("build-package=%s" % self.pipeline_package)
+        if not blob.exists():
+            blob.upload_from_filename(targz, content_type="application/gzip")
 
     def _generate_job_action(self, job):
         """generate a single action to execute the job.
@@ -2837,16 +2865,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
            to pass to pipelines.run. This includes actions, resources,
            environment, and timeout.
         """
-        # Generate targz with Snakefile and other context
-        targz = self._generate_build_source_package()
-
-        # Upload to temporary storage, only if doesn't exist
-        self.pipeline_package = "source/cache/%s" % os.path.basename(targz)
-        blob = self.bucket.blob(self.pipeline_package)
-        logger.debug("build-package=%s" % self.pipeline_package)
-        if not blob.exists():
-            blob.upload_from_filename(targz, content_type="application/gzip")
-
         # Generate actions (one per job) and resources
         resources = self._generate_job_resources(job)
         action = self._generate_job_action(job)
