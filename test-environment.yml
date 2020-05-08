@@ -46,3 +46,4 @@ dependencies:
   - nbformat
   - toposort
   - mamba
+  - crc32c
