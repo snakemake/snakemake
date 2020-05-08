@@ -341,7 +341,7 @@ class ScriptBase(ABC):
         ...
 
     def _execute_cmd(self, cmd, **kwargs):
-        shell(
+        return shell(
             cmd,
             bench_record=self.bench_record,
             conda_env=self.conda_env,
@@ -452,22 +452,24 @@ class PythonScript(ScriptBase):
         fd.write(preamble.encode())
         fd.write(self.source)
 
-    def _is_python_env(self):
+    def _get_python_version(self):
         try:
-            self._execute_cmd("command -v python")
-            return True
-        except sp.CalledProcessError:
+            out = self._execute_cmd("python --version", read=True).decode().strip()
+        except subprocess.CalledProcessError:
             # no python in environment, all fine.
-            return False
+            return None
+        return tuple(map(int, PY_VER_RE.match(out).group("ver_min").split(".")))
 
     def execute_script(self, fname, edit=False):
         py_exec = sys.executable
-        if self.conda_env is not None or self.env_modules is not None:
-            py = os.path.join(self.conda_env, "bin", "python")
-            if self._is_python_env():
-                out = self._execute_cmd("python --version", read=True).decode().strip()
-                ver = tuple(map(int, PY_VER_RE.match(out).group("ver_min").split(".")))
-                if ver >= MIN_PY_VERSION:
+        if self.container_img is not None:
+            # use python from image
+            py_exec = "python"
+        elif self.conda_env is not None or self.env_modules is not None:
+            py_version = self._get_python_version()
+            # If version is None, all fine, because host python usage is intended.
+            if py_version is not None:
+                if py_version >= MIN_PY_VERSION:
                     # Python version is new enough, make use of environment
                     # to execute script
                     py_exec = "python"
@@ -481,9 +483,7 @@ class PythonScript(ScriptBase):
                         "Snakemake which are Python >={0}.{1} "
                         "only.".format(*MIN_PY_VERSION)
                     )
-        if self.container_img is not None:
-            # use python from image
-            py_exec = "python"
+        
         # use the same Python as the running process or the one from the environment
         self._execute_cmd("{py_exec} {fname:q}", py_exec=py_exec, fname=fname)
 
