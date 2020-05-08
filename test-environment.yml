@@ -47,3 +47,4 @@ dependencies:
   - environment-modules
   - nbformat
   - toposort
+  - crc32c
