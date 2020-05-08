@@ -626,7 +626,12 @@ def test_singularity_invalid():
 
 @connected
 def test_singularity_conda():
-    run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True, conda_frontend="conda")
+    run(
+        dpath("test_singularity_conda"),
+        use_singularity=True,
+        use_conda=True,
+        conda_frontend="conda",
+    )
 
 
 def test_issue612():
