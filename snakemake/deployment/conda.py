@@ -271,12 +271,7 @@ class Env:
 
                     # install packages manually from env archive
                     cmd = " ".join(
-                        [
-                            "conda",
-                            "create",
-                            "--copy",
-                            "--prefix '{}'".format(env_path),
-                        ]
+                        ["conda", "create", "--copy", "--prefix '{}'".format(env_path)]
                         + packages
                     )
                     if self._container_img:
