@@ -274,7 +274,6 @@ class Env:
                         [
                             "conda",
                             "create",
-                            "-y",
                             "--copy",
                             "--prefix '{}'".format(env_path),
                         ]
@@ -302,7 +301,6 @@ class Env:
                             self.frontend,
                             "env",
                             "create",
-                            "-y",
                             "--file '{}'".format(target_env_file),
                             "--prefix '{}'".format(env_path),
                         ]
