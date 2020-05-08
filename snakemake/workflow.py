@@ -83,6 +83,7 @@ class Workflow:
         debug=False,
         verbose=False,
         use_conda=False,
+        conda_frontend=None,
         conda_prefix=None,
         use_singularity=False,
         use_env_modules=False,
@@ -146,6 +147,7 @@ class Workflow:
         self.verbose = verbose
         self._rulecount = 0
         self.use_conda = use_conda
+        self.conda_frontend = conda_frontend
         self.conda_prefix = conda_prefix
         self.use_singularity = use_singularity
         self.use_env_modules = use_env_modules

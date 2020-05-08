@@ -325,27 +325,24 @@ def test_issue328():
 
 
 def test_conda():
-    if conda_available():
-        run(dpath("test_conda"), use_conda=True)
+    run(dpath("test_conda"), use_conda=True)
+
+
+def test_upstream_conda():
+    run(dpath("test_conda"), conda_frontend="conda")
 
 
 def test_conda_custom_prefix():
-    if conda_available():
-        run(
-            dpath("test_conda_custom_prefix"),
-            use_conda=True,
-            conda_prefix="custom",
-            set_pythonpath=False,
-        )
+    run(
+        dpath("test_conda_custom_prefix"),
+        use_conda=True,
+        conda_prefix="custom",
+        set_pythonpath=False,
+    )
 
 
 def test_wrapper():
-    if conda_available():
-        run(dpath("test_wrapper"), use_conda=True)
-
-
-def conda_available():
-    return which("conda")
+    run(dpath("test_wrapper"), use_conda=True)
 
 
 def test_get_log_none():

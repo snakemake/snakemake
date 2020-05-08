@@ -59,6 +59,7 @@ class Env:
     def __init__(self, env_file, dag, container_img=None, cleanup=None):
         self.file = env_file
 
+        self.frontend = dag.workflow.conda_frontend
         self._env_dir = dag.workflow.persistence.conda_env_path
         self._env_archive_dir = dag.workflow.persistence.conda_env_archive_path
 
@@ -270,7 +271,13 @@ class Env:
 
                     # install packages manually from env archive
                     cmd = " ".join(
-                        ["conda", "create", "--copy", "--prefix '{}'".format(env_path)]
+                        [
+                            "conda",
+                            "create",
+                            "-y",
+                            "--copy",
+                            "--prefix '{}'".format(env_path),
+                        ]
                         + packages
                     )
                     if self._container_img:
@@ -292,9 +299,10 @@ class Env:
                     logger.info("Downloading and installing remote packages.")
                     cmd = " ".join(
                         [
-                            "conda",
+                            self.frontend,
                             "env",
                             "create",
+                            "-y",
                             "--file '{}'".format(target_env_file),
                             "--prefix '{}'".format(env_path),
                         ]

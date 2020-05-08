@@ -45,3 +45,4 @@ dependencies:
   - environment-modules
   - nbformat
   - toposort
+  - mamba
