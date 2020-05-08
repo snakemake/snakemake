@@ -46,6 +46,9 @@ from snakemake.exceptions import (
 from snakemake.common import Mode, __version__, get_container_image, get_uuid
 
 
+# TODO move each executor into a separate submodule
+
+
 def sleep():
     # do not sleep on CI. In that case we just want to quickly test everything.
     if os.environ.get("CI") != "true":
