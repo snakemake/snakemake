@@ -452,14 +452,20 @@ class PythonScript(ScriptBase):
         fd.write(preamble.encode())
         fd.write(self.source)
 
+    def _is_python_env(self):
+        try:
+            self._execute_cmd("command -v python")
+            return True
+        except sp.CalledProcessError:
+            # no python in environment, all fine.
+            return False
+
     def execute_script(self, fname, edit=False):
         py_exec = sys.executable
-        if self.conda_env is not None:
+        if self.conda_env is not None or self.env_modules is not None:
             py = os.path.join(self.conda_env, "bin", "python")
-            if os.path.exists(py):
-                out = subprocess.check_output(
-                    [py, "--version"], stderr=subprocess.STDOUT, universal_newlines=True
-                )
+            if self._is_python_env():
+                out = self._execute_cmd("python --version", read=True).decode().strip()
                 ver = tuple(map(int, PY_VER_RE.match(out).group("ver_min").split(".")))
                 if ver >= MIN_PY_VERSION:
                     # Python version is new enough, make use of environment
@@ -467,7 +473,7 @@ class PythonScript(ScriptBase):
                     py_exec = "python"
                 else:
                     logger.warning(
-                        "Conda environment defines Python "
+                        "Environment defines Python "
                         "version < {0}.{1}. Using Python of the "
                         "master process to execute "
                         "script. Note that this cannot be avoided, "
@@ -477,9 +483,6 @@ class PythonScript(ScriptBase):
                     )
         if self.container_img is not None:
             # use python from image
-            py_exec = "python"
-        if self.env_modules is not None:
-            # use python from environment module
             py_exec = "python"
         # use the same Python as the running process or the one from the environment
         self._execute_cmd("{py_exec} {fname:q}", py_exec=py_exec, fname=fname)
