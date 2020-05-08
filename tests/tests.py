@@ -326,27 +326,24 @@ def test_issue328():
 
 
 def test_conda():
-    if conda_available():
-        run(dpath("test_conda"), use_conda=True)
+    run(dpath("test_conda"), use_conda=True)
+
+
+def test_upstream_conda():
+    run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
 
 
 def test_conda_custom_prefix():
-    if conda_available():
-        run(
-            dpath("test_conda_custom_prefix"),
-            use_conda=True,
-            conda_prefix="custom",
-            set_pythonpath=False,
-        )
+    run(
+        dpath("test_conda_custom_prefix"),
+        use_conda=True,
+        conda_prefix="custom",
+        set_pythonpath=False,
+    )
 
 
 def test_wrapper():
-    if conda_available():
-        run(dpath("test_wrapper"), use_conda=True)
-
-
-def conda_available():
-    return which("conda")
+    run(dpath("test_wrapper"), use_conda=True)
 
 
 def test_get_log_none():
@@ -630,7 +627,12 @@ def test_singularity_invalid():
 
 @connected
 def test_singularity_conda():
-    run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True)
+    run(
+        dpath("test_singularity_conda"),
+        use_singularity=True,
+        use_conda=True,
+        conda_frontend="conda",
+    )
 
 
 def test_issue612():

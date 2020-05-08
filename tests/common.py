@@ -78,6 +78,7 @@ def run(
     cores=3,
     set_pythonpath=True,
     cleanup=True,
+    conda_frontend="mamba",
     **params
 ):
     """
@@ -139,6 +140,7 @@ def run(
         stats="stats.txt",
         config=config,
         verbose=True,
+        conda_frontend=conda_frontend,
         **params
     )
 
