@@ -70,7 +70,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Test Google Life Sciences Executor
-        if: env.GOOGLE_APPLICATION_CREDENTIALS
+        if: env.GCP_AVAILABLE
         run: |
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
