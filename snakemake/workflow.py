@@ -60,7 +60,7 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
-from snakemake.common import Mode
+from snakemake.common import Mode, bytesto
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
@@ -297,6 +297,21 @@ class Workflow:
 
         return files
 
+    def check_source_sizes(self, filename, warning_size_gb=0.2):
+        """A helper function to check the filesize, and return the file
+           to the calling function Additionally, given that we encourage these 
+           packages to be small, we set a warning at 200MB (0.2GB).
+        """
+        gb = bytesto(os.stat(filename).st_size, "g")
+        if gb > warning_size_gb:
+            logger.warning(
+                "File {} (size {} GB) is greater than the {} GB suggested size "
+                "Consider uploading larger files to storage first.".format(
+                    filename, gb, warning_size_gb
+                )
+            )
+        return filename
+
     @property
     def subworkflows(self):
         return self._subworkflows.values()
@@ -450,6 +465,10 @@ class Workflow:
         kubernetes=None,
         tibanna=None,
         tibanna_sfn=None,
+        google_lifesciences=None,
+        google_lifesciences_regions=None,
+        google_lifesciences_location=None,
+        google_lifesciences_cache=False,
         precommand="",
         tibanna_config=False,
         container_image=None,
@@ -842,6 +861,10 @@ class Workflow:
             kubernetes=kubernetes,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
+            google_lifesciences=google_lifesciences,
+            google_lifesciences_regions=google_lifesciences_regions,
+            google_lifesciences_location=google_lifesciences_location,
+            google_lifesciences_cache=google_lifesciences_cache,
             precommand=precommand,
             tibanna_config=tibanna_config,
             container_image=container_image,
