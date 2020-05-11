@@ -10,8 +10,8 @@ from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
 
-KERNEL_STARTED_RE = re.compile("Kernel started: (?P<kernel_id>\S+)")
-KERNEL_SHUTDOWN_RE = re.compile("Kernel shutdown: (?P<kernel_id>\S+)")
+KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
+KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
 
 
 class Listen:

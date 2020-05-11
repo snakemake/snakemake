@@ -26,7 +26,7 @@ from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
 
-PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
+PY_VER_RE = re.compile(r"Python (?P<ver_min>\d+\.\d+).*")
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 
