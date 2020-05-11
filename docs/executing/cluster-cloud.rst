@@ -65,6 +65,7 @@ in order to avoid unnecessary charges.
 
 .. _kubernetes:
 
+
 Executing a Snakemake workflow via kubernetes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -101,6 +102,171 @@ to schedule jobs to the correct nodes. In particular, it will forward memory req
 defined as `mem_mb` to kubernetes. Further, it will propagate the number of threads
 a job intends to use, such that kubernetes can allocate it to the correct cloud
 computing node.
+
+
+Executing a Snakemake workflow via Google Cloud Life Sciences
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The `Google Cloud Life Sciences <https://cloud.google.com/life-sciences/docs/>`_
+provides a rich application programming interface to design pipelines.
+You'll first need to `follow instructions here <https://cloud.google.com/life-sciences/docs/quickstart>`_  to
+create a Google Cloud Project and enable Life Sciences, Storage, and Compute Engine APIs,
+and continue with the prompts to create credentials. You'll want to create
+a service account for your host (it's easiest to give project Owner permissions), 
+and save the json credentials. You'll want to export the full path to this file to `GOOGLE_APPLICATION_CREDENTIALS`:
+
+.. code-block:: console
+
+      $ export GOOGLE_APPLICATION_CREDENTIALS=$HOME/path/snakemake-credentials.json
+
+If you lose the link to the credentials interface, you can `find it here <https://console.cloud.google.com/apis/credentials>`_.
+
+Optionally, you can export `GOOGLE_CLOUD_PROJECT` as the name of your Google
+Cloud Project. By default, the project associated with your application 
+credentials will be used.
+
+.. code-block:: console
+
+      $ export GOOGLE_CLOUD_PROJECT=my-project-name
+
+The dependencies that you'll need for snakemake are:
+
+ - gcc
+ - python dev
+ - google cloud python client libraries
+ - oauth2client
+
+
+Data in Google Storage
+::::::::::::::::::::::
+
+Using this executor typically requires you to start with large data files
+already in Google Storage, and then interact with them via the Google Storage
+remote executor. An easy way to do this is to use the
+`gsutil <https://cloud.google.com/storage/docs/uploading-objects>`_
+command line client. For example, here is how we might upload a file
+to storage using it:
+
+
+.. code-block:: console
+
+      $ gsutil -m cp mydata.txt gs://snakemake-bucket/1/mydata.txt
+
+The `-m` parameter enables multipart uploads for large files, so you
+can remove it if you are uploading one or more smaller files.
+And note that you'll need to modify the file and bucket names.
+Note that you can also easily use the Google Cloud Console interface, if
+a graphical interface is preferable to you.
+
+Environment Variables
+:::::::::::::::::::::
+
+**Important:** Google Cloud Life Sciences uses Google Compute, and does
+**not** encrypt environment variables. If you specify environment
+variables with the envvars directive or --envvars they will **not** be secrets.
+
+
+Container Bases
+:::::::::::::::
+
+By default, Google Life Sciences uses the latest stable version of
+`snakemake/snakemake <https://hub.docker.com/r/snakemake/snakemake/tags>`_
+on Docker Hub. You can choose to modify the container base with
+the `--container-image` (or `container_image` from within Python), 
+however if you do so, your container must meet the following requirements:
+
+ - have an entrypoint that can execute a `/bin/bash` command
+ - have snakemake installed, either via `source activate snakemake` or already on the path
+ - also include snakemake Python dependencies for google.cloud
+
+If you use any Snakemake container as a base, you should be good to go. If you'd
+like to get a reference for requirements, it's helpful to look at the
+`Dockerfile <https://github.com/snakemake/snakemake/blob/master/Dockerfile>`_
+for Snakemake.
+
+Requesting GPU
+::::::::::::::
+
+The Google Life Sciences API currently has support for 
+`nvidia <https://cloud.google.com/compute/docs/gpus#restrictions>`_
+GPUs, meaning that you can ask for `nvidia_gpu` explicitly by adding `nvidia_gpu`
+to your Snakefile resources for a step:
+
+
+.. code-block:: yaml
+
+rule a:
+    output:
+        "test.txt"
+    resources:
+        nvidia_gpu=1
+    shell:
+        "somecommand ..."
+
+
+
+or you can set a general gpu count requirement, and an nvidia GPU will be used.
+
+
+.. code-block:: yaml
+
+rule a:
+    output:
+        "test.txt"
+    resources:
+        gpu=1
+    shell:
+        "somecommand ..."
+
+
+If you want to specify a specific `gpu model <https://cloud.google.com/compute/docs/gpus#introduction>_` 
+(by name) you can add `gpu_model` to your resources:
+
+
+.. code-block:: yaml
+
+rule a:
+    output:
+        "test.txt"
+    resources:
+        gpu_model="nvidia-tesla-p100"
+    shell:
+        "somecommand ..."
+
+You should use the lowercase identifiers like `nvidia-tesla-p100` and `nvidia-tesla-p4`
+for this variable. If you don't specify a `gpu` or `nvidia_gpu` (with a count) but you do
+specify a `gpu_model`, the count will default to 1.
+
+
+Machine Types
+:::::::::::::
+
+To specify an exact `machine type <https://cloud.google.com/compute/docs/machine-types>_` 
+or a prefix to filter down to and then select based on other resource needs, 
+you can set a default resource on the command line, either for a prefix or 
+a full machine type:
+
+.. code-block:: console
+
+    --default-resources machine_type="n1-standard"
+
+
+If you want to specify the machine type as a resource, you can do that too:
+
+.. code-block:: yaml
+
+rule a:
+    output:
+        "test.txt"
+    resources:
+        machine_type="n1-standard-8"
+    shell:
+        "somecommand ..."
+
+
+If you request a gpu, this requires the "n1" prefix and your preference from
+the file or command line will be overridden. Note that the default resources
+for Google Life Sciences (memory and disk) are the same as for Tibanna.
 
 
 Executing a Snakemake workflow via Tibanna on Amazon Web Services

@@ -3,5 +3,5 @@
 import sys
 import time
 
-print('Hello World!', file=sys.stderr)
+print("Hello World!", file=sys.stderr)
 time.sleep(1)

@@ -96,8 +96,8 @@ def run(
         del os.environ["PYTHONPATH"]
 
     results_dir = join(path, "expected-results")
-    snakefile = join(path, snakefile)
-    assert os.path.exists(snakefile)
+    original_snakefile = join(path, snakefile)
+    assert os.path.exists(original_snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir
     ), "{} does not exist".format(results_dir)
@@ -129,9 +129,12 @@ def run(
         print(f)
         copy(os.path.join(path, f), tmpdir)
 
+    # Snakefile is now in temporary directory
+    snakefile = join(tmpdir, snakefile)
+
     # run snakemake
     success = snakemake(
-        snakefile,
+        snakefile=original_snakefile if no_tmpdir else snakefile,
         cores=cores,
         workdir=path if no_tmpdir else tmpdir,
         stats="stats.txt",
@@ -140,6 +143,7 @@ def run(
         conda_frontend=conda_frontend,
         **params
     )
+
     if shouldfail:
         assert not success, "expected error on execution"
     else:
