@@ -68,15 +68,7 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-
-      - name: Test Google Life Sciences Executor
-        if: env.GCP_AVAILABLE
-        run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
-          pytest -s -v -x tests/test_google_lifesciences.py
-
+      
       - name: Run tests
         env:
           CI: true
@@ -108,6 +100,15 @@ jobs:
           source activate snakemake
 
           pytest -v -x tests/test_tibanna.py
+
+      - name: Test Google Life Sciences Executor
+        if: env.GCP_AVAILABLE
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest -s -v -x tests/test_google_lifesciences.py
+
 
       - name: Build container image
         run: docker build .
