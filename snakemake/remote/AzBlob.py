@@ -1,3 +1,6 @@
+"""Azure Blob Storage handling
+"""
+
 __author__ = "Sebastian Kurscheid"
 __copyright__ = "Copyright 2019, Sebastian Kurscheid"
 __email__ = "sebastian.kurscheid@anu.edu.au"
@@ -6,12 +9,9 @@ __license__ = "MIT"
 # built-ins
 import os
 import re
-import math
-import functools
-import concurrent.futures
 
 # snakemake specific
-from snakemake.common import lazy_property
+# /
 
 # module specific
 from snakemake.exceptions import WorkflowError, AzureFileException
@@ -35,10 +35,8 @@ class RemoteProvider(AbstractRemoteProvider):
     supports_default = True
 
     def __init__(
-        self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
+            self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
     ):
-        self._as = AzureStorageHelper(**kwargs)
-
         super(RemoteProvider, self).__init__(
             *args,
             keep_local=keep_local,
@@ -47,6 +45,7 @@ class RemoteProvider(AbstractRemoteProvider):
             **kwargs
         )
 
+        self._as = AzureStorageHelper(*args, **kwargs)
 
     def remote_interface(self):
         return self._as
@@ -77,26 +76,23 @@ class RemoteObject(AbstractRemoteObject):
     def exists(self):
         if self._matched_as_path:
             return self._as.exists_in_container(self.container_name, self.blob_name)
-        else:
-            raise AzureFileException(
-                "The file cannot be parsed as an Azure Blob path in form 'container/blob': %s"
-                % self.local_file()
-            )
+        raise AzureFileException(
+            "The file cannot be parsed as an Azure Blob path in form 'container/blob': %s"
+            % self.local_file()
+        )
 
     def mtime(self):
         if self.exists():
             t = self._as.blob_last_modified(self.container_name, self.blob_name)
             return t
-        else:
-            raise AzureFileException(
-                "The file does not seem to exist remotely: %s" % self.local_file()
-            )
+        raise AzureFileException(
+            "The file does not seem to exist remotely: %s" % self.local_file()
+        )
 
     def size(self):
         if self.exists():
             return self._as.blob_size(self.container_name, self.blob_name)
-        else:
-            return self._iofile.size_local
+        return self._iofile.size_local
 
     def download(self):
         if self.exists():
@@ -143,6 +139,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def container_name(self):
+        "return container name component of the path"
         if len(self._matched_as_path.groups()) == 2:
             return self._matched_as_path.group("container_name")
         return None
@@ -153,8 +150,10 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def blob_name(self):
+        "return the blob name component of the path"
         if len(self._matched_as_path.groups()) == 2:
             return self._matched_as_path.group("blob_name")
+        return None
 
 
 # Actual Azure specific functions, adapted from S3.py
@@ -164,6 +163,23 @@ class AzureStorageHelper(object):
     def __init__(self, *args, **kwargs):
         if "stay_on_remote" in kwargs:
             del kwargs["stay_on_remote"]
+
+        for csavar  in ["account_name", "account_key", "sas_token"]:
+            # list above are arguments to CloudStorageAccount class.
+            # their resp. env vars are prefixed with AZ and uppercase
+            envvar = "AZ_" + csavar.upper()
+            if csavar not in kwargs:
+                kwargs[csavar] = os.environ.get(envvar)
+        assert "account_name" in kwargs, (
+            "Missing AZ_ACCOUNT_NAME env var")
+        assert "account_key" in kwargs or "sas_token" in kwargs, (
+            "Missing AZ_ACCOUNT_KEY or AZ_SAS_TOKEN env var")
+        # remove leading '?' from SAS if needed
+        if kwargs.get("sas_token", "").startswith("?"):
+            kwargs["sas_token"] = kwargs["sas_token"][1:]
+
+        # by right only account_key or sas_token should be set, but we let
+        # create_block_blob_service() deal with the ambiguity
         self.azure = AzureStorageAccount(**kwargs).create_block_blob_service()
 
     def container_exists(self, container_name):
@@ -174,13 +190,13 @@ class AzureStorageHelper(object):
             return False
 
     def upload_to_azure_storage(
-        self,
-        container_name,
-        file_path,
-        blob_name=None,
-        use_relative_path_for_blob_name=True,
-        relative_start_dir=None,
-        extra_args=None,
+            self,
+            container_name,
+            file_path,
+            blob_name=None,
+            use_relative_path_for_blob_name=True,
+            relative_start_dir=None,
+            extra_args=None,
     ):
         """ Upload a file to Azure Storage
             This function uploads a file to an Azure Storage Container as a blob.
@@ -223,13 +239,13 @@ class AzureStorageHelper(object):
             # return None
 
     def download_from_azure_storage(
-        self,
-        container_name,
-        blob_name,
-        destination_path=None,
-        expandBlobNameIntoDirs=True,
-        make_dest_dirs=True,
-        create_stub_only=False,
+            self,
+            container_name,
+            blob_name,
+            destination_path=None,
+            expandBlobNameIntoDirs=True,
+            make_dest_dirs=True,
+            create_stub_only=False,
     ):
         """ Download a file from Azure Storage
             This function downloads an object from a specified Azure Storage container.
@@ -306,7 +322,8 @@ class AzureStorageHelper(object):
             Returns:
                 True | False
         """
-        assert container_name, "container_name must be specified"
+
+        assert container_name, "container_name must be specified (did you try to write to \"root\" or forgot to set --default-remote-prefix?)"
         assert blob_name, "blob_name must be specified"
         try:
             return self.azure.exists(container_name, blob_name)

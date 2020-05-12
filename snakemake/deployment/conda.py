@@ -17,6 +17,7 @@ import json
 from glob import glob
 import tarfile
 import uuid
+from enum import Enum
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
@@ -24,6 +25,14 @@ from snakemake.common import strip_prefix
 from snakemake import utils
 from snakemake.deployment import singularity
 from snakemake.io import git_content
+
+
+class CondaCleanupMode(Enum):
+    tarballs = "tarballs"
+    cache = "cache"
+
+    def __str__(self):
+        return self.value
 
 
 def content(env_file):
@@ -47,7 +56,7 @@ class Env:
 
     """Conda environment from a given specification file."""
 
-    def __init__(self, env_file, dag, container_img=None, cleanup=False):
+    def __init__(self, env_file, dag, container_img=None, cleanup=None):
         self.file = env_file
 
         self._env_dir = dag.workflow.persistence.conda_env_path
@@ -299,9 +308,14 @@ class Env:
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT)
 
                     # cleanup if requested
-                    if self._cleanup:
-                        logger.info("Cleaning up conda packages.")
+                    if self._cleanup is CondaCleanupMode.tarballs:
+                        logger.info("Cleaning up conda package tarballs.")
                         shell.check_output("conda clean -y --tarballs")
+                    elif self._cleanup is CondaCleanupMode.cache:
+                        logger.info(
+                            "Cleaning up conda package tarballs and package cache."
+                        )
+                        shell.check_output("conda clean -y --tarballs --packages")
                 # Touch "done" flag file
                 with open(os.path.join(env_path, "env_setup_done"), "a") as f:
                     pass

@@ -244,6 +244,7 @@ def test_remote():
 
 
 def test_cluster_sync():
+    os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster_sync="./qsub")
 
 
@@ -957,7 +958,8 @@ def test_github_issue78():
 def test_envvars():
     run(dpath("test_envvars"), shouldfail=True)
     os.environ["TEST_ENV_VAR"] = "test"
-    run(dpath("test_envvars"))
+    os.environ["TEST_ENV_VAR2"] = "test"
+    run(dpath("test_envvars"), envvars=["TEST_ENV_VAR2"])
 
 
 def test_github_issue105():
@@ -1003,3 +1005,17 @@ def test_linting():
     snakemake(
         snakefile=os.path.join(dpath("test14"), "Snakefile.nonstandard"), lint=True
     )
+
+
+def test_string_resources():
+    from snakemake.resources import DefaultResources
+
+    run(
+        dpath("test_string_resources"),
+        default_resources=DefaultResources(["gpu_model='nvidia-tesla-1000'"]),
+        cluster="./qsub.py",
+    )
+
+
+def test_jupyter_notebook():
+    run(dpath("test_jupyter_notebook"), use_conda=True)

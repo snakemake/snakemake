@@ -319,6 +319,9 @@ class DAG:
             self.update_dynamic(job)
         self.postprocess()
 
+    def is_edit_notebook_job(self, job):
+        return self.workflow.edit_notebook and job.targetfile in self.targetfiles
+
     @property
     def dynamic_output_jobs(self):
         """Iterate over all jobs with dynamic output files."""
