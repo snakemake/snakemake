@@ -472,7 +472,7 @@ def snakemake(
                 modpath = "snakemake.remote." + default_remote_provider
                 if default_remote_provider == "AzureStorage":
                     # backward compat
-                    mod = "snakemake.remote." + "AzBlob"
+                    modpath = "snakemake.remote." + "AzBlob"
                 rmt = importlib.import_module(modpath)
             except ImportError as e:
                 raise WorkflowError("Unknown default remote provider.")
