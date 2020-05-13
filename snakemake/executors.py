@@ -2260,14 +2260,16 @@ class AzBatchExecutor(ClusterExecutor):
         self.create_pool(self.batch_client, self.az_batch_config['BATCH_POOL_ID'])
 
         # Create the job that will run the tasks.
-        self.create_job(self.batch_client, self.az_batch_config['JOB_ID'], 
-            self.az_batch_config['POOL_ID'])
+        self.create_job(self.batch_client, self.az_batch_config['BATCH_JOB_ID'], 
+            self.az_batch_config['BATCH_POOL_ID'])
 
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary (jobs were cancelled already) 
-        self.batch_client.job.delete(self.az_batch_config['JOB_ID'])
-        self.batch_client.pool.delete(self.az_batch_config['POOL_ID'])
+        print("FIXME deleting job")
+        self.batch_client.job.delete(self.az_batch_config['BATCH_JOB_ID'])
+        print("FIXME deleting pool")
+        self.batch_client.pool.delete(self.az_batch_config['BATCH_POOL_ID'])
         super().shutdown()
 
 
@@ -2356,8 +2358,8 @@ class AzBatchExecutor(ClusterExecutor):
                 ),
                 node_agent_sku_id="batch.node.ubuntu 18.04"),
             # FIXME autoscaling
-            vm_size=self.az_batch_config['POOL_VM_SIZE'],
-            target_dedicated_nodes=self.az_batch_config['POOL_NODE_COUNT']
+            vm_size=self.az_batch_config['BATCH_POOL_VM_SIZE'],
+            target_dedicated_nodes=self.az_batch_config['BATCH_POOL_NODE_COUNT']
         )
         batch_service_client.pool.add(new_pool)
 
