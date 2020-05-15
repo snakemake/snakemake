@@ -57,16 +57,16 @@ class shell:
                     "PATH.".format(cmd)
                 )
         if os.path.split(cmd)[-1] == "bash":
-            cls._process_prefix = "set -euo pipefail; "
+            cls._process_prefix += "set -euo pipefail; "
         cls._process_args["executable"] = cmd
 
     @classmethod
     def prefix(cls, prefix):
-        cls._process_prefix = format(prefix, stepout=2)
+        cls._process_prefix += prefix
 
     @classmethod
     def suffix(cls, suffix):
-        cls._process_suffix = format(suffix, stepout=2)
+        cls._process_suffix = suffix
 
     @classmethod
     def kill(cls, jobid):
@@ -85,7 +85,10 @@ class shell:
     ):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
-        cmd = format(cmd, *args, stepout=2, **kwargs)
+        fmt = lambda to_fmt, args=args, kwargs=kwargs: format(
+            to_fmt, *args, stepout=3, **kwargs
+        )
+
         context = inspect.currentframe().f_back.f_locals
         # add kwargs to context (overwriting the locals of the caller)
         context.update(kwargs)
@@ -96,7 +99,7 @@ class shell:
 
         jobid = context.get("jobid")
         if not context.get("is_shell"):
-            logger.shellcmd(cmd)
+            logger.shellcmd(fmt(cmd))
 
         env_prefix = ""
         conda_env = context.get("conda_env", None)
@@ -105,8 +108,8 @@ class shell:
         shadow_dir = context.get("shadow_dir", None)
 
         cmd = "{} {} {}".format(
-            cls._process_prefix, cmd.strip(), cls._process_suffix
-        ).strip()
+            fmt(cls._process_prefix), fmt(cmd), fmt(cls._process_suffix),
+        )
 
         if env_modules:
             cmd = env_modules.shellcmd(cmd)
