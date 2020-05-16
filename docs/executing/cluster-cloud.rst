@@ -29,7 +29,7 @@ Then, you can create a new kubernetes cluster via
     $ gcloud container clusters create $CLUSTER_NAME --num-nodes=$NODES --scopes storage-rw
 
 with ``$CLUSTER_NAME`` being the cluster name and ``$NODES`` being the number of cluster
-nodes. If you intent to use google storage, make sure that ``--scopes storage-rw`` is set.
+nodes. If you intend to use google storage, make sure that ``--scopes storage-rw`` is set.
 This enables Snakemake to write to the google storage from within the cloud nodes.
 Next, you configure Kubernetes to use the new cluster via
 
