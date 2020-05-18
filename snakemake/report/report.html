@@ -877,6 +877,7 @@
         "encoding": {
           "x": {
             "field": "time", "type": "temporal",
+            "timeUnit": "yearmonthdatehoursminutes",
             "axis": {
               "title": "creation date"
             }
@@ -894,6 +895,10 @@
             {"field": "job", "type": "quantitative"},
             {"field": "rule", "type": "ordinal"},
             {"field": "threads", "type": "quantitative"},
+            {"field": "start", "type": "temporal",
+            "timeUnit": "yearmonthdatehoursminutes"},
+            {"field": "end", "type": "temporal",
+            "timeUnit": "yearmonthdatehoursminutes"}
           ]
         }
       };

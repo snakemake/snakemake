@@ -712,22 +712,22 @@ def auto_report(dag, path, stylesheet=None):
             catresults.sort(key=lambda res: res.name)
 
     # prepare threads
-    end, itree = build_interval_tree(records)
+    start_time, end_time, itree = build_interval_tree(records)
     step_size = 100
     threads = []
     last_active_jobs = dict()
-    for i in range(0, end + step_size, step_size):
+    for i in range(start_time, end_time + step_size, step_size):
         inactivate_jobs = last_active_jobs.copy()
         last_active_jobs.clear()
         for _, _, rec in itree.at(i):
             last_active_jobs[rec["job"]] = rec
             if inactivate_jobs.get(rec["job"], ""):
                 del inactivate_jobs[rec["job"]]
-            rec["time"] = i
+            rec["time"] = datetime.datetime.fromtimestamp(i).isoformat()
             threads.append(rec.copy())
         for rec in inactivate_jobs.values():
             inactivate_rec = rec.copy()
-            inactivate_rec["time"] = i
+            inactivate_rec["time"] = datetime.datetime.fromtimestamp(i).isoformat()
             inactivate_rec["threads"] = 0
             threads.append(inactivate_rec)
 
@@ -895,9 +895,12 @@ def build_interval_tree(records):
             start_time = rec.starttime
         if rec.endtime > end_time:
             end_time = rec.endtime
-        job_started = round(rec.starttime - start_time, 0)
-        job_ended = round(rec.endtime - start_time, 0) + 1  # add pseudocount
-        job_data = {"threads": rec.job.threads, "rule": rec.rule, "job": rec.job.jobid}
-        itree.addi(job_started, job_ended, job_data)
-    end = int(end_time - start_time)
-    return end, itree
+        job_start = datetime.datetime.fromtimestamp(rec.starttime).isoformat()
+        job_end = datetime.datetime.fromtimestamp(rec.endtime).isoformat()
+        job_data = {"threads": rec.job.threads, "rule": rec.rule, "job": rec.job.jobid, "start": job_start, "end": job_end}
+        itree.addi(rec.starttime, rec.endtime, job_data)
+    print(start_time)
+    print(end_time)
+    start_time = int(round(start_time, 0))
+    end_time = int(round(end_time, 0))
+    return start_time, end_time, itree
