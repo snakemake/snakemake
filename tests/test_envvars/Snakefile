@@ -1,8 +1,20 @@
 envvars:
     "TEST_ENV_VAR"
 
+rule all:
+    input:
+        "test.out",
+        "test2.out"
+
 rule a:
     output:
         "test.out"
+    shell:
+        "echo $TEST_ENV_VAR > {output}"
+
+
+rule b:
+    output:
+        "test2.out"
     shell:
         "echo $TEST_ENV_VAR > {output}"
