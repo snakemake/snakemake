@@ -406,7 +406,7 @@ class JobScheduler:
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
                 runjobs = [job for job in run if not job.is_local]
-                self.run(local_runjobs, executor=self._local_executor)
+                self.run(local_runjobs, executor=self._local_executor or self._executor)
                 self.run(runjobs)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
