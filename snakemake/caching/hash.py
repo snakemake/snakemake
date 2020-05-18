@@ -52,6 +52,9 @@ class ProvenanceHashMap:
         elif job.is_script:
             _, source, _ = script.get_source(job.rule.script)
             h.update(source)
+        elif job.is_notebook:
+            _, source, _ = script.get_source(job.rule.notebook)
+            h.update(source)
         elif job.is_wrapper:
             _, source, _ = script.get_source(
                 wrapper.get_script(job.rule.wrapper, prefix=workflow.wrapper_prefix)
