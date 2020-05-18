@@ -149,7 +149,7 @@ class RemoteObject(AbstractRemoteObject):
             return self._iofile.size_local
 
     @retry.Retry(predicate=google_cloud_retry_decorator)
-    def download(self, retry_count=3):
+    def download(self):
         if not self.exists():
             return None
 
