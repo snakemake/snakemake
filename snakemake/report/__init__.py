@@ -712,13 +712,17 @@ def auto_report(dag, path, stylesheet=None):
             catresults.sort(key=lambda res: res.name)
 
     # prepare threads
-    end, itree, jobs = build_interval_tree(records)
-    step_size = 10
+    end, itree = build_interval_tree(records)
+    step_size = 100
     threads = []
+    last_active_jobs = dict()
     for i in range(0, end + step_size, step_size):
-        inactivate_jobs = jobs.copy()
+        inactivate_jobs = last_active_jobs.copy()
+        last_active_jobs.clear()
         for _, _, rec in itree.at(i):
-            del inactivate_jobs[rec["job"]]
+            last_active_jobs[rec["job"]] = rec
+            if inactivate_jobs.get(rec["job"], ""):
+                del inactivate_jobs[rec["job"]]
             rec["time"] = i
             threads.append(rec.copy())
         for rec in inactivate_jobs.values():
@@ -886,7 +890,6 @@ def build_interval_tree(records):
     itree = IntervalTree()
     start_time = None
     end_time = 0
-    total_jobs = dict()
     for rec in sorted(records.values(), key=lambda rec: rec.starttime):
         if not start_time:
             start_time = rec.starttime
@@ -896,7 +899,5 @@ def build_interval_tree(records):
         job_ended = round(rec.endtime - start_time, 0) + 1  # add pseudocount
         job_data = {"threads": rec.job.threads, "rule": rec.rule, "job": rec.job.jobid}
         itree.addi(job_started, job_ended, job_data)
-        if not rec.job.jobid in total_jobs:
-            total_jobs[rec.job.jobid] = job_data
     end = int(end_time - start_time)
-    return end, itree, total_jobs
+    return end, itree
