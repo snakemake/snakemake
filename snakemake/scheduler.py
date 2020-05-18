@@ -425,6 +425,11 @@ class JobScheduler:
             error_callback=self._error,
         )
 
+    def get_executor(self, job):
+        if job.is_local:
+            return self._local_executor
+        return self._executor
+
     def _noop(self, job):
         pass
 
