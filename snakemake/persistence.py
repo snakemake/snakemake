@@ -181,6 +181,7 @@ class Persistence:
                     "code": code,
                     "rule": job.rule.name,
                     "input": input,
+                    "threads": job.threads,
                     "log": log,
                     "params": params,
                     "shellcmd": shellcmd,

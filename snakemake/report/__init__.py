@@ -333,6 +333,7 @@ class JobRecord:
     def __init__(self):
         self.job = None
         self.rule = None
+        self.threads = None
         self.starttime = sys.maxsize
         self.endtime = 0
         self.output = []
@@ -694,6 +695,7 @@ def auto_report(dag, path, stylesheet=None):
                 rec = records[(job_hash, rule)]
                 rec.rule = rule
                 rec.job = job
+                rec.threads = meta["threads"]
                 rec.starttime = min(rec.starttime, meta["starttime"])
                 rec.endtime = max(rec.endtime, meta["endtime"])
                 rec.conda_env_file = None
