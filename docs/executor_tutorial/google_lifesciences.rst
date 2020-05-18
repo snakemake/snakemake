@@ -112,7 +112,6 @@ in your working directory:
       - conda-forge
       - bioconda
     dependencies:
-      - bioconda::snakemake-minimal =5.4.5
       - python =3.6
       - jinja2 =2.10
       - networkx =2.1
