@@ -19,8 +19,8 @@ from snakemake.executors import (
     DRMAAExecutor,
     KubernetesExecutor,
     TibannaExecutor,
-    GoogleLifeSciencesExecutor,
 )
+from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
 
