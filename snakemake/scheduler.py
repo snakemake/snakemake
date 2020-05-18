@@ -426,7 +426,7 @@ class JobScheduler:
         )
 
     def get_executor(self, job):
-        if job.is_local:
+        if job.is_local and self._local_executor is not None:
             return self._local_executor
         return self._executor
 
