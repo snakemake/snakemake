@@ -18,7 +18,7 @@ from snakemake.logging import logger
 from snakemake.exceptions import print_exception
 from snakemake.exceptions import log_verbose_traceback
 from snakemake.exceptions import WorkflowError
-from snakemake.executors import ClusterExecutor
+from snakemake.executors import ClusterExecutor, sleep
 from snakemake.common import (
     get_container_image,
     get_file_hash,
