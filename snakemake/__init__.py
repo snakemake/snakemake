@@ -340,6 +340,13 @@ def snakemake(
                     v = True
                 elif v == "false":
                     v = False
+                elif v.isnumeric():
+                    v = int(v)
+                else:
+                    try:
+                        v = float(v)
+                    except ValueError:
+                        pass
                 tibanna_config_dict.update({k: v})
             tibanna_config = tibanna_config_dict
 
