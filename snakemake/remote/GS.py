@@ -24,13 +24,13 @@ except ImportError as e:
     )
 
 
-def google_cloud_retry_decorator(ex):
+def google_cloud_retry_predicate(ex):
     """Given an exception from Google Cloud, determine if it's one in the
        listing of transient errors (determined by function
        google.api_core.retry.if_transient_error(exception)) or determine if
        triggered by a hash mismatch due to a bad download. This function will
        return a boolean to indicate if retry should be done, and is typically 
-       used with the google.api_core.retry.Retry as a decorator.
+       used with the google.api_core.retry.Retry as a decorator (predicate).
 
        Arguments:
          ex (Exception) : the exception passed from the decorated function
@@ -127,7 +127,7 @@ class RemoteObject(AbstractRemoteObject):
 
     # === Implementations of abstract class members ===
 
-    @retry.Retry(predicate=google_cloud_retry_decorator)
+    @retry.Retry(predicate=google_cloud_retry_predicate)
     def exists(self):
         return self.blob.exists()
 
@@ -148,7 +148,7 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    @retry.Retry(predicate=google_cloud_retry_decorator)
+    @retry.Retry(predicate=google_cloud_retry_predicate)
     def download(self):
         if not self.exists():
             return None
@@ -166,11 +166,13 @@ class RemoteObject(AbstractRemoteObject):
         # Compute local hash and verify correct
         if parser.hexdigest() != self.blob.crc32c:
             os.remove(self.local_file())
-            raise CheckSumMismatchException
+            raise CheckSumMismatchException(
+                "The checksum of %s does not match." % self.local_file()
+            )
 
         return self.local_file()
 
-    @retry.Retry(predicate=google_cloud_retry_decorator)
+    @retry.Retry(predicate=google_cloud_retry_predicate)
     def upload(self):
         try:
             if not self.bucket.exists():
@@ -196,7 +198,7 @@ class RemoteObject(AbstractRemoteObject):
 
     # ========= Helpers ===============
 
-    @retry.Retry(predicate=google_cloud_retry_decorator)
+    @retry.Retry(predicate=google_cloud_retry_predicate)
     def update_blob(self):
         self._blob = self.bucket.get_blob(self.key)
 
