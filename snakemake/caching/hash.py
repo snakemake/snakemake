@@ -86,12 +86,9 @@ class ProvenanceHashMap:
         for file_hash in sorted(
             hash_file(f)
             for f in job.input
-            if not any(
-                f in depfiles for depfiles in job.dag.dependencies[job].values()
-            )
+            if not any(f in depfiles for depfiles in job.dag.dependencies[job].values())
         ):
             h.update(file_hash.encode())
-                
 
         # Hash used containers or conda environments.
         if workflow.use_conda and job.conda_env:
