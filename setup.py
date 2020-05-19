@@ -44,6 +44,7 @@ setup(
         "snakemake.caching",
         "snakemake.deployment",
         "snakemake.linting",
+        "snakemake.executors",
     ],
     entry_points={
         "console_scripts": [

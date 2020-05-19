@@ -1189,6 +1189,12 @@ class Namedlist(list):
         list.__init__(self)
         self._names = dict()
 
+        # white-list of attribute names that can be overridden in _set_name
+        # default to throwing exception if called to prevent use as functions
+        self._allowed_overrides = ["index", "sort"]
+        for name in self._allowed_overrides:
+            setattr(self, name, functools.partial(self._used_attribute, _name=name))
+
         if toclone:
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
@@ -1204,6 +1210,20 @@ class Namedlist(list):
             for key, item in fromdict.items():
                 self.append(item)
                 self._add_name(key)
+
+    @staticmethod
+    def _used_attribute(*args, _name, **kwargs):
+        """
+        Generic function that throws an `AttributeError`.
+
+        Used as replacement for functions such as `index()` and `sort()`, 
+        which may be overridden by workflows, to signal to a user that 
+        these functions should not be used.        
+        """
+        raise AttributeError(
+            f"{_name}() cannot be used; attribute name reserved"
+            f" for use in some existing workflows"
+        )
 
     def _add_name(self, name):
         """
@@ -1222,10 +1242,10 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
-        if name == "items" or name == "keys" or name == "get":
+        if name not in self._allowed_overrides and hasattr(self.__class__, name):
             raise AttributeError(
-                "invalid name for input, output, wildcard, "
-                "params or log: 'items', 'keys', and 'get' are reserved for internal use"
+                f"invalid name for input, output, wildcard, "
+                f"params or log: {name} is reserved for internal use"
             )
 
         self._names[name] = (index, end)
