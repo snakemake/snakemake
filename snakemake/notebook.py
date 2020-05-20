@@ -32,6 +32,8 @@ class JupyterNotebook(ScriptBase):
 
         nb["cells"].append(nbformat.v4.new_code_cell("# start coding here"))
 
+        os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
+
         with open(self.local_path, "wb") as out:
             out.write(nbformat.writes(nb).encode())
 
