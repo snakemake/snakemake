@@ -80,7 +80,12 @@ class JupyterNotebook(ScriptBase):
         if edit:
             logger.info("Saving modified notebook.")
             nb = nbformat.read(fname, as_version=4)
+
             self.remove_preamble_cell(nb)
+
+            # clean up all outputs
+            for cell in nb["cells"]:
+                cell["outputs"] = []
 
             nbformat.write(nb, self.local_path)
 
@@ -207,11 +212,15 @@ def notebook(
     draft = False
     if edit is not None:
         if urlparse(path).scheme == "":
-            if not os.path.exists(path):
+            if not os.path.isabs(path):
+                local_path = os.path.join(basedir, path)
+            else:
+                local_path = path
+            if not os.path.exists(local_path):
                 # draft the notebook, it does not exist yet
                 language = None
                 draft = True
-                path = "file://{}".format(os.path.abspath(path))
+                path = "file://{}".format(os.path.abspath(local_path))
                 if path.endswith(".py.ipynb"):
                     language = "jupyter_python"
                 elif path.endswith(".r.ipynb"):

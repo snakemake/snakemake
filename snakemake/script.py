@@ -326,7 +326,10 @@ class ScriptBase(ABC):
 
     @property
     def local_path(self):
-        return self.path[7:]
+        path = self.path[7:]
+        if not os.path.isabs(path):
+            return os.path.join(self.basedir, path)
+        return path
 
     @abstractmethod
     def get_preamble(self):

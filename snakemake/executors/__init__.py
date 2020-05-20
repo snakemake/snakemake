@@ -43,12 +43,7 @@ from snakemake.exceptions import (
     SpawnedJobError,
     CacheMissException,
 )
-from snakemake.common import (
-    Mode,
-    __version__,
-    get_container_image,
-    get_uuid,
-)
+from snakemake.common import Mode, __version__, get_container_image, get_uuid
 
 
 # TODO move each executor into a separate submodule
