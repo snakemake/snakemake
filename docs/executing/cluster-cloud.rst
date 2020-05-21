@@ -93,9 +93,12 @@ filesystem to work in the cloud.
 Currently, this mode requires that the Snakemake workflow is stored in a git repository.
 Snakemake uses git to query necessary source files (the Snakefile, scripts, config, ...)
 for workflow execution and encodes them into the kubernetes job.
+Importantly, this also means that you should not put large non-source files into the git repo, since Snakemake will try to upload them to kubernetes with every job.
+With large files in the git repo, this can lead to performance issues or even random SSL errors from kubernetes.
 
 It is further possible to forward arbitrary environment variables to the kubernetes
-jobs via the flag ``--kubernetes-env`` (see ``snakemake --help``).
+jobs via the flag ``--envvars`` (see ``snakemake --help``) or the ``envvars`` directive in the Snakefile.
+The former should be used e.g. for platform specific variables (e.g. secrets that are only needed for your kubernetes setup), whereas the latter should be used for variables that are needed for the workflow itself, regardless of whether it is executed on kubernetes or with a different backend.
 
 When executing, Snakemake will make use of the defined resources and threads
 to schedule jobs to the correct nodes. In particular, it will forward memory requirements
