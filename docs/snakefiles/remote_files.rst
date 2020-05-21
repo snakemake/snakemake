@@ -147,10 +147,11 @@ authentication, an account name and key or SAS token can be used. If these
 variables are not passed directly to AzureRemoteProvider (see
 [CloudStorageAccount class](https://github.com/Azure/azure-storage-python/blob/master/azure-storage-common/azure/storage/common/cloudstorageaccount.py)
 for naming), they will be read from environment variables, named
-AZ_ACCOUNT_NAME, AZ_ACCOUNT_KEY and AZ_SAS_TOKEN respectively. 
+`AZ_ACCOUNT_NAME`, `AZ_ACCOUNT_KEY` and `AZ_SAS_TOKEN` respectively. 
 
 When using AzBlob as default remote provider you will almost always want to
-pass these environment variables on to remote jobs with `--envvars`, e.g
+pass these environment variables on to the remote execution environment (e.g.
+Kubernetes) with `--envvars`, e.g
 `--envvars AZ_ACCOUNT_NAME AZ_SAS_TOKEN`.
 
 .. code-block:: python

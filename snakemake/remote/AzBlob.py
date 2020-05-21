@@ -164,11 +164,13 @@ class AzureStorageHelper(object):
         if "stay_on_remote" in kwargs:
             del kwargs["stay_on_remote"]
 
+        # if not handed down explicitely, try to read credentials from
+        # environment variables.
         for csavar in ["account_name", "account_key", "sas_token"]:
-            # list above are arguments to CloudStorageAccount class.
-            # their resp. env vars are prefixed with AZ and uppercase
+            # above are actually arguments to CloudStorageAccount class.
+            # their resp. env vars are as per our convention prefixed with AZ and uppercase
             envvar = "AZ_" + csavar.upper()
-            if csavar not in kwargs:
+            if csavar not in kwargs and envvar in os.environ:
                 kwargs[csavar] = os.environ.get(envvar)
         assert "account_name" in kwargs, "Missing AZ_ACCOUNT_NAME env var"
         assert (
