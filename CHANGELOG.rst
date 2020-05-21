@@ -1,3 +1,15 @@
+[5.18.0] - 2020-05-21
+=====================
+Added
+-----
+- Native Google Cloud support via the (despite the name generic) lifesciences API.
+- Ability to optionally exchange the conda frontend to mamba (faster and sometimes more correct) instead of conda.
+Changed
+-------
+- Improved notebook integration experience, with various removed bugs and pitfalls.
+- Auto-retry google storage API calls on transient or checksum errors.
+
+
 [5.17.0] - 2020-05-07
 =====================
 Added
