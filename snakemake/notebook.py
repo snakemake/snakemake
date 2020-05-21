@@ -10,8 +10,8 @@ from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
 
-KERNEL_STARTED_RE = re.compile("Kernel started: (?P<kernel_id>\S+)")
-KERNEL_SHUTDOWN_RE = re.compile("Kernel shutdown: (?P<kernel_id>\S+)")
+KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
+KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
 
 
 class Listen:
@@ -31,6 +31,8 @@ class JupyterNotebook(ScriptBase):
         self.insert_preamble_cell(preamble, nb)
 
         nb["cells"].append(nbformat.v4.new_code_cell("# start coding here"))
+
+        os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
 
         with open(self.local_path, "wb") as out:
             out.write(nbformat.writes(nb).encode())
@@ -78,7 +80,12 @@ class JupyterNotebook(ScriptBase):
         if edit:
             logger.info("Saving modified notebook.")
             nb = nbformat.read(fname, as_version=4)
+
             self.remove_preamble_cell(nb)
+
+            # clean up all outputs
+            for cell in nb["cells"]:
+                cell["outputs"] = []
 
             nbformat.write(nb, self.local_path)
 
@@ -205,11 +212,15 @@ def notebook(
     draft = False
     if edit is not None:
         if urlparse(path).scheme == "":
-            if not os.path.exists(path):
+            if not os.path.isabs(path):
+                local_path = os.path.join(basedir, path)
+            else:
+                local_path = path
+            if not os.path.exists(local_path):
                 # draft the notebook, it does not exist yet
                 language = None
                 draft = True
-                path = "file://{}".format(os.path.abspath(path))
+                path = "file://{}".format(os.path.abspath(local_path))
                 if path.endswith(".py.ipynb"):
                     language = "jupyter_python"
                 elif path.endswith(".r.ipynb"):

@@ -9,18 +9,40 @@ import re
 import struct
 
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
-from snakemake.exceptions import WorkflowError
+from snakemake.exceptions import WorkflowError, CheckSumMismatchException
 from snakemake.common import lazy_property
 
 try:
     import google.cloud
     from google.cloud import storage
+    from google.api_core import retry
     from crc32c import crc32
 except ImportError as e:
     raise WorkflowError(
         "The Python 3 packages 'google-cloud-sdk' and `crc32c` "
         "need to be installed to use GS remote() file functionality. %s" % e.msg
     )
+
+
+def google_cloud_retry_predicate(ex):
+    """Given an exception from Google Cloud, determine if it's one in the
+       listing of transient errors (determined by function
+       google.api_core.retry.if_transient_error(exception)) or determine if
+       triggered by a hash mismatch due to a bad download. This function will
+       return a boolean to indicate if retry should be done, and is typically 
+       used with the google.api_core.retry.Retry as a decorator (predicate).
+
+       Arguments:
+         ex (Exception) : the exception passed from the decorated function
+       Returns: boolean to indicate doing retry (True) or not (False)
+    """
+    # Most likely case is Google API transient error
+    if retry.if_transient_error(ex):
+        return True
+    # Could also be checksum mismatch of download
+    if isinstance(ex, CheckSumMismatchException):
+        return True
+    return False
 
 
 class Crc32cCalculator:
@@ -105,6 +127,7 @@ class RemoteObject(AbstractRemoteObject):
 
     # === Implementations of abstract class members ===
 
+    @retry.Retry(predicate=google_cloud_retry_predicate)
     def exists(self):
         return self.blob.exists()
 
@@ -125,41 +148,31 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self, retry_count=3):
+    @retry.Retry(predicate=google_cloud_retry_predicate)
+    def download(self):
         if not self.exists():
             return None
 
         # Create the directory for the intended file
         os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
-        checksums_match = False
 
-        # Use boolean to not stress filesystem on each loop
-        while not checksums_match:
+        # ideally we could calculate hash while streaming to file with provided function
+        # https://github.com/googleapis/python-storage/issues/29
+        with open(self.local_file(), "wb") as blob_file:
+            parser = Crc32cCalculator(blob_file)
+            self.blob.download_to_file(parser)
+        os.sync()
 
-            # ideally we could calculate hash while streaming to file with provided function
-            # https://github.com/googleapis/python-storage/issues/29
-            with open(self.local_file(), "wb") as blob_file:
-                parser = Crc32cCalculator(blob_file)
-                self.blob.download_to_file(parser)
-            os.sync()
-
-            # Compute local hash and verify correct
-            if parser.hexdigest() != self.blob.crc32c:
-                os.remove(self.local_file())
-                retry_count -= 1
-            else:
-                checksums_match = True
-
-            # After three tries, likely not going to work
-            if retry_count == 0:
-                raise WorkflowError(
-                    "Failed to download {} from remote: checksums did not match {} times.".format(
-                        self.remote_file(), retry_count
-                    )
-                )
+        # Compute local hash and verify correct
+        if parser.hexdigest() != self.blob.crc32c:
+            os.remove(self.local_file())
+            raise CheckSumMismatchException(
+                "The checksum of %s does not match." % self.local_file()
+            )
 
         return self.local_file()
 
+    @retry.Retry(predicate=google_cloud_retry_predicate)
     def upload(self):
         try:
             if not self.bucket.exists():
@@ -185,6 +198,7 @@ class RemoteObject(AbstractRemoteObject):
 
     # ========= Helpers ===============
 
+    @retry.Retry(predicate=google_cloud_retry_predicate)
     def update_blob(self):
         self._blob = self.bucket.get_blob(self.key)
 
