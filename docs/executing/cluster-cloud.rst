@@ -130,13 +130,6 @@ Optionally, you can export ``GOOGLE_CLOUD_PROJECT`` as the name of your Google C
 
       $ export GOOGLE_CLOUD_PROJECT=my-project-name
 
-The dependencies that you'll need for snakemake are:
-
- - gcc
- - python dev
- - google cloud python client libraries
- - oauth2client
-
 
 Data in Google Storage
 ::::::::::::::::::::::
@@ -230,6 +223,21 @@ If you want to specify the machine type as a resource, you can do that too:
 If you request a gpu, this requires the "n1" prefix and your preference from
 the file or command line will be overridden. Note that the default resources
 for Google Life Sciences (memory and disk) are the same as for Tibanna.
+
+Running the Life Sciences Executor
+::::::::::::::::::::::::::::::::::
+
+When your Snakefile is ready, you can run snakemake to specify the life
+sciences executor. Notice that we are also providing a remote prefix for our storage path,
+along with a region.
+
+.. code-block:: console
+
+    $ snakemake --google-lifesciences --default-remote-prefix snakemake-testing-data --use-conda --google-lifesciences-region us-west1
+
+
+For more details and examples, we recommend you reference the 
+`Google Life Sciences Executor Tutorial <https://snakemake.readthedocs.io/en/stable/executor_tutorial/google_lifesciences.html>`_.
 
 
 Executing a Snakemake workflow via Tibanna on Amazon Web Services
