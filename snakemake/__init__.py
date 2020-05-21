@@ -452,16 +452,15 @@ def snakemake(
         _default_remote_provider = None
         if default_remote_provider is not None:
             try:
-                modpath = "snakemake.remote." + default_remote_provider
-                if default_remote_provider == "AzureStorage":
-                    # backward compat
-                    modpath = "snakemake.remote." + "AzBlob"
-                rmt = importlib.import_module(modpath)
+                rmt = importlib.import_module(
+                    "snakemake.remote." + default_remote_provider
+                )
             except ImportError as e:
                 raise WorkflowError("Unknown default remote provider.")
             if rmt.RemoteProvider.supports_default:
                 _default_remote_provider = rmt.RemoteProvider(
-                    keep_local=True, is_default=True)
+                    keep_local=True, is_default=True
+                )
             else:
                 raise WorkflowError(
                     "Remote provider {} does not (yet) support to "
@@ -1518,8 +1517,7 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "--default-remote-provider",
-        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp", "iRODS", "AzBlob",
-            "AzureStorage (deprecated; use AzBlob)"],
+        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp", "iRODS", "AzBlob"],
         help="Specify default remote provider to be used for "
         "all input and output files that don't yet specify "
         "one.",

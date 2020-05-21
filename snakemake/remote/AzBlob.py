@@ -35,7 +35,7 @@ class RemoteProvider(AbstractRemoteProvider):
     supports_default = True
 
     def __init__(
-            self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
+        self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
     ):
         super(RemoteProvider, self).__init__(
             *args,
@@ -164,16 +164,16 @@ class AzureStorageHelper(object):
         if "stay_on_remote" in kwargs:
             del kwargs["stay_on_remote"]
 
-        for csavar  in ["account_name", "account_key", "sas_token"]:
+        for csavar in ["account_name", "account_key", "sas_token"]:
             # list above are arguments to CloudStorageAccount class.
             # their resp. env vars are prefixed with AZ and uppercase
             envvar = "AZ_" + csavar.upper()
             if csavar not in kwargs:
                 kwargs[csavar] = os.environ.get(envvar)
-        assert "account_name" in kwargs, (
-            "Missing AZ_ACCOUNT_NAME env var")
-        assert "account_key" in kwargs or "sas_token" in kwargs, (
-            "Missing AZ_ACCOUNT_KEY or AZ_SAS_TOKEN env var")
+        assert "account_name" in kwargs, "Missing AZ_ACCOUNT_NAME env var"
+        assert (
+            "account_key" in kwargs or "sas_token" in kwargs
+        ), "Missing AZ_ACCOUNT_KEY or AZ_SAS_TOKEN env var"
         # remove leading '?' from SAS if needed
         if kwargs.get("sas_token", "").startswith("?"):
             kwargs["sas_token"] = kwargs["sas_token"][1:]
@@ -190,13 +190,13 @@ class AzureStorageHelper(object):
             return False
 
     def upload_to_azure_storage(
-            self,
-            container_name,
-            file_path,
-            blob_name=None,
-            use_relative_path_for_blob_name=True,
-            relative_start_dir=None,
-            extra_args=None,
+        self,
+        container_name,
+        file_path,
+        blob_name=None,
+        use_relative_path_for_blob_name=True,
+        relative_start_dir=None,
+        extra_args=None,
     ):
         """ Upload a file to Azure Storage
             This function uploads a file to an Azure Storage Container as a blob.
@@ -239,13 +239,13 @@ class AzureStorageHelper(object):
             # return None
 
     def download_from_azure_storage(
-            self,
-            container_name,
-            blob_name,
-            destination_path=None,
-            expandBlobNameIntoDirs=True,
-            make_dest_dirs=True,
-            create_stub_only=False,
+        self,
+        container_name,
+        blob_name,
+        destination_path=None,
+        expandBlobNameIntoDirs=True,
+        make_dest_dirs=True,
+        create_stub_only=False,
     ):
         """ Download a file from Azure Storage
             This function downloads an object from a specified Azure Storage container.
@@ -323,7 +323,9 @@ class AzureStorageHelper(object):
                 True | False
         """
 
-        assert container_name, "container_name must be specified (did you try to write to \"root\" or forgot to set --default-remote-prefix?)"
+        assert (
+            container_name
+        ), 'container_name must be specified (did you try to write to "root" or forgot to set --default-remote-prefix?)'
         assert blob_name, "blob_name must be specified"
         try:
             return self.azure.exists(container_name, blob_name)
