@@ -131,6 +131,7 @@ def snakemake(
     use_singularity=False,
     use_env_modules=False,
     singularity_args="",
+    conda_frontend="conda",
     conda_prefix=None,
     conda_cleanup_pkgs=None,
     list_conda_envs=False,
@@ -143,6 +144,10 @@ def snakemake(
     container_image=None,
     tibanna=False,
     tibanna_sfn=None,
+    google_lifesciences=False,
+    google_lifesciences_regions=None,
+    google_lifesciences_location=None,
+    google_lifesciences_cache=False,
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
@@ -256,8 +261,12 @@ def snakemake(
         container_image (str):      Docker image to use, e.g., for kubernetes.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
-        tibanna (str):              submit jobs to AWS cloud using Tibanna.
+        tibanna (bool):             submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
+        google_lifesciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
+        google_lifesciences_regions (list): a list of regions (e.g., us-east1)
+        google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
+        google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         tibanna_config (list):      Additional tibanan config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
@@ -331,13 +340,26 @@ def snakemake(
                     v = True
                 elif v == "false":
                     v = False
+                elif v.isnumeric():
+                    v = int(v)
+                else:
+                    try:
+                        v = float(v)
+                    except ValueError:
+                        pass
                 tibanna_config_dict.update({k: v})
             tibanna_config = tibanna_config_dict
+
+    # Google Cloud Life Sciences API uses compute engine and storage
+    if google_lifesciences:
+        assume_shared_fs = False
+        default_remote_provider = "GS"
+        default_remote_prefix = default_remote_prefix.rstrip("/")
 
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa or tibanna or kubernetes:
+    if cluster or cluster_sync or drmaa or tibanna or kubernetes or google_lifesciences:
         cores = None
     else:
         nodes = None
@@ -357,7 +379,9 @@ def snakemake(
     else:
         cluster_config_content = dict()
 
-    run_local = not (cluster or cluster_sync or drmaa or kubernetes or tibanna)
+    run_local = not (
+        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences
+    )
     if run_local:
         if not dryrun:
             # clean up all previously recorded jobids.
@@ -483,6 +507,7 @@ def snakemake(
             use_conda=use_conda or list_conda_envs or conda_cleanup_envs,
             use_singularity=use_singularity,
             use_env_modules=use_env_modules,
+            conda_frontend=conda_frontend,
             conda_prefix=conda_prefix,
             conda_cleanup_pkgs=conda_cleanup_pkgs,
             singularity_prefix=singularity_prefix,
@@ -505,6 +530,7 @@ def snakemake(
             envvars=envvars,
         )
         success = True
+
         workflow.include(
             snakefile, overwrite_first_rule=True, print_compilation=print_compilation
         )
@@ -583,6 +609,10 @@ def snakemake(
                     default_remote_prefix=default_remote_prefix,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    google_lifesciences=google_lifesciences,
+                    google_lifesciences_regions=google_lifesciences_regions,
+                    google_lifesciences_location=google_lifesciences_location,
+                    google_lifesciences_cache=google_lifesciences_cache,
                     precommand=precommand,
                     tibanna_config=tibanna_config,
                     assume_shared_fs=assume_shared_fs,
@@ -617,6 +647,10 @@ def snakemake(
                     container_image=container_image,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    google_lifesciences=google_lifesciences,
+                    google_lifesciences_regions=google_lifesciences_regions,
+                    google_lifesciences_location=google_lifesciences_location,
+                    google_lifesciences_cache=google_lifesciences_cache,
                     precommand=precommand,
                     tibanna_config=tibanna_config,
                     max_jobs_per_second=max_jobs_per_second,
@@ -1721,6 +1755,7 @@ def get_argument_parser(profile=None):
     group_cloud = parser.add_argument_group("CLOUD")
     group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tibanna = parser.add_argument_group("TIBANNA")
+    group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
 
     group_kubernetes.add_argument(
         "--kubernetes",
@@ -1738,14 +1773,15 @@ def get_argument_parser(profile=None):
     group_kubernetes.add_argument(
         "--container-image",
         metavar="IMAGE",
-        help="Docker image to use, e.g., when submitting jobs to kubernetes. "
-        "By default, this is 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
+        help="Docker image to use, e.g., when submitting jobs to kubernetes "
+        "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
         "the same version as the currently running Snakemake instance. "
         "Note that overwriting this value is up to your responsibility. "
         "Any used image has to contain a working snakemake installation "
         "that is compatible with (or ideally the same as) the currently "
         "running version.",
     )
+
     group_tibanna.add_argument(
         "--tibanna",
         action="store_true",
@@ -1780,6 +1816,40 @@ def get_argument_parser(profile=None):
         help="Additional tibanan config e.g. --tibanna-config spot_instance=true subnet="
         "<subnet_id> security group=<security_group_id>",
     )
+    group_google_life_science.add_argument(
+        "--google-lifesciences",
+        action="store_true",
+        help="Execute workflow on Google Cloud cloud using the Google Life. "
+        " Science API. This requires default application credentials (json) "
+        " to be created and export to the environment to use Google Cloud "
+        " Storage, Compute Engine, and Life Sciences. The credential file "
+        " should be exported as GOOGLE_APPLICATION_CREDENTIALS for snakemake "
+        " to discover. Also, --use-conda, --use-singularity, --config, "
+        "--configfile are supported and will be carried over.",
+    )
+    group_google_life_science.add_argument(
+        "--google-lifesciences-regions",
+        nargs="+",
+        default=["us-east1", "us-west1", "us-central1"],
+        help="Specify one or more valid instance regions (defaults to US)",
+    )
+    group_google_life_science.add_argument(
+        "--google-lifesciences-location",
+        help="The Life Sciences API service used to schedule the jobs. "
+        " E.g., us-centra1 (Iowa) and europe-west2 (London) "
+        " Watch the terminal output to see all options found to be available. "
+        " If not specified, defaults to the first found with a matching prefix "
+        " from regions specified with --google-lifesciences-regions.",
+    )
+    group_google_life_science.add_argument(
+        "--google-lifesciences-keep-cache",
+        action="store_true",
+        help="Cache workflows in your Google Cloud Storage Bucket specified "
+        "by --default-remote-prefix/{source}/{cache}. Each workflow working "
+        "directory is compressed to a .tar.gz, named by the hash of the "
+        "contents, and kept in Google Cloud Storage. By default, the caches "
+        "are deleted at the shutdown step of the workflow.",
+    )
 
     group_conda = parser.add_argument_group("CONDA")
 
@@ -1810,6 +1880,7 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Cleanup unused conda environments.",
     )
+
     from snakemake.deployment.conda import CondaCleanupMode
 
     group_conda.add_argument(
@@ -1829,6 +1900,13 @@ def get_argument_parser(profile=None):
         help="If specified, only creates the job-specific "
         "conda environments then exits. The `--use-conda` "
         "flag must also be set.",
+    )
+    group_conda.add_argument(
+        "--conda-frontend",
+        default="conda",
+        choices=["conda", "mamba"],
+        help="Choose the conda frontend for installing environments. "
+        "Caution: mamba is much faster, but still in beta test.",
     )
 
     group_singularity = parser.add_argument_group("SINGULARITY")
@@ -1913,8 +1991,12 @@ def main(argv=None):
     try:
         resources = parse_resources(args.resources)
         config = parse_config(args)
-        if (args.default_resources is not None and not args.default_resources) or (
-            args.tibanna and not args.default_resources
+
+        # Cloud executors should have default-resources flag
+        if (
+            (args.default_resources is not None and not args.default_resources)
+            or (args.tibanna and not args.default_resources)
+            or (args.google_lifesciences and not args.default_resources)
         ):
             args.default_resources = [
                 "mem_mb=max(2*input.size_mb, 1000)",
@@ -1933,6 +2015,7 @@ def main(argv=None):
         or args.cluster
         or args.cluster_sync
         or args.drmaa
+        or args.google_lifesciences
         or args.kubernetes
         or args.tibanna
         or args.list_code_changes
@@ -2054,6 +2137,24 @@ def main(argv=None):
                     file=sys.stderr,
                 )
                 sys.exit(1)
+
+    if args.google_lifesciences:
+        if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+            print(
+                "Error: GOOGLE_APPLICATION_CREDENTIALS environment variable must "
+                "be available for --google-lifesciences",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        if not args.default_remote_prefix:
+            print(
+                "Error: --google-life-sciences must be combined with "
+                " --default-remote-prefix to provide bucket name and "
+                "subdirectory (prefix) (e.g. 'bucketname/projectname'",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     if args.delete_all_output and args.delete_temp_output:
         print(
@@ -2198,6 +2299,10 @@ def main(argv=None):
             container_image=args.container_image,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
+            google_lifesciences=args.google_lifesciences,
+            google_lifesciences_regions=args.google_lifesciences_regions,
+            google_lifesciences_location=args.google_lifesciences_location,
+            google_lifesciences_cache=args.google_lifesciences_keep_cache,
             precommand=args.precommand,
             tibanna_config=args.tibanna_config,
             jobname=args.jobname,
@@ -2241,6 +2346,7 @@ def main(argv=None):
             attempt=args.attempt,
             force_use_threads=args.force_use_threads,
             use_conda=args.use_conda,
+            conda_frontend=args.conda_frontend,
             conda_prefix=args.conda_prefix,
             conda_cleanup_pkgs=args.conda_cleanup_pkgs,
             list_conda_envs=args.list_conda_envs,

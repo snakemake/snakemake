@@ -60,7 +60,7 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
-from snakemake.common import Mode
+from snakemake.common import Mode, bytesto
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
@@ -83,6 +83,7 @@ class Workflow:
         debug=False,
         verbose=False,
         use_conda=False,
+        conda_frontend=None,
         conda_prefix=None,
         use_singularity=False,
         use_env_modules=False,
@@ -146,6 +147,7 @@ class Workflow:
         self.verbose = verbose
         self._rulecount = 0
         self.use_conda = use_conda
+        self.conda_frontend = conda_frontend
         self.conda_prefix = conda_prefix
         self.use_singularity = use_singularity
         self.use_env_modules = use_env_modules
@@ -294,6 +296,21 @@ class Workflow:
                 )
 
         return files
+
+    def check_source_sizes(self, filename, warning_size_gb=0.2):
+        """A helper function to check the filesize, and return the file
+           to the calling function Additionally, given that we encourage these 
+           packages to be small, we set a warning at 200MB (0.2GB).
+        """
+        gb = bytesto(os.stat(filename).st_size, "g")
+        if gb > warning_size_gb:
+            logger.warning(
+                "File {} (size {} GB) is greater than the {} GB suggested size "
+                "Consider uploading larger files to storage first.".format(
+                    filename, gb, warning_size_gb
+                )
+            )
+        return filename
 
     @property
     def subworkflows(self):
@@ -448,6 +465,10 @@ class Workflow:
         kubernetes=None,
         tibanna=None,
         tibanna_sfn=None,
+        google_lifesciences=None,
+        google_lifesciences_regions=None,
+        google_lifesciences_location=None,
+        google_lifesciences_cache=False,
         precommand="",
         tibanna_config=False,
         container_image=None,
@@ -511,7 +532,11 @@ class Workflow:
         else:
 
             def files(items):
-                relpath = lambda f: f if os.path.isabs(f) else os.path.relpath(f)
+                relpath = (
+                    lambda f: f
+                    if os.path.isabs(f) or f.startswith("root://")
+                    else os.path.relpath(f)
+                )
                 return map(relpath, filterfalse(self.is_rule, items))
 
         if not targets:
@@ -836,6 +861,10 @@ class Workflow:
             kubernetes=kubernetes,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
+            google_lifesciences=google_lifesciences,
+            google_lifesciences_regions=google_lifesciences_regions,
+            google_lifesciences_location=google_lifesciences_location,
+            google_lifesciences_cache=google_lifesciences_cache,
             precommand=precommand,
             tibanna_config=tibanna_config,
             container_image=container_image,
@@ -1487,7 +1516,11 @@ class Subworkflow:
     def target(self, paths):
         if not_iterable(paths):
             path = paths
-            path = path if os.path.isabs(path) else os.path.join(self.workdir, path)
+            path = (
+                path
+                if os.path.isabs(path) or path.startswith("root://")
+                else os.path.join(self.workdir, path)
+            )
             return flag(path, "subworkflow", self)
         return [self.target(path) for path in paths]
 

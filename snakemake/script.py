@@ -26,7 +26,7 @@ from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
 
-PY_VER_RE = re.compile("Python (?P<ver_min>\d+\.\d+).*")
+PY_VER_RE = re.compile(r"Python (?P<ver_min>\d+\.\d+).*")
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 
@@ -326,7 +326,10 @@ class ScriptBase(ABC):
 
     @property
     def local_path(self):
-        return self.path[7:]
+        path = self.path[7:]
+        if not os.path.isabs(path):
+            return os.path.join(self.basedir, path)
+        return path
 
     @abstractmethod
     def get_preamble(self):
@@ -341,7 +344,7 @@ class ScriptBase(ABC):
         ...
 
     def _execute_cmd(self, cmd, **kwargs):
-        shell(
+        return shell(
             cmd,
             bench_record=self.bench_record,
             conda_env=self.conda_env,
@@ -452,35 +455,44 @@ class PythonScript(ScriptBase):
         fd.write(preamble.encode())
         fd.write(self.source)
 
+    def _is_python_env(self):
+        if self.conda_env is not None:
+            prefix = os.path.join(self.conda_env, "bin")
+        elif self.env_modules is not None:
+            prefix = self._execute_cmd("echo $PATH", read=True).decode().split(":")[0]
+        else:
+            raise NotImplementedError()
+        return os.path.exists(os.path.join(prefix, "python"))
+
+    def _get_python_version(self):
+        out = self._execute_cmd("python --version", read=True).decode().strip()
+        return tuple(map(int, PY_VER_RE.match(out).group("ver_min").split(".")))
+
     def execute_script(self, fname, edit=False):
         py_exec = sys.executable
-        if self.conda_env is not None:
-            py = os.path.join(self.conda_env, "bin", "python")
-            if os.path.exists(py):
-                out = subprocess.check_output(
-                    [py, "--version"], stderr=subprocess.STDOUT, universal_newlines=True
-                )
-                ver = tuple(map(int, PY_VER_RE.match(out).group("ver_min").split(".")))
-                if ver >= MIN_PY_VERSION:
-                    # Python version is new enough, make use of environment
-                    # to execute script
-                    py_exec = "python"
-                else:
-                    logger.warning(
-                        "Conda environment defines Python "
-                        "version < {0}.{1}. Using Python of the "
-                        "master process to execute "
-                        "script. Note that this cannot be avoided, "
-                        "because the script uses data structures from "
-                        "Snakemake which are Python >={0}.{1} "
-                        "only.".format(*MIN_PY_VERSION)
-                    )
         if self.container_img is not None:
             # use python from image
             py_exec = "python"
-        if self.env_modules is not None:
-            # use python from environment module
-            py_exec = "python"
+        elif self.conda_env is not None or self.env_modules is not None:
+            if self._is_python_env():
+                py_version = self._get_python_version()
+                # If version is None, all fine, because host python usage is intended.
+                if py_version is not None:
+                    if py_version >= MIN_PY_VERSION:
+                        # Python version is new enough, make use of environment
+                        # to execute script
+                        py_exec = "python"
+                    else:
+                        logger.warning(
+                            "Environment defines Python "
+                            "version < {0}.{1}. Using Python of the "
+                            "master process to execute "
+                            "script. Note that this cannot be avoided, "
+                            "because the script uses data structures from "
+                            "Snakemake which are Python >={0}.{1} "
+                            "only.".format(*MIN_PY_VERSION)
+                        )
+
         # use the same Python as the running process or the one from the environment
         self._execute_cmd("{py_exec} {fname:q}", py_exec=py_exec, fname=fname)
 
