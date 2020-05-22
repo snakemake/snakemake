@@ -210,7 +210,8 @@ Please consider to add your own.
   :maxdepth: 1
 
   executing/cli
-  executing/cluster-cloud
+  executing/cluster
+  executing/cloud
   executing/caching
   executing/interoperability
 
