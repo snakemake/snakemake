@@ -38,7 +38,6 @@ def kubernetes_cluster():
                     default_remote_provider="GS",
                     default_remote_prefix=self.bucket_name,
                     no_tmpdir=True,
-                    container_image="snakemake/snakemake:latest",
                     **kwargs
                 )
             except Exception as e:
