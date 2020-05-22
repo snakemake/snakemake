@@ -40,6 +40,7 @@ jobs:
       
       - name: Setup Snakemake environment
         run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
           conda install -c conda-forge -q mamba
           mamba env create -q -y --name snakemake --file test-environment.yml
 
