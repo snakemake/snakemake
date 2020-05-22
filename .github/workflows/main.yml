@@ -42,7 +42,7 @@ jobs:
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
           conda install -c conda-forge -q mamba
-          mamba env create -q -y --name snakemake --file test-environment.yml
+          mamba env create -q --name snakemake --file test-environment.yml
 
       - name: Setup apt dependencies
         run: sudo apt install -y singularity-container stress
