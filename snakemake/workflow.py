@@ -936,6 +936,9 @@ class Workflow:
 
         success = scheduler.schedule()
 
+        for job in dag.jobs:
+            job.rmdir_empty_remote_dirs()
+
         if success:
             if dryrun:
                 if len(dag):

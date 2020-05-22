@@ -664,8 +664,6 @@ class DAG:
                     logger.info("Removing local output file: {}".format(f))
                     f.remove()
 
-            job.rmdir_empty_remote_dirs()
-
     def jobid(self, job):
         """Return job id of given job."""
         if job.is_group():
