@@ -61,11 +61,14 @@ class JupyterNotebook(ScriptBase):
             fname_out = os.path.join(os.getcwd(), fname_out)
             output_parameter = "--output {fname_out:q}"
 
+        #get url relative to cwd
+        notebook_url = os.path.join(os.sep,'tree',os.path.relpath(fname))
+
         if edit is not None:
             logger.info("Opening notebook for editing.")
             cmd = (
                 "jupyter notebook --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
-                "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
+                "--NotebookApp.quit_button=True --NotebookApp.default_url={notebook_url}".format(edit=edit,notebook_url=notebook_url)
             )
         else:
             cmd = (
