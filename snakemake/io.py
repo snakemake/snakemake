@@ -970,13 +970,13 @@ def expand(*args, **wildcards):
 
 
 def multiext(prefix, *extensions):
-    """Expand a given prefix with multiple extensions (e.g. .txt, .csv, ...)."""
+    """Expand a given prefix with multiple extensions (e.g. .txt, .csv, _peaks.bed, ...)."""
     if any(
-        (r"/" in ext or r"\\" in ext or not ext.startswith(".")) for ext in extensions
+        (r"/" in ext or r"\\" in ext) for ext in extensions
     ):
         raise WorkflowError(
             r"Extensions for multiext may not contain path delimiters "
-            r"(/,\) and must start with '.' (e.g. .txt)."
+            r"(/,\)."
         )
     return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
 
