@@ -129,7 +129,7 @@ As an alternative to using Conda (see above), it is possible to define, for each
             "table.txt"
         output:
             "plots/myplot.pdf"
-        containers:
+        container:
             "docker://joseespinosa/docker-r-ggplot2"
         script:
             "scripts/plot-stuff.R"
