@@ -17,37 +17,32 @@ class Linter(ABC):
         return item
 
     def lint(self, json=False):
+        json_lints = [] if json else None
+        linted = False
         for item in self.items:
             item_lints = [
                 lint
                 for lint_item in self.lints()
                 for lint in lint_item(self.read_item(item))
             ]
-
+            if not item_lints:
+                continue
+            linted = True
             if json:
-                json_lints = []
-            if item_lints:
-                if json:
-                    json_lints.append(
-                        {
-                            "for": self.item_desc_json(item),
-                            "lints": [lint.__dict__ for lint in item_lints],
-                        }
-                    )
-                    return json_lints, True
-                else:
-                    logger.warning(
-                        "Lints for {}:\n{}\n".format(
-                            self.item_desc_plain(item),
-                            "\n".join(map("    * {}".format, item_lints)),
-                        )
-                    )
-                    return None, True
+                json_lints.append(
+                    {
+                        "for": self.item_desc_json(item),
+                        "lints": [lint.__dict__ for lint in item_lints],
+                    }
+                )
             else:
-                if json:
-                    return [], False
-                else:
-                    return None, False
+                logger.warning(
+                    "Lints for {}:\n{}\n".format(
+                        self.item_desc_plain(item),
+                        "\n".join(map("    * {}".format, item_lints)),
+                    )
+                )
+        return json_lints, linted
 
     @abstractmethod
     def item_desc_json(self, item):

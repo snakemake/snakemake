@@ -21,6 +21,7 @@ from snakemake.executors import (
     KubernetesExecutor,
     TibannaExecutor,
 )
+from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
 
@@ -65,6 +66,10 @@ class JobScheduler:
         container_image=None,
         tibanna=None,
         tibanna_sfn=None,
+        google_lifesciences=None,
+        google_lifesciences_regions=None,
+        google_lifesciences_location=None,
+        google_lifesciences_cache=False,
         precommand="",
         tibanna_config=False,
         jobname=None,
@@ -99,7 +104,11 @@ class JobScheduler:
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
 
-        self.resources = dict(self.workflow.global_resources)
+        self.global_resources = {
+            name: (sys.maxsize if res is None else res)
+            for name, res in workflow.global_resources.items()
+        }
+        self.resources = dict(self.global_resources)
 
         use_threads = (
             force_use_threads
@@ -257,6 +266,32 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 keepincomplete=keepincomplete,
             )
+        elif google_lifesciences:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                cores=local_cores,
+            )
+
+            self._executor = GoogleLifeSciencesExecutor(
+                workflow,
+                dag,
+                cores,
+                container_image=container_image,
+                regions=google_lifesciences_regions,
+                location=google_lifesciences_location,
+                cache=google_lifesciences_cache,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+            )
+
         else:
             self._executor = CPUExecutor(
                 workflow,
@@ -306,7 +341,6 @@ class JobScheduler:
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
-
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
@@ -369,10 +403,12 @@ class JobScheduler:
                 # update running jobs
                 with self._lock:
                     self.running.update(run)
+
                 # actually run jobs
-                for job in run:
-                    with self.rate_limiter:
-                        self.run(job)
+                local_runjobs = [job for job in run if job.is_local]
+                runjobs = [job for job in run if not job.is_local]
+                self.run(local_runjobs, executor=self._local_executor or self._executor)
+                self.run(runjobs)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
@@ -380,19 +416,20 @@ class JobScheduler:
             self._executor.cancel()
             return False
 
-    def get_executor(self, job):
-        if self._local_executor is None:
-            return self._executor
-        else:
-            return self._local_executor if job.is_local else self._executor
-
-    def run(self, job):
-        self.get_executor(job).run(
-            job,
+    def run(self, jobs, executor=None):
+        if executor is None:
+            executor = self._executor
+        executor.run_jobs(
+            jobs,
             callback=self._finish_callback,
             submit_callback=self._submit_callback,
             error_callback=self._error,
         )
+
+    def get_executor(self, job):
+        if job.is_local and self._local_executor is not None:
+            return self._local_executor
+        return self._executor
 
     def _noop(self, job):
         pass
@@ -555,7 +592,7 @@ class JobScheduler:
                 return [c_j * y_j for c_j, y_j in zip(c, y)]
 
             b = [
-                self.resources[name] for name in self.workflow.global_resources
+                self.resources[name] for name in self.global_resources
             ]  # resource capacities
 
             while True:
@@ -596,12 +633,12 @@ class JobScheduler:
 
             solution = [job for job, sel in zip(jobs, x) if sel]
             # update resources
-            for name, b_i in zip(self.workflow.global_resources, b):
+            for name, b_i in zip(self.global_resources, b):
                 self.resources[name] = b_i
             return solution
 
     def calc_resource(self, name, value):
-        gres = self.workflow.global_resources[name]
+        gres = self.global_resources[name]
         if value > gres:
             if name == "_cores":
                 name = "threads"
@@ -617,15 +654,13 @@ class JobScheduler:
     def rule_weight(self, rule):
         res = rule.resources
         return [
-            self.calc_resource(name, res.get(name, 0))
-            for name in self.workflow.global_resources
+            self.calc_resource(name, res.get(name, 0)) for name in self.global_resources
         ]
 
     def job_weight(self, job):
         res = job.resources
         return [
-            self.calc_resource(name, res.get(name, 0))
-            for name in self.workflow.global_resources
+            self.calc_resource(name, res.get(name, 0)) for name in self.global_resources
         ]
 
     def job_reward(self, job):

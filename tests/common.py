@@ -45,15 +45,11 @@ def is_ci():
 
 
 def has_gcloud_service_key():
-    return "GCLOUD_SERVICE_KEY" in os.environ
-
-
-def has_gcloud_cluster():
-    return "GCLOUD_CLUSTER" in os.environ
+    return "GCP_AVAILABLE" in os.environ
 
 
 gcloud = pytest.mark.skipif(
-    not is_connected() or not has_gcloud_service_key() or not has_gcloud_cluster(),
+    not is_connected() or not has_gcloud_service_key(),
     reason="Skipping GCLOUD tests because not on "
     "CI, no inet connection or not logged "
     "in to gcloud.",
@@ -82,6 +78,8 @@ def run(
     cores=3,
     set_pythonpath=True,
     cleanup=True,
+    conda_frontend="mamba",
+    container_image="snakemake/snakemake:latest",
     **params
 ):
     """
@@ -99,8 +97,8 @@ def run(
         del os.environ["PYTHONPATH"]
 
     results_dir = join(path, "expected-results")
-    snakefile = join(path, snakefile)
-    assert os.path.exists(snakefile)
+    original_snakefile = join(path, snakefile)
+    assert os.path.exists(original_snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir
     ), "{} does not exist".format(results_dir)
@@ -132,16 +130,21 @@ def run(
         print(f)
         copy(os.path.join(path, f), tmpdir)
 
+    # Snakefile is now in temporary directory
+    snakefile = join(tmpdir, snakefile)
+
     # run snakemake
     success = snakemake(
-        snakefile,
+        snakefile=original_snakefile if no_tmpdir else snakefile,
         cores=cores,
         workdir=path if no_tmpdir else tmpdir,
         stats="stats.txt",
         config=config,
         verbose=True,
+        conda_frontend=conda_frontend,
         **params
     )
+
     if shouldfail:
         assert not success, "expected error on execution"
     else:

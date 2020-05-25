@@ -58,12 +58,16 @@ class Persistence:
         else:
             self.shadow_path = os.path.join(shadow_prefix, "shadow")
 
+        # place to store any auxilliary information needed during a run (e.g. source tarballs)
+        self.aux_path = os.path.join(self.path, "aux")
+
         for d in (
             self._metadata_path,
             self.shadow_path,
             self.conda_env_archive_path,
             self.conda_env_path,
             self.container_img_path,
+            self.aux_path,
         ):
             os.makedirs(d, exist_ok=True)
 
@@ -137,7 +141,7 @@ class Persistence:
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
 
-    def cleanup_conda(self):
+    def conda_cleanup_envs(self):
         # cleanup envs
         in_use = set(env.hash[:8] for env in self.dag.conda_envs.values())
         for d in os.listdir(self.conda_env_path):
