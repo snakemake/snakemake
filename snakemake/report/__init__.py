@@ -901,8 +901,6 @@ def build_interval_tree(records):
         job_end = datetime.datetime.fromtimestamp(rec.endtime).isoformat()
         job_data = {"threads": rec.threads, "rule": rec.rule, "job": rec.job.jobid, "start": job_start, "end": job_end}
         itree.addi(rec.starttime, rec.endtime, job_data)
-    print(start_time)
-    print(end_time)
     start_time = int(round(start_time, 0))
     end_time = int(round(end_time, 0))
     return start_time, end_time, itree
