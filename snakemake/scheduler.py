@@ -532,7 +532,6 @@ class JobScheduler:
         from pulp import lpSum
 
         # assert self.resources["_cores"] > 0
-        print(f"Possible Jobs: {list(jobs)}")
         scheduled_jobs = [pulp.LpVariable(f"job_{job}_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger) for idx, job in enumerate(jobs)]
 
         temp_files = {temp_file for job in jobs for temp_file in self.dag.temp_input(job)}
@@ -564,7 +563,6 @@ class JobScheduler:
         for name in self.workflow.global_resources:
             self.resources[name] -= sum([jobs[i].resources.get(name, 0) for i in selected_job_ids])
         solution = [jobs[i] for i in selected_job_ids]
-        print(f"Scheduled jobs: {solution}")
         return solution
 
     def required_by_job(self, temp_file, job):
