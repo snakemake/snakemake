@@ -50,4 +50,3 @@ dependencies:
   - toposort
   - mamba
   - crc32c
-  - pulp
