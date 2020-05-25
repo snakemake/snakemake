@@ -567,7 +567,7 @@ class JobScheduler:
             + total_temp_size
             * lpSum(
                 [
-                    job.resources.get("_cores", 1) + 1 * scheduled_jobs[i]
+                    (job.resources.get("_cores", 1) + 1) * scheduled_jobs[i]
                     for i, job in enumerate(jobs)
                 ]
             )
@@ -577,6 +577,7 @@ class JobScheduler:
                     for temp_file in temp_files
                 ]
             )
+            + lpSum()
         )
 
         # Constraints:
