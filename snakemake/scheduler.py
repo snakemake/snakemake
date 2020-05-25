@@ -532,12 +532,12 @@ class JobScheduler:
         from pulp import lpSum
 
         # assert self.resources["_cores"] > 0
-        scheduled_jobs = [
-            pulp.LpVariable(
-                f"job_{job}_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger
+        scheduled_jobs = {
+            job: pulp.LpVariable(
+                f"job_{job}", lowBound=0, upBound=1, cat=pulp.LpInteger
             )
-            for idx, job in enumerate(jobs)
-        ]
+            for job in jobs
+        }
 
         temp_files = {
             temp_file for job in jobs for temp_file in self.dag.temp_input(job)
@@ -563,12 +563,12 @@ class JobScheduler:
         prob += (
             total_core_requirement
             * total_temp_size
-            * lpSum([job.priority * scheduled_jobs[i] for i, job in enumerate(jobs)])
+            * lpSum([job.priority * scheduled_jobs[job] for job in jobs])
             + total_temp_size
             * lpSum(
                 [
-                    (job.resources.get("_cores", 1) + 1) * scheduled_jobs[i]
-                    for i, job in enumerate(jobs)
+                    (job.resources.get("_cores", 1) + 1) * scheduled_jobs[job]
+                    for job in jobs
                 ]
             )
             + lpSum(
@@ -583,10 +583,7 @@ class JobScheduler:
         for name in self.workflow.global_resources:
             prob += (
                 lpSum(
-                    [
-                        scheduled_jobs[i] * job.resources.get(name, 0)
-                        for i, job in enumerate(jobs)
-                    ]
+                    [scheduled_jobs[job] * job.resources.get(name, 0) for job in jobs]
                 )
                 <= self.resources[name],
                 f"Limitation of resource: {name}",
@@ -596,23 +593,20 @@ class JobScheduler:
         for temp_file in temp_files:
             prob += temp_job_improvement[temp_file] <= lpSum(
                 [
-                    scheduled_jobs[i] * self.required_by_job(temp_file, job)
-                    for i, job in enumerate(jobs)
+                    scheduled_jobs[job] * self.required_by_job(temp_file, job)
+                    for job in jobs
                 ]
             ) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
 
         prob.solve()
-        selected_job_ids = [
-            int(variable.name.split("_")[-1])
-            for variable in prob.variables()
-            if (variable.name.startswith("job_") and variable.value() == 1.0)
+        selected_jobs = [
+            job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
         ]
         for name in self.workflow.global_resources:
             self.resources[name] -= sum(
-                [jobs[i].resources.get(name, 0) for i in selected_job_ids]
+                [job.resources.get(name, 0) for job in selected_jobs]
             )
-        solution = [jobs[i] for i in selected_job_ids]
-        return solution
+        return selected_jobs
 
     def required_by_job(self, temp_file, job):
         return 1 if temp_file in self.dag.temp_input(job) else 0
