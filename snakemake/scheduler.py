@@ -532,12 +532,12 @@ class JobScheduler:
         from pulp import lpSum
 
         # assert self.resources["_cores"] > 0
-        scheduled_jobs = { job:
+        scheduled_jobs = [
             pulp.LpVariable(
                 f"job_{job}_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger
             )
             for idx, job in enumerate(jobs)
-        }
+        ]
 
         temp_files = {
             temp_file for job in jobs for temp_file in self.dag.temp_input(job)
