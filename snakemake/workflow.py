@@ -936,7 +936,8 @@ class Workflow:
 
         success = scheduler.schedule()
 
-        dag.cleanup_workdir()
+        if not immediate_submit:
+            dag.cleanup_workdir()
 
         if success:
             if dryrun:
