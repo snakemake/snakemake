@@ -865,8 +865,8 @@ def test_batch_fail():
 
 
 def test_github_issue52():
-    run(dpath("test_github_issue52"), shouldfail=True)
-    run(dpath("test_github_issue52"), snakefile="other.smk", shouldfail=True)
+    run(dpath("test_github_issue52"))
+    run(dpath("test_github_issue52"), snakefile="other.smk")
 
 
 def test_github_issue78():
