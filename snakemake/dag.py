@@ -189,20 +189,20 @@ class DAG:
         """Check that no output file is contained in a directory output of the same or another rule."""
         outputs = sorted(
             {
-                path(f)
+                (path(f), job)
                 for job in self.jobs
                 for f in job.output
                 for path in (os.path.abspath, os.path.realpath)
             }
         )
         for i in range(len(outputs) - 1):
-            a, b = outputs[i : i + 2]
+            (a, job_a), (b, job_b) = outputs[i : i + 2]
             try:
                 common = os.path.commonpath([a, b])
             except ValueError:
                 # commonpath raises error if windows drives are different.
                 continue
-            if common == os.path.commonpath([a]):
+            if common == os.path.commonpath([a]) and job_a != job_b:
                 raise ChildIOException(parent=outputs[i], child=outputs[i + 1])
 
     @property
@@ -220,6 +220,11 @@ class DAG:
         for job in self.jobs:
             if job not in self._jobid:
                 self._jobid[job] = len(self._jobid)
+
+    def cleanup_workdir(self):
+        for job in self.jobs:
+            for d in job.empty_dirs:
+                os.removedirs(d)
 
     def cleanup(self):
         self.job_cache.clear()
@@ -663,8 +668,6 @@ class DAG:
                 if f.exists_local:
                     logger.info("Removing local output file: {}".format(f))
                     f.remove()
-
-            job.rmdir_empty_remote_dirs()
 
     def jobid(self, job):
         """Return job id of given job."""

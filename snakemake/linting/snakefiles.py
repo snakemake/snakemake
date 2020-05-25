@@ -94,6 +94,15 @@ class SnakefileLinter(Linter):
                 links=[links.containers],
             )
 
+    def lint_tab_usage(self, snakefile, regex=re.compile(r"^ *\t")):
+        for match in regex.finditer(snakefile):
+            line = get_line(match, snakefile)
+            yield Lint(
+                title="Tab usage in line {}.".format(line),
+                body="Both Python and Snakemake can get confused when mixing tabs and spaces for indentation. "
+                "It is recommended to only use spaces for indentation.",
+            )
+
 
 def get_line(match, snakefile):
     return snakefile[: match.start()].count("\n") + 1

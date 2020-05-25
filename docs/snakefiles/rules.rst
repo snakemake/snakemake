@@ -479,7 +479,7 @@ A rule can also point to an external script instead of a shell command or inline
         script:
             "scripts/script.py"
 
-The script path is always relative to the Snakefile (in contrast to the input and output file paths, which are relative to the working directory).
+The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
 
