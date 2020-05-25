@@ -498,7 +498,7 @@ class FileRecord:
                 )
             except Exception as e:
                 raise WorkflowError(
-                    "Error loading caption file of output " "marked for report.", e
+                    "Error loading caption file of output marked for report.", e
                 )
 
     @property
