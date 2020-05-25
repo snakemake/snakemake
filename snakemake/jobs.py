@@ -787,23 +787,13 @@ class Job(AbstractJob):
             for f in to_remove:
                 f.remove()
 
-            self.rmdir_empty_remote_dirs()
-
     @property
-    def empty_remote_dirs(self):
+    def empty_dirs(self):
         for f in set(self.output) | set(self.input):
-            if f.is_remote and not f.should_stay_on_remote:
-                if os.path.exists(os.path.dirname(f)) and not len(
-                    os.listdir(os.path.dirname(f))
-                ):
-                    yield os.path.dirname(f)
-
-    def rmdir_empty_remote_dirs(self):
-        for d in self.empty_remote_dirs:
-            try:
-                os.removedirs(d)
-            except:
-                pass  # it's ok if we can't remove the leaf
+            if os.path.exists(os.path.dirname(f)) and not len(
+                os.listdir(os.path.dirname(f))
+            ):
+                yield os.path.dirname(f)
 
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """

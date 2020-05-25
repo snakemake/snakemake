@@ -936,6 +936,8 @@ class Workflow:
 
         success = scheduler.schedule()
 
+        dag.cleanup_workdir()
+
         if success:
             if dryrun:
                 if len(dag):

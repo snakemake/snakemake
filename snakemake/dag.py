@@ -221,6 +221,11 @@ class DAG:
             if job not in self._jobid:
                 self._jobid[job] = len(self._jobid)
 
+    def cleanup_workdir(self):
+        for job in self.jobs:
+            for d in job.empty_dirs:
+                os.removedirs(d)
+
     def cleanup(self):
         self.job_cache.clear()
         final_jobs = set(self.jobs)
@@ -663,8 +668,6 @@ class DAG:
                 if f.exists_local:
                     logger.info("Removing local output file: {}".format(f))
                     f.remove()
-
-            job.rmdir_empty_remote_dirs()
 
     def jobid(self, job):
         """Return job id of given job."""
