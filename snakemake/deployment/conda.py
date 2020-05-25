@@ -144,13 +144,12 @@ class Env:
             try:
                 out = shell.check_output(
                     "conda list --explicit --prefix '{}'".format(self.path),
-                    stderr=subprocess.STDOUT, text=True
+                    stderr=subprocess.STDOUT,
+                    text=True,
                 )
                 logger.debug(out)
             except subprocess.CalledProcessError as e:
-                raise WorkflowError(
-                    "Error exporting conda packages:\n" + e.output
-                )
+                raise WorkflowError("Error exporting conda packages:\n" + e.output)
             with open(os.path.join(env_archive, "packages.txt"), "w") as pkg_list:
                 for l in out.split("\n"):
                     if l and not l.startswith("#") and not l.startswith("@"):
