@@ -552,7 +552,9 @@ class JobScheduler:
         prob = pulp.LpProblem("Job scheduler", pulp.LpMaximize)
 
         total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
-        total_core_requirement = sum([job.resources.get("_cores", 1) for job in jobs])
+        total_core_requirement = sum(
+            [job.resources.get("_cores", 1) + 1 for job in jobs]
+        )
         # Objective function
         # Job priority > Core load
         # Core load > temp file removal
@@ -565,7 +567,7 @@ class JobScheduler:
             + total_temp_size
             * lpSum(
                 [
-                    job.resources.get("_cores", 1) * scheduled_jobs[i]
+                    job.resources.get("_cores", 1) + 1 * scheduled_jobs[i]
                     for i, job in enumerate(jobs)
                 ]
             )
