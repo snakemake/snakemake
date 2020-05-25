@@ -289,7 +289,9 @@ class S3Helper(object):
                     )
             return destination_path
         except:
-            return None
+            raise S3FileException(
+                "Error downloading file '%s' from bucket '%s'." % (key, bucket_name)
+            )
 
     def delete_from_bucket(self, bucket_name, key):
         """ Delete a file from s3
