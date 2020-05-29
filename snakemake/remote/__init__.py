@@ -166,7 +166,7 @@ class AbstractRemoteObject:
         self.stay_on_remote = stay_on_remote
         self.provider = provider
         self.protocol = protocol
-    
+
     def inventory(self, cache: snakemake.io.IOCache):
         """From this file, try to find as much existence and modification date 
         information as possible.

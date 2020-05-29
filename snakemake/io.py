@@ -154,7 +154,7 @@ class _IOFile(str):
             return func(self, *args, **kwargs)
 
         return wrapper
-    
+
     def inventory(self):
         """Starting from the given file, try to cache as much existence and 
         modification date information of this and other files as possible.
