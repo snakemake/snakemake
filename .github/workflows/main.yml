@@ -127,7 +127,7 @@ jobs:
         run: echo "::add-path::$env:CONDA\Scripts"
       
       # No win conda package exist for pygraphviz yet
-      - name: Remove pygraphviz test dependency
+      - name: Remove unix-only dependencies
         shell: python
         run: |
           import fileinput
@@ -137,7 +137,10 @@ jobs:
                   print(line)
 
       - name: Setup Snakemake environment
-        run: conda env create --quiet --name snakemake --file test-environment.yml
+        run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          conda install -c conda-forge -q mamba
+          mamba env create -q --name snakemake --file test-environment.yml
         
       - name: Run tests
         shell: cmd
@@ -145,4 +148,4 @@ jobs:
           CI: true
         run: |
           call activate snakemake
-          pytest -v -x
+          pytest -v -x tests/tests.py
