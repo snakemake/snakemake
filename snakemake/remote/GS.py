@@ -141,10 +141,6 @@ class RemoteObject(AbstractRemoteObject):
             self.bucket_name, prefix=os.path.dirname(self.blob.name)
         ):
 
-            # Don't include anything in the working directory cache
-            if blob.name.startswith("source/cache"):
-                continue
-
             # By way of being listed, it exists. mtime is a datetime object
             name = "%s/%s" % (blob.bucket.name, blob.name)
             cache.exists_remote[name] = True
