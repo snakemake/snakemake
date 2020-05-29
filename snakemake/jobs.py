@@ -416,6 +416,10 @@ class Job(AbstractJob):
         )
 
     @property
+    def is_pipe(self):
+        return any([is_flagged(o, "pipe") for o in self.output])
+
+    @property
     def expanded_output(self):
         """ Iterate over output files while dynamic output is expanded. """
         for f, f_ in zip(self.output, self.rule.output):
@@ -526,6 +530,10 @@ class Job(AbstractJob):
                 if f in self.dynamic_output:
                     if not self.expand_dynamic(f_):
                         files.add("{} (dynamic)".format(f_))
+                elif is_flagged(f, "pipe"):
+                    # pipe output is always declared as missing
+                    # (even if it might be present on disk for some reason)
+                    files.add(f)
                 elif not f.exists:
                     files.add(f)
 
@@ -779,23 +787,13 @@ class Job(AbstractJob):
             for f in to_remove:
                 f.remove()
 
-            self.rmdir_empty_remote_dirs()
-
     @property
-    def empty_remote_dirs(self):
+    def empty_dirs(self):
         for f in set(self.output) | set(self.input):
-            if f.is_remote and not f.should_stay_on_remote:
-                if os.path.exists(os.path.dirname(f)) and not len(
-                    os.listdir(os.path.dirname(f))
-                ):
-                    yield os.path.dirname(f)
-
-    def rmdir_empty_remote_dirs(self):
-        for d in self.empty_remote_dirs:
-            try:
-                os.removedirs(d)
-            except:
-                pass  # it's ok if we can't remove the leaf
+            if os.path.exists(os.path.dirname(f)) and not len(
+                os.listdir(os.path.dirname(f))
+            ):
+                yield os.path.dirname(f)
 
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """
@@ -1165,9 +1163,8 @@ class GroupJob(AbstractJob):
     def resources(self):
         if self._resources is None:
             self._resources = defaultdict(int)
-            pipe_group = any(
-                [any([is_flagged(o, "pipe") for o in job.output]) for job in self.jobs]
-            )
+            self._resources["_nodes"] = 1
+            pipe_group = any([job.is_pipe for job in self.jobs])
             # iterate over siblings that can be executed in parallel
             for siblings in self.toposorted:
                 sibling_resources = defaultdict(int)
@@ -1396,6 +1393,7 @@ class Reason:
         "noio",
         "nooutput",
         "derived",
+        "pipe",
     ]
 
     def __init__(self):
@@ -1407,6 +1405,7 @@ class Reason:
         self.noio = False
         self.nooutput = False
         self.derived = True
+        self.pipe = False
 
     @lazy_property
     def updated_input(self):
@@ -1471,4 +1470,5 @@ class Reason:
             or self.updated_input_run
             or self.noio
             or self.nooutput
+            or self.pipe
         )

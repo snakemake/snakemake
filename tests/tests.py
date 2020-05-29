@@ -1,10 +1,11 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2015-2020, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import os
 import sys
+import uuid
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -137,7 +138,16 @@ def test_ancient():
 
 @skip_on_windows  # No conda-forge version of pygraphviz for windows
 def test_report():
-    run(dpath("test_report"), report="report.html", check_md5=False)
+    run(
+        dpath("test_report"),
+        report="report.html",
+        report_stylesheet="custom-stylesheet.css",
+        check_md5=False,
+    )
+
+
+def test_report_zip():
+    run(dpath("test_report_zip"), report="report.zip", check_md5=False)
 
 
 def test_dynamic():
@@ -263,6 +273,7 @@ def test_remote():
 
 @skip_on_windows
 def test_cluster_sync():
+    os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster_sync="./qsub")
 
 
@@ -356,29 +367,26 @@ def test_issue328():
 
 @skip_on_windows  # test uses bwa which is non windows
 def test_conda():
-    if conda_available():
-        run(dpath("test_conda"), use_conda=True)
+    run(dpath("test_conda"), use_conda=True)
+
+
+def test_upstream_conda():
+    run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
 
 
 @skip_on_windows  # Conda support is partly broken on Win
 def test_conda_custom_prefix():
-    if conda_available():
-        run(
-            dpath("test_conda_custom_prefix"),
-            use_conda=True,
-            conda_prefix="custom",
-            set_pythonpath=False,
-        )
+    run(
+        dpath("test_conda_custom_prefix"),
+        use_conda=True,
+        conda_prefix="custom",
+        set_pythonpath=False,
+    )
 
 
 @skip_on_windows  # Conda support is partly broken on Win
 def test_wrapper():
-    if conda_available():
-        run(dpath("test_wrapper"), use_conda=True)
-
-
-def conda_available():
-    return which("conda")
+    run(dpath("test_wrapper"), use_conda=True)
 
 
 def test_get_log_none():
@@ -673,7 +681,12 @@ def test_singularity_invalid():
 @skip_on_windows
 @connected
 def test_singularity_conda():
-    run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True)
+    run(
+        dpath("test_singularity_conda"),
+        use_singularity=True,
+        use_conda=True,
+        conda_frontend="conda",
+    )
 
 
 def test_issue612():
@@ -696,91 +709,6 @@ def test_archive():
 
 def test_log_input():
     run(dpath("test_log_input"))
-
-
-@pytest.fixture(scope="module")
-def gcloud_cluster():
-    class Cluster:
-        def __init__(self):
-            self.cluster = os.environ["GCLOUD_CLUSTER"]
-            self.bucket_name = "snakemake-testing-{}".format(self.cluster)
-
-            shell(
-                """
-            $GCLOUD container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
-            $GCLOUD container clusters get-credentials {self.cluster} --zone us-central1-a
-            $GSUTIL mb gs://{self.bucket_name}
-            """
-            )
-
-        def delete(self):
-            shell(
-                """
-            $GCLOUD container clusters delete {self.cluster} --zone us-central1-a --quiet || true
-            $GSUTIL rm -r gs://{self.bucket_name} || true
-            """
-            )
-
-        def run(self, test="test_kubernetes", **kwargs):
-            try:
-                run(
-                    dpath(test),
-                    kubernetes="default",
-                    default_remote_provider="GS",
-                    default_remote_prefix=self.bucket_name,
-                    no_tmpdir=True,
-                    **kwargs
-                )
-            except Exception as e:
-                shell(
-                    "for p in `kubectl get pods | grep ^snakejob- | cut -f 1 -d ' '`; do kubectl logs $p; done"
-                )
-                raise e
-
-        def reset(self):
-            shell("$GSUTIL rm -r gs://{self.bucket_name}/* || true")
-
-    cluster = Cluster()
-    yield cluster
-    cluster.delete()
-
-
-@gcloud
-@pytest.mark.skip(
-    reason="reenable once we have figured out how to fail if available core hours per month are exceeded"
-)
-@pytest.mark.xfail
-def test_gcloud_plain(gcloud_cluster):
-    gcloud_cluster.reset()
-    gcloud_cluster.run()
-
-
-@gcloud
-@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
-def test_gcloud_conda(gcloud_cluster):
-    gcloud_cluster.reset()
-    gcloud_cluster.run(use_conda=True)
-
-
-@gcloud
-@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
-def test_gcloud_singularity(gcloud_cluster):
-    gcloud_cluster.reset()
-    gcloud_cluster.run(use_singularity=True)
-
-
-@gcloud
-@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
-def test_gcloud_conda_singularity(gcloud_cluster):
-    gcloud_cluster.reset()
-    gcloud_cluster.run(use_singularity=True, use_conda=True)
-
-
-@gcloud()
-@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
-def test_issue1041(gcloud_cluster):
-    gcloud_cluster.reset()
-    gcloud_cluster.run(test="test_issue1041")
 
 
 @skip_on_windows
@@ -1010,8 +938,8 @@ def test_batch_fail():
 
 
 def test_github_issue52():
-    run(dpath("test_github_issue52"), shouldfail=True)
-    run(dpath("test_github_issue52"), snakefile="other.smk", shouldfail=True)
+    run(dpath("test_github_issue52"))
+    run(dpath("test_github_issue52"), snakefile="other.smk")
 
 
 @skip_on_windows
@@ -1022,7 +950,8 @@ def test_github_issue78():
 def test_envvars():
     run(dpath("test_envvars"), shouldfail=True)
     os.environ["TEST_ENV_VAR"] = "test"
-    run(dpath("test_envvars"))
+    os.environ["TEST_ENV_VAR2"] = "test"
+    run(dpath("test_envvars"), envvars=["TEST_ENV_VAR2"])
 
 
 def test_github_issue105():
@@ -1071,3 +1000,17 @@ def test_linting():
     snakemake(
         snakefile=os.path.join(dpath("test14"), "Snakefile.nonstandard"), lint=True
     )
+
+
+def test_string_resources():
+    from snakemake.resources import DefaultResources
+
+    run(
+        dpath("test_string_resources"),
+        default_resources=DefaultResources(["gpu_model='nvidia-tesla-1000'"]),
+        cluster="./qsub.py",
+    )
+
+
+def test_jupyter_notebook():
+    run(dpath("test_jupyter_notebook"), use_conda=True)

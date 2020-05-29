@@ -1,3 +1,57 @@
+[5.18.0] - 2020-05-21
+=====================
+Added
+-----
+- Native Google Cloud support via the (despite the name generic) lifesciences API.
+- Ability to optionally exchange the conda frontend to mamba (faster and sometimes more correct) instead of conda.
+Changed
+-------
+- Improved notebook integration experience, with various removed bugs and pitfalls.
+- Auto-retry google storage API calls on transient or checksum errors.
+
+
+[5.17.0] - 2020-05-07
+=====================
+Added
+-----
+- --envvars flag for passing secrets to cloud executors
+Changed
+-------
+- Wider thumbnail dialogs in report.
+- Updated installation instructions.
+- Various small kubernetes bug fixes.
+- Bug fix for iRods remote files.
+
+[5.16.0] - 2020-04-29
+=====================
+Added
+-----
+- Interactive jupyter notebook editing. Notebooks defined by rules can be interactively drafted and updated using snakemake --edit-notebook (see docs).
+Changed
+-------
+- Fixed group resource usage to occupy one cluster/cloud node.
+- Minor bug fixes.
+
+[5.15.0] - 2020-04-21
+=====================
+Changed
+-------
+- The resource directive can now take strings, e.g. for defining a GPU model (see docs). This will e.g. be used for upcoming updates to cloud executors.
+- More extensive conda cleanup with --conda-cleanup-packages, meant for CI usage.
+- Further polish for reports.
+
+[5.14.0] - 2020-04-08
+=====================
+Changed
+-------
+- Redesigned HTML reports, with improved interface and performance.
+- For big data, HTML reports can now be stored as ZIP, where files are not anymore embedded but rather are stored in an auxilliary folder, such that they don't have to be in memory during report rendering.
+- Added subcategories to report (see docs).
+- Fixed a bug linter, leading to only one rule or snakefile to be linted.
+- Breaking change in CLI: added flags --conda-cleanup-envs and --conda-cleanup-pkgs, removed flag --cleanup-conda.
+- Fixed scheduling of pipe jobs, they are now always scheduled, fixing a hangup.
+- Corrected quoting of shell command for cluster submission.
+
 [5.13.0] - 2020-03-27
 =====================
 Added

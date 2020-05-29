@@ -18,6 +18,11 @@ import subprocess as sp
 import itertools
 import csv
 from collections import namedtuple, defaultdict
+from itertools import accumulate, chain
+import urllib.parse
+import hashlib
+from zipfile import ZipFile
+from pathlib import Path
 
 import requests
 
@@ -38,7 +43,7 @@ from snakemake.io import (
 from snakemake.exceptions import WorkflowError
 from snakemake.script import Snakemake
 from snakemake import __version__
-from snakemake.common import num_if_possible
+from snakemake.common import num_if_possible, lazy_property
 from snakemake import logging
 
 
@@ -195,12 +200,20 @@ def report(
 
 
 class Category:
-    def __init__(self, name):
+    def __init__(self, name, wildcards, job):
         if name is None:
             name = "Other"
+            self.is_other = True
+        else:
+            self.is_other = False
+            try:
+                name = apply_wildcards(name, wildcards)
+            except AttributeError as e:
+                raise WorkflowError("Failed to resolve wildcards.", e, rule=job.rule)
         self.name = name
-        self.id = "results-{name}".format(name=name.replace(" ", "_"))
-        self.content_id = self.id + "-content"
+        h = hashlib.sha256()
+        h.update(name.encode())
+        self.id = h.hexdigest()
 
     def __eq__(self, other):
         return self.name.__eq__(other.name)
@@ -227,7 +240,6 @@ class RuleRecord:
             self._conda_env_raw = base64.b64decode(job_rec.conda_env).decode()
             self.conda_env = yaml.load(self._conda_env_raw, Loader=yaml.Loader)
         self.n_jobs = 1
-        self.output = list(job_rec.output)
         self.id = uuid.uuid4()
 
     def code(self):
@@ -271,7 +283,14 @@ class RuleRecord:
 
     def add(self, job_rec):
         self.n_jobs += 1
-        self.output.extend(job_rec.output)
+
+    @property
+    def output(self):
+        return self._rule.output
+
+    @property
+    def input(self):
+        return self._rule.input
 
     def __eq__(self, other):
         return (
@@ -321,51 +340,39 @@ class JobRecord:
 
 
 class FileRecord:
-    def __init__(self, path, job, caption, env, category, wildcards_overwrite=None):
+    def __init__(
+        self,
+        path,
+        job,
+        caption,
+        env,
+        category,
+        wildcards_overwrite=None,
+        mode_embedded=True,
+    ):
+        self.mode_embedded = mode_embedded
         self.path = path
         self.target = os.path.basename(path)
         self.size = os.path.getsize(self.path)
         logger.info("Adding {} ({:.2g} MB).".format(self.name, self.size / 1e6))
         self.raw_caption = caption
         self.mime, _ = mime_from_file(self.path)
-        self.id = uuid.uuid4()
+
+        h = hashlib.sha256()
+        h.update(path.encode())
+
+        self.id = h.hexdigest()
         self.job = job
-        self.wildcards = logging.format_wildcards(
+        self._wildcards = (
             job.wildcards if wildcards_overwrite is None else wildcards_overwrite
         )
-        self.params = logging.format_dict(job.params)
-        self.png_uri = None
+        self.wildcards = logging.format_wildcards(self._wildcards)
+        self.params = (
+            logging.format_dict(job.params).replace("\n", r"\n").replace('"', r"\"")
+        )
         self.category = category
-        if self.is_img:
-            convert = shutil.which("convert")
-            if convert is not None:
-                try:
-                    # 2048 aims at a reasonable balance between what displays
-                    # can show in a png-preview image and what renders quick
-                    # into a small enough png
-                    max_width = "2048"
-                    max_height = "2048"
-                    # '>' means only larger images scaled down to within max-dimensions
-                    max_spec = max_width + "x" + max_height + ">"
-                    png = sp.check_output(
-                        ["convert", "-resize", max_spec, self.path, "png:-"],
-                        stderr=sp.PIPE,
-                    )
-                    uri = data_uri(
-                        png, os.path.basename(self.path) + ".png", mime="image/png"
-                    )
-                    self.png_uri = uri
-                except sp.CalledProcessError as e:
-                    logger.warning(
-                        "Failed to convert image to png with "
-                        "imagemagick convert: {}".format(e.stderr)
-                    )
-            else:
-                logger.warning(
-                    "Command convert not in $PATH. Install "
-                    "imagemagick in order to have embedded "
-                    "images and pdfs in the report."
-                )
+
+        self.table_content = None
         if self.is_table:
             if self.size > 1e6:
                 logger.warning(
@@ -398,12 +405,65 @@ class FileRecord:
                         html = template.render(
                             columns=columns, table=table, name=self.name
                         ).encode()
+
+                        self.table_content = html
                         self.mime = "text/html"
                         self.path = os.path.basename(self.path) + ".html"
-                        self.data_uri = data_uri(html, self.path, mime=self.mime)
-                        return
-        # fallback
-        self.data_uri = data_uri_from_file(path)
+
+        self.data_uri = self._data_uri()
+        self.png_uri = self._png_uri()
+
+    @lazy_property
+    def png_content(self):
+        assert self.is_img
+
+        convert = shutil.which("convert")
+        if convert is not None:
+            try:
+                # 2048 aims at a reasonable balance between what displays
+                # can show in a png-preview image and what renders quick
+                # into a small enough png
+                max_width = "2048"
+                max_height = "2048"
+                # '>' means only larger images scaled down to within max-dimensions
+                max_spec = max_width + "x" + max_height + ">"
+                png = sp.check_output(
+                    ["convert", "-resize", max_spec, self.path, "png:-"], stderr=sp.PIPE
+                )
+                return png
+            except sp.CalledProcessError as e:
+                logger.warning(
+                    "Failed to convert image to png with "
+                    "imagemagick convert: {}".format(e.stderr)
+                )
+        else:
+            logger.warning(
+                "Command convert not in $PATH. Install "
+                "imagemagick in order to have embedded "
+                "images and pdfs in the report."
+            )
+
+    def _png_uri(self):
+        if self.is_img:
+            png = self.png_content
+            if self.mode_embedded:
+                if png is not None:
+                    uri = data_uri(
+                        png, os.path.basename(self.path) + ".png", mime="image/png"
+                    )
+                    return uri
+            else:
+                if png is not None:
+                    return os.path.join("data/thumbnails", self.id)
+
+    def _data_uri(self):
+        if self.mode_embedded:
+            if self.table_content is not None:
+                return data_uri(self.table_content, self.path, self.mime)
+            else:
+                return data_uri_from_file(self.path)
+        else:
+            return os.path.join("data/raw", self.id, self.name)
 
     def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
@@ -419,7 +479,7 @@ class FileRecord:
                 job.input,
                 job.output,
                 job.params,
-                job.wildcards,
+                self._wildcards,
                 job.threads,
                 job.resources,
                 job.log,
@@ -433,10 +493,12 @@ class FileRecord:
                 caption = env.from_string(caption).render(
                     snakemake=snakemake, categories=categories, files=files
                 )
-                self.caption = publish_parts(caption, writer_name="html")["body"]
+                self.caption = json.dumps(
+                    publish_parts(caption, writer_name="html")["body"]
+                )
             except Exception as e:
                 raise WorkflowError(
-                    "Error loading caption file of output " "marked for report.", e
+                    "Error loading caption file of output marked for report.", e
                 )
 
     @property
@@ -524,7 +586,7 @@ def get_resource_as_string(url):
     )
 
 
-def auto_report(dag, path):
+def auto_report(dag, path, stylesheet=None):
     try:
         from jinja2 import Template, Environment, PackageLoader
     except ImportError as e:
@@ -532,8 +594,19 @@ def auto_report(dag, path):
             "Python package jinja2 must be installed to create reports."
         )
 
-    if not path.endswith(".html"):
-        raise WorkflowError("Report file does not end with .html")
+    mode_embedded = True
+    if path.endswith(".zip"):
+        mode_embedded = False
+    elif not path.endswith(".html"):
+        raise WorkflowError("Report file does not end with .html or .zip")
+
+    custom_stylesheet = None
+    if stylesheet is not None:
+        try:
+            with open(stylesheet) as s:
+                custom_stylesheet = s.read()
+        except (Exception, BaseException) as e:
+            raise WorkflowError("Unable to read custom report stylesheet.", e)
 
     logger.info("Creating report...")
 
@@ -545,7 +618,7 @@ def auto_report(dag, path):
     env.filters["get_resource_as_string"] = get_resource_as_string
 
     persistence = dag.workflow.persistence
-    results = defaultdict(list)
+    results = defaultdict(lambda: defaultdict(list))
     records = defaultdict(JobRecord)
     recorded_files = set()
     for job in dag.jobs:
@@ -556,10 +629,17 @@ def auto_report(dag, path):
                         "File {} marked for report but does " "not exist.".format(f)
                     )
                 report_obj = get_flag_value(f, "report")
-                category = Category(report_obj.category)
 
                 def register_file(f, wildcards_overwrite=None):
-                    results[category].append(
+                    wildcards = wildcards_overwrite or job.wildcards
+                    category = Category(
+                        report_obj.category, wildcards=wildcards, job=job
+                    )
+                    subcategory = Category(
+                        report_obj.subcategory, wildcards=wildcards, job=job
+                    )
+
+                    results[category][subcategory].append(
                         FileRecord(
                             f,
                             job,
@@ -567,6 +647,7 @@ def auto_report(dag, path):
                             env,
                             category,
                             wildcards_overwrite=wildcards_overwrite,
+                            mode_embedded=mode_embedded,
                         )
                     )
                     recorded_files.add(f)
@@ -625,8 +706,9 @@ def auto_report(dag, path):
                     "old Snakemake version.".format(f)
                 )
 
-    for catresults in results.values():
-        catresults.sort(key=lambda res: res.name)
+    for subcats in results.values():
+        for catresults in subcats.values():
+            catresults.sort(key=lambda res: res.name)
 
     # prepare runtimes
     runtimes = [
@@ -670,28 +752,28 @@ def auto_report(dag, path):
     files = [
         seen.add(res.target) or res
         for cat in results.values()
-        for res in cat
+        for subcat in cat.values()
+        for res in subcat
         if res.target not in seen
     ]
 
     rst_links = textwrap.dedent(
         """
 
-    .. _Results: #results
-    .. _Rules: #rules
-    .. _Statistics: #stats
+    .. _Workflow: javascript:show_panel('workflow')
+    .. _Statistics: javascript:show_panel('statistics')
     {% for cat, catresults in categories|dictsort %}
-    .. _{{ cat.name }}: #{{ cat.id }}
+    .. _{{ cat.name }}: javascript:show_panel("{{ cat.id }}")
+    {% endfor %}
     {% for res in files %}
-    .. _{{ res.target }}: #{{ res.id }}
+    .. _{{ res.target }}: javascript:show_panel("{{ res.category.id }}")
     {% endfor %}
-    {% endfor %}
-    .. _
     """
     )
-    for cat, catresults in results.items():
-        for res in catresults:
-            res.render(env, rst_links, results, files)
+    for cat, subcats in results.items():
+        for subcat, catresults in subcats.items():
+            for res in catresults:
+                res.render(env, rst_links, results, files)
 
     # global description
     text = ""
@@ -711,7 +793,12 @@ def auto_report(dag, path):
 
     # record time
     now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
-    results_size = sum(res.size for cat in results.values() for res in cat)
+    results_size = sum(
+        res.size
+        for cat in results.values()
+        for subcat in cat.values()
+        for res in subcat
+    )
 
     try:
         from pygments.formatters import HtmlFormatter
@@ -720,25 +807,58 @@ def auto_report(dag, path):
             "Python package pygments must be installed to create reports."
         )
 
-    # render HTML
     template = env.get_template("report.html")
-    with open(path, "w", encoding="utf-8") as out:
-        out.write(
-            template.render(
-                results=results,
-                results_size=results_size,
-                configfiles=configfiles,
-                text=text,
-                rulegraph_nodes=rulegraph["nodes"],
-                rulegraph_links=rulegraph["links"],
-                rulegraph_width=xmax + 20,
-                rulegraph_height=ymax + 20,
-                runtimes=runtimes,
-                timeline=timeline,
-                rules=[rec for recs in rules.values() for rec in recs],
-                version=__version__,
-                now=now,
-                pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
-            )
-        )
-    logger.info("Report created.")
+
+    logger.info("Downloading resources and rendering HTML.")
+
+    rendered = template.render(
+        results=results,
+        results_size=results_size,
+        configfiles=configfiles,
+        text=text,
+        rulegraph_nodes=rulegraph["nodes"],
+        rulegraph_links=rulegraph["links"],
+        rulegraph_width=xmax + 20,
+        rulegraph_height=ymax + 20,
+        runtimes=runtimes,
+        timeline=timeline,
+        rules=[rec for recs in rules.values() for rec in recs],
+        version=__version__,
+        now=now,
+        pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
+        custom_stylesheet=custom_stylesheet,
+        mode_embedded=mode_embedded,
+    )
+
+    # TODO look into supporting .WARC format, also see (https://webrecorder.io)
+
+    if not mode_embedded:
+        with ZipFile(path, mode="w") as zipout:
+            folder = Path(Path(path).stem)
+            # store results in data folder
+            for subcats in results.values():
+                for catresults in subcats.values():
+                    for result in catresults:
+                        # write raw data
+                        if result.table_content is not None:
+                            zipout.writestr(
+                                str(folder.joinpath(result.data_uri)),
+                                result.table_content,
+                            )
+                        else:
+                            zipout.write(
+                                result.path, str(folder.joinpath(result.data_uri))
+                            )
+                        # write thumbnail
+                        if result.is_img and result.png_content:
+                            zipout.writestr(
+                                str(folder.joinpath(result.png_uri)), result.png_content
+                            )
+
+            # write report html
+            zipout.writestr(str(folder.joinpath("report.html")), rendered)
+    else:
+        with open(path, "w", encoding="utf-8") as htmlout:
+            htmlout.write(rendered)
+
+    logger.info("Report created: {}.".format(path))

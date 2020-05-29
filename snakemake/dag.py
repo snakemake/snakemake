@@ -189,20 +189,20 @@ class DAG:
         """Check that no output file is contained in a directory output of the same or another rule."""
         outputs = sorted(
             {
-                path(f)
+                (path(f), job)
                 for job in self.jobs
                 for f in job.output
                 for path in (os.path.abspath, os.path.realpath)
             }
         )
         for i in range(len(outputs) - 1):
-            a, b = outputs[i : i + 2]
+            (a, job_a), (b, job_b) = outputs[i : i + 2]
             try:
                 common = os.path.commonpath([a, b])
             except ValueError:
                 # commonpath raises error if windows drives are different.
                 continue
-            if common == os.path.commonpath([a]):
+            if common == os.path.commonpath([a]) and job_a != job_b:
                 raise ChildIOException(parent=outputs[i], child=outputs[i + 1])
 
     @property
@@ -220,6 +220,11 @@ class DAG:
         for job in self.jobs:
             if job not in self._jobid:
                 self._jobid[job] = len(self._jobid)
+
+    def cleanup_workdir(self):
+        for job in self.jobs:
+            for d in job.empty_dirs:
+                os.removedirs(d)
 
     def cleanup(self):
         self.job_cache.clear()
@@ -251,7 +256,12 @@ class DAG:
                     simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
                 simg = self.container_imgs[simg_url]
-            env = conda.Env(env_file, self, container_img=simg)
+            env = conda.Env(
+                env_file,
+                self,
+                container_img=simg,
+                cleanup=self.workflow.conda_cleanup_pkgs,
+            )
             self.conda_envs[(env_file, simg_url)] = env
 
         if not init_only:
@@ -313,6 +323,9 @@ class DAG:
         ):
             self.update_dynamic(job)
         self.postprocess()
+
+    def is_edit_notebook_job(self, job):
+        return self.workflow.edit_notebook and job.targetfile in self.targetfiles
 
     @property
     def dynamic_output_jobs(self):
@@ -656,8 +669,6 @@ class DAG:
                     logger.info("Removing local output file: {}".format(f))
                     f.remove()
 
-            job.rmdir_empty_remote_dirs()
-
     def jobid(self, job):
         """Return job id of given job."""
         if job.is_group():
@@ -817,6 +828,7 @@ class DAG:
             updated_subworkflow_input = self.updated_subworkflow_files.intersection(
                 job.input
             )
+
             if (
                 job not in self.omitforce
                 and job.rule in self.forcerules

@@ -18,6 +18,7 @@ from glob import glob
 import tarfile
 import zipfile
 import uuid
+from enum import Enum
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
@@ -25,6 +26,14 @@ from snakemake.common import strip_prefix, ON_WINDOWS
 from snakemake import utils
 from snakemake.deployment import singularity
 from snakemake.io import git_content
+
+
+class CondaCleanupMode(Enum):
+    tarballs = "tarballs"
+    cache = "cache"
+
+    def __str__(self):
+        return self.value
 
 
 def content(env_file):
@@ -48,9 +57,10 @@ class Env:
 
     """Conda environment from a given specification file."""
 
-    def __init__(self, env_file, dag, container_img=None):
+    def __init__(self, env_file, dag, container_img=None, cleanup=None):
         self.file = env_file
 
+        self.frontend = dag.workflow.conda_frontend
         self._env_dir = dag.workflow.persistence.conda_env_path
         self._env_archive_dir = dag.workflow.persistence.conda_env_archive_path
 
@@ -60,6 +70,7 @@ class Env:
         self._path = None
         self._archive_file = None
         self._container_img = container_img
+        self._cleanup = cleanup
 
     @property
     def container_img_url(self):
@@ -286,7 +297,7 @@ class Env:
                     logger.info("Downloading and installing remote packages.")
                     cmd = " ".join(
                         [
-                            "conda",
+                            self.frontend,
                             "env",
                             "create",
                             "--file '{}'".format(target_env_file),
@@ -300,6 +311,16 @@ class Env:
                             envvars=self.get_singularity_envvars(),
                         )
                     out = shell.check_output(cmd, stderr=subprocess.STDOUT, text=True)
+
+                    # cleanup if requested
+                    if self._cleanup is CondaCleanupMode.tarballs:
+                        logger.info("Cleaning up conda package tarballs.")
+                        shell.check_output("conda clean -y --tarballs")
+                    elif self._cleanup is CondaCleanupMode.cache:
+                        logger.info(
+                            "Cleaning up conda package tarballs and package cache."
+                        )
+                        shell.check_output("conda clean -y --tarballs --packages")
                 # Touch "done" flag file
                 with open(os.path.join(env_path, "env_setup_done"), "a") as f:
                     pass
