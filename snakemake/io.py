@@ -164,7 +164,7 @@ class _IOFile(str):
             if self.is_remote:
                 if self not in cache.exists_remote:
                     # info not yet cached, let's discover as much as we can
-                    self.remote_object.inventory()
+                    self.remote_object.inventory(cache)
             else:
                 # For local files, no inventory will be created for now.
                 # In the future, we might use os.walk or something else.

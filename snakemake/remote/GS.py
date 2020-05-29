@@ -127,11 +127,29 @@ class RemoteObject(AbstractRemoteObject):
         self._blob = None
 
     def inventory(self, cache: snakemake.io.IOCache):
-        # TODO @vsoch please use Client.list_blobs(), iterate over the objects in the bucket
-        # and store the information about the corresponding IOFiles in the given cache (cache.exist_remote, cache.mtime, cache.size).
-        # The key for the cache is bucketname/blobname.
-        # Then, snakemake will get this information from the cache instead of actually querying the remote provider.
-        pass
+        """Using client.list_blobs(), we want to iterate over the objects in
+           the "folder" of a bucket and store information about the IOFiles in the
+           provided cache (snakemake.io.IOCache) indexed by bucket/blob name.
+           This will be called by the first mention of a remote object, and
+           iterate over the entire bucket once (and then not need to again). 
+           This includes:
+            - cache.exist_remote
+            - cache_mtime
+            - cache.size
+        """
+        for blob in self.client.list_blobs(
+            self.bucket_name, prefix=os.path.dirname(self.blob.name)
+        ):
+
+            # Don't include anything in the working directory cache
+            if blob.name.startswith("source/cache"):
+                continue
+
+            # By way of being listed, it exists. mtime is a datetime object
+            name = "%s/%s" % (blob.bucket.name, blob.name)
+            cache.exists_remote[name] = True
+            cache.mtime[name] = blob.updated
+            cache.size[name] = blob.size
 
     # === Implementations of abstract class members ===
 
