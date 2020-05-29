@@ -991,6 +991,9 @@ class Workflow:
         """
         Include a snakefile.
         """
+        if isinstance(snakefile, Path):
+            snakefile = str(snakefile)
+
         # check if snakefile is a path to the filesystem
         if not urllib.parse.urlparse(snakefile).scheme:
             if not os.path.isabs(snakefile) and self.included_stack:
