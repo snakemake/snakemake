@@ -94,7 +94,7 @@ jobs:
         run: echo "::add-path::$env:CONDA\Scripts"
       
       # No win conda package exist for pygraphviz yet
-      - name: Remove pygraphviz test dependency
+      - name: Remove unix-only dependencies
         shell: python
         run: |
           import fileinput
