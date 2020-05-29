@@ -166,10 +166,9 @@ class _IOFile(str):
                     # info not yet cached, let's discover as much as we can
                     self.remote_object.inventory()
             else:
-                if self not in cache.exists_local:
-                    # For local files, no inventory will be created for now.
-                    # In the future, we might use os.walk or something else.
-                    pass
+                # For local files, no inventory will be created for now.
+                # In the future, we might use os.walk or something else.
+                pass
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
