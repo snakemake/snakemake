@@ -763,6 +763,13 @@ class DAG:
         producer = dict()
         exceptions = dict()
         for file, jobs in potential_dependencies.items():
+            # If possible, obtain inventory information starting from
+            # given file and store it in the IOCache.
+            # This should provide faster access to existence and mtime information
+            # than querying file by file. If the file type does not support inventory
+            # information, this call is a no-op.
+            file.inventory()
+
             if not jobs:
                 # no producing job found
                 if not file.exists:

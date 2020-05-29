@@ -154,6 +154,22 @@ class _IOFile(str):
             return func(self, *args, **kwargs)
 
         return wrapper
+    
+    def inventory(self):
+        """Starting from the given file, try to cache as much existence and 
+        modification date information of this and other files as possible.
+        """
+        cache = self.rule.workflow.iocache
+        if cache.active:
+            if self.is_remote:
+                if self not in cache.exists_remote:
+                    # info not yet cached, let's discover as much as we can
+                    self.remote_object.inventory()
+            else:
+                if self not in cache.exists_local:
+                    # For local files, no inventory will be created for now.
+                    # In the future, we might use os.walk or something else.
+                    pass
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):

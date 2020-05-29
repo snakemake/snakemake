@@ -11,6 +11,7 @@ import struct
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError, CheckSumMismatchException
 from snakemake.common import lazy_property
+import snakemake.io
 
 try:
     import google.cloud
@@ -124,6 +125,13 @@ class RemoteObject(AbstractRemoteObject):
         self._bucket_name = None
         self._bucket = None
         self._blob = None
+
+    def inventory(self, cache: snakemake.io.IOCache):
+        # TODO @vsoch please use Client.list_blobs(), iterate over the objects in the bucket
+        # and store the information about the corresponding IOFiles in the given cache (cache.exist_remote, cache.mtime, cache.size).
+        # The key for the cache is bucketname/blobname.
+        # Then, snakemake will get this information from the cache instead of actually querying the remote provider.
+        pass
 
     # === Implementations of abstract class members ===
 
