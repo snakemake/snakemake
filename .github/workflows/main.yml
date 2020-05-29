@@ -115,4 +115,4 @@ jobs:
           CI: true
         run: |
           call activate snakemake
-          pytest -v -x
+          pytest -v -x tests/tests.py
