@@ -35,7 +35,7 @@ class shell:
     _process_suffix = ""
     _lock = threading.Lock()
     _processes = {}
-    _quote_win_cmd = False
+    _win_command_prefix = ""
 
     @classmethod
     def get_executable(cls):
@@ -57,7 +57,7 @@ class shell:
 
     @classmethod
     def executable(cls, cmd):
-        if os.name == "posix" and not os.path.isabs(cmd):
+        if os.name in ("posix", "nt") and not os.path.isabs(cmd):
             # always enforce absolute path
             cmd = shutil.which(cmd)
             if not cmd:
@@ -66,14 +66,9 @@ class shell:
                     "is not available in your "
                     "PATH.".format(cmd)
                 )
-        if os.path.split(cmd)[-1] == "bash":
+        if os.path.split(cmd)[-1].lower() in ("bash", "bash.exe"):
             cls._process_prefix = "set -euo pipefail; "
-        if ON_WINDOWS and cmd.lower().endswith("bash.exe"):
-            # If bash is selected as the executable on Windows
-            # configure _preocess_prefix and win_quote_cmd for
-            # this to work correctly
-            cls._process_prefix = '"{}" -c'.format(cmd)
-            cls.win_quote_cmd(True)
+            cls._win_command_prefix = "-c"
         cls._process_args["executable"] = cmd
 
     @classmethod
@@ -85,13 +80,14 @@ class shell:
         cls._process_suffix = format(suffix, stepout=2)
 
     @classmethod
-    def win_quote_cmd(cls, opt):
-        """ Quote the entire shell command as a single argument on Windows.
-            This can be usefull if the executable is set (e.g. to "bash.exe"), 
-            and the prefix is "-c",  because the command then has to be 
-            interpreted as a single argument by CreateProcess on Windows.
+    def win_command_prefix(cls, cmd):
+        """ The command prefix used on windows when specifing a explicit 
+            shell executable. This would be "-c" for bash and "/C" for cmd.exe
+            Note: that if no explicit executable is set commands are executed 
+            with Popen(..., shell=True) which uses COMSPEC on windows where this
+            is not needed.
         """
-        cls._quote_win_cmd = bool(opt)
+        cls._win_command_prefix = cmd
 
     @classmethod
     def kill(cls, jobid):
@@ -104,20 +100,6 @@ class shell:
     def cleanup(cls):
         with cls._lock:
             cls._processes.clear()
-
-    @classmethod
-    def use_bash_on_win(cls, bashcmd=None):
-        """ Configures the shell to use bash on Windows
-            when running shell commands. If no path to 
-            bash is given it will attempt to find it.
-        """
-        if ON_WINDOWS:
-            if bashcmd is None:
-                bashcmd = _find_bash_on_windows()
-            if bashcmd and os.path.exists(bashcmd):
-                cls.executable(bashcmd)
-            else:
-                raise ("Could not locate bash:" + str(bashcmd))
 
     def __new__(
         cls, cmd, *args, iterable=False, read=False, bench_record=None, **kwargs
@@ -143,9 +125,6 @@ class shell:
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
 
-        if ON_WINDOWS and cls._quote_win_cmd:
-            cmd = argvquote(cmd.strip())
-
         cmd = "{} {} {}".format(
             cls._process_prefix, cmd.strip(), cls._process_suffix
         ).strip()
@@ -170,8 +149,6 @@ class shell:
         if conda_env:
             logger.info("Activating conda environment: {}".format(conda_env))
 
-        # shell can't be True on Windows with an explicit executable
-        use_shell = not (ON_WINDOWS and cls.get_executable())
 
         threads = str(context.get("threads", 1))
         # environment variable lists for linear algebra libraries taken from:
@@ -185,12 +162,21 @@ class shell:
         envvars["VECLIB_MAXIMUM_THREADS"] = threads
         envvars["NUMEXPR_NUM_THREADS"] = threads
 
+        use_shell = True
+
+        if ON_WINDOWS and cls.get_executable():
+            # If executable is set on Windows shell mode can not be used
+            # and the executable should be prepended the command together
+            # with a command prefix (e.g. -c for bash).
+            use_shell = False
+            cmd = f'"{cls.get_executable()}" {cls._win_command_prefix} {argvquote(cmd)}'
+
         proc = sp.Popen(
             cmd,
             bufsize=-1,
             shell=use_shell,
             stdout=stdout,
-            universal_newlines=iterable or None,
+            universal_newlines=iterable or read or None,
             close_fds=close_fds,
             **cls._process_args,
             env=envvars,
