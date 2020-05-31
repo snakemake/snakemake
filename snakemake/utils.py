@@ -534,7 +534,7 @@ def os_sync():
         os.sync()
 
 
-def find_bash_on_windows():
+def _find_bash_on_windows():
     """
     Find the path to a usable bash on windows.
     First attempt is to look for bash installed  with a git conda package. 

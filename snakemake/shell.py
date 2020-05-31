@@ -11,7 +11,7 @@ import inspect
 import shutil
 import threading
 
-from snakemake.utils import format, argvquote, find_bash_on_windows
+from snakemake.utils import format, argvquote, _find_bash_on_windows
 from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 from snakemake.deployment import singularity
@@ -113,7 +113,7 @@ class shell:
         """
         if ON_WINDOWS:
             if bashcmd is None:
-                bashcmd = find_bash_on_windows()
+                bashcmd = _find_bash_on_windows()
             if bashcmd and os.path.exists(bashcmd):
                 cls.executable(bashcmd)
             else:
