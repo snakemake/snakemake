@@ -1,6 +1,6 @@
 
 # Has only effect on Win
-shell.use_bash_on_win()
+shell.executable("bash")
 
 
 rule all:

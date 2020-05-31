@@ -1,5 +1,5 @@
 #import re, os, sys
-shell.use_bash_on_win()
+shell.executable("bash")
 
 from snakemake.remote.S3Mocked import RemoteProvider as S3RemoteProvider
 

@@ -1,7 +1,7 @@
 from snakemake import shell
 
 # Only effects for tests on Win
-shell.use_bash_on_win()
+shell.executable("bash")
 
 
 chromosomes = [1,2,3]

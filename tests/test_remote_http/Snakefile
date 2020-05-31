@@ -1,6 +1,6 @@
 from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
 
-shell.use_bash_on_win()
+shell.executable("bash")
 
 HTTP = HTTPRemoteProvider()
 

@@ -1,4 +1,4 @@
-shell.use_bash_on_win()
+shell.executable("bash")
 
 shell("mkdir -p input_dir && touch input_dir/child")
 

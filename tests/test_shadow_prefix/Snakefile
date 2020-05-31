@@ -1,4 +1,4 @@
-shell.use_bash_on_win()
+shell.executable("bash")
 
 rule all:
     input:  "test.in"

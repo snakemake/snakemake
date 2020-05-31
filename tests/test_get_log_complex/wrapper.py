@@ -1,5 +1,5 @@
 from snakemake.shell import shell
-shell.use_bash_on_win()
+shell.executable("bash")
 initial_log = snakemake.log_fmt_shell()
 stdout_log = snakemake.log_fmt_shell(stderr=False, append=True)
 stderr_log = snakemake.log_fmt_shell(stdout=False, append=True)
