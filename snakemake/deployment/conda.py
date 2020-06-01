@@ -393,7 +393,7 @@ class Conda:
         if not ON_WINDOWS or shell.get_executable():
             locate_cmd = "type conda"
         else:
-            locate_cmd = "where conda" 
+            locate_cmd = "where conda"
 
         try:
             shell.check_output(self._get_cmd(locate_cmd), stderr=subprocess.STDOUT)
@@ -426,7 +426,9 @@ class Conda:
                 )
         try:
             version = shell.check_output(
-                self._get_cmd("conda --version"), stderr=subprocess.STDOUT, text=True
+                self._get_cmd("conda --version"),
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
             )
             version = version.split()[1]
             if StrictVersion(version) < StrictVersion("4.2"):
