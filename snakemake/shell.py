@@ -43,17 +43,12 @@ class shell:
 
     @classmethod
     def check_output(cls, cmd, **kwargs):
-        if ON_WINDOWS and cls.get_executable():
-            return sp.check_output(
-                cls._process_prefix + " " + argvquote(cmd),
-                shell=False,
-                executable=cls.get_executable(),
-                **kwargs,
-            )
+        executable = cls.get_executable()
+        if ON_WINDOWS and executable:
+            cmd = f'"{executable}" {cls._win_command_prefix} {argvquote(cmd)}'
+            return sp.check_output(cmd, shell=False, executable=executable, **kwargs,)
         else:
-            return sp.check_output(
-                cmd, shell=True, executable=cls.get_executable(), **kwargs
-            )
+            return sp.check_output(cmd, shell=True, executable=executable, **kwargs)
 
     @classmethod
     def executable(cls, cmd):
@@ -148,7 +143,6 @@ class shell:
             logger.info("Activating singularity image {}".format(container_img))
         if conda_env:
             logger.info("Activating conda environment: {}".format(conda_env))
-
 
         threads = str(context.get("threads", 1))
         # environment variable lists for linear algebra libraries taken from:
