@@ -540,6 +540,8 @@ def _find_bash_on_windows():
     First attempt is to look for bash installed  with a git conda package. 
     alternatively try bash installed with 'Git for Windows'.
     """
+    if not ON_WINDOWS:
+        return None
     # First look for bash in git's conda package
     bashcmd = os.path.join(os.path.dirname(sys.executable), r"Library\bin\bash.exe")
     if not os.path.exists(bashcmd):
