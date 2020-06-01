@@ -156,7 +156,7 @@ class Env:
                 out = shell.check_output(
                     "conda list --explicit --prefix '{}'".format(self.path),
                     stderr=subprocess.STDOUT,
-                    text=True,
+                    universal_newlines=True,
                 )
                 logger.debug(out)
             except subprocess.CalledProcessError as e:
@@ -283,7 +283,9 @@ class Env:
                             cmd,
                             envvars=self.get_singularity_envvars(),
                         )
-                    out = shell.check_output(cmd, stderr=subprocess.STDOUT, text=True)
+                    out = shell.check_output(
+                        cmd, stderr=subprocess.STDOUT, universal_newlines=True
+                    )
 
                 else:
                     # Copy env file to env_path (because they can be on
@@ -309,7 +311,9 @@ class Env:
                             cmd,
                             envvars=self.get_singularity_envvars(),
                         )
-                    out = shell.check_output(cmd, stderr=subprocess.STDOUT, text=True)
+                    out = shell.check_output(
+                        cmd, stderr=subprocess.STDOUT, universal_newlines=True
+                    )
 
                     # cleanup if requested
                     if self._cleanup is CondaCleanupMode.tarballs:
