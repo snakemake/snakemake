@@ -123,8 +123,12 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - name: Add conda to PATH
-        run: echo "::add-path::$env:CONDA\Scripts"
+      - name: Setup mini-conda
+        uses: goanpeca/setup-miniconda@v1
+        with:
+          activate-environment: snakemake
+          python-version: 3.8
+          channels: conda-forge, bioconda
       
       # No win conda package exist for pygraphviz yet
       - name: Remove unix-only dependencies
@@ -138,14 +142,11 @@ jobs:
 
       - name: Setup Snakemake environment
         run: |
-          export PATH="/usr/share/miniconda/bin:$PATH"
           conda install -c conda-forge -q mamba
           mamba env create -q --name snakemake --file test-environment.yml
         
       - name: Run tests
-        shell: cmd
         env:
           CI: true
         run: |
-          call activate snakemake
           pytest -v -x tests/tests.py
