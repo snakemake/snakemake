@@ -390,7 +390,11 @@ class Conda:
 
         # Use type here since conda now is a function.
         # type allows to check for both functions and regular commands.
-        locate_cmd = "where conda" if ON_WINDOWS else "type conda"
+        if not ON_WINDOWS or shell.get_executable():
+            locate_cmd = "type conda"
+        else:
+            locate_cmd = "where conda" 
+
         try:
             shell.check_output(self._get_cmd(locate_cmd), stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
