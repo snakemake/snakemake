@@ -145,7 +145,7 @@ def test_report():
         check_md5=False,
     )
 
-
+@skip_on_windows  # No conda-forge version of pygraphviz for windows
 def test_report_zip():
     run(dpath("test_report_zip"), report="report.zip", check_md5=False)
 
