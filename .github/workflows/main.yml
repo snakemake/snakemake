@@ -120,16 +120,10 @@ jobs:
   testing-windows:
     runs-on: windows-latest
     needs: formatting
+
     steps:
       - uses: actions/checkout@v1
 
-      - name: Setup mini-conda
-        uses: goanpeca/setup-miniconda@v1
-        with:
-          activate-environment: snakemake
-          python-version: 3.8
-          channels: conda-forge, bioconda
-      
       # No win conda package exist for pygraphviz yet
       - name: Remove unix-only dependencies
         shell: python
@@ -140,13 +134,20 @@ jobs:
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line)
 
+      - name: Setup mini-conda
+        uses: goanpeca/setup-miniconda@v1
+        with:
+          activate-environment: snakemake
+          python-version: 3.8
+          channels: conda-forge, bioconda
+
       - name: Setup Snakemake environment
         run: |
-          conda install -c conda-forge -q mamba
-          mamba env create -q --name snakemake --file test-environment.yml
-        
+          conda install -q --name base mamba
+          mamba env update -q --file test-environment.yml
+
       - name: Run tests
         env:
           CI: true
         run: |
-          pytest -v -x tests/tests.py
+          python -m pytest -v -x tests/tests.py
