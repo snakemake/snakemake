@@ -17,12 +17,10 @@ def reset_paths_between_tests():
     sys.path = org_path
 
 
-if ON_WINDOWS:
+bash_cmd = _find_bash_on_windows()
 
-    @pytest.fixture(autouse=True, scope="session")
-    def use_good_bash_on_windows(monkeypatch):
-        bash_cmd = _find_bash_on_windows()
-        if bash_cmd:
-            bash_dir = Path(bash_cmd).parent
-            envpath = os.getenv("PATH")
-            monkeypatch.setenv("PATH", bash_dir + ";" + envpath)
+if ON_WINDOWS and bash_cmd:
+
+    @pytest.fixture(autouse=True)
+    def prepend_usable_bash_to_path(monkeypatch):
+        monkeypatch.setenv("PATH", os.path.dirname(bash_cmd), prepend=os.pathsep)
