@@ -1,0 +1,14 @@
+shell.executable("bash")
+
+configfile: "config.yaml"
+
+rule all:
+    input:
+        "test.out",
+
+rule:
+    output:
+        "test.out"
+    script:
+        "scripts/test.py"
+

@@ -1,5 +1,7 @@
 import os
 
+shell.executable("bash")
+
 rule all:
     input:
         expand("folder/file_{v1}_{v2}.dat", v1=[1, 2], v2=["a", "b"]),
