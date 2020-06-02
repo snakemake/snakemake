@@ -648,6 +648,14 @@ class Workflow:
                     "you don't have the permissions?"
                 )
                 return False
+
+        logger.info("Building DAG of jobs...")
+        dag.init()
+        dag.update_checkpoint_dependencies()
+        # check incomplete has to run BEFORE any call to postprocess
+        dag.check_incomplete()
+        dag.check_dynamic()
+
         try:
             self.persistence.lock()
         except IOError:
@@ -662,13 +670,6 @@ class Workflow:
                 "the --unlock argument.".format(os.getcwd())
             )
             return False
-
-        logger.info("Building DAG of jobs...")
-        dag.init()
-        dag.update_checkpoint_dependencies()
-        # check incomplete has to run BEFORE any call to postprocess
-        dag.check_incomplete()
-        dag.check_dynamic()
 
         if cleanup_shadow:
             self.persistence.cleanup_shadow()
