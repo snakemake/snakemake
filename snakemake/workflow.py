@@ -17,6 +17,7 @@ import copy
 import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import pathname2url, url2pathname
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -60,7 +61,7 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
-from snakemake.common import Mode, bytesto
+from snakemake.common import Mode, bytesto, ON_WINDOWS
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
@@ -239,9 +240,15 @@ class Workflow:
         files = set()
 
         def local_path(f):
+            if ON_WINDOWS:
+                try:
+                    f = pathname2url(f)
+                except OSError:
+                    pass  # f isn't changed if it wasn't a path
+
             url = urlparse(f)
             if url.scheme == "file" or url.scheme == "":
-                return url.path
+                return url2pathname(url.path)
             return None
 
         def norm_rule_relpath(f, rule):
@@ -253,7 +260,14 @@ class Workflow:
         for f in self.included:
             f = local_path(f)
             if f:
-                files.add(os.path.relpath(f))
+                try:
+                    f = os.path.relpath(f)
+                except ValueError:
+                    if ON_WINDOWS:
+                        pass  # relpath doesn't work on win if files are on different drive
+                    else:
+                        raise
+                files.add(f)
         for rule in self.rules:
             script_path = rule.script or rule.notebook
             if script_path:
@@ -991,6 +1005,9 @@ class Workflow:
         """
         Include a snakefile.
         """
+        if isinstance(snakefile, Path):
+            snakefile = str(snakefile)
+
         # check if snakefile is a path to the filesystem
         if not urllib.parse.urlparse(snakefile).scheme:
             if not os.path.isabs(snakefile) and self.included_stack:

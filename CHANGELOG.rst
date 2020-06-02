@@ -1,3 +1,21 @@
+[5.19.0] - 2020-06-02
+=====================
+Added
+-----
+- The multiext function now allows arbitrary file extensions (no longer required to start with a "." (thanks to @jafors)
+- The include directive can now also take a Pathlib Path object (thanks to @mbhall88).
+
+Changed
+-------
+- Jupyter notebook integration no longer automatically starts a browser.
+- Empty directories are cleaned up after workflow execution.
+- Fixed directory handling: no longer fail if the same job writes both a dir and a contained file.
+- Linter now recommends using spaces only for indentation.
+- Persistence dir "aux" has been renamed to "auxilliary" in order to make windows happy.
+- Linter now distinguishes awk syntax from regular variable usage.
+- Various bug fixes for Windows (thanks to @melund).
+ 
+
 [5.18.0] - 2020-05-21
 =====================
 Added
