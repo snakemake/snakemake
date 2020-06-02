@@ -54,7 +54,12 @@ class RuleLinter(Linter):
         if rule.shellcmd:
             for match in regex.finditer(rule.shellcmd):
                 name = match.group("name")
-                if name not in valid_names:
+
+                if (
+                    name not in valid_names
+                    and rule.shellcmd[match.start() - 1] != "{"
+                    and rule.shellcmd[match.end()] != "}"
+                ):
                     yield Lint(
                         title="Shell command directly uses variable {} from outside of the rule".format(
                             name
