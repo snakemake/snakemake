@@ -58,11 +58,9 @@ class RuleLinter(Linter):
                 before = match.start() - 1
                 after = match.end()
 
-                if (
-                    name not in valid_names
-                    and before >= 0 and after < len(rule.shellcmd)
-                    and rule.shellcmd[before] != "{"
-                    and rule.shellcmd[after] != "}"
+                if name not in valid_names and (
+                    not (before >= 0 and after < len(rule.shellcmd))
+                    or (rule.shellcmd[before] != "{" and rule.shellcmd[after] != "}")
                 ):
                     yield Lint(
                         title="Shell command directly uses variable {} from outside of the rule".format(
