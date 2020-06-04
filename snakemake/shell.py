@@ -164,9 +164,7 @@ class shell:
             # with a command prefix (e.g. -c for bash).
             use_shell = False
             cmd = '"{}" {} {}'.format(
-                cls.get_executable(),
-                cls._win_command_prefix,
-                argvquote(cmd),
+                cls.get_executable(), cls._win_command_prefix, argvquote(cmd)
             )
 
         proc = sp.Popen(
