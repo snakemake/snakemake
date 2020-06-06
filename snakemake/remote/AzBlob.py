@@ -19,12 +19,11 @@ from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 
 # service provider support
 try:
-    from azure.storage.common.cloudstorageaccount import (
-        CloudStorageAccount as AzureStorageAccount,
-    )
+    from azure.storage.blob import BlobServiceClient
+    import azure.core.exceptions
 except ImportError as e:
     raise WorkflowError(
-        "The Python 3 packages 'azure-storage' and 'azure-storage-common' "
+        "The Python 3 package 'azure-storage-blob' "
         "need to be installed to use Azure Storage remote() file functionality. %s"
         % e.msg
     )
@@ -83,6 +82,8 @@ class RemoteObject(AbstractRemoteObject):
 
     def mtime(self):
         if self.exists():
+            # b = self.blob_service_client.get_blob_client(self.container_name, self.blob_name)
+            # return b.get_blob_properties().last_modified
             t = self._as.blob_last_modified(self.container_name, self.blob_name)
             return t
         raise AzureFileException(
@@ -166,30 +167,27 @@ class AzureStorageHelper(object):
 
         # if not handed down explicitely, try to read credentials from
         # environment variables.
-        for csavar in ["account_name", "account_key", "sas_token"]:
-            # above are actually arguments to CloudStorageAccount class.
-            # their resp. env vars are as per our convention prefixed with AZ and uppercase
-            envvar = "AZ_" + csavar.upper()
+        for (csavar, envvar) in [
+            ("account_url", "AZ_BLOB_ACCOUNT_URL"),
+            ("credential", "AZ_BLOB_CREDENTIAL"),
+        ]:
             if csavar not in kwargs and envvar in os.environ:
                 kwargs[csavar] = os.environ.get(envvar)
-        assert "account_name" in kwargs, "Missing AZ_ACCOUNT_NAME env var"
         assert (
-            "account_key" in kwargs or "sas_token" in kwargs
-        ), "Missing AZ_ACCOUNT_KEY or AZ_SAS_TOKEN env var"
+            "account_url" in kwargs
+        ), "Missing AZ_BLOB_ACCOUNT_URL env var (and possibly AZ_BLOB_CREDENTIAL)"
         # remove leading '?' from SAS if needed
-        if kwargs.get("sas_token", "").startswith("?"):
-            kwargs["sas_token"] = kwargs["sas_token"][1:]
+        # if kwargs.get("sas_token", "").startswith("?"):
+        #    kwargs["sas_token"] = kwargs["sas_token"][1:]
 
         # by right only account_key or sas_token should be set, but we let
-        # create_block_blob_service() deal with the ambiguity
-        self.azure = AzureStorageAccount(**kwargs).create_block_blob_service()
+        # BlobServiceClient deal with the ambiguity
+        self.blob_service_client = BlobServiceClient(**kwargs)
 
     def container_exists(self, container_name):
-        try:
-            self.azure.exists(container_name=container_name)
-            return True
-        except:
-            return False
+        return any(
+            True for _ in self.blob_service_client.list_containers(container_name)
+        )
 
     def upload_to_azure_storage(
         self,
@@ -219,8 +217,12 @@ class AzureStorageHelper(object):
             "The file path specified does not appear to be a file: %s" % file_path
         )
 
-        if not self.azure.exists(container_name):
-            self.azure.create_container(container_name=container_name)
+        container_client = self.blob_service_client.get_container_client(container_name)
+        try:
+            container_client.create_container()
+        except azure.core.exceptions.ResourceExistsError:
+            pass
+
         if not blob_name:
             if use_relative_path_for_blob_name:
                 if relative_start_dir:
@@ -230,14 +232,15 @@ class AzureStorageHelper(object):
             else:
                 path_blob_name = os.path.basename(file_path)
             blob_name = path_blob_name
-        b = self.azure
+        blob_client = container_client.get_blob_client(blob_name)
+
+        blob_client.delete_blob()
         try:
-            b.create_blob_from_path(
-                container_name, file_path=file_path, blob_name=blob_name
-            )
-            return b.get_blob_properties(container_name, blob_name=blob_name).name
-        except:
-            raise WorkflowError("Error in creating blob. %s" % e.msg)
+            with open(file_path, "rb") as data:
+                blob_client.upload_blob(data, blob_type="BlockBlob")
+            return blob_client.get_blob_properties().name
+        except Exception as e:
+            raise WorkflowError("Error in creating blob. %s" % str(e))
             # return None
 
     def download_from_azure_storage(
@@ -278,24 +281,19 @@ class AzureStorageHelper(object):
         # if the destination path does not exist
         if make_dest_dirs:
             os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-        b = self.azure
-        try:
-            if not create_stub_only:
-                b.get_blob_to_path(
-                    container_name=container_name,
-                    blob_name=blob_name,
-                    file_path=destination_path,
+        b = self.blob_service_client.get_blob_client(container_name, blob_name)
+        if not create_stub_only:
+            with open(destination_path, "wb") as my_blob:
+                blob_data = b.download_blob()
+                blob_data.readinto(my_blob)
+        else:
+            # just create an empty file with the right timestamps
+            ts = b.get_blob_properties().last_modified.timestamp()
+            with open(destination_path, "wb") as fp:
+                os.utime(
+                    fp.name, (ts, ts),
                 )
-            else:
-                # just create an empty file with the right timestamps
-                with open(destination_path, "wb") as fp:
-                    os.utime(
-                        fp.name,
-                        (b.last_modified.timestamp(), b.last_modified.timestamp()),
-                    )
-            return destination_path
-        except:
-            return None
+        return destination_path
 
     def delete_from_container(self, container_name, blob_name):
         """ Delete a file from Azure Storage container
@@ -311,8 +309,8 @@ class AzureStorageHelper(object):
         """
         assert container_name, "container_name must be specified"
         assert blob_name, "blob_name must be specified"
-        b = self.azure
-        b.delete_blob(container_name, blob_name)
+        b = self.blob_service_client.get_blob_client(container_name, blob_name)
+        b.delete_blob()
 
     def exists_in_container(self, container_name, blob_name):
         """ Returns whether the blob exists in the container
@@ -329,10 +327,8 @@ class AzureStorageHelper(object):
             container_name
         ), 'container_name must be specified (did you try to write to "root" or forgot to set --default-remote-prefix?)'
         assert blob_name, "blob_name must be specified"
-        try:
-            return self.azure.exists(container_name, blob_name)
-        except:
-            return None
+        cc = self.blob_service_client.get_container_client(container_name)
+        return any(True for _ in cc.list_blobs(name_starts_with=blob_name))
 
     def blob_size(self, container_name, blob_name):
         """ Returns the size of a blob
@@ -347,12 +343,8 @@ class AzureStorageHelper(object):
         assert container_name, "container_name must be specified"
         assert blob_name, "blob_name must be specified"
 
-        try:
-            b = self.azure.get_blob_properties(container_name, blob_name)
-            return b.properties.content_length // 1024
-        except:
-            print("blob or container do not exist")
-            return None
+        b = self.blob_service_client.get_blob_client(container_name, blob_name)
+        return b.get_blob_properties().size // 1024
 
     def blob_last_modified(self, container_name, blob_name):
         """ Returns a timestamp of a blob
@@ -366,12 +358,8 @@ class AzureStorageHelper(object):
         """
         assert container_name, "container_name must be specified"
         assert blob_name, "blob_name must be specified"
-        try:
-            b = self.azure.get_blob_properties(container_name, blob_name)
-            return b.properties.last_modified.timestamp()
-        except:
-            print("blob or container do not exist")
-            return None
+        b = self.blob_service_client.get_blob_client(container_name, blob_name)
+        return b.get_blob_properties().last_modified.timestamp()
 
     def list_blobs(self, container_name):
         """ Returns a list of blobs from the container
@@ -383,9 +371,5 @@ class AzureStorageHelper(object):
                 list of blobs
         """
         assert container_name, "container_name must be specified"
-        try:
-            b = self.azure.list_blobs(container_name)
-            return [o.name for o in b]
-        except:
-            print("Did you provide a valid container_name?")
-            return None
+        c = self.blob_service_client.get_container_client(container_name)
+        return [b.name for b in c.list_blobs()]

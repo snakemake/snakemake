@@ -143,21 +143,25 @@ Microsoft Azure Blob Storage
 =============================
 
 Usage of the Azure Blob Storage provider is similar to the S3 provider. For
-authentication, an account name and key or SAS token can be used. If these
+authentication, an account name and shared access signature (SAS) or key can be used. If these
 variables are not passed directly to AzureRemoteProvider (see
-[CloudStorageAccount class](https://github.com/Azure/azure-storage-python/blob/master/azure-storage-common/azure/storage/common/cloudstorageaccount.py)
+[BlobServiceClient
+class](https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobserviceclient?view=azure-python)
 for naming), they will be read from environment variables, named
-`AZ_ACCOUNT_NAME`, `AZ_ACCOUNT_KEY` and `AZ_SAS_TOKEN` respectively. 
+`AZ_BLOB_ACCOUNT_URL` and `AZ_BLOB_CREDENTIAL`. `AZ_BLOB_ACCOUNT_URL` takes the form
+`https://<accountname>.blob.core.windows.net` and may also contain a SAS. If
+a SAS is not part of the URL, `AZ_BLOB_CREDENTIAL` has to be set to the SAS or alternatively to
+the storage account key.
 
 When using AzBlob as default remote provider you will almost always want to
 pass these environment variables on to the remote execution environment (e.g.
 Kubernetes) with `--envvars`, e.g
-`--envvars AZ_ACCOUNT_NAME AZ_SAS_TOKEN`.
+`--envvars AZ_BLOB_ACCOUNT_URL AZ_BLOB_CREDENTIAL`.
 
 .. code-block:: python
 
     from snakemake.remote.AzBlob import RemoteProvider as AzureRemoteProvider
-    AS = AzureRemoteProvider()# assumes env vars AZ_ACCOUNT_NAME and AZ_ACCOUNT_KEY or AZ_SAS_TOKEN are set
+    AS = AzureRemoteProvider()# assumes env vars AZ_BLOB_ACCOUNT_URL and possibly AZ_BLOB_CREDENTIAL are set
 
     rule a:
         input:
