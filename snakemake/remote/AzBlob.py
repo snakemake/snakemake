@@ -234,7 +234,9 @@ class AzureStorageHelper(object):
             blob_name = path_blob_name
         blob_client = container_client.get_blob_client(blob_name)
 
-        blob_client.delete_blob()
+        # upload_blob fails, if blob exists
+        if self.exists_in_container(container_name, blob_name):
+            blob_client.delete_blob()
         try:
             with open(file_path, "rb") as data:
                 blob_client.upload_blob(data, blob_type="BlockBlob")
