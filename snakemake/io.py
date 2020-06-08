@@ -87,7 +87,7 @@ class ExistsDict(dict):
         # The reason is that this is only called if the method contains below has returned True.
         # Hence, we already know that either path is in dict, or inventory has never
         # seen it, and hence it does not exist.
-        return super().__getitem__(path, False)
+        return self.get(path, False)
 
     def __contains__(self, path):
         # if already in inventory, always return True.
@@ -97,8 +97,8 @@ class ExistsDict(dict):
 class IOCache:
     def __init__(self):
         self.mtime = dict()
-        self._exists_local = ExistsDict(self)
-        self._exists_remote = ExistsDict(self)
+        self.exists_local = ExistsDict(self)
+        self.exists_remote = ExistsDict(self)
         self.size = dict()
         # Indicator whether an inventory has been created for the root of a given IOFile.
         # In case of remote objects the root is the bucket or server host.
@@ -109,7 +109,7 @@ class IOCache:
     def get_inventory_root(cls, path):
         """If eligible for inventory, get the root of a given path."""
         path = Path(path)
-        if not path.is_absolute(path) and path.parts[0] != "..":
+        if not path.is_absolute() and path.parts[0] != "..":
             return path.parts[0]
 
     def needs_inventory(self, path):
