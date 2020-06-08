@@ -77,11 +77,28 @@ else:
         os.chmod(f, mode)
 
 
+class ExistsDict(dict):
+    def __init__(self, cache):
+        super().__init__()
+        self.cache = cache
+
+    def __getitem__(self, path):
+        # Always return False if not dict.
+        # The reason is that this is only called if the method contains below has returned True.
+        # Hence, we already know that either path is in dict, or inventory has never
+        # seen it, and hence it does not exist.
+        return super().__getitem__(path, False)
+
+    def __contains__(self, path):
+        # if already in inventory, always return True.
+        return self.cache.in_inventory(path) or super().__contains__(path)
+
+
 class IOCache:
     def __init__(self):
         self.mtime = dict()
-        self.exists_local = dict()
-        self.exists_remote = dict()
+        self._exists_local = ExistsDict(self)
+        self._exists_remote = ExistsDict(self)
         self.size = dict()
         # Indicator whether an inventory has been created for the root of a given IOFile.
         # In case of remote objects the root is the bucket or server host.
@@ -98,6 +115,10 @@ class IOCache:
     def needs_inventory(self, path):
         root = self.get_inventory_root(path)
         return root and root not in self.has_inventory
+
+    def in_inventory(self, path):
+        root = self.get_inventory_root(path)
+        return root and root in self.has_inventory
 
     def clear(self):
         self.mtime.clear()
