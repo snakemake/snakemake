@@ -141,12 +141,14 @@ class RemoteObject(AbstractRemoteObject):
         for blob in self.client.list_blobs(
             self.bucket_name, prefix=os.path.dirname(self.blob.name)
         ):
-
             # By way of being listed, it exists. mtime is a datetime object
             name = "{}/{}".format(blob.bucket.name, blob.name)
             cache.exists_remote[name] = True
             cache.mtime[name] = blob.updated
             cache.size[name] = blob.size
+        # Mark bucket as having an inventory, such that this method is
+        # only called once for this bucket.
+        cache.has_inventory.add(self.bucket_name)
 
     # === Implementations of abstract class members ===
 

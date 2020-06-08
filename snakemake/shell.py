@@ -46,7 +46,7 @@ class shell:
         executable = cls.get_executable()
         if ON_WINDOWS and executable:
             cmd = f'"{executable}" {cls._win_command_prefix} {argvquote(cmd)}'
-            return sp.check_output(cmd, shell=False, executable=executable, **kwargs,)
+            return sp.check_output(cmd, shell=False, executable=executable, **kwargs)
         else:
             return sp.check_output(cmd, shell=True, executable=executable, **kwargs)
 

@@ -83,13 +83,28 @@ class IOCache:
         self.exists_local = dict()
         self.exists_remote = dict()
         self.size = dict()
+        # Indicator whether an inventory has been created for the root of a given IOFile.
+        # In case of remote objects the root is the bucket or server host.
+        self.has_inventory = set()
         self.active = True
+
+    @classmethod
+    def get_inventory_root(cls, path):
+        """If eligible for inventory, get the root of a given path."""
+        path = Path(path)
+        if not path.is_absolute(path) and path.parts[0] != "..":
+            return path.parts[0]
+
+    def needs_inventory(self, path):
+        root = self.get_inventory_root(path)
+        return root and root not in self.has_inventory
 
     def clear(self):
         self.mtime.clear()
         self.size.clear()
         self.exists_local.clear()
         self.exists_remote.clear()
+        self.has_inventory.clear()
 
     def deactivate(self):
         self.clear()
@@ -161,10 +176,9 @@ class _IOFile(str):
         """
         cache = self.rule.workflow.iocache
         if cache.active:
-            if self.is_remote:
-                if self not in cache.exists_remote:
-                    # info not yet cached, let's discover as much as we can
-                    self.remote_object.inventory(cache)
+            if self.is_remote and cache.needs_inventory(self):
+                # info not yet in inventory, let's discover as much as we can
+                self.remote_object.inventory(cache)
             else:
                 # For local files, no inventory will be created for now.
                 # In the future, we might use os.walk or something else.
