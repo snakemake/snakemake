@@ -146,6 +146,8 @@ class DAG:
         if omitfiles:
             self.omitfiles.update(omitfiles)
 
+        self.has_dynamic_rules = any(rule.dynamic_output for rule in self.rules)
+
         self.omitforce = set()
 
         self.batch = batch
@@ -318,11 +320,12 @@ class DAG:
 
     def check_dynamic(self):
         """Check dynamic output and update downstream rules if necessary."""
-        for job in filter(
-            lambda job: (job.dynamic_output and not self.needrun(job)), self.jobs
-        ):
-            self.update_dynamic(job)
-        self.postprocess()
+        if self.has_dynamic_rules:
+            for job in filter(
+                lambda job: (job.dynamic_output and not self.needrun(job)), self.jobs
+            ):
+                self.update_dynamic(job)
+            self.postprocess()
 
     def is_edit_notebook_job(self, job):
         return self.workflow.edit_notebook and job.targetfile in self.targetfiles
