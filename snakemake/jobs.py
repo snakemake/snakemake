@@ -862,10 +862,8 @@ class Job(AbstractJob):
     def __eq__(self, other):
         if other is None:
             return False
-        return (
-            self.rule == other.rule
-            and (self.wildcards_dict == other.wildcards_dict)
-            and (self.input == other.input)
+        return self.rule.name == other.rule.name and (
+            self.wildcards_dict == other.wildcards_dict
         )
 
     def __lt__(self, other):

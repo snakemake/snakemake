@@ -104,13 +104,22 @@ class IOCache:
         # In case of remote objects the root is the bucket or server host.
         self.has_inventory = set()
         self.active = True
+        if ON_WINDOWS:
+            self.get_inventory_root = self.get_inventory_root_win
 
-    @classmethod
-    def get_inventory_root(cls, path):
+    def get_inventory_root(self, path):
+        """If eligible for inventory, get the root of a given path."""
+        root = path.split("/", maxsplit=1)[0]
+        if root and root != "..":
+            return root
+
+    def get_inventory_root_win(self, path):
         """If eligible for inventory, get the root of a given path."""
         path = Path(path)
-        if not path.is_absolute() and path.parts[0] != "..":
-            return path.parts[0]
+        if not path.is_absolute():
+            root = path.parts[0]
+            if root != "..":
+                return path.parts[0]
 
     def needs_inventory(self, path):
         root = self.get_inventory_root(path)
