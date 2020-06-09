@@ -6,7 +6,6 @@ __license__ = "MIT"
 import os
 import traceback
 from tokenize import TokenError
-
 from snakemake.logging import logger
 
 
@@ -466,6 +465,14 @@ class CreateCondaEnvironmentException(WorkflowError):
 
 
 class SpawnedJobError(Exception):
+    pass
+
+
+class CheckSumMismatchException(WorkflowError):
+    """"should be called to indicate that checksum of a file compared to known
+        hash does not match, typically done with large downloads, etc.
+    """
+
     pass
 
 

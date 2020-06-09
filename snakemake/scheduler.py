@@ -19,6 +19,7 @@ from snakemake.executors import (
     TibannaExecutor,
     AzBatchExecutor,
 )
+from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 
 from snakemake.logging import logger
@@ -61,6 +62,10 @@ class JobScheduler:
         container_image=None,
         tibanna=None,
         tibanna_sfn=None,
+        google_lifesciences=None,
+        google_lifesciences_regions=None,
+        google_lifesciences_location=None,
+        google_lifesciences_cache=False,
         precommand="",
         tibanna_config=False,
         jobname=None,
@@ -272,9 +277,7 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 cores=local_cores,
-                keepincomplete=keepincomplete,
             )
-
             self._executor = AzBatchExecutor(
                 workflow,
                 dag,
@@ -284,8 +287,34 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
-            )            
-        
+            )
+
+        elif google_lifesciences:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                cores=local_cores,
+            )
+
+            self._executor = GoogleLifeSciencesExecutor(
+                workflow,
+                dag,
+                cores,
+                container_image=container_image,
+                regions=google_lifesciences_regions,
+                location=google_lifesciences_location,
+                cache=google_lifesciences_cache,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+            )
+
         else:
             self._executor = CPUExecutor(
                 workflow,
@@ -335,7 +364,6 @@ class JobScheduler:
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
-
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
@@ -398,10 +426,12 @@ class JobScheduler:
                 # update running jobs
                 with self._lock:
                     self.running.update(run)
+
                 # actually run jobs
-                for job in run:
-                    with self.rate_limiter:
-                        self.run(job)
+                local_runjobs = [job for job in run if job.is_local]
+                runjobs = [job for job in run if not job.is_local]
+                self.run(local_runjobs, executor=self._local_executor or self._executor)
+                self.run(runjobs)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
@@ -409,19 +439,20 @@ class JobScheduler:
             self._executor.cancel()
             return False
 
-    def get_executor(self, job):
-        if self._local_executor is None:
-            return self._executor
-        else:
-            return self._local_executor if job.is_local else self._executor
-
-    def run(self, job):
-        self.get_executor(job).run(
-            job,
+    def run(self, jobs, executor=None):
+        if executor is None:
+            executor = self._executor
+        executor.run_jobs(
+            jobs,
             callback=self._finish_callback,
             submit_callback=self._submit_callback,
             error_callback=self._error,
         )
+
+    def get_executor(self, job):
+        if job.is_local and self._local_executor is not None:
+            return self._local_executor
+        return self._executor
 
     def _noop(self, job):
         pass

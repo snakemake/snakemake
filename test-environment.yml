@@ -28,8 +28,9 @@ dependencies:
   - xorg-libsm
   - psutil
   - google-cloud-storage
-  - azure-storage
-  - azure-storage-common
+  - google-api-python-client
+  - oauth2client
+  - azure-storage-blob
   - ratelimiter
   - configargparse
   - appdirs
@@ -45,3 +46,5 @@ dependencies:
   - environment-modules
   - nbformat
   - toposort
+  - mamba
+  - crc32c

@@ -241,7 +241,7 @@ class DomainObject(AbstractRemoteObject):
     @property
     def _matched_address(self):
         return re.search(
-            "^(?P<protocol>[a-zA-Z]+\://)?(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$",
+            r"^(?P<protocol>[a-zA-Z]+\://)?(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$",
             self.local_file(),
         )
 
