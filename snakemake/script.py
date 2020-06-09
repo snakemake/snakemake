@@ -453,7 +453,7 @@ class PythonScript(ScriptBase):
 
     def write_script(self, preamble, fd):
         fd.write(preamble.encode())
-        fd.write(self.source.encode())
+        fd.write(str(self.source).encode())
 
     def _is_python_env(self):
         if self.conda_env is not None:
