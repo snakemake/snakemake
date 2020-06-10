@@ -359,8 +359,8 @@ def snakemake(
     if az_batch:
         # TODO check that other modes are not activated, e.g. tibanna, drmaa etc
         assume_shared_fs = False
-        default_remote_provider = "AzureStorage"
-        
+        default_remote_provider = "AzBlob"
+
     # Google Cloud Life Sciences API uses compute engine and storage
     if google_lifesciences:
         assume_shared_fs = False
@@ -391,7 +391,7 @@ def snakemake(
         cluster_config_content = dict()
 
     run_local = not (
-        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences or or az_batch
+        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences or az_batch
     )
     if run_local:
         if not dryrun:

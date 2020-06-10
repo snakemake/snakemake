@@ -24,7 +24,7 @@ try:
 except ImportError as e:
     raise WorkflowError(
         "The Python 3 package 'azure-storage-blob' "
-        "need to be installed to use Azure Storage remote() file functionality. %s"
+        "needs to be installed to use Azure Storage remote() file functionality. %s"
         % e.msg
     )
 
