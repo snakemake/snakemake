@@ -1068,7 +1068,8 @@ class GroupJobFactory:
         self.cache = dict()
 
     def new(self, id, jobs):
-        key = (id, frozenset(jobs))
+        jobs = frozenset(jobs)
+        key = (id, jobs)
         try:
             obj = self.cache[key]
         except KeyError:
@@ -1096,7 +1097,7 @@ class GroupJob(AbstractJob):
 
     def __init__(self, id, jobs):
         self.groupid = id
-        self.jobs = frozenset(jobs)
+        self.jobs = jobs
         self.toposorted = None
         self._resources = None
         self._input = None
