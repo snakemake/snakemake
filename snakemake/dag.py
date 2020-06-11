@@ -17,7 +17,7 @@ import uuid
 import math
 
 from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
-from snakemake.jobs import Job, Reason, GroupJob
+from snakemake.jobs import Reason, JobFactory, GroupJobFactory
 from snakemake.exceptions import MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
@@ -123,6 +123,9 @@ class DAG:
         self.container_imgs = dict()
         self._progress = 0
         self._group = dict()
+
+        self.job_factory = JobFactory()
+        self.group_job_factory = GroupJobFactory()
 
         self.forcerules = set()
         self.forcefiles = set()
@@ -995,7 +998,7 @@ class DAG:
             # BFS into depending needrun jobs if in same group
             # Note: never go up here (into depending), because it may contain
             # jobs that have been sorted out due to e.g. ruleorder.
-            group = GroupJob(
+            group = self.group_job_factory.new(
                 job.group,
                 (
                     job
@@ -1245,7 +1248,7 @@ class DAG:
             assert targetfile is not None
             return self.job_cache[key]
         wildcards_dict = rule.get_wildcards(targetfile)
-        job = Job(
+        job = self.job_factory.new(
             rule,
             self,
             wildcards_dict=wildcards_dict,
