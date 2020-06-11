@@ -1,3 +1,15 @@
+[5.19.2] - 2020-06-04
+=====================
+Changed
+-------
+- Fixed a bug in script and wrapper directives. Tried to decode a str.
+
+[5.19.1] - 2020-06-03
+=====================
+Changed
+-------
+- Fixed an issue with the parameter linting code, that could cause an index out of bounds exception.
+
 [5.19.0] - 2020-06-02
 =====================
 Added
