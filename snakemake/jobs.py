@@ -80,11 +80,22 @@ class JobFactory:
         self.cache = dict()
 
     def new(
-        self, rule, dag, wildcards_dict=None, format_wildcards=None, targetfile=None, update=False
+        self,
+        rule,
+        dag,
+        wildcards_dict=None,
+        format_wildcards=None,
+        targetfile=None,
+        update=False,
     ):
         if rule.is_branched:
             # for distinguishing branched rules, we need input and output in addition
-            key = (rule.name, *rule.output, *rule.input, *sorted(wildcards_dict.items()))
+            key = (
+                rule.name,
+                *rule.output,
+                *rule.input,
+                *sorted(wildcards_dict.items()),
+            )
         else:
             key = (rule.name, *sorted(wildcards_dict.items()))
         if update:
@@ -215,7 +226,7 @@ class Job(AbstractJob):
             self.dag,
             wildcards_dict=self.wildcards_dict,
             targetfile=self.targetfile,
-            update=True
+            update=True,
         )
         job.is_updated = True
         return job
