@@ -206,13 +206,27 @@ class _IOFile(str):
         """
         cache = self.rule.workflow.iocache
         if cache.active:
-            if self.is_remote and cache.needs_inventory(self):
-                # info not yet in inventory, let's discover as much as we can
-                self.remote_object.inventory(cache)
-            else:
-                # For local files, no inventory will be created for now.
-                # In the future, we might use os.walk or something else.
-                pass
+            if cache.needs_inventory(self):
+                if self.is_remote:
+                    # info not yet in inventory, let's discover as much as we can
+                    self.remote_object.inventory(cache)
+                else:
+                    # for local files, perform BFS via os.scandir to determine existence of files
+                    root = cache.get_inventory_root(self)
+                    if root == self or not os.path.exists(root):
+                        # there is no root directory that could be used
+                        return
+                    queue = [root]
+                    while queue:
+                        path = queue.pop(0)
+                        cache.exists_local[path] = True
+                        with os.scandir(path) as scan:
+                            for entry in scan:
+                                cache.exists_local[entry.path] = True
+                                if entry.is_dir():
+                                    queue.append(entry.path)
+
+                    cache.has_inventory.add(root)
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
