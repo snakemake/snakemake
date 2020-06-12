@@ -215,18 +215,20 @@ class _IOFile(str):
     def _local_inventory(self, cache):
         # for local files, perform BFS via os.scandir to determine existence of files
         root = cache.get_inventory_root(self)
-        if root == self or not os.path.exists(root):
+        if root == self:
             # there is no root directory that could be used
             return
-        queue = [root]
-        while queue:
-            path = queue.pop(0)
-            cache.exists_local[path] = True
-            with os.scandir(path) as scan:
-                for entry in scan:
-                    cache.exists_local[entry.path] = True
-                    if entry.is_dir():
-                        queue.append(entry.path)
+        if os.path.exists(root):
+            queue = [root]
+            while queue:
+                path = queue.pop(0)
+                cache.exists_local[path] = True
+                with os.scandir(path) as scan:
+                    for entry in scan:
+                        if entry.is_dir():
+                            queue.append(entry.path)
+                        else:
+                            cache.exists_local[entry.path] = True
 
         cache.has_inventory.add(root)
 
@@ -348,20 +350,6 @@ class _IOFile(str):
     @property
     @iocache
     def exists_local(self):
-        if self.rule.workflow.iocache.active:
-            # The idea is to first check existence of parent directories and
-            # cache the results.
-            # We omit the last ancestor, because this is always "." or "/" or a
-            # drive letter.
-            for p in self.parents(omit=1):
-                try:
-                    if not p.exists_local:
-                        return False
-                except:
-                    # In case of an error, we continue, because it can be that
-                    # we simply don't have the permissions to access a parent
-                    # directory.
-                    continue
         return os.path.exists(self.file)
 
     @property
@@ -369,23 +357,6 @@ class _IOFile(str):
     def exists_remote(self):
         if not self.is_remote:
             return False
-        if (
-            self.rule.workflow.iocache.active
-            and self.remote_object.provider.allows_directories
-        ):
-            # The idea is to first check existence of parent directories and
-            # cache the results.
-            # We omit the last 2 ancestors, because these are "." and the host
-            # name of the remote location.
-            for p in self.parents(omit=2):
-                try:
-                    if not p.exists_remote:
-                        return False
-                except:
-                    # In case of an error, we continue, because it can be that
-                    # we simply don't have the permissions to access a parent
-                    # directory in the remote.
-                    continue
         return self.remote_object.exists()
 
     @property
