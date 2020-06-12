@@ -205,28 +205,30 @@ class _IOFile(str):
         modification date information of this and other files as possible.
         """
         cache = self.rule.workflow.iocache
-        if cache.active:
-            if cache.needs_inventory(self):
-                if self.is_remote:
-                    # info not yet in inventory, let's discover as much as we can
-                    self.remote_object.inventory(cache)
-                else:
-                    # for local files, perform BFS via os.scandir to determine existence of files
-                    root = cache.get_inventory_root(self)
-                    if root == self or not os.path.exists(root):
-                        # there is no root directory that could be used
-                        return
-                    queue = [root]
-                    while queue:
-                        path = queue.pop(0)
-                        cache.exists_local[path] = True
-                        with os.scandir(path) as scan:
-                            for entry in scan:
-                                cache.exists_local[entry.path] = True
-                                if entry.is_dir():
-                                    queue.append(entry.path)
+        if cache.active and cache.needs_inventory(self):
+            if self.is_remote:
+                # info not yet in inventory, let's discover as much as we can
+                self.remote_object.inventory(cache)
+            else:
+                self._local_inventory(cache)
 
-                    cache.has_inventory.add(root)
+    def _local_inventory(self, cache):
+        # for local files, perform BFS via os.scandir to determine existence of files
+        root = cache.get_inventory_root(self)
+        if root == self or not os.path.exists(root):
+            # there is no root directory that could be used
+            return
+        queue = [root]
+        while queue:
+            path = queue.pop(0)
+            cache.exists_local[path] = True
+            with os.scandir(path) as scan:
+                for entry in scan:
+                    cache.exists_local[entry.path] = True
+                    if entry.is_dir():
+                        queue.append(entry.path)
+
+        cache.has_inventory.add(root)
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
