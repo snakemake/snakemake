@@ -822,7 +822,7 @@ def get_source(path, basedir="."):
     if path.startswith("file://"):
         sourceurl = "file:" + pathname2url(path[7:])
     elif path.startswith("git+file"):
-        source = git_content(path)
+        source = git_content(path).encode()
         (root_path, file_path, version) = split_git_path(path)
         path = path.rstrip("@" + version)
     else:
