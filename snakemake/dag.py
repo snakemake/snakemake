@@ -17,7 +17,7 @@ import uuid
 import math
 
 from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
-from snakemake.jobs import Reason, JobFactory, GroupJobFactory
+from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
 from snakemake.exceptions import MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
