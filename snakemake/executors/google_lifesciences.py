@@ -202,7 +202,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         locations = (
             self._api.projects()
             .locations()
-            .list(name="projects/snakemake-testing")
+            .list(name="projects/{}".format(self.project))
             .execute()
         )
 
