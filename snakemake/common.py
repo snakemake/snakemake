@@ -4,6 +4,7 @@ __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
 from functools import update_wrapper
+import platform
 import hashlib
 import inspect
 import uuid
@@ -19,6 +20,8 @@ MIN_PY_VERSION = (3, 5)
 DYNAMIC_FILL = "__snakemake_dynamic__"
 SNAKEMAKE_SEARCHPATH = os.path.dirname(os.path.dirname(__file__))
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
+
+ON_WINDOWS = platform.system() == "Windows"
 
 
 class TBDInt(int):

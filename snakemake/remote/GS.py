@@ -11,6 +11,7 @@ import struct
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError, CheckSumMismatchException
 from snakemake.common import lazy_property
+from snakemake.utils import os_sync
 
 try:
     import google.cloud

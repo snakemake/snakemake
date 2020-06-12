@@ -21,7 +21,7 @@ from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import MIN_PY_VERSION, SNAKEMAKE_SEARCHPATH
+from snakemake.common import MIN_PY_VERSION, SNAKEMAKE_SEARCHPATH, ON_WINDOWS
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
@@ -459,13 +459,13 @@ class PythonScript(ScriptBase):
         if self.conda_env is not None:
             prefix = os.path.join(self.conda_env, "bin")
         elif self.env_modules is not None:
-            prefix = self._execute_cmd("echo $PATH", read=True).decode().split(":")[0]
+            prefix = self._execute_cmd("echo $PATH", read=True).split(":")[0]
         else:
             raise NotImplementedError()
         return os.path.exists(os.path.join(prefix, "python"))
 
     def _get_python_version(self):
-        out = self._execute_cmd("python --version", read=True).decode().strip()
+        out = self._execute_cmd("python --version", read=True).strip()
         return tuple(map(int, PY_VER_RE.match(out).group("ver_min").split(".")))
 
     def execute_script(self, fname, edit=False):
@@ -493,6 +493,10 @@ class PythonScript(ScriptBase):
                             "only.".format(*MIN_PY_VERSION)
                         )
 
+        if ON_WINDOWS:
+            # use forward slashes so script command still works even if
+            # bash is configured as executable on Windows
+            py_exec = py_exec.replace("\\", "/")
         # use the same Python as the running process or the one from the environment
         self._execute_cmd("{py_exec} {fname:q}", py_exec=py_exec, fname=fname)
 
