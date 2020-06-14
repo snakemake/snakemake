@@ -1521,13 +1521,15 @@ class KubernetesExecutor(ClusterExecutor):
 
         # Add pod affinity: prefer nodes with label: app=snakemake
         from kubernetes.client.models import V1NodeAffinity, V1PreferredSchedulingTerm, \
-            V1NodeSelectorTerm, V1NodeSelectorRequirement
+            V1Affinity, V1NodeSelector, V1NodeSelectorTerm, V1NodeSelectorRequirement
         
+
         requirements = [V1NodeSelectorRequirement(key="app", operator="In", values=["snakemake"])]
         selector_term = V1NodeSelectorTerm(match_expressions=requirements)
+        node_required_affinity = V1NodeAffinity(required_during_scheduling_ignored_during_execution=V1NodeSelector(node_selector_terms=[selector_term]))
         preferred_term = V1PreferredSchedulingTerm(preference=selector_term, weight=100)
-        affinity = V1NodeAffinity(preferred_during_scheduling_ignored_during_execution=[preferred_term])
-        body.spec.affinity = affinity
+        node_preferred_affinity = V1NodeAffinity(preferred_during_scheduling_ignored_during_execution=[preferred_term])
+        body.spec.affinity = V1Affinity(node_affinity=node_required_affinity)
 
         # source files as a secret volume
         # we copy these files to the workdir before executing Snakemake
