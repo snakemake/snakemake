@@ -123,8 +123,6 @@ class IOCache:
 
     def needs_inventory(self, path):
         root = self.get_inventory_root(path)
-        print(root)
-        print(root not in self.has_inventory)
         return root and root not in self.has_inventory
 
     def in_inventory(self, path):

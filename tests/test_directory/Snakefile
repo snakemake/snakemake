@@ -1,6 +1,5 @@
 shell.executable("bash")
 
-shell("mkdir -p input_dir && touch input_dir/child")
 
 rule downstream:
     input: "some/dir"
