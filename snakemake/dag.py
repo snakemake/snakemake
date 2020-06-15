@@ -17,7 +17,7 @@ import uuid
 import math
 
 from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
-from snakemake.jobs import Job, Reason, GroupJob
+from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
 from snakemake.exceptions import MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
@@ -124,6 +124,9 @@ class DAG:
         self._progress = 0
         self._group = dict()
 
+        self.job_factory = JobFactory()
+        self.group_job_factory = GroupJobFactory()
+
         self.forcerules = set()
         self.forcefiles = set()
         self.untilrules = set()
@@ -145,6 +148,8 @@ class DAG:
             self.omitrules.update(set(rule.name for rule in omitrules))
         if omitfiles:
             self.omitfiles.update(omitfiles)
+
+        self.has_dynamic_rules = any(rule.dynamic_output for rule in self.rules)
 
         self.omitforce = set()
 
@@ -318,11 +323,12 @@ class DAG:
 
     def check_dynamic(self):
         """Check dynamic output and update downstream rules if necessary."""
-        for job in filter(
-            lambda job: (job.dynamic_output and not self.needrun(job)), self.jobs
-        ):
-            self.update_dynamic(job)
-        self.postprocess()
+        if self.has_dynamic_rules:
+            for job in filter(
+                lambda job: (job.dynamic_output and not self.needrun(job)), self.jobs
+            ):
+                self.update_dynamic(job)
+            self.postprocess()
 
     def is_edit_notebook_job(self, job):
         return self.workflow.edit_notebook and job.targetfile in self.targetfiles
@@ -763,6 +769,13 @@ class DAG:
         producer = dict()
         exceptions = dict()
         for file, jobs in potential_dependencies.items():
+            # If possible, obtain inventory information starting from
+            # given file and store it in the IOCache.
+            # This should provide faster access to existence and mtime information
+            # than querying file by file. If the file type does not support inventory
+            # information, this call is a no-op.
+            file.inventory()
+
             if not jobs:
                 # no producing job found
                 if not file.exists:
@@ -816,13 +829,23 @@ class DAG:
     def update_needrun(self):
         """ Update the information whether a job needs to be executed. """
 
-        def output_mintime(job):
-            for job_ in self.bfs(self.depending, job):
-                t = job_.output_mintime
-                if t:
-                    return t
+        output_mintime = dict()
 
-        def needrun(job):
+        def update_output_mintime(job):
+            try:
+                return output_mintime[job]
+            except KeyError:
+                for job_ in chain([job], self.depending[job]):
+                    try:
+                        t = output_mintime[job_]
+                    except KeyError:
+                        t = job_.output_mintime
+                    if t is not None:
+                        output_mintime[job] = t
+                        return
+                output_mintime[job] = None
+
+        def update_needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
             updated_subworkflow_input = self.updated_subworkflow_files.intersection(
@@ -859,7 +882,7 @@ class DAG:
                         )
                     reason.missing_output.update(missing_output)
             if not reason:
-                output_mintime_ = output_mintime(job)
+                output_mintime_ = output_mintime.get(job)
                 if output_mintime_:
                     updated_input = [
                         f for f in job.input if f.exists and f.is_newer(output_mintime_)
@@ -867,7 +890,6 @@ class DAG:
                     reason.updated_input.update(updated_input)
             if noinitreason and reason:
                 reason.derived = False
-            return job
 
         reason = self.reason
         _needrun = self._needrun
@@ -875,9 +897,21 @@ class DAG:
         depending = self.depending
 
         _needrun.clear()
-        candidates = set(self.jobs)
+        candidates = list(self.jobs)
 
-        queue = list(filter(reason, map(needrun, candidates)))
+        # Update the output mintime of all jobs.
+        # We traverse them in BFS (level order) starting from target jobs.
+        # Then, we check output mintime of job itself and all direct descendants,
+        # which have already been visited in the level before.
+        # This way, we achieve a linear runtime.
+        for job in candidates:
+            update_output_mintime(job)
+
+        # update prior reason for all candidate jobs
+        for job in candidates:
+            update_needrun(job)
+
+        queue = list(filter(reason, candidates))
         visited = set(queue)
         while queue:
             job = queue.pop(0)
@@ -964,7 +998,7 @@ class DAG:
             # BFS into depending needrun jobs if in same group
             # Note: never go up here (into depending), because it may contain
             # jobs that have been sorted out due to e.g. ruleorder.
-            group = GroupJob(
+            group = self.group_job_factory.new(
                 job.group,
                 (
                     job
@@ -1214,7 +1248,7 @@ class DAG:
             assert targetfile is not None
             return self.job_cache[key]
         wildcards_dict = rule.get_wildcards(targetfile)
-        job = Job(
+        job = self.job_factory.new(
             rule,
             self,
             wildcards_dict=wildcards_dict,

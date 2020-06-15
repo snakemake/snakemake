@@ -731,13 +731,14 @@ class Workflow:
             self.globals.update(globals_backup)
 
         dag.postprocess()
-        # deactivate IOCache such that from now on we always get updated
-        # size, existence and mtime information
-        # ATTENTION: this may never be removed without really good reason.
-        # Otherwise weird things may happen.
-        self.iocache.deactivate()
-        # clear and deactivate persistence cache, from now on we want to see updates
-        self.persistence.deactivate_cache()
+        if not dryrun:
+            # deactivate IOCache such that from now on we always get updated
+            # size, existence and mtime information
+            # ATTENTION: this may never be removed without really good reason.
+            # Otherwise weird things may happen.
+            self.iocache.deactivate()
+            # clear and deactivate persistence cache, from now on we want to see updates
+            self.persistence.deactivate_cache()
 
         if nodeps:
             missing_input = [
