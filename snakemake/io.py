@@ -104,22 +104,16 @@ class IOCache:
         # In case of remote objects the root is the bucket or server host.
         self.has_inventory = set()
         self.active = True
-        if ON_WINDOWS:
-            self.get_inventory_root = self.get_inventory_root_win
 
     def get_inventory_root(self, path):
-        """If eligible for inventory, get the root of a given path."""
+        """If eligible for inventory, get the root of a given path.
+
+        This code does not work on local Windows paths,
+        but inventory is disabled on Windows.
+        """
         root = path.split("/", maxsplit=1)[0]
         if root and root != "..":
             return root
-
-    def get_inventory_root_win(self, path):
-        """If eligible for inventory, get the root of a given path."""
-        path = Path(path)
-        if not path.is_absolute():
-            root = path.parts[0]
-            if root != "..":
-                return path.parts[0]
 
     def needs_inventory(self, path):
         root = self.get_inventory_root(path)
@@ -209,7 +203,8 @@ class _IOFile(str):
             if self.is_remote:
                 # info not yet in inventory, let's discover as much as we can
                 self.remote_object.inventory(cache)
-            else:
+            elif not ON_WINDOWS:
+                # we don't want to mess with different path representations on windows
                 self._local_inventory(cache)
 
     def _local_inventory(self, cache):
