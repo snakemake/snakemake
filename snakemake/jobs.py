@@ -75,8 +75,47 @@ class AbstractJob:
         raise NotImplementedError()
 
 
+class JobFactory:
+    def __init__(self):
+        self.cache = dict()
+
+    def new(
+        self,
+        rule,
+        dag,
+        wildcards_dict=None,
+        format_wildcards=None,
+        targetfile=None,
+        update=False,
+    ):
+        if rule.is_branched:
+            # for distinguishing branched rules, we need input and output in addition
+            key = (
+                rule.name,
+                *rule.output,
+                *rule.input,
+                *sorted(wildcards_dict.items()),
+            )
+        else:
+            key = (rule.name, *sorted(wildcards_dict.items()))
+        if update:
+            # cache entry has to be replaced because job shall be constructed from scratch
+            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+            self.cache[key] = obj
+        else:
+            try:
+                # try to get job from cache
+                obj = self.cache[key]
+            except KeyError:
+                obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+                self.cache[key] = obj
+        return obj
+
+
 class Job(AbstractJob):
     HIGHEST_PRIORITY = sys.maxsize
+
+    obj_cache = dict()
 
     __slots__ = [
         "rule",
@@ -180,16 +219,14 @@ class Job(AbstractJob):
                             rule=self.rule,
                         )
                 self.subworkflow_input[f] = sub
-        self._hash = self.rule.__hash__()
-        for wildcard_value in self.wildcards_dict.values():
-            self._hash ^= wildcard_value.__hash__()
 
     def updated(self):
-        job = Job(
+        job = self.dag.job_factory.new(
             self.rule,
             self.dag,
             wildcards_dict=self.wildcards_dict,
             targetfile=self.targetfile,
+            update=True,
         )
         job.is_updated = True
         return job
@@ -494,6 +531,7 @@ class Job(AbstractJob):
     @property
     def output_mintime(self):
         """ Return oldest output file. """
+
         existing = [f.mtime for f in self.expanded_output if f.exists]
         if self.benchmark and self.benchmark.exists:
             existing.append(self.benchmark.mtime)
@@ -859,23 +897,11 @@ class Job(AbstractJob):
     def __repr__(self):
         return self.rule.name
 
-    def __eq__(self, other):
-        if other is None:
-            return False
-        return (
-            self.rule == other.rule
-            and (self.wildcards_dict == other.wildcards_dict)
-            and (self.input == other.input)
-        )
-
     def __lt__(self, other):
         return self.rule.__lt__(other.rule)
 
     def __gt__(self, other):
         return self.rule.__gt__(other.rule)
-
-    def __hash__(self):
-        return self._hash
 
     def expand_dynamic(self, pattern):
         """ Expand dynamic files. """
@@ -1037,7 +1063,24 @@ class Job(AbstractJob):
         return 1
 
 
+class GroupJobFactory:
+    def __init__(self):
+        self.cache = dict()
+
+    def new(self, id, jobs):
+        jobs = frozenset(jobs)
+        key = (id, jobs)
+        try:
+            obj = self.cache[key]
+        except KeyError:
+            obj = GroupJob(id, jobs)
+            self.cache[key] = obj
+        return obj
+
+
 class GroupJob(AbstractJob):
+
+    obj_cache = dict()
 
     __slots__ = [
         "groupid",
@@ -1054,7 +1097,7 @@ class GroupJob(AbstractJob):
 
     def __init__(self, id, jobs):
         self.groupid = id
-        self.jobs = frozenset(jobs)
+        self.jobs = jobs
         self.toposorted = None
         self._resources = None
         self._input = None

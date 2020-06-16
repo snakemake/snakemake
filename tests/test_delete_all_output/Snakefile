@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 rule all:
     input: "delete_all_output", "delete_temp_output"
     output: touch("all_ok")

@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 rule all:
     input:
         "test.3.txt", 'test.4.txt', 'test.5.txt', 'test.6.txt'

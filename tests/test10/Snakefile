@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 rule rule1:
 	input: 'test.in'
 	output: 'test.out'

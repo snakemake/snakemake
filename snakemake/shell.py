@@ -11,7 +11,8 @@ import inspect
 import shutil
 import threading
 
-from snakemake.utils import format
+from snakemake.utils import format, argvquote, _find_bash_on_windows
+from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
@@ -34,6 +35,7 @@ class shell:
     _process_suffix = ""
     _lock = threading.Lock()
     _processes = {}
+    _win_command_prefix = ""
 
     @classmethod
     def get_executable(cls):
@@ -41,13 +43,16 @@ class shell:
 
     @classmethod
     def check_output(cls, cmd, **kwargs):
-        return sp.check_output(
-            cmd, shell=True, executable=cls.get_executable(), **kwargs
-        )
+        executable = cls.get_executable()
+        if ON_WINDOWS and executable:
+            cmd = f'"{executable}" {cls._win_command_prefix} {argvquote(cmd)}'
+            return sp.check_output(cmd, shell=False, executable=executable, **kwargs)
+        else:
+            return sp.check_output(cmd, shell=True, executable=executable, **kwargs)
 
     @classmethod
     def executable(cls, cmd):
-        if os.name == "posix" and not os.path.isabs(cmd):
+        if os.name in ("posix", "nt") and not os.path.isabs(cmd):
             # always enforce absolute path
             cmd = shutil.which(cmd)
             if not cmd:
@@ -56,8 +61,9 @@ class shell:
                     "is not available in your "
                     "PATH.".format(cmd)
                 )
-        if os.path.split(cmd)[-1] == "bash":
+        if os.path.split(cmd)[-1].lower() in ("bash", "bash.exe"):
             cls._process_prefix = "set -euo pipefail; "
+            cls._win_command_prefix = "-c"
         cls._process_args["executable"] = cmd
 
     @classmethod
@@ -67,6 +73,16 @@ class shell:
     @classmethod
     def suffix(cls, suffix):
         cls._process_suffix = format(suffix, stepout=2)
+
+    @classmethod
+    def win_command_prefix(cls, cmd):
+        """ The command prefix used on windows when specifing a explicit 
+            shell executable. This would be "-c" for bash and "/C" for cmd.exe
+            Note: that if no explicit executable is set commands are executed 
+            with Popen(..., shell=True) which uses COMSPEC on windows where this
+            is not needed.
+        """
+        cls._win_command_prefix = cmd
 
     @classmethod
     def kill(cls, jobid):
@@ -140,12 +156,23 @@ class shell:
         envvars["VECLIB_MAXIMUM_THREADS"] = threads
         envvars["NUMEXPR_NUM_THREADS"] = threads
 
+        use_shell = True
+
+        if ON_WINDOWS and cls.get_executable():
+            # If executable is set on Windows shell mode can not be used
+            # and the executable should be prepended the command together
+            # with a command prefix (e.g. -c for bash).
+            use_shell = False
+            cmd = '"{}" {} {}'.format(
+                cls.get_executable(), cls._win_command_prefix, argvquote(cmd)
+            )
+
         proc = sp.Popen(
             cmd,
             bufsize=-1,
-            shell=True,
+            shell=use_shell,
             stdout=stdout,
-            universal_newlines=iterable or None,
+            universal_newlines=iterable or read or None,
             close_fds=close_fds,
             **cls._process_args,
             env=envvars,

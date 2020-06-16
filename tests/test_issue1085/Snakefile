@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 def get_params(wildcards):
     return {'test': 'oo', 'norm': 'oo'} 
 

@@ -15,6 +15,7 @@ To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.5
 * Snakemake_ ≥5.16
+* git
 
 You should install conda as outlined in the :ref:`tutorial <tutorial-setup>`,
 and then install full snakemake with:
