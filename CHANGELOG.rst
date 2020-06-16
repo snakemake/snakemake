@@ -1,3 +1,12 @@
+[5.19.3] - 2020-06-16
+=====================
+Changed
+-------
+- Performance improvements for DAG generation (up to 7x in the google cloud, anything from a little to massive in a cluster, depending on the overall filesystem performance).
+- Made harcoded bucket in google cloud executor configurable.
+- Improved speed of --unlock command.
+
+
 [5.19.2] - 2020-06-04
 =====================
 Changed
