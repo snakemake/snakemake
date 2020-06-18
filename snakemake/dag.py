@@ -242,7 +242,9 @@ class DAG:
                 (b, role_b, job_b) = outputs[c_id]
             # No potential child was found
             if role_b != 1:
-                assert c_id == len(outputs) - 1, "We should have reached the last path by now."
+                assert (
+                    c_id == len(outputs) - 1
+                ), "We should have reached the last path by now."
                 break
             # Now, we have a parent and the closest potential child
             try:
