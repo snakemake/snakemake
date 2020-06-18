@@ -1,0 +1,29 @@
+"""
+Issue 413:
+ When an output file was a link to a previous output,
+ AND the output link already exists, there would be a 
+ false ChildIOException thrown.
+
+ So test.txt and test.link already exist and we have a third
+ output to trigger a build
+ """
+
+rule all:
+    input:
+        'test.link',
+        'test.txt',
+        "output.txt"
+        
+rule link_file:
+    input: 'test.txt'
+    output: 'test.link'
+    shell: 'ln -s test.txt {output}'
+
+rule first_rule:
+    output: 'test.txt'
+    shell: 'echo TEST > {output}'
+
+# under issue 413 the DAG would fail before this could run
+rule output:
+    output: 'output.txt'
+    shell: 'echo OUTPUT > {output}'
