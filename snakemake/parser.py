@@ -244,6 +244,10 @@ class Configfile(GlobalKeywordState):
     pass
 
 
+class Pepfile(GlobalKeywordState):
+    pass
+
+
 class Report(GlobalKeywordState):
     pass
 
@@ -777,6 +781,7 @@ class Python(TokenAutomaton):
         include=Include,
         workdir=Workdir,
         configfile=Configfile,
+        pepfile=Pepfile,
         report=Report,
         ruleorder=Ruleorder,
         rule=Rule,

@@ -1085,6 +1085,17 @@ class Workflow:
         update_config(config, c)
         update_config(config, self.overwrite_config)
 
+    def pepfile(self, pepfile):
+        global pep
+
+        try:
+            import peppy
+            import eido
+        except ImportError:
+            raise WorkflowError("For pep support, please install peppy and eido.")
+        pep = peppy.Project(pepfile)
+        eido.validate_project(project=pep, schema=pep.schema, exclude_case=True)
+
     def report(self, path):
         """ Define a global report description in .rst format."""
         self.report_text = os.path.join(self.current_basedir, path)
