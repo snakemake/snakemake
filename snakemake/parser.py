@@ -212,9 +212,7 @@ class RuleKeywordState(KeywordState):
         yield "@workflow.{keyword}(".format(keyword=self.keyword)
 
 
-class SubworkflowKeywordState(KeywordState):
-    prefix = "Subworkflow"
-
+class SectionKeywordState(KeywordState):
     def start(self):
         yield ", {keyword}=".format(keyword=self.keyword)
 
@@ -244,8 +242,64 @@ class Configfile(GlobalKeywordState):
     pass
 
 
-class Pepfile(GlobalKeywordState):
+# PEPs
+
+
+class PepKeywordState(SectionKeywordState):
+    prefix = "Pep"
+
+
+class PepConfig(PepKeywordState):
     pass
+
+
+class PepSchema(PepKeywordState):
+    pass
+
+
+class Pep(GlobalKeywordState):
+    subautomata = dict(config=PepConfig, schema=PepSchema)
+
+    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
+        self.state = self.name
+        self.has_config = False
+        self.has_schema = False
+
+    def end(self):
+        if not self.has_config:
+            self.error("A pep needs a path to a PEP config.", self.primary_token)
+        yield ")"
+
+    def block_content(self, token):
+        if is_name(token):
+            try:
+                if token.string == "config":
+                    self.has_config = True
+                if token.string == "schema":
+                    self.has_schema = True
+                for t in self.subautomaton(token.string).consume():
+                    yield t
+            except KeyError:
+                self.error(
+                    "Unexpected keyword {} in " "pep definition".format(token.string),
+                    token,
+                )
+            except StopAutomaton as e:
+                self.indentation(e.token)
+                for t in self.block(e.token):
+                    yield t
+        elif is_comment(token):
+            yield "\n", token
+            yield token.string, token
+        elif is_string(token):
+            # ignore docstring
+            pass
+        else:
+            self.error(
+                "Expecting keyword, comment or docstrings " "inside a pep definition.",
+                token,
+            )
 
 
 class Report(GlobalKeywordState):
@@ -285,6 +339,10 @@ class GlobalContainer(GlobalKeywordState):
 
 
 # subworkflows
+
+
+class SubworkflowKeywordState(SectionKeywordState):
+    prefix = "Subworkflow"
 
 
 class SubworkflowSnakefile(SubworkflowKeywordState):
