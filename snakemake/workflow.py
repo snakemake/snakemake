@@ -1096,6 +1096,9 @@ class Workflow:
 
         pep = peppy.Project(pepfile)
         if schema is not None:
+            if urlparse(schema).scheme == "" and not os.path.isabs(schema):
+                # schema is relative to current Snakefile
+                schema = os.path.join(self.current_basedir, schema)
             eido.validate_project(project=pep, schema=schema, exclude_case=True)
 
     def report(self, path):
