@@ -192,7 +192,6 @@ class DAG:
 
     def check_directory_outputs(self):
         """Check that no output file is contained in a directory output of another rule."""
-        # TODO:
         # If an output is a link, only the link should be considered as potential child of a directory, not the target.
         # Tuples (path, role, job)
         # where role 0 is for parent and role 1 is for child
@@ -205,11 +204,7 @@ class DAG:
             }
         )
         child_outputs = sorted(
-            {
-                (os.path.abspath(f), 1, job)
-                for job in self.jobs
-                for f in job.output
-            }
+            {(os.path.abspath(f), 1, job) for job in self.jobs for f in job.output}
         )
         outputs = sorted(parent_outputs + child_outputs)
         # outputs = sorted(
