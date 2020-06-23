@@ -2065,7 +2065,9 @@ def main(argv=None):
         if local_exec and not args.dryrun:
             print(
                 "Error: you need to specify the maximum number of CPU cores to "
-                "be used at the same time with --cores.",
+                "be used at the same time. If you want to use N cores, say --cores N or "
+                "-jN. For all cores on your system (be sure that this is appropriate) "
+                "use --cores all. For no parallelization use --cores 1 or -j1.",
                 file=sys.stderr,
             )
             sys.exit(1)
