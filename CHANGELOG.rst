@@ -151,10 +151,11 @@ Changed
 - --cores is now a mandatory argument!
 - Automatic checksum validation for google storage.
 
+
 Added
 -----
 - Azure storage authentication via SAS
-- A generic cintainer directive that will in the future allow for other backends than just singularity.
+- A generic container directive that will in the future allow for other backends than just singularity. This deprecates the singularity directive, which will however stay functional at least until the next major release.
 - envvars directive for asserting environment variable existence. See docs.
 - support for AWS spot instances via --tibanna-config spot=true.
 - Automatic code quality linting via --lint.
