@@ -150,6 +150,9 @@ class _IOFile(str):
     __slots__ = ["_is_function", "_file", "rule", "_regex"]
 
     def __new__(cls, file):
+        # Remove trailing slashes.
+        file = file.rstrip("/")
+        
         obj = str.__new__(cls, file)
         obj._is_function = isfunction(file) or ismethod(file)
         obj._is_function = obj._is_function or (
@@ -217,12 +220,14 @@ class _IOFile(str):
             queue = [root]
             while queue:
                 path = queue.pop(0)
+                # path must be a dir
                 cache.exists_local[path] = True
                 with os.scandir(path) as scan:
                     for entry in scan:
                         if entry.is_dir():
                             queue.append(entry.path)
                         else:
+                            # path is a file
                             cache.exists_local[entry.path] = True
 
         cache.has_inventory.add(root)

@@ -1019,3 +1019,7 @@ def test_string_resources():
 @skip_on_windows  # currently fails on windows. Plaese help fix.
 def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
+
+
+def test_github_issue456():
+    run(dpath("test_github_issue456"))
