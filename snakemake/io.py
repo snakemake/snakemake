@@ -152,7 +152,7 @@ class _IOFile(str):
     def __new__(cls, file):
         # Remove trailing slashes.
         file = file.rstrip("/")
-        
+
         obj = str.__new__(cls, file)
         obj._is_function = isfunction(file) or ismethod(file)
         obj._is_function = obj._is_function or (
