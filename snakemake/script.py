@@ -464,7 +464,10 @@ class PythonScript(ScriptBase):
         return os.path.exists(os.path.join(prefix, "python"))
 
     def _get_python_version(self):
-        out = self._execute_cmd("python -c \"import sys; print('.'.join(map(str, sys.version_info[:2])))\"", read=True)
+        out = self._execute_cmd(
+            "python -c \"import sys; print('.'.join(map(str, sys.version_info[:2])))\"",
+            read=True,
+        )
         return tuple(map(int, out.strip().split(".")))
 
     def execute_script(self, fname, edit=False):
