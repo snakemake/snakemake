@@ -151,8 +151,6 @@ class _IOFile(str):
 
     def __new__(cls, file):
         # Remove trailing slashes.
-        file = file.rstrip("/")
-
         obj = str.__new__(cls, file)
         obj._is_function = isfunction(file) or ismethod(file)
         obj._is_function = obj._is_function or (
@@ -172,10 +170,11 @@ class _IOFile(str):
         def wrapper(self, *args, **kwargs):
             if self.rule.workflow.iocache.active:
                 cache = getattr(self.rule.workflow.iocache, func.__name__)
-                if self in cache:
-                    return cache[self]
+                normalized = self.rstrip("/")
+                if normalized in cache:
+                    return cache[normalized]
                 v = func(self, *args, **kwargs)
-                cache[self] = v
+                cache[normalized] = v
                 return v
             else:
                 return func(self, *args, **kwargs)
