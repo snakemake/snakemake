@@ -106,5 +106,6 @@ def test_expand():
     # expand on pathlib.Path objects
     assert expand(
         PosixPath() / "{x}" / "{y}",
-        **{"x": "Hello, ", "y": "world"}
+        x="Hello",
+        y="world",
     ) == ["Hello/world"]
