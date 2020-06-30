@@ -816,6 +816,14 @@ def get_appdirs():
     return APPDIRS
 
 
+def get_default_profile():
+    """Return "default" if default profile exists in one of the search dirs."""
+    dirs = get_appdirs()
+    if get_profile_file("default", "config.yaml"):
+        return "default"
+    return None
+
+
 def get_profile_file(profile, file, return_default=False):
     dirs = get_appdirs()
     if os.path.isabs(profile):
@@ -890,6 +898,7 @@ def get_argument_parser(profile=None):
 
     group_exec.add_argument(
         "--profile",
+        default=get_default_profile(),
         help="""
                         Name of profile to use for configuring
                         Snakemake. Snakemake will search for a corresponding
@@ -901,6 +910,11 @@ def get_argument_parser(profile=None):
                         '--cluster qsub' becomes 'cluster: qsub' in the YAML
                         file. Profiles can be obtained from
                         https://github.com/snakemake-profiles.
+                        If a default profile is installed on your system,
+                        omitting this argument leads to automatic usage of 
+                        the default profile.
+                        Using the default profile can be deactivated by specifying
+                        --profile none. 
                         """.format(
             dirs.site_config_dir, dirs.user_config_dir
         ),
@@ -1954,6 +1968,9 @@ def main(argv=None):
     """Main entry point."""
     parser = get_argument_parser()
     args = parser.parse_args(argv)
+
+    if args.profile == "none":
+        args.profile = None
 
     if args.profile:
         # reparse args while inferring config file from profile
