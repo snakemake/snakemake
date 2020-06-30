@@ -818,7 +818,6 @@ def get_appdirs():
 
 def get_default_profile():
     """Return "default" if default profile exists in one of the search dirs."""
-    dirs = get_appdirs()
     if get_profile_file("default", "config.yaml"):
         return "default"
     return None
