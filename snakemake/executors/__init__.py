@@ -2161,27 +2161,37 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         task["description"] = "Here is description."
         
         inputs = []
+
+        # add workflow sources
+        for src in self.workflow.get_sources():
+            inputs.append({
+                "url": "file://" + os.path.abspath(src),
+                "path": os.path.join("/tmp/", src)
+            })
+        
+        # add input
         for i in job.input:
             inputs.append({
                 "url": "file://" + os.path.abspath(i),
                 "path": os.path.join("/tmp/", i)
             })
         
-        inputs.append({
-            "url": "file://" + os.path.abspath(self.snakefile),
-            "path": os.path.join("/tmp/", self.snakefile)
-        })
+        #inputs.append({
+        #    "url": "file://" + os.path.abspath(self.snakefile),
+        #    "path": os.path.join("/tmp/", self.snakefile)
+        #})
 
+        # add jobscript
         inputs.append({
             "url": "file://" + os.path.abspath(jobscript),
             "path": "/tmp/run_snakemake.sh"
         })
 
-        if(job.conda_env_file):
-            inputs.append({
-                "url": "file://" + os.path.abspath(job.conda_env_file),
-                "path": os.path.join("/tmp/", os.path.relpath(job.conda_env_file))
-        })
+        #if(job.conda_env_file):
+        #    inputs.append({
+        #        "url": "file://" + os.path.abspath(job.conda_env_file),
+        #        "path": os.path.join("/tmp/", os.path.relpath(job.conda_env_file))
+        #})
 
         task["inputs"] = inputs
 
