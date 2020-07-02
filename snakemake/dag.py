@@ -227,9 +227,12 @@ class DAG:
                 self._jobid[job] = len(self._jobid)
 
     def cleanup_workdir(self):
-        for job in self.jobs:
-            for d in job.empty_dirs:
-                os.removedirs(d)
+        for io_dir in set(os.path.dirname(io_file)
+                          for job in self.jobs
+                          for io_file in chain(job.output, job.input)
+                          if not os.path.exists(io_file)):
+            if os.path.exists(io_dir) and not len(os.listdir(io_dir)):
+                os.removedirs(io_dir)
 
     def cleanup(self):
         self.job_cache.clear()
