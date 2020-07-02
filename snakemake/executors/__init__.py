@@ -2154,8 +2154,25 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 self.active_jobs.extend(still_running)
             sleep()
     
+    def _provide_input(self, filename, checkdir=None):
+        f = os.path.abspath(filename)
+        f_url = "file://" + f
+        f_path = os.path.join("/tmp/", os.path.relpath(f))
+        if checkdir:
+            checkdir = checkdir.rstrip("/")
+            if not f.startswith(checkdir):
+                direrrmsg = (
+                    "All source files including Snakefile, "
+                    + "conda env files, and rule script files "
+                    + "must be in the same working directory: {} vs {}"
+                )
+                raise WorkflowError(direrrmsg.format(checkdir, f))
+        return f_url, f_path
+    
     def _get_task(self, job, jobscript):
         
+        checkdir, _ = os.path.split(self.snakefile)
+
         task = {}
         task["name"] = job.format_wildcards(self.jobname)
         task["description"] = "Here is description."
@@ -2164,34 +2181,26 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         # add workflow sources
         for src in self.workflow.get_sources():
+            f_url, f_path = self._provide_input(src, checkdir)
             inputs.append({
-                "url": "file://" + os.path.abspath(src),
-                "path": os.path.join("/tmp/", src)
+                "url": f_url,
+                "path": f_path
             })
         
         # add input
         for i in job.input:
+            f_url, f_path = self._provide_input(i, checkdir)
             inputs.append({
-                "url": "file://" + os.path.abspath(i),
-                "path": os.path.join("/tmp/", i)
+                "url": f_url,
+                "path": f_path
             })
-        
-        #inputs.append({
-        #    "url": "file://" + os.path.abspath(self.snakefile),
-        #    "path": os.path.join("/tmp/", self.snakefile)
-        #})
 
         # add jobscript
+        jobscript_url, _ = self._provide_input(jobscript, checkdir)
         inputs.append({
-            "url": "file://" + os.path.abspath(jobscript),
+            "url": jobscript_url,
             "path": "/tmp/run_snakemake.sh"
         })
-
-        #if(job.conda_env_file):
-        #    inputs.append({
-        #        "url": "file://" + os.path.abspath(job.conda_env_file),
-        #        "path": os.path.join("/tmp/", os.path.relpath(job.conda_env_file))
-        #})
 
         task["inputs"] = inputs
 
