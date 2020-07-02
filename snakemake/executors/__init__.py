@@ -2160,9 +2160,6 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         task["name"] = job.format_wildcards(self.jobname)
         task["description"] = "Here is description."
         
-        for f in workflow_sources:
-            print(f, file=sys.stderr)
-        
         inputs = []
         for i in job.input:
             inputs.append({
