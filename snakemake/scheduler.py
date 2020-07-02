@@ -19,6 +19,7 @@ from snakemake.executors import (
     DRMAAExecutor,
     KubernetesExecutor,
     TibannaExecutor,
+    TaskExecutionServiceExecutor
 )
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
@@ -69,6 +70,8 @@ class JobScheduler:
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
+        tes=None,
+        tes_url=None,
         precommand="",
         tibanna_config=False,
         jobname=None,
@@ -290,7 +293,31 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
             )
+        elif tes:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                cores=local_cores,
+                keepincomplete=keepincomplete,
+            )
 
+            self._executor = TaskExecutionServiceExecutor(
+                workflow,
+                dag,
+                cores=local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                tes_url=tes_url,
+                container_image=container_image
+            )
+        
         else:
             self._executor = CPUExecutor(
                 workflow,

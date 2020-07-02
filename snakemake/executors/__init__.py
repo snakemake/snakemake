@@ -2033,6 +2033,180 @@ class TibannaExecutor(ClusterExecutor):
             sleep()
 
 
+TaskExecutionServiceJob = namedtuple(
+    "TaskExecutionServiceJob", "job jobid callback error_callback"
+)
+
+import requests
+import json
+
+class TaskExecutionServiceExecutor(ClusterExecutor):
+    def __init__(self, workflow, dag, cores,
+             jobname="snakejob.{name}.{jobid}.sh",
+             printreason=False,
+             quiet=False,
+             printshellcmds=False,
+             latency_wait=3,
+             cluster_config=None,
+             local_input=None,
+             restart_times=None,
+             exec_job=None,
+             assume_shared_fs=False,
+             max_status_checks_per_second=1,
+             tes_url=None,
+             container_image=None):
+        
+        exec_job = "\\\n".join(
+            (
+                "{envvars} ",
+                "mkdir /tmp/conda && cd /tmp && ",
+                "snakemake {target} --snakefile {snakefile} ",
+                "--force -j{cores} --keep-target-files  --keep-remote ",
+                "--latency-wait 10 ",
+                "--attempt 1 {use_threads} ",
+                "{overwrite_config} {rules} --nocolor ",
+                "--notemp --no-hooks --nolock --mode {} ".format(Mode.cluster)
+            )
+        )
+
+        super().__init__(workflow, dag, None,
+                         jobname=jobname,
+                         printreason=printreason,
+                         quiet=quiet,
+                         printshellcmds=printshellcmds,
+                         latency_wait=latency_wait,
+                         cluster_config=cluster_config,
+                         local_input=local_input,
+                         restart_times=restart_times,
+                         exec_job=exec_job,
+                         assume_shared_fs=assume_shared_fs,
+                         max_status_checks_per_second=10)
+        self.tes_url = tes_url
+        self.container_image = container_image or get_container_image()
+
+    def write_jobscript(self, job, jobscript, **kwargs):
+
+        use_threads = "--force-use-threads" if not job.is_group() else ""
+        envvars = "\\\n".join(
+            "export {}={};".format(var, os.environ[var]) for var in self.workflow.envvars
+        )
+
+        exec_job = self.format_job(
+            self.exec_job,
+            job,
+            _quote_all=False,
+            use_threads=use_threads,
+            envvars=envvars,
+            **kwargs
+        )
+        content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
+        logger.debug("Jobscript:\n{}".format(content))
+        with open(jobscript, "w") as f:
+            print(content, file=f)
+        os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
+
+    def shutdown(self):
+        # perform additional steps on shutdown if necessary
+        super().shutdown()
+
+    def cancel(self):
+        for job in self.active_jobs:
+            requests.post("{}/v1/tasks/{}:cancel".format(self.tes_url, job.jobid))
+        self.shutdown()
+
+    def run(self, job,
+            callback=None,
+            submit_callback=None,
+            error_callback=None):
+
+        super()._run(job)
+
+        jobscript = self.get_jobscript(job)
+        self.write_jobscript(job, jobscript)
+
+        # submit job here, and obtain job ids from the backend
+        task = self._get_task(job, jobscript)
+        response = requests.post("{}/v1/tasks".format(self.tes_url), json=task)
+
+        self.active_jobs.append(TaskExecutionServiceJob(
+            job, response.json()["id"], callback, error_callback))
+
+    def _wait_for_jobs(self):
+        while True:
+
+            with self.lock:
+                if not self.wait:
+                    return
+                active_jobs = self.active_jobs
+                self.active_jobs = list()
+                still_running = list()
+            
+            for j in active_jobs:
+                with self.status_rate_limiter:
+                    response = requests.get("{}/v1/tasks/{}".format(self.tes_url, j.jobid))
+                    status = response.json()["state"]
+                    if status == "RUNNING":
+                        still_running.append(j)
+                    elif status == "COMPLETE":
+                        j.callback(j.job)
+            
+            with self.lock:
+                self.active_jobs.extend(still_running)
+            sleep()
+    
+    def _get_task(self, job, jobscript):
+        
+        task = {}
+        task["name"] = job.format_wildcards(self.jobname)
+        task["description"] = "Here is description."
+        
+        for f in workflow_sources:
+            print(f, file=sys.stderr)
+        
+        inputs = []
+        for i in job.input:
+            inputs.append({
+                "url": "file://" + os.path.abspath(i),
+                "path": os.path.join("/tmp/", i)
+            })
+        
+        inputs.append({
+            "url": "file://" + os.path.abspath(self.snakefile),
+            "path": os.path.join("/tmp/", self.snakefile)
+        })
+
+        inputs.append({
+            "url": "file://" + os.path.abspath(jobscript),
+            "path": "/tmp/run_snakemake.sh"
+        })
+
+        if(job.conda_env_file):
+            inputs.append({
+                "url": "file://" + os.path.abspath(job.conda_env_file),
+                "path": os.path.join("/tmp/", os.path.relpath(job.conda_env_file))
+        })
+
+        task["inputs"] = inputs
+
+        # add output files to task
+        outputs = []
+        for o in job.output:
+            outputs.append({
+                "url": "file://" + os.path.abspath(o),
+                "path": os.path.join("/tmp/", o)
+            })
+        
+        task["outputs"] = outputs
+
+        # define executors
+        task["executors"] = [{
+                "image": self.container_image,
+                "command": ["/bin/bash", "/tmp/run_snakemake.sh"]
+            }]
+        
+        return task
+
+
 def run_wrapper(
     job_rule,
     input,

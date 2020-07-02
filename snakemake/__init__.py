@@ -148,6 +148,8 @@ def snakemake(
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
     google_lifesciences_cache=False,
+    tes=False,
+    tes_url="",
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
@@ -267,6 +269,8 @@ def snakemake(
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
+        tes (bool):                 Use GA4GH TES workflow execution
+        tes_url (str):              TES server
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         tibanna_config (list):      Additional tibanan config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
@@ -355,11 +359,13 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
+    
+
 
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa or tibanna or kubernetes or google_lifesciences:
+    if cluster or cluster_sync or drmaa or tibanna or kubernetes or google_lifesciences or tes:
         cores = None
     else:
         nodes = None
@@ -380,7 +386,7 @@ def snakemake(
         cluster_config_content = dict()
 
     run_local = not (
-        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences
+        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences or tes
     )
     if run_local:
         if not dryrun:
@@ -616,6 +622,8 @@ def snakemake(
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
+                    tes=tes,
+                    tes_url=tes_url,
                     precommand=precommand,
                     tibanna_config=tibanna_config,
                     assume_shared_fs=assume_shared_fs,
@@ -654,6 +662,8 @@ def snakemake(
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
+                    tes=tes,
+                    tes_url=tes_url,
                     precommand=precommand,
                     tibanna_config=tibanna_config,
                     max_jobs_per_second=max_jobs_per_second,
@@ -2020,6 +2030,7 @@ def main(argv=None):
         or args.google_lifesciences
         or args.kubernetes
         or args.tibanna
+        or args.tes
         or args.list_code_changes
         or args.list_conda_envs
         or args.list_input_changes
@@ -2307,6 +2318,8 @@ def main(argv=None):
             google_lifesciences_regions=args.google_lifesciences_regions,
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
+            tes=args.tes,
+            tes_url=args.tes_url,
             precommand=args.precommand,
             tibanna_config=args.tibanna_config,
             jobname=args.jobname,
