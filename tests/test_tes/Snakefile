@@ -1,0 +1,53 @@
+rule all:
+    input:
+        "output.txt",
+        "output.txt.bz2"
+
+rule step1a:
+    input: "testfiles/input.txt"
+    output: temp("out_1a.txt")
+    shell:
+        """
+        cat {input} > {output}
+        """
+
+rule step1b:
+    input: "testfiles/input.txt"
+    output: temp("out_1b.txt")
+    shell:
+        """
+        cat {input} > {output}
+        """
+
+rule step1c:
+    output: temp("out_1c.txt")
+    params:
+        message="hello world"
+    script: "scripts/test_script.py"
+
+rule step1d:
+    output: temp("out_1d.txt")
+    params:
+        message="hello world"
+    run:
+        with open(output[0], "w") as f:
+            f.write(params.message)
+
+rule step2:
+    input:
+        "out_1a.txt",
+        "out_1b.txt",
+        "out_1c.txt",
+        "out_1d.txt"
+    output:
+        "output.txt",
+        "output.txt.bz2"
+    conda:
+        "envs/gzip.yaml"
+    shell:
+        """
+        cat {input[0]} >> {output[0]}
+        cat {input[1]} >> {output[0]}
+        cat {input[2]} >> {output[0]}
+        bzip2 -c {output[0]} > {output[1]}
+        """
