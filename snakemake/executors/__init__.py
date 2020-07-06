@@ -2126,10 +2126,20 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         # submit job here, and obtain job ids from the backend
         task = self._get_task(job, jobscript)
-        response = requests.post("{}/v1/tasks".format(self.tes_url), json=task)
-
-        self.active_jobs.append(TaskExecutionServiceJob(
-            job, response.json()["id"], callback, error_callback))
+         
+        try:
+            response = requests.post("{}/v1/tasks".format(self.tes_url), json=task)
+        except requests.exceptions.RequestException as e:  # This is the correct syntax
+            raise WorkflowError(str(e), response.status_code)
+        
+        if response.status_code == 200:
+            self.active_jobs.append(TaskExecutionServiceJob(
+                job, response.json()["id"], callback, error_callback))
+        else:
+            raise WorkflowError(
+                "Invalid HTTP response status code while connecting to TES server: {}".format(response.status_code)
+            )
+        
 
     def _wait_for_jobs(self):
         while True:
@@ -2145,10 +2155,12 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 with self.status_rate_limiter:
                     response = requests.get("{}/v1/tasks/{}".format(self.tes_url, j.jobid))
                     status = response.json()["state"]
-                    if status == "RUNNING":
+                    if status in ["UNKNOWN", "INITIALIZING", "QUEUED", "RUNNING", "PAUSED"]:
                         still_running.append(j)
                     elif status == "COMPLETE":
                         j.callback(j.job)
+                    elif status in ["EXECUTOR_ERROR", "SYSTEM_ERROR", "CANCELED"]:
+                        j.error_callback(j.job)
             
             with self.lock:
                 self.active_jobs.extend(still_running)
