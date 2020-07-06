@@ -9,6 +9,7 @@ import sys
 import re
 from abc import ABCMeta, abstractmethod
 from wrapt import ObjectProxy
+from connection_pool import ConnectionPool
 import copy
 
 # module-specific
@@ -192,7 +193,7 @@ class AbstractRemoteObject:
 
     def remote_file(self):
         return self.protocol + self.local_file()
-
+    
     @abstractmethod
     def close(self):
         pass
@@ -244,7 +245,7 @@ class DomainObject(AbstractRemoteObject):
     """
 
     def __init__(self, *args, **kwargs):
-        super(DomainObject, self).__init__(*args, **kwargs)
+        super(AbstractRemoteObject, self).__init__(*args, **kwargs)
 
     @property
     def _matched_address(self):
@@ -290,3 +291,75 @@ class DomainObject(AbstractRemoteObject):
     @property
     def remote_path(self):
         return self.path_remainder
+
+
+class PooledDomainObject(DomainObject):
+    """This adds conection pooling to DomainObjects
+        out of a location path specified as
+        (host|IP):port/remote/location
+    """
+    connection_pools = {}
+
+    def __init__(self, *args, **kwargs):
+        super(DomainObject, self).__init__(*args, **kwargs)
+
+    @property
+    def default_kwargs(self, **defaults):
+        defaults.setdefault('host', self.host)
+        defaults.setdefault('port',
+                            int(self.port) if self.port else None)
+        return defaults
+
+    def get_args_to_use(self):
+        """ merge the objects args with the parent provider
+
+        Positional Args: use those of object or fall back to ones from provider
+        Keyword Args: merge with any defaults
+        """
+        # if args have been provided to remote(),
+        #  use them over those given to RemoteProvider()
+        args_to_use = self.provider.args
+        if len(self.args):
+            args_to_use = self.args
+
+        # use kwargs passed in to remote() to override those given to the RemoteProvider()
+        #  default to the host and port given as part of the file,
+        #  falling back to one specified as a kwarg to remote() or the RemoteProvider 
+        #  (overriding the latter with the former if both)
+        kwargs_to_use = self.default_kwargs()
+        for k, v in self.provider.kwargs.items():
+            kwargs_to_use[k] = v
+        for k, v in self.kwargs.items():
+            kwargs_to_use[k] = v
+
+    @property
+    def conn_keywords(self):
+        """ returns list of keywords relevant to a unique connection """
+        return ['host', 'port', 'username']
+
+    @property
+    def connection_pool(self):
+        # merge this object's values with those of its parent provider
+        args_to_use, kwargs_to_use = self.get_args_to_use()
+
+        # hashing connection pool on tuple of relevant arguments. There
+        # may be a better way to do this
+        conn_pool_label_tuple = (
+            type(self), 
+            *args_to_use,
+            *[kwargs_to_use[k] for k in self.conn_keywords]
+            )
+
+        if conn_pool_label_tuple not in self.connection_pools:
+            create_callback = partial(self.connect, *args_to_use, **kwargs_to_use)
+            self.connection_pools[conn_pool_label_tuple] = \
+                    ConnectionPool(create_callback,
+                                   close=lambda c: c.close(),
+                                   max_size=self.pool_size)
+
+        return self.connection_pools[conn_pool_label_tuple]
+
+
+    @abstractmethod
+    def connect(self):
+        pass

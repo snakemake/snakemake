@@ -8,10 +8,10 @@ import re
 import ftplib
 import collections
 from itertools import chain
-from contextlib import contextmanager
 
 # module-specific
-from snakemake.remote import AbstractRemoteProvider, DomainObject
+from snakemake.remote import AbstractRemoteProvider, PooledDomainObject
+
 from snakemake.exceptions import FTPFileException, WorkflowError
 from snakemake.utils import os_sync
 
@@ -22,7 +22,7 @@ try:
 except ImportError as e:
     raise WorkflowError(
         "The Python 3 package 'ftputil' "
-        + "must be installed to use SFTP remote() file functionality. %s" % e.msg
+        + "must be installed to use FTP remote() file functionality. %s" % e.msg
     )
 
 
@@ -37,7 +37,7 @@ class RemoteProvider(AbstractRemoteProvider):
         keep_local=False,
         stay_on_remote=False,
         is_default=False,
-        immediate_close=False,
+        pool_size=100,
         **kwargs
     ):
         super(RemoteProvider, self).__init__(
@@ -48,7 +48,7 @@ class RemoteProvider(AbstractRemoteProvider):
             **kwargs
         )
 
-        self.immediate_close = immediate_close
+        self.pool_size=100
 
     @property
     def default_protocol(self):
@@ -61,7 +61,7 @@ class RemoteProvider(AbstractRemoteProvider):
         return ["ftp://", "ftps://"]
 
     def remote(
-        self, value, *args, encrypt_data_channel=None, immediate_close=None, **kwargs
+        self, value, *args, encrypt_data_channel=None, **kwargs
     ):
         if isinstance(value, str):
             values = [value]
@@ -90,13 +90,11 @@ class RemoteProvider(AbstractRemoteProvider):
                 else:
                     values[i] = "ftp://" + file
 
-        should_close = immediate_close if immediate_close else self.immediate_close
         values = [
             super(RemoteProvider, self).remote(
                 value,
                 *args,
                 encrypt_data_channel=encrypt_data_channel,
-                immediate_close=should_close,
                 **kwargs
             )
             for value in values
@@ -107,9 +105,10 @@ class RemoteProvider(AbstractRemoteProvider):
             return values
 
 
-class RemoteObject(DomainObject):
+class RemoteObject(PooledDomainObject):
     """ This is a class to interact with an FTP server.
     """
+    connection_pools = {}
 
     def __init__(
         self,
@@ -117,7 +116,6 @@ class RemoteObject(DomainObject):
         keep_local=False,
         provider=None,
         encrypt_data_channel=False,
-        immediate_close=False,
         **kwargs
     ):
         super(RemoteObject, self).__init__(
@@ -125,84 +123,48 @@ class RemoteObject(DomainObject):
         )
 
         self.encrypt_data_channel = encrypt_data_channel
-        self.immediate_close = immediate_close
-
-    def close(self):
-        if (
-            hasattr(self, "conn")
-            and isinstance(self.conn, ftputil.FTPHost)
-            and not self.immediate_close
-        ):
-            try:
-                self.conn.keep_alive()
-                self.conn.close()
-            except:
-                pass
 
     # === Implementations of abstract class members ===
 
-    @contextmanager  # makes this a context manager. after 'yield' is __exit__()
-    def ftpc(self):
-        if (
-            not hasattr(self, "conn")
-            or (hasattr(self, "conn") and not isinstance(self.conn, ftputil.FTPHost))
-        ) or self.immediate_close:
-            # if args have been provided to remote(), use them over those given to RemoteProvider()
-            args_to_use = self.provider.args
-            if len(self.args):
-                args_to_use = self.args
+    @property
+    def default_kwargs(self, **defaults):
+        """ define defaults beyond thos set in PooledDomainObject """
+        return super(PooledDomainObject, self).default_kwargs({
+            'port': 21,
+            'password': None,
+            'username', None})
 
-            # use kwargs passed in to remote() to override those given to the RemoteProvider()
-            # default to the host and port given as part of the file, falling back to one specified
-            # as a kwarg to remote() or the RemoteProvider (overriding the latter with the former if both)
-            kwargs_to_use = {}
-            kwargs_to_use["host"] = self.host
-            kwargs_to_use["username"] = None
-            kwargs_to_use["password"] = None
-            kwargs_to_use["port"] = int(self.port) if self.port else 21
-            kwargs_to_use["encrypt_data_channel"] = self.encrypt_data_channel
+    @property
+    def conn_keywords(self):
+        """ returns list of keywords relevant to a unique connection """
+        return ['host', 'port', 'username', 'encrypt_data_channel']
 
-            for k, v in self.provider.kwargs.items():
-                kwargs_to_use[k] = v
-            for k, v in self.kwargs.items():
-                kwargs_to_use[k] = v
+    def connect(self, *args_to_use, **kwargs_to_use):
+        ftp_base_class = (
+            ftplib.FTP_TLS if kwargs_to_use["encrypt_data_channel"] else ftplib.FTP
+        )
 
-            ftp_base_class = (
-                ftplib.FTP_TLS if kwargs_to_use["encrypt_data_channel"] else ftplib.FTP
-            )
+        ftp_session_factory = ftputil.session.session_factory(
+            base_class=ftp_base_class,
+            port=kwargs_to_use["port"],
+            encrypt_data_channel=kwargs_to_use["encrypt_data_channel"],
+            debug_level=None,
+        )
 
-            ftp_session_factory = ftputil.session.session_factory(
-                base_class=ftp_base_class,
-                port=kwargs_to_use["port"],
-                encrypt_data_channel=kwargs_to_use["encrypt_data_channel"],
-                debug_level=None,
-            )
+        return ftputil.FTPHost(
+            kwargs_to_use["host"],
+            kwargs_to_use["username"],
+            kwargs_to_use["password"],
+            session_factory=ftp_session_factory,
+        )
 
-            conn = ftputil.FTPHost(
-                kwargs_to_use["host"],
-                kwargs_to_use["username"],
-                kwargs_to_use["password"],
-                session_factory=ftp_session_factory,
-            )
-            if self.immediate_close:
-                yield conn
-            else:
-                self.conn = conn
-                yield self.conn
-        elif not self.immediate_close:
-            yield self.conn
-
-        # after returning from the context manager, close the connection if the scope is local
-        if self.immediate_close:
-            try:
-                conn.keep_alive()
-                conn.close()
-            except:
-                pass
-
+    @property
+    def pool_size(self):
+        return 100 if self.provider is None else self.provider.pool_size
+ 
     def exists(self):
         if self._matched_address:
-            with self.ftpc() as ftpc:
+            with self.connection_pool.item() as ftpc:
                 return ftpc.path.exists(self.remote_path)
             return False
         else:
@@ -213,7 +175,7 @@ class RemoteObject(DomainObject):
 
     def mtime(self):
         if self.exists():
-            with self.ftpc() as ftpc:
+            with self.connection_pool.item() as ftpc:
                 try:
                     # requires write access
                     ftpc.synchronize_times()
@@ -227,13 +189,13 @@ class RemoteObject(DomainObject):
 
     def size(self):
         if self.exists():
-            with self.ftpc() as ftpc:
+            with self.connection_pool.item() as ftpc:
                 return ftpc.path.getsize(self.remote_path)
         else:
             return self._iofile.size_local
 
     def download(self, make_dest_dirs=True):
-        with self.ftpc() as ftpc:
+        with self.connection_pool.item() as ftpc:
             if self.exists():
                 # if the destination path does not exist
                 if make_dest_dirs:
@@ -251,7 +213,7 @@ class RemoteObject(DomainObject):
                 )
 
     def upload(self):
-        with self.ftpc() as ftpc:
+        with self.connection_pool.item() as ftpc:
             ftpc.synchronize_times()
             ftpc.upload(source=self.local_path, target=self.remote_path)
 
@@ -262,7 +224,7 @@ class RemoteObject(DomainObject):
         first_wildcard = self._iofile.constant_prefix()
         dirname = first_wildcard.replace(self.path_prefix, "")
 
-        with self.ftpc() as ftpc:
+        with self.connection_pool.item() as ftpc:
             file_list = [
                 (os.path.join(dirpath, f) if dirpath != "." else f)
                 for dirpath, dirnames, filenames in ftpc.walk(dirname)
