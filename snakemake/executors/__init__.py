@@ -2083,6 +2083,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                          max_status_checks_per_second=10)
         self.tes_url = tes_url
         self.container_image = container_image or get_container_image()
+        #self.input_files = []
+        #self.output_files = []
+        self.container_workdir = "/tmp"
+
 
     def write_jobscript(self, job, jobscript, **kwargs):
 
@@ -2127,6 +2131,8 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         # submit job here, and obtain job ids from the backend
         task = self._get_task(job, jobscript)
          
+        print("{}/v1/tasks".format(self.tes_url), file=sys.stderr)
+        print(task, file=sys.stderr)
         try:
             response = requests.post("{}/v1/tasks".format(self.tes_url), json=task)
         except requests.exceptions.RequestException as e:  # This is the correct syntax
@@ -2137,7 +2143,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 job, response.json()["id"], callback, error_callback))
         else:
             raise WorkflowError(
-                "Invalid HTTP response status code while connecting to TES server: {}".format(response.status_code)
+                "Unexpected HTTP response status code while connecting to TES server: {}".format(response.status_code)
             )
         
 
@@ -2166,21 +2172,25 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 self.active_jobs.extend(still_running)
             sleep()
     
-    def _provide_input(self, filename, checkdir=None):
+    def _prepare_file(self, filename, overwrite_path=None, checkdir=None):
         f = os.path.abspath(filename)
         f_url = "file://" + f
-        f_path = os.path.join("/tmp/", os.path.relpath(f))
+        
+        if overwrite_path: f_path = overwrite_path
+        else: f_path = os.path.join(self.container_workdir, os.path.relpath(f))
+
         if checkdir:
             checkdir = checkdir.rstrip("/")
             if not f.startswith(checkdir):
                 direrrmsg = (
-                    "All source files including Snakefile, "
-                    + "conda env files, and rule script files "
+                    "All files including Snakefile, "
+                    + "conda env files, rule script files, output files "
                     + "must be in the same working directory: {} vs {}"
                 )
                 raise WorkflowError(direrrmsg.format(checkdir, f))
-        return f_url, f_path
-    
+        
+        return {"url": f_url, "path": f_path}
+
     def _get_task(self, job, jobscript):
         
         checkdir, _ = os.path.split(self.snakefile)
@@ -2193,43 +2203,39 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         # add workflow sources
         for src in self.workflow.get_sources():
-            f_url, f_path = self._provide_input(src, checkdir)
-            inputs.append({
-                "url": f_url,
-                "path": f_path
-            })
+            inputs.append(self._prepare_file(filename=src, checkdir=checkdir))
         
         # add input
         for i in job.input:
-            f_url, f_path = self._provide_input(i, checkdir)
-            inputs.append({
-                "url": f_url,
-                "path": f_path
-            })
-
+            inputs.append(self._prepare_file(filename=i, checkdir=checkdir))
+        
         # add jobscript
-        jobscript_url, _ = self._provide_input(jobscript, checkdir)
-        inputs.append({
-            "url": jobscript_url,
-            "path": "/tmp/run_snakemake.sh"
-        })
-
+        inputs.append(self._prepare_file(
+            filename=jobscript, overwrite_path=os.path.join(self.container_workdir, "run_snakemake.sh"), checkdir=checkdir))
+        
         task["inputs"] = inputs
 
         # add output files to task
         outputs = []
         for o in job.output:
-            outputs.append({
-                "url": "file://" + os.path.abspath(o),
-                "path": os.path.join("/tmp/", o)
-            })
+            outputs.append(self._prepare_file(filename=o, checkdir=checkdir))
+
+        # log files
+        if job.log:
+            for log in job.log:
+                outputs.append(self._prepare_file(filename=log, checkdir=checkdir))
         
+        # benchmark files
+        if hasattr(job, "benchmark") and job.benchmark:
+            for benchmark in job.benchmark:
+                outputs.append(self._prepare_file(filename=benchmark, checkdir=checkdir))
+       
         task["outputs"] = outputs
 
         # define executors
         task["executors"] = [{
                 "image": self.container_image,
-                "command": ["/bin/bash", "/tmp/run_snakemake.sh"]
+                "command": ["/bin/bash", os.path.join(self.container_workdir, "run_snakemake.sh")]
             }]
         
         return task
