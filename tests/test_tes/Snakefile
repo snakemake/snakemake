@@ -5,14 +5,14 @@ rule all:
 
 rule step1a:
     input: "testfiles/input.txt"
-    output: temp("out_1a.txt")
+    output: pipe("out_1a.txt")
     shell:
         """
         cat {input} > {output}
         """
 
 rule step1b:
-    input: "testfiles/input.txt"
+    input: "out_1a.txt"
     output: temp("out_1b.txt")
     shell:
         """
@@ -35,7 +35,6 @@ rule step1d:
 
 rule step2:
     input:
-        "out_1a.txt",
         "out_1b.txt",
         "out_1c.txt",
         "out_1d.txt"
@@ -44,10 +43,12 @@ rule step2:
         "output.txt.bz2"
     conda:
         "envs/gzip.yaml"
+    log: "test.log"
     shell:
         """
         cat {input[0]} >> {output[0]}
         cat {input[1]} >> {output[0]}
         cat {input[2]} >> {output[0]}
         bzip2 -c {output[0]} > {output[1]}
+        echo "fine" > {log} 
         """
