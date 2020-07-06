@@ -2131,12 +2131,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         # submit job here, and obtain job ids from the backend
         task = self._get_task(job, jobscript)
          
-        print("{}/v1/tasks".format(self.tes_url), file=sys.stderr)
-        print(task, file=sys.stderr)
         try:
             response = requests.post("{}/v1/tasks".format(self.tes_url), json=task)
         except requests.exceptions.RequestException as e:  # This is the correct syntax
-            raise WorkflowError(str(e), response.status_code)
+            raise WorkflowError(str(e))
         
         if response.status_code == 200:
             self.active_jobs.append(TaskExecutionServiceJob(
@@ -2235,7 +2233,8 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         # define executors
         task["executors"] = [{
                 "image": self.container_image,
-                "command": ["/bin/bash", os.path.join(self.container_workdir, "run_snakemake.sh")]
+                "command": ["/bin/bash", os.path.join(self.container_workdir, "run_snakemake.sh")],
+                "workfir": self.container_workdir
             }]
         
         return task
