@@ -1265,8 +1265,8 @@ class Namedlist(list):
         these functions should not be used.        
         """
         raise AttributeError(
-            f"{_name}() cannot be used; attribute name reserved"
-            f" for use in some existing workflows"
+            "{_name}() cannot be used; attribute name reserved"
+            " for use in some existing workflows".format(_name=_name)
         )
 
     def _add_name(self, name):
@@ -1288,8 +1288,8 @@ class Namedlist(list):
         """
         if name not in self._allowed_overrides and hasattr(self.__class__, name):
             raise AttributeError(
-                f"invalid name for input, output, wildcard, "
-                f"params or log: {name} is reserved for internal use"
+                "invalid name for input, output, wildcard, "
+                "params or log: {name} is reserved for internal use".format(name=name)
             )
 
         self._names[name] = (index, end)
