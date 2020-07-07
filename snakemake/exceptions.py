@@ -133,12 +133,18 @@ class WorkflowError(Exception):
         if isinstance(arg, str):
             return arg
         elif isinstance(arg, WorkflowError):
-            rule = "rule {}".format(arg.rule) if arg.rule is not None else ""
-            location = (
-                "line {}, {}".format(arg.lineno, arg.snakefile) if arg.snakefile else ""
-            )
-            spec = ", ".join([rule, location])
-            return "{} ({}):\n{}".format(
+            spec = ""
+            if arg.rule is not None:
+                spec += "rule {}".format(arg.rule)
+            if arg.snakefile is not None:
+                if spec:
+                    spec += ", "
+                spec += "line {}, {}".format(arg.lineno, arg.snakefile)
+
+            if spec:
+                spec = " ({})".format(spec)
+
+            return "{}{}:\n{}".format(
                 arg.__class__.__name__, spec, textwrap.indent(str(arg), "    ")
             )
         else:
