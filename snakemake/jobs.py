@@ -825,14 +825,6 @@ class Job(AbstractJob):
             for f in to_remove:
                 f.remove()
 
-    @property
-    def empty_dirs(self):
-        for f in set(self.output) | set(self.input):
-            if os.path.exists(os.path.dirname(f)) and not len(
-                os.listdir(os.path.dirname(f))
-            ):
-                yield os.path.dirname(f)
-
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """
         _variables = dict()

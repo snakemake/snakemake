@@ -22,7 +22,7 @@ try:
 except ImportError as e:
     raise WorkflowError(
         "The Python 3 package 'ftputil' "
-        + "must be installed to use SFTP remote() file functionality. %s" % e.msg
+        + "must be installed to use FTP remote() file functionality. %s" % e.msg
     )
 
 
