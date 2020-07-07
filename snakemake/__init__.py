@@ -444,7 +444,7 @@ def snakemake(
     if cluster_mode > 1:
         logger.error("Error: cluster and drmaa args are mutually exclusive")
         return False
-    if debug and (cores > 1 or cluster_mode):
+    if debug and (cluster_mode or cores > 1):
         logger.error(
             "Error: debug mode cannot be used with more than one core or cluster execution."
         )
@@ -2065,7 +2065,9 @@ def main(argv=None):
         if local_exec and not args.dryrun:
             print(
                 "Error: you need to specify the maximum number of CPU cores to "
-                "be used at the same time with --cores.",
+                "be used at the same time. If you want to use N cores, say --cores N or "
+                "-jN. For all cores on your system (be sure that this is appropriate) "
+                "use --cores all. For no parallelization use --cores 1 or -j1.",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -2110,7 +2112,7 @@ def main(argv=None):
         print(
             "Error: --kubernetes must be combined with "
             "--default-remote-provider and --default-remote-prefix, see "
-            "https://snakemake.readthedocs.io/en/stable/executable.html"
+            "https://snakemake.readthedocs.io/en/stable/executing/cloud.html"
             "#executing-a-snakemake-workflow-via-kubernetes",
             file=sys.stderr,
         )

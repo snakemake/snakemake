@@ -150,6 +150,7 @@ class _IOFile(str):
     __slots__ = ["_is_function", "_file", "rule", "_regex"]
 
     def __new__(cls, file):
+        # Remove trailing slashes.
         obj = str.__new__(cls, file)
         obj._is_function = isfunction(file) or ismethod(file)
         obj._is_function = obj._is_function or (
@@ -169,10 +170,11 @@ class _IOFile(str):
         def wrapper(self, *args, **kwargs):
             if self.rule.workflow.iocache.active:
                 cache = getattr(self.rule.workflow.iocache, func.__name__)
-                if self in cache:
-                    return cache[self]
+                normalized = self.rstrip("/")
+                if normalized in cache:
+                    return cache[normalized]
                 v = func(self, *args, **kwargs)
-                cache[self] = v
+                cache[normalized] = v
                 return v
             else:
                 return func(self, *args, **kwargs)
@@ -217,12 +219,14 @@ class _IOFile(str):
             queue = [root]
             while queue:
                 path = queue.pop(0)
+                # path must be a dir
                 cache.exists_local[path] = True
                 with os.scandir(path) as scan:
                     for entry in scan:
                         if entry.is_dir():
                             queue.append(entry.path)
                         else:
+                            # path is a file
                             cache.exists_local[entry.path] = True
 
         cache.has_inventory.add(root)
