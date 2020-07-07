@@ -721,7 +721,6 @@ class DAG:
                 MissingInputException,
                 CyclicGraphException,
                 PeriodicWildcardError,
-                InputFunctionException,
                 WorkflowError,
             ) as ex:
                 exceptions.append(ex)
@@ -808,7 +807,6 @@ class DAG:
                 MissingInputException,
                 CyclicGraphException,
                 PeriodicWildcardError,
-                InputFunctionException,
                 WorkflowError,
             ) as ex:
                 if not file.exists:
