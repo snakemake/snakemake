@@ -721,6 +721,8 @@ class DAG:
                 MissingInputException,
                 CyclicGraphException,
                 PeriodicWildcardError,
+                InputFunctionException,
+                WorkflowError,
             ) as ex:
                 exceptions.append(ex)
             except RecursionError as e:
@@ -742,7 +744,7 @@ class DAG:
                 job = cycles[0]
                 raise CyclicGraphException(job.rule, file, rule=job.rule)
             if exceptions:
-                raise exceptions[0]
+                raise WorkflowError(*exceptions)
         else:
             logger.dag_debug(dict(status="selected", job=producer))
 
@@ -797,6 +799,8 @@ class DAG:
                 MissingInputException,
                 CyclicGraphException,
                 PeriodicWildcardError,
+                InputFunctionException,
+                WorkflowError,
             ) as ex:
                 if not file.exists:
                     self.delete_job(job, recursive=False)  # delete job from tree
