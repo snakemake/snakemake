@@ -131,6 +131,11 @@ class WorkflowError(Exception):
     def format_arg(arg):
         if isinstance(arg, str):
             return arg
+        elif isinstance(arg, WorkflowError):
+            rule = "rule {}".format(arg.rule) if arg.rule is not None else ""
+            location = "line {}, {}".format(arg.lineno, arg.snakefile) if arg.snakefile else ""
+            spec = ", ".join([rule, location])
+            return "{} ({}): {}".format(arg.__class__.__name__, spec, str(arg))
         else:
             return "{}: {}".format(arg.__class__.__name__, str(arg))
 
