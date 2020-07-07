@@ -743,8 +743,10 @@ class DAG:
             if cycles:
                 job = cycles[0]
                 raise CyclicGraphException(job.rule, file, rule=job.rule)
-            if exceptions:
+            if len(exceptions) > 1:
                 raise WorkflowError(*exceptions)
+            elif len(exceptions) == 1:
+                raise exceptions[0]
         else:
             logger.dag_debug(dict(status="selected", job=producer))
             logger.dag_debug(
