@@ -274,7 +274,13 @@ class Env:
 
                     # install packages manually from env archive
                     cmd = " ".join(
-                        ["conda", "create", "--copy", "--prefix '{}'".format(env_path)]
+                        [
+                            "conda",
+                            "create",
+                            "--quiet",
+                            "--copy",
+                            "--prefix '{}'".format(env_path),
+                        ]
                         + packages
                     )
                     if self._container_img:
@@ -301,6 +307,7 @@ class Env:
                             self.frontend,
                             "env",
                             "create",
+                            "--quiet",
                             "--file '{}'".format(target_env_file),
                             "--prefix '{}'".format(env_path),
                         ]
