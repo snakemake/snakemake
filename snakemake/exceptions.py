@@ -202,16 +202,14 @@ class RuleException(Exception):
 class InputFunctionException(WorkflowError):
     def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
         msg = (
-            self.format_arg(msg)
+            "Message:\n    "
+            + self.format_arg(msg)
             + "\nWildcards:\n"
             + "\n".join(
-                "{}={}".format(name, value)
-                for name, value in wildcards.items()
+                "  {}={}".format(name, value) for name, value in wildcards.items()
             )
             + "\nTraceback:\n"
-            + "\n".join(
-                format_traceback(cut_traceback(msg), rule.workflow.linemaps)
-            )
+            + "\n".join(format_traceback(cut_traceback(msg), rule.workflow.linemaps))
         )
         super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
