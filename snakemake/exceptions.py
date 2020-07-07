@@ -202,7 +202,7 @@ class RuleException(Exception):
 class InputFunctionException(WorkflowError):
     def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
         msg = (
-            "Message:\n    "
+            "Error:\n  "
             + self.format_arg(msg)
             + "\nWildcards:\n"
             + "\n".join(
