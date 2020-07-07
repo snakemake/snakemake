@@ -1239,6 +1239,11 @@ class GroupJob(AbstractJob):
         return self._input
 
     @property
+    def remote_input(self):
+        return [f for f in self.input 
+                if f.is_remote and not f.should_stay_on_remote]
+
+    @property
     def output(self):
         all_input = set(f for job in self.jobs for f in job.input)
         if self._output is None:
