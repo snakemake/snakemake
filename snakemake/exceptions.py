@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import os
 import traceback
+import textwrap
 from tokenize import TokenError
 from snakemake.logging import logger
 
@@ -137,7 +138,9 @@ class WorkflowError(Exception):
                 "line {}, {}".format(arg.lineno, arg.snakefile) if arg.snakefile else ""
             )
             spec = ", ".join([rule, location])
-            return "{} ({}): {}".format(arg.__class__.__name__, spec, str(arg))
+            return "{} ({}):\n{}".format(
+                arg.__class__.__name__, spec, textwrap.indent(str(arg), "    ")
+            )
         else:
             return "{}: {}".format(arg.__class__.__name__, str(arg))
 
@@ -200,9 +203,9 @@ class InputFunctionException(WorkflowError):
     def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
         msg = (
             self.format_arg(msg)
-            + "\nWildcards:\n"
+            + "\n    Wildcards:\n"
             + "\n".join(
-                "{}={}".format(name, value) for name, value in wildcards.items()
+                "    {}={}".format(name, value) for name, value in wildcards.items()
             )
         )
         super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
