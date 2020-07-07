@@ -210,7 +210,7 @@ class InputFunctionException(WorkflowError):
             )
             + "\nTraceback:\n"
             + "\n".join(
-                format_traceback(cut_traceback(msg, rule.workflow.linemaps))
+                format_traceback(cut_traceback(msg), rule.workflow.linemaps)
             )
         )
         super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
