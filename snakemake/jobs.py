@@ -1240,8 +1240,7 @@ class GroupJob(AbstractJob):
 
     @property
     def remote_input(self):
-        return [f for f in self.input 
-                if f.is_remote and not f.should_stay_on_remote]
+        return [f for f in self.input if f.is_remote and not f.should_stay_on_remote]
 
     @property
     def output(self):
