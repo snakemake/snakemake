@@ -289,7 +289,7 @@ def test_empty_include():
 
 @skip_on_windows
 def test_script():
-    run(dpath("test_script"), use_conda=True)
+    run(dpath("test_script"), use_conda=True, check_md5=False)
 
 
 def test_script_python():
@@ -1019,3 +1019,7 @@ def test_string_resources():
 @skip_on_windows  # currently fails on windows. Plaese help fix.
 def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
+
+
+def test_github_issue456():
+    run(dpath("test_github_issue456"))
