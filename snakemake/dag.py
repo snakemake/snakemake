@@ -227,9 +227,14 @@ class DAG:
                 self._jobid[job] = len(self._jobid)
 
     def cleanup_workdir(self):
-        for job in self.jobs:
-            for d in job.empty_dirs:
-                os.removedirs(d)
+        for io_dir in set(
+            os.path.dirname(io_file)
+            for job in self.jobs
+            for io_file in chain(job.output, job.input)
+            if not os.path.exists(io_file)
+        ):
+            if os.path.exists(io_dir) and not len(os.listdir(io_dir)):
+                os.removedirs(io_dir)
 
     def cleanup(self):
         self.job_cache.clear()
@@ -721,6 +726,7 @@ class DAG:
                 MissingInputException,
                 CyclicGraphException,
                 PeriodicWildcardError,
+                WorkflowError,
             ) as ex:
                 exceptions.append(ex)
             except RecursionError as e:
@@ -741,10 +747,19 @@ class DAG:
             if cycles:
                 job = cycles[0]
                 raise CyclicGraphException(job.rule, file, rule=job.rule)
-            if exceptions:
+            if len(exceptions) > 1:
+                raise WorkflowError(*exceptions)
+            elif len(exceptions) == 1:
                 raise exceptions[0]
         else:
             logger.dag_debug(dict(status="selected", job=producer))
+            logger.dag_debug(
+                dict(
+                    file=file,
+                    msg="Producer found, hence exceptions are ignored.",
+                    exception=WorkflowError(*exceptions),
+                )
+            )
 
         n = len(self.dependencies)
         if progress and n % 1000 == 0 and n and self._progress != n:
@@ -797,10 +812,19 @@ class DAG:
                 MissingInputException,
                 CyclicGraphException,
                 PeriodicWildcardError,
+                WorkflowError,
             ) as ex:
                 if not file.exists:
                     self.delete_job(job, recursive=False)  # delete job from tree
                     raise ex
+                else:
+                    logger.dag_debug(
+                        dict(
+                            file=file,
+                            msg="No producers found, but file is present on disk.",
+                            exception=ex,
+                        )
+                    )
 
         for file, job_ in producer.items():
             dependencies[job_].add(file)
