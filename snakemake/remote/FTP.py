@@ -144,6 +144,17 @@ class RemoteObject(PooledDomainObject):
             session_factory=ftp_session_factory,
         )
 
+    def exists(self):
+        if self._matched_address:
+            with self.connection_pool.item() as ftpc:
+                return ftpc.path.exists(self.remote_path)
+            return False
+        else:
+            raise FTPFileException(
+                "The file cannot be parsed as an FTP path in form 'host:port/abs/path/to/file': %s"
+                % self.local_file()
+            )
+
     def mtime(self):
         if self.exists():
             with self.connection_pool.item() as ftpc:
