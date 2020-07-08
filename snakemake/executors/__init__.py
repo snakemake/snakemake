@@ -2219,6 +2219,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         task["inputs"] = []
         task["outputs"] = []
         task["executors"] = []
+        task["resources"] = tes.models.Resources()
 
         # add workflow sources to inputs
         for src in self.workflow.get_sources():
@@ -2285,6 +2286,14 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 workdir=self.container_workdir,
             )
         )
+
+        # define resources
+        if "_cores" in job.resources:
+            task["resources"]["cpu_cores"] = job.resources["_cores"]
+        if "mem_mb" in job.resources:
+            task["resources"]["ram_gb"] = job.resources["mem_mb"] / 1000
+        if "disk_mb" in job.resources:
+            task["resources"]["disk_gb"] = job.resources["disk_mb"] / 1000
 
         return tes.Task(**task)
 
