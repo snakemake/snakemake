@@ -4,7 +4,6 @@ __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
 import os
-from contextlib import contextmanager
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, PooledDomainObject
