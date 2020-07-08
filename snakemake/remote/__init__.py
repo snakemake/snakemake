@@ -7,6 +7,7 @@ __license__ = "MIT"
 import os
 import sys
 import re
+from functools import partial
 from abc import ABCMeta, abstractmethod
 from wrapt import ObjectProxy
 from connection_pool import ConnectionPool
@@ -303,8 +304,7 @@ class PooledDomainObject(DomainObject):
     def __init__(self, *args, **kwargs):
         super(DomainObject, self).__init__(*args, **kwargs)
 
-    @property
-    def default_kwargs(self, **defaults):
+    def get_default_kwargs(self, **defaults):
         defaults.setdefault('host', self.host)
         defaults.setdefault('port',
                             int(self.port) if self.port else None)
@@ -326,11 +326,13 @@ class PooledDomainObject(DomainObject):
         #  default to the host and port given as part of the file,
         #  falling back to one specified as a kwarg to remote() or the RemoteProvider 
         #  (overriding the latter with the former if both)
-        kwargs_to_use = self.default_kwargs()
+        kwargs_to_use = self.get_default_kwargs()
         for k, v in self.provider.kwargs.items():
             kwargs_to_use[k] = v
         for k, v in self.kwargs.items():
             kwargs_to_use[k] = v
+
+        return args_to_use, kwargs_to_use
 
     @property
     def conn_keywords(self):
@@ -347,7 +349,7 @@ class PooledDomainObject(DomainObject):
         conn_pool_label_tuple = (
             type(self), 
             *args_to_use,
-            *[kwargs_to_use[k] for k in self.conn_keywords]
+            *[kwargs_to_use.get(k, None) for k in self.conn_keywords]
             )
 
         if conn_pool_label_tuple not in self.connection_pools:

@@ -65,10 +65,9 @@ class RemoteObject(PooledDomainObject):
             *args, keep_local=keep_local, provider=provider, **kwargs
         )
 
-    @property
-    def default_kwargs(self, **defaults):
+    def get_default_kwargs(self, **defaults):
         """ define defaults beyond thos set in PooledDomainObject """
-        return super(PooledDomainObject, self).default_kwargs({
+        return super(PooledDomainObject, self).default_kwargs(**{
             'port': 22,
         })
 

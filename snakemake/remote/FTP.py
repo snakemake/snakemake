@@ -76,13 +76,13 @@ class RemoteProvider(AbstractRemoteProvider):
             match = re.match("^(ftps?)://.+", file)
             if match:
                 (protocol,) = match.groups()
-                if protocol == "ftps" and encrypt_data_channel:
+                if protocol == "ftp" and encrypt_data_channel in [None, False]:
                     raise SyntaxError(
                         "encrypt_data_channel=False cannot be used with a ftps:// url"
                     )
                 if protocol == "ftp" and encrypt_data_channel not in [None, False]:
                     raise SyntaxError(
-                        "encrypt_data_channel=Trie cannot be used with a ftp:// url"
+                        "encrypt_data_channel=True cannot be used with a ftp:// url"
                     )
             else:
                 if encrypt_data_channel:
@@ -118,21 +118,20 @@ class RemoteObject(PooledDomainObject):
         encrypt_data_channel=False,
         **kwargs
     ):
+        # just save to kwargs, but leave in function def so it's explicit
+        kwargs['encrypt_data_channel'] = encrypt_data_channel
         super(RemoteObject, self).__init__(
             *args, keep_local=keep_local, provider=provider, **kwargs
         )
 
-        self.encrypt_data_channel = encrypt_data_channel
-
     # === Implementations of abstract class members ===
 
-    @property
-    def default_kwargs(self, **defaults):
+    def get_default_kwargs(self, **defaults):
         """ define defaults beyond thos set in PooledDomainObject """
-        return super(PooledDomainObject, self).default_kwargs({
+        return super().get_default_kwargs(**{
             'port': 21,
             'password': None,
-            'username', None})
+            'username': None})
 
     @property
     def conn_keywords(self):
