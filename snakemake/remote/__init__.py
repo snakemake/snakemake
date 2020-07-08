@@ -194,7 +194,7 @@ class AbstractRemoteObject:
 
     def remote_file(self):
         return self.protocol + self.local_file()
-    
+
     @abstractmethod
     def close(self):
         pass
@@ -299,16 +299,16 @@ class PooledDomainObject(DomainObject):
         out of a location path specified as
         (host|IP):port/remote/location
     """
+
     connection_pools = {}
 
     def __init__(self, *args, pool_size=100, **kwargs):
         super(DomainObject, self).__init__(*args, **kwargs)
-        self.pool_size=100
+        self.pool_size = 100
 
     def get_default_kwargs(self, **defaults):
-        defaults.setdefault('host', self.host)
-        defaults.setdefault('port',
-                            int(self.port) if self.port else None)
+        defaults.setdefault("host", self.host)
+        defaults.setdefault("port", int(self.port) if self.port else None)
         return defaults
 
     def get_args_to_use(self):
@@ -325,7 +325,7 @@ class PooledDomainObject(DomainObject):
 
         # use kwargs passed in to remote() to override those given to the RemoteProvider()
         #  default to the host and port given as part of the file,
-        #  falling back to one specified as a kwarg to remote() or the RemoteProvider 
+        #  falling back to one specified as a kwarg to remote() or the RemoteProvider
         #  (overriding the latter with the former if both)
         kwargs_to_use = self.get_default_kwargs()
         for k, v in self.provider.kwargs.items():
@@ -338,7 +338,7 @@ class PooledDomainObject(DomainObject):
     @property
     def conn_keywords(self):
         """ returns list of keywords relevant to a unique connection """
-        return ['host', 'port', 'username']
+        return ["host", "port", "username"]
 
     @property
     def connection_pool(self):
@@ -348,20 +348,19 @@ class PooledDomainObject(DomainObject):
         # hashing connection pool on tuple of relevant arguments. There
         # may be a better way to do this
         conn_pool_label_tuple = (
-            type(self), 
+            type(self),
             *args_to_use,
-            *[kwargs_to_use.get(k, None) for k in self.conn_keywords]
-            )
+            *[kwargs_to_use.get(k, None) for k in self.conn_keywords],
+        )
 
         if conn_pool_label_tuple not in self.connection_pools:
             create_callback = partial(self.connect, *args_to_use, **kwargs_to_use)
-            self.connection_pools[conn_pool_label_tuple] = \
-                    ConnectionPool(create_callback,
-                                   close=lambda c: c.close(),
-                                   max_size=self.pool_size)
+            self.connection_pools[conn_pool_label_tuple] = ConnectionPool(
+                create_callback, close=lambda c: c.close(), max_size=self.pool_size
+            )
 
         return self.connection_pools[conn_pool_label_tuple]
- 
+
     def exists(self):
         if self._matched_address:
             with self.connection_pool.item() as ftpc:

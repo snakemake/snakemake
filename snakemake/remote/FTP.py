@@ -32,12 +32,7 @@ class RemoteProvider(AbstractRemoteProvider):
     allows_directories = True
 
     def __init__(
-        self,
-        *args,
-        keep_local=False,
-        stay_on_remote=False,
-        is_default=False,
-        **kwargs
+        self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
     ):
         super(RemoteProvider, self).__init__(
             *args,
@@ -57,9 +52,7 @@ class RemoteProvider(AbstractRemoteProvider):
         """List of valid protocols for this remote provider."""
         return ["ftp://", "ftps://"]
 
-    def remote(
-        self, value, *args, encrypt_data_channel=None, **kwargs
-    ):
+    def remote(self, value, *args, encrypt_data_channel=None, **kwargs):
         if isinstance(value, str):
             values = [value]
         elif isinstance(value, collections.abc.Iterable):
@@ -89,10 +82,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
         values = [
             super(RemoteProvider, self).remote(
-                value,
-                *args,
-                encrypt_data_channel=encrypt_data_channel,
-                **kwargs
+                value, *args, encrypt_data_channel=encrypt_data_channel, **kwargs
             )
             for value in values
         ]
@@ -105,6 +95,7 @@ class RemoteProvider(AbstractRemoteProvider):
 class RemoteObject(PooledDomainObject):
     """ This is a class to interact with an FTP server.
     """
+
     connection_pools = {}
 
     def __init__(
@@ -116,7 +107,7 @@ class RemoteObject(PooledDomainObject):
         **kwargs
     ):
         # just save to kwargs, but leave in function def so it's explicit
-        kwargs['encrypt_data_channel'] = encrypt_data_channel
+        kwargs["encrypt_data_channel"] = encrypt_data_channel
         super(RemoteObject, self).__init__(
             *args, keep_local=keep_local, provider=provider, **kwargs
         )
@@ -125,15 +116,14 @@ class RemoteObject(PooledDomainObject):
 
     def get_default_kwargs(self, **defaults):
         """ define defaults beyond thos set in PooledDomainObject """
-        return super().get_default_kwargs(**{
-            'port': 21,
-            'password': None,
-            'username': None})
+        return super().get_default_kwargs(
+            **{"port": 21, "password": None, "username": None}
+        )
 
     @property
     def conn_keywords(self):
         """ returns list of keywords relevant to a unique connection """
-        return ['host', 'port', 'username', 'encrypt_data_channel']
+        return ["host", "port", "username", "encrypt_data_channel"]
 
     def connect(self, *args_to_use, **kwargs_to_use):
         ftp_base_class = (

@@ -67,9 +67,7 @@ class RemoteObject(PooledDomainObject):
 
     def get_default_kwargs(self, **defaults):
         """ define defaults beyond those set in PooledDomainObject """
-        return super().get_default_kwargs(**{
-            'port': 22,
-        })
+        return super().get_default_kwargs(**{"port": 22,})
 
     def connect(self, *args_to_use, **kwargs_to_use):
         return pysftp.Connection(*args_to_use, **kwargs_to_use)
