@@ -955,7 +955,7 @@ def expand(*args, **wildcards):
         combinator = product
     elif len(args) == 2:
         combinator = args[1]
-    if isinstance(filepatterns, str):
+    if isinstance(filepatterns, str) or isinstance(filepatterns, Path):
         filepatterns = [filepatterns]
 
     def path_to_str(f):
