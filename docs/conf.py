@@ -41,7 +41,8 @@ extensions = [
     'sphinxarg.ext'
 ]
 
-html_style = "theme.css"
+# TODO enable once new theme is final
+# html_style = "theme.css"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

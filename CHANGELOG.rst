@@ -1,3 +1,17 @@
+[5.20.0] - 2020-07-08
+=====================
+Changed
+-------
+- Exceptions in input functions are now handled in a smarter way, by choosing alternative paths in the DAG if available.
+- Debugging dag creation (--debug-dag) now gives more hints if alternative DAG paths are chosen.
+- Fixes for XRootD remote file implementation.
+- Improved CLI documentation.
+- Improved docs.
+- Various minor bug fixes.
+- Restored Python 3.5 compatibility.
+- Speed improvements for workdir cleanup.
+- Allow Path objects to be passed to expand.
+
 [5.19.3] - 2020-06-16
 =====================
 Changed
