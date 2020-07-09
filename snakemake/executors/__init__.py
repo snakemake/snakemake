@@ -18,6 +18,7 @@ import concurrent.futures
 import subprocess
 import signal
 import tempfile
+import tes
 from functools import partial
 from itertools import chain
 from collections import namedtuple
@@ -2037,24 +2038,27 @@ TaskExecutionServiceJob = namedtuple(
     "TaskExecutionServiceJob", "job jobid callback error_callback"
 )
 
-import requests
-import json
 
 class TaskExecutionServiceExecutor(ClusterExecutor):
-    def __init__(self, workflow, dag, cores,
-             jobname="snakejob.{name}.{jobid}.sh",
-             printreason=False,
-             quiet=False,
-             printshellcmds=False,
-             latency_wait=3,
-             cluster_config=None,
-             local_input=None,
-             restart_times=None,
-             exec_job=None,
-             assume_shared_fs=False,
-             max_status_checks_per_second=1,
-             tes_url=None,
-             container_image=None):
+    def __init__(
+        self,
+        workflow,
+        dag,
+        cores,
+        jobname="snakejob.{name}.{jobid}.sh",
+        printreason=False,
+        quiet=False,
+        printshellcmds=False,
+        latency_wait=3,
+        cluster_config=None,
+        local_input=None,
+        restart_times=None,
+        exec_job=None,
+        assume_shared_fs=False,
+        max_status_checks_per_second=1,
+        tes_url=None,
+        container_image=None,
+    ):
         
         exec_job = "\\\n".join(
             (
@@ -2069,22 +2073,25 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             )
         )
 
-        super().__init__(workflow, dag, None,
-                         jobname=jobname,
-                         printreason=printreason,
-                         quiet=quiet,
-                         printshellcmds=printshellcmds,
-                         latency_wait=latency_wait,
-                         cluster_config=cluster_config,
-                         local_input=local_input,
-                         restart_times=restart_times,
-                         exec_job=exec_job,
-                         assume_shared_fs=assume_shared_fs,
-                         max_status_checks_per_second=10)
+        super().__init__(
+            workflow,
+            dag,
+            None,
+            jobname=jobname,
+            printreason=printreason,
+            quiet=quiet,
+            printshellcmds=printshellcmds,
+            latency_wait=latency_wait,
+            cluster_config=cluster_config,
+            local_input=local_input,
+            restart_times=restart_times,
+            exec_job=exec_job,
+            assume_shared_fs=assume_shared_fs,
+            max_status_checks_per_second=max_status_checks_per_second,
+        )
         self.tes_url = tes_url
+        self.tes_client = tes.HTTPClient(url=self.tes_url)
         self.container_image = container_image or get_container_image()
-        #self.input_files = []
-        #self.output_files = []
         self.container_workdir = "/tmp"
 
 
@@ -2115,37 +2122,52 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
     def cancel(self):
         for job in self.active_jobs:
-            requests.post("{}/v1/tasks/{}:cancel".format(self.tes_url, job.jobid))
+            try:
+                self.tes_client.cancel_task(job.jobid)
+            except Exception:
+                logger.info(
+                    "Cancelling task failed. This may be because the job is "
+                    "already in a terminal state."
+                )
         self.shutdown()
 
-    def run(self, job,
-            callback=None,
-            submit_callback=None,
-            error_callback=None):
-
+    def run(
+        self,
+        job,
+        callback=None,
+        submit_callback=None,
+        error_callback=None
+    ):
         super()._run(job)
 
         jobscript = self.get_jobscript(job)
         self.write_jobscript(job, jobscript)
 
         # submit job here, and obtain job ids from the backend
-        task = self._get_task(job, jobscript)
-         
         try:
-            response = requests.post("{}/v1/tasks".format(self.tes_url), json=task)
-        except requests.exceptions.RequestException as e:  # This is the correct syntax
+            task = self._get_task(job, jobscript)
+            tes_id = self.tes_client.create_task(task)
+        except Exception as e:
             raise WorkflowError(str(e))
-        
-        if response.status_code == 200:
-            self.active_jobs.append(TaskExecutionServiceJob(
-                job, response.json()["id"], callback, error_callback))
-        else:
-            raise WorkflowError(
-                "Unexpected HTTP response status code while connecting to TES server: {}".format(response.status_code)
-            )
+
+        self.active_jobs.append(TaskExecutionServiceJob(
+            job, tes_id, callback, error_callback))
         
 
     def _wait_for_jobs(self):
+        UNFINISHED_STATES = [
+            "UNKNOWN",
+            "INITIALIZING",
+            "QUEUED",
+            "RUNNING",
+            "PAUSED",
+        ]
+        ERROR_STATES = [
+            "EXECUTOR_ERROR",
+            "SYSTEM_ERROR",
+            "CANCELED",  # TODO: really call `error_callback` on this?
+        ]
+
         while True:
 
             with self.lock:
@@ -2157,14 +2179,13 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             
             for j in active_jobs:
                 with self.status_rate_limiter:
-                    response = requests.get("{}/v1/tasks/{}".format(self.tes_url, j.jobid))
-                    status = response.json()["state"]
-                    if status in ["UNKNOWN", "INITIALIZING", "QUEUED", "RUNNING", "PAUSED"]:
+                    res = self.tes_client.get_task(j.jobid, view='MINIMAL')
+                    if res.state in UNFINISHED_STATES:
                         still_running.append(j)
-                    elif status == "COMPLETE":
-                        j.callback(j.job)
-                    elif status in ["EXECUTOR_ERROR", "SYSTEM_ERROR", "CANCELED"]:
+                    elif res.state in ERROR_STATES:
                         j.error_callback(j.job)
+                    elif res.state == "COMPLETE":
+                        j.callback(j.job)
             
             with self.lock:
                 self.active_jobs.extend(still_running)
@@ -2190,54 +2211,91 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         return {"url": f_url, "path": f_path}
 
     def _get_task(self, job, jobscript):
-        
         checkdir, _ = os.path.split(self.snakefile)
 
         task = {}
         task["name"] = job.format_wildcards(self.jobname)
         task["description"] = "Here is description."
-        
-        inputs = []
+        task["inputs"] = []
+        task["outputs"] = []
+        task["executors"] = []
+        task["resources"] = tes.models.Resources()
 
-        # add workflow sources
+        # add workflow sources to inputs
         for src in self.workflow.get_sources():
-            inputs.append(self._prepare_file(filename=src, checkdir=checkdir))
+            task["inputs"].append(
+                tes.models.Input(
+                    **self._prepare_file(filename=src, checkdir=checkdir)
+                )
+            )
         
-        # add input
+        # add input files to inputs
         for i in job.input:
-            inputs.append(self._prepare_file(filename=i, checkdir=checkdir))
+            task["inputs"].append(
+                tes.models.Input(
+                    **self._prepare_file(filename=i, checkdir=checkdir)
+                )
+            )
         
-        # add jobscript
-        inputs.append(self._prepare_file(
-            filename=jobscript, overwrite_path=os.path.join(self.container_workdir, "run_snakemake.sh"), checkdir=checkdir))
+        # add jobscript to inputs
+        overwrite_path=os.path.join(
+            self.container_workdir,
+            "run_snakemake.sh",
+        )
+        task["inputs"].append(
+            tes.models.Input(
+                **self._prepare_file(
+                    filename=jobscript,
+                    overwrite_path=overwrite_path,
+                    checkdir=checkdir,
+                )
+            )
+        )
         
-        task["inputs"] = inputs
-
-        # add output files to task
-        outputs = []
+        # add output files to outputs
         for o in job.output:
-            outputs.append(self._prepare_file(filename=o, checkdir=checkdir))
+            task["outputs"].append(
+                tes.models.Output(
+                   **self._prepare_file(filename=o, checkdir=checkdir)
+                )
+            )
 
-        # log files
+        # add log files to outputs
         if job.log:
             for log in job.log:
-                outputs.append(self._prepare_file(filename=log, checkdir=checkdir))
+                task["outputs"].append(
+                    tes.models.Output(
+                        **self._prepare_file(filename=log, checkdir=checkdir)
+                    )
+                )
         
-        # benchmark files
+        # add benchmark files to outputs
         if hasattr(job, "benchmark") and job.benchmark:
             for benchmark in job.benchmark:
-                outputs.append(self._prepare_file(filename=benchmark, checkdir=checkdir))
+                task["outputs"].append(
+                    tes.models.Output(
+                        **self._prepare_file(filename=benchmark, checkdir=checkdir)
+                    )
+                )
        
-        task["outputs"] = outputs
+        # define executor
+        task["executors"].append(
+            tes.models.Executor(
+                image=self.container_image,
+                command=["/bin/bash", os.path.join(self.container_workdir, "run_snakemake.sh")],
+                workdir=self.container_workdir,
+            )
+        )
 
-        # define executors
-        task["executors"] = [{
-                "image": self.container_image,
-                "command": ["/bin/bash", os.path.join(self.container_workdir, "run_snakemake.sh")],
-                "workfir": self.container_workdir
-            }]
-        
-        return task
+        # define resources
+        if "_cores" in job.resources:
+            task["resources"]["cpu_cores"] = job.resources["_cores"]
+        if "mem_mb" in job.resources:
+            task["resources"]["ram_gb"] = job.resources["mem_mb"] / 1000
+        if "disk_mb" in job.resources:
+            task["resources"]["disk_gb"] = job.resources["disk_mb"] / 1000
+
+        return tes.Task(**task)
 
 
 def run_wrapper(
