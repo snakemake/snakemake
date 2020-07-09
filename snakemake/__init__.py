@@ -1768,6 +1768,8 @@ def get_argument_parser(profile=None):
     group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tibanna = parser.add_argument_group("TIBANNA")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
+    group_tes = parser.add_argument_group("TES")
+    
 
     group_kubernetes.add_argument(
         "--kubernetes",
@@ -1861,6 +1863,18 @@ def get_argument_parser(profile=None):
         "directory is compressed to a .tar.gz, named by the hash of the "
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
+    )
+
+    group_tes.add_argument(
+        "--tes",
+        action="store_true",
+        help="Send workflow tasks to GA4GH TES server specified by --tes_url."
+    )
+    
+    group_tes.add_argument(
+        "--tes_url",
+        action="store_true",
+        help="Specify TES server for execution of tasks"
     )
 
     group_conda = parser.add_argument_group("CONDA")
