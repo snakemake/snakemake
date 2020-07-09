@@ -1,3 +1,9 @@
+[5.20.1] - 2020-07-08
+=====================
+Changed
+-------
+- Fixed a bug that caused singularity args to be not passed on correctly when using script or conda.
+
 [5.20.0] - 2020-07-08
 =====================
 Changed
