@@ -6,6 +6,7 @@ __license__ = "MIT"
 import _io
 import sys
 import os
+import signal
 import subprocess as sp
 import inspect
 import shutil
@@ -87,10 +88,36 @@ class shell:
         cls._win_command_prefix = cmd
 
     @classmethod
-    def kill(cls, jobid):
+    def kill(cls, jobid, timeout=0):
         with cls._lock:
             if jobid in cls._processes:
-                cls._processes[jobid].kill()
+                proc = cls._processes[jobid]
+                # Kills the job.  If timeout is > 0, then SIGTERM is sent, and wait for the
+                # job to terminate, and if the timeout is reached, kill it with SIGKILL.
+                # Otherwise, just use SIGKILL.
+                exit_code = proc.poll()
+                if exit_code is not None:
+                    # job is already done
+                    logger.debug("Job {} is already done".format(jobid))
+                elif timeout > 0:
+                    logger.debug("Sending SIGTERM to job {}, will wait {} seconds".format(jobid, timeout))
+                    logger.debug(str(proc.args))
+                    proc.send_signal(signal.SIGTERM)
+                    #proc.terminate()  # SIGTERM
+                    logger.debug("Sent SIGTERM to job {}, will wait {} seconds".format(jobid, timeout))
+                    try:
+                        #logger.debug("waiting on commiunicate")
+                        #proc.communicate(timeout=timeout)  # IMPORTANT: must clear stdout/stderr for it to complete
+                        exit_code = proc.wait(timeout=timeout)
+                    except sp.TimeoutExpired:
+                        logger.debug("Job {} did not terminate after {} seconds, killing (SIGKILL)...".format(jobid, timeout))
+                        proc.kill()  # SIGKILL
+                else:
+                    proc.kill()  # SIGKILL
+                if exit_code is None:
+                    exit_code = proc.wait()
+                logger.debug("Job {} was killed and had exit code: {}".format(jobid, exit_code))
+                # delete it
                 del cls._processes[jobid]
 
     @classmethod

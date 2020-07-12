@@ -160,6 +160,7 @@ def snakemake(
     messaging=None,
     edit_notebook=None,
     envvars=None,
+    local_timeout=0
 ):
     """Run snakemake on a given snakefile.
 
@@ -275,6 +276,7 @@ def snakemake(
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
+        local_timeout (int):        The number of seconds to wait until immediately killing a shell job upon workflow failure.  If 0, kill immediately with SIGKILL, otherwise use SIGTERM and upon timeout use SIGKILL.
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
 
             :level:
@@ -622,6 +624,7 @@ def snakemake(
                     cluster_status=cluster_status,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
+                    local_timeout=local_timeout,
                 )
                 success = workflow.execute(
                     targets=targets,
@@ -701,6 +704,7 @@ def snakemake(
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
+                    local_timeout=local_timeout,
                 )
 
     except BrokenPipeError:
@@ -1633,7 +1637,6 @@ def get_argument_parser(profile=None):
         "Snakemake will call this function for every logging output (given as a dictionary msg)"
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
-
     group_behavior.add_argument(
         "--log-service",
         default=None,
@@ -1641,6 +1644,14 @@ def get_argument_parser(profile=None):
         help="Set a specific messaging service for logging output."
         "Snakemake will notify the service on errors and completed execution."
         "Currently only slack is supported.",
+    )
+    group_behavior.add_argument(
+        "--local-timeout",
+        default=0,
+        type=int,
+        help="The number of seconds to wait until immediately killing a shell job upon "
+        "workflow failure.  If 0, kill immediately with SIGKILL, otherwise use SIGTERM "
+        "and upon timeout use SIGKILL (default: 0)."
     )
 
     group_cluster = parser.add_argument_group("CLUSTER")
@@ -2372,6 +2383,7 @@ def main(argv=None):
             edit_notebook=args.edit_notebook,
             envvars=args.envvars,
             log_handler=log_handler,
+            local_timeout=args.local_timeout,
         )
 
     if args.runtime_profile:
