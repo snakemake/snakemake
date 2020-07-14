@@ -2212,15 +2212,21 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 self.active_jobs.extend(still_running)
             time.sleep(1 / self.max_status_checks_per_second)
     
-    def _prepare_file(self, filename, overwrite_path=None, checkdir=None):
+    def _prepare_file(
+        self,
+        filename,
+        overwrite_path=None,
+        checkdir=None,
+        pass_content=False,
+        type="Input",
+    ):
         # TODO: handle FTP files
-        # TODO: make use of `content`
-        # TODO: return tes.models.Input or tes.models.Output
+        max_file_size = 128 * 1024  # see https://github.com/ga4gh/task-execution-schemas/blob/9cc12b0c215a7f54fdeb0d0598ebc74fa70eb2a7/openapi/task_execution.swagger.yaml#L297
+        if type not in ['Input', 'Output']:
+            raise ValueError(
+                "Value for 'model' has to be either 'Input' or 'Outuput'."
+        )
         f = os.path.abspath(filename)
-        f_url = "file://" + f
-        
-        if overwrite_path: f_path = overwrite_path
-        else: f_path = os.path.join(self.container_workdir, os.path.relpath(f))
 
         if checkdir:
             checkdir = checkdir.rstrip("/")
@@ -2231,8 +2237,36 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                     + "must be in the same working directory: {} vs {}"
                 )
                 raise WorkflowError(direrrmsg.format(checkdir, f))
-        
-        return {"url": f_url, "path": f_path}
+
+        members = {}
+
+        if overwrite_path:
+            members['path'] = overwrite_path
+        else:
+            members['path'] = os.path.join(
+                self.container_workdir,
+                str(os.path.relpath(f)),
+            )
+
+        members['url'] = "file://" + f
+        if pass_content:
+            source_file_size = os.path.getsize(f)
+            if source_file_size > max_file_size:
+                logger.warning(
+                    "Will not pass file '{f}' by content, as it exceeds the "
+                    "minimum supported file size of {max_file_size} bytes "
+                    "defined in the TES specification. Will try to upload "
+                    "file instead.".format(
+                        f=f, source_file_size=source_file_size
+                    )
+                )
+            else:
+                with open(f) as stream:
+                    members['content'] = stream.read()
+                members['url'] = None
+
+        model = getattr(tes.models, type)
+        return model(**members)
 
     def _get_task(self, job, jobscript):
         checkdir, _ = os.path.split(self.snakefile)
@@ -2249,39 +2283,39 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         for src in self.workflow.get_sources():
             # TODO: discard *.pyc and missing files`
             task["inputs"].append(
-                tes.models.Input(
-                    **self._prepare_file(filename=src, checkdir=checkdir)
+                self._prepare_file(
+                    filename=src,
+                    checkdir=checkdir,
+                    pass_content=True,
                 )
             )
         
         # add input files to inputs
         for i in job.input:
             task["inputs"].append(
-                tes.models.Input(
-                    **self._prepare_file(filename=i, checkdir=checkdir)
-                )
+                self._prepare_file(filename=i, checkdir=checkdir)
             )
         
         # add jobscript to inputs
-        overwrite_path=os.path.join(
-            self.container_workdir,
-            "run_snakemake.sh",
-        )
         task["inputs"].append(
-            tes.models.Input(
-                **self._prepare_file(
-                    filename=jobscript,
-                    overwrite_path=overwrite_path,
-                    checkdir=checkdir,
-                )
+            self._prepare_file(
+                filename=jobscript,
+                overwrite_path=os.path.join(
+                    self.container_workdir,
+                    "run_snakemake.sh",
+                ),
+                checkdir=checkdir,
+                pass_content=True,
             )
         )
         
         # add output files to outputs
         for o in job.output:
             task["outputs"].append(
-                tes.models.Output(
-                   **self._prepare_file(filename=o, checkdir=checkdir)
+                self._prepare_file(
+                    filename=o,
+                    checkdir=checkdir,
+                    type='Output',
                 )
             )
 
@@ -2289,8 +2323,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         if job.log:
             for log in job.log:
                 task["outputs"].append(
-                    tes.models.Output(
-                        **self._prepare_file(filename=log, checkdir=checkdir)
+                    self._prepare_file(
+                        filename=log,
+                        checkdir=checkdir,
+                        type='Output',
                     )
                 )
         
@@ -2298,8 +2334,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         if hasattr(job, "benchmark") and job.benchmark:
             for benchmark in job.benchmark:
                 task["outputs"].append(
-                    tes.models.Output(
-                        **self._prepare_file(filename=benchmark, checkdir=checkdir)
+                    self._prepare_file(
+                        filename=benchmark,
+                        checkdir=checkdir,
+                        type='Output',
                     )
                 )
        
@@ -2307,7 +2345,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         task["executors"].append(
             tes.models.Executor(
                 image=self.container_image,
-                command=["/bin/bash", os.path.join(self.container_workdir, "run_snakemake.sh")],
+                command=[
+                    "/bin/bash",
+                    os.path.join(self.container_workdir, "run_snakemake.sh"),
+                ],
                 workdir=self.container_workdir,
             )
         )
