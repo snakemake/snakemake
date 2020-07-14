@@ -2055,12 +2055,13 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         restart_times=None,
         exec_job=None,
         assume_shared_fs=False,
-        max_status_checks_per_second=1,
+        max_status_checks_per_second=0.5,  # TODO: argument doesn't appear to be passed through from CLI?
         tes_url=None,
         container_image=None,
     ):
         self.container_image = container_image or get_container_image()
         self.container_workdir = "/tmp"
+        self.max_status_checks_per_second = max_status_checks_per_second
         self.tes_url = tes_url
         self.tes_client = tes.HTTPClient(url=self.tes_url)
 
@@ -2186,7 +2187,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 still_running = list()
             
             for j in active_jobs:
-                with self.status_rate_limiter:
+                with self.status_rate_limiter:  # TODO: this doesn't seem to do anything?
                     res = self.tes_client.get_task(j.jobid, view='MINIMAL')
                     logger.debug(
                         "[TES] State of task '{id}': {state}".format(
@@ -2209,7 +2210,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             
             with self.lock:
                 self.active_jobs.extend(still_running)
-            sleep()
+            time.sleep(1 / self.max_status_checks_per_second)
     
     def _prepare_file(self, filename, overwrite_path=None, checkdir=None):
         # TODO: handle FTP files
