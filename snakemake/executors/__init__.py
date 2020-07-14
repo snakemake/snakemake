@@ -2059,7 +2059,15 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         tes_url=None,
         container_image=None,
     ):
-        
+        self.container_image = container_image or get_container_image()
+        self.container_workdir = "/tmp"
+        self.tes_url = tes_url
+        self.tes_client = tes.HTTPClient(url=self.tes_url)
+
+        logger.info(
+            "[TES] Job execution on TES: {url}".format(url=self.tes_url)
+        )
+
         exec_job = "\\\n".join(
             (
                 "{envvars} ",
@@ -2089,11 +2097,6 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
         )
-        self.tes_url = tes_url
-        self.tes_client = tes.HTTPClient(url=self.tes_url)
-        self.container_image = container_image or get_container_image()
-        self.container_workdir = "/tmp"
-
 
     def write_jobscript(self, job, jobscript, **kwargs):
 
@@ -2124,9 +2127,12 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         for job in self.active_jobs:
             try:
                 self.tes_client.cancel_task(job.jobid)
+                logger.info(
+                    "[TES] Task canceled: {id}".format(id=job.jobid)
+                )
             except Exception:
                 logger.info(
-                    "Cancelling task failed. This may be because the job is "
+                    "[TES] Canceling task failed. This may be because the job is "
                     "already in a terminal state."
                 )
         self.shutdown()
@@ -2147,13 +2153,15 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         try:
             task = self._get_task(job, jobscript)
             tes_id = self.tes_client.create_task(task)
+            logger.info(
+                "[TES] Task submitted: {id}".format(id=tes_id)
+            )
         except Exception as e:
             raise WorkflowError(str(e))
 
         self.active_jobs.append(TaskExecutionServiceJob(
             job, tes_id, callback, error_callback))
         
-
     def _wait_for_jobs(self):
         UNFINISHED_STATES = [
             "UNKNOWN",
@@ -2180,11 +2188,23 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             for j in active_jobs:
                 with self.status_rate_limiter:
                     res = self.tes_client.get_task(j.jobid, view='MINIMAL')
+                    logger.debug(
+                        "[TES] State of task '{id}': {state}".format(
+                            id=j.jobid,
+                            state=res.state,
+                        )
+                    )
                     if res.state in UNFINISHED_STATES:
                         still_running.append(j)
                     elif res.state in ERROR_STATES:
+                        logger.info(
+                            "[TES] Task errored: {id}".format(id=j.jobid)
+                        )
                         j.error_callback(j.job)
                     elif res.state == "COMPLETE":
+                        logger.info(
+                            "[TES] Task completed: {id}".format(id=j.jobid)
+                        )
                         j.callback(j.job)
             
             with self.lock:
@@ -2192,6 +2212,9 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             sleep()
     
     def _prepare_file(self, filename, overwrite_path=None, checkdir=None):
+        # TODO: handle FTP files
+        # TODO: make use of `content`
+        # TODO: return tes.models.Input or tes.models.Output
         f = os.path.abspath(filename)
         f_url = "file://" + f
         
@@ -2215,7 +2238,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         task = {}
         task["name"] = job.format_wildcards(self.jobname)
-        task["description"] = "Here is description."
+        task["description"] = "Here is description."  # TODO: check if corresponding value in Snakemake, else omit
         task["inputs"] = []
         task["outputs"] = []
         task["executors"] = []
@@ -2223,6 +2246,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         # add workflow sources to inputs
         for src in self.workflow.get_sources():
+            # TODO: discard *.pyc and missing files`
             task["inputs"].append(
                 tes.models.Input(
                     **self._prepare_file(filename=src, checkdir=checkdir)
@@ -2295,7 +2319,9 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         if "disk_mb" in job.resources:
             task["resources"]["disk_gb"] = job.resources["disk_mb"] / 1000
 
-        return tes.Task(**task)
+        tes_task = tes.Task(**task)
+        logger.debug("[TES] Built task: {task}".format(task=tes_task))
+        return tes_task
 
 
 def run_wrapper(
