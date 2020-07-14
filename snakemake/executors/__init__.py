@@ -2273,11 +2273,20 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         task = {}
         task["name"] = job.format_wildcards(self.jobname)
-        task["description"] = "Here is description."  # TODO: check if corresponding value in Snakemake, else omit
+        task["description"] = ""
         task["inputs"] = []
         task["outputs"] = []
         task["executors"] = []
         task["resources"] = tes.models.Resources()
+
+        # populate description with rule messages
+        if job.is_group():
+            msgs = [i.message for i in job.jobs if i.message]
+            if msgs:
+                task["description"] = ' & '.join(msgs)
+        else:
+            if job.message:
+                task["description"] = job.message
 
         # add workflow sources to inputs
         for src in self.workflow.get_sources():
@@ -2345,7 +2354,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         task["executors"].append(
             tes.models.Executor(
                 image=self.container_image,
-                command=[
+                command=[  # TODO: info about what is executed is opaque
                     "/bin/bash",
                     os.path.join(self.container_workdir, "run_snakemake.sh"),
                 ],
