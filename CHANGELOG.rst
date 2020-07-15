@@ -1,3 +1,32 @@
+[5.20.1] - 2020-07-08
+=====================
+Changed
+-------
+- Fixed a bug that caused singularity args to be not passed on correctly when using script or conda.
+
+[5.20.0] - 2020-07-08
+=====================
+Changed
+-------
+- Exceptions in input functions are now handled in a smarter way, by choosing alternative paths in the DAG if available.
+- Debugging dag creation (--debug-dag) now gives more hints if alternative DAG paths are chosen.
+- Fixes for XRootD remote file implementation.
+- Improved CLI documentation.
+- Improved docs.
+- Various minor bug fixes.
+- Restored Python 3.5 compatibility.
+- Speed improvements for workdir cleanup.
+- Allow Path objects to be passed to expand.
+
+[5.19.3] - 2020-06-16
+=====================
+Changed
+-------
+- Performance improvements for DAG generation (up to 7x in the google cloud, anything from a little to massive in a cluster, depending on the overall filesystem performance).
+- Made harcoded bucket in google cloud executor configurable.
+- Improved speed of --unlock command.
+
+
 [5.19.2] - 2020-06-04
 =====================
 Changed
@@ -142,10 +171,11 @@ Changed
 - --cores is now a mandatory argument!
 - Automatic checksum validation for google storage.
 
+
 Added
 -----
 - Azure storage authentication via SAS
-- A generic cintainer directive that will in the future allow for other backends than just singularity.
+- A generic container directive that will in the future allow for other backends than just singularity. This deprecates the singularity directive, which will however stay functional at least until the next major release.
 - envvars directive for asserting environment variable existence. See docs.
 - support for AWS spot instances via --tibanna-config spot=true.
 - Automatic code quality linting via --lint.
@@ -361,7 +391,7 @@ Added
 -----
 
 -  Snakemake workflows can now be exported to CWL via the flag
-   --export-cwl, see `the docs <https://snakemake.readthedocs.io/en/stable/executable.html>`_.
+   --export-cwl, see `the docs <https://snakemake.readthedocs.io/en/stable/executing/interoperability.html>`_.
 
 Changed
 -------

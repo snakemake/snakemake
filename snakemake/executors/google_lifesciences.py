@@ -86,6 +86,11 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self.container_image = container_image or get_container_image()
         self.regions = regions or ["us-east1", "us-west1", "us-central1"]
 
+        # The project name is required, either from client or environment
+        self.project = (
+            os.environ.get("GOOGLE_CLOUD_PROJECT") or self._bucket_service.project
+        )
+
         # Determine API location based on user preference, and then regions
         self._set_location(location)
 
@@ -93,11 +98,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         logger.debug("regions=%s" % self.regions)
         logger.debug("location=%s" % self.location)
         logger.debug("container=%s" % self.container_image)
-
-        # The project name is required, either from client or environment
-        self.project = (
-            os.environ.get("GOOGLE_CLOUD_PROJECT") or self._bucket_service.project
-        )
 
         # Keep track of build packages to clean up shutdown, and generate
         self._build_packages = set()
@@ -202,7 +202,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         locations = (
             self._api.projects()
             .locations()
-            .list(name="projects/snakemake-testing")
+            .list(name="projects/{}".format(self.project))
             .execute()
         )
 

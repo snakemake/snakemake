@@ -26,7 +26,6 @@ from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
 
-PY_VER_RE = re.compile(r"Python (?P<ver_min>\d+\.\d+).*")
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 
@@ -351,6 +350,7 @@ class ScriptBase(ABC):
             container_img=self.container_img,
             shadow_dir=self.shadow_dir,
             env_modules=self.env_modules,
+            singularity_args=self.singularity_args,
             **kwargs
         )
 
@@ -465,8 +465,11 @@ class PythonScript(ScriptBase):
         return os.path.exists(os.path.join(prefix, "python"))
 
     def _get_python_version(self):
-        out = self._execute_cmd("python --version", read=True).strip()
-        return tuple(map(int, PY_VER_RE.match(out).group("ver_min").split(".")))
+        out = self._execute_cmd(
+            "python -c \"import sys; print('.'.join(map(str, sys.version_info[:2])))\"",
+            read=True,
+        )
+        return tuple(map(int, out.strip().split(".")))
 
     def execute_script(self, fname, edit=False):
         py_exec = sys.executable
@@ -822,7 +825,7 @@ def get_source(path, basedir="."):
     if path.startswith("file://"):
         sourceurl = "file:" + pathname2url(path[7:])
     elif path.startswith("git+file"):
-        source = git_content(path)
+        source = git_content(path).encode()
         (root_path, file_path, version) = split_git_path(path)
         path = path.rstrip("@" + version)
     else:

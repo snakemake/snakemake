@@ -651,13 +651,6 @@ class Workflow:
                 self.persistence.cleanup_metadata(f)
             return True
 
-        logger.info("Building DAG of jobs...")
-        dag.init()
-        dag.update_checkpoint_dependencies()
-        # check incomplete has to run BEFORE any call to postprocess
-        dag.check_incomplete()
-        dag.check_dynamic()
-
         if unlock:
             try:
                 self.persistence.cleanup_locks()
@@ -669,6 +662,14 @@ class Workflow:
                     "you don't have the permissions?"
                 )
                 return False
+
+        logger.info("Building DAG of jobs...")
+        dag.init()
+        dag.update_checkpoint_dependencies()
+        # check incomplete has to run BEFORE any call to postprocess
+        dag.check_incomplete()
+        dag.check_dynamic()
+
         try:
             self.persistence.lock()
         except IOError:
@@ -730,13 +731,14 @@ class Workflow:
             self.globals.update(globals_backup)
 
         dag.postprocess()
-        # deactivate IOCache such that from now on we always get updated
-        # size, existence and mtime information
-        # ATTENTION: this may never be removed without really good reason.
-        # Otherwise weird things may happen.
-        self.iocache.deactivate()
-        # clear and deactivate persistence cache, from now on we want to see updates
-        self.persistence.deactivate_cache()
+        if not dryrun:
+            # deactivate IOCache such that from now on we always get updated
+            # size, existence and mtime information
+            # ATTENTION: this may never be removed without really good reason.
+            # Otherwise weird things may happen.
+            self.iocache.deactivate()
+            # clear and deactivate persistence cache, from now on we want to see updates
+            self.persistence.deactivate_cache()
 
         if nodeps:
             missing_input = [
@@ -950,7 +952,7 @@ class Workflow:
 
         success = scheduler.schedule()
 
-        if not immediate_submit:
+        if not immediate_submit and not dryrun:
             dag.cleanup_workdir()
 
         if success:
