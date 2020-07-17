@@ -2221,51 +2221,93 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         type="Input",
     ):
         # TODO: handle FTP files
+        supported_protocols = [
+            "ftp://"
+        ]
         max_file_size = 128 * 1024  # see https://github.com/ga4gh/task-execution-schemas/blob/9cc12b0c215a7f54fdeb0d0598ebc74fa70eb2a7/openapi/task_execution.swagger.yaml#L297
         if type not in ['Input', 'Output']:
             raise ValueError(
                 "Value for 'model' has to be either 'Input' or 'Outuput'."
-        )
-        f = os.path.abspath(filename)
-
-        if checkdir:
-            checkdir = checkdir.rstrip("/")
-            if not f.startswith(checkdir):
-                direrrmsg = (
-                    "All files including Snakefile, "
-                    + "conda env files, rule script files, output files "
-                    + "must be in the same working directory: {} vs {}"
-                )
-                raise WorkflowError(direrrmsg.format(checkdir, f))
+            )
 
         members = {}
 
-        if overwrite_path:
-            members['path'] = overwrite_path
-        else:
-            members['path'] = os.path.join(
-                self.container_workdir,
-                str(os.path.relpath(f)),
-            )
-
-        members['url'] = "file://" + f
-        if pass_content:
-            source_file_size = os.path.getsize(f)
-            if source_file_size > max_file_size:
-                logger.warning(
-                    "Will not pass file '{f}' by content, as it exceeds the "
-                    "minimum supported file size of {max_file_size} bytes "
-                    "defined in the TES specification. Will try to upload "
-                    "file instead.".format(
-                        f=f, source_file_size=source_file_size
+        # Handle remote files
+        if hasattr(filename, 'is_remote') and filename.is_remote:
+            obj = filename.remote_object
+            if obj.protocol not in supported_protocols:
+                raise WorkflowError(
+                    "[TES] Protocol '{prot}' for remote object '{obj}' is "
+                    "not supported by the TES backend. Currently supported "
+                    "protocols are: {supported}".format(
+                        prot=obj.protocol,
+                        obj=str(filename),
+                        supported=', '.join(supported_protocols),
                     )
                 )
+            if obj.protocol == "ftp://":
+                auth = ""
+                if all(
+                    k in obj.provider.kwargs for k in ('username', 'password')
+                ):
+                    auth = ''.join([
+                        str(obj.provider.kwargs['username']),
+                        ':',
+                        str(obj.provider.kwargs['password']),
+                        '@',
+                    ])
+                members['url'] = ''.join([
+                    str(obj.protocol),
+                    auth,
+                    str(obj.host),
+                    str(obj.remote_path),
+                ])
+                members['path'] = ''.join([
+                    self.container_workdir,
+                    str(obj.remote_path),
+                ])
+
+        # Handle local files
+        else:
+            f = os.path.abspath(filename)
+
+            if checkdir:
+                checkdir = checkdir.rstrip("/")
+                if not f.startswith(checkdir):
+                    direrrmsg = (
+                        "All files including Snakefile, "
+                        + "conda env files, rule script files, output files "
+                        + "must be in the same working directory: {} vs {}"
+                    )
+                    raise WorkflowError(direrrmsg.format(checkdir, f))
+
+            if overwrite_path:
+                members['path'] = overwrite_path
             else:
-                with open(f) as stream:
-                    members['content'] = stream.read()
-                members['url'] = None
+                members['path'] = os.path.join(
+                    self.container_workdir,
+                    str(os.path.relpath(f)),
+                )
+
+            members['url'] = "file://" + f
+            if pass_content:
+                source_file_size = os.path.getsize(f)
+                if source_file_size > max_file_size:
+                    logger.warning(
+                        "Will not pass file '{f}' by content, as it exceeds the "
+                        "minimum supported file size of {max_file_size} bytes "
+                        "defined in the TES specification. Will try to upload "
+                        "file instead.".format(
+                            f=f, source_file_size=source_file_size
+                        )
+                    )
+                else:
+                    with open(f) as stream:
+                        members['content'] = stream.read()
+                    members['url'] = None
 
         model = getattr(tes.models, type)
+        logger.warning(members)
         return model(**members)
 
     def _get_task(self, job, jobscript):
