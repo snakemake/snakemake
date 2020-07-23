@@ -138,9 +138,7 @@ class RemoteObject(AbstractRemoteObject):
             - cache_mtime
             - cache.size
         """
-        for blob in self.client.list_blobs(
-            self.bucket_name, prefix=os.path.dirname(self.blob.name)
-        ):
+        for blob in self.client.list_blobs(self.bucket_name):
             # By way of being listed, it exists. mtime is a datetime object
             name = "{}/{}".format(blob.bucket.name, blob.name)
             cache.exists_remote[name] = True
