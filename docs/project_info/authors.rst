@@ -57,4 +57,5 @@ In alphabetical order
 - Sean Davis
 - Simon Ye
 - Tobias Marschall
+- Vanessa Sochat
 - Willem Ligtenberg
