@@ -17,9 +17,9 @@ from snakemake.executors import (
     DRMAAExecutor,
     KubernetesExecutor,
     TibannaExecutor,
-    AzBatchExecutor,
 )
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
+from snakemake.executors.azure_batch import AzBatchExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 
 from snakemake.logging import logger
