@@ -5,13 +5,16 @@ __license__ = "MIT"
 
 import os
 from collections import namedtuple
+import datetime
+import uuid
 
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.exceptions import WorkflowError
 
-
+# in azure batch parlance this is actually a task
+# FIXME should probably make job_id part of this to get rid of self.job_id
 AzBatchJob = namedtuple(
-    "AzBatchJob", "job jobname jobid callback error_callback"
+    "AzBatchJob", "job task_id callback error_callback"
 )
 
 
@@ -46,6 +49,11 @@ class AzBatchExecutor(ClusterExecutor):
         self.workdir = os.path.dirname(self.workflow.persistence.path)
         #self._save_storage_cache = cache
 
+        # Pool ids can only contain any combination of alphanumeric characters along with dash and underscore
+        ts = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+        self.pool_id = "snakemakepool-{:s}".format(ts)
+        self.job_id = "snakemakejob-{:s}".format(ts)
+
         # Relative path for running on instance
         self._set_snakefile()
 
@@ -78,18 +86,16 @@ class AzBatchExecutor(ClusterExecutor):
             self.az_batch_config['BATCH_ACCOUNT_NAME'],
             self.az_batch_config['BATCH_ACCOUNT_KEY'])
         self.batch_client = batch.BatchServiceClient(
-            credentials,
-            batch_url=self.az_batch_config['BATCH_ACCOUNT_URL'])
+            credentials, batch_url=self.az_batch_config['BATCH_ACCOUNT_URL'])
 
         # Create the pool that will contain the compute nodes that will execute the
         # tasks.
         print("FIXME creating pool")    
-        self.create_pool(self.batch_client, self.az_batch_config['BATCH_POOL_ID'])
+        self.create_pool(self.batch_client, self.pool_id)
 
         # Create the job that will run the tasks.
         print("FIXME creating job")    
-        self.create_job(self.batch_client, self.az_batch_config['BATCH_JOB_ID'], 
-            self.az_batch_config['BATCH_POOL_ID'])
+        self.create_job(self.batch_client, self.job_id, self.pool_id)
         
         super().__init__(
             workflow,
@@ -110,14 +116,15 @@ class AzBatchExecutor(ClusterExecutor):
     def shutdown(self):
         # perform additional steps on shutdown if necessary (jobs were cancelled already) 
         print("FIXME deleting job")
-        self.batch_client.job.delete(self.az_batch_config['BATCH_JOB_ID'])
+        self.batch_client.job.delete(self.job_id)
         print("FIXME deleting pool")
-        self.batch_client.pool.delete(self.az_batch_config['BATCH_POOL_ID'])
+        self.batch_client.pool.delete(self.pool_id)
         super().shutdown()
+        # FIXME from google_lifesciences.py
 
 
     def cancel(self):
-        for job in self.active_jobs:
+        for task in self.batch_client.task.list(self.job_id):
             print("FIXME cancel active jobs here")
         self.shutdown()
 
@@ -127,25 +134,46 @@ class AzBatchExecutor(ClusterExecutor):
             submit_callback=None,
             error_callback=None):
 
+        import azure.batch._batch_service_client as batch# https://docs.microsoft.com/en-us/azure/batch/quick-run-python uses old 6.0 API without _
+
         super()._run(job)
+
         # obtain job execution command
+        use_threads = "--force-use-threads" if not job.is_group() else ""
         exec_job = self.format_job(
             self.exec_job, job, _quote_all=True,
-            use_threads="--force-use-threads" if not job.is_group() else "")
+            use_threads=use_threads)
 
-        print("FIXME submit job here, and obtain job ids from the backend")
+        # the job is called task in Azure Batch parlance
+        # whereas a job is a group of tasks     
+        task_id = str(uuid.uuid1())# A string that uniquely identifies the Task within the Job. 
+        task = batch.models.TaskAddParameter(id=task_id, command_line=exec_job)
+        # FIXME need resource_files?
+        # FIXME need environment_settings as well?
 
         # register job as active, using your own namedtuple.
         # The namedtuple must at least contain the attributes
         # job, jobid, callback, error_callback.
-        # FIXME self.active_jobs.append(AzBatchJob(
-        #    job, jobid, callback, error_callback))
+        #taskname = "FIXME"
+        #self.active_jobs.append(
+        #    AzBatchJob(task, task_id, taskname, callback, error_callback))
+        # FIXME could we get rid of AzBatchJob altogether in favour of self.batch_service_client?
+        # looks like we need to use batch_service_client to actually run anything 
+        # FIXME autorestart should be handled here
+        self.batch_client.task.add(self.job_id, task)
+        self.active_jobs.append(
+            AzBatchJob(job, task_id, callback, error_callback)
+        )
+        print("FIXME added task with id {}".format(task_id))
 
 
     def _wait_for_jobs(self):
-        # busy wait on job completion
-        # This is only needed if your backend does not allow to use callbacks
-        # for obtaining job status.
+        # FIXME this is run early i.e self.batch_client.task.list()
+        # might not return anything. so we need to keep track
+        # of jobs differently. task.add doesn't return the tasks
+        # just task.add
+        import azure.batch.models as batchmodels
+
         while True:
             # always use self.lock to avoid race conditions
             with self.lock:
@@ -154,28 +182,37 @@ class AzBatchExecutor(ClusterExecutor):
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 still_running = list()
-            for j in active_jobs:
+
+            print("FIXME {:d} tasks in list".format(len(active_jobs)))
+            # Loop through active jobs and act on status
+            for batch_job in active_jobs:
+                print("FIXME checking task {}".format(batch_job.task_id))
                 # use self.status_rate_limiter to avoid too many API calls.
                 with self.status_rate_limiter:
-                    pass
-                    # Retrieve status of job j from your backend via j.jobid
-                    # Handle completion and errors, calling either j.callback(j.job)
-                    # or j.error_callback(j.job)
-                    # In case of error, add job j to still_running.
+                    task = self.batch_client.task.get(self.job_id, batch_job.task_id)
+                    #if j.task.status == batchmodels.TaskState.completed:
+                    if task.state == batchmodels.TaskState.completed:
+                        import pdb; pdb.set_trace()
+                        print("FIXME ended task {} has result {}".format(batch_job.task_id, task.execution_info.result))
+                        if task.execution_info.result == batchmodels.TaskExecutionResult.failure:
+                            batch_job.error_callback(batch_job.job)
+                        elif task.execution_info.result == batchmodels.TaskExecutionResult.success:
+                            batch_job.callback(batch_job.job)
+                        else:
+                            raise ValueError("Unknown task execution result: {}".format(task.execution_info.result))
+
+                    # The operation is still running
+                    else:
+                        print("FIXME {} still running".format(batch_job.task_id))
+                        still_running.append(batch_job)
+
             with self.lock:
                 self.active_jobs.extend(still_running)
             sleep()
 
 
     def create_pool(self, batch_service_client, pool_id):
-        """
-        Creates a pool of compute nodes with the specified OS settings.
-        :param batch_service_client: A Batch service client.
-        :type batch_service_client: `azure.batch.BatchServiceClient`
-        :param str pool_id: An ID for the new pool.
-        :param str publisher: Marketplace image publisher
-        :param str offer: Marketplace image offer
-        :param str sku: Marketplace image sku
+        """Creates a pool of compute nodes 
         """
         
         import azure.batch.models as batchmodels
@@ -198,23 +235,19 @@ class AzBatchExecutor(ClusterExecutor):
                     offer="UbuntuServer",
                     sku="18.04-LTS",
                     version="latest"
+                    # FIXME make config
                 ),
                 node_agent_sku_id="batch.node.ubuntu 18.04"),
             # FIXME autoscaling
-            vm_size=self.az_batch_config['BATCH_POOL_VM_SIZE'],
-            target_dedicated_nodes=self.az_batch_config['BATCH_POOL_NODE_COUNT']
+            vm_size = self.az_batch_config['BATCH_POOL_VM_SIZE'],
+            target_dedicated_nodes = self.az_batch_config['BATCH_POOL_NODE_COUNT']
         )
         batch_service_client.pool.add(new_pool)
 
 
     @staticmethod
     def create_job(batch_service_client, job_id, pool_id):
-        """
-        Creates a job with the specified ID, associated with the specified pool.
-        :param batch_service_client: A Batch service client.
-        :type batch_service_client: `azure.batch.BatchServiceClient`
-        :param str job_id: The ID for the job.
-        :param str pool_id: The ID for the pool.
+        """Creates a job with the specified ID, associated with the specified pool
         """
         import azure.batch._batch_service_client as batch# https://docs.microsoft.com/en-us/azure/batch/quick-run-python uses old 6.0 API without _
         
