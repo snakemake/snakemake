@@ -1,4 +1,4 @@
-__author__ = "Andreas Wilm Köster"
+__author__ = "Andreas Wilm"
 __copyright__ = "Copyright 2020, Andreas Wilm"
 __email__ = "andreas.wilm@gmail.com"
 __license__ = "MIT"
@@ -7,15 +7,28 @@ import os
 from collections import namedtuple
 import datetime
 import uuid
+import io
+import shutil
+import tarfile
+import tempfile
+import sys
 
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.exceptions import WorkflowError
+from snakemake.logging import logger
+from snakemake.common import get_file_hash
 
-# in azure batch parlance this is actually a task
-# FIXME should probably make job_id part of this to get rid of self.job_id
+
+# Define an Azure Batch job. Snakemake requires this namedtuple to at least
+# contain the attributes: job, jobid, callback, error_callback. In AzBatch
+# parlance this is actually a task and a job is the overarching container. FIXME
+# should probably make self.job_id part of this as well to get rid of it
 AzBatchJob = namedtuple(
     "AzBatchJob", "job task_id callback error_callback"
 )
+
+
+# FIXME compare all to google_lifesciences.py
 
 
 class AzBatchExecutor(ClusterExecutor):
@@ -41,24 +54,23 @@ class AzBatchExecutor(ClusterExecutor):
         max_status_checks_per_second=1,
         az_batch_config=None):
 
+        # FIXME overwrite options here or upstream? docker on, sharedfs off etc
 
-        # FIXME from google_lifesciences.py
-        # Attach variables for easy access
         self.workflow = workflow
         #self.quiet = quiet
         self.workdir = os.path.dirname(self.workflow.persistence.path)
         #self._save_storage_cache = cache
 
-        # Pool ids can only contain any combination of alphanumeric characters along with dash and underscore
-        ts = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-        self.pool_id = "snakemakepool-{:s}".format(ts)
-        self.job_id = "snakemakejob-{:s}".format(ts)
-
         # Relative path for running on instance
         self._set_snakefile()
 
         # Prepare workflow sources for build package
-        # FIXME google_lifesciences.py: self._set_workflow_sources()
+        self._set_workflow_sources()
+        
+        # Pool ids can only contain any combination of alphanumeric characters along with dash and underscore
+        ts = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+        self.pool_id = "snakemakepool-{:s}".format(ts)
+        self.job_id = "snakemakejob-{:s}".format(ts)
 
         exec_job = exec_job or (
             "snakemake {target} --snakefile %s "
@@ -70,7 +82,8 @@ class AzBatchExecutor(ClusterExecutor):
         )
 
         try:
-            import azure.batch._batch_service_client as batch# https://docs.microsoft.com/en-us/azure/batch/quick-run-python uses old 6.0 API without _
+            # https://docs.microsoft.com/en-us/azure/batch/quick-run-python uses old 6.0 API without _
+            import azure.batch._batch_service_client as batch
             import azure.batch.batch_auth as batch_auth
             #import azure.batch.models as batchmodels
         except ImportError:
@@ -81,6 +94,12 @@ class AzBatchExecutor(ClusterExecutor):
 
         self.az_batch_config = az_batch_config
 
+        # As in google_lifesciences.py:
+        # Keep track of build packages to clean up shutdown, and generate
+        self._build_packages = set()
+        targz = self._generate_build_source_package()
+        self.resource_file = self._upload_build_source_package(targz)
+
         # Create a Batch service client.
         credentials = batch_auth.SharedKeyCredentials(
             self.az_batch_config['BATCH_ACCOUNT_NAME'],
@@ -90,11 +109,11 @@ class AzBatchExecutor(ClusterExecutor):
 
         # Create the pool that will contain the compute nodes that will execute the
         # tasks.
-        print("FIXME creating pool")    
+        logger.debug("Creating AzBatch pool")    
         self.create_pool(self.batch_client, self.pool_id)
 
         # Create the job that will run the tasks.
-        print("FIXME creating job")    
+        logger.debug("Creating AzBatch job")    
         self.create_job(self.batch_client, self.job_id, self.pool_id)
         
         super().__init__(
@@ -115,17 +134,16 @@ class AzBatchExecutor(ClusterExecutor):
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary (jobs were cancelled already) 
-        print("FIXME deleting job")
+        logger.debug("Deleting AzBatch job")
         self.batch_client.job.delete(self.job_id)
-        print("FIXME deleting pool")
+        logger.debug("Deleting AzBatch pool")
         self.batch_client.pool.delete(self.pool_id)
         super().shutdown()
-        # FIXME from google_lifesciences.py
 
 
     def cancel(self):
         for task in self.batch_client.task.list(self.job_id):
-            print("FIXME cancel active jobs here")
+            sys.stderr.write("FIXME cancel active jobs here\n")
         self.shutdown()
 
 
@@ -134,7 +152,8 @@ class AzBatchExecutor(ClusterExecutor):
             submit_callback=None,
             error_callback=None):
 
-        import azure.batch._batch_service_client as batch# https://docs.microsoft.com/en-us/azure/batch/quick-run-python uses old 6.0 API without _
+        import azure.batch._batch_service_client as batch
+        import azure.batch.models as batchmodels
 
         super()._run(job)
 
@@ -144,27 +163,65 @@ class AzBatchExecutor(ClusterExecutor):
             self.exec_job, job, _quote_all=True,
             use_threads=use_threads)
 
-        # the job is called task in Azure Batch parlance
-        # whereas a job is a group of tasks     
         task_id = str(uuid.uuid1())# A string that uniquely identifies the Task within the Job. 
-        task = batch.models.TaskAddParameter(id=task_id, command_line=exec_job)
-        # FIXME need resource_files?
-        # FIXME need environment_settings as well?
+
+        # useful blog https://www.muspells.net/blog/2018/11/azure-batch-task-in-containers/
+
+        # This is the user who run the command inside the container.
+        # An unprivileged one
+        user = batchmodels.AutoUserSpecification(
+            scope=batchmodels.AutoUserScope.task,
+            elevation_level=batchmodels.ElevationLevel.non_admin)
+        
+        # This is the docker image we want to run
+        task_container_settings = batchmodels.TaskContainerSettings(
+            image_name="andreaswilm/snakemaks:5.17",
+            container_run_options='--rm')
+        
+        task = batch.models.TaskAddParameter(
+            id=task_id, command_line=exec_job,
+            container_settings=task_container_settings,
+            user_identity=batchmodels.UserIdentity(auto_user=user))
+
+        # FIXME autorestart/retry should be handled here
 
         # register job as active, using your own namedtuple.
-        # The namedtuple must at least contain the attributes
-        # job, jobid, callback, error_callback.
-        #taskname = "FIXME"
-        #self.active_jobs.append(
-        #    AzBatchJob(task, task_id, taskname, callback, error_callback))
-        # FIXME could we get rid of AzBatchJob altogether in favour of self.batch_service_client?
-        # looks like we need to use batch_service_client to actually run anything 
-        # FIXME autorestart should be handled here
         self.batch_client.task.add(self.job_id, task)
         self.active_jobs.append(
             AzBatchJob(job, task_id, callback, error_callback)
         )
-        print("FIXME added task with id {}".format(task_id))
+        logger.debug("Added AzBatch task %s" % task_id)
+
+
+    # from https://github.com/Azure-Samples/batch-python-quickstart/blob/master/src/python_quickstart_client.py
+    @staticmethod   
+    def _read_stream_as_string(stream, encoding):
+        """Read stream as string
+        :param stream: input stream generator
+        :param str encoding: The encoding of the file. The default is utf-8.
+        :return: The file content.
+        :rtype: str
+        """
+        output = io.BytesIO()
+        try:
+            for data in stream:
+                output.write(data)
+            if encoding is None:
+                encoding = 'utf-8'
+            return output.getvalue().decode(encoding)
+        finally:
+            output.close()
+        raise RuntimeError('could not write data to stream or decode bytes')
+
+
+    # adopted from https://github.com/Azure-Samples/batch-python-quickstart/blob/master/src/python_quickstart_client.py
+    def _get_task_output(self, job_id, task_id, stdout_or_stderr, encoding=None):
+        assert stdout_or_stderr in ["stdout", "stderr"]
+        fname = stdout_or_stderr + ".txt"
+        stream = self.batch_client.file.get_from_task(
+            job_id, task_id, fname)
+        content = self._read_stream_as_string(stream, encoding)
+        return content
 
 
     def _wait_for_jobs(self):
@@ -183,27 +240,32 @@ class AzBatchExecutor(ClusterExecutor):
                 self.active_jobs = list()
                 still_running = list()
 
-            print("FIXME {:d} tasks in list".format(len(active_jobs)))
+            logger.debug("Monitoring %d active AzBatch tasks" % len(active_jobs))
             # Loop through active jobs and act on status
             for batch_job in active_jobs:
-                print("FIXME checking task {}".format(batch_job.task_id))
                 # use self.status_rate_limiter to avoid too many API calls.
                 with self.status_rate_limiter:
                     task = self.batch_client.task.get(self.job_id, batch_job.task_id)
                     #if j.task.status == batchmodels.TaskState.completed:
                     if task.state == batchmodels.TaskState.completed:
-                        import pdb; pdb.set_trace()
-                        print("FIXME ended task {} has result {}".format(batch_job.task_id, task.execution_info.result))
+                        dt = task.execution_info.end_time - task.execution_info.start_time
+                        rc = task.execution_info.exit_code
+                        rt = task.execution_info.retry_count
+                        stderr = self._get_task_output(self.job_id, batch_job.task_id, "stderr")
+                        sys.stderr.write("FIXME task {} completed: result={} exit_code={}, run_time={}, retry_count={}, stderr='{}'\n".format(
+                            batch_job.task_id, task.execution_info.result, rc, str(dt), rt, stderr))
+
                         if task.execution_info.result == batchmodels.TaskExecutionResult.failure:
                             batch_job.error_callback(batch_job.job)
                         elif task.execution_info.result == batchmodels.TaskExecutionResult.success:
                             batch_job.callback(batch_job.job)
                         else:
-                            raise ValueError("Unknown task execution result: {}".format(task.execution_info.result))
+                            raise ValueError("Unknown task execution result: {}".format(
+                        task.execution_info.result))
 
                     # The operation is still running
                     else:
-                        print("FIXME {} still running".format(batch_job.task_id))
+                        logger.debug("Task %s still running" % batch_job.task_id)
                         still_running.append(batch_job)
 
             with self.lock:
@@ -216,33 +278,89 @@ class AzBatchExecutor(ClusterExecutor):
         """
         
         import azure.batch.models as batchmodels
-        import azure.batch._batch_service_client as batch# https://docs.microsoft.com/en-us/azure/batch/quick-run-python uses old 6.0 API without _
-
-        print('DEBUG Creating pool [{}]...'.format(pool_id))# FIXME AW
-
-        # Create a new pool of Linux compute nodes using an Azure Virtual Machines
-        # Marketplace image. For more information about creating pools of Linux
-        # nodes, see:
+        import azure.batch._batch_service_client as batch
+        
+        logger.debug("Creating AzBatch pool %s" % pool_id)
+        
+        # For more information about creating pools of Linux nodes, see:
         # https://azure.microsoft.com/documentation/articles/batch-linux-nodes/
-        print("FIXME hardcoded image reference")
-        print("FIXME  make kubernetes/singularity mandatory?")
 
+        # Specify container configuration, fetching an image
+        #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
+        container_config = batch.models.ContainerConfiguration(
+            container_image_names=['andreaswilm/snakemaks:5.17'])# FIXME hardcoded
+
+        image_ref = batch.models.ImageReference(
+                publisher='microsoft-azure-batch',
+                offer='ubuntu-server-container',
+                sku='16-04-lts',
+                version='latest')
+        
+        # https://docs.microsoft.com/en-us/azure/batch/resource-files
+        # https://docs.microsoft.com/en-us/python/api/azure-batch/azure.batch.models.resourcefile?view=azure-python
+        # best to download snakefile etc per pool rather than per task
+        # Need to use a pool StartTask for that purpose
+        # FIXME auto_storage_container_name must be the one linked to the storage account
+        # FIXME how to do versioning of blob_prefix
+        # FIXME pack resources as in google_lifesciences
+        # FIXME what if account is shared?
+
+        # cmd doesn't run under a shell, hence /bin/sh -c is needed
+        # For available env vars see https://docs.microsoft.com/en-us/azure/batch/batch-compute-node-environment-variables
+        # Runs in AZ_BATCH_TASK_WORKING_DIR
+        # Download the workdir package.
+        # FIXME where to copy it? Does Docker have access to it?
+
+        import pdb; pdb.set_trace()
+        rf = self.resource_file 
+        start_task = batch.models.StartTask(
+            command_line="/bin/sh -c tar xvzf {}".format(rf.file_path),
+            resource_files=[rf],
+            wait_for_success=True)
+        start_task = None
         new_pool = batch.models.PoolAddParameter(
             id=pool_id,
             virtual_machine_configuration=batchmodels.VirtualMachineConfiguration(
-                image_reference=batchmodels.ImageReference(
-                    publisher="Canonical",
-                    offer="UbuntuServer",
-                    sku="18.04-LTS",
-                    version="latest"
-                    # FIXME make config
-                ),
-                node_agent_sku_id="batch.node.ubuntu 18.04"),
-            # FIXME autoscaling
+                image_reference=image_ref,
+                container_configuration=container_config,
+                node_agent_sku_id="batch.node.ubuntu 16.04"),# must match image ref
             vm_size = self.az_batch_config['BATCH_POOL_VM_SIZE'],
-            target_dedicated_nodes = self.az_batch_config['BATCH_POOL_NODE_COUNT']
+            target_dedicated_nodes = self.az_batch_config['BATCH_POOL_NODE_COUNT'],
+            target_low_priority_nodes=0,
+            start_task=start_task
         )
         batch_service_client.pool.add(new_pool)
+        # FIXME max_tasks_per_node needs to be set here as well. default is 1!
+        # FIXME with higher values, will task_scheduling_policy 'pack' be
+        # intelligent enough to not overload node?
+
+        # FIXME autoscaling
+        # the below confiures the cluster apparently correctly, but
+        # scaling doesn't happen. All values evaluate to 0
+        # set target_dedicated_nodes and target_low_priority_nodes to 0
+        # if using
+        # https://docs.microsoft.com/en-us/azure/batch/batch-automatic-scaling
+        # this formula is the task-based adjustment formula taken from the Azure portal
+        if False:
+            formula = """// In this example, the pool size is adjusted based on the number of tasks in the queue. 
+    // Note that both comments and line breaks are acceptable in formula strings.
+
+    // Get pending tasks for the past 15 minutes.
+    $samples = $ActiveTasks.GetSamplePercent(TimeInterval_Minute * 15);
+    // If we have fewer than 70 percent data points, we use the last sample point, otherwise we use the maximum of last sample point and the history average.
+    $tasks = $samples < 70 ? max(0, $ActiveTasks.GetSample(1)) : 
+    max( $ActiveTasks.GetSample(1), avg($ActiveTasks.GetSample(TimeInterval_Minute * 15)));
+    // If number of pending tasks is not 0, set targetVM to pending tasks, otherwise half of current dedicated.
+    $targetVMs = $tasks > 0 ? $tasks : max(0, $TargetDedicatedNodes / 2);
+    // The pool size is capped at 20, if target VM value is more than that, set it to 20. This value should be adjusted according to your use case.
+    cappedPoolSize = 20;
+    $TargetDedicatedNodes = max(0, min($targetVMs, cappedPoolSize));
+    // Set node deallocation mode - keep nodes active only until tasks finish
+    $NodeDeallocationOption = taskcompletion;"""
+            response = batch_service_client.pool.enable_auto_scale(pool_id, auto_scale_formula=formula,
+                                                auto_scale_evaluation_interval=datetime.timedelta(minutes=10), 
+                                                pool_enable_auto_scale_options=None, 
+                                                custom_headers=None, raw=False)
 
 
     @staticmethod
@@ -251,7 +369,7 @@ class AzBatchExecutor(ClusterExecutor):
         """
         import azure.batch._batch_service_client as batch# https://docs.microsoft.com/en-us/azure/batch/quick-run-python uses old 6.0 API without _
         
-        print('DEBUG Creating job [{}]...'.format(job_id))# FIXME AW
+        logger.debug("Creating job %s" % job_id)
 
         job = batch.models.JobAddParameter(
             id=job_id,
@@ -273,3 +391,114 @@ class AzBatchExecutor(ClusterExecutor):
             if os.path.exists(os.path.join(self.workdir, snakefile)):
                 self.snakefile = snakefile
                 break
+
+
+    # from google_lifesciences.py
+    def _set_workflow_sources(self):
+        """We only add files from the working directory that are config related
+           (e.g., the Snakefile or a config.yml equivalent), or checked into git. 
+        """
+        self.workflow_sources = []
+
+        for wfs in self.workflow.get_sources():
+            if os.path.isdir(wfs):
+                for (dirpath, dirnames, filenames) in os.walk(wfs):
+                    self.workflow_sources.extend(
+                        [
+                            self.workflow.check_source_sizes(os.path.join(dirpath, f))
+                            for f in filenames
+                        ]
+                    )
+            else:
+                self.workflow_sources.append(
+                    self.workflow.check_source_sizes(os.path.abspath(wfs))
+                )
+
+    # from google_lifesciences.py
+    def _generate_build_source_package(self):
+        """in order for the instance to access the working directory in storage,
+           we need to upload it. This file is cleaned up at the end of the run.
+           We do this, and then obtain from the instance and extract.
+        """
+        # Workflow sources for cloud executor must all be under same workdir root
+        for filename in self.workflow_sources:
+            if self.workdir not in filename:
+                raise WorkflowError(
+                    "All source files must be present in the working directory, "
+                    "{workdir} to be uploaded to a build package that respects "
+                    "relative paths, but {filename} was found outside of this "
+                    "directory. Please set your working directory accordingly, "
+                    "and the path of your Snakefile to be relative to it.".format(
+                        workdir=self.workdir, filename=filename
+                    )
+                )
+
+        # We will generate a tar.gz package, renamed by hash
+        tmpname = next(tempfile._get_candidate_names())
+        targz = os.path.join(tempfile.gettempdir(), "snakemake-%s.tar.gz" % tmpname)
+        tar = tarfile.open(targz, "w:gz")
+
+        # Add all workflow_sources files
+        for filename in self.workflow_sources:
+            arcname = filename.replace(self.workdir + os.path.sep, "")
+            tar.add(filename, arcname=arcname)
+        logger.debug("Created %s with the following contents: %s" % (targz, self.workflow_sources))
+        tar.close()
+
+        # Rename based on hash, in case user wants to save cache
+        sha256 = get_file_hash(targz)
+        hash_tar = os.path.join(
+            self.workflow.persistence.aux_path, "workdir-{}.tar.gz".format(sha256)
+        )
+
+        # Only copy if we don't have it yet, clean up if we do
+        if not os.path.exists(hash_tar):
+            shutil.move(targz, hash_tar)
+        else:
+            os.remove(targz)
+
+        # We will clean these all up at shutdown
+        self._build_packages.add(hash_tar)
+
+        return hash_tar
+
+
+    def _upload_build_source_package(self, targz, container_name="resources"):# FIXME hardcoded container_name
+        """given a .tar.gz created for a workflow, upload it to the blob
+        storage account, but only if the blob doesn't already exist.
+        """
+        import azure.batch.models as batchmodels
+        try:
+            from azure.storage.blob import BlobServiceClient
+            import azure.core.exceptions
+        except ImportError as e:
+            raise WorkflowError(
+                "The Python 3 package 'azure-storage-blob' "
+                "needs to be installed to use Azure Storage remote() file functionality. %s"
+                % e.msg
+            )
+        
+        account_url = os.getenv("AZ_BLOB_ACCOUNT_URL")# same as used for storing. FIXME requires that we used a SAS
+        assert account_url, (
+            "Need AZ_BLOB_ACCOUNT_URL for resource file and data staging, but it's not defined")
+        bsc = BlobServiceClient(account_url)
+        
+        # create container if needed
+        cc = bsc.get_container_client(container_name)
+        try:
+            cc.create_container()
+        except azure.core.exceptions.ResourceExistsError:
+            pass
+        
+        # upload file
+        # FIXME only if it doesn't exist
+        blob_name = os.path.basename(targz)
+        bc = cc.get_blob_client(blob_name)
+        try:
+            with open(targz, "rb") as data:
+                bc.upload_blob(data, blob_type="BlockBlob")
+        except Exception as e:
+            raise WorkflowError("Error in creating blob. %s" % str(e))
+
+        return batchmodels.ResourceFile(http_url=bc.url, file_path=blob_name)
+        
