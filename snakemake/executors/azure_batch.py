@@ -16,7 +16,7 @@ import sys
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
-from snakemake.common import get_file_hash
+from snakemake.common import get_container_image, get_file_hash
 
 
 # Define an Azure Batch job. Snakemake requires this namedtuple to at least
@@ -26,9 +26,6 @@ from snakemake.common import get_file_hash
 AzBatchJob = namedtuple(
     "AzBatchJob", "job task_id callback error_callback"
 )
-
-
-# FIXME compare all to google_lifesciences.py
 
 
 class AzBatchExecutor(ClusterExecutor):
@@ -81,6 +78,8 @@ class AzBatchExecutor(ClusterExecutor):
             "--notemp --no-hooks --nolock " % self.snakefile
         )
 
+        self.container_image = container_image or get_container_image()
+
         try:
             # https://docs.microsoft.com/en-us/azure/batch/quick-run-python uses old 6.0 API without _
             import azure.batch._batch_service_client as batch
@@ -109,7 +108,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         # Create the pool that will contain the compute nodes that will execute the
         # tasks.
-        logger.debug("Creating AzBatch pool")    
+        logger.debug("Creating AzBatch pool %s" % self.pool_id)
         self.create_pool(self.batch_client, self.pool_id)
 
         # Create the job that will run the tasks.
@@ -134,6 +133,7 @@ class AzBatchExecutor(ClusterExecutor):
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary (jobs were cancelled already) 
+        # FIXME delete resource file
         logger.debug("Deleting AzBatch job")
         self.batch_client.job.delete(self.job_id)
         logger.debug("Deleting AzBatch pool")
@@ -162,7 +162,12 @@ class AzBatchExecutor(ClusterExecutor):
         exec_job = self.format_job(
             self.exec_job, job, _quote_all=True,
             use_threads=use_threads)
-
+        # FIXME how come we don't need source activate snakemake here? See 
+        # _generate_job_action() in google_lifesciences
+        exec_job += self.get_default_resources_args()
+        #exec_job = "/bin/sh -c 'ls && mount && pwd'"
+        exec_job = "/bin/sh -c 'tar xvzf {} && {}'".format(self.resource_file.file_path, exec_job)
+        
         task_id = str(uuid.uuid1())# A string that uniquely identifies the Task within the Job. 
 
         # useful blog https://www.muspells.net/blog/2018/11/azure-batch-task-in-containers/
@@ -175,12 +180,16 @@ class AzBatchExecutor(ClusterExecutor):
         
         # This is the docker image we want to run
         task_container_settings = batchmodels.TaskContainerSettings(
-            image_name="andreaswilm/snakemaks:5.17",
+            image_name=self.container_image,
             container_run_options='--rm')
-        
+
+
+        # https://docs.microsoft.com/en-us/python/api/azure-batch/azure.batch.models.taskaddparameter?view=azure-python
+        # all directories recursively below the AZ_BATCH_NODE_ROOT_DIR (the root of Azure Batch directories on the node) are mapped into the container, all Task environment variables are mapped into the container, and the Task command line is executed in the container
         task = batch.models.TaskAddParameter(
             id=task_id, command_line=exec_job,
             container_settings=task_container_settings,
+            resource_files=[self.resource_file],# Snakefile, yml files etc.
             user_identity=batchmodels.UserIdentity(auto_user=user))
 
         # FIXME autorestart/retry should be handled here
@@ -252,8 +261,15 @@ class AzBatchExecutor(ClusterExecutor):
                         rc = task.execution_info.exit_code
                         rt = task.execution_info.retry_count
                         stderr = self._get_task_output(self.job_id, batch_job.task_id, "stderr")
-                        sys.stderr.write("FIXME task {} completed: result={} exit_code={}, run_time={}, retry_count={}, stderr='{}'\n".format(
-                            batch_job.task_id, task.execution_info.result, rc, str(dt), rt, stderr))
+                        stdout = self._get_task_output(self.job_id, batch_job.task_id, "stdout")
+                        sys.stderr.write("FIXME task {} completed: result={} exit_code={}\n".format(
+                            batch_job.task_id, task.execution_info.result, rc))
+                        sys.stderr.write("FIXME task {} completed: run_time={}, retry_count={}\n".format(
+                            batch_job.task_id, str(dt), rt))
+                        sys.stderr.write("FIXME task {}: stderr='{}'\n".format(
+                            batch_job.task_id, stderr))
+                        sys.stderr.write("FIXME task {}: stdout='{}'\n".format(
+                            batch_job.task_id, stdout))
 
                         if task.execution_info.result == batchmodels.TaskExecutionResult.failure:
                             batch_job.error_callback(batch_job.job)
@@ -280,7 +296,6 @@ class AzBatchExecutor(ClusterExecutor):
         import azure.batch.models as batchmodels
         import azure.batch._batch_service_client as batch
         
-        logger.debug("Creating AzBatch pool %s" % pool_id)
         
         # For more information about creating pools of Linux nodes, see:
         # https://azure.microsoft.com/documentation/articles/batch-linux-nodes/
@@ -296,27 +311,20 @@ class AzBatchExecutor(ClusterExecutor):
                 sku='16-04-lts',
                 version='latest')
         
-        # https://docs.microsoft.com/en-us/azure/batch/resource-files
-        # https://docs.microsoft.com/en-us/python/api/azure-batch/azure.batch.models.resourcefile?view=azure-python
-        # best to download snakefile etc per pool rather than per task
-        # Need to use a pool StartTask for that purpose
-        # FIXME auto_storage_container_name must be the one linked to the storage account
-        # FIXME how to do versioning of blob_prefix
-        # FIXME pack resources as in google_lifesciences
-        # FIXME what if account is shared?
-
-        # cmd doesn't run under a shell, hence /bin/sh -c is needed
         # For available env vars see https://docs.microsoft.com/en-us/azure/batch/batch-compute-node-environment-variables
         # Runs in AZ_BATCH_TASK_WORKING_DIR
-        # Download the workdir package.
-        # FIXME where to copy it? Does Docker have access to it?
 
-        import pdb; pdb.set_trace()
-        rf = self.resource_file 
-        start_task = batch.models.StartTask(
-            command_line="/bin/sh -c tar xvzf {}".format(rf.file_path),
-            resource_files=[rf],
-            wait_for_success=True)
+        # https://docs.microsoft.com/en-us/azure/batch/resource-files
+        # https://docs.microsoft.com/en-us/python/api/azure-batch/azure.batch.models.resourcefile?view=azure-python
+        # We could try to down the resource file (Snakefile etc) only once, i.e. per pool rather than per task using a StartTask.
+        # Question is how to get it into the Docker env then.
+        #workdir = "/workdir"# seems to be the default in snakemake containers?
+        #rf = self.resource_file 
+        #start_task = batch.models.StartTask(
+        #   command_line='/bin/sh -c "mkdir -p {} && tar -xvz -C {} -f {}"'.format(
+        #        workdir, workdir, rf.file_path),
+        #    resource_files=[rf],
+        #    wait_for_success=True)
         start_task = None
         new_pool = batch.models.PoolAddParameter(
             id=pool_id,
@@ -357,10 +365,11 @@ class AzBatchExecutor(ClusterExecutor):
     $TargetDedicatedNodes = max(0, min($targetVMs, cappedPoolSize));
     // Set node deallocation mode - keep nodes active only until tasks finish
     $NodeDeallocationOption = taskcompletion;"""
-            response = batch_service_client.pool.enable_auto_scale(pool_id, auto_scale_formula=formula,
-                                                auto_scale_evaluation_interval=datetime.timedelta(minutes=10), 
-                                                pool_enable_auto_scale_options=None, 
-                                                custom_headers=None, raw=False)
+            response = batch_service_client.pool.enable_auto_scale(
+                pool_id, auto_scale_formula=formula,
+                auto_scale_evaluation_interval=datetime.timedelta(minutes=10), 
+                pool_enable_auto_scale_options=None, 
+                custom_headers=None, raw=False)
 
 
     @staticmethod
@@ -465,7 +474,7 @@ class AzBatchExecutor(ClusterExecutor):
 
     def _upload_build_source_package(self, targz, container_name="resources"):# FIXME hardcoded container_name
         """given a .tar.gz created for a workflow, upload it to the blob
-        storage account, but only if the blob doesn't already exist.
+        storage account, only if the blob doesn't already exist.
         """
         import azure.batch.models as batchmodels
         try:
