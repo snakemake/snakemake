@@ -263,7 +263,11 @@ In particular, it should be noted that the specified threads have to be seen as 
 
 Hardcoding a particular maximum number of threads like above is useful when a certain tool has a natural maximum beyond which parallelization won't help to further speed it up.
 This is often the case, and should be evaluated carefully for production workflows.
-If it is certain that no such maximum exists for a tool, one can instead define threads as a function of the number of cores given to Snakemake:
+Also, setting a ``threads:`` maximum is required to achieve parallelism in tools that (often implicitly and without the user knowing) rely on an environment variable for the maximum of cores to use.
+For example, this is the case for many linear algebra libraries and for OpenMP.
+Snakemake limits the respective environment variables to one core by default, to avoid unexpected and unlimited core-grabbing, but will override this with the ``threads:`` you specify in a rule (the parameters set to ``threads:``, or defaulting to ``1``, are: ``OMP_NUM_THREADS``, ``GOTO_NUM_THREADS``, ``OPENBLAS_NUM_THREADS``, ``MKL_NUM_THREADS``, ``VECLIB_MAXIMUM_THREADS``, ``NUMEXPR_NUM_THREADS``).
+
+If it is certain that no maximum for efficient parallelism exists for a tool, one can instead define threads as a function of the number of cores given to Snakemake:
 
 .. code-block:: python
 
