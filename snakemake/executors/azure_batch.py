@@ -425,7 +425,9 @@ class AzBatchExecutor(ClusterExecutor):
         logger.debug("Creating job %s" % job_id)
 
         job = batch.models.JobAddParameter(
-            id=job_id, pool_info=batch.models.PoolInformation(pool_id=pool_id)
+            id=job_id,
+            constraints=batch.models.JobConstraints(max_task_retry_coun=2),
+            pool_info=batch.models.PoolInformation(pool_id=pool_id),
         )
 
         batch_service_client.job.add(job)
