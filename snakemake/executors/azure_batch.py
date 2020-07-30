@@ -77,6 +77,8 @@ class AzBatchExecutor(ClusterExecutor):
             "{overwrite_config} {rules} --nocolor "
             "--notemp --no-hooks --nolock " % self.snakefile
         )
+        
+        self.envvars = list(self.workflow.envvars) or []
 
         self.container_image = container_image or get_container_image()
 
@@ -158,16 +160,26 @@ class AzBatchExecutor(ClusterExecutor):
         super()._run(job)
 
         # obtain job execution command
-        use_threads = "--force-use-threads" if not job.is_group() else ""
+        use_threads = "--force-use-threads" if not job.is_group() else ""        
+   
+        envsettings = []
+        for key in self.envvars:
+            try:
+                envsettings.append(batchmodels.EnvironmentSetting(name=key, value=os.environ[key]))
+            except KeyError:
+                continue
+
         exec_job = self.format_job(
             self.exec_job, job, _quote_all=True,
             use_threads=use_threads)
+
         # FIXME how come we don't need source activate snakemake here? See 
         # _generate_job_action() in google_lifesciences
         exec_job += self.get_default_resources_args()
         #exec_job = "/bin/sh -c 'ls && mount && pwd'"
-        exec_job = "/bin/sh -c 'tar xvzf {} && {}'".format(self.resource_file.file_path, exec_job)
-        
+        exec_job = "/bin/sh -c 'tar xzf {} && {}'".format(self.resource_file.file_path, exec_job)
+        logger.debug("Exec job = %s" % exec_job)
+
         task_id = str(uuid.uuid1())# A string that uniquely identifies the Task within the Job. 
 
         # useful blog https://www.muspells.net/blog/2018/11/azure-batch-task-in-containers/
@@ -176,13 +188,14 @@ class AzBatchExecutor(ClusterExecutor):
         # An unprivileged one
         user = batchmodels.AutoUserSpecification(
             scope=batchmodels.AutoUserScope.task,
-            elevation_level=batchmodels.ElevationLevel.non_admin)
+            # `non_admin` would be better, but conda complains 
+            # about non writable path  /home/_azbatchtask_1/.conda/pkgs/urls.txt 
+            elevation_level=batchmodels.ElevationLevel.admin)
         
         # This is the docker image we want to run
         task_container_settings = batchmodels.TaskContainerSettings(
             image_name=self.container_image,
             container_run_options='--rm')
-
 
         # https://docs.microsoft.com/en-us/python/api/azure-batch/azure.batch.models.taskaddparameter?view=azure-python
         # all directories recursively below the AZ_BATCH_NODE_ROOT_DIR (the root of Azure Batch directories on the node) are mapped into the container, all Task environment variables are mapped into the container, and the Task command line is executed in the container
@@ -190,7 +203,8 @@ class AzBatchExecutor(ClusterExecutor):
             id=task_id, command_line=exec_job,
             container_settings=task_container_settings,
             resource_files=[self.resource_file],# Snakefile, yml files etc.
-            user_identity=batchmodels.UserIdentity(auto_user=user))
+            user_identity=batchmodels.UserIdentity(auto_user=user),
+            environment_settings=envsettings)
 
         # FIXME autorestart/retry should be handled here
 
