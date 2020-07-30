@@ -282,6 +282,7 @@ class JobScheduler:
                 workflow,
                 dag,
                 cores,
+                container_image=container_image,
                 az_batch_config=az_batch_config,
                 printreason=printreason,
                 quiet=quiet,
