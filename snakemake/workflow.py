@@ -1203,7 +1203,7 @@ class Workflow:
 
                 # Determine if a wrapper has support for singularity
                 ruleinfo.container_img = snakemake.wrapper.get_container(
-                    ruleinfo.wrapper, prefix=self.wrapper_prefix
+                    ruleinfo.wrapper
                 )
 
                 # Warn the user if they expect to use a container, and there isn't one

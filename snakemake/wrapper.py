@@ -88,7 +88,7 @@ def get_conda_env(path, prefix=None):
     return path + "/environment.yaml"
 
 
-def get_container(path, prefix=None):
+def get_container(path):
     """Given a path to a rule, load the meta.yaml / meta.yml and determine if
        a container is provided. If so, return the container URI. Otherwise
        return None. 
