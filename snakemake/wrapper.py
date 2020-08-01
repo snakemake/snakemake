@@ -88,12 +88,12 @@ def get_conda_env(path, prefix=None):
     return path + "/environment.yaml"
 
 
-def get_container(path):
+def get_container(path, prefix=None):
     """Given a path to a rule, load the meta.yaml / meta.yml and determine if
        a container is provided. If so, return the container URI. Otherwise
        return None. 
     """
-    prefix = "https://raw.githubusercontent.com/snakemake/snakemake-wrappers/"
+    prefix = prefix or "https://raw.githubusercontent.com/snakemake/snakemake-wrappers/"
     path = get_path(path, prefix=prefix)
     if is_script(path):
         path = posixpath.dirname(path)
@@ -101,16 +101,25 @@ def get_container(path):
         path, version = path.split("@")
         path = os.path.join(path, "meta.yaml") + "@" + version
     else:
-        path = path + "/meta.yaml"
+        path = os.path.join(path, "meta.yaml")
 
-    # Try to retrieve metadata file to lookup container without yaml library
-    try:
-        meta = urlopen(path).read()
+    # If the file exists, read from filesystem
+    meta = None
+    if os.path.exists(path):
+        with open(path, "r") as fd:
+            meta = fd.read()
+
+    # Otherwise, if it's a url, retrieve and read it
+    elif path.startswith("http"):
+        try:
+            meta = urlopen(path).read()
+        except URLError:
+            return
+
+    if meta is not None:
         match = re.search("container:(?P<container>.*)", meta.decode("utf-8"))
         if match:
             return match.group("container").replace("'", "").replace('"', "").strip()
-    except URLError:
-        pass
 
 
 def wrapper(
