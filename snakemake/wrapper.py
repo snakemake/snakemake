@@ -6,6 +6,7 @@ __license__ = "MIT"
 
 import os
 import posixpath
+import re
 
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -85,6 +86,31 @@ def get_conda_env(path, prefix=None):
         path, version = path.split("@")
         return os.path.join(path, "environment.yaml") + "@" + version
     return path + "/environment.yaml"
+
+
+def get_container(path, prefix=None):
+    """Given a path to a rule, load the meta.yaml / meta.yml and determine if
+       a container is provided. If so, return the container URI. Otherwise
+       return None. 
+    """
+    prefix = "https://raw.githubusercontent.com/snakemake/snakemake-wrappers/"
+    path = get_path(path, prefix=prefix)
+    if is_script(path):
+        path = posixpath.dirname(path)
+    if is_git_path(path):
+        path, version = path.split("@")
+        path = os.path.join(path, "meta.yaml") + "@" + version
+    else:
+        path = path + "/meta.yaml"
+
+    # Try to retrieve metadata file to lookup container without yaml library
+    try:
+        meta = urlopen(path).read()
+        match = re.search("container:(?P<container>.*)", meta.decode("utf-8"))
+        if match:
+            return match.group("container").replace("'", "").replace('"', "").strip()
+    except URLError:
+        pass
 
 
 def wrapper(

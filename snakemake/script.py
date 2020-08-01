@@ -472,10 +472,12 @@ class PythonScript(ScriptBase):
         return tuple(map(int, out.strip().split(".")))
 
     def execute_script(self, fname, edit=False):
+
         py_exec = sys.executable
         if self.container_img is not None:
             # use python from image
             py_exec = "python"
+
         elif self.conda_env is not None or self.env_modules is not None:
             if self._is_python_env():
                 py_version = self._get_python_version()

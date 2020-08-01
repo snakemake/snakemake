@@ -665,6 +665,7 @@ class Workflow:
 
         logger.info("Building DAG of jobs...")
         dag.init()
+
         dag.update_checkpoint_dependencies()
         # check incomplete has to run BEFORE any call to postprocess
         dag.check_incomplete()
@@ -1196,11 +1197,27 @@ class Workflow:
                 rule.benchmark = ruleinfo.benchmark
             if not self.run_local and ruleinfo.group is not None:
                 rule.group = ruleinfo.group
+
+            # Using a snakemake-wrapper
             if ruleinfo.wrapper:
-                rule.conda_env = snakemake.wrapper.get_conda_env(
+
+                # Determine if a wrapper has support for singularity
+                ruleinfo.container_img = snakemake.wrapper.get_container(
                     ruleinfo.wrapper, prefix=self.wrapper_prefix
                 )
-                # TODO retrieve suitable singularity image
+
+                # Warn the user if they expect to use a container, and there isn't one
+                if rule.workflow.use_singularity and not ruleinfo.container_img:
+                    logger.warning(
+                        "Rule {} does not have an associated container, and so a conda "
+                        "environment will be used instead.".format(rule.name)
+                    )
+
+                # They specified using conda OR the container doesn't exist
+                if rule.workflow.use_conda or not ruleinfo.container_img:
+                    rule.conda_env = snakemake.wrapper.get_conda_env(
+                        ruleinfo.wrapper, prefix=self.wrapper_prefix
+                    )
 
             if ruleinfo.env_modules:
                 # If using environment modules and they are defined for the rule,
