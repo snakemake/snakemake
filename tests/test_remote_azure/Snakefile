@@ -2,16 +2,11 @@ import os
 import fnmatch
 import snakemake
 from snakemake.exceptions import MissingInputException
-from snakemake.remote.AzureStorage import RemoteProvider as AzureRemoteProvider
+from snakemake.remote.AzBlob import RemoteProvider as AzureRemoteProvider
 
 # setup Azure Storage for remote access
-# for testing these variable can be added to CircleCI
-account_name=os.environ['AZURE_ACCOUNT']
-account_key=os.environ.get('AZURE_KEY')
-sas_token=os.environ.get('SAS_TOKEN')
-assert sas_token or account_key, ("Either SAS_TOKEN or AZURE_KEY have to be set")
-AS = AzureRemoteProvider(account_name=account_name,
-    account_key=account_key, sas_token=sas_token)
+# for testing, set AZ_AZURE_ACCOUNT and AZ_ACCOUNT_KEY or AZ_SAS_TOKEN as env vars to CircleCI
+AS = AzureRemoteProvider()
 
 
 rule upload_to_azure_storage:

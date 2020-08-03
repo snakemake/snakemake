@@ -21,6 +21,7 @@ Development Team
 - Wibowo Arindrarto
 - Rasmus Ågren
 - Soohyun Lee
+- Vanessa Sochat
 
 Contributors
 ------------
