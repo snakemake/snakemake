@@ -136,16 +136,24 @@ class AzBatchExecutor(ClusterExecutor):
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary (jobs were cancelled already)
-        # FIXME delete resource file
+        from azure.storage.blob import BlobClient
+        
         logger.debug("Deleting AzBatch job")
         self.batch_client.job.delete(self.job_id)
+
         logger.debug("Deleting AzBatch pool")
         self.batch_client.pool.delete(self.pool_id)
+
+        logger.debug("Deleting uploaded workflow sources")
+        blob_client = BlobClient.from_blob_url(blob_url=self.resource_file.http_url)
+        blob_client.delete_blob()
+
         super().shutdown()
 
     def cancel(self):
         for task in self.batch_client.task.list(self.job_id):
-            sys.stderr.write("FIXME cancel active jobs here\n")
+            # strictly not need as job deletion also deletes task
+            self.batch_client.task.terminate(self.job_id, task.id)
         self.shutdown()
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
@@ -322,7 +330,9 @@ class AzBatchExecutor(ClusterExecutor):
 
                     # The operation is still running
                     else:
-                        logger.debug("Task %s still running" % batch_job.task_id)
+                        logger.debug("Task %s not complete" % batch_job.task_id)
+                        sys.stderr.write("FIXME task {}: creation_time={} state={} node_info={}\n".format(
+                            batch_job.task_id, task.creation_time, task.state, task.node_info))
                         still_running.append(batch_job)
 
             with self.lock:
@@ -426,7 +436,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         job = batch.models.JobAddParameter(
             id=job_id,
-            constraints=batch.models.JobConstraints(max_task_retry_coun=2),
+            constraints=batch.models.JobConstraints(max_task_retry_count=0),# let snakemake decide on reruns
             pool_info=batch.models.PoolInformation(pool_id=pool_id),
         )
 
@@ -518,8 +528,10 @@ class AzBatchExecutor(ClusterExecutor):
 
         return hash_tar
 
+
+    @staticmethod
     def _upload_build_source_package(
-        self, targz, container_name="resources"
+        targz, container_name="resources"
     ):  # FIXME hardcoded container_name
         """given a .tar.gz created for a workflow, upload it to the blob
         storage account, only if the blob doesn't already exist.
