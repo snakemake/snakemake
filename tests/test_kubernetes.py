@@ -58,6 +58,8 @@ def kubernetes_cluster():
 @gcloud
 def test_kubernetes_plain(kubernetes_cluster):
     import crc32c
+    print(crc32c.__file__)
+
     kubernetes_cluster.reset()
     kubernetes_cluster.run()
 
