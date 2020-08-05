@@ -41,7 +41,7 @@ jobs:
       - name: Setup Snakemake environment
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
-          conda install -c conda-forge -q mamba
+          conda install -c conda-forge -q mamba=0.4.3
           mamba env create -q --name snakemake --file test-environment.yml
 
       - name: Setup apt dependencies

@@ -2,7 +2,7 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python =3.6
+  - python >=3.5
   - datrie
   - boto3
   - moto
@@ -46,5 +46,4 @@ dependencies:
   - environment-modules
   - nbformat
   - toposort
-  - mamba
   - crc32c
