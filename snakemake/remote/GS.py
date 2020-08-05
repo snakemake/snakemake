@@ -18,11 +18,12 @@ try:
     import google.cloud
     from google.cloud import storage
     from google.api_core import retry
-    from crc32c import crc32
+    from crc32c import Checksum
 except ImportError as e:
     raise WorkflowError(
-        "The Python 3 packages 'google-cloud-sdk' and `crc32c` "
-        "need to be installed to use GS remote() file functionality. %s" % e.msg
+        "The Python 3 packages 'google-cloud-sdk' with google-crc32c"
+        "needs to be installed to use GS remote() file functionality. "
+        "pip install snakemake[google-cloud]. %s" % e.msg
     )
 
 
@@ -56,7 +57,7 @@ class Crc32cCalculator:
 
     def __init__(self, fileobj):
         self._fileobj = fileobj
-        self.digest = 0
+        self.checksum = Checksum()
 
     def write(self, chunk):
         self._fileobj.write(chunk)
@@ -65,14 +66,14 @@ class Crc32cCalculator:
     def _update(self, chunk):
         """Given a chunk from the read in file, update the hexdigest
         """
-        self.digest = crc32(chunk, self.digest)
+        self.checksum.update(chunk)
 
     def hexdigest(self):
         """Return the hexdigest of the hasher.
            The Base64 encoded CRC32c is in big-endian byte order.
            See https://cloud.google.com/storage/docs/hashes-etags
         """
-        return base64.b64encode(struct.pack(">I", self.digest)).decode("utf-8")
+        return base64.b64encode(self.checksum.digest()).decode("utf-8")
 
 
 class RemoteProvider(AbstractRemoteProvider):
