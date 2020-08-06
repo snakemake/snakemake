@@ -2073,12 +2073,21 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             (
                 "{envvars} ",
                 "mkdir /tmp/conda && cd /tmp && ",
-                "snakemake {target} --snakefile {snakefile} ",
-                "--force -j{cores} --keep-target-files  --keep-remote ",
+                "snakemake {target} ",
+                "--snakefile {snakefile} ",
+                "--verbose ",
+                "--force -j{cores} ",
+                "--keep-target-files ",
+                "--keep-remote ",
                 "--latency-wait 10 ",
-                "--attempt 1 {use_threads} ",
-                "{overwrite_config} {rules} --nocolor ",
-                "--notemp --no-hooks --nolock --mode {} ".format(Mode.cluster)
+                "--attempt 1 ",
+                "{use_threads}",
+                "{overwrite_config} {rules} ",
+                "--nocolor ",
+                "--notemp ",
+                "--no-hooks ",
+                "--nolock ",
+                "--mode {} ".format(Mode.cluster)
             )
         )
 
@@ -2234,6 +2243,8 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         # Handle remote files
         if hasattr(filename, 'is_remote') and filename.is_remote:
+            return None
+
             obj = filename.remote_object
             if obj.protocol not in supported_protocols:
                 raise WorkflowError(
@@ -2332,7 +2343,14 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         # add workflow sources to inputs
         for src in self.workflow.get_sources():
-            # TODO: discard *.pyc and missing files`
+            # exclude missing, hidden, empty and build files
+            if (
+                not os.path.exists(src) or
+                os.path.basename(src).startswith('.') or
+                os.path.getsize(src) == 0 or
+                src.endswith('.pyc')
+            ):
+                continue
             task["inputs"].append(
                 self._prepare_file(
                     filename=src,
@@ -2343,9 +2361,9 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         
         # add input files to inputs
         for i in job.input:
-            task["inputs"].append(
-                self._prepare_file(filename=i, checkdir=checkdir)
-            )
+            obj = self._prepare_file(filename=i, checkdir=checkdir)
+            if obj:
+                task["inputs"].append(obj)
         
         # add jobscript to inputs
         task["inputs"].append(
@@ -2362,13 +2380,13 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         
         # add output files to outputs
         for o in job.output:
-            task["outputs"].append(
-                self._prepare_file(
-                    filename=o,
-                    checkdir=checkdir,
-                    type='Output',
-                )
+            obj = self._prepare_file(
+                filename=o,
+                checkdir=checkdir,
+                type='Output',
             )
+            if obj:
+                task["outputs"].append(obj)
 
         # add log files to outputs
         if job.log:
