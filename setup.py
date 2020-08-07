@@ -74,8 +74,8 @@ setup(
         "google-cloud": [
             "crc32c",
             "oauth2client",
-            "google-api-python-client",
-            "google-cloud-storage",
+            "google-api-python-client==1.9.1",
+            "google-cloud-storage==1.28.1",
         ],
         "pep": [
             "peppy",

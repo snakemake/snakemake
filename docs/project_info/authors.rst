@@ -21,6 +21,7 @@ Development Team
 - Wibowo Arindrarto
 - Rasmus Ågren
 - Soohyun Lee
+- Vanessa Sochat
 
 Contributors
 ------------
@@ -57,4 +58,5 @@ In alphabetical order
 - Sean Davis
 - Simon Ye
 - Tobias Marschall
+- Vanessa Sochat
 - Willem Ligtenberg

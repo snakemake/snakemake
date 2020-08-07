@@ -71,6 +71,7 @@ class Env:
         self._archive_file = None
         self._container_img = container_img
         self._cleanup = cleanup
+        self._singularity_args = dag.workflow.singularity_args
 
     @property
     def container_img_url(self):
@@ -287,6 +288,7 @@ class Env:
                         cmd = singularity.shellcmd(
                             self._container_img.path,
                             cmd,
+                            args=self._singularity_args,
                             envvars=self.get_singularity_envvars(),
                         )
                     out = shell.check_output(
@@ -316,6 +318,7 @@ class Env:
                         cmd = singularity.shellcmd(
                             self._container_img.path,
                             cmd,
+                            args=self._singularity_args,
                             envvars=self.get_singularity_envvars(),
                         )
                     out = shell.check_output(

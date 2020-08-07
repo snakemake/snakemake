@@ -14,8 +14,10 @@ rule a:
 rule b:
     output:
         "test.txt"
-    shell:
-        "touch {output}"
+    singularity:
+        "docker://python:3.8.3"
+    script:
+        "script.py"
 
 
 rule c:
