@@ -224,7 +224,11 @@ class _IOFile(str):
                 with os.scandir(path) as scan:
                     for entry in scan:
                         if entry.is_dir():
-                            queue.append(entry.path)
+                            # check if entry is a symlink
+                            if entry.is_symlink():
+                                pass
+                            else:
+                                queue.append(entry.path)
                         else:
                             # path is a file
                             cache.exists_local[entry.path] = True
