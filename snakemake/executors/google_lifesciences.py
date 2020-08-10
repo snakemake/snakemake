@@ -460,10 +460,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         logger.debug(
             "Selected machine type {}:{}".format(smallest, selected["description"])
         )
+
         virtual_machine = {
             "machineType": smallest,
             "labels": {"app": "snakemake"},
             "bootDiskSizeGb": disk_gb,
+            "preemptible": job.resources.get("preemptible", False),
         }
 
         # If the user wants gpus, add accelerators here

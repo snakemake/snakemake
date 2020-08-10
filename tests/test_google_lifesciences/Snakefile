@@ -27,6 +27,8 @@ rule pack:
         "landsat-data.txt"
     output:
         "landsat-data.txt.bz2"
+    resources:
+        preemptible=True
     conda:
         "env.yml"
     log:
