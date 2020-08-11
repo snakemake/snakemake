@@ -80,7 +80,10 @@
     /* Footer
    ==================================================== */
    .wy-nav-content footer a  {
-      color: rgb(3,148,117);    
+       color: rgb(3,148,117);    
    }
-   
+
+   .keep-us-sustainable {
+       background-color: #333333;
+   }
    
