@@ -110,7 +110,7 @@ class Snakemake:
 
 
 class REncoder:
-    """Encoding Pyton data structures into R."""
+    """Encoding Python data structures into R."""
 
     @classmethod
     def encode_numeric(cls, value):
@@ -381,6 +381,10 @@ class PythonScript(ScriptBase):
         shadow_dir,
         preamble_addendum="",
     ):
+        print("PYTHON GENERATE PREAMBLE")
+        import IPython
+        IPython.embed()
+
         wrapper_path = path[7:] if path.startswith("file://") else path
         snakemake = Snakemake(
             input_,
