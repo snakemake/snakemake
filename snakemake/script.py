@@ -109,6 +109,65 @@ class Snakemake:
         return lookup[(stdout, stderr, append)].format(self.log)
 
 
+class PythonEncoder:
+    """Encoding Python data structures."""
+
+    @classmethod
+    def encode_value(cls, value):
+        if value is None:
+            return "None"
+        elif isinstance(value, str):
+            return repr(value)
+        elif isinstance(value, dict):
+            return cls.encode_dict(value)
+        elif isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        elif isinstance(value, int) or isinstance(value, float):
+            return str(value)
+        elif isinstance(value, collections.abc.Iterable):
+            # convert all iterables to vectors
+            return cls.encode_list(value)
+        else:
+            # Try to convert from numpy if numpy is present
+            try:
+                import numpy as np
+
+                if isinstance(value, np.number):
+                    return str(value)
+            except ImportError:
+                pass
+        raise ValueError("Unsupported value for conversion into R: {}".format(value))
+
+    @classmethod
+    def encode_list(cls, l):
+        return "c({})".format(", ".join(map(cls.encode_value, l)))
+
+    @classmethod
+    def encode_items(cls, items):
+        def encode_item(item):
+            name, value = item
+            return '"{}" = {}'.format(name, cls.encode_value(value))
+
+        return ", ".join(map(encode_item, items))
+
+    @classmethod
+    def encode_dict(cls, d):
+        d = "list({})".format(cls.encode_items(d.items()))
+        return d
+
+    @classmethod
+    def encode_namedlist(cls, namedlist):
+        positional = ", ".join(map(cls.encode_value, namedlist))
+        named = cls.encode_items(namedlist.items())
+        source = "list("
+        if positional:
+            source += positional
+        if named:
+            source += ", " + named
+        source += ")"
+        return source
+
+
 class REncoder:
     """Encoding Python data structures into R."""
 
@@ -387,14 +446,12 @@ class PythonScript(ScriptBase):
 
         wrapper_path = path[7:] if path.startswith("file://") else path
 
-
-        return textwrap.dedent(
-            """
+        preamble = textwrap.dedent("""
         ######## snakemake preamble start (automatically inserted, do not edit) ########
         import sys
-        sys.path.insert(0, "{scriptdir}")
+        sys.path.insert(0, "{sourcedir}")
         class Snakemake:
-            def __init__(input, output, params, wildcards, threads, log, resources, config, rule, bench_iteration, scriptdir, source):
+            def __init__(input, output, params, wildcards, threads, log, resources, config, rule, bench_iteration, scriptdir, source=None):
                 self.input = input
                 self.output = output
                 self.params = params
@@ -409,54 +466,36 @@ class PythonScript(ScriptBase):
                 self.source = source
                 
         snakemake = Snakemake(
-            input = {},
-            output = {},
-            params = {},
-            wildcards = {},
-            threads = {},
-            log = {},
-            resources = {},
-            config = {},
-            rule = {},
-            bench_iteration = {},
-            scriptdir = {},
-            source = function(...){{
-                wd <- getwd()
-                setwd(snakemake@scriptdir)
-                source(...)
-                setwd(wd)
-            }}
+            input = "{input_}",
+            output = "{output}",
+            params = {params},
+            wildcards = {wildcards},
+            threads = {threads},
+            log = {log},
+            resources = {resources},
+            config = {config},
+            rule = {rule},
+            bench_iteration = {bench_iteration},
+            scriptdir = {scriptdir},
         )
         {preamble_addendum}
 
         ######## snakemake preamble end #########
         """
-        ).format(sourcedir = input_),
-            REncoder.encode_namedlist(output),
-            REncoder.encode_namedlist(params),
-            REncoder.encode_namedlist(wildcards),
-            threads,
-            REncoder.encode_namedlist(log),
-            REncoder.encode_namedlist(
-                {
-                    name: value
-                    for name, value in resources.items()
-                    if name != "_cores" and name != "_nodes"
-                }
-            ),
-            REncoder.encode_dict(config),
-            REncoder.encode_value(rulename),
-            REncoder.encode_numeric(bench_iteration),
-            REncoder.encode_value(
-                os.path.dirname(path[7:])
-                if path.startswith("file://")
-                else os.path.dirname(path)
-            ),
+        ).format(sourcedir = wrapper_path,
+            input_=input_,
+            output=output,
+            params=params,
+            wildcards=wildcards,
+            threads=threads,
+            log=log,
+            resources=resources,
+            config=config,
+            rule=rulename,
+            bench_iteration=bench_iteration,
+            scriptdir = wrapper_path,
             preamble_addendum=preamble_addendum,
         )
-
-
-
 
         snakemake = Snakemake(
             input_,
