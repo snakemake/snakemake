@@ -45,6 +45,9 @@ def test_issue956():
     run(dpath("test_issue956"))
 
 
+def test_issue448():
+    run(dpath("test_issue448"), shouldfail=True)
+
 @skip_on_windows
 def test01():
     run(dpath("test01"))

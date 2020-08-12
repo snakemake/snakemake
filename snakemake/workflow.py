@@ -529,6 +529,7 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        local_timeout=0
     ):
 
         self.check_localrules()
@@ -891,6 +892,7 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
+            local_timeout=local_timeout
         )
 
         if not dryrun:

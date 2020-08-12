@@ -83,6 +83,7 @@ class JobScheduler:
         force_use_threads=False,
         assume_shared_fs=True,
         keepincomplete=False,
+        local_timeout=0
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
@@ -162,6 +163,7 @@ class JobScheduler:
                     latency_wait=latency_wait,
                     cores=local_cores,
                     keepincomplete=keepincomplete,
+                    timeout=local_timeout
                 )
             if cluster or cluster_sync:
                 if cluster_sync:
@@ -223,6 +225,7 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
+                timeout=local_timeout
             )
 
             self._executor = KubernetesExecutor(
@@ -249,6 +252,7 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
+                timeout=local_timeout
             )
 
             self._executor = TibannaExecutor(
@@ -275,6 +279,7 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 cores=local_cores,
+                timeout=local_timeout
             )
 
             self._executor = GoogleLifeSciencesExecutor(
@@ -303,6 +308,7 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 cores=cores,
                 keepincomplete=keepincomplete,
+                timeout=local_timeout
             )
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
@@ -356,18 +362,20 @@ class JobScheduler:
 
                 # handle errors
                 if user_kill or (not self.keepgoing and errors):
-                    if user_kill == "graceful":
+                    if (user_kill == "graceful" or self.keepgoing) and running:
                         logger.info(
                             "Will exit after finishing " "currently running jobs."
                         )
+                        continue
 
-                    if not running:
-                        logger.info("Shutting down, this might take some time.")
-                        self._executor.shutdown()
-                        if not user_kill:
-                            logger.error(_ERROR_MSG_FINAL)
-                        return False
-                    continue
+                    logger.info("Shutting down, this might take some time.")
+                    
+                    jobids = [job.jobid for job in running]
+                    self._executor.shutdown(jobids=jobids)
+                    logger.info("Shutdown")
+                    if not user_kill:
+                        logger.error(_ERROR_MSG_FINAL)
+                    return False
 
                 # normal shutdown because all jobs have been finished
                 if not needrun and (not running or self.workflow.immediate_submit):
@@ -412,7 +420,8 @@ class JobScheduler:
             logger.info(
                 "Terminating processes on user request, this might take some time."
             )
-            self._executor.cancel()
+            jobids = [job.jobid for job in running]
+            self._executor.cancel(jobids=[job.jobid for job in jobids])
             return False
 
     def run(self, jobs, executor=None):

@@ -120,10 +120,10 @@ class AbstractExecutor:
         self._run(job)
         callback(job)
 
-    def shutdown(self):
+    def shutdown(self, jobids=None):
         pass
 
-    def cancel(self):
+    def cancel(self, jobids=None):
         pass
 
     def _run(self, job):
@@ -361,6 +361,7 @@ class CPUExecutor(RealExecutor):
         latency_wait=3,
         cores=1,
         keepincomplete=False,
+        timeout=0
     ):
         super().__init__(
             workflow,
@@ -392,6 +393,7 @@ class CPUExecutor(RealExecutor):
         self.exec_job += self.get_additional_args()
         self.use_threads = use_threads
         self.cores = cores
+        self.timeout = timeout 
 
         # Zero thread jobs do not need a thread, but they occupy additional workers.
         # Hence we need to reserve additional workers for them.
@@ -483,7 +485,7 @@ class CPUExecutor(RealExecutor):
                         # there can be only shell commands because the
                         # run directive is not allowed for pipe jobs
                         for j in job:
-                            shell.kill(j.jobid)
+                            shell.kill(jobid=j.jobid, timeout=self.timeout)
                         raise ex
                     else:
                         k += 1
@@ -516,11 +518,21 @@ class CPUExecutor(RealExecutor):
         if to_cache:
             self.workflow.output_file_cache.store(job)
 
-    def shutdown(self):
+    def shutdown(self, jobids=None):
+        if jobids is None:
+            return
+        logger.debug("CPUExecutor shutting down, will kill {} jobs".format(len(jobids)))
+        # kill all jobs!
+        for jobid in jobids:
+            logger.debug("Killing job {}".format(jobid))
+            shell.kill(jobid=jobid, timeout=self.timeout)
+            logger.debug("Killed job {}".format(jobid))
+        logger.debug("Shutting down the thread pool")
         self.pool.shutdown()
+        logger.debug("CPUExecutor shut down")
 
-    def cancel(self):
-        self.pool.shutdown()
+    def cancel(self, jobids=None):
+        self.shutdown(jobids=jobids)
 
     def _callback(self, job, callback, error_callback, future):
         try:
@@ -656,7 +668,7 @@ class ClusterExecutor(RealExecutor):
             max_calls=self.max_status_checks_per_second, period=1
         )
 
-    def shutdown(self):
+    def shutdown(self, jobids=None):
         with self.lock:
             self.wait = False
         self.wait_thread.join()
@@ -667,7 +679,7 @@ class ClusterExecutor(RealExecutor):
             # directory.
             shutil.rmtree(self.tmpdir)
 
-    def cancel(self):
+    def cancel(self, jobids=None):
         self.shutdown()
 
     def _run(self, job, callback=None, error_callback=None):
@@ -863,7 +875,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 "specify a cluster status command."
             )
 
-    def cancel(self):
+    def cancel(self, jobids=None):
         logger.info("Will exit after finishing currently running jobs.")
         self.shutdown()
 
@@ -1087,7 +1099,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
         self.submitcmd = submitcmd
         self.external_jobid = dict()
 
-    def cancel(self):
+    def cancel(self, jobids=None):
         logger.info("Will exit after finishing currently running jobs.")
         self.shutdown()
 
@@ -1208,7 +1220,7 @@ class DRMAAExecutor(ClusterExecutor):
         self.session.initialize()
         self.submitted = list()
 
-    def cancel(self):
+    def cancel(self, jobids=None):
         from drmaa.const import JobControlAction
         from drmaa.errors import InvalidJobException, InternalException
 
@@ -1270,7 +1282,7 @@ class DRMAAExecutor(ClusterExecutor):
                 DRMAAClusterJob(job, jobid, callback, error_callback, jobscript)
             )
 
-    def shutdown(self):
+    def shutdown(self, jobids=None):
         super().shutdown()
         self.session.exit()
 
@@ -1464,7 +1476,7 @@ class KubernetesExecutor(ClusterExecutor):
         self.unregister_secret()
         super().shutdown()
 
-    def cancel(self):
+    def cancel(self, jobids=None):
         import kubernetes.client
 
         body = kubernetes.client.V1DeleteOptions()
@@ -1787,7 +1799,7 @@ class TibannaExecutor(ClusterExecutor):
         logger.debug("shutting down Tibanna executor")
         super().shutdown()
 
-    def cancel(self):
+    def cancel(self, jobids=None):
         from tibanna.core import API
 
         for j in self.active_jobs:
