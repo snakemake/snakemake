@@ -664,7 +664,6 @@ class Workflow:
                 return False
 
         logger.info("Building DAG of jobs...")
-
         dag.init()
         dag.update_checkpoint_dependencies()
         # check incomplete has to run BEFORE any call to postprocess
@@ -1127,7 +1126,6 @@ class Workflow:
                 rule.set_output(*ruleinfo.output[0], **ruleinfo.output[1])
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
-
             # handle default resources
             if self.default_resources is not None:
                 rule.resources = copy.deepcopy(self.default_resources.parsed)
