@@ -667,6 +667,7 @@ class Rule:
         raw_exceptions=False,
         **aux_params
     ):
+
         incomplete = False
         if isinstance(func, _IOFile):
             func = func._file.callable
