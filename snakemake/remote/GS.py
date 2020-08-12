@@ -190,10 +190,8 @@ class RemoteObject(AbstractRemoteObject):
             self.blob.download_to_file(parser)
         os.sync()
 
-        # Debugging output
+        # **Important** hash can be incorrect or missing if not refreshed
         self.blob.reload()
-        print(parser.hexdigest())
-        print(self.blob.crc32c)
 
         # Compute local hash and verify correct
         if parser.hexdigest() != self.blob.crc32c:
