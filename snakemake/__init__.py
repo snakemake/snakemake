@@ -1555,7 +1555,17 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "--default-remote-provider",
-        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp", "iRODS"],
+        choices=[
+            "S3",
+            "GS",
+            "FTP",
+            "SFTP",
+            "S3Mocked",
+            "gfal",
+            "gridftp",
+            "iRODS",
+            "AzBlob",
+        ],
         help="Specify default remote provider to be used for "
         "all input and output files that don't yet specify "
         "one.",

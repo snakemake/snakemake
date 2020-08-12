@@ -17,12 +17,33 @@ To go through this tutorial, you need the following software installed:
 * Snakemake_ ≥5.16
 * git
 
-You should install conda as outlined in the :ref:`tutorial <tutorial-setup>`,
-and then install full snakemake with:
+First, you have to install the Miniconda Python3 distribution.
+See `here <https://conda.io/en/latest/miniconda.html>`_ for installation instructions.
+Make sure to ...
 
-.. code:: console
+* Install the **Python 3** version of Miniconda.
+* Answer yes to the question whether conda shall be put into your PATH.
 
-    conda create -c bioconda -c conda-forge -n snakemake snakemake
+The default conda solver is a bit slow and sometimes has issues with `selecting the latest package releases <https://github.com/conda/conda/issues/9905>`_. Therefore, we recommend to install `Mamba <https://github.com/QuantStack/mamba>`_ as a drop-in replacement via
+
+.. code-block:: console
+
+    $ conda install -c conda-forge mamba
+
+Then, you can install Snakemake with
+
+.. code-block:: console
+
+    $ mamba create -c conda-forge -c bioconda -n snakemake snakemake
+
+from the `Bioconda <https://bioconda.github.io>`_ channel.
+This will install snakemake into an isolated software environment, that has to be activated with
+
+.. code-block:: console
+
+    $ conda activate snakemake
+    $ snakemake --help
+
 
 
 Credentials
@@ -145,16 +166,16 @@ storage instead of the local filesystem.
 
     rule bwa_map:
         input:
-        fastq="samples/{sample}.fastq",
-        idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
-    conda:
-        "environment.yml"
-    output:
-        "mapped_reads/{sample}.bam"
-    params:
-        idx=lambda w, input: os.path.splitext(input.idx[0])[0]
-    shell:
-        "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
+            fastq="samples/{sample}.fastq",
+            idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
+        conda:
+            "environment.yml"
+        output:
+            "mapped_reads/{sample}.bam"
+        params:
+            idx=lambda w, input: os.path.splitext(input.idx[0])[0]
+        shell:
+            "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
 
     rule samtools_sort:
         input:

@@ -222,10 +222,10 @@ Snakemake allows to define environment modules per rule:
         shell:
             "bwa mem {input} | samtools view -Sbh - > {output}"
 
-Here, when Snakemake is executed with `snakemake --use-envmodules`, it will load the defined modules in the given order, instead of using the also defined conda environment.
+Here, when Snakemake is executed with ``snakemake --use-envmodules``, it will load the defined modules in the given order, instead of using the also defined conda environment.
 Note that although not mandatory, one should always provide either a conda environment or a container (see above), along with environment module definitions.
 The reason is that environment modules are often highly platform specific, and cannot be assumed to be available somewhere else, thereby limiting reproducibility.
-By definition an equivalent conda environment or container as a fallback, people outside of the HPC system where the workflow has been designed can still execute it, e.g. by running `snakemake --use-conda` instead of `snakemake --use-envmodules`.
+By definition an equivalent conda environment or container as a fallback, people outside of the HPC system where the workflow has been designed can still execute it, e.g. by running ``snakemake --use-conda`` instead of ``snakemake --use-envmodules``.
 
 --------------------------------------
 Sustainable and reproducible archiving
