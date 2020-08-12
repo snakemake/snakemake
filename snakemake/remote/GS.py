@@ -191,6 +191,7 @@ class RemoteObject(AbstractRemoteObject):
         os.sync()
 
         # Debugging output
+        self.blob.reload()
         print(parser.hexdigest())
         print(self.blob.crc32c)
 
