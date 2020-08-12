@@ -1,7 +1,12 @@
+from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
+import os
+S3 = S3RemoteProvider(access_key_id=os.environ['S3_ACCESS_KEY'], secret_access_key=os.environ['S3_SECRET_ACCESS_KEY'])
+
 rule all:
     input:
         "output.txt",
-        "output.txt.bz2"
+        "output.txt.bz2",
+        S3.remote("snakemake-tests/out_test11.txt", keep_local=True)
 
 rule step1a:
     input: "testfiles/input.txt"
@@ -63,4 +68,16 @@ rule step2:
         cat {input[2]} >> {output[0]}
         bzip2 -c {output[0]} > {output[1]}
         echo "fine" > {log} 
+        """
+
+rule step3:
+    input:
+        "output.txt",
+        S3.remote("snakemake-tests/file1.txt")
+    output:
+        S3.remote("snakemake-tests/out_test11.txt")
+    shell:
+        """
+        cat {input[0]} >> {output[0]}
+        cat {input[1]} >> {output[0]}
         """
