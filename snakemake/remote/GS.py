@@ -173,9 +173,10 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    @retry.Retry(predicate=google_cloud_retry_predicate, deadline=1800)
+    @retry.Retry(predicate=google_cloud_retry_predicate, deadline=1800, maximum=600)
     def download(self):
-        """Download with maximum retry of 1800 seconds (30 minutes)
+        """Download with maximum retry of 600 seconds (10 minutes) for a total 
+           duration of 1800 seconds (30 minutes)
         """
         if not self.exists():
             return None
@@ -189,6 +190,10 @@ class RemoteObject(AbstractRemoteObject):
             parser = Crc32cCalculator(blob_file)
             self.blob.download_to_file(parser)
         os.sync()
+
+        # Debugging output
+        print(parser.hexdigest())
+        print(self.blob.crc32c)
 
         # Compute local hash and verify correct
         if parser.hexdigest() != self.blob.crc32c:
