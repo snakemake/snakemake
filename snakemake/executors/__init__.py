@@ -2244,40 +2244,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         # Handle remote files
         if hasattr(filename, 'is_remote') and filename.is_remote:
             return None
-
-            obj = filename.remote_object
-            if obj.protocol not in supported_protocols:
-                raise WorkflowError(
-                    "[TES] Protocol '{prot}' for remote object '{obj}' is "
-                    "not supported by the TES backend. Currently supported "
-                    "protocols are: {supported}".format(
-                        prot=obj.protocol,
-                        obj=str(filename),
-                        supported=', '.join(supported_protocols),
-                    )
-                )
-            if obj.protocol == "ftp://":
-                auth = ""
-                if all(
-                    k in obj.provider.kwargs for k in ('username', 'password')
-                ):
-                    auth = ''.join([
-                        str(obj.provider.kwargs['username']),
-                        ':',
-                        str(obj.provider.kwargs['password']),
-                        '@',
-                    ])
-                members['url'] = ''.join([
-                    str(obj.protocol),
-                    auth,
-                    str(obj.host),
-                    str(obj.remote_path),
-                ])
-                members['path'] = ''.join([
-                    self.container_workdir,
-                    str(obj.remote_path),
-                ])
-
+        
         # Handle local files
         else:
             f = os.path.abspath(filename)
