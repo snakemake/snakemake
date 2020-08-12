@@ -138,17 +138,17 @@ class RemoteObject(AbstractRemoteObject):
             - cache_mtime
             - cache.size
         """
-        for blob in self.client.list_blobs(
-            self.bucket_name, prefix=os.path.dirname(self.blob.name)
-        ):
+        subfolder = os.path.dirname(self.blob.name)
+        for blob in self.client.list_blobs(self.bucket_name, prefix=subfolder):
             # By way of being listed, it exists. mtime is a datetime object
             name = "{}/{}".format(blob.bucket.name, blob.name)
             cache.exists_remote[name] = True
             cache.mtime[name] = blob.updated
             cache.size[name] = blob.size
-        # Mark bucket as having an inventory, such that this method is
-        # only called once for this bucket.
-        cache.has_inventory.add(self.bucket_name)
+
+        # Mark bucket and prefix as having an inventory, such that this method is
+        # only called once for the subfolder in the bucket.
+        cache.has_inventory.add("%s/%s" % (self.bucket_name, subfolder))
 
     # === Implementations of abstract class members ===
 
@@ -173,8 +173,10 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    @retry.Retry(predicate=google_cloud_retry_predicate)
+    @retry.Retry(predicate=google_cloud_retry_predicate, deadline=600)
     def download(self):
+        """Download with maximum retry of 600 seconds (10 minutes)
+        """
         if not self.exists():
             return None
 

@@ -166,16 +166,16 @@ storage instead of the local filesystem.
 
     rule bwa_map:
         input:
-        fastq="samples/{sample}.fastq",
-        idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
-    conda:
-        "environment.yml"
-    output:
-        "mapped_reads/{sample}.bam"
-    params:
-        idx=lambda w, input: os.path.splitext(input.idx[0])[0]
-    shell:
-        "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
+            fastq="samples/{sample}.fastq",
+            idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
+        conda:
+            "environment.yml"
+        output:
+            "mapped_reads/{sample}.bam"
+        params:
+            idx=lambda w, input: os.path.splitext(input.idx[0])[0]
+        shell:
+            "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
 
     rule samtools_sort:
         input:
