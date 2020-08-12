@@ -1,12 +1,15 @@
+from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+
+FTP = FTPRemoteProvider(username="user", password="pass")
+
 rule all:
     input:
         "output.txt",
         "output.txt.bz2"
 
 rule step1a:
-    input: "testfiles/input.txt"
+    input: FTP.remote("ftp-private.ebi.ac.uk/upload/snakemake/input.txt")
     output: pipe("out_1a.txt")
-    message: "Step 1a"
     shell:
         """
         cat {input} > {output}
@@ -19,7 +22,6 @@ rule step1b:
         mem_mb=1000,
         disk_mb=1000,
         _cores=2,
-    message: "Step 1b"
     shell:
         """
         cat {input} > {output}
@@ -33,14 +35,12 @@ rule step1c:
         mem_mb=2000,
         disk_mb=2000,
         _cores=4,
-    message: "Step 1c"
     script: "scripts/test_script.py"
 
 rule step1d:
     output: temp("out_1d.txt")
     params:
         message="hello world"
-    message: "Step 1d"
     run:
         with open(output[0], "w") as f:
             f.write(params.message)

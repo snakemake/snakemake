@@ -2055,21 +2055,39 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         restart_times=None,
         exec_job=None,
         assume_shared_fs=False,
-        max_status_checks_per_second=1,
+        max_status_checks_per_second=0.5,  # TODO: argument doesn't appear to be passed through from CLI?
         tes_url=None,
         container_image=None,
     ):
-        
+        self.container_image = container_image or get_container_image()
+        self.container_workdir = "/tmp"
+        self.max_status_checks_per_second = max_status_checks_per_second
+        self.tes_url = tes_url
+        self.tes_client = tes.HTTPClient(url=self.tes_url)
+
+        logger.info(
+            "[TES] Job execution on TES: {url}".format(url=self.tes_url)
+        )
+
         exec_job = "\\\n".join(
             (
                 "{envvars} ",
                 "mkdir /tmp/conda && cd /tmp && ",
-                "snakemake {target} --snakefile {snakefile} ",
-                "--force -j{cores} --keep-target-files  --keep-remote ",
+                "snakemake {target} ",
+                "--snakefile {snakefile} ",
+                "--verbose ",
+                "--force -j{cores} ",
+                "--keep-target-files ",
+                "--keep-remote ",
                 "--latency-wait 10 ",
-                "--attempt 1 {use_threads} ",
-                "{overwrite_config} {rules} --nocolor ",
-                "--notemp --no-hooks --nolock --mode {} ".format(Mode.cluster)
+                "--attempt 1 ",
+                "{use_threads}",
+                "{overwrite_config} {rules} ",
+                "--nocolor ",
+                "--notemp ",
+                "--no-hooks ",
+                "--nolock ",
+                "--mode {} ".format(Mode.cluster)
             )
         )
 
@@ -2089,11 +2107,6 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
         )
-        self.tes_url = tes_url
-        self.tes_client = tes.HTTPClient(url=self.tes_url)
-        self.container_image = container_image or get_container_image()
-        self.container_workdir = "/tmp"
-
 
     def write_jobscript(self, job, jobscript, **kwargs):
 
@@ -2124,9 +2137,12 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         for job in self.active_jobs:
             try:
                 self.tes_client.cancel_task(job.jobid)
+                logger.info(
+                    "[TES] Task canceled: {id}".format(id=job.jobid)
+                )
             except Exception:
                 logger.info(
-                    "Cancelling task failed. This may be because the job is "
+                    "[TES] Canceling task failed. This may be because the job is "
                     "already in a terminal state."
                 )
         self.shutdown()
@@ -2147,13 +2163,15 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         try:
             task = self._get_task(job, jobscript)
             tes_id = self.tes_client.create_task(task)
+            logger.info(
+                "[TES] Task submitted: {id}".format(id=tes_id)
+            )
         except Exception as e:
             raise WorkflowError(str(e))
 
         self.active_jobs.append(TaskExecutionServiceJob(
             job, tes_id, callback, error_callback))
         
-
     def _wait_for_jobs(self):
         UNFINISHED_STATES = [
             "UNKNOWN",
@@ -2178,94 +2196,206 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 still_running = list()
             
             for j in active_jobs:
-                with self.status_rate_limiter:
+                with self.status_rate_limiter:  # TODO: this doesn't seem to do anything?
                     res = self.tes_client.get_task(j.jobid, view='MINIMAL')
+                    logger.debug(
+                        "[TES] State of task '{id}': {state}".format(
+                            id=j.jobid,
+                            state=res.state,
+                        )
+                    )
                     if res.state in UNFINISHED_STATES:
                         still_running.append(j)
                     elif res.state in ERROR_STATES:
+                        logger.info(
+                            "[TES] Task errored: {id}".format(id=j.jobid)
+                        )
                         j.error_callback(j.job)
                     elif res.state == "COMPLETE":
+                        logger.info(
+                            "[TES] Task completed: {id}".format(id=j.jobid)
+                        )
                         j.callback(j.job)
             
             with self.lock:
                 self.active_jobs.extend(still_running)
-            sleep()
+            time.sleep(1 / self.max_status_checks_per_second)
     
-    def _prepare_file(self, filename, overwrite_path=None, checkdir=None):
-        f = os.path.abspath(filename)
-        f_url = "file://" + f
-        
-        if overwrite_path: f_path = overwrite_path
-        else: f_path = os.path.join(self.container_workdir, os.path.relpath(f))
+    def _prepare_file(
+        self,
+        filename,
+        overwrite_path=None,
+        checkdir=None,
+        pass_content=False,
+        type="Input",
+    ):
+        # TODO: handle FTP files
+        supported_protocols = [
+            "ftp://"
+        ]
+        max_file_size = 128 * 1024  # see https://github.com/ga4gh/task-execution-schemas/blob/9cc12b0c215a7f54fdeb0d0598ebc74fa70eb2a7/openapi/task_execution.swagger.yaml#L297
+        if type not in ['Input', 'Output']:
+            raise ValueError(
+                "Value for 'model' has to be either 'Input' or 'Outuput'."
+            )
 
-        if checkdir:
-            checkdir = checkdir.rstrip("/")
-            if not f.startswith(checkdir):
-                direrrmsg = (
-                    "All files including Snakefile, "
-                    + "conda env files, rule script files, output files "
-                    + "must be in the same working directory: {} vs {}"
+        members = {}
+
+        # Handle remote files
+        if hasattr(filename, 'is_remote') and filename.is_remote:
+            return None
+
+            obj = filename.remote_object
+            if obj.protocol not in supported_protocols:
+                raise WorkflowError(
+                    "[TES] Protocol '{prot}' for remote object '{obj}' is "
+                    "not supported by the TES backend. Currently supported "
+                    "protocols are: {supported}".format(
+                        prot=obj.protocol,
+                        obj=str(filename),
+                        supported=', '.join(supported_protocols),
+                    )
                 )
-                raise WorkflowError(direrrmsg.format(checkdir, f))
-        
-        return {"url": f_url, "path": f_path}
+            if obj.protocol == "ftp://":
+                auth = ""
+                if all(
+                    k in obj.provider.kwargs for k in ('username', 'password')
+                ):
+                    auth = ''.join([
+                        str(obj.provider.kwargs['username']),
+                        ':',
+                        str(obj.provider.kwargs['password']),
+                        '@',
+                    ])
+                members['url'] = ''.join([
+                    str(obj.protocol),
+                    auth,
+                    str(obj.host),
+                    str(obj.remote_path),
+                ])
+                members['path'] = ''.join([
+                    self.container_workdir,
+                    str(obj.remote_path),
+                ])
+
+        # Handle local files
+        else:
+            f = os.path.abspath(filename)
+
+            if checkdir:
+                checkdir = checkdir.rstrip("/")
+                if not f.startswith(checkdir):
+                    direrrmsg = (
+                        "All files including Snakefile, "
+                        + "conda env files, rule script files, output files "
+                        + "must be in the same working directory: {} vs {}"
+                    )
+                    raise WorkflowError(direrrmsg.format(checkdir, f))
+
+            if overwrite_path:
+                members['path'] = overwrite_path
+            else:
+                members['path'] = os.path.join(
+                    self.container_workdir,
+                    str(os.path.relpath(f)),
+                )
+
+            members['url'] = "file://" + f
+            if pass_content:
+                source_file_size = os.path.getsize(f)
+                if source_file_size > max_file_size:
+                    logger.warning(
+                        "Will not pass file '{f}' by content, as it exceeds the "
+                        "minimum supported file size of {max_file_size} bytes "
+                        "defined in the TES specification. Will try to upload "
+                        "file instead.".format(
+                            f=f, source_file_size=source_file_size
+                        )
+                    )
+                else:
+                    with open(f) as stream:
+                        members['content'] = stream.read()
+                    members['url'] = None
+
+        model = getattr(tes.models, type)
+        logger.warning(members)
+        return model(**members)
 
     def _get_task(self, job, jobscript):
         checkdir, _ = os.path.split(self.snakefile)
 
         task = {}
         task["name"] = job.format_wildcards(self.jobname)
-        task["description"] = "Here is description."
+        task["description"] = ""
         task["inputs"] = []
         task["outputs"] = []
         task["executors"] = []
         task["resources"] = tes.models.Resources()
 
+        # populate description with rule messages
+        if job.is_group():
+            msgs = [i.message for i in job.jobs if i.message]
+            if msgs:
+                task["description"] = ' & '.join(msgs)
+        else:
+            if job.message:
+                task["description"] = job.message
+
         # add workflow sources to inputs
         for src in self.workflow.get_sources():
+            # exclude missing, hidden, empty and build files
+            if (
+                not os.path.exists(src) or
+                os.path.basename(src).startswith('.') or
+                os.path.getsize(src) == 0 or
+                src.endswith('.pyc')
+            ):
+                continue
             task["inputs"].append(
-                tes.models.Input(
-                    **self._prepare_file(filename=src, checkdir=checkdir)
+                self._prepare_file(
+                    filename=src,
+                    checkdir=checkdir,
+                    pass_content=True,
                 )
             )
         
         # add input files to inputs
         for i in job.input:
-            task["inputs"].append(
-                tes.models.Input(
-                    **self._prepare_file(filename=i, checkdir=checkdir)
-                )
-            )
+            obj = self._prepare_file(filename=i, checkdir=checkdir)
+            if obj:
+                task["inputs"].append(obj)
         
         # add jobscript to inputs
-        overwrite_path=os.path.join(
-            self.container_workdir,
-            "run_snakemake.sh",
-        )
         task["inputs"].append(
-            tes.models.Input(
-                **self._prepare_file(
-                    filename=jobscript,
-                    overwrite_path=overwrite_path,
-                    checkdir=checkdir,
-                )
+            self._prepare_file(
+                filename=jobscript,
+                overwrite_path=os.path.join(
+                    self.container_workdir,
+                    "run_snakemake.sh",
+                ),
+                checkdir=checkdir,
+                pass_content=True,
             )
         )
         
         # add output files to outputs
         for o in job.output:
-            task["outputs"].append(
-                tes.models.Output(
-                   **self._prepare_file(filename=o, checkdir=checkdir)
-                )
+            obj = self._prepare_file(
+                filename=o,
+                checkdir=checkdir,
+                type='Output',
             )
+            if obj:
+                task["outputs"].append(obj)
 
         # add log files to outputs
         if job.log:
             for log in job.log:
                 task["outputs"].append(
-                    tes.models.Output(
-                        **self._prepare_file(filename=log, checkdir=checkdir)
+                    self._prepare_file(
+                        filename=log,
+                        checkdir=checkdir,
+                        type='Output',
                     )
                 )
         
@@ -2273,8 +2403,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         if hasattr(job, "benchmark") and job.benchmark:
             for benchmark in job.benchmark:
                 task["outputs"].append(
-                    tes.models.Output(
-                        **self._prepare_file(filename=benchmark, checkdir=checkdir)
+                    self._prepare_file(
+                        filename=benchmark,
+                        checkdir=checkdir,
+                        type='Output',
                     )
                 )
        
@@ -2282,7 +2414,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         task["executors"].append(
             tes.models.Executor(
                 image=self.container_image,
-                command=["/bin/bash", os.path.join(self.container_workdir, "run_snakemake.sh")],
+                command=[  # TODO: info about what is executed is opaque
+                    "/bin/bash",
+                    os.path.join(self.container_workdir, "run_snakemake.sh"),
+                ],
                 workdir=self.container_workdir,
             )
         )
@@ -2295,7 +2430,9 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         if "disk_mb" in job.resources:
             task["resources"]["disk_gb"] = job.resources["disk_mb"] / 1000
 
-        return tes.Task(**task)
+        tes_task = tes.Task(**task)
+        logger.debug("[TES] Built task: {task}".format(task=tes_task))
+        return tes_task
 
 
 def run_wrapper(
