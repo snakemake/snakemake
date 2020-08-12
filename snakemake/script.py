@@ -382,10 +382,82 @@ class PythonScript(ScriptBase):
         preamble_addendum="",
     ):
         print("PYTHON GENERATE PREAMBLE")
-        import IPython
-        IPython.embed()
+        import code
+        code.interact(local=locals())
 
         wrapper_path = path[7:] if path.startswith("file://") else path
+
+
+        return textwrap.dedent(
+            """
+        ######## snakemake preamble start (automatically inserted, do not edit) ########
+        import sys
+        sys.path.insert(0, "{scriptdir}")
+        class Snakemake:
+            def __init__(input, output, params, wildcards, threads, log, resources, config, rule, bench_iteration, scriptdir, source):
+                self.input = input
+                self.output = output
+                self.params = params
+                self.wildcards = wildcards
+                self.threads = threads
+                self.log = log
+                self.resources = resources
+                self.config = config
+                self.rule = rule
+                self.bench_iteration = batch_iteration
+                self.scriptdir = scriptdir
+                self.source = source
+                
+        snakemake = Snakemake(
+            input = {},
+            output = {},
+            params = {},
+            wildcards = {},
+            threads = {},
+            log = {},
+            resources = {},
+            config = {},
+            rule = {},
+            bench_iteration = {},
+            scriptdir = {},
+            source = function(...){{
+                wd <- getwd()
+                setwd(snakemake@scriptdir)
+                source(...)
+                setwd(wd)
+            }}
+        )
+        {preamble_addendum}
+
+        ######## snakemake preamble end #########
+        """
+        ).format(sourcedir = input_),
+            REncoder.encode_namedlist(output),
+            REncoder.encode_namedlist(params),
+            REncoder.encode_namedlist(wildcards),
+            threads,
+            REncoder.encode_namedlist(log),
+            REncoder.encode_namedlist(
+                {
+                    name: value
+                    for name, value in resources.items()
+                    if name != "_cores" and name != "_nodes"
+                }
+            ),
+            REncoder.encode_dict(config),
+            REncoder.encode_value(rulename),
+            REncoder.encode_numeric(bench_iteration),
+            REncoder.encode_value(
+                os.path.dirname(path[7:])
+                if path.startswith("file://")
+                else os.path.dirname(path)
+            ),
+            preamble_addendum=preamble_addendum,
+        )
+
+
+
+
         snakemake = Snakemake(
             input_,
             output,
