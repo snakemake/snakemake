@@ -5,13 +5,13 @@
         <meta http-equiv="X-UA-Compatible" content="IE=edge"> 
         <title>Snakemake - A framework for reproductible data analysis</title>
          <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport"> 
-        <link href="css/font-awesome.min.css" rel="stylesheet" type="text/css" media="all">
-        <link href="css/themify-icons.css" rel="stylesheet" type="text/css" media="all" />
-        <link href="css/bootstrap.min.css" rel="stylesheet" type="text/css" media="all"/>
-        <link href="css/flexslider.min.css" rel="stylesheet" type="text/css" media="all"/>
-        <link href="css/lightbox.min.css" rel="stylesheet" type="text/css" media="all"/>
-        <link href="css/theme-emerald.css" rel="stylesheet" type="text/css" media="all"/>
-        <link href="css/custom.css" rel="stylesheet" type="text/css" media="all"/>
+        <link href="{{ pathto("css/font-awesome.min.css") }}" rel="stylesheet" type="text/css" media="all">
+        <link href="{{ pathto("css/themify-icons.css") }}" rel="stylesheet" type="text/css" media="all" />
+        <link href="{{ pathto("css/bootstrap.min.css") }}" rel="stylesheet" type="text/css" media="all"/>
+        <link href="{{ pathto("css/flexslider.min.css") }}" rel="stylesheet" type="text/css" media="all"/>
+        <link href="{{ pathto("css/lightbox.min.css") }}" rel="stylesheet" type="text/css" media="all"/>
+        <link href="{{ pathto("css/theme-emerald.css") }}" rel="stylesheet" type="text/css" media="all"/>
+        <link href="{{ pathto("css/custom.css") }}" rel="stylesheet" type="text/css" media="all"/>
         <link href="https://fonts.googleapis.com/css?family=Roboto:100,400,300,700,400italic,500%7CMontserrat:400,700" rel="stylesheet" type="text/css">
  
     </head>
@@ -33,13 +33,13 @@
 				
 					<li>
 						<div class="background-image-holder hero-img">
-							<img alt="Slide Background" class="background-image" src="img/jk/hero.png">
+							<img alt="Slide Background" class="background-image" src="{{ pathto("img/jk/hero.png") }}">
 						</div>
 				
 						<div class="container vertical-align">
 							<div class="row">
 								<div class="col-sm-12 col-md-6">
-									<img src="img/jk/logo.png"
+									<img src="{{ pathto("img/jk/logo.png") }}">
 									
 									<p class="text-white super-lead"></p>
 									
@@ -52,11 +52,11 @@
 									</strong> <a href="https://anaconda.org/bioconda/snakemake">&gt;150.000 downloads</a>
                                     <br>Open source, MIT licensed
 									</strong></p>
-									<a class="btn btn-white" href="https://snakemake.readthedocs.io" target="_blank">read the docs</a>
+									<a class="btn btn-white" href="{{ pathto("contents") }}">read the docs</a>
 									<button type="button" class="btn btn-filled" data-toggle="modal" data-target="#modalYT">
 									 watch the intro
 									</button>
-                                    <a class="btn btn-filled" href="https://github.com/snakemake/snakemake" target="_blank">View on Github</a>
+                                    <a class="btn btn-filled" href="https://github.com/snakemake/snakemake">View on Github</a>
 								</div>
 							</div>
 						</div>
@@ -272,7 +272,7 @@
 				<div class="image-holder col-md-6 col-sm-12 pull-right">
 					<div class="row">
 							<div class="">
-								<img alt="Slide Background" class="background-image img-responsive" src="img/jk/transparency.jpg">
+								<img alt="Slide Background" class="background-image img-responsive" src="{{ path_to("img/jk/transparency.jpg") }}">
 							</div>
 					</div>
 				</div>
@@ -300,24 +300,24 @@
 				<div class="image-holder col-md-6 col-sm-12 pull-right box-padding">
 				   <div class="row">
 					  <div class="col-sm-4"><h3> workstation</h3>
-					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="img/jk/workstation.png">
+					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="{{ pathto("img/jk/workstation.png") }}">
 
 					  </div>
 					  <div class="col-sm-4"><h3> compute server</h3>
-					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="img/jk/compute_server.png">
+					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="{{ pathto("img/jk/compute_server.png") }}">
 					  </div>
 					  <div class="col-sm-4"><h3> cluster</h3>
-					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="img/jk/clusterb.png">
+					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="{{ pathto("img/jk/clusterb.png") }}">
 					  </div>
 					</div>
 					<div class="row">
                       <div class="col-sm-6">
                       	<h3> grid computing</h3>
-					  <img alt="Slide Background" class="img_scal img-responsive"  src="img/jk/grid2.png">
+					  <img alt="Slide Background" class="img_scal img-responsive"  src="{{ pathto("img/jk/grid2.png") }}">
                       </div>
 					  <div class="col-sm-6">
 					  <h3> cloud computing</h3>
-					  <img alt="Slide Background" class="img_scal img-responsive" src="img/jk/logob.png">
+					  <img alt="Slide Background" class="img_scal img-responsive" src="{{ pathto("img/jk/logob.png") }}">
 					  </div>
 					</div>
 				</div>
@@ -341,11 +341,10 @@
 										<ul class="social-links">
 											<li><a href="https://twitter.com/johanneskoester"><i class="icon ti ti-twitter-alt"></i></a></li>
 											<li><a href="#"><i class="icon ti ti-dribbble"></i></a></li>
-										</ul><br>
-										<a class="text-link" href="https://koesterlab.github.io">koesterlab.github.io <i class="icon ti ti-arrow-right arrow_right"></i></a>
+										</ul>
 									</div>
 									<div class="col-xs-6">
-										<span class="copyright">© Copyright 2019 <a href="https://koesterlab.github.io">Johannes Köster</a>. All rights reserved<br />Design by <a href="https://sciani.com">Sci Ani - Science Animated</a>.</span>
+										<span class="copyright">© Copyright 2020 <a href="https://koesterlab.github.io">Johannes Köster</a>. All rights reserved<br />Design by <a href="https://sciani.com">Sci Ani - Science Animated</a>.</span>
 									</div>
 								</div>
 							</div>
@@ -357,15 +356,15 @@
 		
 			
 
-		<script src="js/jquery.min.js"></script>
+		<script src="{{ pathto("js/jquery.min.js") }}"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/latest/TweenMax.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/latest/plugins/ScrollToPlugin.min.js"></script>
-        <script src="js/bootstrap.min.js"></script>
-        <script src="js/flexslider.min.js"></script>
-        <script src="js/jquery.connections.js"></script>
-        <script src="js/smooth-scroll.min.js"></script>
-        <script src="js/parallax.js"></script>
-    	<script src="js/scripts.js"></script>
+        <script src="{{ pathto("js/bootstrap.min.js") }}"></script>
+        <script src="{{ pathto("js/flexslider.min.js") }}"></script>
+        <script src="{{ pathto("js/jquery.connections.js") }}"></script>
+        <script src="{{ pathto("js/smooth-scroll.min.js") }}"></script>
+        <script src="{{ pathto("js/parallax.js") }}"></script>
+    	<script src="{{ pathto("js/scripts.js") }}"></script>
 
     	
     </body>
