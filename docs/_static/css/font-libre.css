@@ -1,7 +1,0 @@
-h1,h2,h3,h4,h5,h6{ font-family: 'Libre Baskerville','Roboto',"Helvetica Neue", Helvetica, Arial, sans-serif; }
-body{ font-family: 'Libre Baskerville','Roboto',"Helvetica Neue", Helvetica, Arial, sans-serif; }
-h1{ font-size: 44px; line-height: 52px; font-weight: 700; margin-bottom: 32px; font-weight: 300; }
-h2{ font-weight: 300; font-size: 28px; line-height: 36px; margin-bottom: 32px; }
-h3{ font-weight: 300; font-size: 24px; line-height: 30px; margin-bottom: 24px; color: @color-primary; }
-h4{ font-weight: 300; font-size: 20px; line-height: 28px; margin-bottom: 24px; }
-h5{ font-size: 16px; font-weight: normal; margin-bottom: 24px; line-height: 24px; }
