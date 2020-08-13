@@ -1,3 +1,9 @@
+Unreleased
+==========
+Added
+-----
+- Added short option ``-T`` for CLI parameter ``--restart-times`` (@mbhall88).
+
 [5.21.0] - 2020-08-11
 =====================
 
