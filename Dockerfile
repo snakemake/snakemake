@@ -17,6 +17,6 @@ RUN /bin/bash -c "install_packages wget bzip2 ca-certificates gnupg2 squashfs-to
     conda clean --all -y && \
     source activate snakemake && \
     which python && \
-    pip install ."
+    pip install .[reports,messaging,google-cloud]"
 RUN echo "source activate snakemake" > ~/.bashrc
 ENV PATH /opt/conda/envs/snakemake/bin:${PATH}
