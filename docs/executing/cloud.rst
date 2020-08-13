@@ -197,6 +197,24 @@ The Google Life Sciences API currently has support for
 
 A specific `gpu model <https://cloud.google.com/compute/docs/gpus#introduction>`_ can be requested using ``gpu_model`` and lowercase identifiers like ``nvidia-tesla-p100`` or ``nvidia-tesla-p4``, for example: ``gpu_model="nvidia-tesla-p100"``. If you don't specify ``gpu`` or ``nvidia_gpu`` with a count, but you do specify a ``gpu_model``, the count will default to 1.
 
+In addition to GPU for the Google Lifesciences Executor, you can add the parameter ``preemptible`` to request a `Google Cloud preemptible virtual machine <https://cloud.google.com/life-sciences/docs/reference/gcloud-examples#using_preemptible_vms>`_ for your step.
+
+
+.. code-block:: python
+
+    rule:
+        input:    ...
+        output:   ...
+        resources:
+            preemptible=True
+        shell:
+            "..."
+
+
+If not set, ``preemptible`` defaults to False.
+
+
+
 Machine Types
 ~~~~~~~~~~~~~
 

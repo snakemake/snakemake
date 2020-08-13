@@ -303,13 +303,17 @@ If limits for the resources are given via the command line, e.g.
 
     $ snakemake --resources mem_mb=100
 
+
 the scheduler will ensure that the given resources are not exceeded by running jobs.
 If no limits are given, the resources are ignored in local execution.
 In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
-Resources must be ``int`` or ``str`` values.
+Resources must be ``int`` or ``str`` values. Note that you are free to choose any names for the given resources.
 
-Note that you are free to choose any names for the given resources.
+
+Standard Resources
+~~~~~~~~~~~~~~~~~~
+
 There are two **standard resources** for memory and disk usage though: ``mem_mb`` and ``disk_mb``.
 When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
 Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
@@ -338,6 +342,49 @@ This can be used to adjust the required memory as follows
 
 Here, the first attempt will require 100 MB memory, the second attempt will require 200 MB memory and so on.
 When passing memory requirements to the cluster engine, you can by this automatically try out larger nodes if it turns out to be necessary.
+
+
+Preemptible Virtual Machine
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The parameter ``preemptible`` can currently be specified to request a `Google Cloud preemptible virtual machine <https://cloud.google.com/life-sciences/docs/reference/gcloud-examples#using_preemptible_vms>`_ for use with the `Google Life Sciences Executor <https://snakemake.readthedocs.io/en/stable/executing/cloud.html#executing-a-snakemake-workflow-via-google-cloud-life-sciences>`_.
+
+
+.. code-block:: python
+
+    rule:
+        input:    ...
+        output:   ...
+        resources:
+            preemptible=True
+        shell:
+            "..."
+
+
+If not set, ``preemptible`` defaults to False.
+
+
+GPU Resources
+~~~~~~~~~~~~~
+
+The Google Life Sciences API currently has support for 
+`NVIDIA GPUs <https://cloud.google.com/compute/docs/gpus#restrictions>`_, meaning that you can request a number of NVIDIA GPUs explicitly by adding ``nvidia_gpu`` or ``gpu`` to your Snakefile resources for a step:
+
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.txt"
+        resources:
+            nvidia_gpu=1
+        shell:
+            "somecommand ..."
+
+
+A specific `gpu model <https://cloud.google.com/compute/docs/gpus#introduction>`_ can be requested using ``gpu_model`` and lowercase identifiers like ``nvidia-tesla-p100`` or ``nvidia-tesla-p4``, for example: ``gpu_model="nvidia-tesla-p100"``. If you don't specify ``gpu`` or ``nvidia_gpu`` with a count, but you do specify a ``gpu_model``, the count will default to 1.
+
+
 
 Messages
 --------
