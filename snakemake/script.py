@@ -109,143 +109,22 @@ class Snakemake:
         return lookup[(stdout, stderr, append)].format(self.log)
 
 
-class PythonEncoder:
-    """Encoding Python data structures."""
+class BaseEncoder:
+    """shared class for encoding a value. An Encoder subclass should have
+       defined: language, none_value, true_value, and false_value, all strings,
+       along with methods encode_dict, and encode_list.
+    """
 
     @classmethod
     def encode_value(cls, value):
         if value is None:
-            return "None"
+            return cls.none_value
         elif isinstance(value, str):
             return repr(value)
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
-            return "TRUE" if value else "FALSE"
-        elif isinstance(value, int) or isinstance(value, float):
-            return str(value)
-        elif isinstance(value, collections.abc.Iterable):
-            # convert all iterables to vectors
-            return cls.encode_list(value)
-        else:
-            # Try to convert from numpy if numpy is present
-            try:
-                import numpy as np
-
-                if isinstance(value, np.number):
-                    return str(value)
-            except ImportError:
-                pass
-        raise ValueError("Unsupported value for conversion into R: {}".format(value))
-
-    @classmethod
-    def encode_list(cls, l):
-        return "c({})".format(", ".join(map(cls.encode_value, l)))
-
-    @classmethod
-    def encode_items(cls, items):
-        def encode_item(item):
-            name, value = item
-            return '"{}" = {}'.format(name, cls.encode_value(value))
-
-        return ", ".join(map(encode_item, items))
-
-    @classmethod
-    def encode_dict(cls, d):
-        d = "list({})".format(cls.encode_items(d.items()))
-        return d
-
-    @classmethod
-    def encode_namedlist(cls, namedlist):
-        positional = ", ".join(map(cls.encode_value, namedlist))
-        named = cls.encode_items(namedlist.items())
-        source = "list("
-        if positional:
-            source += positional
-        if named:
-            source += ", " + named
-        source += ")"
-        return source
-
-
-class REncoder:
-    """Encoding Python data structures into R."""
-
-    @classmethod
-    def encode_numeric(cls, value):
-        if value is None:
-            return "as.numeric(NA)"
-        return str(value)
-
-    @classmethod
-    def encode_value(cls, value):
-        if value is None:
-            return "NULL"
-        elif isinstance(value, str):
-            return repr(value)
-        elif isinstance(value, dict):
-            return cls.encode_dict(value)
-        elif isinstance(value, bool):
-            return "TRUE" if value else "FALSE"
-        elif isinstance(value, int) or isinstance(value, float):
-            return str(value)
-        elif isinstance(value, collections.abc.Iterable):
-            # convert all iterables to vectors
-            return cls.encode_list(value)
-        else:
-            # Try to convert from numpy if numpy is present
-            try:
-                import numpy as np
-
-                if isinstance(value, np.number):
-                    return str(value)
-            except ImportError:
-                pass
-        raise ValueError("Unsupported value for conversion into R: {}".format(value))
-
-    @classmethod
-    def encode_list(cls, l):
-        return "c({})".format(", ".join(map(cls.encode_value, l)))
-
-    @classmethod
-    def encode_items(cls, items):
-        def encode_item(item):
-            name, value = item
-            return '"{}" = {}'.format(name, cls.encode_value(value))
-
-        return ", ".join(map(encode_item, items))
-
-    @classmethod
-    def encode_dict(cls, d):
-        d = "list({})".format(cls.encode_items(d.items()))
-        return d
-
-    @classmethod
-    def encode_namedlist(cls, namedlist):
-        positional = ", ".join(map(cls.encode_value, namedlist))
-        named = cls.encode_items(namedlist.items())
-        source = "list("
-        if positional:
-            source += positional
-        if named:
-            source += ", " + named
-        source += ")"
-        return source
-
-
-class JuliaEncoder:
-    """Encoding Pyton data structures into Julia."""
-
-    @classmethod
-    def encode_value(cls, value):
-        if value is None:
-            return "nothing"
-        elif isinstance(value, str):
-            return repr(value)
-        elif isinstance(value, dict):
-            return cls.encode_dict(value)
-        elif isinstance(value, bool):
-            return "true" if value else "false"
+            return cls.true_value if value else cls.false_value
         elif isinstance(value, int) or isinstance(value, float):
             return str(value)
         elif isinstance(value, collections.abc.Iterable):
@@ -261,8 +140,96 @@ class JuliaEncoder:
             except ImportError:
                 pass
         raise ValueError(
-            "Unsupported value for conversion into Julia: {}".format(value)
+            "Unsupported value for conversion into {}: {}".format(cls.language, value)
         )
+
+
+class PythonEncoder(BaseEncoder):
+    """Encoding Python data structures."""
+
+    language = "Python"
+    none_value = "None"
+    true_value = "True"
+    false_value = "False"
+
+    @classmethod
+    def encode_list(cls, l):
+        return "[{}]".format(", ".join(map(cls.encode_value, l)))
+
+    @classmethod
+    def encode_items(cls, items):
+        def encode_item(item):
+            name, value = item
+            return '"{}": {}'.format(name, cls.encode_value(value))
+
+        return ", ".join(map(encode_item, items))
+
+    @classmethod
+    def encode_dict(cls, d):
+        d = "{" + "{}".format(cls.encode_items(d.items())) + "}"
+        return d
+
+    @classmethod
+    def encode_namedlist(cls, namedlist):
+        named = cls.encode_items(namedlist.items())
+        source = "{"
+        if named:
+            source += named
+        source += "}"
+        return source
+
+
+class REncoder(BaseEncoder):
+    """Encoding Python data structures into R."""
+
+    language = "R"
+    none_value = "NULL"
+    true_value = "TRUE"
+    false_value = "FALSE"
+
+    @classmethod
+    def encode_numeric(cls, value):
+        if value is None:
+            return "as.numeric(NA)"
+        return str(value)
+
+    @classmethod
+    def encode_list(cls, l):
+        return "c({})".format(", ".join(map(cls.encode_value, l)))
+
+    @classmethod
+    def encode_items(cls, items):
+        def encode_item(item):
+            name, value = item
+            return '"{}" = {}'.format(name, cls.encode_value(value))
+
+        return ", ".join(map(encode_item, items))
+
+    @classmethod
+    def encode_dict(cls, d):
+        d = "list({})".format(cls.encode_items(d.items()))
+        return d
+
+    @classmethod
+    def encode_namedlist(cls, namedlist):
+        positional = ", ".join(map(cls.encode_value, namedlist))
+        named = cls.encode_items(namedlist.items())
+        source = "list("
+        if positional:
+            source += positional
+        if named:
+            source += ", " + named
+        source += ")"
+        return source
+
+
+class JuliaEncoder(BaseEncoder):
+    """Encoding Pyton data structures into Julia."""
+
+    language = "Julia"
+    none_value = "nothing"
+    true_value = "true"
+    false_value = "false"
 
     @classmethod
     def encode_list(cls, l):
@@ -440,18 +407,26 @@ class PythonScript(ScriptBase):
         shadow_dir,
         preamble_addendum="",
     ):
-        print("PYTHON GENERATE PREAMBLE")
-        import code
-        code.interact(local=locals())
 
+        # Obtain search path for any mounted containers
+        searchpath = SNAKEMAKE_SEARCHPATH
+        if container_img is not None:
+            searchpath = singularity.SNAKEMAKE_MOUNTPOINT
+
+        # For local scripts, add their location to the path in case they use path-based imports
+        if path.startswith("file://"):
+            searchpath += ", " + repr(os.path.dirname(path[7:]))
+
+        # The wrapper path should be added too
         wrapper_path = path[7:] if path.startswith("file://") else path
 
-        preamble = textwrap.dedent("""
+        return textwrap.dedent(
+            """
         ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys
-        sys.path.insert(0, "{sourcedir}")
+        import sys, os;
+        sys.path.insert(0, {sourcedir})
         class Snakemake:
-            def __init__(input, output, params, wildcards, threads, log, resources, config, rule, bench_iteration, scriptdir, source=None):
+            def __init__(self, input, output, params, wildcards, threads, log, resources, config, rule, bench_iteration, scriptdir, source=None):
                 self.input = input
                 self.output = output
                 self.params = params
@@ -461,13 +436,20 @@ class PythonScript(ScriptBase):
                 self.resources = resources
                 self.config = config
                 self.rule = rule
-                self.bench_iteration = batch_iteration
+                self.bench_iteration = bench_iteration
                 self.scriptdir = scriptdir
-                self.source = source
+                if source is not None:
+                    self.source = source
+
+            def source(self):
+                wd = os.getcwd()
+                os.chdir(self.scriptdir)
+                sys.path.insert(self.scriptdir)
+                os.chdir(wd)
                 
         snakemake = Snakemake(
-            input = "{input_}",
-            output = "{output}",
+            input = {input_},
+            output = {output},
             params = {params},
             wildcards = {wildcards},
             threads = {threads},
@@ -482,56 +464,20 @@ class PythonScript(ScriptBase):
 
         ######## snakemake preamble end #########
         """
-        ).format(sourcedir = wrapper_path,
-            input_=input_,
-            output=output,
-            params=params,
-            wildcards=wildcards,
-            threads=threads,
-            log=log,
-            resources=resources,
-            config=config,
-            rule=rulename,
-            bench_iteration=bench_iteration,
-            scriptdir = wrapper_path,
-            preamble_addendum=preamble_addendum,
-        )
-
-        snakemake = Snakemake(
-            input_,
-            output,
-            params,
-            wildcards,
-            threads,
-            resources,
-            log,
-            config,
-            rulename,
-            bench_iteration,
-            os.path.dirname(wrapper_path),
-        )
-        snakemake = pickle.dumps(snakemake)
-        # Obtain search path for current snakemake module.
-        # The module is needed for unpickling in the script.
-        # We append it at the end (as a fallback).
-        searchpath = SNAKEMAKE_SEARCHPATH
-        if container_img is not None:
-            searchpath = singularity.SNAKEMAKE_MOUNTPOINT
-        searchpath = repr(searchpath)
-        # For local scripts, add their location to the path in case they use path-based imports
-        if path.startswith("file://"):
-            searchpath += ", " + repr(os.path.dirname(path[7:]))
-
-        return textwrap.dedent(
-            """
-        ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
-        ######## snakemake preamble end #########
-        """
         ).format(
-            searchpath=searchpath,
-            snakemake=snakemake,
-            printshellcmds=logger.printshellcmds,
+            searchpath=PythonEncoder.encode_value(wrapper_path),
+            sourcedir=PythonEncoder.encode_value(wrapper_path),
+            input_=PythonEncoder.encode_namedlist(input_),
+            output=PythonEncoder.encode_namedlist(output),
+            params=PythonEncoder.encode_namedlist(params),
+            wildcards=PythonEncoder.encode_namedlist(wildcards),
+            threads=threads,
+            log=PythonEncoder.encode_value(log),
+            resources=PythonEncoder.encode_value(resources),
+            config=PythonEncoder.encode_value(config),
+            rule=PythonEncoder.encode_value(rulename),
+            bench_iteration=PythonEncoder.encode_value(bench_iteration),
+            scriptdir=PythonEncoder.encode_value(wrapper_path),
             preamble_addendum=preamble_addendum,
         )
 
