@@ -18,7 +18,7 @@ try:
     import google.cloud
     from google.cloud import storage
     from google.api_core import retry
-    from crc32c import crc32
+    from google_crc32c import Checksum
 except ImportError as e:
     raise WorkflowError(
         "The Python 3 packages 'google-cloud-sdk' and `crc32c` "
@@ -56,7 +56,7 @@ class Crc32cCalculator:
 
     def __init__(self, fileobj):
         self._fileobj = fileobj
-        self.digest = 0
+        self.checksum = Checksum()
 
     def write(self, chunk):
         self._fileobj.write(chunk)
@@ -65,14 +65,14 @@ class Crc32cCalculator:
     def _update(self, chunk):
         """Given a chunk from the read in file, update the hexdigest
         """
-        self.digest = crc32(chunk, self.digest)
+        self.checksum.update(chunk)
 
     def hexdigest(self):
         """Return the hexdigest of the hasher.
            The Base64 encoded CRC32c is in big-endian byte order.
            See https://cloud.google.com/storage/docs/hashes-etags
         """
-        return base64.b64encode(struct.pack(">I", self.digest)).decode("utf-8")
+        return base64.b64encode(self.checksum.digest()).decode("utf-8")
 
 
 class RemoteProvider(AbstractRemoteProvider):
@@ -173,8 +173,10 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    @retry.Retry(predicate=google_cloud_retry_predicate)
+    @retry.Retry(predicate=google_cloud_retry_predicate, deadline=600)
     def download(self):
+        """Download with maximum retry duration of 600 seconds (10 minutes)
+        """
         if not self.exists():
             return None
 
@@ -187,6 +189,9 @@ class RemoteObject(AbstractRemoteObject):
             parser = Crc32cCalculator(blob_file)
             self.blob.download_to_file(parser)
         os.sync()
+
+        # **Important** hash can be incorrect or missing if not refreshed
+        self.blob.reload()
 
         # Compute local hash and verify correct
         if parser.hexdigest() != self.blob.crc32c:

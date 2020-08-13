@@ -444,7 +444,8 @@ def snakemake(
     if cluster_mode > 1:
         logger.error("Error: cluster and drmaa args are mutually exclusive")
         return False
-    if debug and (cluster_mode or cores > 1):
+
+    if debug and (cluster_mode or cores is not None and cores > 1):
         logger.error(
             "Error: debug mode cannot be used with more than one core or cluster execution."
         )
