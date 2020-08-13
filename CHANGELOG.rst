@@ -1,8 +1,13 @@
-Unreleased
-==========
+[5.22.0] - 2020-08-13
+=====================
 Added
 -----
 - Added short option ``-T`` for CLI parameter ``--restart-times`` (@mbhall88).
+
+Changed
+-------
+- Various small fixes for google storage and life sciences backends (@vsoch).
+
 
 [5.21.0] - 2020-08-11
 =====================
