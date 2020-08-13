@@ -94,7 +94,7 @@ If you wanted to upload to a "subfolder" path in a bucket, you would do that as 
 .. code:: console
 
     export GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"
-    python upload_google_storage.py snakemake-testing-data/subfolder
+    python upload_google_storage.py snakemake-testing-data/subfolder data/
 
 Your bucket (and the folder prefix) will be referred to as the
 `--default-remote-prefix` when you run snakemake. You can visually
@@ -110,8 +110,9 @@ Step 2: Write your Snakefile, Environment File, and Scripts
 Now that we've exported our credentials and have all dependencies installed, let's
 get our workflow! This is the exact same workflow from the :ref:`basic tutorial<tutorial-basics>`,
 so if you need a refresher on the design or basics, please see those pages.
-We won't need to clone data from `snakemake-tutorial-data <https://github.com/snakemake/snakemake-tutorial-data>`_
-because we will be using publicly accessible data on Google Storage.
+You can find the Snakefile, supporting scripts for plotting and environment in the
+ `snakemake-tutorial-data <https://github.com/snakemake/snakemake-tutorial-data>`_
+repository.
 
 First, how does a working directory work for this executor? The present
 working directory, as identified by Snakemake that has the Snakefile, and where
@@ -123,9 +124,9 @@ package includes the .snakemake folder that would have been generated locally.
 The build package is then downloaded and extracted by each cloud executor, which
 is a Google Compute instance.
 
-We next need an `environment.yml` file that will define the dependencies
+We next need an `environment.yaml` file that will define the dependencies
 that we want installed with conda for our job. If you cloned the "snakemake-tutorial-data"
-repository you will already have this, and you are good to go. If not, save this to `environment.yml`
+repository you will already have this, and you are good to go. If not, save this to `environment.yaml`
 in your working directory:
 
 .. code:: yaml
@@ -145,13 +146,13 @@ in your working directory:
       - pysam =0.15.0
     
 
-Notice that we reference this `environment.yml` file in the Snakefile below.
+Notice that we reference this `environment.yaml` file in the Snakefile below.
 Importantly, if you were optimizing a pipeline, you would likely have a folder
 "envs" with more than one environment specification, one for each step.
 This workflow uses the same environment (with many dependencies) instead of
 this strategy to minimize the number of files for you.
 
-The Snakefile then has the following content. It's important to note
+The Snakefile (also included in the repository) then has the following content. It's important to note
 that we have not customized this file from the basic tutorial to hard code 
 any storage. We will be telling snakemake to use the remote bucket as 
 storage instead of the local filesystem.
@@ -169,7 +170,7 @@ storage instead of the local filesystem.
             fastq="samples/{sample}.fastq",
             idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
         conda:
-            "environment.yml"
+            "environment.yaml"
         output:
             "mapped_reads/{sample}.bam"
         params:
@@ -183,7 +184,7 @@ storage instead of the local filesystem.
         output:
             "sorted_reads/{sample}.bam"
         conda:
-            "environment.yml"
+            "environment.yaml"
         shell:
             "samtools sort -T sorted_reads/{wildcards.sample} "
             "-O bam {input} > {output}"
@@ -194,7 +195,7 @@ storage instead of the local filesystem.
         output:
             "sorted_reads/{sample}.bam.bai"
         conda:
-            "environment.yml"
+            "environment.yaml"
         shell:
             "samtools index {input}"
 
@@ -206,7 +207,7 @@ storage instead of the local filesystem.
         output:
             "calls/all.vcf"
         conda:
-            "environment.yml"
+            "environment.yaml"
         shell:
             "samtools mpileup -g -f {input.fa} {input.bam} | "
             "bcftools call -mv - > {output}"
@@ -217,18 +218,22 @@ storage instead of the local filesystem.
         output:
             "plots/quals.svg"
         conda:
-            "environment.yml"
+            "environment.yaml"
         script:
             "plot-quals.py"
 
 
 
-And let's also write the script in our present working directory for the last step
-to do the plotting - call this `plot-quals.py`:
+And make sure you also have the script `plot-quals.py` in your present working directory for the last step.
+This script will help us to do the plotting, and is also included in the 
+ `snakemake-tutorial-data <https://github.com/snakemake/snakemake-tutorial-data>`_
+repository.
+
 
 .. code:: python
 
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from pysam import VariantFile
@@ -512,7 +517,7 @@ Step 5: Debugging
 :::::::::::::::::
 
 Let's introduce an error (purposefully) into our Snakefile to practice debugging.
-Let's remove the conda environment.yml file for the first rule, so we would
+Let's remove the conda environment.yaml file for the first rule, so we would
 expect that Snakemake won't be able to find the executables for bwa and samtools.
 In your Snakefile, change this:
 
@@ -520,16 +525,16 @@ In your Snakefile, change this:
 
     rule bwa_map:
         input:
-        fastq="samples/{sample}.fastq",
-        idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
-    conda:
-        "environment.yml"
-    output:
-        "mapped_reads/{sample}.bam"
-    params:
-        idx=lambda w, input: os.path.splitext(input.idx[0])[0]
-    shell:
-        "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
+            fastq="samples/{sample}.fastq",
+            idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
+        conda:
+            "environment.yaml"
+        output:
+            "mapped_reads/{sample}.bam"
+        params:
+            idx=lambda w, input: os.path.splitext(input.idx[0])[0]
+        shell:
+            "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
 
 
 to this:
@@ -538,14 +543,14 @@ to this:
 
     rule bwa_map:
         input:
-        fastq="samples/{sample}.fastq",
-        idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
-    output:
-        "mapped_reads/{sample}.bam"
-    params:
-        idx=lambda w, input: os.path.splitext(input.idx[0])[0]
-    shell:
-        "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
+            fastq="samples/{sample}.fastq",
+            idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
+        output:
+            "mapped_reads/{sample}.bam"
+        params:
+            idx=lambda w, input: os.path.splitext(input.idx[0])[0]
+        shell:
+            "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
 
 
 And then for the same command to run everything again, you would need to remove the 
@@ -891,16 +896,16 @@ to look like this:
 
     rule bwa_map:
         input:
-        fastq="samples/{sample}.fastq",
-        idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
-    output:
-        "mapped_reads/{sample}.bam"
-    params:
-        idx=lambda w, input: os.path.splitext(input.idx[0])[0]
-    shell:
-        "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
-    log:
-        "logs/bwa_map/{sample}.log" 
+            fastq="samples/{sample}.fastq",
+            idx=multiext("genome.fa", ".amb", ".ann", ".bwt", ".pac", ".sa")
+        output:
+            "mapped_reads/{sample}.bam"
+        params:
+            idx=lambda w, input: os.path.splitext(input.idx[0])[0]
+        shell:
+            "bwa mem {params.idx} {input.fastq} | samtools view -Sb - > {output}"
+        log:
+            "logs/bwa_map/{sample}.log" 
 
 
 In the above, we would write a log file to storage in a "subfolder" of the
@@ -913,6 +918,7 @@ good to remember when debugging that:
 
  - You should not make assumptions about anything's existence. Use print statements to verify.
  - The biggest errors tend to be syntax and/or path errors
+ - If you want to test a different snakemake container, you can use the `--container` flag.
  - If the error is especially challenging, set up a small toy example that implements the most basic functionality that you want to achieve.
  - If you need help, reach out to ask for it! If there is an issue with the Google Life Sciences workflow executor, please `open an issue <https://github.com/snakemake/snakemake/issues>`_.
- - It also sometimes helps to take a break from working on somethig, and coming back with fresh eyes.
+ - It also sometimes helps to take a break from working on something, and coming back with fresh eyes.
