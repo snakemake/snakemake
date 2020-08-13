@@ -5,13 +5,13 @@
         <meta http-equiv="X-UA-Compatible" content="IE=edge"> 
         <title>Snakemake - A framework for reproductible data analysis</title>
          <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport"> 
-        <link href="{{ pathto("css/font-awesome.min.css") }}" rel="stylesheet" type="text/css" media="all">
-        <link href="{{ pathto("css/themify-icons.css") }}" rel="stylesheet" type="text/css" media="all" />
-        <link href="{{ pathto("css/bootstrap.min.css") }}" rel="stylesheet" type="text/css" media="all"/>
-        <link href="{{ pathto("css/flexslider.min.css") }}" rel="stylesheet" type="text/css" media="all"/>
-        <link href="{{ pathto("css/lightbox.min.css") }}" rel="stylesheet" type="text/css" media="all"/>
-        <link href="{{ pathto("css/theme-emerald.css") }}" rel="stylesheet" type="text/css" media="all"/>
-        <link href="{{ pathto("css/custom.css") }}" rel="stylesheet" type="text/css" media="all"/>
+        <link href="{{ pathto("css/font-awesome.min.css", 1) }}" rel="stylesheet" type="text/css" media="all">
+        <link href="{{ pathto("css/themify-icons.css", 1) }}" rel="stylesheet" type="text/css" media="all" />
+        <link href="{{ pathto("css/bootstrap.min.css", 1) }}" rel="stylesheet" type="text/css" media="all"/>
+        <link href="{{ pathto("css/flexslider.min.css", 1) }}" rel="stylesheet" type="text/css" media="all"/>
+        <link href="{{ pathto("css/lightbox.min.css", 1) }}" rel="stylesheet" type="text/css" media="all"/>
+        <link href="{{ pathto("css/theme-emerald.css", 1) }}" rel="stylesheet" type="text/css" media="all"/>
+        <link href="{{ pathto("css/custom.css", 1) }}" rel="stylesheet" type="text/css" media="all"/>
         <link href="https://fonts.googleapis.com/css?family=Roboto:100,400,300,700,400italic,500%7CMontserrat:400,700" rel="stylesheet" type="text/css">
  
     </head>
@@ -33,13 +33,13 @@
 				
 					<li>
 						<div class="background-image-holder hero-img">
-							<img alt="Slide Background" class="background-image" src="{{ pathto("img/jk/hero.png") }}">
+							<img alt="Slide Background" class="background-image" src="{{ pathto("img/jk/hero.png", 1) }}">
 						</div>
 				
 						<div class="container vertical-align">
 							<div class="row">
 								<div class="col-sm-12 col-md-6">
-									<img src="{{ pathto("img/jk/logo.png") }}">
+									<img src="{{ pathto("img/jk/logo.png", 1) }}">
 									
 									<p class="text-white super-lead"></p>
 									
@@ -52,7 +52,7 @@
 									</strong> <a href="https://anaconda.org/bioconda/snakemake">&gt;150.000 downloads</a>
                                     <br>Open source, MIT licensed
 									</strong></p>
-									<a class="btn btn-white" href="{{ pathto("contents") }}">read the docs</a>
+									<a class="btn btn-white" href="{{ pathto("contents", 1) }}">read the docs</a>
 									<button type="button" class="btn btn-filled" data-toggle="modal" data-target="#modalYT">
 									 watch the intro
 									</button>
@@ -272,7 +272,7 @@
 				<div class="image-holder col-md-6 col-sm-12 pull-right">
 					<div class="row">
 							<div class="">
-								<img alt="Slide Background" class="background-image img-responsive" src="{{ pathto("img/jk/transparency.jpg") }}">
+								<img alt="Slide Background" class="background-image img-responsive" src="{{ pathto("img/jk/transparency.jpg", 1) }}">
 							</div>
 					</div>
 				</div>
@@ -300,24 +300,24 @@
 				<div class="image-holder col-md-6 col-sm-12 pull-right box-padding">
 				   <div class="row">
 					  <div class="col-sm-4"><h3> workstation</h3>
-					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="{{ pathto("img/jk/workstation.png") }}">
+					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="{{ pathto("img/jk/workstation.png", 1) }}">
 
 					  </div>
 					  <div class="col-sm-4"><h3> compute server</h3>
-					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="{{ pathto("img/jk/compute_server.png") }}">
+					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="{{ pathto("img/jk/compute_server.png", 1) }}">
 					  </div>
 					  <div class="col-sm-4"><h3> cluster</h3>
-					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="{{ pathto("img/jk/clusterb.png") }}">
+					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="{{ pathto("img/jk/clusterb.png", 1) }}">
 					  </div>
 					</div>
 					<div class="row">
                       <div class="col-sm-6">
                       	<h3> grid computing</h3>
-					  <img alt="Slide Background" class="img_scal img-responsive"  src="{{ pathto("img/jk/grid2.png") }}">
+					  <img alt="Slide Background" class="img_scal img-responsive"  src="{{ pathto("img/jk/grid2.png", 1) }}">
                       </div>
 					  <div class="col-sm-6">
 					  <h3> cloud computing</h3>
-					  <img alt="Slide Background" class="img_scal img-responsive" src="{{ pathto("img/jk/logob.png") }}">
+					  <img alt="Slide Background" class="img_scal img-responsive" src="{{ pathto("img/jk/logob.png", 1) }}">
 					  </div>
 					</div>
 				</div>
@@ -356,15 +356,15 @@
 		
 			
 
-		<script src="{{ pathto("js/jquery.min.js") }}"></script>
+		<script src="{{ pathto("js/jquery.min.js", 1) }}"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/latest/TweenMax.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/latest/plugins/ScrollToPlugin.min.js"></script>
-        <script src="{{ pathto("js/bootstrap.min.js") }}"></script>
-        <script src="{{ pathto("js/flexslider.min.js") }}"></script>
-        <script src="{{ pathto("js/jquery.connections.js") }}"></script>
-        <script src="{{ pathto("js/smooth-scroll.min.js") }}"></script>
-        <script src="{{ pathto("js/parallax.js") }}"></script>
-    	<script src="{{ pathto("js/scripts.js") }}"></script>
+        <script src="{{ pathto("js/bootstrap.min.js", 1) }}"></script>
+        <script src="{{ pathto("js/flexslider.min.js", 1) }}"></script>
+        <script src="{{ pathto("js/jquery.connections.js", 1) }}"></script>
+        <script src="{{ pathto("js/smooth-scroll.min.js", 1) }}"></script>
+        <script src="{{ pathto("js/parallax.js", 1) }}"></script>
+    	<script src="{{ pathto("js/scripts.js", 1) }}"></script>
 
     	
     </body>
