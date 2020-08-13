@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge"> 
+        <title>Snakemake - A framework for reproductible data analysis</title>
+         <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport"> 
+        <link href="css/font-awesome.min.css" rel="stylesheet" type="text/css" media="all">
+        <link href="css/themify-icons.css" rel="stylesheet" type="text/css" media="all" />
+        <link href="css/bootstrap.min.css" rel="stylesheet" type="text/css" media="all"/>
+        <link href="css/flexslider.min.css" rel="stylesheet" type="text/css" media="all"/>
+        <link href="css/lightbox.min.css" rel="stylesheet" type="text/css" media="all"/>
+        <link href="css/theme-emerald.css" rel="stylesheet" type="text/css" media="all"/>
+        <link href="css/custom.css" rel="stylesheet" type="text/css" media="all"/>
+        <link href="https://fonts.googleapis.com/css?family=Roboto:100,400,300,700,400italic,500%7CMontserrat:400,700" rel="stylesheet" type="text/css">
+ 
+    </head>
+    <body id="myCanvas">
+
+				
+		<div class="nav-container">			
+		
+		</div>
+		
+		<div class="main-container">
+					
+			
+					
+			<a id="hero" class="in-page-link"></a>
+			
+			<section class="hero-slider">
+				<ul class="slides">
+				
+					<li>
+						<div class="background-image-holder hero-img">
+							<img alt="Slide Background" class="background-image" src="img/jk/hero.png">
+						</div>
+				
+						<div class="container vertical-align">
+							<div class="row">
+								<div class="col-sm-12 col-md-6">
+									<img src="img/jk/logo.png"
+									
+									<p class="text-white super-lead"></p>
+									
+									
+								</div>
+							</div><div class="row">
+								<div class="col-sm-12 col-md-6">
+									<br><br>
+									<p class="text-white super-lead"><strong><strong><a href="https://badge.dimensions.ai/details/id/pub.1018944052">Cited every third day</a><br>
+									</strong> <a href="https://anaconda.org/bioconda/snakemake">&gt;150.000 downloads</a>
+                                    <br>Open source, MIT licensed
+									</strong></p>
+									<a class="btn btn-white" href="https://snakemake.readthedocs.io" target="_blank">read the docs</a>
+									<button type="button" class="btn btn-filled" data-toggle="modal" data-target="#modalYT">
+									 watch the intro
+									</button>
+                                    <a class="btn btn-filled" href="https://github.com/snakemake/snakemake" target="_blank">View on Github</a>
+								</div>
+							</div>
+						</div>
+					</li>
+				</ul>
+			</section>
+
+			<!--Modal: modalYT-->
+			<div class="modal fade" id="modalYT" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+			  aria-hidden="true">
+			  <div class="modal-dialog modal-lg" role="document">
+			    <!--Content-->
+			    <div class="modal-content">
+			      <div class="modal-body">
+						        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+						          <span aria-hidden="true">&times;</span>
+						        </button>
+						      </div>
+			      <!--Body-->
+			      <div class="modal-body mb-0 p-0">
+
+			        <div class="embed-responsive embed-responsive-16by9 z-depth-1-half">
+			          <iframe width="560" height="315" src="https://www.youtube.com/embed/UOKxta3061g" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+			        </div>
+			      </div>
+			    </div>
+			    <!--/.Content-->
+			  </div>
+			</div>
+			<!--Modal: modalYT-->
+
+			
+		
+			
+			<a id="block1" class="in-page-link"></a>
+			
+			<section class="image-block first" style="padding-top:0">
+				<div class="container2 even-block">
+					<div class="row row-margin">
+						<div class="col-md-6 col-sm-12">
+							<div class="text-block">
+								<h2><strong><font color="#039475">Readability</font></strong></h2>
+								<p class="lead">
+									Workflow definition happens in an easy to read yet powerful specification language on top of Python.
+
+									Each <span id="activHover" class="rule underline" name="rule">rule</span> describes step in a analysis defining how to obtain <span id="activHover" class="output underline" name="output">output files</span> from <span id="activHover" class="input underline" name="input">input files.</span> 
+								Dependencies between rules are determined automatically.
+								</p>
+								
+							</div>
+						</div>
+					</div>
+					
+				</div>
+				<div class="container2 even-block">
+					<div class="row row-margin">
+						<div class="col-md-6 col-sm-12">
+							<div class="text-block">
+								<h2><strong><font color="#039475">Portability</font></strong></h2>
+								<p class="lead">
+									By integration with the <span id="activHover" class="conda underline"> Conda package manager </span> and <span id="activHover" class="cont underline"> container virtualization </span> , all software dependencies of each workflow step are automatically deployed upon execution.
+								</p>
+								
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="container2 even-block">
+					<div class="row row-margin">
+						<div class="col-md-6 col-sm-12">
+							<div class="text-block">
+								<h2><strong><font color="#039475">Modularization</font></strong></h2>
+								<p class="lead">
+									Rapidly create an employ <span id="activHover" class="wrap underline">re-usable tool wrappers</span> and split your data analysis into well-separated modules.
+								</p>
+								
+							</div>
+						</div>
+					</div>
+				</div>
+	
+	
+
+	
+	
+			
+				<div class="image-holder col-md-6 col-sm-4 pull-right hide-code">
+					<div class="background-image-holder">
+						<div class="code-box bottom-align">
+							<div class="markup">
+							    <div class="code-tag">
+							    	configfile: "config.yaml"
+							    </div>
+							    <div class="code-tag">
+							    	<span id="node2" class="rule_hl n1Rule">rule all:</span><br>
+							    	<span class="code-input input_hl n1Input">
+							    	 input:<br>
+								    	<span class="code-data input_hl">
+								    	expand(
+									    	<span class="code-data input_hl">
+									            "plots/{country}.hist.pdf",<br>
+									            country=config["countries"]<br>
+									        </span>
+								        )
+	                                    </span>
+	                                </span>
+							    </div>
+
+							    <div class="code-tag">
+							    	<span class="rule_hl n2Rule">rule select_by_country:</span><br>
+							    	<span class="code-input input_hl">
+							    	  input:<br>
+								    	<span class="code-data input_hl n2Input">
+								    	"data/worldcitiespop.csv"
+	                                    </span>
+	                                </span>
+	                                <span class="code-input output_hl n1Output">
+							    	  output:<br>
+								    	<span class="code-data output_hl">
+								    	"by-country/{country}.csv"
+	                                    </span>
+	                                </span>
+	                                <span class="code-input conda_hl n1Conda">
+							    	  conda:<br>
+								    	<span class="code-data conda_hl">
+								    	"envs/xsv.yaml"
+	                                    </span>
+	                                </span>
+	                                 <span class="code-input n1Shell">
+							    	  shell:<br>
+								    	<span class="code-data">
+								    	"xsv search -s Country '{wildcards.country}' "<br>
+                                        "{input} > {output}"
+	                                    </span>
+	                                </span>
+							    </div>
+
+							    <div class="code-tag">
+							    	<span class="rule_hl n3Rule">rule plot_histogram:</span>
+							    	<span class="code-input input_hl n3Input">
+							    	input:
+								    	<span class="code-data input_hl">
+								    	 "by-country/{country}.csv"
+	                                    </span>
+	                                </span>
+	                                <span class="code-input output_hl n2Output">
+                                    output:
+								    	<span class="code-data output_hl">
+								    	"plots/{country}.hist.svg"
+	                                    </span>
+	                                </span>  
+	                                
+	                               
+	                                <span class="code-input cont_hl n1Cont">    
+	                                singularity:
+								    	<span class="code-data cont_hl ">
+								    	"docker://faizanbashir/python-datascience:3.6"
+	                                    </span>
+	                                </span>
+	                                <span class="code-input">    
+	                                script:
+								    	<span class="code-data">
+								    	"scripts/plot-hist.py"
+	                                    </span>
+	                                </span>
+							    </div>
+						        <div class="code-tag n4Rule">
+							    	rule convert_to_pdf:</span>
+							    	<span class="code-input input_hl n4Input">
+							    	input:
+								    	<span class="code-data input_hl">
+								    	"{prefix}.svg"
+	                                    </span>
+	                                </span>
+	                                <span class="code-input output_hl n3Output">
+                                    output:
+								    	<span class="code-data output_hl">
+								    	"{prefix}.pdf"
+	                                    </span>
+	                                </span>
+	                                <span class="code-input wrap_hl n1Wrap">    
+	                                wrapper:
+								    	<span class="code-data wrap_hl">
+								    	"0.47.0/utils/cairosvg"
+	                                    </span>
+	                                </span>
+							    </div>
+							</div>
+						</div>
+					</div>
+				</div>
+			
+			</section>
+			
+			<a id="block2" class="in-page-link"></a>
+
+
+			<section class="image-block">
+				<div class="container">
+					<div class="row row-margin">
+						<div class="col-md-6 col-sm-12">
+							<div class="text-block">
+								<h2><strong><font color="#039475">Transparency</font></strong></h2>
+								<p class="lead">
+									Automatic, interactive, self-contained reports ensure full transparency from results down to used steps, parameters and code.
+								</p>
+								
+							</div>
+						</div>
+					</div>
+				</div>
+			
+				<div class="image-holder col-md-6 col-sm-12 pull-right">
+					<div class="row">
+							<div class="">
+								<img alt="Slide Background" class="background-image img-responsive" src="img/jk/transparency.jpg">
+							</div>
+					</div>
+				</div>
+			
+			</section>
+			
+            <a id="block5" class="in-page-link"></a>
+
+			<section class="image-block">
+				<div class="container">
+					<div class="row row-margin">
+						<div class="col-md-6 col-sm-12">
+							<div class="text-block">
+								<h2><strong><font color="#039475">Scalability</font></strong></h2>
+								<p class="lead">
+									Workflows scale seamlessly from single to multicore, clusters or the cloud, without modification of the workflow definition and automatic avoidance of redundant computations.
+								</p>
+								
+							</div>
+						</div>
+					</div>
+				</div>
+			
+
+				<div class="image-holder col-md-6 col-sm-12 pull-right box-padding">
+				   <div class="row">
+					  <div class="col-sm-4"><h3> workstation</h3>
+					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="img/jk/workstation.png">
+
+					  </div>
+					  <div class="col-sm-4"><h3> compute server</h3>
+					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="img/jk/compute_server.png">
+					  </div>
+					  <div class="col-sm-4"><h3> cluster</h3>
+					  <img alt="Slide Background" class="img_scal img-responsive img-cloud" src="img/jk/clusterb.png">
+					  </div>
+					</div>
+					<div class="row">
+                      <div class="col-sm-6">
+                      	<h3> grid computing</h3>
+					  <img alt="Slide Background" class="img_scal img-responsive"  src="img/jk/grid2.png">
+                      </div>
+					  <div class="col-sm-6">
+					  <h3> cloud computing</h3>
+					  <img alt="Slide Background" class="img_scal img-responsive" src="img/jk/logob.png">
+					  </div>
+					</div>
+				</div>
+			
+			</section>
+			
+			
+			<div id="line"></div>
+			
+			
+		
+			
+			
+			<footer class="footer-2">
+				<div class="container">				
+					<div class="row">
+						<div class="col-xs-12">
+							<div class="footer-lower">
+							    <div class="row">
+						    		<div class="col-xs-6">
+										<ul class="social-links">
+											<li><a href="https://twitter.com/johanneskoester"><i class="icon ti ti-twitter-alt"></i></a></li>
+											<li><a href="#"><i class="icon ti ti-dribbble"></i></a></li>
+										</ul><br>
+										<a class="text-link" href="https://koesterlab.github.io">koesterlab.github.io <i class="icon ti ti-arrow-right arrow_right"></i></a>
+									</div>
+									<div class="col-xs-6">
+										<span class="copyright">© Copyright 2019 <a href="https://koesterlab.github.io">Johannes Köster</a>. All rights reserved<br />Design by <a href="https://sciani.com">Sci Ani - Science Animated</a>.</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</footer>
+		</div>
+		
+			
+
+		<script src="js/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/latest/TweenMax.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/latest/plugins/ScrollToPlugin.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/flexslider.min.js"></script>
+        <script src="js/jquery.connections.js"></script>
+        <script src="js/smooth-scroll.min.js"></script>
+        <script src="js/parallax.js"></script>
+    	<script src="js/scripts.js"></script>
+
+    	
+    </body>
+</html>
+<script>
+	$(function ($) {
+		$(document).ready(function(){
+
+	    $( ".input" ).hover(
+	    function() {
+		  $( ".input_hl" ).addClass('hover_hl').fadeIn(3000); 
+		  $(".input, .n1Input").connections();
+		  $(".input, .n2Input").connections();
+		  $(".input, .n3Input").connections();
+		  $(".input, .n4Input").connections();  
+		 },
+	    function(){
+	       $( ".input_hl" ).removeClass('hover_hl'); 
+	       // $( "connection" ).css('border','none');
+	       $(".connection").animate({border: "none"}, 2000);
+	       $( "connection" ).css('position','static');
+	   });
+	    $( ".output" ).hover(function() {
+		   $( ".output_hl" ).addClass('hover_hl'); 
+		   $(".output, .n1Output").connections();
+		   $(".output, .n2Output").connections();
+		   $(".output, .n3Output").connections();  
+		 },
+	    function(){
+	      $( ".output_hl" ).removeClass('hover_hl') 
+	      $( "connection" ).css('border','none'); 
+	   });
+	     $( ".rule" ).hover(function() {
+		   $( ".rule_hl" ).addClass('hover_hl');
+		   $(".rule, .n1Rule").connections(); 
+		   $(".rule, .n2Rule").connections();
+		   $(".rule, .n3Rule").connections(); 
+		   $(".rule, .n4Rule").connections();  
+		 },
+	    function(){
+	      $( ".rule_hl" ).removeClass('hover_hl'); 
+	      $( "connection" ).css('border','none'); 
+	   });
+	     $( ".conda" ).hover(function() {
+		   $( ".conda_hl" ).addClass('hover_hl'); 
+		   $(".conda, .n1Conda").connections(); 
+		 },
+
+	    function(){
+	      $( ".conda_hl" ).removeClass('hover_hl'); 
+	      $( "connection" ).css('border','none');
+	   });
+	     $( ".cont" ).hover(function() {
+		   $( ".cont_hl" ).addClass('hover_hl');
+		   $(".cont, .n1Cont").connections();  
+		 },
+	    function(){
+	      $( ".cont_hl" ).removeClass('hover_hl');
+	       $( "connection" ).css('border','none'); 
+	   });
+	     $( ".wrap" ).hover(function() {
+		   $( ".wrap_hl" ).addClass('hover_hl');
+		    $(".wrap, .n1Wrap").connections(); 
+		 },
+	    function(){
+	      $( ".wrap_hl" ).removeClass('hover_hl');
+	       $( "connection" ).css('border','none'); 
+	   });
+
+
+
+	    $(window).resize(function() {
+		    if ($(window).width() < 990) {
+		       $(".underline").css({
+				    "text-decoration":"none",
+				    "text-decoration-style":"none",
+				    "color":" #777" 
+				});
+		    }
+		    else {
+		       $(".underline").css({
+				    "text-decoration":"underline",
+				    "text-decoration-style":"solid",
+				    "color":" #33c68a" 
+				});
+		    }
+
+		  
+
+		   
+			});
+       
+
+  $('.input').on('click', function () {       
+					     $('.input_hl').toggleClass('hover_hl');
+                        if ($('.input_hl').hasClass( 'hover_hl' )) {
+                        	$('.input_hl').addClass('hover_hl');
+                              $(".input, .n1Input").connections();
+					   		$(".input, .n2Input").connections();
+					   		$(".input, .n3Input").connections();
+					   		$(".input, .n4Input").connections();
+
+                            
+                        } else {
+                        	$( ".input_hl" ).removeClass('hover_hl');
+						   $(".connection").animate({border: "none"}, 2000);
+	                       $( "connection" ).css('position','static');
+						}						       
+	});
+      
+$('.output').on('click', function () {       
+					     $('.output_hl').toggleClass('hover_hl');
+                        if ($('.output_hl').hasClass( 'hover_hl' )) {
+                        	$('.output_hl').addClass('hover_hl');
+						    $(".output, .n1Output").connections();
+						    $(".output, .n2Output").connections();
+						    $(".output, .n3Output").connections(); 
+
+                            
+                        } else {
+                        	$( ".output_hl" ).removeClass('hover_hl');
+						   $(".connection").animate({border: "none"}, 2000);
+	                       $( "connection" ).css('position','static');
+						}						       
+	});
+
+$('.rule').on('click', function () {       
+					     $('.rule_hl').toggleClass('hover_hl');
+                        if ($('.rule_hl').hasClass( 'hover_hl' )) {
+                        	$('.rule_hl').addClass('hover_hl');
+						    $(".rule, .n1Rule").connections(); 
+						    $(".rule, .n2Rule").connections();
+						    $(".rule, .n3Rule").connections(); 
+						    $(".rule, .n4Rule").connections();  
+
+                            
+                        } else {
+                        	$( ".rule_hl" ).removeClass('hover_hl'); 
+					       // $( "connection" ).css('border','none');
+					       $(".connection").animate({border: "none"}, 2000);
+					       $( "connection" ).css('position','static');
+						}						       
+	});
+
+$('.conda').on('click', function () {       
+					     $('.conda_hl').toggleClass('hover_hl');
+                        if ($('.conda_hl').hasClass( 'hover_hl' )) {
+                        	$('.conda_hl').addClass('hover_hl');
+ 							$(".conda, .n1Conda").connections(); 
+
+                            
+                        } else {
+                        	  $( ".conda_hl" ).removeClass('hover_hl'); 
+						       $(".connection").animate({border: "none"}, 2000);
+						       $( "connection" ).css('position','static');
+						}						       
+	});
+
+$('.wrap').on('click', function () {       
+					     $('.wrap_hl').toggleClass('hover_hl');
+                        if ($('.wrap_hl').hasClass( 'hover_hl' )) {
+                        	 $('.wrap_hl').addClass('hover_hl');
+ 			 				 $(".wrap, .n1Wrap").connections(); 
+
+                            
+                        } else {
+                        	    $( ".wrap_hl" ).removeClass('hover_hl'); 
+						       $(".connection").animate({border: "none"}, 2000);
+						       $( "connection" ).css('position','static');
+						}						       
+	});
+
+
+$('.cont').on('click', function () {       
+					     $('.cont_hl').toggleClass('hover_hl');
+                        if ($('.cont_hl').hasClass( 'hover_hl' )) {
+                        	 $('.cont_hl').addClass('hover_hl');
+ 							$(".cont, .n1Cont").connections(); 
+
+                            
+                        } else {
+                        	  $( ".cont_hl" ).removeClass('hover_hl'); 
+						       $(".connection").animate({border: "none"}, 2000);
+						       $( "connection" ).css('position','static');
+						}						       
+	});
+
+   });
+});
+
+</script>
