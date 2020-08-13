@@ -1,3 +1,12 @@
+[5.21.0] - 2020-08-11
+=====================
+
+Changed
+-------
+- Added default-remote-provider support for Azure storage (@andreas-wilm).
+- Various small bug fixes and documentation improvements.
+
+
 [5.20.1] - 2020-07-08
 =====================
 Changed

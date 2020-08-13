@@ -94,7 +94,7 @@ jobs:
           pytest -s -v -x tests/test_kubernetes.py
 
       - name: Test AWS execution
-        if: env.AWS_AVAILABLE && success()
+        if: env.AWS_AVAILABLE && (success() || failure())
         env: 
           CI: true
         run: |
@@ -105,7 +105,7 @@ jobs:
           pytest -v -x tests/test_tibanna.py
 
       - name: Test Google Life Sciences Executor
-        if: env.GCP_AVAILABLE
+        if: env.GCP_AVAILABLE && (success() || failure())
         run: |
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
