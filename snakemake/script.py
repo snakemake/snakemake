@@ -321,9 +321,6 @@ class ScriptBase(ABC):
     def evaluate(self, edit=False):
         assert not edit or self.editable
 
-        # import code
-        # code.interact(local=locals())
-
         fd = None
         try:
             # generate preamble
@@ -436,7 +433,7 @@ class PythonScript(ScriptBase):
                 self.output = output
                 self.wildcards = wildcards
                 self.threads = threads
-                self.log = log[0]
+                self.log = log
                 self.resources = resources
                 self.config = config
                 self.rule = rule
@@ -510,7 +507,7 @@ class PythonScript(ScriptBase):
             params=PythonEncoder.encode_namedlist(params),
             wildcards=PythonEncoder.encode_namedlist(wildcards),
             threads=threads,
-            log=PythonEncoder.encode_value(log),
+            log=PythonEncoder.encode_namedlist(log),
             resources=PythonEncoder.encode_value(resources),
             config=PythonEncoder.encode_value(config),
             rule=PythonEncoder.encode_value(rulename),
@@ -992,6 +989,10 @@ def script(
     """
     Load a script from the given basedir + path and execute it.
     """
+    import IPython
+
+    IPython.embed()
+
     path, source, language = get_source(path, basedir)
 
     exec_class = {

@@ -2068,6 +2068,7 @@ def run_wrapper(
     log        -- list of log files
     shadow_dir -- optional shadow directory root
     """
+
     # get shortcuts to job_rule members
     run = job_rule.run_func
     version = job_rule.version
