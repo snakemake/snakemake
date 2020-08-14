@@ -1,3 +1,9 @@
+[5.22.1] - 2020-08-14
+=====================
+Changed
+-------
+- Fixed a missing dependency for google storage in cloud execution.
+
 [5.22.0] - 2020-08-13
 =====================
 Added
