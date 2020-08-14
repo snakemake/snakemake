@@ -7,9 +7,13 @@ class DefaultResources:
 
         def fallback(val):
             def callable(wildcards, input, attempt, threads, rulename):
-                value = eval(
-                    val, {"input": input, "attempt": attempt, "threads": threads}
-                )
+                try:
+                    value = eval(
+                        val, {"input": input, "attempt": attempt, "threads": threads}
+                    )
+                # Triggers for string arguments like n1-standard-4
+                except NameError:
+                    return val
                 return value
 
             return callable

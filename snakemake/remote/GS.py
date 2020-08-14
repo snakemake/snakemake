@@ -21,7 +21,7 @@ try:
     from google_crc32c import Checksum
 except ImportError as e:
     raise WorkflowError(
-        "The Python 3 packages 'google-cloud-sdk' and `crc32c` "
+        "The Python 3 packages 'google-cloud-sdk' and `google-crc32c` "
         "need to be installed to use GS remote() file functionality. %s" % e.msg
     )
 
