@@ -989,10 +989,6 @@ def script(
     """
     Load a script from the given basedir + path and execute it.
     """
-    import IPython
-
-    IPython.embed()
-
     path, source, language = get_source(path, basedir)
 
     exec_class = {
