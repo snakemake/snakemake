@@ -110,7 +110,10 @@ class WrapperSpec:
 
         # Read the file, whether local or remote
         meta = self.read_local_remote_file(path)
-        self._meta = yaml.load(meta, Loader=yaml.SafeLoader)
+
+        # If meta doesn't exist (local or remote) we return None
+        if meta:
+            self._meta = yaml.load(meta, Loader=yaml.SafeLoader)
         return self._meta
 
     @property
@@ -131,8 +134,8 @@ class WrapperSpec:
         """Given a filename (local or remote) read it with a web request
            or directly from the filesystem.
         """
-        if path.startswith("file://"):
-            path = path.replace("file://", "", 1)
+        if path.startswith("file:"):
+            path = re.sub("(file:|file://)", path, 1)
 
         # If the file exists, read from filesystem
         content = None
@@ -177,9 +180,8 @@ class WrapperSpec:
                 container_name = spec.replace("docker://", "", 1)
 
             # Case 3 there is a Dockerfile - I'm not sure how we would get container name from it (and need to build it?)
-
-        # Name is None if container Doesn't exist
-        return DockerContainer(container_name).uri
+            # Name is None if container Doesn't exist
+            return DockerContainer(container_name).uri
 
     def get_versions_md5(self):
         """Given packages for a wrapper, return the md5 sum of sorted versions

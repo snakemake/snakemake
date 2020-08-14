@@ -172,10 +172,12 @@ class PythonEncoder(BaseEncoder):
     @classmethod
     def encode_namedlist(cls, namedlist):
         named = cls.encode_items(namedlist.items())
-        source = "{"
+        positional = ", ".join(map(cls.encode_value, namedlist))
+        source = "{}"
         if named:
-            source += named
-        source += "}"
+            source = "{" + named + "}"
+        elif positional:
+            source = "[" + positional + "]"
         return source
 
 
@@ -421,16 +423,15 @@ class PythonScript(ScriptBase):
 
         # The wrapper path should be added too
         wrapper_path = path[7:] if path.startswith("file://") else path
-
         return textwrap.dedent(
             """
         ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys, os; sys.path.extend([{searchpath}]); sys.path.insert(0, {sourcedir});from collections import namedtuple
+        import sys, os; sys.path.extend([{searchpath}]); sys.path.insert(0, {sourcedir});
         class Snakemake:
             def __init__(self, input, output, params, wildcards, threads, log, resources, config, rule, bench_iteration, scriptdir, source=None):
                 self.set_listvar("input", input)
                 self.set_listvar("params", params)
-                self.output = output
+                self.set_listvar("output", output)
                 self.wildcards = wildcards
                 self.threads = threads
                 self.log = log
@@ -446,14 +447,20 @@ class PythonScript(ScriptBase):
                 class Item:
                     def __init__(self, entries):
                         self.__dict__.update(entries)
+
                     def get(self, key, default=None):
                         if hasattr(self, key):
                             return getattr(self, key)
                         return default
 
-                structure = Item(items)
-                setattr(self, name, structure)
- 
+                if isinstance(items, dict):
+                    structure = Item(items)
+                    setattr(self, name, structure)
+                elif isinstance(items, list) and len(items) == 1:
+                    setattr(self, name, items[0])
+                else:
+                    setattr(self, name, items) 
+
             def source(self):
                 wd = os.getcwd()
                 os.chdir(self.scriptdir)
@@ -464,17 +471,17 @@ class PythonScript(ScriptBase):
                 if not self.log:
                     return ""
                 if stdout == True and stderr == True and append == True:
-                    return " >> {{0}} 2>&1".format(self.log)
+                    return " >> {{0}} 2>&1".format(self.log[0])
                 elif stdout == True and stderr == False and append == True:
-                    return " >> {{0}}".format(self.log)
+                    return " >> {{0}}".format(self.log[0])
                 elif stdout == False and stderr == True and append == True:
-                    return " 2>> {{0}}".format(self.log)
+                    return " 2>> {{0}}".format(self.log[0])
                 elif stdout == True and stderr == True and append == False:
-                    return " > {{0}} 2>&1".format(self.log)
+                    return " > {{0}} 2>&1".format(self.log[0])
                 elif stdout == True and stderr == False and append == False:
-                    return " > {{0}}".format(self.log)
+                    return " > {{0}}".format(self.log[0])
                 else: # False True False
-                    return " 2> {{0}}".format(self.log)
+                    return " 2> {{0}}".format(self.log[0])
 
         snakemake = Snakemake(
             input = {input_},
@@ -507,7 +514,7 @@ class PythonScript(ScriptBase):
             params=PythonEncoder.encode_namedlist(params),
             wildcards=PythonEncoder.encode_namedlist(wildcards),
             threads=threads,
-            log=PythonEncoder.encode_namedlist(log),
+            log=PythonEncoder.encode_value(log),
             resources=PythonEncoder.encode_value(resources),
             config=PythonEncoder.encode_value(config),
             rule=PythonEncoder.encode_value(rulename),
