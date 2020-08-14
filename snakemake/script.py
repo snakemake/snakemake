@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2015-2020, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -321,6 +321,9 @@ class ScriptBase(ABC):
     def evaluate(self, edit=False):
         assert not edit or self.editable
 
+        # import code
+        # code.interact(local=locals())
+
         fd = None
         try:
             # generate preamble
@@ -409,9 +412,11 @@ class PythonScript(ScriptBase):
     ):
 
         # Obtain search path for any mounted containers
+        # This will also ensure recipes that require snakemake have it on path
         searchpath = SNAKEMAKE_SEARCHPATH
         if container_img is not None:
             searchpath = singularity.SNAKEMAKE_MOUNTPOINT
+        searchpath = repr(searchpath)
 
         # For local scripts, add their location to the path in case they use path-based imports
         if path.startswith("file://"):
@@ -423,16 +428,15 @@ class PythonScript(ScriptBase):
         return textwrap.dedent(
             """
         ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys, os;
-        sys.path.insert(0, {sourcedir})
+        import sys, os; sys.path.extend([{searchpath}]); sys.path.insert(0, {sourcedir});from collections import namedtuple
         class Snakemake:
             def __init__(self, input, output, params, wildcards, threads, log, resources, config, rule, bench_iteration, scriptdir, source=None):
-                self.input = input
+                self.set_listvar("input", input)
+                self.set_listvar("params", params)
                 self.output = output
-                self.params = params
                 self.wildcards = wildcards
                 self.threads = threads
-                self.log = log
+                self.log = log[0]
                 self.resources = resources
                 self.config = config
                 self.rule = rule
@@ -441,12 +445,40 @@ class PythonScript(ScriptBase):
                 if source is not None:
                     self.source = source
 
+            def set_listvar(self, name, items):
+                class Item:
+                    def __init__(self, entries):
+                        self.__dict__.update(entries)
+                    def get(self, key, default=None):
+                        if hasattr(self, key):
+                            return getattr(self, key)
+                        return default
+
+                structure = Item(items)
+                setattr(self, name, structure)
+ 
             def source(self):
                 wd = os.getcwd()
                 os.chdir(self.scriptdir)
                 sys.path.insert(self.scriptdir)
                 os.chdir(wd)
                 
+            def log_fmt_shell(self, stdout=True, stderr=True, append=False):
+                if not self.log:
+                    return ""
+                if stdout == True and stderr == True and append == True:
+                    return " >> {{0}} 2>&1".format(self.log)
+                elif stdout == True and stderr == False and append == True:
+                    return " >> {{0}}".format(self.log)
+                elif stdout == False and stderr == True and append == True:
+                    return " 2>> {{0}}".format(self.log)
+                elif stdout == True and stderr == True and append == False:
+                    return " > {{0}} 2>&1".format(self.log)
+                elif stdout == True and stderr == False and append == False:
+                    return " > {{0}}".format(self.log)
+                else: # False True False
+                    return " 2> {{0}}".format(self.log)
+
         snakemake = Snakemake(
             input = {input_},
             output = {output},
@@ -460,15 +492,21 @@ class PythonScript(ScriptBase):
             bench_iteration = {bench_iteration},
             scriptdir = {scriptdir},
         )
+        # If needed, add snakemake.shell
+        try:
+            from snakemake import shell
+        except:
+            print("Snakemake not found on path, skipping addition of shell.")
+            pass
         {preamble_addendum}
 
         ######## snakemake preamble end #########
         """
         ).format(
-            searchpath=PythonEncoder.encode_value(wrapper_path),
+            searchpath=searchpath,
             sourcedir=PythonEncoder.encode_value(wrapper_path),
             input_=PythonEncoder.encode_namedlist(input_),
-            output=PythonEncoder.encode_namedlist(output),
+            output=PythonEncoder.encode_value(output),
             params=PythonEncoder.encode_namedlist(params),
             wildcards=PythonEncoder.encode_namedlist(wildcards),
             threads=threads,
@@ -883,6 +921,7 @@ def get_source(path, basedir="."):
         if not os.path.isabs(path):
             path = os.path.abspath(os.path.join(basedir, path))
         path = "file://" + path
+
     # TODO this should probably be removed again. It does not work for report and hash!
     path = format(path, stepout=1)
     if path.startswith("file://"):

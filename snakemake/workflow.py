@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2015-2020, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -58,9 +58,8 @@ from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.notebook import notebook
-from snakemake.wrapper import wrapper
+from snakemake.wrapper import wrapper, WrapperSpec
 from snakemake.cwl import cwl
-import snakemake.wrapper
 from snakemake.common import Mode, bytesto, ON_WINDOWS
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
@@ -1201,10 +1200,11 @@ class Workflow:
             # Using a snakemake-wrapper
             if ruleinfo.wrapper:
 
-                # Determine if a wrapper has support for singularity
-                ruleinfo.container_img = snakemake.wrapper.get_container(
-                    ruleinfo.wrapper, prefix=self.wrapper_prefix
-                )
+                # Instantiate the wrapper to interact with scripts, etc.
+                rule_wrapper = WrapperSpec(ruleinfo.wrapper, prefix=self.wrapper_prefix)
+
+                # Determine if a wrapper has support for singularity, get hashed name
+                ruleinfo.container_img = rule_wrapper.get_container_name()
 
                 # Warn the user if they expect to use a container, and there isn't one
                 if rule.workflow.use_singularity and not ruleinfo.container_img:
@@ -1215,9 +1215,7 @@ class Workflow:
 
                 # They specified using conda OR the container doesn't exist
                 if rule.workflow.use_conda or not ruleinfo.container_img:
-                    rule.conda_env = snakemake.wrapper.get_conda_env(
-                        ruleinfo.wrapper, prefix=self.wrapper_prefix
-                    )
+                    rule.conda_env = rule_wrapper.conda_env
 
             if ruleinfo.env_modules:
                 # If using environment modules and they are defined for the rule,
