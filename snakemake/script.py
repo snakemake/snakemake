@@ -64,7 +64,7 @@ class Snakemake:
         Return a shell redirection string to be used in `shell()` calls
 
         This function allows scripts and wrappers support optional `log` files
-        specified in the calling rule.  If no `log` was specified, then an
+        specified in the calling rule.  If no `log` was specifieod, then an
         empty string "" is returned, regardless of the values of `stdout`,
         `stderr`, and `append`.
 
@@ -456,8 +456,6 @@ class PythonScript(ScriptBase):
                 if isinstance(items, dict):
                     structure = Item(items)
                     setattr(self, name, structure)
-                elif isinstance(items, list) and len(items) == 1:
-                    setattr(self, name, items[0])
                 else:
                     setattr(self, name, items) 
 
