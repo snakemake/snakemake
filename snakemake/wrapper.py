@@ -135,7 +135,7 @@ class WrapperSpec:
            or directly from the filesystem.
         """
         if path.startswith("file:"):
-            path = re.sub("(file:|file://)", path, 1)
+            path = re.sub("(file:|file:/|file://)", "", path).strip("/")
 
         # If the file exists, read from filesystem
         content = None
