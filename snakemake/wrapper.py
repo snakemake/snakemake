@@ -176,7 +176,7 @@ class WrapperSpec:
                     self.get_versions_md5(),
                 )
             # Case 2: developer wants to link to pre-existing container
-            elif re.search("docker:", spec):
+            elif spec is not None and re.search("docker:", spec):
                 container_name = spec.replace("docker://", "", 1)
 
             # Case 3 there is a Dockerfile - I'm not sure how we would get container name from it (and need to build it?)

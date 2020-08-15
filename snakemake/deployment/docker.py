@@ -54,6 +54,10 @@ class DockerContainer:
         """Return True if the container exists under CONTAINER_PREFIX 
            (quay.io/snakemake-wrappers) otherwise return False
         """
+        # Cut out early if given no Name, possibly creating instance for later use.
+        if not self.name:
+            return
+
         # Request for the manifest
         # GET /v2/<name>/manifests/<reference>
         base = "%s/%s/manifests/%s" % (self.registry, self.repository, self.version)
