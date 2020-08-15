@@ -453,6 +453,12 @@ class PythonScript(ScriptBase):
                             return getattr(self, key)
                         return default
 
+                    def __getitem__(self, key, default=None):
+                        try:
+                            return self.__dict__[key]
+                        except:
+                            return default
+
                 if isinstance(items, dict):
                     structure = Item(items)
                     setattr(self, name, structure)
