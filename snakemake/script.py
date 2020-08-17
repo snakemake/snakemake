@@ -28,6 +28,7 @@ from snakemake.deployment import singularity
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
+file_prefix = "file://"
 
 
 class Snakemake:
@@ -418,11 +419,11 @@ class PythonScript(ScriptBase):
         searchpath = repr(searchpath)
 
         # For local scripts, add their location to the path in case they use path-based imports
-        if path.startswith("file://"):
+        if path.startswith(file_prefix):
             searchpath += ", " + repr(os.path.dirname(path[7:]))
 
         # The wrapper path should be added too
-        wrapper_path = path[7:] if path.startswith("file://") else path
+        wrapper_path = path[7:] if path.startswith(file_prefix) else path
 
         return textwrap.dedent(
             """
@@ -515,7 +516,7 @@ class PythonScript(ScriptBase):
             searchpath=searchpath,
             sourcedir=PythonEncoder.encode_value(wrapper_path),
             input_=PythonEncoder.encode_namedlist(input_),
-            output=PythonEncoder.encode_value(output),
+            output=PythonEncoder.encode_namedlist(output),
             params=PythonEncoder.encode_namedlist(params),
             wildcards=PythonEncoder.encode_namedlist(wildcards),
             threads=threads,
@@ -529,7 +530,7 @@ class PythonScript(ScriptBase):
         )
 
     def get_preamble(self):
-        wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
+        wrapper_path = self.path[7:] if self.path.startswith(file_prefix) else self.path
         preamble_addendum = "__real_file__ = __file__; __file__ = {file_override};".format(
             file_override=repr(os.path.realpath(wrapper_path))
         )
@@ -816,7 +817,7 @@ class RMarkdown(ScriptBase):
             REncoder.encode_numeric(self.bench_iteration),
             REncoder.encode_value(
                 os.path.dirname(self.path[7:])
-                if self.path.startswith("file://")
+                if self.path.startswith(file_prefix)
                 else os.path.dirname(self.path)
             ),
         )
@@ -904,7 +905,7 @@ class JuliaScript(ScriptBase):
                 JuliaEncoder.encode_value(self.bench_iteration),
                 JuliaEncoder.encode_value(
                     os.path.dirname(self.path[7:])
-                    if self.path.startswith("file://")
+                    if self.path.startswith(file_prefix)
                     else os.path.dirname(self.path)
                 ),
             ).replace(
@@ -923,17 +924,17 @@ class JuliaScript(ScriptBase):
 def get_source(path, basedir="."):
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
-        if path.startswith("file://"):
+        if path.startswith(file_prefix):
             path = path[7:]
         elif path.startswith("file:"):
             path = path[5:]
         if not os.path.isabs(path):
             path = os.path.abspath(os.path.join(basedir, path))
-        path = "file://" + path
+        path = file_prefix + path
 
     # TODO this should probably be removed again. It does not work for report and hash!
     path = format(path, stepout=1)
-    if path.startswith("file://"):
+    if path.startswith(file_prefix):
         sourceurl = "file:" + pathname2url(path[7:])
     elif path.startswith("git+file"):
         source = git_content(path).encode()

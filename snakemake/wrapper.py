@@ -27,6 +27,9 @@ WRAPPER_REPOSITORY = os.environ.get(
     "https://raw.githubusercontent.com/snakemake/snakemake-wrappers/",
 )
 
+# File prefix is needed to eliminate code smell
+file_prefix = "file:"
+
 
 class WrapperSpec:
     """A Snakemake Wrapper spec coincides with a snakemake wrapper. Specifically,
@@ -134,7 +137,7 @@ class WrapperSpec:
         """Given a filename (local or remote) read it with a web request
            or directly from the filesystem.
         """
-        if path.startswith("file:"):
+        if path.startswith(file_prefix):
             path = re.sub("(file:|file:/|file://)", "", path).strip("/")
 
         # If the file exists, read from filesystem
@@ -213,7 +216,7 @@ def is_script(path):
 def get_path(path, prefix=None):
     if not (
         path.startswith("http")
-        or path.startswith("file:")
+        or path.startswith(file_prefix)
         or path.startswith("git+file")
     ):
         if prefix is None:
@@ -226,7 +229,7 @@ def get_path(path, prefix=None):
 
 
 def is_local(path):
-    return path.startswith("file:")
+    return path.startswith(file_prefix)
 
 
 def is_git_path(path):
@@ -242,7 +245,7 @@ def find_extension(path, extensions=[".py", ".R", ".Rmd", ".jl"]):
         if is_local(path):
             if path.startswith("file://"):
                 p = path[7:]
-            elif path.startswith("file:"):
+            elif path.startswith(file_prefix):
                 p = path[5:]
             if os.path.exists(p + script):
                 return path + script
