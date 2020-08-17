@@ -423,6 +423,7 @@ class PythonScript(ScriptBase):
 
         # The wrapper path should be added too
         wrapper_path = path[7:] if path.startswith("file://") else path
+
         return textwrap.dedent(
             """
         ######## snakemake preamble start (automatically inserted, do not edit) ########
