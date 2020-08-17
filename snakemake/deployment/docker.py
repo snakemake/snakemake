@@ -58,6 +58,29 @@ class DockerContainer:
         if not self.name:
             return
 
+        if "quay.io" in self.registry:
+            return self.exists_quay()
+        return self.exists_docker()
+
+    def exists_quay(self):
+        """Quay requires a full image sha for the manifest (and tags don't work)
+           so we have to get all image ids for a repository, and then cycle
+           through them. This is inefficient and would do well to have some
+           kind of cache. It might be easier to assume an image exists,
+           and then do try / catch when we try to pull it.
+        """
+        # Quay.io request for images
+        # url = "%s/repository/%s/image/" %(self.registry, self.repository)
+        # images = requests.get(url).json()
+        # for image in images:
+        #    url = "%s/repository/%s/image/%s" %(self.registry, self.repository, image['id'])
+        raise NotImplementedError
+
+    def exists_docker(self):
+        """Determine if an image exists for docker hub. We are able to query for
+           an image manifest (referenced by tag) directly after getting an auth
+           token.
+        """
         # Request for the manifest
         # GET /v2/<name>/manifests/<reference>
         base = "%s/%s/manifests/%s" % (self.registry, self.repository, self.version)
@@ -74,18 +97,15 @@ class DockerContainer:
             token_url = self.get_token_url(challenge, expires_in=900)
 
         # Get token to authenticate
-        try:
-            data = requests.get(token_url, headers=headers).json()
-            if "access_token" in data:
-                access_token = data["access_token"]
-            else:
-                access_token = data["token"]
-            token = {"Authorization": "Bearer %s" % access_token}
-            headers.update(token)
-            response = requests.get(base, headers=headers)
-            return response.status_code == 200
-        except:
-            return False
+        data = requests.get(token_url, headers=headers).json()
+        if "access_token" in data:
+            access_token = data["access_token"]
+        else:
+            access_token = data["token"]
+        token = {"Authorization": "Bearer %s" % access_token}
+        headers.update(token)
+        response = requests.get(base, headers=headers)
+        return response.status_code == 200
 
     def get_token_url(self, challenge, expires_in, sort_query_params=False):
         """Build token URL from authentication challenge
