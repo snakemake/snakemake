@@ -17,10 +17,10 @@ import threading
 import concurrent.futures
 import subprocess
 import signal
+import tempfile
 from functools import partial
 from itertools import chain
 from collections import namedtuple
-from tempfile import mkdtemp
 from snakemake.io import _IOFile
 import random
 import base64
@@ -44,6 +44,9 @@ from snakemake.exceptions import (
     CacheMissException,
 )
 from snakemake.common import Mode, __version__, get_container_image, get_uuid
+
+
+# TODO move each executor into a separate submodule
 
 
 def sleep():
@@ -97,7 +100,23 @@ class AbstractExecutor:
             return args
         return ""
 
+    def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
+        """Run a list of jobs that is ready at a given point in time.
+
+        By default, this method just runs each job individually.
+        This method can be overwritten to submit many jobs in a more efficient way than one-by-one.
+        Note that in any case, for each job, the callback functions have to be called individually!
+        """
+        for job in jobs:
+            self.run(
+                job,
+                callback=callback,
+                submit_callback=submit_callback,
+                error_callback=error_callback,
+            )
+
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
+        """Run a specific job or group job."""
         self._run(job)
         callback(job)
 
@@ -220,6 +239,37 @@ class RealExecutor(AbstractExecutor):
             latency_wait=self.latency_wait,
         )
 
+    def get_additional_args(self):
+        """Return a string to add to self.exec_job that includes additional
+           arguments from the command line. This is currently used in the
+           ClusterExecutor and CPUExecutor, as both were using the same
+           code. Both have base class of the RealExecutor.
+        """
+        additional = ""
+        if not self.workflow.cleanup_scripts:
+            additional += " --skip-script-cleanup "
+        if self.workflow.shadow_prefix:
+            additional += " --shadow-prefix {} ".format(self.workflow.shadow_prefix)
+        if self.workflow.use_conda:
+            additional += " --use-conda "
+            if self.workflow.conda_prefix:
+                additional += " --conda-prefix {} ".format(self.workflow.conda_prefix)
+        if self.workflow.use_singularity:
+            additional += " --use-singularity "
+            if self.workflow.singularity_prefix:
+                additional += " --singularity-prefix {} ".format(
+                    self.workflow.singularity_prefix
+                )
+            if self.workflow.singularity_args:
+                additional += ' --singularity-args "{}"'.format(
+                    self.workflow.singularity_args
+                )
+
+        if self.workflow.use_env_modules:
+            additional += " --use-envmodules"
+
+        return additional
+
     def format_job_pattern(self, pattern, job=None, **kwargs):
         overwrite_workdir = []
         if self.workflow.overwrite_workdir:
@@ -339,28 +389,7 @@ class CPUExecutor(RealExecutor):
             )
         )
 
-        if self.workflow.shadow_prefix:
-            self.exec_job += " --shadow-prefix {} ".format(self.workflow.shadow_prefix)
-        if self.workflow.use_conda:
-            self.exec_job += " --use-conda "
-            if self.workflow.conda_prefix:
-                self.exec_job += " --conda-prefix {} ".format(
-                    self.workflow.conda_prefix
-                )
-        if self.workflow.use_singularity:
-            self.exec_job += " --use-singularity "
-            if self.workflow.singularity_prefix:
-                self.exec_job += " --singularity-prefix {} ".format(
-                    self.workflow.singularity_prefix
-                )
-            if self.workflow.singularity_args:
-                self.exec_job += ' --singularity-args "{}"'.format(
-                    self.workflow.singularity_args
-                )
-
-        if self.workflow.use_env_modules:
-            self.exec_job += " --use-envmodules"
-
+        self.exec_job += self.get_additional_args()
         self.use_threads = use_threads
         self.cores = cores
 
@@ -422,6 +451,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
+            self.workflow.edit_notebook,
         )
 
     def run_single_job(self, job):
@@ -521,6 +551,11 @@ class CPUExecutor(RealExecutor):
 
 
 class ClusterExecutor(RealExecutor):
+    """Backend for distributed execution. 
+    
+        The key idea is that a job is converted into a script that invokes Snakemake again, in whatever environment is targeted. The script is submitted to some job management platform (e.g. a cluster scheduler like slurm).
+        This class can be specialized to generate more specific backends, also for the cloud.
+    """
 
     default_jobscript = "jobscript.sh"
 
@@ -595,32 +630,12 @@ class ClusterExecutor(RealExecutor):
         else:
             self.exec_job = exec_job
 
-        if self.workflow.shadow_prefix:
-            self.exec_job += " --shadow-prefix {} ".format(self.workflow.shadow_prefix)
-        if self.workflow.use_conda:
-            self.exec_job += " --use-conda "
-            if self.workflow.conda_prefix:
-                self.exec_job += " --conda-prefix {} ".format(
-                    self.workflow.conda_prefix
-                )
-        if self.workflow.use_singularity:
-            self.exec_job += " --use-singularity "
-            if self.workflow.singularity_prefix:
-                self.exec_job += " --singularity-prefix {} ".format(
-                    self.workflow.singularity_prefix
-                )
-            if self.workflow.singularity_args:
-                self.exec_job += ' --singularity-args "{}"'.format(
-                    self.workflow.singularity_args
-                )
-
-        if self.workflow.use_env_modules:
-            self.exec_job += " --use-envmodules"
-
+        self.exec_job += self.get_additional_args()
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
         if not disable_get_default_resources_args:
             self.exec_job += self.get_default_resources_args()
+
         self.jobname = jobname
         self._tmpdir = None
         self.cores = cores if cores else ""
@@ -664,7 +679,7 @@ class ClusterExecutor(RealExecutor):
     @property
     def tmpdir(self):
         if self._tmpdir is None:
-            self._tmpdir = mkdtemp(dir=".snakemake", prefix="tmp.")
+            self._tmpdir = tempfile.mkdtemp(dir=".snakemake", prefix="tmp.")
         return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
@@ -1348,7 +1363,7 @@ class KubernetesExecutor(ClusterExecutor):
             "cp -rf /source/. . && "
             "snakemake {target} --snakefile {snakefile} "
             "--force -j{cores} --keep-target-files  --keep-remote "
-            "--latency-wait 0 "
+            "--latency-wait {latency_wait} "
             " --attempt {attempt} {use_threads} "
             "--wrapper-prefix {workflow.wrapper_prefix} "
             "{overwrite_config} {printshellcmds} {rules} --nocolor "
@@ -1411,6 +1426,20 @@ class KubernetesExecutor(ClusterExecutor):
                     "to the working directory are allowed.".format(f)
                 )
                 continue
+
+            # The kubernetes API can't create secret files larger than 1MB.
+            source_file_size = os.path.getsize(f)
+            max_file_size = 1000000
+            if source_file_size > max_file_size:
+                logger.warning(
+                    "Skipping the source file {f}. Its size {source_file_size} exceeds "
+                    "the maximum file size (1MB) that can be passed "
+                    "from host to kubernetes.".format(
+                        f=f, source_file_size=source_file_size
+                    )
+                )
+                continue
+
             with open(f, "br") as content:
                 key = "f{}".format(i)
                 self.secret_files[key] = f
@@ -2025,6 +2054,7 @@ def run_wrapper(
     cleanup_scripts,
     shadow_dir,
     jobid,
+    edit_notebook,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2102,6 +2132,7 @@ def run_wrapper(
                             bench_iteration,
                             cleanup_scripts,
                             passed_shadow_dir,
+                            edit_notebook,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2129,6 +2160,7 @@ def run_wrapper(
                                 bench_iteration,
                                 cleanup_scripts,
                                 passed_shadow_dir,
+                                edit_notebook,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2154,6 +2186,7 @@ def run_wrapper(
                     None,
                     cleanup_scripts,
                     passed_shadow_dir,
+                    edit_notebook,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the

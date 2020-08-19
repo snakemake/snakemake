@@ -479,7 +479,7 @@ A rule can also point to an external script instead of a shell command or inline
         script:
             "scripts/script.py"
 
-The script path is always relative to the Snakefile (in contrast to the input and output file paths, which are relative to the working directory).
+The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
 
@@ -608,18 +608,14 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
 
 .. code-block:: python
 
-    rule NAME:
-        input:
-            "path/to/inputfile",
-            "path/to/other/inputfile"
+    rule hello:
         output:
-            "path/to/outputfile",
-            "path/to/another/outputfile"
+            "test.txt"
         log:
             # optional path to the processed notebook
-            notebook = "logs/notebooks/processed_notebook.ipynb"
+            notebook="logs/notebooks/processed_notebook.ipynb"
         notebook:
-            "notebooks/notebook.ipynb"
+            "hello.py.ipynb"
 
 .. note:
 
@@ -627,14 +623,40 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
     A modular, readable workflow definition with Snakemake, and the ability to quickly explore and plot data with Jupyter.
     The benefit will be maximal when integrating many small notebooks that each do a particular job, hence allowing to get away from large monolithic, and therefore unreadable notebooks.
 
+It is recommended to prefix the ``.ipynb`` suffix with either ``.py`` or ``.r`` to indicate the notebook language.
 In the notebook, a snakemake object is available, which can be accessed in the same way as the with :ref:`script integration <snakefiles_external-scripts>`.
 In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case) etc..
-Hence, integrating a new notebook works by first writing it from scratch in the usual interactive way.
-Then, you replace all hardcoded variables with references to properties of the rule where it shall be integrated, e.g. replacing the path to an input file with ``snakemake.input[0]``.
-Once having moved the notebook to the right place in the pipeline (ideally a subfolder ``notebooks``) and referring to it from the rule, Snakemake will be able to re-execute it while inserting the desired variable values from the rule properties.
-
 Optionally it is possible to automatically store the processed notebook.
 This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
+
+In order to simplify the coding of notebooks given the automatically inserted ``snakemake`` object, Snakemake provides an interactive edit mode for notebook rules.
+Let us assume you have written above rule, but the notebook does not yet exist.
+By running
+
+.. code-block:: console
+
+    snakemake --cores 1 --edit-notebook test.txt
+
+you instruct Snakemake to allow interactive editing of the notebook needed to create the file ``test.txt``.
+Snakemake will run all dependencies of the notebook rule, such that all input files are present.
+Then, it will start a jupyter notebook server with an empty draft of the notebook, in which you can interactively program everything needed for this particular step.
+Once done, you should save the notebook from the jupyter web interface, go to the jupyter dashboard and hit the ``Quit`` button on the top right in order to shut down the jupyter server.
+Snakemake will detect that the server is closed and automatically store the drafted notebook into the path given in the rule (here ``hello.py.ipynb``).
+If the notebook already exists, above procedure can be used to easily modify it.
+Note that Snakemake requires local execution for the notebook edit mode.
+On a cluster or the cloud, you can generate all dependencies of the notebook rule via
+
+.. code-block:: console
+
+    snakemake --cluster ... --jobs 100 --until test.txt
+
+Then, the notebook rule can easily be executed locally.
+An demo of the entire interactive editing process can be found by clicking below:
+
+.. image:: images/snakemake-notebook-demo.gif
+    :scale: 20%
+    :alt: Notebook integration demo
+    :align: center
 
 
 Protected and Temporary Files

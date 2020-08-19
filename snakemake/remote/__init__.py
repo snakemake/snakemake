@@ -167,6 +167,14 @@ class AbstractRemoteObject:
         self.provider = provider
         self.protocol = protocol
 
+    def inventory(self, cache: snakemake.io.IOCache):
+        """From this file, try to find as much existence and modification date 
+        information as possible.
+        """
+        # If this is implemented in a remote object, results have to be stored in
+        # the given IOCache object.
+        pass
+
     @property
     def _file(self):
         if self._iofile is None:
@@ -241,7 +249,7 @@ class DomainObject(AbstractRemoteObject):
     @property
     def _matched_address(self):
         return re.search(
-            "^(?P<protocol>[a-zA-Z]+\://)?(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$",
+            r"^(?P<protocol>[a-zA-Z]+\://)?(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$",
             self.local_file(),
         )
 

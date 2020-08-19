@@ -58,12 +58,16 @@ class Persistence:
         else:
             self.shadow_path = os.path.join(shadow_prefix, "shadow")
 
+        # place to store any auxiliary information needed during a run (e.g. source tarballs)
+        self.aux_path = os.path.join(self.path, "auxiliary")
+
         for d in (
             self._metadata_path,
             self.shadow_path,
             self.conda_env_archive_path,
             self.conda_env_path,
             self.container_img_path,
+            self.aux_path,
         ):
             os.makedirs(d, exist_ok=True)
 

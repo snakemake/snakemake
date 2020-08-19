@@ -17,6 +17,19 @@ The key idea is very similar to GNU Make. The workflow is determined automatical
 When you start using Snakemake, please make sure to walk through the :ref:`official tutorial <tutorial>`.
 It is crucial to understand how to properly use the system.
 
+Snakemake does not connect my rules as I have expected, what can I do to debug my dependency structure?
+-------------------------------------------------------------------------------------------------------
+
+Since dependencies are inferred implicitly, results can sometimes be suprising when little errors are made in filenames or when input functions raise unexpected errors.
+For debugging such cases, Snakemake provides the command line flag ``--debug-dag`` that leads to printing details each decision that is taken while determining the dependencies.
+
+In addition, it is advisable to check whether certain intermediate files would be created by targetting them individually via the command line.
+
+Finally, it is possible to constrain the rules that are considered for DAG creating via ``--allowed-rules``. 
+This way, you can easily check rule by rule if it does what you expect.
+However, note that ``--allowed-rules`` is only meant for debugging.
+A workflow should always work fine without it.
+
 My shell command fails with with errors about an "unbound variable", what's wrong?
 ----------------------------------------------------------------------------------
 

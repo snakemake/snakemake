@@ -13,6 +13,7 @@ import concurrent.futures
 # module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError, S3FileException
+from snakemake.utils import os_sync
 
 try:
     # third-party modules
@@ -99,7 +100,7 @@ class RemoteObject(AbstractRemoteObject):
 
     def download(self):
         self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.local_file())
-        os.sync()  # ensure flush to disk
+        os_sync()  # ensure flush to disk
 
     def upload(self):
         self._s3c.upload_to_s3(
@@ -289,7 +290,9 @@ class S3Helper(object):
                     )
             return destination_path
         except:
-            return None
+            raise S3FileException(
+                "Error downloading file '%s' from bucket '%s'." % (key, bucket_name)
+            )
 
     def delete_from_bucket(self, bucket_name, key):
         """ Delete a file from s3

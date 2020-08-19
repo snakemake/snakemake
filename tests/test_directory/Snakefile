@@ -1,4 +1,5 @@
-shell("mkdir -p input_dir && touch input_dir/child")
+shell.executable("bash")
+
 
 rule downstream:
     input: "some/dir"
@@ -12,7 +13,7 @@ rule normal:
 
 rule symlinked_output:
     output: directory("symlinked_dir")
-    shell: "mkdir dir_to_link_to && ln -s dir_to_link_to symlinked_dir"
+    shell: "mkdir -p dir_to_link_to && ln -s dir_to_link_to symlinked_dir"
 
 rule symlinked_input:
     input: "symlinked_dir"

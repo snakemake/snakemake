@@ -44,6 +44,7 @@ setup(
         "snakemake.caching",
         "snakemake.deployment",
         "snakemake.linting",
+        "snakemake.executors",
     ],
     entry_points={
         "console_scripts": [
@@ -71,8 +72,8 @@ setup(
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
         "messaging": ["slacker"],
         "google-cloud": [
-            "crc32c",
             "oauth2client",
+            "google-crc32c",
             "google-api-python-client",
             "google-cloud-storage",
         ],

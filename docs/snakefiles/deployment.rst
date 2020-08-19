@@ -13,22 +13,35 @@ following structure:
     ├── README.md
     ├── LICENSE.md
     ├── workflow
-    │   ├── scripts
-    |   │   ├── script1.py
-    |   │   └── script2.R
     │   ├── rules
     |   │   ├── module1.smk
     |   │   └── module2.smk
+    │   ├── envs
+    |   │   ├── tool1.yaml
+    |   │   └── tool2.yaml
+    │   ├── scripts
+    |   │   ├── script1.py
+    |   │   └── script2.R
+    │   ├── notebooks
+    |   │   ├── notebook1.py.ipynb
+    |   │   └── notebook2.r.ipynb
     │   ├── report
-    |   │   ├── plot1.smk
-    |   │   └── plot2.smk
-    │   └── envs
-    |   │   ├── tool1.smk
-    |   │   └── tool2.smk
+    |   │   ├── plot1.rst
+    |   │   └── plot2.rst
+    |   └── Snakefile
     ├── config
     │   ├── config.yaml
     │   └── some-sheet.tsv
-    └── Snakefile
+    ├── results
+    └── resources
+
+In other words, the workflow code goes into a subfolder ``workflow``, while the configuration is stored in a subfolder ``config``. 
+Inside of the ``workflow`` subfolder, the central ``Snakefile`` marks the entrypoint of the workflow (it will be automatically discovered when running snakemake from the root of above structure. 
+In addition to the central ``Snakefile``, rules can be stored in a modular way, using the optional subfolder ``workflow/rules``. Such modules should end with ``.smk`` the recommended file extension of Snakemake.
+Further, :ref:`scripts <snakefiles-external_scripts>` should be stored in a subfolder ``workflow/scripts`` and notebooks in a subfolder ``workflow/notebooks``.
+Conda environments (see :ref:`integrated_package_management`) should be stored in a subfolder ``workflow/envs`` (make sure to keep them as finegrained as possible to improve transparency and maintainability).
+Finally, :ref:`report caption files <snakefiles-reports>` should be stored in ``workflow/report``.
+All output files generated in the workflow should be stored under ``results``, unless they are rather retrieved resources, in which case they should be stored under ``resources``. The latter subfolder may also contain small resources that shall be delivered along with the workflow via git (although it might be tempting, please refrain from trying to generate output file paths with string concatenation of a central ``outdir`` variable or so, as this hampers readability).
 
 Then, a workflow can be deployed to a new system via the following steps
 
@@ -116,7 +129,7 @@ As an alternative to using Conda (see above), it is possible to define, for each
             "table.txt"
         output:
             "plots/myplot.pdf"
-        containers:
+        container:
             "docker://joseespinosa/docker-r-ggplot2"
         script:
             "scripts/plot-stuff.R"
@@ -209,10 +222,10 @@ Snakemake allows to define environment modules per rule:
         shell:
             "bwa mem {input} | samtools view -Sbh - > {output}"
 
-Here, when Snakemake is executed with `snakemake --use-envmodules`, it will load the defined modules in the given order, instead of using the also defined conda environment.
+Here, when Snakemake is executed with ``snakemake --use-envmodules``, it will load the defined modules in the given order, instead of using the also defined conda environment.
 Note that although not mandatory, one should always provide either a conda environment or a container (see above), along with environment module definitions.
 The reason is that environment modules are often highly platform specific, and cannot be assumed to be available somewhere else, thereby limiting reproducibility.
-By definition an equivalent conda environment or container as a fallback, people outside of the HPC system where the workflow has been designed can still execute it, e.g. by running `snakemake --use-conda` instead of `snakemake --use-envmodules`.
+By definition an equivalent conda environment or container as a fallback, people outside of the HPC system where the workflow has been designed can still execute it, e.g. by running ``snakemake --use-conda`` instead of ``snakemake --use-envmodules``.
 
 --------------------------------------
 Sustainable and reproducible archiving

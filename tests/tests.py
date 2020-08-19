@@ -1,20 +1,29 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2015-2020, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
 import os
 import sys
+import uuid
 
 sys.path.insert(0, os.path.dirname(__file__))
 
 from common import *
+from .conftest import skip_on_windows, ON_WINDOWS
 
 
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
 
+xfail_permissionerror_on_win = (
+    pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
+)
+
+# Must fail on Windows with PermissionError since the tempfile.TemporaryDirectory
+# can't clean up the protected files generated in the test
+@xfail_permissionerror_on_win
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
@@ -36,6 +45,7 @@ def test_issue956():
     run(dpath("test_issue956"))
 
 
+@skip_on_windows
 def test01():
     run(dpath("test01"))
 
@@ -88,6 +98,7 @@ def test13():
     run(dpath("test13"))
 
 
+@skip_on_windows
 def test14():
     os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
@@ -100,6 +111,17 @@ def test15():
 def test_directory():
     run(
         dpath("test_directory"),
+        targets=["downstream", "symlinked_input", "child_to_input"],
+    )
+    run(dpath("test_directory"), targets=["file_expecting_dir"], shouldfail=True)
+    run(dpath("test_directory"), targets=["dir_expecting_file"], shouldfail=True)
+    run(dpath("test_directory"), targets=["child_to_other"], shouldfail=True)
+
+
+@skip_on_windows
+def test_directory2():
+    run(
+        dpath("test_directory"),
         targets=[
             "downstream",
             "symlinked_input",
@@ -108,15 +130,13 @@ def test_directory():
             "some/shadow",
         ],
     )
-    run(dpath("test_directory"), targets=["file_expecting_dir"], shouldfail=True)
-    run(dpath("test_directory"), targets=["dir_expecting_file"], shouldfail=True)
-    run(dpath("test_directory"), targets=["child_to_other"], shouldfail=True)
 
 
 def test_ancient():
     run(dpath("test_ancient"), targets=["D", "old_file"])
 
 
+@skip_on_windows  # No conda-forge version of pygraphviz for windows
 def test_report():
     run(
         dpath("test_report"),
@@ -126,6 +146,7 @@ def test_report():
     )
 
 
+@skip_on_windows  # No conda-forge version of pygraphviz for windows
 def test_report_zip():
     run(dpath("test_report_zip"), report="report.zip", check_md5=False)
 
@@ -161,6 +182,7 @@ def test_shell():
     run(dpath("test_shell"))
 
 
+@skip_on_windows
 def test_temp():
     run(dpath("test_temp"), cluster="./qsub", targets="test.realigned.bam".split())
 
@@ -169,6 +191,10 @@ def test_keyword_list():
     run(dpath("test_keyword_list"))
 
 
+# Fails on WIN because some snakemake doesn't release the logfile
+# which cause a PermissionError when the test setup tries to
+# remove the temporary files
+@skip_on_windows
 def test_subworkflows():
     run(dpath("test_subworkflows"), subpath=dpath("test02"))
 
@@ -215,6 +241,7 @@ def test_wildcard_keyword():
     run(dpath("test_wildcard_keyword"))
 
 
+@skip_on_windows
 def test_benchmark():
     run(dpath("test_benchmark"), check_md5=False)
 
@@ -227,6 +254,7 @@ def test_wildcard_count_ambiguity():
     run(dpath("test_wildcard_count_ambiguity"))
 
 
+@skip_on_windows
 def test_srcdir():
     run(dpath("test_srcdir"))
 
@@ -239,10 +267,12 @@ def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
+@skip_on_windows
 def test_remote():
     run(dpath("test_remote"), cores=1)
 
 
+@skip_on_windows
 def test_cluster_sync():
     os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster_sync="./qsub")
@@ -257,16 +287,27 @@ def test_empty_include():
     run(dpath("test_empty_include"))
 
 
+@skip_on_windows
 def test_script():
-    run(dpath("test_script"), use_conda=True)
+    run(dpath("test_script"), use_conda=True, check_md5=False)
 
 
+def test_script_python():
+    run(dpath("test_script_py"))
+
+
+@skip_on_windows  # Test relies on perl
 def test_shadow():
     run(dpath("test_shadow"))
 
 
+@skip_on_windows  # Symbolic link privileges needed to work
 def test_shadow_prefix():
     run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir")
+
+
+@skip_on_windows
+def test_shadow_prefix_qsub():
     run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir", cluster="./qsub")
 
 
@@ -310,6 +351,7 @@ def test_symlink_time_handling():
         run(dpath("test_symlink_time_handling"))
 
 
+@skip_on_windows
 def test_protected_symlink_output():
     run(dpath("test_protected_symlink_output"))
 
@@ -324,28 +366,29 @@ def test_issue328():
         pass
 
 
+@skip_on_windows  # test uses bwa which is non windows
 def test_conda():
-    if conda_available():
-        run(dpath("test_conda"), use_conda=True)
+    run(dpath("test_conda"), use_conda=True)
 
 
+@skip_on_windows  # test uses bwa which is non windows
+def test_upstream_conda():
+    run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
+
+
+@skip_on_windows  # Conda support is partly broken on Win
 def test_conda_custom_prefix():
-    if conda_available():
-        run(
-            dpath("test_conda_custom_prefix"),
-            use_conda=True,
-            conda_prefix="custom",
-            set_pythonpath=False,
-        )
+    run(
+        dpath("test_conda_custom_prefix"),
+        use_conda=True,
+        conda_prefix="custom",
+        set_pythonpath=False,
+    )
 
 
+@skip_on_windows  # Conda support is partly broken on Win
 def test_wrapper():
-    if conda_available():
-        run(dpath("test_wrapper"), use_conda=True)
-
-
-def conda_available():
-    return which("conda")
+    run(dpath("test_wrapper"), use_conda=True)
 
 
 def test_get_log_none():
@@ -415,6 +458,7 @@ def test_remote_ncbi():
 
 
 @ci
+@skip_on_windows
 def test_remote_irods():
     run(dpath("test_remote_irods"))
 
@@ -452,6 +496,7 @@ def test_dup_out_patterns():
     run(dpath("test_dup_out_patterns"), shouldfail=True)
 
 
+@skip_on_windows
 def test_restartable_job_cmd_exit_1_no_restart():
     """Test the restartable job feature on ``exit 1``
 
@@ -466,6 +511,7 @@ def test_restartable_job_cmd_exit_1_no_restart():
     )
 
 
+@skip_on_windows
 def test_restartable_job_cmd_exit_1_one_restart():
     # Restarting once is enough
     run(
@@ -476,6 +522,7 @@ def test_restartable_job_cmd_exit_1_one_restart():
     )
 
 
+@skip_on_windows
 def test_restartable_job_qsub_exit_1():
     """Test the restartable job feature when qsub fails
 
@@ -532,6 +579,7 @@ def test_issue260():
     run(dpath("test_issue260"))
 
 
+@skip_on_windows
 @not_ci
 def test_default_remote():
     run(
@@ -548,6 +596,7 @@ def test_run_namedlist():
 
 @connected
 @not_ci
+@skip_on_windows
 def test_remote_gs():
     run(dpath("test_remote_gs"))
 
@@ -589,6 +638,7 @@ def test_gs_requester_pays(
 @pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
 @connected
 @ci
+@skip_on_windows
 def test_remote_azure():
     run(dpath("test_remote_azure"))
 
@@ -603,6 +653,7 @@ def test_remote_http():
     run(dpath("test_remote_http"))
 
 
+@skip_on_windows
 @connected
 @pytest.mark.xfail
 def test_remote_http_cluster():
@@ -613,11 +664,13 @@ def test_profile():
     run(dpath("test_profile"))
 
 
+@skip_on_windows
 @connected
 def test_singularity():
     run(dpath("test_singularity"), use_singularity=True)
 
 
+@skip_on_windows
 def test_singularity_invalid():
     run(
         dpath("test_singularity"),
@@ -627,9 +680,15 @@ def test_singularity_invalid():
     )
 
 
+@skip_on_windows
 @connected
 def test_singularity_conda():
-    run(dpath("test_singularity_conda"), use_singularity=True, use_conda=True)
+    run(
+        dpath("test_singularity_conda"),
+        use_singularity=True,
+        use_conda=True,
+        conda_frontend="conda",
+    )
 
 
 def test_issue612():
@@ -644,6 +703,9 @@ def test_inoutput_is_path():
     run(dpath("test_inoutput_is_path"))
 
 
+# Fails on Windows with PermissionError when test system tries to
+# clean the conda environment
+@xfail_permissionerror_on_win
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
@@ -652,96 +714,13 @@ def test_log_input():
     run(dpath("test_log_input"))
 
 
-@pytest.fixture(scope="module")
-def gcloud_cluster():
-    class Cluster:
-        def __init__(self):
-            self.cluster = os.environ["GCLOUD_CLUSTER"]
-            self.bucket_name = "snakemake-testing-{}".format(self.cluster)
-
-            shell(
-                """
-            $GCLOUD container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type f1-micro
-            $GCLOUD container clusters get-credentials {self.cluster} --zone us-central1-a
-            $GSUTIL mb gs://{self.bucket_name}
-            """
-            )
-
-        def delete(self):
-            shell(
-                """
-            $GCLOUD container clusters delete {self.cluster} --zone us-central1-a --quiet || true
-            $GSUTIL rm -r gs://{self.bucket_name} || true
-            """
-            )
-
-        def run(self, test="test_kubernetes", **kwargs):
-            try:
-                run(
-                    dpath(test),
-                    kubernetes="default",
-                    default_remote_provider="GS",
-                    default_remote_prefix=self.bucket_name,
-                    no_tmpdir=True,
-                    **kwargs
-                )
-            except Exception as e:
-                shell(
-                    "for p in `kubectl get pods | grep ^snakejob- | cut -f 1 -d ' '`; do kubectl logs $p; done"
-                )
-                raise e
-
-        def reset(self):
-            shell("$GSUTIL rm -r gs://{self.bucket_name}/* || true")
-
-    cluster = Cluster()
-    yield cluster
-    cluster.delete()
-
-
-@gcloud
-@pytest.mark.skip(
-    reason="reenable once we have figured out how to fail if available core hours per month are exceeded"
-)
-@pytest.mark.xfail
-def test_gcloud_plain(gcloud_cluster):
-    gcloud_cluster.reset()
-    gcloud_cluster.run()
-
-
-@gcloud
-@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
-def test_gcloud_conda(gcloud_cluster):
-    gcloud_cluster.reset()
-    gcloud_cluster.run(use_conda=True)
-
-
-@gcloud
-@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
-def test_gcloud_singularity(gcloud_cluster):
-    gcloud_cluster.reset()
-    gcloud_cluster.run(use_singularity=True)
-
-
-@gcloud
-@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
-def test_gcloud_conda_singularity(gcloud_cluster):
-    gcloud_cluster.reset()
-    gcloud_cluster.run(use_singularity=True, use_conda=True)
-
-
-@gcloud()
-@pytest.mark.skip(reason="need a faster cloud compute instance to run this")
-def test_issue1041(gcloud_cluster):
-    gcloud_cluster.reset()
-    gcloud_cluster.run(test="test_issue1041")
-
-
+@skip_on_windows
 @connected
 def test_cwl():
     run(dpath("test_cwl"))
 
 
+@skip_on_windows
 @connected
 def test_cwl_singularity():
     run(dpath("test_cwl"), use_singularity=True)
@@ -751,6 +730,7 @@ def test_issue805():
     run(dpath("test_issue805"), shouldfail=True)
 
 
+@skip_on_windows
 def test_pathlib():
     run(dpath("test_pathlib"))
 
@@ -759,14 +739,17 @@ def test_pathlib_missing_file():
     run(dpath("test_pathlib_missing_file"), shouldfail=True)
 
 
+@skip_on_windows
 def test_group_jobs():
     run(dpath("test_group_jobs"), cluster="./qsub")
 
 
+@skip_on_windows
 def test_group_job_fail():
     run(dpath("test_group_job_fail"), cluster="./qsub", shouldfail=True)
 
 
+@skip_on_windows  # Not supported, but could maybe be implemented. https://stackoverflow.com/questions/48542644/python-and-windows-named-pipes
 def test_pipes():
     run(dpath("test_pipes"))
 
@@ -793,10 +776,12 @@ def test_issue854():
     run(dpath("test_issue854"), shouldfail=True)
 
 
+@skip_on_windows
 def test_issue850():
     run(dpath("test_issue850"), cluster="./qsub")
 
 
+@skip_on_windows
 def test_issue860():
     run(dpath("test_issue860"), cluster="./qsub", targets=["done"])
 
@@ -813,6 +798,7 @@ def test_issue912():
     run(dpath("test_issue912"))
 
 
+@skip_on_windows
 def test_job_properties():
     run(dpath("test_job_properties"), cluster="./qsub.py")
 
@@ -821,10 +807,12 @@ def test_issue916():
     run(dpath("test_issue916"))
 
 
+@skip_on_windows
 def test_issue930():
     run(dpath("test_issue930"), cluster="./qsub")
 
 
+@skip_on_windows
 def test_issue635():
     run(dpath("test_issue635"), use_conda=True, check_md5=False)
 
@@ -833,6 +821,7 @@ def test_issue635():
 @pytest.mark.skip(
     reason="Temporarily disable until the stable container image becomes available again."
 )
+@skip_on_windows
 def test_convert_to_cwl():
     workdir = dpath("test_convert_to_cwl")
     # run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
@@ -864,6 +853,7 @@ def test_issue1092():
     run(dpath("test_issue1092"))
 
 
+@skip_on_windows
 def test_issue1093():
     run(dpath("test_issue1093"), use_conda=True)
 
@@ -880,10 +870,12 @@ def test_issue1085():
     run(dpath("test_issue1085"), shouldfail=True)
 
 
+@skip_on_windows
 def test_issue1083():
     run(dpath("test_issue1083"), use_singularity=True)
 
 
+@skip_on_windows  # Fails with "The flag 'pipe' used in rule two is only valid for outputs
 def test_pipes2():
     run(dpath("test_pipes2"))
 
@@ -892,6 +884,7 @@ def test_expand_flag():
     run(dpath("test_expand_flag"), shouldfail=True)
 
 
+@skip_on_windows
 def test_default_resources():
     from snakemake.resources import DefaultResources
 
@@ -911,6 +904,7 @@ def test_issue1281():
     run(dpath("test_issue1281"))
 
 
+@skip_on_windows  # Currently no workable pygraphviz package
 def test_filegraph():
     workdir = dpath("test_filegraph")
     dot_path = os.path.abspath("fg.dot")
@@ -947,10 +941,11 @@ def test_batch_fail():
 
 
 def test_github_issue52():
-    run(dpath("test_github_issue52"), shouldfail=True)
-    run(dpath("test_github_issue52"), snakefile="other.smk", shouldfail=True)
+    run(dpath("test_github_issue52"))
+    run(dpath("test_github_issue52"), snakefile="other.smk")
 
 
+@skip_on_windows
 def test_github_issue78():
     run(dpath("test_github_issue78"), use_singularity=True)
 
@@ -958,7 +953,8 @@ def test_github_issue78():
 def test_envvars():
     run(dpath("test_envvars"), shouldfail=True)
     os.environ["TEST_ENV_VAR"] = "test"
-    run(dpath("test_envvars"))
+    os.environ["TEST_ENV_VAR2"] = "test"
+    run(dpath("test_envvars"), envvars=["TEST_ENV_VAR2"])
 
 
 def test_github_issue105():
@@ -972,6 +968,7 @@ def test_output_file_cache():
     run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
 
 
+@skip_on_windows
 def test_output_file_cache_remote():
     test_path = dpath("test_output_file_cache_remote")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
@@ -991,10 +988,12 @@ def test_core_dependent_threads():
     run(dpath("test_core_dependent_threads"))
 
 
+@skip_on_windows
 def test_env_modules():
     run(dpath("test_env_modules"), use_env_modules=True)
 
 
+@skip_on_windows
 @connected
 def test_container():
     run(dpath("test_container"), use_singularity=True)
@@ -1006,6 +1005,7 @@ def test_linting():
     )
 
 
+@skip_on_windows
 def test_string_resources():
     from snakemake.resources import DefaultResources
 
@@ -1014,3 +1014,12 @@ def test_string_resources():
         default_resources=DefaultResources(["gpu_model='nvidia-tesla-1000'"]),
         cluster="./qsub.py",
     )
+
+
+@skip_on_windows  # currently fails on windows. Plaese help fix.
+def test_jupyter_notebook():
+    run(dpath("test_jupyter_notebook"), use_conda=True)
+
+
+def test_github_issue456():
+    run(dpath("test_github_issue456"))

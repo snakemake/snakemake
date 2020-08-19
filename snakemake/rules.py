@@ -964,7 +964,9 @@ class Rule:
                         "Resources function did not return int or str.", rule=self
                     )
             if isinstance(res, int):
-                res = min(self.workflow.global_resources.get(name, res), res)
+                global_res = self.workflow.global_resources.get(name, res)
+                if global_res is not None:
+                    res = min(global_res, res)
             return res
 
         threads = apply("_cores", self.resources["_cores"])
