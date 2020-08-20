@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2015-2020, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import logging
 import os
 import sys
 import time
@@ -21,6 +22,8 @@ from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.common import get_container_image, get_file_hash
 
+# https://github.com/googleapis/google-api-python-client/issues/299#issuecomment-343255309
+logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
 
 GoogleLifeSciencesJob = namedtuple(
     "GoogleLifeSciencesJob", "job jobname jobid callback error_callback"
@@ -144,9 +147,15 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             raise ex
 
         # Discovery clients for Google Cloud Storage and Life Sciences API
-        self._storage_cli = discovery_build("storage", "v1", credentials=creds)
-        self._compute_cli = discovery_build("compute", "v1", credentials=creds)
-        self._api = discovery_build("lifesciences", "v2beta", credentials=creds)
+        self._storage_cli = discovery_build(
+            "storage", "v1", credentials=creds, cache_discovery=False
+        )
+        self._compute_cli = discovery_build(
+            "compute", "v1", credentials=creds, cache_discovery=False
+        )
+        self._api = discovery_build(
+            "lifesciences", "v2beta", credentials=creds, cache_discovery=False
+        )
         self._bucket_service = storage.Client()
 
     def _get_bucket(self):
@@ -643,7 +652,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         commands = [
             "/bin/bash",
             "-c",
-            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://gist.githubusercontent.com/vsoch/84886ef6469bedeeb9a79a4eb7aec0d1/raw/181499f8f17163dcb2f89822079938cbfbd258cc/download.py && chmod +x /download.py && source activate snakemake || true && pip install crc32c && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
+            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://gist.githubusercontent.com/vsoch/84886ef6469bedeeb9a79a4eb7aec0d1/raw/181499f8f17163dcb2f89822079938cbfbd258cc/download.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
             % (self.bucket.name, self.pipeline_package, exec_job),
         ]
 

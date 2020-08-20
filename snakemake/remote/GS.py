@@ -21,7 +21,7 @@ try:
     from google_crc32c import Checksum
 except ImportError as e:
     raise WorkflowError(
-        "The Python 3 packages 'google-cloud-sdk' and `crc32c` "
+        "The Python 3 packages 'google-cloud-sdk' and `google-crc32c` "
         "need to be installed to use GS remote() file functionality. %s" % e.msg
     )
 
@@ -143,7 +143,7 @@ class RemoteObject(AbstractRemoteObject):
             # By way of being listed, it exists. mtime is a datetime object
             name = "{}/{}".format(blob.bucket.name, blob.name)
             cache.exists_remote[name] = True
-            cache.mtime[name] = blob.updated
+            cache.mtime[name] = blob.updated.timestamp()
             cache.size[name] = blob.size
 
         # Mark bucket and prefix as having an inventory, such that this method is
