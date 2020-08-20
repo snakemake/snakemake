@@ -48,7 +48,7 @@ def test_google_lifesciences():
             google_lifesciences=True,
             google_lifesciences_cache=True,
             preemption_default=None,
-            preemptible_rules=["pack=1"]
+            preemptible_rules=["pack=1"],
         )
     finally:
         cleanup_google_storage(storage_prefix)
