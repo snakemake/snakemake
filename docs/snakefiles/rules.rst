@@ -347,21 +347,34 @@ When passing memory requirements to the cluster engine, you can by this automati
 Preemptible Virtual Machine
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The parameter ``preemptible`` can currently be specified to request a `Google Cloud preemptible virtual machine <https://cloud.google.com/life-sciences/docs/reference/gcloud-examples#using_preemptible_vms>`_ for use with the `Google Life Sciences Executor <https://snakemake.readthedocs.io/en/stable/executing/cloud.html#executing-a-snakemake-workflow-via-google-cloud-life-sciences>`_.
+
+You can specify parameters ``preemptible-rules`` and ``preemption-default`` to request a `Google Cloud preemptible virtual machine <https://cloud.google.com/life-sciences/docs/reference/gcloud-examples#using_preemptible_vms>`_ for use with the `Google Life Sciences Executor <https://snakemake.readthedocs.io/en/stable/executing/cloud.html#executing-a-snakemake-workflow-via-google-cloud-life-sciences>`_. There are
+several ways to go about doing this. This first example will use preemptible instances for all rules, with 10 repeats (restarts
+of the instance if it stops unexpectedly).
+
+.. code-block:: console
+
+    snakemake --preemption-default 10
 
 
-.. code-block:: python
+If your preference is to set a default but then overwrite some rules with a custom value, this is where you can use ``--preemtible-rules``:
 
-    rule:
-        input:    ...
-        output:   ...
-        resources:
-            preemptible=True
-        shell:
-            "..."
+.. code-block:: console
+
+    snakemake --preemption-default 10 --preemptible-rules map_reads=3 call_variants=0
 
 
-If not set, ``preemptible`` defaults to False.
+The above statement says that we want to use preemtible instances for all steps, defaulting to 10 retries,
+but for the steps "map_reads" and "call_variants" we want to apply 3 and 0 retries, respectively. The final
+option is to not use preemptible instances by default, but only for a particular rule:
+
+
+.. code-block:: console
+
+    snakemake --preemptible-rules map_reads=10
+
+
+Note that this is currently implemented for the Google Life Sciences API.
 
 
 GPU Resources

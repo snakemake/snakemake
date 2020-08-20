@@ -70,6 +70,8 @@ class JobScheduler:
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
         precommand="",
+        preemption_default=None,
+        preemptible_rules=None,
         tibanna_config=False,
         jobname=None,
         quiet=False,
@@ -289,6 +291,8 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
+                preemption_default=preemption_default,
+                preemptible_rules=preemptible_rules,
             )
 
         else:
