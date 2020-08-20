@@ -444,7 +444,8 @@ def snakemake(
     if cluster_mode > 1:
         logger.error("Error: cluster and drmaa args are mutually exclusive")
         return False
-    if debug and (cluster_mode or cores > 1):
+
+    if debug and (cluster_mode or cores is not None and cores > 1):
         logger.error(
             "Error: debug mode cannot be used with more than one core or cluster execution."
         )
@@ -1533,6 +1534,7 @@ def get_argument_parser(profile=None):
         "fractions allowed.",
     )
     group_behavior.add_argument(
+        "-T",
         "--restart-times",
         default=0,
         type=int,
@@ -1555,7 +1557,17 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "--default-remote-provider",
-        choices=["S3", "GS", "FTP", "SFTP", "S3Mocked", "gfal", "gridftp", "iRODS"],
+        choices=[
+            "S3",
+            "GS",
+            "FTP",
+            "SFTP",
+            "S3Mocked",
+            "gfal",
+            "gridftp",
+            "iRODS",
+            "AzBlob",
+        ],
         help="Specify default remote provider to be used for "
         "all input and output files that don't yet specify "
         "one.",

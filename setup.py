@@ -72,8 +72,8 @@ setup(
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
         "messaging": ["slacker"],
         "google-cloud": [
-            "crc32c",
             "oauth2client",
+            "google-crc32c",
             "google-api-python-client",
             "google-cloud-storage",
         ],
