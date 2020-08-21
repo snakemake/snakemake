@@ -6,10 +6,7 @@ __license__ = "MIT"
 import os, signal, sys
 import threading
 import operator
-import pulp
-import math
 import time
-from pulp import lpSum
 from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate, product
@@ -536,6 +533,10 @@ class JobScheduler:
         """
         Job scheduling by optimization of resource usage by solving ILP using pulp 
         """
+        import math
+        import pulp
+        from pulp import lpSum
+
         # assert self.resources["_cores"] > 0
         scheduled_jobs = {
             job: pulp.LpVariable(
