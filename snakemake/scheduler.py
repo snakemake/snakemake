@@ -84,7 +84,7 @@ class JobScheduler:
         force_use_threads=False,
         assume_shared_fs=True,
         keepincomplete=False,
-        scheduler_type=None
+        scheduler_type=None,
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
@@ -394,7 +394,11 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
-                    run = self.job_selector_greedy(needrun) if self.scheduler_type == "greedy" else self.job_selector_ilp(needrun)
+                    run = (
+                        self.job_selector_greedy(needrun)
+                        if self.scheduler_type == "greedy"
+                        else self.job_selector_ilp(needrun)
+                    )
                     logger.debug(
                         "Selected jobs ({}):\n\t".format(len(run))
                         + "\n\t".join(map(str, run))
