@@ -137,6 +137,7 @@ def snakemake(
     list_conda_envs=False,
     singularity_prefix=None,
     shadow_prefix=None,
+    scheduler="ilp",
     conda_create_envs_only=False,
     mode=Mode.default,
     wrapper_prefix=None,
@@ -276,6 +277,7 @@ def snakemake(
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
+        scheduler (str):            Select scheduling algorithm (default ilp)
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -517,6 +519,7 @@ def snakemake(
             singularity_prefix=singularity_prefix,
             shadow_prefix=shadow_prefix,
             singularity_args=singularity_args,
+            scheduler_type=scheduler,
             mode=mode,
             wrapper_prefix=wrapper_prefix,
             printshellcmds=printshellcmds,
@@ -605,6 +608,7 @@ def snakemake(
                     singularity_prefix=singularity_prefix,
                     shadow_prefix=shadow_prefix,
                     singularity_args=singularity_args,
+                    scheduler_type=scheduler,
                     list_conda_envs=list_conda_envs,
                     kubernetes=kubernetes,
                     container_image=container_image,
@@ -628,6 +632,7 @@ def snakemake(
                     targets=targets,
                     dryrun=dryrun,
                     touch=touch,
+                    scheduler_type=scheduler,
                     local_cores=local_cores,
                     forcetargets=forcetargets,
                     forceall=forceall,
@@ -1146,6 +1151,16 @@ def get_argument_parser(profile=None):
             "Specify a directory in which the 'shadow' directory is created. "
             "If not supplied, the value is set to the '.snakemake' directory relative "
             "to the working directory."
+        ),
+    ),
+    group_exec.add_argument(
+        "--scheduler",
+        const="ilp",
+        nargs="?",
+        choices=["ilp", "greedy"],
+        help=(
+            "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
+            "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
         ),
     )
 
@@ -2371,6 +2386,7 @@ def main(argv=None):
             singularity_prefix=args.singularity_prefix,
             shadow_prefix=args.shadow_prefix,
             singularity_args=args.singularity_args,
+            scheduler=args.scheduler,
             conda_create_envs_only=args.conda_create_envs_only,
             mode=args.mode,
             wrapper_prefix=args.wrapper_prefix,

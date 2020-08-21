@@ -91,6 +91,7 @@ class Workflow:
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
+        scheduler_type=None,
         mode=Mode.default,
         wrapper_prefix=None,
         printshellcmds=False,
@@ -155,6 +156,7 @@ class Workflow:
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
+        self.scheduler_type = scheduler_type
         self.global_container_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
@@ -454,6 +456,7 @@ class Workflow:
         targets=None,
         dryrun=False,
         touch=False,
+        scheduler_type=None,
         local_cores=1,
         forcetargets=False,
         forceall=False,
@@ -891,6 +894,7 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
+            scheduler_type=scheduler_type,
         )
 
         if not dryrun:

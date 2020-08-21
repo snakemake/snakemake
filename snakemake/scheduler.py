@@ -84,6 +84,7 @@ class JobScheduler:
         force_use_threads=False,
         assume_shared_fs=True,
         keepincomplete=False,
+        scheduler_type=None
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
@@ -103,6 +104,7 @@ class JobScheduler:
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
+        self.scheduler_type = scheduler_type
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
@@ -392,7 +394,7 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
-                    run = self.job_selector_ilp(needrun)
+                    run = self.job_selector_greedy(needrun) if self.scheduler_type == "greedy" else self.job_selector_ilp(needrun)
                     logger.debug(
                         "Selected jobs ({}):\n\t".format(len(run))
                         + "\n\t".join(map(str, run))
@@ -611,7 +613,7 @@ class JobScheduler:
     def required_by_job(self, temp_file, job):
         return 1 if temp_file in self.dag.temp_input(job) else 0
 
-    def job_selector(self, jobs):
+    def job_selector_greedy(self, jobs):
         """
         Using the greedy heuristic from
         "A Greedy Algorithm for the General Multidimensional Knapsack
