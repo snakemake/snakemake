@@ -137,7 +137,7 @@ def snakemake(
     list_conda_envs=False,
     singularity_prefix=None,
     shadow_prefix=None,
-    scheduler="ilp",
+    scheduler=None,
     conda_create_envs_only=False,
     mode=Mode.default,
     wrapper_prefix=None,
@@ -1155,7 +1155,7 @@ def get_argument_parser(profile=None):
     ),
     group_exec.add_argument(
         "--scheduler",
-        const="ilp",
+        default="ilp",
         nargs="?",
         choices=["ilp", "greedy"],
         help=(

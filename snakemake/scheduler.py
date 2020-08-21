@@ -536,7 +536,6 @@ class JobScheduler:
         import pulp
         import math
         from pulp import lpSum
-
         # assert self.resources["_cores"] > 0
         scheduled_jobs = {
             job: pulp.LpVariable(
