@@ -7,6 +7,8 @@ import os, signal, sys
 import threading
 import operator
 import time
+import math
+
 from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate, product
@@ -533,7 +535,6 @@ class JobScheduler:
         """
         Job scheduling by optimization of resource usage by solving ILP using pulp 
         """
-        import math
         import pulp
         from pulp import lpSum
 
