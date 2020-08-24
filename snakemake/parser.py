@@ -791,6 +791,7 @@ class Python(TokenAutomaton):
         workdir=Workdir,
         configfile=Configfile,
         pepfile=Pepfile,
+        pepschema=Pepschema,
         report=Report,
         ruleorder=Ruleorder,
         rule=Rule,

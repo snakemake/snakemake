@@ -1098,7 +1098,7 @@ class Workflow:
             raise WorkflowError("For PEP support, please install peppy.")
 
         self.pepfile = path
-        pep = peppy.Project(pepfile)
+        pep = peppy.Project(self.pepfile)
 
     def pepschema(self, schema):
         global pep
