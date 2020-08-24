@@ -14,7 +14,7 @@ class DockerContainer:
     """
 
     def __init__(self, name):
-        self.name = name.replace("docker://", "", 1)
+        self.name = name
         self.uri = None
         if self.exists():
             self.uri = "docker://%s" % self.name
@@ -58,6 +58,8 @@ class DockerContainer:
         if not self.name:
             return
 
+        # If the user provides a docker uri, ensure we remove it first
+        self.name = self.name.replace("docker://", "", 1)
         if "quay.io" in self.registry:
             return self.exists_quay()
         return self.exists_docker()
