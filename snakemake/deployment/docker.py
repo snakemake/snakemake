@@ -14,7 +14,7 @@ class DockerContainer:
     """
 
     def __init__(self, name):
-        self.name = name
+        self.name = name.replace("docker://", "", 1)
         self.uri = None
         if self.exists():
             self.uri = "docker://%s" % self.name
@@ -63,18 +63,19 @@ class DockerContainer:
         return self.exists_docker()
 
     def exists_quay(self):
-        """Quay requires a full image sha for the manifest (and tags don't work)
-           so we have to get all image ids for a repository, and then cycle
-           through them. This is inefficient and would do well to have some
-           kind of cache. It might be easier to assume an image exists,
-           and then do try / catch when we try to pull it.
+        """Quay will return a 200 response if a repository, tag combination exists,
+           and return a json object with "images" -> images. We only care if the container
+           exists, which we can determine based on the response.status_code.
         """
-        # Quay.io request for images
-        # url = "%s/repository/%s/image/" %(self.registry, self.repository)
-        # images = requests.get(url).json()
-        # for image in images:
-        #    url = "%s/repository/%s/image/%s" %(self.registry, self.repository, image['id'])
-        raise NotImplementedError
+        # get /api/v1/repository/{repository}/tag/{tag}/images
+        url = "%s/repository/%s/tag/%s/images" % (
+            self.registry,
+            self.repository,
+            self.version,
+        )
+
+        response = requests.get(url)
+        return response.status_code == 200
 
     def exists_docker(self):
         """Determine if an image exists for docker hub. We are able to query for
