@@ -41,8 +41,8 @@ extensions = [
     'sphinxarg.ext'
 ]
 
-# TODO enable once new theme is final
-html_style = "theme.css"
+# Snakemake theme (made by SciAni).
+html_css_files = ["theme.css"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -153,7 +153,7 @@ html_static_path = ['_static']
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
 # directly to the root of the documentation.
-#html_extra_path = []
+#html_extra_path = ["_static/css"]
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
@@ -168,7 +168,7 @@ html_static_path = ['_static']
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
-#html_additional_pages = {}
+#html_additional_pages = {"index": "index.html"}
 
 # If false, no module index is generated.
 #html_domain_indices = True

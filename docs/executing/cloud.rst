@@ -207,7 +207,7 @@ a full machine type:
 
 .. code-block:: console
 
-    --default-resources machine_type="n1-standard"
+    --default-resources "machine_type=n1-standard"
 
 
 If you want to specify the machine type as a resource, you can do that too:

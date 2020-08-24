@@ -42,6 +42,7 @@ dependencies:
   - pygraphviz
   - python-kubernetes
   - gitpython
+  - pulp
   - tibanna
   - environment-modules
   - nbformat

@@ -67,15 +67,16 @@ setup(
         "psutil",
         "nbformat",
         "toposort",
+        "pulp",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
         "messaging": ["slacker"],
         "google-cloud": [
-            "crc32c",
             "oauth2client",
-            "google-api-python-client==1.9.1",
-            "google-cloud-storage==1.28.1",
+            "google-crc32c",
+            "google-api-python-client",
+            "google-cloud-storage",
         ],
         "pep": [
             "peppy",

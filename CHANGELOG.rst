@@ -1,3 +1,29 @@
+[5.22.1] - 2020-08-14
+=====================
+Changed
+-------
+- Fixed a missing dependency for google storage in cloud execution.
+
+[5.22.0] - 2020-08-13
+=====================
+Added
+-----
+- Added short option ``-T`` for CLI parameter ``--restart-times`` (@mbhall88).
+
+Changed
+-------
+- Various small fixes for google storage and life sciences backends (@vsoch).
+
+
+[5.21.0] - 2020-08-11
+=====================
+
+Changed
+-------
+- Added default-remote-provider support for Azure storage (@andreas-wilm).
+- Various small bug fixes and documentation improvements.
+
+
 [5.20.1] - 2020-07-08
 =====================
 Changed
