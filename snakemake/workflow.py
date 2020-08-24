@@ -1089,6 +1089,32 @@ class Workflow:
         update_config(config, c)
         update_config(config, self.overwrite_config)
 
+    def pepfile(self, path):
+        global pep
+
+        try:
+            import peppy
+        except ImportError:
+            raise WorkflowError("For PEP support, please install peppy.")
+
+        self.pepfile = path
+        pep = peppy.Project(self.pepfile)
+
+    def pepschema(self, schema):
+        global pep
+
+        try:
+            import eido
+        except ImportError:
+            raise WorkflowError("For PEP schema support, please install eido.")
+
+        if urlparse(schema).scheme == "" and not os.path.isabs(schema):
+            # schema is relative to current Snakefile
+            schema = os.path.join(self.current_basedir, schema)
+        if self.pepfile is None:
+            raise WorkflowError("Please specify a PEP with the pepfile directive.")
+        eido.validate_project(project=pep, schema=schema, exclude_case=True)
+
     def report(self, path):
         """ Define a global report description in .rst format."""
         self.report_text = os.path.join(self.current_basedir, path)

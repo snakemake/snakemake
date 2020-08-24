@@ -49,3 +49,5 @@ dependencies:
   - toposort
   - mamba
   - crc32c
+  - peppy
+  - eido
