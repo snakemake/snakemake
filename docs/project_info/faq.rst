@@ -515,7 +515,23 @@ If you are just interested in the final summary, you can use the ``--quiet`` fla
 Git is messing up the modification times of my input files, what can I do?
 --------------------------------------------------------------------------
 
-When you checkout a git repository, the modification times of updated files are set to the time of the checkout. If you rely on these files as input **and** output files in your workflow, this can cause trouble. For example, Snakemake could think that a certain (git-tracked) output has to be re-executed, just because its input has been checked out a bit later. In such cases, it is advisable to set the file modification dates to the last commit date after an update has been pulled. See `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_ for a solution to achieve this.
+When you checkout a git repository, the modification times of updated files are set to the time of the checkout. If you rely on these files as input **and** output files in your workflow, this can cause trouble. For example, Snakemake could think that a certain (git-tracked) output has to be re-executed, just because its input has been checked out a bit later. In such cases, it is advisable to set the file modification dates to the last commit date after an update has been pulled. One solution is to add the following lines to your ``.bashrc`` (or similar):
+
+.. code-block:: bash
+
+    gitmtim(){
+        local f
+        for f; do
+            touch -d @0`git log --pretty=%at -n1 -- "$f"` "$f"
+        done
+    }
+    gitmodtimes(){
+        for f in $(git ls-tree -r $(git rev-parse --abbrev-ref HEAD) --name-only); do
+            gitmtim $f
+        done
+    }
+
+(inspired by the answer `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_). You can then run ``gitmodtimes`` to update the modification times of all tracked files on the current branch to their last commit time in git; BE CAREFUL--this does not account for local changes that have not been commited.
 
 How do I exit a running Snakemake workflow?
 -------------------------------------------

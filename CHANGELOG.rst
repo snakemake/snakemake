@@ -1,3 +1,16 @@
+[5.23.0] - 2020-08-24
+=====================
+Added
+-----
+- Support for workflow configuration via portable encapsulated projects (PEPs, https://pep.databio.org).
+- A new ILP based default scheduler now ensures that temporary files are deleted as fast as possible (@FelixMoelder, @johanneskoester).
+
+Changed
+-------
+- Fixed bug in modification date comparison for files in google storage (@vsoch).
+- Various small documentation improvements (@dcroote, @erjel, @dlaehnemann, @goi42).
+
+
 [5.22.1] - 2020-08-14
 =====================
 Changed

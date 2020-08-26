@@ -292,9 +292,7 @@ class AzureStorageHelper(object):
             # just create an empty file with the right timestamps
             ts = b.get_blob_properties().last_modified.timestamp()
             with open(destination_path, "wb") as fp:
-                os.utime(
-                    fp.name, (ts, ts),
-                )
+                os.utime(fp.name, (ts, ts))
         return destination_path
 
     def delete_from_container(self, container_name, blob_name):
