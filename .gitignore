@@ -11,7 +11,7 @@ dist/
 .snakemake*
 .venv
 .venv/*
-venv*
+
 
 .idea
 
@@ -25,5 +25,3 @@ venv*
 tests/test*/*
 playground/*
 tutorial/*
-
-.vscode/
