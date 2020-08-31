@@ -54,6 +54,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         restart_times=None,
         exec_job=None,
         max_status_checks_per_second=1,
+        preemption_default=None,
+        preemptible_rules=None,
     ):
 
         # Attach variables for easy access
@@ -76,6 +78,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "{overwrite_config} {rules} --nocolor "
             "--notemp --no-hooks --nolock " % self.snakefile
         )
+
+        # Set preemptible instances
+        self._set_preemptible_rules(preemption_default, preemptible_rules)
 
         # IMPORTANT: using Compute Engine API and not k8s == no support secrets
         self.envvars = list(self.workflow.envvars) or []
@@ -357,6 +362,31 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         if not self._machine_type_prefix.startswith("n1"):
             self._machine_type_prefix = "n1"
 
+    def _set_preemptible_rules(self, preemption_default=None, preemptible_rules=None):
+        """define a lookup dictionary for preemptible instance retries, which
+           is supported by the Google Life Science API. The user can set a default
+           for all steps, specify per step, or define a default for all steps
+           that aren't individually customized.
+        """
+        self.preemptible_rules = {}
+
+        # If a default is defined, we apply it to all the rules
+        if preemption_default is not None:
+            self.preemptible_rules = {
+                rule.name: preemption_default for rule in self.workflow.rules
+            }
+
+        # Now update custom set rules
+        if preemptible_rules is not None:
+            for rule in preemptible_rules:
+                rule_name, restart_times = rule.strip().split("=")
+                self.preemptible_rules[rule_name] = int(restart_times)
+
+        # Ensure we set the number of restart times for each rule
+        for rule_name, restart_times in self.preemptible_rules.items():
+            rule = self.workflow.get_rule(rule_name)
+            rule.restart_times = restart_times
+
     def _generate_job_resources(self, job):
         """given a particular job, generate the resources that it needs,
            including default regions and the virtual machine configuration
@@ -469,10 +499,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         logger.debug(
             "Selected machine type {}:{}".format(smallest, selected["description"])
         )
+
         virtual_machine = {
             "machineType": smallest,
             "labels": {"app": "snakemake"},
             "bootDiskSizeGb": disk_gb,
+            "preemptible": job.rule.name in self.preemptible_rules,
         }
 
         # If the user wants gpus, add accelerators here
