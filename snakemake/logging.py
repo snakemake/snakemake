@@ -496,7 +496,7 @@ def setup_logger(
     wms_monitor=None,
 ):
     import requests
-    
+
     logger.log_handler.extend(handler)
 
     # console output only if no custom logger was specified
