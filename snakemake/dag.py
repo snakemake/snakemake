@@ -191,24 +191,87 @@ class DAG:
             job.is_valid()
 
     def check_directory_outputs(self):
-        """Check that no output file is contained in a directory output of the same or another rule."""
-        outputs = sorted(
+        """Check that no output file is contained in a directory output of another rule."""
+        # If an output is a link, only the link should be considered as potential child of a directory, not the target.
+        # Tuples (path, role, job)
+        # where role 0 is for parent and role 1 is for child
+        # (we want paths as child to come after paths as parents)
+        parent_outputs = sorted(
             {
-                (path(f), job)
+                (os.path.abspath(os.path.realpath(f)), 0, job)
                 for job in self.jobs
                 for f in job.output
-                for path in (os.path.abspath, os.path.realpath)
             }
         )
-        for i in range(len(outputs) - 1):
-            (a, job_a), (b, job_b) = outputs[i : i + 2]
+        child_outputs = sorted(
+            {(os.path.abspath(f), 1, job) for job in self.jobs for f in job.output}
+        )
+        outputs = sorted(parent_outputs + child_outputs)
+        # outputs = sorted(
+        #     {
+        #         (path(f), job)
+        #         for job in self.jobs
+        #         for f in job.output
+        #         for path in (os.path.abspath, os.path.realpath)
+        #     }
+        # )
+        # parent and child id
+        (p_id, c_id) = (0, 1)
+        while c_id < len(outputs):
+            # Find the next potential parent (role == 0)
+            (a, role_a, job_a) = outputs[p_id]
+            while role_a != 0 and p_id + 1 < len(outputs):
+                p_id += 1
+                (a, role_a, job_a) = outputs[p_id]
+            # If we found no potential parent,
+            # or if there's no more room in the list for a child, we break.
+            if role_a == 1 or p_id + 1 >= len(outputs):
+                break
+            # Find the first potential child (role == 1) of that parent
+            # c_id = max(c_id, p_id + 1)
+            c_id = p_id + 1
+            (b, role_b, job_b) = outputs[c_id]
+            while a == b and job_a == job_b and c_id + 1 < len(outputs):
+                # We are likely just looking at the same output
+                # from two perspectives: parent and child. Move on.
+                c_id += 1
+                (b, role_b, job_b) = outputs[c_id]
+            # Now ensure we found a child
+            while role_b != 1 and c_id + 1 < len(outputs):
+                c_id += 1
+                (b, role_b, job_b) = outputs[c_id]
+            # No potential child was found
+            if role_b != 1:
+                assert (
+                    c_id == len(outputs) - 1
+                ), "We should have reached the last path by now."
+                break
+            # Now, we have a parent and the closest potential child
             try:
                 common = os.path.commonpath([a, b])
             except ValueError:
                 # commonpath raises error if windows drives are different.
+                p_id += 1
+                # c_id = max(c_id, p_id + 1)
+                # May be slower but safer?
+                c_id = p_id + 1
                 continue
             if common == os.path.commonpath([a]) and job_a != job_b:
-                raise ChildIOException(parent=outputs[i], child=outputs[i + 1])
+                raise ChildIOException(parent=outputs[p_id], child=outputs[c_id])
+            p_id += 1
+            # c_id = max(c_id, p_id + 1)
+            # May be slower but safer?
+            c_id = p_id + 1
+
+        # for i in range(len(outputs) - 1):
+        #     (a, job_a), (b, job_b) = outputs[i : i + 2]
+        #     try:
+        #         common = os.path.commonpath([a, b])
+        #     except ValueError:
+        #         # commonpath raises error if windows drives are different.
+        #         continue
+        #     if common == os.path.commonpath([a]) and job_a != job_b:
+        #         raise ChildIOException(parent=outputs[i], child=outputs[i + 1])
 
     @property
     def checkpoint_jobs(self):
