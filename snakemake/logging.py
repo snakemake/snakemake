@@ -14,7 +14,6 @@ import threading
 import tempfile
 from functools import partial
 import inspect
-import requests
 import traceback
 import textwrap
 
@@ -256,6 +255,7 @@ class Logger:
         Args:
             msg (dict):     the log message dictionary
         """
+        import requests
 
         server_info = {
             "msg": repr(msg),
@@ -495,6 +495,8 @@ def setup_logger(
     show_failed_logs=False,
     wms_monitor=None,
 ):
+    import requests
+    
     logger.log_handler.extend(handler)
 
     # console output only if no custom logger was specified
