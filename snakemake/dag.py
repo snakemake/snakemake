@@ -207,7 +207,7 @@ class DAG:
             except ValueError:
                 # commonpath raises error if windows drives are different.
                 continue
-            if common == os.path.commonpath([a]) and job_a != job_b:
+            if a != b and common == os.path.commonpath([a]) and job_a != job_b:
                 raise ChildIOException(parent=outputs[i], child=outputs[i + 1])
 
     @property
