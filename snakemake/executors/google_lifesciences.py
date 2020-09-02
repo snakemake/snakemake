@@ -178,6 +178,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self.gs_subdir = re.sub(
             "^{}/".format(bucket_name), "", self.workflow.default_remote_prefix
         )
+        self.gs_logs = os.path.join(self.gs_subdir, "google-lifesciences-logs")
 
         # Case 1: The bucket already exists
         try:
@@ -199,6 +200,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         logger.debug("bucket=%s" % self.bucket.name)
         logger.debug("subdir=%s" % self.gs_subdir)
+        logger.debug("logs=%s" % self.gs_logs)
 
     def _set_location(self, location=None):
         """The location is where the Google Life Sciences API is located.
@@ -663,6 +665,30 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         if not blob.exists():
             blob.upload_from_filename(targz, content_type="application/gzip")
 
+    def _generate_log_action(self, job):
+        """generate an action to save the pipeline logs to storage.
+        """
+        # script should be changed to this when added to version control!
+        # https://raw.githubusercontent.com/snakemake/snakemake/master/snakemake/executors/google_lifesciences_helper.py
+
+        # Save logs from /google/logs/output to source/logs in bucket
+        commands = [
+            "/bin/bash",
+            "-c",
+            "wget -O /gls.py https://gist.githubusercontent.com/vsoch/f5a6a6d1894be1e67aa4156c5b40c8e9/raw/a4e9ddbeba20996ca62745fcd4d9ecd7bfa3b311/gls.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s"
+            % (self.bucket.name, self.gs_logs, job.name),
+        ]
+
+        # Always run the action to generate log output
+        action = {
+            "containerName": "snakelog-{}-{}".format(job.name, job.jobid),
+            "imageUri": self.container_image,
+            "commands": commands,
+            "labels": self._generate_pipeline_labels(job),
+            "alwaysRun": True,
+        }
+        return action
+
     def _generate_job_action(self, job):
         """generate a single action to execute the job.
         """
@@ -676,13 +702,15 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Now that we've parsed the job resource requirements, add to exec
         exec_job += self.get_default_resources_args()
 
+        # script should be changed to this when added to version control!
+        # https://raw.githubusercontent.com/snakemake/snakemake/master/snakemake/executors/google_lifesciences_helper.py
         # The full command to download the archive, extract, and run
         # For snakemake bases, we must activate the conda environment, but
         # for custom images we must allow this to fail (hence || true)
         commands = [
             "/bin/bash",
             "-c",
-            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://gist.githubusercontent.com/vsoch/84886ef6469bedeeb9a79a4eb7aec0d1/raw/181499f8f17163dcb2f89822079938cbfbd258cc/download.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
+            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://gist.githubusercontent.com/vsoch/f5a6a6d1894be1e67aa4156c5b40c8e9/raw/a4e9ddbeba20996ca62745fcd4d9ecd7bfa3b311/gls.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
             % (self.bucket.name, self.pipeline_package, exec_job),
         ]
 
@@ -730,13 +758,14 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
            to pass to pipelines.run. This includes actions, resources,
            environment, and timeout.
         """
-        # Generate actions (one per job) and resources
+        # Generate actions (one per job step) and log saving action (runs no matter what) and resources
         resources = self._generate_job_resources(job)
         action = self._generate_job_action(job)
+        log_action = self._generate_log_action(job)
 
         pipeline = {
             # Ordered list of actions to execute
-            "actions": [action],
+            "actions": [action, log_action],
             # resources required for execution
             "resources": resources,
             # Technical question - difference between resource and action environment
@@ -785,8 +814,13 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "Get status with:\n"
             "gcloud config set project {project}\n"
             "gcloud beta lifesciences operations describe {location}/operations/{jobid}\n"
-            "gcloud beta lifesciences operations list".format(
-                project=self.project, jobid=jobid, location=self.location
+            "gcloud beta lifesciences operations list\n"
+            "Logs will be saved to: {bucket}/{logdir}\n".format(
+                project=self.project,
+                jobid=jobid,
+                location=self.location,
+                bucket=self.bucket.name,
+                logdir=self.gs_logs,
             )
         )
 
