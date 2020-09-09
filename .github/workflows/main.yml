@@ -46,8 +46,7 @@ jobs:
 
       - name: Setup apt dependencies
         run: |
-          sudo apt install -y golang \
-            stress \
+          sudo apt install -y stress \
             build-essential \
             libssl-dev \
             uuid-dev \
@@ -58,6 +57,11 @@ jobs:
             pkg-config \
             git \
             cryptsetup
+
+      - name: Setup Golang
+        uses: actions/setup-go@v2
+        with:
+          go-version: '^1.13.1'
 
       - name: Setup singularity
         run: |
