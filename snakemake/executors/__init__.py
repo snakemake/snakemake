@@ -1363,7 +1363,7 @@ class KubernetesExecutor(ClusterExecutor):
             "cp -rf /source/. . && "
             "snakemake {target} --snakefile {snakefile} "
             "--force -j{cores} --keep-target-files  --keep-remote "
-            "--latency-wait 0 "
+            "--latency-wait {latency_wait} "
             " --attempt {attempt} {use_threads} "
             "--wrapper-prefix {workflow.wrapper_prefix} "
             "{overwrite_config} {printshellcmds} {rules} --nocolor "

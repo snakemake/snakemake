@@ -19,6 +19,7 @@ from urllib.parse import urljoin
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
+from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
 import snakemake
 
@@ -404,6 +405,11 @@ def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
     try:
         return fmt.format(_pattern, *args, **variables)
     except KeyError as ex:
+        if str(ex).strip("'") in variables["wildcards"].keys():
+            raise NameError(
+                "The name '{0}' is unknown in this context. "
+                "Did you mean 'wildcards.{0}'?".format(str(ex).strip("'"))
+            )
         raise NameError(
             "The name {} is unknown in this context. Please "
             "make sure that you defined that variable. "
@@ -527,4 +533,30 @@ def argvquote(arg, force=True):
         return cmdline
 
 
-ON_WINDOWS = platform.system() == "Windows"
+def os_sync():
+    """Ensure flush to disk"""
+    if not ON_WINDOWS:
+        os.sync()
+
+
+def _find_bash_on_windows():
+    """
+    Find the path to a usable bash on windows.
+    First attempt is to look for bash installed  with a git conda package. 
+    alternatively try bash installed with 'Git for Windows'.
+    """
+    if not ON_WINDOWS:
+        return None
+    # First look for bash in git's conda package
+    bashcmd = os.path.join(os.path.dirname(sys.executable), r"Library\bin\bash.exe")
+    if not os.path.exists(bashcmd):
+        # Otherwise try bash installed with "Git for Windows".
+        import winreg
+
+        try:
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\GitForWindows")
+            gfwp, _ = winreg.QueryValueEx(key, "InstallPath")
+            bashcmd = os.path.join(gfwp, "bin\\bash.exe")
+        except FileNotFoundError:
+            bashcmd = ""
+    return bashcmd if os.path.exists(bashcmd) else None

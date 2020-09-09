@@ -17,6 +17,7 @@ import copy
 import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import pathname2url, url2pathname
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -60,7 +61,7 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
-from snakemake.common import Mode, bytesto
+from snakemake.common import Mode, bytesto, ON_WINDOWS
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
@@ -90,6 +91,7 @@ class Workflow:
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
+        scheduler_type=None,
         mode=Mode.default,
         wrapper_prefix=None,
         printshellcmds=False,
@@ -155,6 +157,7 @@ class Workflow:
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
+        self.scheduler_type = scheduler_type
         self.global_container_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
@@ -241,9 +244,15 @@ class Workflow:
         files = set()
 
         def local_path(f):
+            if ON_WINDOWS:
+                try:
+                    f = pathname2url(f)
+                except OSError:
+                    pass  # f isn't changed if it wasn't a path
+
             url = urlparse(f)
             if url.scheme == "file" or url.scheme == "":
-                return url.path
+                return url2pathname(url.path)
             return None
 
         def norm_rule_relpath(f, rule):
@@ -255,7 +264,14 @@ class Workflow:
         for f in self.included:
             f = local_path(f)
             if f:
-                files.add(os.path.relpath(f))
+                try:
+                    f = os.path.relpath(f)
+                except ValueError:
+                    if ON_WINDOWS:
+                        pass  # relpath doesn't work on win if files are on different drive
+                    else:
+                        raise
+                files.add(f)
         for rule in self.rules:
             script_path = rule.script or rule.notebook
             if script_path:
@@ -442,6 +458,7 @@ class Workflow:
         targets=None,
         dryrun=False,
         touch=False,
+        scheduler_type=None,
         local_cores=1,
         forcetargets=False,
         forceall=False,
@@ -472,6 +489,8 @@ class Workflow:
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
         precommand="",
+        preemption_default=None,
+        preemptible_rules=None,
         tibanna_config=False,
         container_image=None,
         stats=None,
@@ -640,13 +659,6 @@ class Workflow:
                 self.persistence.cleanup_metadata(f)
             return True
 
-        logger.info("Building DAG of jobs...")
-        dag.init()
-        dag.update_checkpoint_dependencies()
-        # check incomplete has to run BEFORE any call to postprocess
-        dag.check_incomplete()
-        dag.check_dynamic()
-
         if unlock:
             try:
                 self.persistence.cleanup_locks()
@@ -658,6 +670,14 @@ class Workflow:
                     "you don't have the permissions?"
                 )
                 return False
+
+        logger.info("Building DAG of jobs...")
+        dag.init()
+        dag.update_checkpoint_dependencies()
+        # check incomplete has to run BEFORE any call to postprocess
+        dag.check_incomplete()
+        dag.check_dynamic()
+
         try:
             self.persistence.lock()
         except IOError:
@@ -719,13 +739,14 @@ class Workflow:
             self.globals.update(globals_backup)
 
         dag.postprocess()
-        # deactivate IOCache such that from now on we always get updated
-        # size, existence and mtime information
-        # ATTENTION: this may never be removed without really good reason.
-        # Otherwise weird things may happen.
-        self.iocache.deactivate()
-        # clear and deactivate persistence cache, from now on we want to see updates
-        self.persistence.deactivate_cache()
+        if not dryrun:
+            # deactivate IOCache such that from now on we always get updated
+            # size, existence and mtime information
+            # ATTENTION: this may never be removed without really good reason.
+            # Otherwise weird things may happen.
+            self.iocache.deactivate()
+            # clear and deactivate persistence cache, from now on we want to see updates
+            self.persistence.deactivate_cache()
 
         if nodeps:
             missing_input = [
@@ -868,6 +889,8 @@ class Workflow:
             google_lifesciences_regions=google_lifesciences_regions,
             google_lifesciences_location=google_lifesciences_location,
             google_lifesciences_cache=google_lifesciences_cache,
+            preemption_default=preemption_default,
+            preemptible_rules=preemptible_rules,
             precommand=precommand,
             tibanna_config=tibanna_config,
             container_image=container_image,
@@ -879,6 +902,7 @@ class Workflow:
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
             az_batch_config=self.az_batch_config,
+            scheduler_type=scheduler_type,
         )
 
         if not dryrun:
@@ -940,6 +964,9 @@ class Workflow:
 
         success = scheduler.schedule()
 
+        if not immediate_submit and not dryrun:
+            dag.cleanup_workdir()
+
         if success:
             if dryrun:
                 if len(dag):
@@ -992,6 +1019,9 @@ class Workflow:
         """
         Include a snakefile.
         """
+        if isinstance(snakefile, Path):
+            snakefile = str(snakefile)
+
         # check if snakefile is a path to the filesystem
         if not urllib.parse.urlparse(snakefile).scheme:
             if not os.path.isabs(snakefile) and self.included_stack:
@@ -1066,6 +1096,32 @@ class Workflow:
         c = snakemake.io.load_configfile(fp)
         update_config(config, c)
         update_config(config, self.overwrite_config)
+
+    def pepfile(self, path):
+        global pep
+
+        try:
+            import peppy
+        except ImportError:
+            raise WorkflowError("For PEP support, please install peppy.")
+
+        self.pepfile = path
+        pep = peppy.Project(self.pepfile)
+
+    def pepschema(self, schema):
+        global pep
+
+        try:
+            import eido
+        except ImportError:
+            raise WorkflowError("For PEP schema support, please install eido.")
+
+        if urlparse(schema).scheme == "" and not os.path.isabs(schema):
+            # schema is relative to current Snakefile
+            schema = os.path.join(self.current_basedir, schema)
+        if self.pepfile is None:
+            raise WorkflowError("Please specify a PEP with the pepfile directive.")
+        eido.validate_project(project=pep, schema=schema, exclude_case=True)
 
     def report(self, path):
         """ Define a global report description in .rst format."""

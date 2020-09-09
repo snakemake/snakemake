@@ -5,8 +5,13 @@ __license__ = "MIT"
 
 import os, signal, sys
 import threading
+import operator
+import time
+import math
+
 from functools import partial
-from itertools import chain, accumulate
+from collections import defaultdict
+from itertools import chain, accumulate, product
 from contextlib import ContextDecorator
 from fractions import Fraction
 
@@ -67,6 +72,8 @@ class JobScheduler:
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
         precommand="",
+        preemption_default=None,
+        preemptible_rules=None,
         tibanna_config=False,
         jobname=None,
         quiet=False,
@@ -81,7 +88,8 @@ class JobScheduler:
         assume_shared_fs=True,
         keepincomplete=False,
         az_batch_config=None,
-        ):
+        scheduler_type=None,
+    ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
 
@@ -100,6 +108,7 @@ class JobScheduler:
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
+        self.scheduler_type = scheduler_type
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
@@ -314,6 +323,8 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
+                preemption_default=preemption_default,
+                preemptible_rules=preemptible_rules,
             )
 
         else:
@@ -416,7 +427,11 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
-                    run = self.job_selector(needrun)
+                    run = (
+                        self.job_selector_greedy(needrun)
+                        if self.scheduler_type == "greedy"
+                        else self.job_selector_ilp(needrun)
+                    )
                     logger.debug(
                         "Selected jobs ({}):\n\t".format(len(run))
                         + "\n\t".join(map(str, run))
@@ -547,11 +562,101 @@ class JobScheduler:
             self._user_kill = "graceful"
         self._open_jobs.release()
 
-    def job_selector(self, jobs):
+    def job_selector_ilp(self, jobs):
+        """
+        Job scheduling by optimization of resource usage by solving ILP using pulp 
+        """
+        import pulp
+        from pulp import lpSum
+
+        # assert self.resources["_cores"] > 0
+        scheduled_jobs = {
+            job: pulp.LpVariable(
+                "job_{job}_{idx}".format(job=job, idx=idx),
+                lowBound=0,
+                upBound=1,
+                cat=pulp.LpInteger,
+            )
+            for idx, job in enumerate(jobs)
+        }
+
+        temp_files = {
+            temp_file for job in jobs for temp_file in self.dag.temp_input(job)
+        }
+
+        temp_job_improvement = {
+            temp_file: pulp.LpVariable(
+                temp_file, lowBound=0, upBound=1, cat="Continuous"
+            )
+            for temp_file in temp_files
+        }
+        prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
+
+        total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
+        total_core_requirement = sum(
+            [job.resources.get("_cores", 1) + 1 for job in jobs]
+        )
+        # Objective function
+        # Job priority > Core load
+        # Core load > temp file removal
+        # Instant removal > temp size
+        # temp file size > fast removal?!
+        prob += (
+            total_core_requirement
+            * total_temp_size
+            * lpSum([job.priority * scheduled_jobs[job] for job in jobs])
+            + total_temp_size
+            * lpSum(
+                [
+                    (job.resources.get("_cores", 1) + 1) * scheduled_jobs[job]
+                    for job in jobs
+                ]
+            )
+            + lpSum(
+                [
+                    temp_job_improvement[temp_file] * temp_file.size
+                    for temp_file in temp_files
+                ]
+            )
+        )
+
+        # Constraints:
+        for name in self.workflow.global_resources:
+            prob += (
+                lpSum(
+                    [scheduled_jobs[job] * job.resources.get(name, 0) for job in jobs]
+                )
+                <= self.resources[name],
+                "Limitation of resource: {name}".format(name=name),
+            )
+
+        # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
+        for temp_file in temp_files:
+            prob += temp_job_improvement[temp_file] <= lpSum(
+                [
+                    scheduled_jobs[job] * self.required_by_job(temp_file, job)
+                    for job in jobs
+                ]
+            ) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
+
+        prob.solve()
+        selected_jobs = [
+            job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
+        ]
+        for name in self.workflow.global_resources:
+            self.resources[name] -= sum(
+                [job.resources.get(name, 0) for job in selected_jobs]
+            )
+        return selected_jobs
+
+    def required_by_job(self, temp_file, job):
+        return 1 if temp_file in self.dag.temp_input(job) else 0
+
+    def job_selector_greedy(self, jobs):
         """
         Using the greedy heuristic from
         "A Greedy Algorithm for the General Multidimensional Knapsack
-Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
+        Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
         Args:
             jobs (list):    list of jobs

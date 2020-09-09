@@ -1,9 +1,6 @@
 name: Publish to Docker Hub
 
 on:    
-  release:
-    types: 
-      - published
   push:
     branches:
       - master
@@ -14,9 +11,8 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - name: Publish to Registry
-      uses: elgohr/Publish-Docker-Github-Action@2.14
+      uses: elgohr/Publish-Docker-Github-Action@2.16
       with:
         name: snakemake/snakemake
         username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-        tag_semver: true
+        password: ${{ secrets.DOCKER_TOKEN }}

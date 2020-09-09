@@ -112,7 +112,7 @@ The path to the environment definition is interpreted as **relative to the Snake
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
 Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
 
-Conda deployment also works well for offline or air-gapped environments. Running ``snakemake -n --use-conda --create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
+Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --use-conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
 
 .. _singularity:
 
@@ -129,7 +129,7 @@ As an alternative to using Conda (see above), it is possible to define, for each
             "table.txt"
         output:
             "plots/myplot.pdf"
-        containers:
+        container:
             "docker://joseespinosa/docker-r-ggplot2"
         script:
             "scripts/plot-stuff.R"
@@ -222,10 +222,10 @@ Snakemake allows to define environment modules per rule:
         shell:
             "bwa mem {input} | samtools view -Sbh - > {output}"
 
-Here, when Snakemake is executed with `snakemake --use-envmodules`, it will load the defined modules in the given order, instead of using the also defined conda environment.
+Here, when Snakemake is executed with ``snakemake --use-envmodules``, it will load the defined modules in the given order, instead of using the also defined conda environment.
 Note that although not mandatory, one should always provide either a conda environment or a container (see above), along with environment module definitions.
 The reason is that environment modules are often highly platform specific, and cannot be assumed to be available somewhere else, thereby limiting reproducibility.
-By definition an equivalent conda environment or container as a fallback, people outside of the HPC system where the workflow has been designed can still execute it, e.g. by running `snakemake --use-conda` instead of `snakemake --use-envmodules`.
+By definition an equivalent conda environment or container as a fallback, people outside of the HPC system where the workflow has been designed can still execute it, e.g. by running ``snakemake --use-conda`` instead of ``snakemake --use-envmodules``.
 
 --------------------------------------
 Sustainable and reproducible archiving

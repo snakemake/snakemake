@@ -29,7 +29,7 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
 
-from snakemake.common import DYNAMIC_FILL
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS
 
 
 def lutime(f, times):
@@ -77,19 +77,58 @@ else:
         os.chmod(f, mode)
 
 
+class ExistsDict(dict):
+    def __init__(self, cache):
+        super().__init__()
+        self.cache = cache
+
+    def __getitem__(self, path):
+        # Always return False if not dict.
+        # The reason is that this is only called if the method contains below has returned True.
+        # Hence, we already know that either path is in dict, or inventory has never
+        # seen it, and hence it does not exist.
+        return self.get(path, False)
+
+    def __contains__(self, path):
+        # if already in inventory, always return True.
+        return self.cache.in_inventory(path) or super().__contains__(path)
+
+
 class IOCache:
     def __init__(self):
         self.mtime = dict()
-        self.exists_local = dict()
-        self.exists_remote = dict()
+        self.exists_local = ExistsDict(self)
+        self.exists_remote = ExistsDict(self)
         self.size = dict()
+        # Indicator whether an inventory has been created for the root of a given IOFile.
+        # In case of remote objects the root is the bucket or server host.
+        self.has_inventory = set()
         self.active = True
+
+    def get_inventory_root(self, path):
+        """If eligible for inventory, get the root of a given path.
+
+        This code does not work on local Windows paths,
+        but inventory is disabled on Windows.
+        """
+        root = path.split("/", maxsplit=1)[0]
+        if root and root != "..":
+            return root
+
+    def needs_inventory(self, path):
+        root = self.get_inventory_root(path)
+        return root and root not in self.has_inventory
+
+    def in_inventory(self, path):
+        root = self.get_inventory_root(path)
+        return root and root in self.has_inventory
 
     def clear(self):
         self.mtime.clear()
         self.size.clear()
         self.exists_local.clear()
         self.exists_remote.clear()
+        self.has_inventory.clear()
 
     def deactivate(self):
         self.clear()
@@ -111,6 +150,7 @@ class _IOFile(str):
     __slots__ = ["_is_function", "_file", "rule", "_regex"]
 
     def __new__(cls, file):
+        # Remove trailing slashes.
         obj = str.__new__(cls, file)
         obj._is_function = isfunction(file) or ismethod(file)
         obj._is_function = obj._is_function or (
@@ -130,10 +170,11 @@ class _IOFile(str):
         def wrapper(self, *args, **kwargs):
             if self.rule.workflow.iocache.active:
                 cache = getattr(self.rule.workflow.iocache, func.__name__)
-                if self in cache:
-                    return cache[self]
+                normalized = self.rstrip("/")
+                if normalized in cache:
+                    return cache[normalized]
                 v = func(self, *args, **kwargs)
-                cache[self] = v
+                cache[normalized] = v
                 return v
             else:
                 return func(self, *args, **kwargs)
@@ -154,6 +195,41 @@ class _IOFile(str):
             return func(self, *args, **kwargs)
 
         return wrapper
+
+    def inventory(self):
+        """Starting from the given file, try to cache as much existence and 
+        modification date information of this and other files as possible.
+        """
+        cache = self.rule.workflow.iocache
+        if cache.active and cache.needs_inventory(self):
+            if self.is_remote:
+                # info not yet in inventory, let's discover as much as we can
+                self.remote_object.inventory(cache)
+            elif not ON_WINDOWS:
+                # we don't want to mess with different path representations on windows
+                self._local_inventory(cache)
+
+    def _local_inventory(self, cache):
+        # for local files, perform BFS via os.scandir to determine existence of files
+        root = cache.get_inventory_root(self)
+        if root == self:
+            # there is no root directory that could be used
+            return
+        if os.path.exists(root):
+            queue = [root]
+            while queue:
+                path = queue.pop(0)
+                # path must be a dir
+                cache.exists_local[path] = True
+                with os.scandir(path) as scan:
+                    for entry in scan:
+                        if entry.is_dir():
+                            queue.append(entry.path)
+                        else:
+                            # path is a file
+                            cache.exists_local[entry.path] = True
+
+        cache.has_inventory.add(root)
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
@@ -273,20 +349,6 @@ class _IOFile(str):
     @property
     @iocache
     def exists_local(self):
-        if self.rule.workflow.iocache.active:
-            # The idea is to first check existence of parent directories and
-            # cache the results.
-            # We omit the last ancestor, because this is always "." or "/" or a
-            # drive letter.
-            for p in self.parents(omit=1):
-                try:
-                    if not p.exists_local:
-                        return False
-                except:
-                    # In case of an error, we continue, because it can be that
-                    # we simply don't have the permissions to access a parent
-                    # directory.
-                    continue
         return os.path.exists(self.file)
 
     @property
@@ -294,23 +356,6 @@ class _IOFile(str):
     def exists_remote(self):
         if not self.is_remote:
             return False
-        if (
-            self.rule.workflow.iocache.active
-            and self.remote_object.provider.allows_directories
-        ):
-            # The idea is to first check existence of parent directories and
-            # cache the results.
-            # We omit the last 2 ancestors, because these are "." and the host
-            # name of the remote location.
-            for p in self.parents(omit=2):
-                try:
-                    if not p.exists_remote:
-                        return False
-                except:
-                    # In case of an error, we continue, because it can be that
-                    # we simply don't have the permissions to access a parent
-                    # directory in the remote.
-                    continue
         return self.remote_object.exists()
 
     @property
@@ -808,7 +853,9 @@ def pipe(value):
         raise SyntaxError("Pipes may not be protected.")
     if is_flagged(value, "remote"):
         raise SyntaxError("Pipes may not be remote files.")
-    return flag(value, "pipe")
+    if ON_WINDOWS:
+        logger.warning("Pipes is not yet supported on Windows.")
+    return flag(value, "pipe", not ON_WINDOWS)
 
 
 def temporary(value):
@@ -908,7 +955,7 @@ def expand(*args, **wildcards):
         combinator = product
     elif len(args) == 2:
         combinator = args[1]
-    if isinstance(filepatterns, str):
+    if isinstance(filepatterns, str) or isinstance(filepatterns, Path):
         filepatterns = [filepatterns]
 
     def path_to_str(f):
@@ -970,13 +1017,10 @@ def expand(*args, **wildcards):
 
 
 def multiext(prefix, *extensions):
-    """Expand a given prefix with multiple extensions (e.g. .txt, .csv, ...)."""
-    if any(
-        (r"/" in ext or r"\\" in ext or not ext.startswith(".")) for ext in extensions
-    ):
+    """Expand a given prefix with multiple extensions (e.g. .txt, .csv, _peaks.bed, ...)."""
+    if any((r"/" in ext or r"\\" in ext) for ext in extensions):
         raise WorkflowError(
-            r"Extensions for multiext may not contain path delimiters "
-            r"(/,\) and must start with '.' (e.g. .txt)."
+            r"Extensions for multiext may not contain path delimiters " r"(/,\)."
         )
     return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
 
@@ -1221,8 +1265,8 @@ class Namedlist(list):
         these functions should not be used.        
         """
         raise AttributeError(
-            f"{_name}() cannot be used; attribute name reserved"
-            f" for use in some existing workflows"
+            "{_name}() cannot be used; attribute name reserved"
+            " for use in some existing workflows".format(_name=_name)
         )
 
     def _add_name(self, name):
@@ -1244,8 +1288,8 @@ class Namedlist(list):
         """
         if name not in self._allowed_overrides and hasattr(self.__class__, name):
             raise AttributeError(
-                f"invalid name for input, output, wildcard, "
-                f"params or log: {name} is reserved for internal use"
+                "invalid name for input, output, wildcard, "
+                "params or log: {name} is reserved for internal use".format(name=name)
             )
 
         self._names[name] = (index, end)

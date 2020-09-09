@@ -14,6 +14,7 @@ import threading
 import tempfile
 from functools import partial
 import inspect
+import textwrap
 
 from snakemake.common import DYNAMIC_FILL
 from snakemake.common import Mode
@@ -403,14 +404,25 @@ class Logger:
                 print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
             elif level == "dag_debug":
                 if self.debug_dag:
-                    job = msg["job"]
-                    self.logger.warning(
-                        "{status} job {name}\n\twildcards: {wc}".format(
-                            status=msg["status"],
-                            name=job.rule.name,
-                            wc=format_wildcards(job.wildcards),
+                    if "file" in msg:
+                        self.logger.warning(
+                            "file {file}:\n    {msg}\n{exception}".format(
+                                file=msg["file"],
+                                msg=msg["msg"],
+                                exception=textwrap.indent(
+                                    str(msg["exception"]), "    "
+                                ),
+                            )
                         )
-                    )
+                    else:
+                        job = msg["job"]
+                        self.logger.warning(
+                            "{status} job {name}\n    wildcards: {wc}".format(
+                                status=msg["status"],
+                                name=job.rule.name,
+                                wc=format_wildcards(job.wildcards),
+                            )
+                        )
 
             self.last_msg_was_job_info = False
 

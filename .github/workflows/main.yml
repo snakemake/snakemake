@@ -39,10 +39,39 @@ jobs:
       - uses: actions/checkout@v1
       
       - name: Setup Snakemake environment
-        run: conda env create --quiet --name snakemake --file test-environment.yml
+        run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          conda install -c conda-forge -q mamba
+          mamba env create -q --name snakemake --file test-environment.yml
 
       - name: Setup apt dependencies
-        run: sudo apt install -y singularity-container stress
+        run: |
+          sudo apt install -y stress \
+            build-essential \
+            libssl-dev \
+            uuid-dev \
+            libgpgme11-dev \
+            squashfs-tools \
+            libseccomp-dev \
+            wget \
+            pkg-config \
+            git \
+            cryptsetup
+
+      - name: Setup Golang
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.13'
+
+      - name: Setup singularity
+        run: |
+          export VERSION=3.6.2
+          wget https://github.com/sylabs/singularity/releases/download/v${VERSION}/singularity-${VERSION}.tar.gz
+          tar -xzf singularity-${VERSION}.tar.gz
+          cd singularity
+          ./mconfig
+          make -C builddir
+          sudo make -C builddir install
         
       - name: Setup iRODS
         run: |
@@ -91,7 +120,7 @@ jobs:
           pytest -s -v -x tests/test_kubernetes.py
 
       - name: Test AWS execution
-        if: env.AWS_AVAILABLE && success()
+        if: env.AWS_AVAILABLE && (success() || failure())
         env: 
           CI: true
         run: |
@@ -102,7 +131,7 @@ jobs:
           pytest -v -x tests/test_tibanna.py
 
       - name: Test Google Life Sciences Executor
-        if: env.GCP_AVAILABLE
+        if: env.GCP_AVAILABLE && (success() || failure())
         run: |
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
@@ -112,3 +141,39 @@ jobs:
 
       - name: Build container image
         run: docker build .
+
+
+  testing-windows:
+    runs-on: windows-latest
+    needs: formatting
+
+    steps:
+      - uses: actions/checkout@v1
+
+      # No win conda package exist for pygraphviz yet
+      - name: Remove unix-only dependencies
+        shell: python
+        run: |
+          import fileinput
+          excluded_on_win = ["pygraphviz", "environment-modules","pandoc","tibanna"]
+          for line in fileinput.input("test-environment.yml", inplace=True):
+              if all(pkg not in line for pkg in excluded_on_win):
+                  print(line)
+
+      - name: Setup mini-conda
+        uses: goanpeca/setup-miniconda@v1
+        with:
+          activate-environment: snakemake
+          python-version: 3.8
+          channels: conda-forge, bioconda
+
+      - name: Setup Snakemake environment
+        run: |
+          conda install -q --name base mamba
+          mamba env update -q --file test-environment.yml
+
+      - name: Run tests
+        env:
+          CI: true
+        run: |
+          python -m pytest -v -x tests/tests.py

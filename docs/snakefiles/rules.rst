@@ -263,7 +263,11 @@ In particular, it should be noted that the specified threads have to be seen as 
 
 Hardcoding a particular maximum number of threads like above is useful when a certain tool has a natural maximum beyond which parallelization won't help to further speed it up.
 This is often the case, and should be evaluated carefully for production workflows.
-If it is certain that no such maximum exists for a tool, one can instead define threads as a function of the number of cores given to Snakemake:
+Also, setting a ``threads:`` maximum is required to achieve parallelism in tools that (often implicitly and without the user knowing) rely on an environment variable for the maximum of cores to use.
+For example, this is the case for many linear algebra libraries and for OpenMP.
+Snakemake limits the respective environment variables to one core by default, to avoid unexpected and unlimited core-grabbing, but will override this with the ``threads:`` you specify in a rule (the parameters set to ``threads:``, or defaulting to ``1``, are: ``OMP_NUM_THREADS``, ``GOTO_NUM_THREADS``, ``OPENBLAS_NUM_THREADS``, ``MKL_NUM_THREADS``, ``VECLIB_MAXIMUM_THREADS``, ``NUMEXPR_NUM_THREADS``).
+
+If it is certain that no maximum for efficient parallelism exists for a tool, one can instead define threads as a function of the number of cores given to Snakemake:
 
 .. code-block:: python
 
@@ -303,13 +307,17 @@ If limits for the resources are given via the command line, e.g.
 
     $ snakemake --resources mem_mb=100
 
+
 the scheduler will ensure that the given resources are not exceeded by running jobs.
 If no limits are given, the resources are ignored in local execution.
 In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
-Resources must be ``int`` or ``str`` values.
+Resources must be ``int`` or ``str`` values. Note that you are free to choose any names for the given resources.
 
-Note that you are free to choose any names for the given resources.
+
+Standard Resources
+~~~~~~~~~~~~~~~~~~
+
 There are two **standard resources** for memory and disk usage though: ``mem_mb`` and ``disk_mb``.
 When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
 Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
@@ -338,6 +346,62 @@ This can be used to adjust the required memory as follows
 
 Here, the first attempt will require 100 MB memory, the second attempt will require 200 MB memory and so on.
 When passing memory requirements to the cluster engine, you can by this automatically try out larger nodes if it turns out to be necessary.
+
+
+Preemptible Virtual Machine
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+You can specify parameters ``preemptible-rules`` and ``preemption-default`` to request a `Google Cloud preemptible virtual machine <https://cloud.google.com/life-sciences/docs/reference/gcloud-examples#using_preemptible_vms>`_ for use with the `Google Life Sciences Executor <https://snakemake.readthedocs.io/en/stable/executing/cloud.html#executing-a-snakemake-workflow-via-google-cloud-life-sciences>`_. There are
+several ways to go about doing this. This first example will use preemptible instances for all rules, with 10 repeats (restarts
+of the instance if it stops unexpectedly).
+
+.. code-block:: console
+
+    snakemake --preemption-default 10
+
+
+If your preference is to set a default but then overwrite some rules with a custom value, this is where you can use ``--preemtible-rules``:
+
+.. code-block:: console
+
+    snakemake --preemption-default 10 --preemptible-rules map_reads=3 call_variants=0
+
+
+The above statement says that we want to use preemtible instances for all steps, defaulting to 10 retries,
+but for the steps "map_reads" and "call_variants" we want to apply 3 and 0 retries, respectively. The final
+option is to not use preemptible instances by default, but only for a particular rule:
+
+
+.. code-block:: console
+
+    snakemake --preemptible-rules map_reads=10
+
+
+Note that this is currently implemented for the Google Life Sciences API.
+
+
+GPU Resources
+~~~~~~~~~~~~~
+
+The Google Life Sciences API currently has support for 
+`NVIDIA GPUs <https://cloud.google.com/compute/docs/gpus#restrictions>`_, meaning that you can request a number of NVIDIA GPUs explicitly by adding ``nvidia_gpu`` or ``gpu`` to your Snakefile resources for a step:
+
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.txt"
+        resources:
+            nvidia_gpu=1
+        shell:
+            "somecommand ..."
+
+
+A specific `gpu model <https://cloud.google.com/compute/docs/gpus#introduction>`_ can be requested using ``gpu_model`` and lowercase identifiers like ``nvidia-tesla-p100`` or ``nvidia-tesla-p4``, for example: ``gpu_model="nvidia-tesla-p100"``. If you don't specify ``gpu`` or ``nvidia_gpu`` with a count, but you do specify a ``gpu_model``, the count will default to 1.
+
+
 
 Messages
 --------
@@ -479,7 +543,7 @@ A rule can also point to an external script instead of a shell command or inline
         script:
             "scripts/script.py"
 
-The script path is always relative to the Snakefile (in contrast to the input and output file paths, which are relative to the working directory).
+The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
 

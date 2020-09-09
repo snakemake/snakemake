@@ -1,3 +1,113 @@
+[5.23.0] - 2020-08-24
+=====================
+Added
+-----
+- Support for workflow configuration via portable encapsulated projects (PEPs, https://pep.databio.org).
+- A new ILP based default scheduler now ensures that temporary files are deleted as fast as possible (@FelixMoelder, @johanneskoester).
+
+Changed
+-------
+- Fixed bug in modification date comparison for files in google storage (@vsoch).
+- Various small documentation improvements (@dcroote, @erjel, @dlaehnemann, @goi42).
+
+
+[5.22.1] - 2020-08-14
+=====================
+Changed
+-------
+- Fixed a missing dependency for google storage in cloud execution.
+
+[5.22.0] - 2020-08-13
+=====================
+Added
+-----
+- Added short option ``-T`` for CLI parameter ``--restart-times`` (@mbhall88).
+
+Changed
+-------
+- Various small fixes for google storage and life sciences backends (@vsoch).
+
+
+[5.21.0] - 2020-08-11
+=====================
+
+Changed
+-------
+- Added default-remote-provider support for Azure storage (@andreas-wilm).
+- Various small bug fixes and documentation improvements.
+
+
+[5.20.1] - 2020-07-08
+=====================
+Changed
+-------
+- Fixed a bug that caused singularity args to be not passed on correctly when using script or conda.
+
+[5.20.0] - 2020-07-08
+=====================
+Changed
+-------
+- Exceptions in input functions are now handled in a smarter way, by choosing alternative paths in the DAG if available.
+- Debugging dag creation (--debug-dag) now gives more hints if alternative DAG paths are chosen.
+- Fixes for XRootD remote file implementation.
+- Improved CLI documentation.
+- Improved docs.
+- Various minor bug fixes.
+- Restored Python 3.5 compatibility.
+- Speed improvements for workdir cleanup.
+- Allow Path objects to be passed to expand.
+
+[5.19.3] - 2020-06-16
+=====================
+Changed
+-------
+- Performance improvements for DAG generation (up to 7x in the google cloud, anything from a little to massive in a cluster, depending on the overall filesystem performance).
+- Made harcoded bucket in google cloud executor configurable.
+- Improved speed of --unlock command.
+
+
+[5.19.2] - 2020-06-04
+=====================
+Changed
+-------
+- Fixed a bug in script and wrapper directives. Tried to decode a str.
+
+[5.19.1] - 2020-06-03
+=====================
+Changed
+-------
+- Fixed an issue with the parameter linting code, that could cause an index out of bounds exception.
+
+[5.19.0] - 2020-06-02
+=====================
+Added
+-----
+- The multiext function now allows arbitrary file extensions (no longer required to start with a "." (thanks to @jafors)
+- The include directive can now also take a Pathlib Path object (thanks to @mbhall88).
+
+Changed
+-------
+- Jupyter notebook integration no longer automatically starts a browser.
+- Empty directories are cleaned up after workflow execution.
+- Fixed directory handling: no longer fail if the same job writes both a dir and a contained file.
+- Linter now recommends using spaces only for indentation.
+- Persistence dir "aux" has been renamed to "auxilliary" in order to make windows happy.
+- Linter now distinguishes awk syntax from regular variable usage.
+- Various bug fixes for Windows (thanks to @melund).
+ 
+
+[5.18.0] - 2020-05-21
+=====================
+Added
+-----
+- Native Google Cloud support via the (despite the name generic) lifesciences API.
+- Ability to optionally exchange the conda frontend to mamba (faster and sometimes more correct) instead of conda.
+Changed
+-------
+- Improved notebook integration experience, with various removed bugs and pitfalls.
+- Auto-retry google storage API calls on transient or checksum errors.
+
+
 [5.17.0] - 2020-05-07
 =====================
 Added
@@ -100,10 +210,11 @@ Changed
 - --cores is now a mandatory argument!
 - Automatic checksum validation for google storage.
 
+
 Added
 -----
 - Azure storage authentication via SAS
-- A generic cintainer directive that will in the future allow for other backends than just singularity.
+- A generic container directive that will in the future allow for other backends than just singularity. This deprecates the singularity directive, which will however stay functional at least until the next major release.
 - envvars directive for asserting environment variable existence. See docs.
 - support for AWS spot instances via --tibanna-config spot=true.
 - Automatic code quality linting via --lint.
@@ -319,7 +430,7 @@ Added
 -----
 
 -  Snakemake workflows can now be exported to CWL via the flag
-   --export-cwl, see `the docs <https://snakemake.readthedocs.io/en/stable/executable.html>`_.
+   --export-cwl, see `the docs <https://snakemake.readthedocs.io/en/stable/executing/interoperability.html>`_.
 
 Changed
 -------
