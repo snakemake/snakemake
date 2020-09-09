@@ -143,7 +143,7 @@ class RemoteObject(AbstractRemoteObject):
             # By way of being listed, it exists. mtime is a datetime object
             name = "{}/{}".format(blob.bucket.name, blob.name)
             cache.exists_remote[name] = True
-            cache.mtime[name] = blob.updated
+            cache.mtime[name] = blob.updated.timestamp()
             cache.size[name] = blob.size
 
         # Mark bucket and prefix as having an inventory, such that this method is

@@ -42,9 +42,12 @@ dependencies:
   - pygraphviz
   - python-kubernetes
   - gitpython
+  - pulp
   - tibanna
   - environment-modules
   - nbformat
   - toposort
   - mamba
   - crc32c
+  - peppy
+  - eido

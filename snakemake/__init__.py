@@ -137,6 +137,7 @@ def snakemake(
     list_conda_envs=False,
     singularity_prefix=None,
     shadow_prefix=None,
+    scheduler=None,
     conda_create_envs_only=False,
     mode=Mode.default,
     wrapper_prefix=None,
@@ -148,6 +149,8 @@ def snakemake(
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
     google_lifesciences_cache=False,
+    preemption_default=None,
+    preemptible_rules=None,
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
@@ -268,6 +271,8 @@ def snakemake(
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
+        preemption_default (int):   set a default number of preemptible instance retries (for Google Life Sciences executor only)
+        preemptible_rules (list):    define custom preemptible instance retries for specific rules (for Google Life Sciences executor only)
         tibanna_config (list):      Additional tibanan config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
@@ -276,6 +281,7 @@ def snakemake(
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
+        scheduler (str):            Select scheduling algorithm (default ilp)
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -355,6 +361,12 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
+
+    # Currently preemptible instances only supported for Google LifeSciences Executor
+    if preemption_default or preemptible_rules and not google_lifesciences:
+        logger.warning(
+            "Preemptible instances are only available for the Google Life Sciences Executor."
+        )
 
     if updated_files is None:
         updated_files = list()
@@ -517,6 +529,7 @@ def snakemake(
             singularity_prefix=singularity_prefix,
             shadow_prefix=shadow_prefix,
             singularity_args=singularity_args,
+            scheduler_type=scheduler,
             mode=mode,
             wrapper_prefix=wrapper_prefix,
             printshellcmds=printshellcmds,
@@ -605,6 +618,7 @@ def snakemake(
                     singularity_prefix=singularity_prefix,
                     shadow_prefix=shadow_prefix,
                     singularity_args=singularity_args,
+                    scheduler=scheduler,
                     list_conda_envs=list_conda_envs,
                     kubernetes=kubernetes,
                     container_image=container_image,
@@ -618,6 +632,8 @@ def snakemake(
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     precommand=precommand,
+                    preemption_default=preemption_default,
+                    preemptible_rules=preemptible_rules,
                     tibanna_config=tibanna_config,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
@@ -628,6 +644,7 @@ def snakemake(
                     targets=targets,
                     dryrun=dryrun,
                     touch=touch,
+                    scheduler_type=scheduler,
                     local_cores=local_cores,
                     forcetargets=forcetargets,
                     forceall=forceall,
@@ -656,6 +673,8 @@ def snakemake(
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     precommand=precommand,
+                    preemption_default=preemption_default,
+                    preemptible_rules=preemptible_rules,
                     tibanna_config=tibanna_config,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
@@ -993,6 +1012,34 @@ def get_argument_parser(profile=None):
             "'disk_mb=max(2*input.size_mb, 1000)', i.e., default disk and mem usage is twice the input file size but at least 1GB."
         ),
     )
+
+    group_exec.add_argument(
+        "--preemption-default",
+        type=int,
+        default=None,
+        help=(
+            "A preemptible instance can be requested when using the Google Life Sciences API. If you set a --preemption-default,"
+            "all rules will be subject to the default. Specifically, this integer is the number of restart attempts that will be "
+            "made given that the instance is killed unexpectedly. Note that preemptible instances have a maximum running time of 24 "
+            "hours. If you want to set preemptible instances for only a subset of rules, use --preemptible-rules instead."
+        ),
+    )
+
+    group_exec.add_argument(
+        "--preemptible-rules",
+        nargs="+",
+        default=None,
+        help=(
+            "A preemptible instance can be requested when using the Google Life Sciences API. If you want to use these instances "
+            "for a subset of your rules, you can use --preemptible-rules and then specify a list of rule and integer pairs, where "
+            "each integer indicates the number of restarts to use for the rule's instance in the case that the instance is "
+            "terminated unexpectedly. --preemptible-rules can be used in combination with --preemption-default, and will take "
+            "priority. Note that preemptible instances have a maximum running time of 24. If you want to apply a consistent "
+            "number of retries across all your rules, use --premption-default instead. "
+            "Example: snakemake --preemption-default 10 --preemptible-rules map_reads=3 call_variants=0"
+        ),
+    )
+
     group_exec.add_argument(
         "--config",
         "-C",
@@ -1146,6 +1193,16 @@ def get_argument_parser(profile=None):
             "Specify a directory in which the 'shadow' directory is created. "
             "If not supplied, the value is set to the '.snakemake' directory relative "
             "to the working directory."
+        ),
+    ),
+    group_exec.add_argument(
+        "--scheduler",
+        default="ilp",
+        nargs="?",
+        choices=["ilp", "greedy"],
+        help=(
+            "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
+            "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
         ),
     )
 
@@ -2320,6 +2377,8 @@ def main(argv=None):
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
             precommand=args.precommand,
+            preemption_default=args.preemption_default,
+            preemptible_rules=args.preemptible_rules,
             tibanna_config=args.tibanna_config,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,
@@ -2371,6 +2430,7 @@ def main(argv=None):
             singularity_prefix=args.singularity_prefix,
             shadow_prefix=args.shadow_prefix,
             singularity_args=args.singularity_args,
+            scheduler=args.scheduler,
             conda_create_envs_only=args.conda_create_envs_only,
             mode=args.mode,
             wrapper_prefix=args.wrapper_prefix,

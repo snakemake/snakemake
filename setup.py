@@ -67,6 +67,7 @@ setup(
         "psutil",
         "nbformat",
         "toposort",
+        "pulp",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
@@ -77,6 +78,10 @@ setup(
             "google-api-python-client",
             "google-cloud-storage",
         ],
+        "pep": [
+            "peppy",
+            "eido",
+        ]
     },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
