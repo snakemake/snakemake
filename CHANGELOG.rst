@@ -1,3 +1,18 @@
+[5.24.0] - 2020-09-09
+=====================
+Added
+-----
+- Preemtion support for google cloud backend (@vsoch).
+
+Changed
+-------
+- Fixed compatibility issues in new scheduler code (@dtrodrigues and @johanneskoester).
+- Improved error messages (@Sam-Tygier, @terrycojones)
+- Various small bug fixes.
+- Improved docker container build process, with smaller final docker container (@kaczmarj).
+- Improved profile documentation (@johanneskoester).
+
+
 [5.23.0] - 2020-08-24
 =====================
 Added
