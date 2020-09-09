@@ -502,12 +502,10 @@ class PythonScript(ScriptBase):
             bench_iteration = {bench_iteration},
             scriptdir = {scriptdir},
         )
-        # If needed, add snakemake.shell
-        try:
-            from snakemake import shell
-        except:
-            print("Snakemake not found on path, skipping addition of shell.")
-            pass
+        def shell(cmd):
+            import inspect, os
+            context = inspect.currentframe().f_back.f_locals
+            os.system(cmd.format(**context))
         {preamble_addendum}
 
         ######## snakemake preamble end #########
