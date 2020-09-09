@@ -545,7 +545,10 @@ class JobScheduler:
         # assert self.resources["_cores"] > 0
         scheduled_jobs = {
             job: pulp.LpVariable(
-                f"job_{job}_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger
+                "job_{job}_{idx}".format(job=job, idx=idx),
+                lowBound=0,
+                upBound=1,
+                cat=pulp.LpInteger,
             )
             for idx, job in enumerate(jobs)
         }
@@ -597,7 +600,7 @@ class JobScheduler:
                     [scheduled_jobs[job] * job.resources.get(name, 0) for job in jobs]
                 )
                 <= self.resources[name],
-                f"Limitation of resource: {name}",
+                "Limitation of resource: {name}".format(name=name),
             )
 
         # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
