@@ -30,8 +30,7 @@ dependencies:
   - google-cloud-storage
   - google-api-python-client
   - oauth2client
-  - azure-storage
-  - azure-storage-common
+  - azure-storage-blob
   - ratelimiter
   - configargparse
   - appdirs
@@ -43,9 +42,12 @@ dependencies:
   - pygraphviz
   - python-kubernetes
   - gitpython
+  - pulp
   - tibanna
   - environment-modules
   - nbformat
   - toposort
   - mamba
   - crc32c
+  - peppy
+  - eido

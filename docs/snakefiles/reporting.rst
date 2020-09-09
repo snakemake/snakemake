@@ -100,8 +100,8 @@ You can define an institute specific stylesheet with:
 
 In particular, this allows you to e.g. set a logo at the top (by using CSS to inject a background for the placeholder ``<div id="brand">``, or overwrite colors.
 For an example custom stylesheet defining the logo, see :download:`here <../../tests/test_report/custom-stylesheet.css>`.
-The report for above example can be found :download:`here <../../tests/test_report/report.html>` (with a custom branding for the University of Duisburg-Essen).
-The full example source code can be found `here <https://github.com/snakemake/snakemake/src/master/tests/test_report/>`_.
+The report for above example can be found :download:`here <../../tests/test_report/expected-results/report.html>` (with a custom branding for the University of Duisburg-Essen).
+The full example source code can be found `here <https://github.com/snakemake/snakemake/tree/master/tests/test_report/>`_.
 
 Note that the report can be restricted to particular jobs and results by specifying targets at the command line, analog to normal Snakemake execution.
 For example, with

@@ -197,6 +197,9 @@ The Google Life Sciences API currently has support for
 
 A specific `gpu model <https://cloud.google.com/compute/docs/gpus#introduction>`_ can be requested using ``gpu_model`` and lowercase identifiers like ``nvidia-tesla-p100`` or ``nvidia-tesla-p4``, for example: ``gpu_model="nvidia-tesla-p100"``. If you don't specify ``gpu`` or ``nvidia_gpu`` with a count, but you do specify a ``gpu_model``, the count will default to 1.
 
+In addition to GPU for the Google Lifesciences Executor, you can request a `Google Cloud preemptible virtual machine <https://cloud.google.com/life-sciences/docs/reference/gcloud-examples#using_preemptible_vms>`_ for one or more steps. See the `rules documentation <https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#preemptible-virtual-machine>`_ for how to add one or more preemptible arguments.
+
+
 Machine Types
 ~~~~~~~~~~~~~
 
@@ -207,7 +210,7 @@ a full machine type:
 
 .. code-block:: console
 
-    --default-resources machine_type="n1-standard"
+    --default-resources "machine_type=n1-standard"
 
 
 If you want to specify the machine type as a resource, you can do that too:
