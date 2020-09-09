@@ -147,6 +147,7 @@ def run(
         config=config,
         verbose=True,
         conda_frontend=conda_frontend,
+        container_image=container_image,
         **params
     )
 

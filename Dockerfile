@@ -44,7 +44,7 @@ RUN conda config --add channels bioconda \
     && conda clean --all --yes
 WORKDIR /tmp/snakemake
 COPY . .
-RUN python -m pip install --no-cache-dir .
+RUN python -m pip install --no-cache-dir .[reports,messaging,google-cloud]
 
 # Build final image.
 FROM "continuumio/miniconda3:${CONDA_VERSION}"
